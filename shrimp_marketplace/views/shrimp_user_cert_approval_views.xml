@@ -1,0 +1,100 @@
+<odoo>
+
+    <record id="view_user_cert_line_search" model="ir.ui.view">
+        <field name="name">shrimp.user.certificate.line.search</field>
+        <field name="model">shrimp.user.certificate.line</field>
+        <field name="arch" type="xml">
+            <search string="Certificados de usuarios">
+                <field name="partner_id"/>
+                <field name="certificate_id"/>
+                <field name="certificate_number"/>
+                <filter name="f_pending" string="Pendientes" domain="[('status','=','pending')]"/>
+                <filter name="f_approved" string="Aprobados" domain="[('status','=','approved')]"/>
+                <filter name="f_rejected" string="Rechazados" domain="[('status','=','rejected')]"/>
+                <separator/>
+                <filter name="g_partner" string="Contacto" context="{'group_by':'partner_id'}"/>
+                <filter name="g_status" string="Estado" context="{'group_by':'status'}"/>
+                <filter name="g_cert" string="Certificado" context="{'group_by':'certificate_id'}"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_user_cert_line_list" model="ir.ui.view">
+        <field name="name">shrimp.user.certificate.line.list</field>
+        <field name="model">shrimp.user.certificate.line</field>
+        <field name="arch" type="xml">
+            <list string="Certificados de usuarios"
+                  decoration-success="status == 'approved'"
+                  decoration-danger="status == 'rejected'"
+                  decoration-warning="status == 'pending'">
+                <field name="partner_id"/>
+                <field name="certificate_id"/>
+                <field name="issuer"/>
+                <field name="certificate_number"/>
+                <field name="issue_date"/>
+                <field name="expiry_date"/>
+                <field name="status" widget="badge"
+                       decoration-success="status == 'approved'"
+                       decoration-danger="status == 'rejected'"
+                       decoration-warning="status == 'pending'"/>
+                <button name="action_open_attachment" type="object" string="Ver archivo" icon="fa-file-o"/>
+                <button name="action_approve" type="object" string="Aprobar" icon="fa-check"
+                        class="text-success" invisible="status == 'approved'"/>
+                <button name="action_reject" type="object" string="Rechazar" icon="fa-times"
+                        class="text-danger" invisible="status == 'rejected'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_user_cert_line_form" model="ir.ui.view">
+        <field name="name">shrimp.user.certificate.line.form</field>
+        <field name="model">shrimp.user.certificate.line</field>
+        <field name="arch" type="xml">
+            <form string="Certificado de usuario">
+                <header>
+                    <button name="action_approve" type="object" string="Aprobar"
+                            class="btn-primary" invisible="status == 'approved'"/>
+                    <button name="action_reject" type="object" string="Rechazar"
+                            invisible="status == 'rejected'"/>
+                    <button name="action_reset_pending" type="object" string="Volver a pendiente"
+                            invisible="status == 'pending'"/>
+                    <field name="status" widget="statusbar" statusbar_visible="pending,approved,rejected"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="partner_id" readonly="1"/>
+                            <field name="certificate_id" readonly="1"/>
+                            <field name="issuer" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="certificate_number" readonly="1"/>
+                            <field name="issue_date" readonly="1"/>
+                            <field name="expiry_date" readonly="1"/>
+                        </group>
+                    </group>
+                    <group>
+                        <button name="action_open_attachment" type="object"
+                                string="Ver / descargar archivo" icon="fa-download" class="btn-link"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_user_cert_approval" model="ir.actions.act_window">
+        <field name="name">Aprobar certificados</field>
+        <field name="res_model">shrimp.user.certificate.line</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_user_cert_line_search"/>
+        <field name="context">{'search_default_f_pending': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No hay certificados de usuarios por revisar.</p>
+            <p>Aquí apruebas o rechazas los certificados que suben semilleros, laboratorios y camaroneras.</p>
+        </field>
+    </record>
+
+    <menuitem id="menu_shrimp_cert_approval" name="Certificados de usuario"
+              parent="menu_shrimp_approvals_root" action="action_user_cert_approval" sequence="20"/>
+
+</odoo>

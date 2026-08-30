@@ -1,0 +1,17 @@
+<odoo>
+  <!-- Productos: portal puede ver/editar solo los del semillero (su partner) -->
+  <record id="rule_shrimp_product_own" model="ir.rule">
+    <field name="name">Shrimp Product: own</field>
+    <field name="model_id" ref="model_shrimp_product"/>
+    <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+    <field name="domain_force">[('seller_partner_id', '=', user.partner_id.id)]</field>
+  </record>
+
+  <!-- Transacciones: portal ve las donde es comprador o vendedor -->
+  <record id="rule_shrimp_tx_own" model="ir.rule">
+    <field name="name">Shrimp Transaction: own</field>
+    <field name="model_id" ref="model_shrimp_transaction"/>
+    <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+    <field name="domain_force">['|', ('seller_partner_id','=',user.partner_id.id), ('buyer_partner_id','=',user.partner_id.id)]</field>
+  </record>
+</odoo>

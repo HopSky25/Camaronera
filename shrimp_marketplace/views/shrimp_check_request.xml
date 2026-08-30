@@ -1,0 +1,88 @@
+<odoo>
+    <record id="view_shrimp_check_request_tree" model="ir.ui.view">
+        <field name="name">shrimp.check.request.tree</field>
+        <field name="model">shrimp.check.request</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name" />
+                <field name="product_id" />
+                <field name="seller_partner_id" />
+                <field name="buyer_partner_id" />
+                <field name="qty" />
+                <field name="uom_id" />
+                <field name="state" widget="badge" />
+                <field name="transaction_id" />
+                <field name="reviewed_by" />
+                <field name="reviewed_date" />
+            </list>
+        </field>
+    </record>
+
+    <record id="view_shrimp_check_request_form" model="ir.ui.view">
+        <field name="name">shrimp.check.request.form</field>
+        <field name="model">shrimp.check.request</field>
+        <field name="arch" type="xml">
+            <form string="Solicitud de chequeo">
+                <header>
+                    <button name="action_mark_under_review" type="object"
+                        string="Marcar en revisión"
+                        invisible="state != 'requested'" class="btn-secondary" />
+                    <button name="action_approve" type="object" string="Aprobar"
+                        invisible="state not in ('requested','under_review')" class="btn-primary" />
+                    <button name="action_reject" type="object" string="Rechazar"
+                        invisible="state not in ('requested','under_review')" class="btn-danger" />
+                    <button name="action_cancel" type="object" string="Cancelar"
+                        invisible="state in ('done','cancelled','rejected')" class="btn-secondary" />
+                    <button name="action_generate_check_documents" type="object"
+                        string="Generar pedido y factura"
+                        invisible="sale_order_id or check_fee &lt;= 0" class="btn-secondary" />
+                    <button name="action_open_sale_order" type="object"
+                        string="Ver pedido" invisible="not sale_order_id" />
+                    <button name="action_open_invoice" type="object"
+                        string="Ver factura" invisible="not invoice_id" />
+                    <field name="state" widget="statusbar"
+                        statusbar_visible="requested,under_review,approved,rejected,done,cancelled" />
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name" readonly="1" />
+                            <field name="product_id" readonly="1" />
+                            <field name="seller_partner_id" readonly="1" />
+                            <field name="buyer_partner_id" readonly="1" />
+                        </group>
+                        <group>
+                            <field name="qty" readonly="1" />
+                            <field name="uom_id" readonly="1" />
+                            <field name="transaction_id" readonly="1" />
+                            <field name="result_product_id" readonly="1" />
+                        </group>
+                    </group>
+                    <group string="Cobro del chequeo">
+                        <group>
+                            <field name="currency_id" invisible="1" />
+                            <field name="check_fee" />
+                        </group>
+                        <group>
+                            <field name="sale_order_id" readonly="1" />
+                            <field name="invoice_id" readonly="1" />
+                            <field name="invoice_state" widget="badge" />
+                        </group>
+                    </group>
+                    <group>
+                        <field name="note" />
+                    </group>
+                </sheet>
+                <chatter />
+            </form>
+        </field>
+    </record>
+
+    <record id="action_shrimp_check_request" model="ir.actions.act_window">
+        <field name="name">Solicitudes de chequeo</field>
+        <field name="res_model">shrimp.check.request</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+
+</odoo>

@@ -1,0 +1,55 @@
+<odoo>
+
+    <record id="view_shrimp_size_grade_list" model="ir.ui.view">
+        <field name="name">shrimp.size.grade.list</field>
+        <field name="model">shrimp.size.grade</field>
+        <field name="arch" type="xml">
+            <list string="Tallas" editable="bottom">
+                <field name="sequence" widget="handle"/>
+                <field name="presentation"/>
+                <field name="name"/>
+                <field name="active" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_shrimp_size_grade_form" model="ir.ui.view">
+        <field name="name">shrimp.size.grade.form</field>
+        <field name="model">shrimp.size.grade</field>
+        <field name="arch" type="xml">
+            <form string="Talla">
+                <sheet>
+                    <group>
+                        <field name="presentation"/>
+                        <field name="name"/>
+                        <field name="sequence"/>
+                        <field name="active"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_shrimp_size_grade_search" model="ir.ui.view">
+        <field name="name">shrimp.size.grade.search</field>
+        <field name="model">shrimp.size.grade</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <filter name="entero" string="Entero" domain="[('presentation','=','entero')]"/>
+                <filter name="cola" string="Cola" domain="[('presentation','=','cola')]"/>
+                <filter name="g_pres" string="Presentación" context="{'group_by':'presentation'}"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_shrimp_size_grade" model="ir.actions.act_window">
+        <field name="name">Tallas</field>
+        <field name="res_model">shrimp.size.grade</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_shrimp_size_grade" name="Tallas"
+              parent="menu_shrimp_config_root" action="action_shrimp_size_grade" sequence="40"/>
+
+</odoo>

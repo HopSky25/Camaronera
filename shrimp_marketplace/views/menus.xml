@@ -1,0 +1,118 @@
+<odoo>
+
+  <!-- ROOT -->
+  <menuitem id="menu_shrimp_root" name="Camaronera" sequence="10"
+    web_icon="shrimp_marketplace,static/description/icon.png" />
+
+  <!-- =========================================================
+       APROBACIONES (todo lo que el operador debe revisar/aprobar)
+  ========================================================= -->
+  <menuitem id="menu_shrimp_approvals_root"
+    name="Aprobaciones"
+    parent="menu_shrimp_root"
+    sequence="10" />
+
+  <menuitem id="menu_shrimp_check_request"
+    name="Solicitudes de chequeo"
+    parent="menu_shrimp_approvals_root"
+    action="action_shrimp_check_request"
+    sequence="10" />
+  <!-- "Certificados de usuario" se añade aquí desde
+       shrimp_user_cert_approval_views.xml (sequence 20) -->
+
+  <!-- =========================================================
+       CATÁLOGO (productos y transacciones del marketplace)
+  ========================================================= -->
+  <menuitem id="menu_shrimp_catalog_root"
+    name="Catálogo"
+    parent="menu_shrimp_root"
+    sequence="20" />
+
+  <menuitem id="menu_shrimp_products"
+    name="Productos"
+    parent="menu_shrimp_catalog_root"
+    action="action_shrimp_product"
+    sequence="10" />
+
+  <menuitem id="menu_shrimp_transactions"
+    name="Transacciones"
+    parent="menu_shrimp_catalog_root"
+    action="action_shrimp_transaction"
+    sequence="20" />
+
+  <!-- =========================================================
+       INVENTARIO
+  ========================================================= -->
+  <menuitem id="menu_shrimp_inventory_root"
+    name="Inventario"
+    parent="menu_shrimp_root"
+    sequence="30" />
+
+  <menuitem id="menu_shrimp_stock_lot"
+    name="Lotes"
+    parent="menu_shrimp_inventory_root"
+    action="shrimp_marketplace.action_shrimp_stock_lot"
+    sequence="10" />
+
+  <menuitem id="menu_shrimp_stock_move"
+    name="Movimientos internos"
+    parent="menu_shrimp_inventory_root"
+    action="shrimp_marketplace.action_shrimp_stock_move"
+    sequence="20" />
+
+  <menuitem id="menu_shrimp_lot_allocation"
+    name="Asignaciones"
+    parent="menu_shrimp_inventory_root"
+    action="action_shrimp_lot_allocation"
+    sequence="30" />
+
+  <!-- =========================================================
+       SOCIOS E INSTALACIONES (datos de los partners)
+  ========================================================= -->
+  <menuitem id="menu_shrimp_partners_root"
+    name="Socios e instalaciones"
+    parent="menu_shrimp_root"
+    sequence="40" />
+
+  <menuitem id="menu_shrimp_facility"
+    name="Instalaciones"
+    parent="menu_shrimp_partners_root"
+    action="action_shrimp_facility"
+    sequence="10" />
+
+  <menuitem id="menu_shrimp_pond"
+    name="Piscinas"
+    parent="menu_shrimp_partners_root"
+    action="action_shrimp_pond"
+    sequence="20" />
+
+  <!-- =========================================================
+       CONFIGURACIÓN
+       (Reportes se define en shrimp_reports.xml, sequence 70;
+        Unidades de medida y Claves de API se añaden desde sus
+        propios archivos bajo esta raíz.)
+  ========================================================= -->
+  <menuitem id="menu_shrimp_config_root"
+    name="Configuración"
+    parent="menu_shrimp_root"
+    sequence="90" />
+
+  <menuitem id="menu_shrimp_species"
+    name="Especies"
+    parent="menu_shrimp_config_root"
+    action="action_shrimp_species"
+    sequence="10" />
+
+  <menuitem id="menu_shrimp_stage"
+    name="Estadíos"
+    parent="menu_shrimp_config_root"
+    action="action_shrimp_stage"
+    sequence="20" />
+
+  <menuitem id="menu_shrimp_genetics"
+    name="Genética"
+    parent="menu_shrimp_config_root"
+    action="action_shrimp_genetics"
+    sequence="30" />
+
+</odoo>

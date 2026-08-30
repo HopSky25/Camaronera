@@ -1,0 +1,298 @@
+<odoo>
+    <data>
+
+        <!-- Formato de papel con márgenes ajustados (sin cabecera de empresa) -->
+        <record id="paperformat_shrimp_trace" model="report.paperformat">
+            <field name="name">Shrimp Trazabilidad A4</field>
+            <field name="format">A4</field>
+            <field name="orientation">Portrait</field>
+            <field name="margin_top">12</field>
+            <field name="margin_bottom">12</field>
+            <field name="margin_left">10</field>
+            <field name="margin_right">10</field>
+            <field name="header_spacing">0</field>
+            <field name="header_line" eval="False"/>
+            <field name="dpi">90</field>
+        </record>
+
+        <record id="action_report_shrimp_full_traceability" model="ir.actions.report">
+            <field name="name">Certificado de trazabilidad</field>
+            <field name="model">shrimp.transaction</field>
+            <field name="report_type">qweb-pdf</field>
+            <field name="report_name">shrimp_marketplace.report_shrimp_full_traceability</field>
+            <field name="report_file">shrimp_marketplace.report_shrimp_full_traceability</field>
+            <field name="print_report_name">'Trazabilidad - %s' % (object.name)</field>
+            <field name="paperformat_id" ref="paperformat_shrimp_trace"/>
+        </record>
+
+        <template id="report_shrimp_full_traceability">
+            <t t-call="web.html_container">
+                <t t-foreach="docs" t-as="doc">
+                    <t t-set="trace" t-value="doc.get_full_traceability_data()" />
+                    <t t-set="uom_label" t-value="doc.product_id.uom_id.name or ''" />
+                    <t t-set="chain_products" t-value="trace['lots'].mapped('product_id') | doc.product_id" />
+                    <t t-set="cert_lines" t-value="chain_products.certificate_line_ids" />
+                    <t t-set="qr" t-value="doc.traceability_qr_uri()" />
+                    <t t-set="chain" t-value="doc.traceability_chain()" />
+                    <t t-set="charts" t-value="doc.evolution_charts()" />
+
+                    <t t-call="web.basic_layout">
+                    <div class="page strace">
+
+                        <style>
+                            .strace { font-family: Helvetica, Arial, sans-serif; color:#0c1c28; }
+                            .strace .st-head { border-bottom:3px solid #123e5c; padding-bottom:12px; margin-bottom:14px; }
+                            .strace .st-title { margin:0; font-weight:bold; font-size:20px; color:#0c1c28; letter-spacing:-.3px; }
+                            .strace .st-sub { font-size:11.5px; color:#5a6b74; margin-top:3px; }
+                            .strace .st-qrbox { text-align:center; }
+                            .strace .st-qrbox img { width:96px; height:96px; }
+                            .strace .st-qrcap { font-size:8.5px; color:#5a6b74; margin-top:2px; line-height:1.2; }
+                            .strace .st-card { background:#f1f5f8; border:1px solid #d8e0e6; border-radius:8px; padding:10px 12px; margin-bottom:16px; }
+                            .strace .st-card td { font-size:11.5px; padding:3px 6px; vertical-align:top; }
+                            .strace .st-k { color:#5a6b74; font-weight:bold; width:14%; }
+                            .strace .st-v { color:#0c1c28; width:36%; }
+                            .strace .st-sec { font-size:13px; color:#123e5c; font-weight:bold; text-transform:uppercase; letter-spacing:.4px; margin:16px 0 7px; border-left:4px solid #123e5c; padding-left:8px; }
+                            .strace table.st-tbl { width:100%; border-collapse:collapse; font-size:10.5px; margin-bottom:6px; }
+                            .strace table.st-tbl thead th { background:#123e5c; color:#ffffff; padding:7px 8px; text-align:left; font-weight:bold; font-size:9.5px; text-transform:uppercase; letter-spacing:.3px; }
+                            .strace table.st-tbl tbody td { padding:6px 8px; border-bottom:1px solid #e3e8ec; color:#1f2d38; }
+                            .strace table.st-tbl tbody tr:nth-child(even) td { background:#f6f8fa; }
+                            .strace .st-r { text-align:right; }
+                            .strace .st-empty { text-align:center; color:#8a98a0; padding:10px; font-style:italic; }
+                            .strace .st-foot { margin-top:18px; padding-top:12px; border-top:1px solid #d8e0e6; font-size:9.5px; color:#5a6b74; line-height:1.5; }
+                            .strace .st-chain { margin:6px 0 16px; }
+                            .strace .st-chain table { width:100%; border-collapse:collapse; }
+                            .strace .st-node { display:inline-block; width:100%; background:#f1f5f8; border:1px solid #123e5c; border-radius:10px; padding:8px 6px; text-align:center; }
+                            .strace .st-node .st-node-step { font-size:8px; color:#2e7da6; font-weight:bold; }
+                            .strace .st-node .st-node-role { font-size:10px; font-weight:bold; color:#123e5c; text-transform:uppercase; letter-spacing:.3px; }
+                            .strace .st-node .st-node-name { font-size:10.5px; color:#0c1c28; }
+                            .strace .st-arrow { width:26px; text-align:center; color:#123e5c; font-size:16px; font-weight:bold; }
+                        </style>
+
+                        <!-- Cabecera -->
+                        <div class="st-head">
+                            <table style="width:100%;">
+                                <tr>
+                                    <td style="vertical-align:middle;">
+                                        <h2 class="st-title">Certificado de Trazabilidad Acuícola</h2>
+                                        <div class="st-sub">Cadena completa de propiedad, movimientos, certificados, lotes, siembra y evolución productiva del camarón</div>
+                                    </td>
+                                    <td style="width:120px; text-align:right; vertical-align:middle;">
+                                        <div t-if="qr" class="st-qrbox">
+                                            <img t-att-src="qr" />
+                                            <div class="st-qrcap">Escanea para ver la<br/>trazabilidad en línea</div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <!-- Resumen -->
+                        <div class="st-card">
+                            <table style="width:100%;">
+                                <tr>
+                                    <td class="st-k">Certificado</td>
+                                    <td class="st-v"><t t-esc="doc.name" /></td>
+                                    <td class="st-k">Fecha emisión</td>
+                                    <td class="st-v"><t t-esc="context_timestamp(datetime.datetime.now()).strftime('%Y-%m-%d %H:%M')" /></td>
+                                </tr>
+                                <tr>
+                                    <td class="st-k">Producto</td>
+                                    <td class="st-v"><t t-esc="doc.product_id.name or '—'" /></td>
+                                    <td class="st-k">Tipo</td>
+                                    <td class="st-v"><t t-esc="dict(doc._fields['transaction_type'].selection).get(doc.transaction_type) or '—'" /></td>
+                                </tr>
+                                <tr>
+                                    <td class="st-k">Vendedor</td>
+                                    <td class="st-v"><t t-esc="doc.seller_partner_id.name or '—'" /></td>
+                                    <td class="st-k">Comprador</td>
+                                    <td class="st-v"><t t-esc="doc.buyer_partner_id.name or '—'" /></td>
+                                </tr>
+                                <tr>
+                                    <td class="st-k">Cantidad</td>
+                                    <td class="st-v"><t t-esc="doc.transaction_qty" /> <t t-esc="uom_label" /></td>
+                                    <td class="st-k">Estado</td>
+                                    <td class="st-v"><t t-esc="dict(doc._fields['state'].selection).get(doc.state) or '—'" /></td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <!-- Gráfico: cadena de custodia -->
+                        <div class="st-sec">1. Cadena de custodia</div>
+                        <div class="st-chain">
+                            <table>
+                                <tr>
+                                    <t t-foreach="chain" t-as="node">
+                                        <td>
+                                            <div class="st-node">
+                                                <div class="st-node-step">PASO <t t-esc="node_index + 1" /></div>
+                                                <div class="st-node-role"><t t-esc="node['role']" /></div>
+                                                <div class="st-node-name"><t t-esc="node['name']" /></div>
+                                            </div>
+                                        </td>
+                                        <td t-if="not node_last" class="st-arrow">&#8594;</td>
+                                    </t>
+                                    <t t-if="not chain">
+                                        <td><div class="st-node"><div class="st-node-name">Sin cadena de custodia registrada.</div></div></td>
+                                    </t>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <!-- 2. Movimientos -->
+                        <div class="st-sec">2. Movimientos de stock</div>
+                        <table class="st-tbl">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th><th>Producto</th><th>Origen</th><th>Destino</th>
+                                    <th class="st-r">Cantidad</th><th>Transacción</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="trace['moves']" t-as="move">
+                                    <td><t t-esc="move.date or move.create_date or '—'" /></td>
+                                    <td><t t-esc="move.product_id.name or '—'" /></td>
+                                    <td><t t-esc="move.source_partner_id.name or 'Origen inicial'" /></td>
+                                    <td><t t-esc="move.dest_partner_id.name or '—'" /></td>
+                                    <td class="st-r"><t t-esc="move.qty" /></td>
+                                    <td><t t-esc="move.transaction_id.name or '—'" /></td>
+                                </tr>
+                                <tr t-if="not trace['moves']">
+                                    <td colspan="6" class="st-empty">No existen movimientos relacionados.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <!-- 2. Certificados -->
+                        <div class="st-sec">3. Certificados sanitarios y de calidad</div>
+                        <table class="st-tbl">
+                            <thead>
+                                <tr>
+                                    <th>Certificado</th><th>Entidad emisora</th><th>N°</th>
+                                    <th>Emisión</th><th>Expira</th><th>Producto</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="cert_lines" t-as="cl">
+                                    <td><t t-esc="cl.certificate_id.name or '—'" /></td>
+                                    <td><t t-esc="cl.certificate_id.issuer or '—'" /></td>
+                                    <td><t t-esc="cl.number or '—'" /></td>
+                                    <td><t t-esc="cl.issue_date or '—'" /></td>
+                                    <td><t t-esc="cl.expiry_date or '—'" /></td>
+                                    <td><t t-esc="cl.product_id.name or '—'" /></td>
+                                </tr>
+                                <tr t-if="not cert_lines">
+                                    <td colspan="6" class="st-empty">No se registraron certificados para los productos de esta cadena.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <!-- 3. Lotes -->
+                        <div class="st-sec">4. Lotes relacionados</div>
+                        <table class="st-tbl">
+                            <thead>
+                                <tr>
+                                    <th>Lote</th><th>Producto</th><th>Dueño</th>
+                                    <th class="st-r">Inicial</th><th class="st-r">Disponible</th><th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="trace['lots']" t-as="lot">
+                                    <td>L-<t t-esc="lot.id" /></td>
+                                    <td><t t-esc="lot.product_id.name or '—'" /></td>
+                                    <td><t t-esc="lot.owner_id.name or '—'" /></td>
+                                    <td class="st-r"><t t-esc="lot.initial_qty" /></td>
+                                    <td class="st-r"><t t-esc="lot.available_qty" /></td>
+                                    <td><t t-esc="dict(lot._fields['state'].selection).get(lot.state) or '—'" /></td>
+                                </tr>
+                                <tr t-if="not trace['lots']">
+                                    <td colspan="6" class="st-empty">No existen lotes relacionados.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <!-- 4. Siembra -->
+                        <div class="st-sec">5. Siembra en piscinas</div>
+                        <table class="st-tbl">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th><th>Dueño</th><th>Instalación</th>
+                                    <th>Piscina</th><th>Lote</th><th class="st-r">Cantidad</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="trace['allocations']" t-as="alloc">
+                                    <td><t t-esc="alloc.allocation_date or '—'" /></td>
+                                    <td><t t-esc="alloc.partner_id.name or '—'" /></td>
+                                    <td><t t-esc="alloc.pond_id.facility_id.name or '—'" /></td>
+                                    <td><t t-esc="alloc.pond_id.name or '—'" /></td>
+                                    <td>L-<t t-esc="alloc.stock_lot_id.id" /></td>
+                                    <td class="st-r"><t t-esc="alloc.allocated_qty" /></td>
+                                </tr>
+                                <tr t-if="not trace['allocations']">
+                                    <td colspan="6" class="st-empty">No existen asignaciones a piscinas relacionadas.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <!-- 5. Evolución -->
+                        <div class="st-sec">6. Evolución productiva y sanitaria</div>
+                        <table class="st-tbl">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th><th>Producto</th><th>Etapa</th>
+                                    <th class="st-r">Tamaño (mg)</th><th class="st-r">Superv.</th>
+                                    <th class="st-r">Disponible</th><th>Observación</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="trace['evolutions']" t-as="ev">
+                                    <td><t t-esc="ev.date or '—'" /></td>
+                                    <td><t t-esc="ev.product_id.name or '—'" /></td>
+                                    <td><t t-esc="ev.stage_id.name or '—'" /></td>
+                                    <td class="st-r"><t t-esc="ev.avg_size_mg" /></td>
+                                    <td class="st-r"><t t-esc="ev.survival_rate" /> %</td>
+                                    <td class="st-r">
+                                        <t t-esc="ev.available_qty" />
+                                        <t t-esc="ev.product_id.uom_id.name if ev.product_id else ''" />
+                                    </td>
+                                    <td><t t-esc="ev.note or ev.health_status or '—'" /></td>
+                                </tr>
+                                <tr t-if="not trace['evolutions']">
+                                    <td colspan="7" class="st-empty">Sin histórico de evolución registrado.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <!-- 7. Indicadores (gráficos) -->
+                        <div class="st-sec">7. Indicadores de cultivo</div>
+                        <t t-if="charts">
+                            <table style="width:100%;">
+                                <tr>
+                                    <t t-foreach="charts" t-as="ch">
+                                        <td style="width:50%; vertical-align:top; padding:4px;">
+                                            <t t-out="ch" />
+                                        </td>
+                                    </t>
+                                </tr>
+                            </table>
+                        </t>
+                        <t t-else="">
+                            <div class="st-empty">No hay suficientes registros de evolución para generar gráficos.</div>
+                        </t>
+
+                        <div class="st-foot">
+                            Documento generado por <strong><t t-esc="doc.env.company.name" /></strong>.
+                            Certifica la trazabilidad registrada en el sistema para la transacción
+                            <strong><t t-esc="doc.name" /></strong>, incluyendo movimientos de stock,
+                            certificados, lotes, siembra en piscinas y evolución productiva/sanitaria del camarón.
+                            Escanea el código QR para consultar la versión en línea.
+                        </div>
+
+                    </div>
+                    </t>
+                </t>
+            </t>
+        </template>
+
+    </data>
+</odoo>

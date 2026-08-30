@@ -1,0 +1,1759 @@
+<odoo>
+
+    <!-- Visor de certificados reutilizable: modal con iframe (ver sin descargar) -->
+    <template id="cert_viewer" name="Visor de certificado">
+        <style>
+          .cv-modal{ position:fixed; inset:0; background:rgba(13,27,38,.6); display:none; align-items:center; justify-content:center; z-index:3000; padding:20px; }
+          .cv-modal.open{ display:flex; }
+          .cv-card{ background:#fff; border-radius:var(--shrimp-radius-lg); width:min(960px,100%); height:min(86vh,920px); display:flex; flex-direction:column; overflow:hidden; box-shadow:var(--shrimp-shadow-hover); }
+          .cv-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 16px; border-bottom:1px solid var(--shrimp-border); }
+          .cv-title{ font-weight:800; color:var(--shrimp-ink); }
+          .cv-body{ flex:1; background:var(--shrimp-bg-alt); }
+          .cv-body iframe{ width:100%; height:100%; border:0; display:block; }
+        </style>
+        <div id="certModal" class="cv-modal">
+            <div class="cv-card">
+                <div class="cv-head">
+                    <span class="cv-title"><i class="fa fa-certificate me-1"></i> Certificado</span>
+                    <div class="d-flex gap-2">
+                        <a id="certDownload" class="s-btn s-btn-ghost btn-sm" href="#" target="_blank"><i class="fa fa-download me-1"></i> Descargar</a>
+                        <button type="button" class="s-btn s-btn-ghost btn-sm" id="certClose"><i class="fa fa-times me-1"></i> Cerrar</button>
+                    </div>
+                </div>
+                <div class="cv-body"><iframe id="certFrame" title="Certificado"></iframe></div>
+            </div>
+        </div>
+        <script type="text/javascript">
+<![CDATA[
+(function(){
+  function init(){
+    var modal = document.getElementById('certModal');
+    if(!modal) return;
+    var frame = document.getElementById('certFrame');
+    var dl = document.getElementById('certDownload');
+    function open(url){
+      if(!url) return;
+      frame.src = url;
+      dl.href = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'download=1';
+      modal.classList.add('open');
+    }
+    function close(){ modal.classList.remove('open'); frame.src = 'about:blank'; }
+    document.querySelectorAll('.js-cert-view').forEach(function(b){
+      b.addEventListener('click', function(){ open(b.getAttribute('data-url')); });
+    });
+    var c = document.getElementById('certClose');
+    if(c){ c.addEventListener('click', close); }
+    modal.addEventListener('click', function(ev){ if(ev.target === modal){ close(); } });
+    document.addEventListener('keydown', function(ev){ if(ev.key === 'Escape'){ close(); } });
+  }
+  if(document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', init); } else { init(); }
+})();
+]]>
+        </script>
+    </template>
+
+    <!-- Fragmento reutilizable: tarjetas de producto (página inicial + "cargar más") -->
+    <template id="marketplace_product_cards" name="Marketplace - Tarjetas">
+        <t t-foreach="products" t-as="p">
+            <t t-set="cover" t-value="p.photo_attachment_ids[:1]" />
+            <t t-set="uom_label" t-value="p.uom_id.name" />
+
+            <div class="s-prod-card">
+                <a class="s-prod-imgwrap" t-att-href="'/marketplace/product/%s' % p.uuid_ref">
+                    <t t-if="cover">
+                        <img class="s-prod-img"
+                            t-att-src="'/web/content/%s?access_token=%s' % (cover[0].id, cover[0].access_token)"
+                            t-att-alt="p.name" loading="lazy" />
+                    </t>
+                    <t t-else="">
+                        <div class="s-prod-noimg"><i class="fa fa-image me-2"></i> Sin foto</div>
+                    </t>
+                </a>
+
+                <div class="s-prod-body">
+                    <div class="s-badges">
+                        <t t-if="p.id == best_price_id"><span class="s-badge s-badge--success"><i class="fa fa-tag me-1"></i>Mejor precio</span></t>
+                        <t t-if="p.stage_id"><span class="s-badge"><t t-esc="p.stage_id.name" /></span></t>
+                        <t t-if="p.species_id"><span class="s-badge s-badge--teal"><t t-esc="p.species_id.name" /></span></t>
+                    </div>
+
+                    <a class="s-prod-title" style="text-decoration:none;"
+                       t-att-href="'/marketplace/product/%s' % p.uuid_ref" t-esc="p.name" />
+
+                    <div class="s-prod-seller">
+                        <i class="fa fa-user-circle-o me-1"></i>
+                        <a t-att-href="'/marketplace/vendedor/%s' % p.seller_partner_id.uuid_ref"
+                           t-esc="p.seller_partner_id.name" />
+                    </div>
+
+                    <div class="s-prod-meta">
+                        <t t-if="p.presentation">
+                            <div><i class="fa fa-cutlery me-1 text-faint"></i> <t t-esc="'Entero' if p.presentation == 'entero' else 'Cola'" /></div>
+                        </t>
+                        <t t-if="p.size_grade_id">
+                            <div><i class="fa fa-balance-scale me-1 text-faint"></i> Talla <b><t t-esc="p.size_grade_id.name" /></b></div>
+                        </t>
+                        <div><i class="fa fa-cubes me-1 text-faint"></i> <b><t t-esc="p.available_qty" /></b> <t t-esc="uom_label" /> disp.</div>
+                        <div><i class="fa fa-map-marker me-1 text-faint"></i> <t t-esc="p.location or '—'" /></div>
+                    </div>
+
+                    <div class="s-prod-foot">
+                        <div class="s-prod-price">$<t t-esc="'%.2f' % p.price" /><span class="s-unit"> / <t t-esc="uom_label" /></span></div>
+                        <t t-if="p.seller_partner_id.shrimp_rating_count">
+                            <span class="s-rating" style="font-size:13px;">
+                                <i class="fa fa-star"></i> <t t-esc="'%.1f' % p.seller_partner_id.shrimp_rating_avg"/>
+                                <span class="text-faint" style="font-weight:500;"> (<t t-esc="p.seller_partner_id.shrimp_rating_count"/>)</span>
+                            </span>
+                        </t>
+                    </div>
+                    <div class="s-prod-actions">
+                        <a class="s-btn s-btn-ghost btn-sm" t-att-href="'/marketplace/product/%s' % p.uuid_ref">Ver</a>
+                        <a class="s-btn s-btn-primary btn-sm" t-att-href="'/marketplace/buy/%s' % p.uuid_ref">Comprar</a>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <template id="marketplace_list" name="Marketplace - Productos">
+        <t t-call="website.layout">
+            <div class="shrimp-bg">
+
+                <!-- ===== Cabecera: banner con gradiente de marca ===== -->
+                <div class="shrimp-page shrimp-page--full pt-4">
+                    <div class="sf-banner">
+                        <div class="sf-banner-row">
+                            <div class="sf-banner-txt">
+                                <h1>Larvas y camarón con trazabilidad</h1>
+                                <p>Compra directo a semilleros, laboratorios y camaroneras. Cada lote con su historial verificado.</p>
+                            </div>
+                            <span class="sf-kicker"><i class="fa fa-shopping-bag"></i> Marketplace</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="shrimp-page shrimp-page--full pb-4" id="listado">
+                    <div class="s-market-layout">
+
+                        <!-- ===== SIDEBAR de filtros (izquierda en desktop) ===== -->
+                        <aside class="s-market-side">
+                            <form method="get" action="/marketplace" class="s-filter-panel">
+                                <!-- Cabecera con acento -->
+                                <div class="s-filter-head">
+                                    <div class="s-filter-head-title">
+                                        <span class="s-filter-icon"><i class="fa fa-sliders"></i></span>
+                                        <span>Filtros</span>
+                                        <t t-if="active_filters">
+                                            <span class="s-filter-count"><t t-esc="active_filters" /></span>
+                                        </t>
+                                    </div>
+                                    <a class="s-filter-clear" href="/marketplace">Limpiar</a>
+                                </div>
+
+                                <!-- Buscar -->
+                                <div class="s-filter-sec">
+                                    <div class="s-filter-sec-label"><i class="fa fa-search"></i> Buscar</div>
+                                    <input class="form-control" type="text" name="q"
+                                        t-att-value="filters.get('q') or ''"
+                                        placeholder="Nombre, especie o ubicación…" />
+                                </div>
+
+                                <!-- Especie (chips seleccionables) -->
+                                <div class="s-filter-sec">
+                                    <div class="s-filter-sec-label"><i class="fa fa-flask"></i> Especie</div>
+                                    <div class="s-choice-chips">
+                                        <label class="s-choice">
+                                            <input type="radio" name="species" value=""
+                                                t-att-checked="not filters.get('species')" />
+                                            <span>Todas</span>
+                                        </label>
+                                        <t t-foreach="species_options" t-as="sp">
+                                            <label class="s-choice">
+                                                <input type="radio" name="species" t-att-value="sp.name"
+                                                    t-att-checked="(filters.get('species') or '') == sp.name" />
+                                                <span><t t-esc="sp.name" /></span>
+                                            </label>
+                                        </t>
+                                    </div>
+                                </div>
+
+                                <!-- Presentación (Entero / Cola) -->
+                                <div class="s-filter-sec">
+                                    <div class="s-filter-sec-label"><i class="fa fa-cutlery"></i> Presentación</div>
+                                    <div class="s-choice-chips">
+                                        <label class="s-choice">
+                                            <input type="radio" name="presentation" value="" id="fltPresAll"
+                                                t-att-checked="not filters.get('presentation')" />
+                                            <span>Todas</span>
+                                        </label>
+                                        <label class="s-choice">
+                                            <input type="radio" name="presentation" value="entero"
+                                                t-att-checked="(filters.get('presentation') or '') == 'entero'" />
+                                            <span>Entero</span>
+                                        </label>
+                                        <label class="s-choice">
+                                            <input type="radio" name="presentation" value="cola"
+                                                t-att-checked="(filters.get('presentation') or '') == 'cola'" />
+                                            <span>Cola</span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- Talla (se filtra según la presentación) -->
+                                <div class="s-filter-sec">
+                                    <div class="s-filter-sec-label"><i class="fa fa-balance-scale"></i> Talla</div>
+                                    <select class="form-select" name="size_grade" id="fltSizeGrade">
+                                        <option value="">Todas las tallas</option>
+                                        <t t-foreach="size_grade_options" t-as="sg">
+                                            <option t-att-value="sg.id" t-att-data-presentation="sg.presentation"
+                                                    t-att-selected="str(filters.get('size_grade') or '') == str(sg.id)">
+                                                <t t-esc="'Entero' if sg.presentation == 'entero' else 'Cola'" /> · <t t-esc="sg.name" />
+                                            </option>
+                                        </t>
+                                    </select>
+                                </div>
+
+                                <!-- Ubicación -->
+                                <div class="s-filter-sec">
+                                    <div class="s-filter-sec-label"><i class="fa fa-map-marker"></i> Ubicación</div>
+                                    <select class="form-select" name="location">
+                                        <option value="">Todas las zonas</option>
+                                        <t t-foreach="location_options" t-as="loc">
+                                            <option t-att-value="loc" t-att-selected="(filters.get('location') or '') == loc">
+                                                <t t-esc="loc" />
+                                            </option>
+                                        </t>
+                                    </select>
+                                </div>
+
+                                <!-- Rango de precio -->
+                                <div class="s-filter-sec">
+                                    <div class="s-filter-sec-label"><i class="fa fa-tag"></i> Precio (por unidad)</div>
+                                    <div class="s-price-range">
+                                        <div class="s-price-input">
+                                            <span>$</span>
+                                            <input type="number" step="0.01" min="0" name="price_min"
+                                                t-att-value="filters.get('price_min') or ''" placeholder="mín" />
+                                        </div>
+                                        <span class="s-price-sep">—</span>
+                                        <div class="s-price-input">
+                                            <span>$</span>
+                                            <input type="number" step="0.01" min="0" name="price_max"
+                                                t-att-value="filters.get('price_max') or ''" placeholder="máx" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Vendedor -->
+                                <div class="s-filter-sec">
+                                    <div class="s-filter-sec-label"><i class="fa fa-user-circle-o"></i> Vendedor</div>
+                                    <input class="form-control" type="text" name="seller"
+                                        t-att-value="filters.get('seller') or ''" placeholder="Nombre del vendedor" />
+                                </div>
+
+                                <!-- conserva la etapa activa al aplicar otros filtros -->
+                                <input type="hidden" name="stage" t-att-value="filters.get('stage') or ''" />
+                                <button class="s-btn s-btn-primary s-btn-block" type="submit">
+                                    <i class="fa fa-search me-1"></i> Aplicar filtros
+                                </button>
+                                <button class="s-btn s-btn-ghost s-btn-block" type="submit" name="best" value="1"
+                                        style="margin-top:8px;">
+                                    <i class="fa fa-star me-1"></i> Top 10 mejores opciones
+                                </button>
+                                <div class="text-soft" style="font-size:12px; margin-top:6px; text-align:center;">
+                                    Las mejor calificadas y más económicas según tus filtros.
+                                </div>
+                            </form>
+                            <script type="text/javascript">
+                                (function () {
+                                    var sel = document.getElementById('fltSizeGrade');
+                                    if (!sel) { return; }
+                                    var radios = document.querySelectorAll('input[name="presentation"]');
+                                    function currentPres() {
+                                        for (var i = 0; i &lt; radios.length; i++) {
+                                            if (radios[i].checked) { return radios[i].value; }
+                                        }
+                                        return '';
+                                    }
+                                    function syncTallas() {
+                                        var pres = currentPres();
+                                        var opts = sel.options;
+                                        for (var i = 0; i &lt; opts.length; i++) {
+                                            var op = opts[i];
+                                            if (!op.value) { op.hidden = false; continue; }
+                                            var match = !pres || op.getAttribute('data-presentation') === pres;
+                                            op.hidden = !match;
+                                            op.disabled = !match;
+                                            if (!match &amp;&amp; op.selected) { sel.value = ''; }
+                                        }
+                                    }
+                                    for (var i = 0; i &lt; radios.length; i++) {
+                                        radios[i].addEventListener('change', syncTallas);
+                                    }
+                                    syncTallas();
+                                })();
+                            </script>
+                        </aside>
+
+                        <!-- ===== MAIN: chips de etapa + contador + grid ===== -->
+                        <div class="s-market-main">
+
+                            <!-- Chips de etapa (scroll horizontal en mobile) -->
+                            <div class="s-cat-chips s-cat-chips--scroll mb-3">
+                                <a t-att-class="'s-cat-chip' + ('' if filters.get('stage') else ' active')" href="/marketplace">Todas</a>
+                                <t t-foreach="stage_options" t-as="opt">
+                                    <a t-att-class="'s-cat-chip' + (' active' if str(filters.get('stage') or '') == str(opt.id) else '')"
+                                       t-att-href="'/marketplace?stage=%s' % opt.id"><t t-esc="opt.name" /></a>
+                                </t>
+                            </div>
+
+                            <div class="s-sortbar mb-3">
+                                <div class="text-soft" style="font-size:var(--fs-sm);">
+                                    <strong><t t-esc="products_count" /></strong> producto(s) disponibles
+                                </div>
+                                <form method="get" action="/marketplace" class="s-sort">
+                                    <input type="hidden" name="q" t-att-value="filters.get('q') or ''" />
+                                    <input type="hidden" name="stage" t-att-value="filters.get('stage') or ''" />
+                                    <input type="hidden" name="species" t-att-value="filters.get('species') or ''" />
+                                    <input type="hidden" name="presentation" t-att-value="filters.get('presentation') or ''" />
+                                    <input type="hidden" name="size_grade" t-att-value="filters.get('size_grade') or ''" />
+                                    <input type="hidden" name="location" t-att-value="filters.get('location') or ''" />
+                                    <input type="hidden" name="seller" t-att-value="filters.get('seller') or ''" />
+                                    <input type="hidden" name="price_min" t-att-value="filters.get('price_min') or ''" />
+                                    <input type="hidden" name="price_max" t-att-value="filters.get('price_max') or ''" />
+                                    <label><i class="fa fa-sort-amount-asc me-1"></i> Ordenar</label>
+                                    <select class="form-select" name="sort" onchange="this.form.submit()">
+                                        <option value="recommended" t-att-selected="sort == 'recommended'">Recomendados</option>
+                                        <option value="price_asc" t-att-selected="sort == 'price_asc'">Precio: menor a mayor</option>
+                                        <option value="price_desc" t-att-selected="sort == 'price_desc'">Precio: mayor a menor</option>
+                                        <option value="rating" t-att-selected="sort == 'rating'">Mejor calificados</option>
+                                        <option value="recent" t-att-selected="sort == 'recent'">Más recientes</option>
+                                    </select>
+                                </form>
+                            </div>
+
+                            <!-- Aviso: modo Top 10 mejores opciones -->
+                            <t t-if="is_best">
+                                <div class="s-panel s-card--pad mb-3 d-flex flex-wrap align-items-center justify-content-between gap-2"
+                                     style="border-left:4px solid var(--shrimp-brand);">
+                                    <div style="font-size:14px;">
+                                        <i class="fa fa-star me-1" style="color:#e0a92a;"></i>
+                                        Mostrando las <strong>10 mejores opciones</strong> de compra según tus filtros
+                                        (mejor calificación y menor precio).
+                                    </div>
+                                    <a class="s-btn s-btn-ghost btn-sm" t-att-href="all_url">
+                                        <i class="fa fa-times me-1"></i> Quitar Top 10
+                                    </a>
+                                </div>
+                            </t>
+
+                            <!-- Grid de productos -->
+                            <div class="s-prod-grid" id="prodGrid" t-if="products"
+                                 t-att-data-sort="sort"
+                                 t-att-data-q="filters.get('q') or ''"
+                                 t-att-data-stage="filters.get('stage') or ''"
+                                 t-att-data-species="filters.get('species') or ''"
+                                 t-att-data-presentation="filters.get('presentation') or ''"
+                                 t-att-data-size_grade="filters.get('size_grade') or ''"
+                                 t-att-data-location="filters.get('location') or ''"
+                                 t-att-data-seller="filters.get('seller') or ''"
+                                 t-att-data-price_min="filters.get('price_min') or ''"
+                                 t-att-data-price_max="filters.get('price_max') or ''">
+                                <t t-call="shrimp_marketplace.marketplace_product_cards"/>
+                            </div>
+
+                            <!-- Cargar más (AJAX, sin recargar ni saltar arriba) -->
+                            <t t-if="products">
+                                <div class="text-center mt-4" id="loadMoreWrap"
+                                     t-att-data-next-offset="next_offset"
+                                     t-att-data-has-more="'1' if has_more else '0'">
+                                    <button type="button" class="s-btn s-btn-ghost" id="loadMoreBtn" t-if="has_more">
+                                        <i class="fa fa-plus me-1"></i> Cargar más productos
+                                    </button>
+                                    <div class="text-soft mt-2" style="font-size:var(--fs-sm);">
+                                        Mostrando <strong id="shownCount"><t t-esc="shown_count"/></strong> de <strong><t t-esc="products_count"/></strong>
+                                    </div>
+                                </div>
+                            </t>
+
+                            <!-- Estado vacío -->
+                            <t t-if="not products">
+                                <div class="s-empty">
+                                    <div class="s-empty-ico"><i class="fa fa-search"></i></div>
+                                    <h3>Sin resultados</h3>
+                                    <p>No encontramos productos con esos filtros. Prueba ampliar la búsqueda o límpiala.</p>
+                                    <a class="s-btn s-btn-primary" href="/marketplace">Ver todo el catálogo</a>
+                                </div>
+                            </t>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <script type="text/javascript">
+<![CDATA[
+(function(){
+  function init(){
+    var btn = document.getElementById("loadMoreBtn");
+    var wrap = document.getElementById("loadMoreWrap");
+    var grid = document.getElementById("prodGrid");
+    if(!btn || !wrap || !grid) return;
+    var loading = false;
+    btn.addEventListener("click", function(){
+      if(loading) return;
+      loading = true;
+      var original = btn.innerHTML;
+      btn.innerHTML = '<i class="fa fa-spinner fa-spin me-1"></i> Cargando…';
+      btn.disabled = true;
+      var params = new URLSearchParams();
+      params.set("offset", wrap.getAttribute("data-next-offset") || "0");
+      ["sort","q","stage","species","presentation","size_grade","location","seller","price_min","price_max"].forEach(function(k){
+        var v = grid.getAttribute("data-" + k);
+        if(v) params.set(k, v);
+      });
+      fetch("/marketplace/cards?" + params.toString(), {
+        headers: {"X-Requested-With": "XMLHttpRequest"}
+      }).then(function(r){ return r.json(); }).then(function(data){
+        // Inserta las nuevas tarjetas SIN mover el scroll.
+        var tmp = document.createElement("div");
+        tmp.innerHTML = data.html;
+        while(tmp.firstChild){ grid.appendChild(tmp.firstChild); }
+        wrap.setAttribute("data-next-offset", data.next_offset);
+        var shown = document.getElementById("shownCount");
+        if(shown){ shown.textContent = data.shown_count; }
+        if(data.has_more){
+          btn.innerHTML = original;
+          btn.disabled = false;
+          loading = false;
+        } else {
+          btn.remove();
+        }
+      }).catch(function(){
+        btn.innerHTML = original;
+        btn.disabled = false;
+        loading = false;
+      });
+    });
+  }
+  if(document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", init);
+  } else { init(); }
+})();
+]]>
+            </script>
+        </t>
+    </template>
+
+    <template id="buy_product" name="Comprar - Marketplace">
+        <t t-call="website.layout">
+            <style>
+              .buy-media{ background:#fff; border:1px solid var(--shrimp-border); border-radius:var(--shrimp-radius-lg); overflow:hidden; box-shadow:var(--shrimp-shadow); }
+              .buy-media-img{ width:100%; height:340px; object-fit:cover; display:block; }
+              .buy-noimg{ height:340px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; color:var(--shrimp-ink-faint); background:#fff; font-size:18px; font-weight:700; }
+              .buy-noimg .buy-noimg-ico{ font-size:64px; opacity:.45; }
+              .buy-thumbs{ display:flex; gap:8px; flex-wrap:wrap; padding:12px; border-top:1px solid var(--shrimp-border); }
+              .buy-thumbs img{ width:64px; height:64px; object-fit:cover; border-radius:10px; border:1px solid var(--shrimp-border); cursor:pointer; transition:border-color .15s ease, box-shadow .15s ease; }
+              .buy-thumbs img:hover{ border-color:var(--shrimp-brand); }
+              .buy-thumbs img.is-active{ border-color:var(--shrimp-brand); box-shadow:0 0 0 2px var(--shrimp-brand-soft); }
+              .buy-box{ background:var(--shrimp-bg-alt); border:1px solid var(--shrimp-border); border-radius:var(--shrimp-radius); padding:14px 16px; }
+              /* Campos con relleno gris (como Estado sanitario), no blanco */
+              .mp-spec{ background:var(--shrimp-bg-alt); }
+              .mp-spec:hover{ box-shadow:none; border-color:var(--shrimp-border); }
+              .mp-spec-ico{ background:#fff; }
+              .buy-price{ font-size:26px; font-weight:800; color:var(--shrimp-ink); letter-spacing:-.02em; line-height:1.1; }
+              .buy-unit{ font-size:12px; color:var(--shrimp-ink-faint); font-weight:600; }
+              .buy-total{ font-size:22px; font-weight:800; color:var(--shrimp-brand); letter-spacing:-.02em; }
+              .buy-guide{ background:var(--shrimp-brand-soft); border:1px solid var(--shrimp-border); border-radius:var(--shrimp-radius); padding:14px 16px; }
+              .buy-guide ol, .buy-guide ul{ margin:0; padding-left:18px; font-size:13px; color:var(--shrimp-ink-soft); }
+              .buy-guide li{ margin:3px 0; }
+              .buy-acc .accordion-item{ border:1px solid var(--shrimp-border); border-radius:var(--shrimp-radius) !important; margin-bottom:10px; overflow:hidden; background:#fff; }
+              .buy-acc .accordion-button{ font-weight:800; color:var(--shrimp-ink); background:#fff; box-shadow:none; }
+              .buy-acc .accordion-button:not(.collapsed){ color:var(--shrimp-brand); background:var(--shrimp-brand-soft); }
+              .buy-acc .accordion-button:focus{ box-shadow:none; border-color:var(--shrimp-border); }
+              .buy-qty{ font-size:16px; font-weight:700; padding:12px 14px; border-radius:12px; }
+              .buy-sticky{ position:sticky; top:16px; align-self:flex-start; }
+              /* Modal de confirmación del chequeo */
+              .buy-modal{ position:fixed; inset:0; background:rgba(13,27,38,.55); display:none; align-items:center; justify-content:center; z-index:2000; padding:20px; }
+              .buy-modal.open{ display:flex; }
+              .buy-modal-card{ background:#fff; border-radius:var(--shrimp-radius-lg); max-width:440px; width:100%; padding:24px; box-shadow:var(--shrimp-shadow-hover); }
+              .buy-modal-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0; border-bottom:1px solid var(--shrimp-border); font-size:14px; color:var(--shrimp-ink); }
+              .buy-modal-row.last{ border-bottom:0; }
+              .buy-modal-total{ font-weight:800; font-size:18px; color:var(--shrimp-brand); }
+            </style>
+            <div class="shrimp-bg">
+                <div class="shrimp-page shrimp-page--full py-4">
+
+                    <!-- Breadcrumb / volver -->
+                    <div class="mb-3">
+                        <t t-call="shrimp_marketplace.s_back_button"><t t-set="back_fallback" t-value="'/marketplace'"/></t>
+                    </div>
+
+                    <!-- Encabezado: banner de marca -->
+                    <div class="sf-banner mb-4">
+                        <div class="sf-banner-row">
+                            <div class="sf-banner-txt">
+                                <h1><t t-esc="product.name" /></h1>
+                                <p>Revisa los detalles, ingresa la cantidad y confirma tu compra o solicita un chequeo.</p>
+                            </div>
+                            <span class="sf-kicker"><i class="fa fa-shopping-bag"></i> Comprar</span>
+                        </div>
+                    </div>
+
+                    <div class="row g-4">
+
+                        <!-- RAIL DERECHO (sticky): Foto + Compra + Guía -->
+                        <div class="col-lg-4 order-lg-2 buy-sticky">
+
+                            <!-- Foto -->
+                            <div class="buy-media mb-4">
+                                <t t-if="product.photo_attachment_ids">
+                                    <img id="buyMainImg" class="buy-media-img"
+                                        t-att-src="'/marketplace/producto/%s/foto/%s' % (product.uuid_ref, product.photo_attachment_ids[0].id)"
+                                        alt="Foto producto" />
+                                </t>
+                                <t t-else="">
+                                    <div class="buy-noimg"><i class="fa fa-image buy-noimg-ico"></i> <span>Sin foto</span></div>
+                                </t>
+
+                                <!-- Miniaturas (clic para cambiar la principal) -->
+                                <t t-if="product.photo_attachment_ids and len(product.photo_attachment_ids) &gt; 1">
+                                    <div class="buy-thumbs">
+                                        <t t-foreach="product.photo_attachment_ids" t-as="img">
+                                            <img t-attf-class="js-buy-thumb#{' is-active' if img_index == 0 else ''}"
+                                                 t-att-data-src="'/marketplace/producto/%s/foto/%s' % (product.uuid_ref, img.id)"
+                                                 t-att-src="'/marketplace/producto/%s/foto/%s' % (product.uuid_ref, img.id)" />
+                                        </t>
+                                    </div>
+                                </t>
+                            </div>
+                            <script type="text/javascript">
+<![CDATA[
+(function(){
+  function init(){
+    var main = document.getElementById('buyMainImg');
+    var thumbs = document.querySelectorAll('.js-buy-thumb');
+    if(!main || !thumbs.length) return;
+    thumbs.forEach(function(t){
+      t.addEventListener('click', function(){
+        main.src = t.getAttribute('data-src');
+        thumbs.forEach(function(x){ x.classList.remove('is-active'); });
+        t.classList.add('is-active');
+      });
+    });
+  }
+  if(document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', init); } else { init(); }
+})();
+]]>
+                            </script>
+
+                            <!-- Compra (debajo de foto) -->
+                            <div class="mp-table-card mb-4">
+                                <div class="card-body p-4">
+
+                                    <!-- Header -->
+                                    <div class="mp-sec-head">
+                                        <span class="mp-sec-ico"><i class="fa fa-shopping-cart"></i></span>
+                                        <h3 class="mp-sec-title">Cantidad y total</h3>
+                                        <span class="s-badge mp-sec-count"><t t-esc="product.uom_id.name" /></span>
+                                    </div>
+
+                                    <!-- Precio / stock -->
+                                    <div class="buy-box mb-3">
+                                        <div class="row align-items-center g-2">
+                                            <div class="col-7">
+                                                <div class="buy-unit"> Precio por <t t-esc="product.uom_id.name" /></div>
+                                                <div class="buy-price" id="unit_price" t-att-data-price="product.price">$<t t-esc="'%.2f' % product.price" /></div>
+                                            </div>
+                                            <div class="col-5 text-end">
+                                                <div class="buy-unit">Disponible</div>
+                                                <div style="font-weight:800;" id="available_qty" t-att-data-available="product.available_qty">
+                                                    <t t-esc="product.available_qty" /> <t t-esc="product.uom_id.name" />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <t t-if="product.expected_delivery_date">
+                                            <div class="mt-2 buy-unit">
+                                                <i class="fa fa-calendar me-1"></i> Entrega planificada:
+                                                <strong><t t-esc="product.expected_delivery_date" /></strong>
+                                            </div>
+                                        </t>
+                                    </div>
+
+                                    <!-- Cantidad -->
+                                    <div class="mb-3">
+                                        <label class="form-label mb-1" style="font-weight:800; font-size:13px;"> Cantidad (<t t-esc="product.uom_id.name" />) </label>
+                                        <input class="form-control buy-qty"
+                                            type="number" step="0.01" min="0"
+                                            t-att-max="product.available_qty"
+                                            id="qty_input"
+                                            placeholder="Ej: 1000" />
+                                        <div class="mt-1 buy-unit">Total = cantidad × precio</div>
+                                    </div>
+
+                                    <!-- Total -->
+                                    <div class="buy-box mb-3">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div class="buy-unit">Total</div>
+                                            <div class="buy-total">$<span id="total_value">0.00</span></div>
+                                        </div>
+
+                                        <div class="text-danger small mt-2 d-none" id="qty_error">
+                                            La cantidad supera lo disponible.
+                                        </div>
+                                        <div class="text-danger small mt-2 d-none" id="qty_zero_error">
+                                            Ingresa una cantidad mayor a 0.
+                                        </div>
+                                    </div>
+
+                                    <!-- Acción -->
+                                    <div class="d-flex flex-column gap-2">
+
+                                        <!-- Error backend -->
+                                        <t t-set="error_code" t-value="request.params.get('error')" />
+                                        <t t-set="error_message"
+                                            t-value="request.params.get('message')" />
+
+                                        <t t-if="error_code">
+                                            <div class="alert alert-danger mb-3"
+                                                style="border-radius:12px;">
+                                                <t t-if="error_code == 'qty'">Debes ingresar una
+                                                    cantidad mayor a 0.</t>
+                                                <t t-elif="error_code == 'stock'">La cantidad
+                                                    solicitada supera el stock disponible.</t>
+                                                <t t-elif="error_code == 'validation'">
+                                                    <t
+                                                        t-esc="error_message or 'Ocurrió un error de validación.'" />
+                                                </t>
+                                                <t t-else="">Ocurrió un error inesperado.</t>
+                                            </div>
+                                        </t>
+
+                                        <!-- Comprar directo (pago simulado) -->
+                                        <form id="buyForm"
+                                            t-att-action="'/marketplace/buy/%s/confirm' % product.uuid_ref"
+                                            method="post">
+                                            <input type="hidden" name="csrf_token"
+                                                t-att-value="request.csrf_token()" />
+                                            <input type="hidden" name="qty" id="qty_hidden_buy" />
+
+                                            <div class="d-flex gap-2">
+                                                <button class="s-btn s-btn-primary" style="flex:1;"
+                                                    type="submit"
+                                                    id="btn_buy">
+                                                    <i class="fa fa-lock me-1"></i> Pagar y comprar </button>
+
+                                                <a class="s-btn s-btn-ghost" href="/marketplace">
+                                                    Cancelar
+                                                </a>
+                                            </div>
+                                            <div class="text-faint mt-2" style="font-size:12px;">
+                                                <i class="fa fa-shield me-1"></i> Pago seguro simulado (demo)
+                                            </div>
+                                        </form>
+
+                                        <!-- Overlay de pago simulado (20 s) -->
+                                        <div id="payOverlay" class="s-pay-overlay" style="display:none;">
+                                            <div class="s-pay-box">
+                                                <div class="s-pay-spinner"></div>
+                                                <h4 style="margin:16px 0 6px;">Procesando pago…</h4>
+                                                <p class="text-soft" style="margin:0 0 12px;">No cierres esta ventana. Estamos confirmando tu cobro de forma segura.</p>
+                                                <div class="s-pay-count"><span id="payCount">20</span> s</div>
+                                            </div>
+                                        </div>
+                                        <script type="text/javascript">
+                                            (function(){
+                                                var form = document.getElementById('buyForm');
+                                                if(!form){ return; }
+                                                form.addEventListener('submit', function(ev){
+                                                    if(form.dataset.paid === '1'){ return; }
+                                                    ev.preventDefault();
+                                                    var qtyEl = document.getElementById('qty_hidden_buy');
+                                                    var qty = parseFloat((qtyEl &amp;&amp; qtyEl.value) || '0');
+                                                    if(!qty || qty &lt;= 0){ alert('Ingresa una cantidad válida antes de pagar.'); return; }
+                                                    var overlay = document.getElementById('payOverlay');
+                                                    var countEl = document.getElementById('payCount');
+                                                    var btn = document.getElementById('btn_buy');
+                                                    if(btn){ btn.disabled = true; }
+                                                    if(overlay){ overlay.style.display = 'flex'; }
+                                                    var left = 20;
+                                                    var timer = setInterval(function(){
+                                                        left -= 1;
+                                                        if(countEl){ countEl.textContent = left; }
+                                                        if(left &lt;= 0){
+                                                            clearInterval(timer);
+                                                            form.dataset.paid = '1';
+                                                            form.submit();
+                                                        }
+                                                    }, 1000);
+                                                });
+                                            })();
+                                        </script>
+
+                                        <!-- Solicitar chequeo (abre modal + pago simulado) -->
+                                        <form id="checkForm"
+                                            t-att-action="'/marketplace/buy/%s/request-check' % product.uuid_ref"
+                                            method="post" t-att-data-fee="check_fee">
+                                            <input type="hidden" name="csrf_token"
+                                                t-att-value="request.csrf_token()" />
+                                            <input type="hidden" name="qty"
+                                                id="qty_hidden_check" />
+
+                                            <button class="s-btn s-btn-ghost s-btn-block"
+                                                type="button"
+                                                id="btn_check">
+                                                <i class="fa fa-search me-1"></i> Solicitar chequeo </button>
+                                        </form>
+                                        <div class="text-faint mt-2" style="font-size:12px;">
+                                            <i class="fa fa-shield me-1"></i> Reserva la cantidad y envía un equipo a verificar el producto.
+                                        </div>
+
+                                        <!-- Modal: valores a cobrar por el chequeo -->
+                                        <div id="chkModal" class="buy-modal">
+                                            <div class="buy-modal-card">
+                                                <div class="mp-sec-head">
+                                                    <span class="mp-sec-ico"><i class="fa fa-search"></i></span>
+                                                    <h3 class="mp-sec-title">Solicitar chequeo</h3>
+                                                </div>
+                                                <p class="text-soft" style="font-size:13px; margin-bottom:14px;">
+                                                    Enviaremos un equipo a verificar que el producto publicado corresponde a lo que compras.
+                                                    Al confirmar, se <strong>reserva la cantidad</strong> indicada y se cobra el chequeo.
+                                                </p>
+                                                <div class="buy-modal-row">
+                                                    <span>Producto (<span id="chkQty">0</span> <t t-esc="product.uom_id.name"/>)</span>
+                                                    <span>$<span id="chkProd">0.00</span></span>
+                                                </div>
+                                                <div class="buy-modal-row">
+                                                    <span>Chequeo</span>
+                                                    <span>$<span id="chkFee"><t t-esc="'%.2f' % check_fee"/></span></span>
+                                                </div>
+                                                <div class="buy-modal-row last buy-modal-total">
+                                                    <span>Total a pagar</span>
+                                                    <span>$<span id="chkTotal">0.00</span></span>
+                                                </div>
+                                                <div class="d-flex gap-2 mt-3">
+                                                    <button type="button" class="s-btn s-btn-ghost" id="chkCancel" style="flex:1;">Cancelar</button>
+                                                    <button type="button" class="s-btn s-btn-primary" id="chkPay" style="flex:1;"><i class="fa fa-lock me-1"></i> Pagar y solicitar</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <script type="text/javascript">
+<![CDATA[
+(function(){
+  var btn = document.getElementById('btn_check');
+  var form = document.getElementById('checkForm');
+  var modal = document.getElementById('chkModal');
+  if(!btn || !form || !modal) return;
+  var priceEl = document.getElementById('unit_price');
+  var availEl = document.getElementById('available_qty');
+  var qtyInput = document.getElementById('qty_input');
+  var price = parseFloat((priceEl && priceEl.dataset.price) || '0') || 0;
+  var avail = parseFloat((availEl && availEl.dataset.available) || '0') || 0;
+  var fee = parseFloat(form.dataset.fee || '0') || 0;
+  function fmt(n){ return (isNaN(n) ? 0 : n).toFixed(2); }
+  btn.addEventListener('click', function(){
+    var qty = parseFloat((qtyInput && qtyInput.value) || '0') || 0;
+    if(!qty || qty <= 0){ alert('Ingresa una cantidad válida antes de solicitar el chequeo.'); return; }
+    if(qty > avail){ alert('La cantidad supera lo disponible.'); return; }
+    document.getElementById('chkQty').textContent = qty;
+    document.getElementById('chkProd').textContent = fmt(qty * price);
+    document.getElementById('chkFee').textContent = fmt(fee);
+    document.getElementById('chkTotal').textContent = fmt(qty * price + fee);
+    document.getElementById('qty_hidden_check').value = qty;
+    modal.classList.add('open');
+  });
+  var cancel = document.getElementById('chkCancel');
+  if(cancel){ cancel.addEventListener('click', function(){ modal.classList.remove('open'); }); }
+  modal.addEventListener('click', function(ev){ if(ev.target === modal){ modal.classList.remove('open'); } });
+  var pay = document.getElementById('chkPay');
+  if(pay){
+    pay.addEventListener('click', function(){
+      if(form.dataset.paid === '1'){ return; }
+      modal.classList.remove('open');
+      var overlay = document.getElementById('payOverlay');
+      var countEl = document.getElementById('payCount');
+      if(overlay){ overlay.style.display = 'flex'; }
+      var left = 20;
+      var timer = setInterval(function(){
+        left -= 1;
+        if(countEl){ countEl.textContent = left; }
+        if(left <= 0){
+          clearInterval(timer);
+          form.dataset.paid = '1';
+          form.submit();
+        }
+      }, 1000);
+    });
+  }
+})();
+]]>
+                                        </script>
+
+                                    </div>
+
+                                </div>
+                            </div>
+
+
+                            <!-- Guía (debajo de compra) -->
+                            <div class="mp-table-card">
+                                <div class="card-body p-4">
+
+                                    <div class="mp-sec-head">
+                                        <span class="mp-sec-ico"><i class="fa fa-life-ring"></i></span>
+                                        <h3 class="mp-sec-title">Guía rápida</h3>
+                                    </div>
+
+                                    <ol class="mb-3" style="font-size:13px; color:var(--shrimp-ink-soft); padding-left:18px;">
+                                        <li>Confirma la etapa, especie y ubicación</li>
+                                        <li>Revisa la fecha de entrega planificada</li>
+                                        <li>Ingresa la cantidad (sin exceder el stock)</li>
+                                        <li>Confirma la compra</li>
+                                    </ol>
+
+                                    <div class="buy-guide">
+                                        <div style="font-weight:800; font-size:13px; color:var(--shrimp-ink); margin-bottom:6px;"><i class="fa fa-lightbulb-o me-1"></i> Tips</div>
+                                        <ul>
+                                            <li>Si compras en “millares”, ingresa la cantidad en millares</li>
+                                            <li>Verifica certificados antes de confirmar</li>
+                                            <li>Si no ves fotos, pide al vendedor adjuntar foto principal</li>
+                                        </ul>
+                                    </div>
+
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <!-- COLUMNA IZQUIERDA (ancha): detalle y campos del producto -->
+                        <div class="col-lg-8 order-lg-1">
+
+                            <div class="mp-table-card mb-4">
+                                <div class="card-body p-4">
+
+                                    <!-- Header -->
+                                    <div class="mp-sec-head">
+                                        <span class="mp-sec-ico"><i class="fa fa-info-circle"></i></span>
+                                        <div>
+                                            <h3 class="mp-sec-title"><t t-esc="product.name" /></h3>
+                                            <div style="font-size:13px; color:var(--shrimp-ink-soft);">
+                                                <i class="fa fa-user me-1"></i> Vendedor:
+                                                <a t-att-href="'/marketplace/vendedor/%s' % product.seller_partner_id.uuid_ref"
+                                                    style="font-weight:800; text-decoration:none; color:var(--shrimp-brand);">
+                                                    <t t-esc="product.seller_partner_id.name" />
+                                                </a>
+                                            </div>
+                                        </div>
+                                        <div class="mp-sec-count text-end">
+                                            <span class="s-badge s-badge--green" t-if="product.state == 'published'">
+                                                <i class="fa fa-check me-1"></i> Publicado </span>
+                                            <span class="s-badge" t-if="product.state == 'sold'">
+                                                <i class="fa fa-shopping-bag me-1"></i> Vendido </span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Quick facts -->
+                                    <div class="mp-spec-grid mb-3">
+                                        <div class="mp-spec">
+                                            <span class="mp-spec-ico"><i class="fa fa-tag"></i></span>
+                                            <div class="mp-spec-body">
+                                                <div class="mp-spec-label">Etapa</div>
+                                                <div class="mp-spec-value"><t t-esc="product.stage_id.name if product.stage_id else '—'" /></div>
+                                            </div>
+                                        </div>
+                                        <div class="mp-spec">
+                                            <span class="mp-spec-ico"><i class="fa fa-leaf"></i></span>
+                                            <div class="mp-spec-body">
+                                                <div class="mp-spec-label">Especie</div>
+                                                <div class="mp-spec-value"><t t-esc="product.species_id.name if product.species_id else '—'" /></div>
+                                            </div>
+                                        </div>
+                                        <div class="mp-spec">
+                                            <span class="mp-spec-ico"><i class="fa fa-map-marker"></i></span>
+                                            <div class="mp-spec-body">
+                                                <div class="mp-spec-label">Ubicación</div>
+                                                <div class="mp-spec-value"><t t-esc="product.location or '—'" /></div>
+                                            </div>
+                                        </div>
+                                        <div class="mp-spec">
+                                            <span class="mp-spec-ico"><i class="fa fa-line-chart"></i></span>
+                                            <div class="mp-spec-body">
+                                                <div class="mp-spec-label">Supervivencia</div>
+                                                <div class="mp-spec-value"><t t-esc="product.survival_rate or '—'" /> %</div>
+                                            </div>
+                                        </div>
+                                        <div class="mp-spec">
+                                            <span class="mp-spec-ico"><i class="fa fa-cube"></i></span>
+                                            <div class="mp-spec-body">
+                                                <div class="mp-spec-label">Cantidad disponible</div>
+                                                <div class="mp-spec-value"><t t-esc="product.available_qty" /> <t t-esc="product.uom_id.name" /></div>
+                                            </div>
+                                        </div>
+                                        <div class="mp-spec">
+                                            <span class="mp-spec-ico"><i class="fa fa-money"></i></span>
+                                            <div class="mp-spec-body">
+                                                <div class="mp-spec-label">Precio por <t t-esc="product.uom_id.name" /></div>
+                                                <div class="mp-spec-value">$<t t-esc="'%.2f' % product.price" /></div>
+                                            </div>
+                                        </div>
+                                        <t t-if="product.origin_facility_id">
+                                            <div class="mp-spec">
+                                                <span class="mp-spec-ico"><i class="fa fa-building"></i></span>
+                                                <div class="mp-spec-body">
+                                                    <div class="mp-spec-label">Instalación de origen</div>
+                                                    <div class="mp-spec-value"><t t-esc="product.origin_facility_id.name" /></div>
+                                                </div>
+                                            </div>
+                                        </t>
+                                        <t t-if="product.origin_pond_id">
+                                            <div class="mp-spec">
+                                                <span class="mp-spec-ico"><i class="fa fa-tint"></i></span>
+                                                <div class="mp-spec-body">
+                                                    <div class="mp-spec-label">Piscina de origen</div>
+                                                    <div class="mp-spec-value"><t t-esc="product.origin_pond_id.display_name" /></div>
+                                                </div>
+                                            </div>
+                                        </t>
+                                        <div class="mp-spec" style="grid-column:1 / -1;">
+                                            <span class="mp-spec-ico"><i class="fa fa-calendar"></i></span>
+                                            <div class="mp-spec-body">
+                                                <div class="mp-spec-label">Entrega planificada</div>
+                                                <div class="mp-spec-value"><t t-esc="product.expected_delivery_date or '—'" /></div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+
+                            <!-- Genética y calidad -->
+                            <div class="mp-table-card mb-4">
+                                <div class="card-body p-4">
+                                    <div class="mp-sec-head">
+                                        <span class="mp-sec-ico"><i class="fa fa-flask"></i></span>
+                                        <h3 class="mp-sec-title">Genética y calidad</h3>
+                                    </div>
+                                    <div class="mp-spec-grid">
+                                        <div class="mp-spec" style="grid-column:1 / -1;">
+                                            <span class="mp-spec-ico"><i class="fa fa-dna"></i></span>
+                                            <div class="mp-spec-body">
+                                                <div class="mp-spec-label">Línea genética / cepa</div>
+                                                <div class="mp-spec-value"><t t-esc="product.genetics_line_id.name if product.genetics_line_id else '—'" /></div>
+                                            </div>
+                                        </div>
+                                        <div class="mp-spec">
+                                            <span class="mp-spec-ico"><i class="fa fa-balance-scale"></i></span>
+                                            <div class="mp-spec-body">
+                                                <div class="mp-spec-label">Tamaño (mg)</div>
+                                                <div class="mp-spec-value"><t t-esc="product.avg_size_mg or '—'" /></div>
+                                            </div>
+                                        </div>
+                                        <div class="mp-spec">
+                                            <span class="mp-spec-ico"><i class="fa fa-line-chart"></i></span>
+                                            <div class="mp-spec-body">
+                                                <div class="mp-spec-label">Supervivencia (%)</div>
+                                                <div class="mp-spec-value"><t t-esc="product.survival_rate or '—'" /></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Estado sanitario / observaciones -->
+                            <div class="mp-table-card mb-4">
+                                <div class="card-body p-4">
+                                    <div class="mp-sec-head">
+                                        <span class="mp-sec-ico"><i class="fa fa-stethoscope"></i></span>
+                                        <h3 class="mp-sec-title">Estado sanitario / observaciones</h3>
+                                    </div>
+                                    <t t-if="product.health_status">
+                                        <div class="buy-box"><t t-esc="product.health_status" /></div>
+                                    </t>
+                                    <t t-else="">
+                                        <div class="text-muted">Sin observaciones.</div>
+                                    </t>
+                                </div>
+                            </div>
+
+                            <!-- Certificados -->
+                            <div class="mp-table-card mb-4">
+                                <div class="card-body p-4">
+                                    <div class="mp-sec-head">
+                                        <span class="mp-sec-ico"><i class="fa fa-file-text-o"></i></span>
+                                        <h3 class="mp-sec-title">Certificados</h3>
+                                        <t t-if="product.certificate_line_ids">
+                                            <span class="s-badge mp-sec-count"><t t-esc="len(product.certificate_line_ids)" /></span>
+                                        </t>
+                                    </div>
+
+                                                    <t t-if="product.certificate_line_ids">
+                                                        <div class="mp-table-wrap table-responsive">
+                                                            <table class="table align-middle mb-0" style="min-width:720px;">
+                                                                <thead>
+                                                                    <tr>
+                                                                        <th style="width:32%;">Certificado</th>
+                                                                        <th style="width:20%;">Entidad</th>
+                                                                        <th style="width:12%;">N°</th>
+                                                                        <th style="width:14%;">Emisión</th>
+                                                                        <th style="width:14%;">Expira</th>
+                                                                        <th style="width:8%;" class="text-end">Archivo</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    <t t-foreach="product.certificate_line_ids" t-as="line">
+                                                                        <tr>
+                                                                            <td style="font-weight:800;"><t t-esc="line.certificate_id.name" /></td>
+                                                                            <td><t t-esc="line.certificate_id.issuer" /></td>
+                                                                            <td><t t-esc="line.number or '—'" /></td>
+                                                                            <td><t t-esc="line.issue_date or '—'" /></td>
+                                                                            <td><t t-esc="line.expiry_date or '—'" /></td>
+                                                                            <td class="text-end">
+                                                                                <t t-if="line.attachment_id">
+                                                                                    <button type="button" class="s-btn s-btn-ghost btn-sm js-cert-view"
+                                                                                        t-att-data-url="'/marketplace/product/%s/certificate/%s' % (product.uuid_ref, line.attachment_id.id)">
+                                                                                        Ver certificado
+                                                                                    </button>
+                                                                                </t>
+                                                                                <t t-else="">
+                                                                                    <span class="text-muted">—</span>
+                                                                                </t>
+                                                                            </td>
+                                                                        </tr>
+                                                                    </t>
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </t>
+                                                    <t t-else="">
+                                                        <div class="text-muted">Sin certificados</div>
+                                                    </t>
+
+                                </div>
+                            </div>
+
+                            <!-- Vendedor: reseñas y puntuación -->
+                            <div class="mp-table-card">
+                                <div class="card-body p-4">
+                                    <div class="mp-sec-head">
+                                        <span class="mp-sec-ico"><i class="fa fa-star"></i></span>
+                                        <h3 class="mp-sec-title">Reseñas del vendedor</h3>
+                                        <a class="s-btn s-btn-ghost btn-sm mp-sec-count" t-att-href="'/marketplace/vendedor/%s' % seller.uuid_ref">Ver perfil</a>
+                                    </div>
+
+                                    <div class="d-flex align-items-center gap-3 mb-3">
+                                        <t t-if="seller.shrimp_rating_count">
+                                            <div class="s-rating-big"><t t-esc="'%.1f' % seller.shrimp_rating_avg"/></div>
+                                            <div>
+                                                <div class="s-rating">
+                                                    <t t-foreach="range(1, 6)" t-as="i">
+                                                        <i t-att-class="'fa fa-star' + ('' if i &lt;= round(seller.shrimp_rating_avg) else ' s-rating-empty')"></i>
+                                                    </t>
+                                                </div>
+                                                <div class="s-rating-count"><t t-esc="seller.shrimp_rating_count"/> reseña(s)</div>
+                                            </div>
+                                        </t>
+                                        <t t-else="">
+                                            <div>
+                                                <div class="s-rating"><t t-foreach="range(1, 6)" t-as="i"><i class="fa fa-star s-rating-empty"></i></t></div>
+                                                <div class="s-rating-count">Sin calificaciones aún</div>
+                                            </div>
+                                        </t>
+                                    </div>
+
+                                    <t t-if="reviews">
+                                        <t t-foreach="reviews" t-as="rv">
+                                            <div class="s-review">
+                                                <div class="s-review-head">
+                                                    <div class="s-rating" style="font-size:13px;">
+                                                        <t t-foreach="range(1, 6)" t-as="i">
+                                                            <i t-att-class="'fa fa-star' + ('' if i &lt;= rv.rating else ' s-rating-empty')"></i>
+                                                        </t>
+                                                    </div>
+                                                    <span class="s-review-author"><t t-esc="rv.reviewer_partner_id.name"/></span>
+                                                </div>
+                                                <t t-if="rv.comment"><p class="s-review-text"><t t-esc="rv.comment"/></p></t>
+                                            </div>
+                                        </t>
+                                    </t>
+                                    <t t-else="">
+                                        <div class="text-soft" style="font-size:13px;">Todavía no hay reseñas de este vendedor.</div>
+                                    </t>
+                                </div>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    <!-- Visor de certificado (modal) -->
+                    <t t-call="shrimp_marketplace.cert_viewer"/>
+
+                    <!-- JS cálculo total -->
+                    <script type="text/javascript">
+                        <![CDATA[
+                        (function () {
+                        const qtyInput = document.getElementById('qty_input');
+                        const qtyHiddenBuy = document.getElementById('qty_hidden_buy');
+                        const qtyHiddenCheck = document.getElementById('qty_hidden_check');
+                        const unitPriceEl = document.getElementById('unit_price');
+                        const availableEl = document.getElementById('available_qty');
+                        const totalEl = document.getElementById('total_value');
+                        const errEl = document.getElementById('qty_error');
+                        const zeroErrEl = document.getElementById('qty_zero_error');
+                        const btnBuy = document.getElementById('btn_buy');
+                        const btnCheck = document.getElementById('btn_check');
+
+                        if (!qtyInput || !unitPriceEl || !availableEl || !totalEl || !btnBuy || !btnCheck) return;
+
+                        const price = parseFloat(unitPriceEl.dataset.price || "0") || 0;
+                        const available = parseFloat(availableEl.dataset.available || "0") || 0;
+
+                        function fmt(n) {
+                            const v = (isNaN(n) ? 0 : n);
+                            return v.toFixed(2);
+                        }
+
+                        function recalc() {
+                            const qty = parseFloat(qtyInput.value || "0") || 0;
+
+                            if (qtyHiddenBuy) qtyHiddenBuy.value = qty;
+                            if (qtyHiddenCheck) qtyHiddenCheck.value = qty;
+
+                            const over = qty > available;
+                            const zero = qty <= 0;
+
+                            totalEl.textContent = fmt(qty * price);
+
+                            if (errEl) errEl.classList.toggle('d-none', !over);
+                            if (zeroErrEl) zeroErrEl.classList.toggle('d-none', !zero);
+
+                            if (over || zero) {
+                            btnBuy.setAttribute('disabled', 'disabled');
+                            btnCheck.setAttribute('disabled', 'disabled');
+                            } else {
+                            btnBuy.removeAttribute('disabled');
+                            btnCheck.removeAttribute('disabled');
+                            }
+                        }
+
+                        qtyInput.addEventListener('input', recalc);
+                        recalc();
+                        })();
+                        ]]>
+                    </script>
+
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <template id="buy_thanks" name="Compra realizada">
+        <t t-call="website.layout">
+            <style>
+              .buy-thanks .mp-spec{ background: var(--shrimp-bg-alt); }
+              .buy-thanks .mp-spec:hover{ box-shadow: none; border-color: var(--shrimp-border); }
+              .buy-thanks .mp-spec-ico{ background: #fff; }
+              .buy-thanks .bt-total{ background: var(--shrimp-brand-soft); border: 1px solid var(--shrimp-border); border-radius: var(--shrimp-radius); padding: 22px; text-align: center; }
+              .buy-thanks .bt-big{ font-size: 2.4rem; font-weight: 800; color: var(--shrimp-ink); line-height: 1; letter-spacing: -.02em; }
+              .buy-thanks .bt-amount{ font-size: 2rem; font-weight: 800; color: var(--shrimp-brand); line-height: 1; letter-spacing: -.02em; }
+              .buy-thanks .bt-lbl{ font-size: 13px; color: var(--shrimp-ink-faint); }
+            </style>
+            <div class="shrimp-bg">
+                <div class="shrimp-page buy-thanks py-4" style="max-width:1040px;">
+
+                    <!-- Encabezado -->
+                    <div class="text-center mb-4">
+                        <div class="mx-auto mb-3 d-flex align-items-center justify-content-center"
+                            style="width:78px; height:78px; border-radius:50%; background:rgba(46,158,107,.10); color:#1f7d56; font-size:34px;">
+                            <i class="fa fa-check"></i>
+                        </div>
+                        <div class="s-eyebrow">Marketplace</div>
+                        <h1 class="s-list-title">¡Compra realizada!</h1>
+                        <p class="s-list-sub" style="max-width:560px; margin:6px auto 0;">
+                            Tu operación ya quedó registrada en el marketplace.
+                        </p>
+                        <div class="s-badges mt-3" style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+                            <span class="s-badge s-badge--green"><i class="fa fa-lock me-1"></i> Pago confirmado</span>
+                            <span class="s-badge s-badge--teal"><i class="fa fa-check-circle me-1"></i> <t t-esc="dict(tx._fields['state'].selection).get(tx.state)"/></span>
+                            <span class="s-badge"><i class="fa fa-hashtag me-1"></i> <t t-esc="tx.name"/></span>
+                        </div>
+                    </div>
+
+                    <div class="row g-4">
+                        <!-- Resumen de la operación -->
+                        <div class="col-lg-7">
+                            <div class="mp-table-card h-100">
+                                <div class="card-body p-4">
+                                    <div class="mp-sec-head">
+                                        <span class="mp-sec-ico"><i class="fa fa-file-text-o"></i></span>
+                                        <h3 class="mp-sec-title">Resumen de la operación</h3>
+                                    </div>
+                                    <div class="mp-spec-grid">
+                                        <div class="mp-spec">
+                                            <span class="mp-spec-ico"><i class="fa fa-user-o"></i></span>
+                                            <div class="mp-spec-body">
+                                                <div class="mp-spec-label">Vendedor</div>
+                                                <div class="mp-spec-value"><t t-esc="tx.seller_partner_id.name"/></div>
+                                            </div>
+                                        </div>
+                                        <div class="mp-spec">
+                                            <span class="mp-spec-ico"><i class="fa fa-user"></i></span>
+                                            <div class="mp-spec-body">
+                                                <div class="mp-spec-label">Comprador</div>
+                                                <div class="mp-spec-value"><t t-esc="tx.buyer_partner_id.name"/></div>
+                                            </div>
+                                        </div>
+                                        <div class="mp-spec" t-if="tx.product_id" style="grid-column:1 / -1;">
+                                            <span class="mp-spec-ico"><i class="fa fa-cube"></i></span>
+                                            <div class="mp-spec-body">
+                                                <div class="mp-spec-label">Producto</div>
+                                                <div class="mp-spec-value"><t t-esc="tx.product_id.name"/></div>
+                                            </div>
+                                        </div>
+                                        <div class="mp-spec" t-if="tx.transaction_type">
+                                            <span class="mp-spec-ico"><i class="fa fa-exchange"></i></span>
+                                            <div class="mp-spec-body">
+                                                <div class="mp-spec-label">Tipo de transacción</div>
+                                                <div class="mp-spec-value"><t t-esc="dict(tx._fields['transaction_type'].selection).get(tx.transaction_type)"/></div>
+                                            </div>
+                                        </div>
+                                        <div class="mp-spec" t-if="tx.location">
+                                            <span class="mp-spec-ico"><i class="fa fa-map-marker"></i></span>
+                                            <div class="mp-spec-body">
+                                                <div class="mp-spec-label">Ubicación</div>
+                                                <div class="mp-spec-value"><t t-esc="tx.location"/></div>
+                                            </div>
+                                        </div>
+                                        <div class="mp-spec" t-if="tx.product_id and tx.product_id.origin_facility_id">
+                                            <span class="mp-spec-ico"><i class="fa fa-building"></i></span>
+                                            <div class="mp-spec-body">
+                                                <div class="mp-spec-label">Instalación de origen</div>
+                                                <div class="mp-spec-value"><t t-esc="tx.product_id.origin_facility_id.name"/></div>
+                                            </div>
+                                        </div>
+                                        <div class="mp-spec" t-if="tx.product_id and tx.product_id.origin_pond_id">
+                                            <span class="mp-spec-ico"><i class="fa fa-tint"></i></span>
+                                            <div class="mp-spec-body">
+                                                <div class="mp-spec-label">Piscina de origen</div>
+                                                <div class="mp-spec-value"><t t-esc="tx.product_id.origin_pond_id.display_name"/></div>
+                                            </div>
+                                        </div>
+                                        <div class="mp-spec" t-if="tx.sold_date or tx.desired_date">
+                                            <span class="mp-spec-ico"><i class="fa fa-calendar"></i></span>
+                                            <div class="mp-spec-body">
+                                                <div class="mp-spec-label">Fecha</div>
+                                                <div class="mp-spec-value"><t t-esc="tx.sold_date or tx.desired_date"/></div>
+                                            </div>
+                                        </div>
+                                        <div class="mp-spec" t-if="tx.price_unit">
+                                            <span class="mp-spec-ico"><i class="fa fa-money"></i></span>
+                                            <div class="mp-spec-body">
+                                                <div class="mp-spec-label">Precio unitario</div>
+                                                <div class="mp-spec-value">$<t t-esc="'%.2f' % tx.price_unit"/></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Total destacado -->
+                        <div class="col-lg-5">
+                            <div class="mp-table-card h-100">
+                                <div class="card-body p-4 d-flex flex-column">
+                                    <div class="mp-sec-head">
+                                        <span class="mp-sec-ico"><i class="fa fa-shopping-cart"></i></span>
+                                        <h3 class="mp-sec-title">Total</h3>
+                                    </div>
+                                    <div class="bt-total flex-grow-1 d-flex flex-column justify-content-center">
+                                        <div class="bt-lbl mb-1">Cantidad transaccionada</div>
+                                        <div class="bt-big"><t t-esc="tx.sold_qty or tx.desired_qty or 0"/></div>
+                                        <div class="bt-lbl mt-1"><t t-esc="tx.product_id.uom_id.name if tx.product_id else ''"/></div>
+                                        <hr style="width:60%; margin:16px auto; border-color:var(--shrimp-border);"/>
+                                        <div class="bt-lbl mb-1">Precio pagado</div>
+                                        <div class="bt-amount">$<t t-esc="'%.2f' % (tx.amount_total or 0.0)"/></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Calificar al vendedor / reseña ya enviada -->
+                    <t t-if="can_rate or my_review">
+                        <div class="mp-table-card mt-4">
+                            <div class="card-body p-4" style="text-align:center;">
+                                <div class="mp-sec-head" style="justify-content:center;">
+                                    <span class="mp-sec-ico"><i class="fa fa-star"></i></span>
+                                    <h3 class="mp-sec-title">Tu opinión</h3>
+                                </div>
+
+                                <t t-if="can_rate">
+                                    <h4 style="font-weight:800; margin:0 0 4px;">¿Cómo fue tu experiencia con <t t-esc="tx.seller_partner_id.name"/>?</h4>
+                                    <p class="text-soft" style="margin:0 0 14px; font-size:var(--fs-sm);">Tu calificación ayuda a otros compradores.</p>
+                                    <form method="post" t-att-action="'/marketplace/compras/%s/calificar' % tx.uuid_ref"
+                                          style="width:100%;">
+                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                        <div class="s-star-input" style="justify-content:center;">
+                                            <t t-foreach="[5,4,3,2,1]" t-as="star">
+                                                <input type="radio" name="rating" t-att-value="star"
+                                                       t-att-id="'ts_%s_%s' % (tx.id, star)" t-att-checked="star == 5"/>
+                                                <label t-att-for="'ts_%s_%s' % (tx.id, star)"><i class="fa fa-star"></i></label>
+                                            </t>
+                                        </div>
+                                        <textarea class="form-control mt-3" name="comment" rows="3"
+                                                  placeholder="Deja un comentario (opcional)" style="width:100%;"></textarea>
+                                        <div class="mt-3">
+                                            <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-star me-1"></i> Enviar calificación</button>
+                                        </div>
+                                    </form>
+                                </t>
+                                <t t-else="">
+                                    <h4 style="font-weight:800; margin:0 0 8px;">Ya calificaste a <t t-esc="tx.seller_partner_id.name"/></h4>
+                                    <div class="s-rating" style="justify-content:center; font-size:22px;">
+                                        <t t-foreach="range(1,6)" t-as="i"><i t-att-class="'fa fa-star' + ('' if i &lt;= my_review.rating else ' s-rating-empty')"></i></t>
+                                    </div>
+                                    <t t-if="my_review.comment"><p class="text-soft" style="margin:10px 0 0; font-size:var(--fs-sm);">“<t t-esc="my_review.comment"/>”</p></t>
+                                </t>
+                            </div>
+                        </div>
+                    </t>
+
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <template id="check_request_thanks" name="Solicitud de chequeo creada">
+        <t t-call="website.layout">
+            <style>
+              .chk-thanks .mp-spec-grid{ grid-template-columns: 1fr; }
+              .chk-thanks .mp-spec-value{ white-space: normal; }
+              .chk-thanks .mp-spec{ background: var(--shrimp-bg-alt); }
+              .chk-thanks .mp-spec:hover{ box-shadow: none; border-color: var(--shrimp-border); }
+              .chk-thanks .mp-spec-ico{ background: #fff; }
+            </style>
+            <div class="shrimp-bg">
+                <div class="shrimp-page chk-thanks py-4" style="max-width:1040px;">
+
+                    <!-- Encabezado -->
+                    <div class="text-center mb-4">
+                        <div
+                            class="mx-auto mb-3 d-flex align-items-center justify-content-center"
+                            style="width:78px; height:78px; border-radius:50%; background:rgba(46,158,107,.10); color:#1f7d56; font-size:34px;">
+                            <i class="fa fa-check"></i>
+                        </div>
+
+                        <div class="s-eyebrow">Marketplace</div>
+                        <h1 class="s-list-title">Solicitud de chequeo enviada</h1>
+                        <p class="s-list-sub" style="max-width:560px; margin:6px auto 0;">
+                            Tu pago fue procesado y la solicitud quedó registrada. Reservamos la
+                            cantidad indicada y notificamos a las partes involucradas.
+                        </p>
+                        <div class="s-badges mt-3" style="display:flex; gap:8px; justify-content:center;">
+                            <span class="s-badge s-badge--green"><i class="fa fa-lock me-1"></i> Pago confirmado</span>
+                            <span class="s-badge s-badge--teal"><i class="fa fa-cube me-1"></i> Cantidad reservada</span>
+                        </div>
+                    </div>
+
+                    <div class="row g-4">
+                    <!-- Detalle de la solicitud -->
+                    <div class="col-lg-7">
+                    <div class="mp-table-card h-100">
+                        <div class="card-body p-4">
+                            <div class="mp-sec-head">
+                                <span class="mp-sec-ico"><i class="fa fa-file-text-o"></i></span>
+                                <h3 class="mp-sec-title">Detalle de la solicitud</h3>
+                                <span class="s-badge mp-sec-count">
+                                    <t t-esc="dict(check_request._fields['state'].selection).get(check_request.state)" />
+                                </span>
+                            </div>
+                            <div class="mp-spec-grid">
+                                <div class="mp-spec">
+                                    <span class="mp-spec-ico"><i class="fa fa-hashtag"></i></span>
+                                    <div class="mp-spec-body">
+                                        <div class="mp-spec-label">Referencia</div>
+                                        <div class="mp-spec-value"><t t-esc="check_request.name" /></div>
+                                    </div>
+                                </div>
+                                <div class="mp-spec">
+                                    <span class="mp-spec-ico"><i class="fa fa-cube"></i></span>
+                                    <div class="mp-spec-body">
+                                        <div class="mp-spec-label">Producto</div>
+                                        <div class="mp-spec-value"><t t-esc="check_request.product_id.name" /></div>
+                                    </div>
+                                </div>
+                                <div class="mp-spec">
+                                    <span class="mp-spec-ico"><i class="fa fa-cubes"></i></span>
+                                    <div class="mp-spec-body">
+                                        <div class="mp-spec-label">Cantidad reservada</div>
+                                        <div class="mp-spec-value"><t t-esc="check_request.qty" /> <t t-esc="check_request.uom_id.name" /></div>
+                                    </div>
+                                </div>
+                                <div class="mp-spec">
+                                    <span class="mp-spec-ico"><i class="fa fa-search"></i></span>
+                                    <div class="mp-spec-body">
+                                        <div class="mp-spec-label">Costo del chequeo</div>
+                                        <div class="mp-spec-value">$<t t-esc="'%.2f' % check_request.check_fee" /></div>
+                                    </div>
+                                </div>
+                                <div class="mp-spec">
+                                    <span class="mp-spec-ico"><i class="fa fa-user-o"></i></span>
+                                    <div class="mp-spec-body">
+                                        <div class="mp-spec-label">Vendedor</div>
+                                        <div class="mp-spec-value"><t t-esc="check_request.seller_partner_id.name" /></div>
+                                    </div>
+                                </div>
+                                <div class="mp-spec">
+                                    <span class="mp-spec-ico"><i class="fa fa-user"></i></span>
+                                    <div class="mp-spec-body">
+                                        <div class="mp-spec-label">Comprador</div>
+                                        <div class="mp-spec-value"><t t-esc="check_request.buyer_partner_id.name" /></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    </div>
+
+                    <!-- ¿Qué sigue? -->
+                    <div class="col-lg-5">
+                    <div class="mp-table-card h-100">
+                        <div class="card-body p-4">
+                            <div class="mp-sec-head">
+                                <span class="mp-sec-ico"><i class="fa fa-list-ul"></i></span>
+                                <h3 class="mp-sec-title">¿Qué sigue?</h3>
+                            </div>
+                            <ol style="font-size:14px; color:var(--shrimp-ink-soft); padding-left:18px; margin:0;">
+                                <li>La cantidad quedó <strong>reservada</strong> para tu solicitud.</li>
+                                <li>Enviaremos un equipo a <strong>verificar el producto</strong> publicado.</li>
+                                <li>El comprador y el vendedor reciben una notificación por correo.</li>
+                                <li>Según el resultado, la solicitud se aprueba o se rechaza.</li>
+                            </ol>
+                        </div>
+                    </div>
+                    </div>
+                    </div>
+
+
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <template id="marketplace_calendar" name="Marketplace - Calendario">
+        <t t-call="website.layout">
+            <div class="shrimp-bg">
+                <div class="shrimp-page py-4">
+
+                    <!-- Banner -->
+                    <div class="sf-banner mb-4">
+                        <div class="sf-banner-row">
+                            <div class="sf-banner-txt">
+                                <h1>Calendario de entregas</h1>
+                                <p>Productos distribuidos por fecha tentativa de entrega.</p>
+                            </div>
+                            <span class="sf-kicker"><i class="fa fa-calendar"></i> Entregas</span>
+                        </div>
+                    </div>
+
+                    <!-- Card principal -->
+                    <div class="mp-table-card">
+                        <div class="card-body p-4">
+
+                            <!-- Toolbar: alternar vista + navegación -->
+                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                                <div class="d-flex gap-2">
+                                    <button id="viewCal" type="button" class="s-btn s-btn-primary btn-sm">
+                                        <i class="fa fa-calendar me-1"></i> Calendario
+                                    </button>
+                                    <button id="viewList" type="button" class="s-btn s-btn-ghost btn-sm">
+                                        <i class="fa fa-list-ul me-1"></i> Lista
+                                    </button>
+                                </div>
+                                <div id="calNav" class="d-flex align-items-center gap-2">
+                                    <button id="calPrev" type="button" class="s-btn s-btn-ghost btn-sm">
+                                        <i class="fa fa-chevron-left"></i>
+                                    </button>
+                                    <button id="calToday" type="button" class="s-btn s-btn-ghost btn-sm">Hoy</button>
+                                    <button id="calNext" type="button" class="s-btn s-btn-ghost btn-sm">
+                                        <i class="fa fa-chevron-right"></i>
+                                    </button>
+                                    <span id="calTitle" style="font-weight:800; margin-left:8px; letter-spacing:-.01em;"></span>
+                                </div>
+                            </div>
+
+                            <!-- Vista calendario -->
+                            <div id="calCalView">
+                            <div class="rounded-4 overflow-hidden"
+                                style="border:1px solid rgba(0,0,0,.06); background:#fff;">
+                                <!-- encabezado días -->
+                                <div class="d-grid"
+                                    style="grid-template-columns: repeat(7, 1fr); background:rgba(0,0,0,.02); border-bottom:1px solid rgba(0,0,0,.06);">
+                                    <t t-foreach="['Lun','Mar','Mié','Jue','Vie','Sáb','Dom']"
+                                        t-as="d">
+                                        <div class="p-2 text-muted"
+                                            style="font-size:12px; font-weight:800;">
+                                            <t t-esc="d" />
+                                        </div>
+                                    </t>
+                                </div>
+
+                                <!-- body -->
+                                <div id="calGrid" class="d-grid"
+                                    style="grid-template-columns: repeat(7, 1fr);"></div>
+                            </div>
+                            </div>
+
+                            <!-- Vista lista -->
+                            <div id="calListView" class="d-none"></div>
+
+                            <!-- Empty / error -->
+                            <div id="calMsg" class="mt-3 d-none"></div>
+
+                        </div>
+                    </div>
+
+                    <script type="text/javascript">
+          <![CDATA[
+          (function () {
+
+            function pad2(n){ return String(n).padStart(2,'0'); }
+            function ymd(d){
+              return d.getFullYear() + "-" + pad2(d.getMonth()+1) + "-" + pad2(d.getDate());
+            }
+            function monthTitle(d){
+              const months = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+              return months[d.getMonth()] + " " + d.getFullYear();
+            }
+
+            async function loadEvents() {
+              const payload = {
+                jsonrpc: "2.0",
+                method: "call",
+                params: {},
+                id: Date.now(),
+              };
+
+              const r = await fetch("/marketplace/calendar/events", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+                credentials: "same-origin",
+              });
+
+              const data = await r.json();
+              if (data.error) {
+                throw new Error(data.error.data?.message || data.error.message || "Error RPC");
+              }
+              return data.result || [];
+            }
+
+
+            function showMsg(html, kind){
+              const box = document.getElementById("calMsg");
+              box.classList.remove("d-none");
+              box.innerHTML =
+                '<div class="alert alert-' + (kind || 'warning') + ' py-2 mb-0" style="border-radius:14px;">' +
+                html + '</div>';
+            }
+
+            function buildIndex(events){
+              const byDate = {};
+              (events || []).forEach(e => {
+                const d = (e.start || "").slice(0,10);
+                if (!d) return;
+                byDate[d] = byDate[d] || [];
+                byDate[d].push(e);
+              });
+              return byDate;
+            }
+
+            function renderMonth(viewDate, byDate){
+              const grid = document.getElementById("calGrid");
+              const title = document.getElementById("calTitle");
+              grid.innerHTML = "";
+              title.textContent = monthTitle(viewDate);
+
+              // calendario Lunes=0 ... Domingo=6
+              const first = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
+              const last  = new Date(viewDate.getFullYear(), viewDate.getMonth()+1, 0);
+
+              // convertir JS getDay (Dom=0) a (Lun=0)
+              const firstDow = (first.getDay() + 6) % 7;
+              const daysInMonth = last.getDate();
+
+              const totalCells = Math.ceil((firstDow + daysInMonth)/7) * 7;
+
+              const todayStr = ymd(new Date());
+
+              for (let cell=0; cell<totalCells; cell++){
+                const dayNum = cell - firstDow + 1;
+                const inMonth = dayNum >= 1 && dayNum <= daysInMonth;
+
+                const cellDate = new Date(viewDate.getFullYear(), viewDate.getMonth(), dayNum);
+                const dateStr = inMonth ? ymd(cellDate) : "";
+
+                const wrap = document.createElement("div");
+                wrap.className = "p-2";
+                wrap.style.minHeight = "110px";
+                wrap.style.borderRight = "1px solid rgba(0,0,0,.06)";
+                wrap.style.borderBottom = "1px solid rgba(0,0,0,.06)";
+                wrap.style.background = inMonth ? "#fff" : "rgba(0,0,0,.015)";
+
+                // marcador hoy
+                if (inMonth && dateStr === todayStr){
+                  wrap.style.boxShadow = "inset 0 0 0 2px rgba(18,62,92,.25)";
+                  wrap.style.borderRadius = "10px";
+                }
+
+                if (!inMonth){
+                  grid.appendChild(wrap);
+                  continue;
+                }
+
+                const header = document.createElement("div");
+                header.className = "d-flex justify-content-between align-items-center mb-1";
+                header.innerHTML =
+                  '<div style="font-weight:900; font-size:13px;">' + dayNum + '</div>';
+
+                const items = byDate[dateStr] || [];
+                if (items.length){
+                  const badge = document.createElement("span");
+                  badge.className = "badge rounded-pill text-bg-light border";
+                  badge.style.fontWeight = "900";
+                  badge.textContent = items.length;
+                  header.appendChild(badge);
+                }
+
+                wrap.appendChild(header);
+
+                // lista eventos (máx 3 + "ver más")
+                const list = document.createElement("div");
+                list.className = "d-grid gap-1";
+
+                const maxShow = 3;
+                items.slice(0, maxShow).forEach(ev => {
+                  const a = document.createElement("a");
+                  a.href = ev.url || "#";
+                  a.className = "text-decoration-none";
+                  a.style.display = "block";
+
+                  a.innerHTML =
+                    '<div class="px-2 py-1 rounded-3" ' +
+                      'style="border:1px solid rgba(18,62,92,.12); background:rgba(18,62,92,.06); font-size:12px;">' +
+                      '<div style="font-weight:900; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' +
+                        (ev.meta?.name || ev.title || 'Producto') +
+                      '</div>' +
+                      '<div class="text-muted" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' +
+                        (ev.meta?.stage ? (ev.meta.stage + ' • ') : '') +
+                        (ev.meta?.seller || '') +
+                      '</div>' +
+                    '</div>';
+
+                  list.appendChild(a);
+                });
+
+                if (items.length > maxShow){
+                  const more = document.createElement("div");
+                  more.className = "text-muted";
+                  more.style.fontSize = "12px";
+                  more.textContent = "+" + (items.length - maxShow) + " más";
+                  list.appendChild(more);
+                }
+
+                wrap.appendChild(list);
+                grid.appendChild(wrap);
+              }
+            }
+
+            function renderList(byDate){
+              const host = document.getElementById("calListView");
+              host.innerHTML = "";
+              const dates = Object.keys(byDate).sort();
+              if(!dates.length){ return; }
+              dates.forEach(function(d){
+                const items = byDate[d];
+                const sec = document.createElement("div");
+                sec.className = "mb-3";
+                let html = '<div class="s-filter-sec-label" style="margin-bottom:8px;"><i class="fa fa-calendar"></i> ' + d + ' · ' + items.length + ' producto(s)</div>';
+                items.forEach(function(ev){
+                  const m = ev.meta || {};
+                  html +=
+                    '<a href="' + (ev.url || '#') + '" class="mp-table-card" style="display:flex; justify-content:space-between; gap:12px; align-items:center; padding:12px 16px; margin-bottom:8px; text-decoration:none;">' +
+                      '<div style="min-width:0;">' +
+                        '<div style="font-weight:800; color:var(--shrimp-ink);">' + (m.name || ev.title || 'Producto') + '</div>' +
+                        '<div class="text-faint" style="font-size:13px;">' + (m.stage ? (m.stage + ' • ') : '') + (m.seller || '') + (m.location ? (' • ' + m.location) : '') + '</div>' +
+                      '</div>' +
+                      '<div class="text-end" style="white-space:nowrap;">' +
+                        '<div style="font-weight:800;">' + (m.qty != null ? m.qty : '') + ' ' + (m.uom || '') + '</div>' +
+                        '<div class="text-faint" style="font-size:13px;">' + (m.price != null ? ('$' + m.price) : '') + '</div>' +
+                      '</div>' +
+                    '</a>';
+                });
+                sec.innerHTML = html;
+                host.appendChild(sec);
+              });
+            }
+
+            function setupViewToggle(){
+              const vc = document.getElementById("viewCal");
+              const vl = document.getElementById("viewList");
+              const calView = document.getElementById("calCalView");
+              const listView = document.getElementById("calListView");
+              const nav = document.getElementById("calNav");
+              function setView(cal){
+                calView.classList.toggle("d-none", !cal);
+                listView.classList.toggle("d-none", cal);
+                nav.style.display = cal ? "" : "none";
+                vc.classList.toggle("s-btn-primary", cal); vc.classList.toggle("s-btn-ghost", !cal);
+                vl.classList.toggle("s-btn-primary", !cal); vl.classList.toggle("s-btn-ghost", cal);
+              }
+              vc.addEventListener("click", function(){ setView(true); });
+              vl.addEventListener("click", function(){ setView(false); });
+            }
+
+            document.addEventListener("DOMContentLoaded", async function () {
+              let viewDate = new Date();
+              viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
+
+              try {
+                const events = await loadEvents();
+                const byDate = buildIndex(events);
+
+                if (!events || !events.length){
+                  showMsg("No hay productos publicados con <b>fecha tentativa de entrega</b> (expected_delivery_date).", "info");
+                }
+
+                renderMonth(viewDate, byDate);
+                renderList(byDate);
+                setupViewToggle();
+
+                document.getElementById("calPrev").addEventListener("click", () => {
+                  viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth()-1, 1);
+                  renderMonth(viewDate, byDate);
+                });
+                document.getElementById("calNext").addEventListener("click", () => {
+                  viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth()+1, 1);
+                  renderMonth(viewDate, byDate);
+                });
+                document.getElementById("calToday").addEventListener("click", () => {
+                  const now = new Date();
+                  viewDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                  renderMonth(viewDate, byDate);
+                });
+
+              } catch (e) {
+                console.error(e);
+                showMsg("No se pudieron cargar los eventos del calendario. Revisa el endpoint <code>/marketplace/calendar/events</code>.", "danger");
+              }
+            });
+
+          })();
+          ]]>
+          </script>
+
+                </div>
+            </div>
+        </t>
+    </template>
+</odoo>

@@ -1,0 +1,120 @@
+<odoo>
+  <record id="view_partner_form_inherit_shrimp" model="ir.ui.view">
+    <field name="name">res.partner.form.shrimp</field>
+    <field name="model">res.partner</field>
+    <field name="inherit_id" ref="base.view_partner_form"/>
+    <field name="arch" type="xml">
+
+      <xpath expr="//sheet/notebook" position="inside">
+
+        <!-- ========================= -->
+        <!-- PESTAÑA 1: INFORMACIÓN    -->
+        <!-- ========================= -->
+        <page string="Información Camaronera" name="shrimp_tab" groups="base.group_user">
+
+          <group string="Perfil" col="2">
+            <field name="shrimp_user_type" widget="radio"/>
+            <field name="vat_or_id" placeholder="RUC o Cédula"/>
+          </group>
+
+          <group col="2">
+
+            <group string="Datos de Laboratorio" invisible="shrimp_user_type != 'laboratorio'">
+              <field name="lab_razon_social" placeholder="Ej. Laboratorio XYZ S.A."/>
+              <field name="lab_ubicacion" placeholder="Ej. Durán, Guayas"/>
+              <field name="lab_global_gap"/>
+              <field name="lab_social_ship_partner"/>
+            </group>
+
+            <group string="Datos de Camaronera" invisible="shrimp_user_type != 'camaronera'">
+              <field name="farm_razon_social" placeholder="Ej. Camaronera ABC S.A."/>
+              <field name="farm_representante"/>
+              <field name="farm_telefono"/>
+              <field name="farm_ubicacion" placeholder="Ej. Santa Elena"/>
+              <field name="farm_capacidad"/>
+              <field name="farm_area_ha"/>
+            </group>
+
+          </group>
+
+          <group string="Datos de Semillero" invisible="shrimp_user_type != 'semillero'">
+            <group col="2">
+              <field name="sem_photo_attachment_ids" widget="many2many_binary" string="Fotos"/>
+              <field name="sem_facility_photo_attachment_ids" widget="many2many_binary" string="Fotos de instalaciones"/>
+            </group>
+          </group>
+
+        </page>
+
+        <!-- ========================= -->
+        <!-- PESTAÑA 2: CERTIFICADOS   -->
+        <!-- ========================= -->
+        <page string="Certificados" name="shrimp_certificates_tab" groups="base.group_user">
+
+          <group>
+            <field name="certificate_line_ids"
+                   nolabel="1"
+                   context="{'default_partner_id': id}">
+
+              <list editable="bottom">
+                <field name="certificate_id"
+                       required="1"
+                       options="{'no_open': True, 'no_create': True, 'no_edit': True}"/>
+                <field name="issuer" readonly="1"/>
+                <field name="certificate_number"/>
+                <field name="issue_date"/>
+                <field name="expiry_date"/>
+                <field name="status"/>
+                <field name="file_attachment_id"
+                       string="Archivo"
+                       options="{'no_open': True, 'no_create': True, 'no_edit': True}"/>
+                <button name="action_open_attachment"
+                        type="object"
+                        string="Ver archivo"
+                        class="btn-link"
+                        icon="fa-download"
+                        invisible="not file_attachment_id"/>
+              </list>
+
+              <form string="Certificado">
+                <sheet>
+                  <group col="2">
+                    <field name="partner_id" invisible="1"/>
+                    <field name="certificate_id"
+                           required="1"
+                           options="{'no_open': True, 'no_create': True, 'no_edit': True}"/>
+                    <field name="issuer" readonly="1"/>
+                    <field name="status"/>
+                  </group>
+
+                  <group col="2" string="Datos del certificado">
+                    <field name="certificate_number"/>
+                    <field name="file_attachment_id"
+                           required="1"
+                           string="Archivo"
+                           options="{'no_open': True, 'no_create': True, 'no_edit': True}"/>
+                    <field name="issue_date"/>
+                    <field name="expiry_date"/>
+                  </group>
+
+                  <group>
+                    <button name="action_open_attachment"
+                            type="object"
+                            string="Visualizar / Descargar archivo"
+                            class="btn-primary"
+                            icon="fa-download"
+                            invisible="not file_attachment_id"/>
+                  </group>
+                </sheet>
+              </form>
+
+            </field>
+          </group>
+
+        </page>
+
+      </xpath>
+
+    </field>
+  </record>
+</odoo>

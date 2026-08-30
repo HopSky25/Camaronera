@@ -1,0 +1,40 @@
+<odoo>
+  <!-- Convierte el menú "Mi panel" de la barra superior en un DROPDOWN real -->
+  <template id="submenu_mi_panel_dropdown" inherit_id="website.submenu" name="Mi panel dropdown">
+
+    <!-- 1) No renderizar el enlace plano para "Mi panel" (lo sustituye el dropdown) -->
+    <xpath expr="//li[1]" position="attributes">
+      <attribute name="t-if">submenu.is_visible and not (submenu.child_id or submenu.is_mega_menu) and submenu.name != 'Mi panel'</attribute>
+    </xpath>
+
+    <!-- 2) Insertar el dropdown de "Mi panel" -->
+    <xpath expr="//li[1]" position="before">
+      <li t-if="submenu.is_visible and submenu.name == 'Mi panel'"
+          t-attf-class="#{item_class or ''} dropdown" role="presentation">
+        <a href="#"
+           t-attf-class="dropdown-toggle #{link_class or ''} #{submenu._is_active() and 'active'} #{dropdown_toggler_classes}"
+           data-bs-toggle="dropdown" data-bs-auto-close="outside" role="menuitem">
+          <span t-field="submenu.name"/>
+        </a>
+        <ul t-attf-class="dropdown-menu mp-menu #{dropdown_menu_classes}" role="menu">
+          <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace/products/new"><span class="mp-menu-ico mp-mi-green"><i class="fa fa-plus-circle"/></span><span>Publicar producto</span></a></li>
+          <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace/products"><span class="mp-menu-ico mp-mi-blue"><i class="fa fa-cubes"/></span><span>Mis productos</span></a></li>
+          <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace"><span class="mp-menu-ico mp-mi-teal"><i class="fa fa-shopping-bag"/></span><span>Marketplace</span></a></li>
+          <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace/mis-lotes"><span class="mp-menu-ico mp-mi-blue"><i class="fa fa-flask"/></span><span>Mi inventario</span></a></li>
+          <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace/mis-instalaciones"><span class="mp-menu-ico mp-mi-teal"><i class="fa fa-map-o"/></span><span>Instalaciones y piscinas</span></a></li>
+          <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace/solicitudes"><span class="mp-menu-ico mp-mi-amber"><i class="fa fa-check-square-o"/></span><span>Solicitudes de chequeo</span></a></li>
+          <li><hr class="dropdown-divider"/></li>
+          <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace/compras"><span class="mp-menu-ico mp-mi-blue"><i class="fa fa-shopping-cart"/></span><span>Historial de compras</span></a></li>
+          <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace/ventas"><span class="mp-menu-ico mp-mi-green"><i class="fa fa-line-chart"/></span><span>Ventas realizadas</span></a></li>
+          <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace/planificacion"><span class="mp-menu-ico mp-mi-teal"><i class="fa fa-tasks"/></span><span>Planificación</span></a></li>
+          <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace/reportes"><span class="mp-menu-ico mp-mi-green"><i class="fa fa-bar-chart"/></span><span>Mis reportes</span></a></li>
+          <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace/calendar"><span class="mp-menu-ico mp-mi-amber"><i class="fa fa-calendar"/></span><span>Calendario de entregas</span></a></li>
+          <li><hr class="dropdown-divider"/></li>
+          <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace/mi-cuenta"><span class="mp-menu-ico mp-mi-coral"><i class="fa fa-user-o"/></span><span>Mi cuenta y certificados</span></a></li>
+          <li><a role="menuitem" class="dropdown-item mp-menu-item fw-semibold" href="/my"><span class="mp-menu-ico mp-mi-navy"><i class="fa fa-th-large"/></span><span>Ver panel completo</span></a></li>
+        </ul>
+      </li>
+    </xpath>
+
+  </template>
+</odoo>

@@ -1,0 +1,43 @@
+<odoo>
+
+    <!-- ============================================================ -->
+    <!-- Componentes reutilizables (homogeneidad en todas las vistas) -->
+    <!-- ============================================================ -->
+
+    <!-- Botón "Volver" estándar.
+         Vuelve a la página anterior (history.back) con fallback configurable.
+         Uso:
+           <t t-call="shrimp_marketplace.s_back_button"/>
+           <t t-call="shrimp_marketplace.s_back_button"><t t-set="back_fallback" t-value="'/my'"/></t>
+    -->
+    <template id="s_back_button" name="Botón Volver">
+        <a t-att-href="back_fallback or '/marketplace'"
+           class="s-back"
+           onclick="if(window.history.length&gt;1){event.preventDefault();history.back();}">
+            <i class="fa fa-arrow-left"></i>
+            <span>Volver</span>
+        </a>
+    </template>
+
+    <!-- Encabezado de página estándar.
+         Uso:
+           <t t-call="shrimp_marketplace.s_page_header">
+               <t t-set="page_h_title" t-value="'Mis productos'"/>
+               <t t-set="page_h_sub" t-value="'Gestiona tus publicaciones.'"/>
+               <t t-set="back_fallback" t-value="'/my'"/>
+           </t>
+    -->
+    <template id="s_page_header" name="Encabezado de página">
+        <div class="mb-3">
+            <t t-call="shrimp_marketplace.s_back_button"/>
+        </div>
+        <div class="s-page-header">
+            <div>
+                <h1><t t-esc="page_h_title"/></h1>
+                <div class="s-page-sub" t-if="page_h_sub"><t t-esc="page_h_sub"/></div>
+            </div>
+            <t t-out="0"/>
+        </div>
+    </template>
+
+</odoo>

@@ -1,0 +1,151 @@
+<odoo>
+  <data>
+
+    <!-- ===================== -->
+    <!-- SEARCH                -->
+    <!-- ===================== -->
+    <record id="view_shrimp_certificate_search" model="ir.ui.view">
+      <field name="name">shrimp.certificate.search</field>
+      <field name="model">shrimp.certificate</field>
+      <field name="arch" type="xml">
+        <search string="Buscar certificados">
+          <field name="name" />
+          <field name="issuer" />
+          <field name="code" />
+          <field name="duration_value" />
+
+          <separator />
+
+          <filter string="Activos" name="active" domain="[('active','=',True)]" />
+          <filter string="Inactivos" name="inactive" domain="[('active','=',False)]" />
+
+          <separator />
+
+          <filter string="Requiere expiración" name="expires_required"
+            domain="[('expires_required','=',True)]" />
+          <filter string="Sin expiración" name="no_expiry" domain="[('expires_required','=',False)]" />
+
+          <separator />
+
+          <filter string="Semillero" name="role_semillero" domain="[('role','=','semillero')]" />
+          <filter string="Laboratorio" name="role_laboratorio" domain="[('role','=','laboratorio')]" />
+          <filter string="Camaronera" name="role_camaronera" domain="[('role','=','camaronera')]" />
+          <filter string="Todos" name="role_all" domain="[('role','=','all')]" />
+          <!-- 
+          <group expand="0" string="Agrupar por">
+            <filter string="Tipo" name="grp_type" context="{'group_by':'certificate_type'}"/>
+            <filter string="Aplica a" name="grp_role" context="{'group_by':'role'}"/>
+            <filter string="Entidad" name="grp_issuer" context="{'group_by':'issuer'}"/>
+            <filter string="Período" name="grp_period" context="{'group_by':'duration_period'}"/>
+          </group> -->
+        </search>
+      </field>
+    </record>
+
+    <!-- ===================== -->
+    <!-- LIST                  -->
+    <!-- ===================== -->
+    <record id="view_shrimp_certificate_tree" model="ir.ui.view">
+      <field name="name">shrimp.certificate.list</field>
+      <field name="model">shrimp.certificate</field>
+      <field name="arch" type="xml">
+        <list string="Certificados" default_order="sequence asc, name asc"
+          decoration-muted="not active">
+          <field name="sequence" optional="hide" />
+          <field name="name" />
+          <field name="issuer" />
+          <field name="certificate_type" widget="badge" string="Tipo" />
+          <field name="role" widget="badge" string="Aplica a" />
+          <field name="code" optional="show" />
+          <field name="expires_required" widget="boolean_toggle" string="Expira" />
+          <field name="duration_value" string="Duración" optional="show" />
+          <field name="duration_period" string="Período" optional="show" />
+          <field name="active" widget="boolean_toggle" optional="hide" />
+        </list>
+      </field>
+    </record>
+
+    <!-- ===================== -->
+    <!-- FORM                  -->
+    <!-- ===================== -->
+    <record id="view_shrimp_certificate_form" model="ir.ui.view">
+      <field name="name">shrimp.certificate.form</field>
+      <field name="model">shrimp.certificate</field>
+      <field name="arch" type="xml">
+        <form string="Certificado">
+          <header>
+            <field name="active" widget="boolean_toggle" />
+          </header>
+
+          <sheet>
+            <div class="oe_title">
+              <h1>
+                <field name="name" required="1" placeholder="Ej: GLOBALG.A.P." />
+              </h1>
+            </div>
+
+            <group col="4">
+              <field name="issuer" required="1" placeholder="Ej: Organismo certificador" />
+              <field name="certificate_type" />
+              <field name="role" />
+              <field name="code" placeholder="Ej: ISO 22000, HACCP..." />
+            </group>
+
+            <group string="Reglas" col="4">
+              <field name="expires_required" />
+              <field name="duration_value"
+                required="expires_required"
+                invisible="not expires_required" />
+
+              <field name="duration_period"
+                required="expires_required"
+                invisible="not expires_required" />
+              <field name="sequence" />
+            </group>
+
+            <group string="Descripción">
+              <field name="description" nolabel="1"
+                placeholder="Describe el alcance, requisitos o notas del certificado." />
+            </group>
+          </sheet>
+
+          <chatter>
+            <field name="message_follower_ids" />
+            <field name="activity_ids" />
+            <field name="message_ids" />
+          </chatter>
+        </form>
+      </field>
+    </record>
+
+    <!-- ===================== -->
+    <!-- ACTION WINDOW         -->
+    <!-- ===================== -->
+    <record id="action_shrimp_certificate_catalog" model="ir.actions.act_window">
+      <field name="name">Certificados</field>
+      <field name="res_model">shrimp.certificate</field>
+      <field name="view_mode">list,form</field>
+      <field name="search_view_id" ref="view_shrimp_certificate_search" />
+      <field name="context">{'search_default_active': 1}</field>
+      <field name="help" type="html">
+        <p class="o_view_nocontent_smiling_face">
+          Crea el catálogo de certificados aplicables a semilleros, laboratorios y camaroneras.
+        </p>
+      </field>
+    </record>
+
+    <!-- ===================== -->
+    <!-- MENÚS EN CONTACTOS    -->
+    <!-- ===================== -->
+
+    <!-- Menú padre en Configuración de Contactos -->
+    <menuitem
+      id="menu_shrimp_certificate_catalog"
+      name="Certificados"
+      parent="contacts.menu_contacts"
+      action="action_shrimp_certificate_catalog"
+      sequence="80"
+      groups="base.group_system" />
+
+  </data>
+</odoo>

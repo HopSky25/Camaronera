@@ -1,0 +1,1299 @@
+<odoo>
+
+    <!-- ============================================================ -->
+    <!-- 1) MI PERFIL / MIS DATOS                                     -->
+    <!-- ============================================================ -->
+    <template id="my_account" name="Marketplace - Mi cuenta">
+        <t t-call="website.layout">
+            <div class="shrimp-bg">
+                <div class="shrimp-page py-4" style="max-width:980px;">
+
+                    <!-- Banner -->
+                    <div class="sf-banner mb-4">
+                        <div class="sf-banner-row">
+                            <div class="sf-banner-txt">
+                                <h1>Mi cuenta</h1>
+                                <p>Actualiza tus datos de contacto y la información de tu empresa.</p>
+                            </div>
+                            <span class="sf-kicker"><i class="fa fa-user-o"></i> Perfil</span>
+                        </div>
+                    </div>
+
+                    <t t-if="saved">
+                        <div class="alert alert-success" style="border-radius:14px;">Cambios guardados correctamente.</div>
+                    </t>
+                    <t t-if="error == 'email'">
+                        <div class="alert alert-danger" style="border-radius:14px;">El correo no tiene un formato válido.</div>
+                    </t>
+                    <t t-if="error == 'duplicate'">
+                        <div class="alert alert-danger" style="border-radius:14px;">No se pudo guardar: el correo ya está en uso por otra cuenta.</div>
+                    </t>
+
+                    <form method="post" action="/marketplace/mi-cuenta/guardar">
+                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+
+                        <div class="mp-table-card mb-4">
+                            <div class="card-body p-4">
+                                <div class="mp-sec-head">
+                                    <span class="mp-sec-ico"><i class="fa fa-id-card-o"></i></span>
+                                    <h3 class="mp-sec-title">Datos básicos</h3>
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted">Nombre</label>
+                                        <input class="form-control" type="text" t-att-value="partner.name" readonly="readonly"/>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted">RUC / Cédula</label>
+                                        <input class="form-control" type="text" t-att-value="partner.vat_or_id" readonly="readonly"/>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted">Correo</label>
+                                        <input class="form-control" type="email" name="email" t-att-value="partner.email or ''"/>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted">Teléfono</label>
+                                        <input class="form-control" type="text" name="phone" t-att-value="partner.phone or ''"/>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted">Ciudad</label>
+                                        <input class="form-control" type="text" name="city" t-att-value="partner.city or ''"/>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted">Tipo de usuario</label>
+                                        <input class="form-control" type="text"
+                                            t-att-value="dict(partner._fields['shrimp_user_type'].selection).get(partner.shrimp_user_type) or '—'"
+                                            readonly="readonly"/>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Laboratorio -->
+                        <t t-if="partner.shrimp_user_type == 'laboratorio'">
+                            <div class="mp-table-card mb-4">
+                                <div class="card-body p-4">
+                                    <div class="mp-sec-head">
+                                        <span class="mp-sec-ico"><i class="fa fa-flask"></i></span>
+                                        <h3 class="mp-sec-title">Datos del laboratorio</h3>
+                                    </div>
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label small text-muted">Razón social</label>
+                                            <input class="form-control" type="text" name="lab_razon_social" t-att-value="partner.lab_razon_social or ''"/>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label small text-muted">Ubicación</label>
+                                            <input class="form-control" type="text" name="lab_ubicacion" t-att-value="partner.lab_ubicacion or ''"/>
+                                        </div>
+                                        <div class="col-md-6 d-flex gap-4 align-items-center mt-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" name="lab_global_gap" id="lab_global_gap"
+                                                    t-att-checked="partner.lab_global_gap and 'checked' or None"/>
+                                                <label class="form-check-label" for="lab_global_gap">GlobalG.A.P.</label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" name="lab_social_ship_partner" id="lab_ssp"
+                                                    t-att-checked="partner.lab_social_ship_partner and 'checked' or None"/>
+                                                <label class="form-check-label" for="lab_ssp">Social Ship Partner</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </t>
+
+                        <!-- Camaronera -->
+                        <t t-if="partner.shrimp_user_type == 'camaronera'">
+                            <div class="mp-table-card mb-4">
+                                <div class="card-body p-4">
+                                    <div class="mp-sec-head">
+                                        <span class="mp-sec-ico"><i class="fa fa-industry"></i></span>
+                                        <h3 class="mp-sec-title">Datos de la camaronera</h3>
+                                    </div>
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label small text-muted">Razón social</label>
+                                            <input class="form-control" type="text" name="farm_razon_social" t-att-value="partner.farm_razon_social or ''"/>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label small text-muted">Representante legal</label>
+                                            <input class="form-control" type="text" name="farm_representante" t-att-value="partner.farm_representante or ''"/>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label small text-muted">Teléfono</label>
+                                            <input class="form-control" type="text" name="farm_telefono" t-att-value="partner.farm_telefono or ''"/>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label small text-muted">Ubicación</label>
+                                            <input class="form-control" type="text" name="farm_ubicacion" t-att-value="partner.farm_ubicacion or ''"/>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label small text-muted">Capacidad (ton/año)</label>
+                                            <input class="form-control" type="number" step="0.01" min="0" name="farm_capacidad" t-att-value="partner.farm_capacidad or ''"/>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label small text-muted">Área (ha)</label>
+                                            <input class="form-control" type="number" step="0.01" min="0" name="farm_area_ha" t-att-value="partner.farm_area_ha or ''"/>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </t>
+
+                        <div class="d-flex flex-wrap gap-2">
+                            <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-check me-1"></i> Guardar cambios</button>
+                            <a class="s-btn s-btn-ghost" href="/marketplace/mis-certificados"><i class="fa fa-certificate me-1"></i> Mis certificados</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <!-- ============================================================ -->
+    <!-- 2) MIS CERTIFICADOS                                          -->
+    <!-- ============================================================ -->
+    <template id="my_certificates" name="Marketplace - Mis certificados">
+        <t t-call="website.layout">
+            <div class="shrimp-bg">
+                <div class="shrimp-page py-4" style="max-width:1100px;">
+
+                    <div class="mb-3">
+                        <t t-call="shrimp_marketplace.s_back_button"><t t-set="back_fallback" t-value="'/marketplace/mi-cuenta'"/></t>
+                    </div>
+
+                    <t t-if="saved">
+                        <div class="alert alert-success">Operación realizada correctamente.</div>
+                    </t>
+                    <t t-if="error">
+                        <div class="alert alert-danger">
+                            <t t-if="error == 'cert'">El certificado seleccionado no es válido para tu tipo de usuario.</t>
+                            <t t-elif="error == 'file'">Debes adjuntar un archivo válido (PDF, JPG o PNG).</t>
+                            <t t-else=""><t t-esc="message or 'No se pudo completar la operación.'"/></t>
+                        </div>
+                    </t>
+
+                    <!-- Lista -->
+                    <div class="card mb-4">
+                        <div class="card-body p-4">
+                            <h6 class="fw-bold mb-3">Mis certificados cargados</h6>
+                            <t t-if="not lines">
+                                <div class="text-muted">Aún no has cargado certificados.</div>
+                            </t>
+                            <t t-if="lines">
+                                <div class="table-responsive">
+                                    <table class="table align-middle">
+                                        <thead>
+                                            <tr class="text-muted small">
+                                                <th>Certificado</th>
+                                                <th>Número</th>
+                                                <th>Emisión</th>
+                                                <th>Expiración</th>
+                                                <th>Estado</th>
+                                                <th class="text-end">Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <t t-foreach="lines" t-as="line">
+                                                <tr>
+                                                    <td>
+                                                        <div class="fw-semibold"><t t-esc="line.certificate_id.name"/></div>
+                                                        <div class="text-muted small"><t t-esc="line.issuer or ''"/></div>
+                                                    </td>
+                                                    <td><t t-esc="line.certificate_number or '—'"/></td>
+                                                    <td><t t-esc="line.issue_date or '—'"/></td>
+                                                    <td>
+                                                        <t t-esc="line.expiry_date or '—'"/>
+                                                        <t t-if="line.expiry_date and line.expiry_date &lt; today">
+                                                            <span class="badge bg-danger ms-1 rounded-pill">Vencido</span>
+                                                        </t>
+                                                        <t t-elif="line.expiry_date and (line.expiry_date - today).days &lt;= 30">
+                                                            <span class="badge bg-warning text-dark ms-1 rounded-pill">Por vencer</span>
+                                                        </t>
+                                                    </td>
+                                                    <td>
+                                                        <t t-if="line.status == 'approved'"><span class="badge bg-success rounded-pill">Aprobado</span></t>
+                                                        <t t-elif="line.status == 'rejected'"><span class="badge bg-danger rounded-pill">Rechazado</span></t>
+                                                        <t t-else=""><span class="badge bg-secondary rounded-pill">Pendiente</span></t>
+                                                    </td>
+                                                    <td class="text-end">
+                                                        <a class="btn btn-sm btn-outline-secondary"
+                                                            t-att-href="'/marketplace/my-certificate/%s/file' % line.id">Ver</a>
+                                                        <button type="button" class="btn btn-sm btn-outline-primary"
+                                                            data-bs-toggle="collapse"
+                                                            t-att-data-bs-target="'#renew_%s' % line.id">Renovar</button>
+                                                        <form method="post" class="d-inline"
+                                                            t-att-action="'/marketplace/mis-certificados/%s/eliminar' % line.id"
+                                                            onsubmit="return confirm('¿Eliminar este certificado?');">
+                                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                            <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
+                                                        </form>
+                                                    </td>
+                                                </tr>
+                                                <tr class="collapse" t-att-id="'renew_%s' % line.id">
+                                                    <td colspan="6">
+                                                        <form method="post" enctype="multipart/form-data"
+                                                            t-att-action="'/marketplace/mis-certificados/%s/renovar' % line.id"
+                                                            class="row g-2 align-items-end p-2">
+                                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                            <div class="col-md-3">
+                                                                <label class="form-label small text-muted">Nuevo archivo</label>
+                                                                <input class="form-control form-control-sm" type="file" name="file" accept=".pdf,.jpg,.jpeg,.png"/>
+                                                            </div>
+                                                            <div class="col-md-3">
+                                                                <label class="form-label small text-muted">Número</label>
+                                                                <input class="form-control form-control-sm" type="text" name="certificate_number" t-att-value="line.certificate_number or ''"/>
+                                                            </div>
+                                                            <div class="col-md-2">
+                                                                <label class="form-label small text-muted">Emisión</label>
+                                                                <input class="form-control form-control-sm" type="date" name="issue_date" t-att-value="line.issue_date or ''"/>
+                                                            </div>
+                                                            <div class="col-md-2">
+                                                                <label class="form-label small text-muted">Expiración</label>
+                                                                <input class="form-control form-control-sm" type="date" name="expiry_date" t-att-value="line.expiry_date or ''"/>
+                                                            </div>
+                                                            <div class="col-md-2">
+                                                                <button type="submit" class="btn btn-sm btn-primary w-100">Guardar</button>
+                                                            </div>
+                                                        </form>
+                                                    </td>
+                                                </tr>
+                                            </t>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </t>
+                        </div>
+                    </div>
+
+                    <!-- Añadir nuevo -->
+                    <div class="card">
+                        <div class="card-body p-4">
+                            <h6 class="fw-bold mb-3">Añadir certificado</h6>
+                            <form method="post" action="/marketplace/mis-certificados/agregar" enctype="multipart/form-data" class="row g-3">
+                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                <div class="col-md-4">
+                                    <label class="form-label small text-muted">Certificado</label>
+                                    <select class="form-select" name="certificate_id" required="required">
+                                        <option value="">Selecciona…</option>
+                                        <t t-foreach="certificates" t-as="c">
+                                            <option t-att-value="c.id"><t t-esc="c.name"/></option>
+                                        </t>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small text-muted">Número</label>
+                                    <input class="form-control" type="text" name="certificate_number"/>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small text-muted">Emisión</label>
+                                    <input class="form-control" type="date" name="issue_date"/>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small text-muted">Expiración</label>
+                                    <input class="form-control" type="date" name="expiry_date"/>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small text-muted">Archivo (PDF/JPG/PNG)</label>
+                                    <input class="form-control" type="file" name="file" accept=".pdf,.jpg,.jpeg,.png" required="required"/>
+                                </div>
+                                <div class="col-md-6 d-flex align-items-end">
+                                    <button type="submit" class="btn btn-primary">Añadir certificado</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <!-- ============================================================ -->
+    <!-- 3) MIS LOTES / INVENTARIO                                    -->
+    <!-- ============================================================ -->
+    <template id="my_lots" name="Marketplace - Mis lotes">
+        <t t-call="website.layout">
+            <div class="shrimp-bg">
+
+                <!-- Cabecera: banner con gradiente -->
+                <div class="shrimp-page shrimp-page--wide pt-4">
+                    <div class="mb-3">
+                        <t t-call="shrimp_marketplace.s_back_button"><t t-set="back_fallback" t-value="'/my'"/></t>
+                    </div>
+                    <div class="sf-banner">
+                        <div class="sf-banner-row">
+                            <div class="sf-banner-txt">
+                                <h1>Mi inventario</h1>
+                                <p>Los lotes que has recibido tras tus compras, con su stock disponible.</p>
+                            </div>
+                            <span class="sf-kicker"><i class="fa fa-flask"></i> Lotes</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="shrimp-page shrimp-page--wide pb-4">
+                    <div class="mp-table-card">
+                        <div class="card-body p-4">
+                            <div class="mp-sec-head">
+                                <span class="mp-sec-ico"><i class="fa fa-cubes"></i></span>
+                                <h3 class="mp-sec-title">Lotes en inventario</h3>
+                                <t t-if="lots"><span class="s-badge s-badge--teal mp-sec-count"><t t-esc="len(lots)"/></span></t>
+                            </div>
+
+                            <t t-if="lots">
+                                <div class="table-responsive mp-table-wrap">
+                                    <table class="table align-middle mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th>Producto</th>
+                                                <th>Disponible</th>
+                                                <th>Inicial</th>
+                                                <th>Estado</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <t t-foreach="lots" t-as="lot">
+                                                <tr>
+                                                    <td class="fw-semibold"><t t-esc="lot.product_id.name"/></td>
+                                                    <td><b><t t-esc="lot.available_qty"/></b> <t t-esc="lot.uom_id.name or ''"/></td>
+                                                    <td><t t-esc="lot.initial_qty"/></td>
+                                                    <td>
+                                                        <t t-if="lot.state == 'available'"><span class="s-badge s-badge--green">Disponible</span></t>
+                                                        <t t-else=""><span class="s-badge">Consumido</span></t>
+                                                    </td>
+                                                </tr>
+                                            </t>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </t>
+
+                            <t t-else="">
+                                <div class="s-empty">
+                                    <div class="s-empty-ico"><i class="fa fa-flask"></i></div>
+                                    <h3>Sin lotes</h3>
+                                    <p>Todavía no tienes lotes en inventario. Cuando compres productos, aparecerán aquí.</p>
+                                    <a class="s-btn s-btn-primary" href="/marketplace">Ir al marketplace</a>
+                                </div>
+                            </t>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <!-- ============================================================ -->
+    <!-- 4) INSTALACIONES Y PISCINAS + ASIGNACIÓN                     -->
+    <!-- ============================================================ -->
+    <template id="my_facilities" name="Marketplace - Instalaciones">
+        <t t-call="website.layout">
+            <div class="shrimp-bg">
+
+                <!-- Cabecera -->
+                <div class="shrimp-page shrimp-page--wide pt-4">
+                    <div class="mb-3">
+                        <t t-call="shrimp_marketplace.s_back_button"><t t-set="back_fallback" t-value="'/my'"/></t>
+                    </div>
+                    <div class="sf-banner">
+                        <div class="sf-banner-row">
+                            <div class="sf-banner-txt">
+                                <h1>Instalaciones y piscinas</h1>
+                                <p>Gestiona tus instalaciones, sus piscinas y asigna lotes para la siembra.</p>
+                            </div>
+                            <span class="sf-kicker"><i class="fa fa-map-o"></i> Operación</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="shrimp-page shrimp-page--wide pb-4">
+                    <t t-if="saved">
+                        <div class="alert alert-success" style="border-radius:14px;">Cambios guardados.</div>
+                    </t>
+                    <t t-if="error">
+                        <div class="alert alert-danger" style="border-radius:14px;">
+                            <t t-if="error == 'name'">El nombre es obligatorio.</t>
+                            <t t-else=""><t t-esc="message or 'No se pudo completar la operación.'"/></t>
+                        </div>
+                    </t>
+
+                    <t t-set="provinces" t-value="['Azuay','Bolívar','Cañar','Carchi','Chimborazo','Cotopaxi','El Oro','Esmeraldas','Galápagos','Guayas','Imbabura','Loja','Los Ríos','Manabí','Morona Santiago','Napo','Orellana','Pastaza','Pichincha','Santa Elena','Santo Domingo de los Tsáchilas','Sucumbíos','Tungurahua','Zamora Chinchipe']"/>
+
+                    <div class="sf-facilities">
+                        <!-- ===== IZQUIERDA: SOLO la lista de instalaciones ===== -->
+                        <aside class="sf-fac-side">
+                            <div class="mp-table-card">
+                                <div class="card-body p-3">
+                                    <div class="mp-sec-head" style="margin-bottom:12px;">
+                                        <span class="mp-sec-ico"><i class="fa fa-building-o"></i></span>
+                                        <h3 class="mp-sec-title">Instalaciones</h3>
+                                        <a class="s-btn s-btn-primary btn-sm mp-sec-count" href="/marketplace/mis-instalaciones?new=1" title="Nueva instalación">
+                                            <i class="fa fa-plus me-1"></i> Nueva
+                                        </a>
+                                    </div>
+
+                                    <t t-if="facilities">
+                                        <div class="sf-fac-list">
+                                            <t t-foreach="facilities" t-as="f">
+                                                <div t-attf-class="sf-fac-item #{'active' if (not is_new and sel_facility and f.id == sel_facility.id) else ''}">
+                                                    <a class="sf-fac-main" t-att-href="'/marketplace/mis-instalaciones?facility=%s' % f.id">
+                                                        <span class="sf-fac-name"><t t-esc="f.name"/></span>
+                                                        <span class="sf-fac-meta">
+                                                            <t t-esc="dict(f._fields['facility_type'].selection).get(f.facility_type)"/>
+                                                            <t t-if="f.city"> · <t t-esc="f.city"/></t>
+                                                        </span>
+                                                    </a>
+                                                    <button type="button" class="sf-fac-del sf-del-btn" title="Eliminar"
+                                                        t-att-data-url="'/marketplace/mis-instalaciones/facility/%s/eliminar' % f.id"
+                                                        data-msg="Se eliminará la instalación (y sus piscinas). Esta acción no se puede deshacer.">
+                                                        <i class="fa fa-trash-o"></i>
+                                                    </button>
+                                                </div>
+                                            </t>
+                                        </div>
+                                    </t>
+                                    <t t-else="">
+                                        <div class="text-muted" style="font-size:13px; padding:6px 2px 12px;">Aún no tienes instalaciones. Usa el botón «Nueva».</div>
+                                    </t>
+                                </div>
+                            </div>
+                        </aside>
+
+                        <!-- ===== DERECHA: crear / ver instalación ===== -->
+                        <div class="sf-fac-main-col">
+                            <t t-if="is_new">
+                                <!-- FORMULARIO: nueva instalación -->
+                                <div class="mp-table-card">
+                                    <div class="card-body p-4">
+                                        <div class="mp-sec-head">
+                                            <span class="mp-sec-ico"><i class="fa fa-plus"></i></span>
+                                            <h3 class="mp-sec-title">Nueva instalación</h3>
+                                        </div>
+                                        <form method="post" action="/marketplace/mis-instalaciones/facility/crear" class="row g-3 sf">
+                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                            <div class="col-md-6">
+                                                <label class="form-label" style="font-weight:800;">Nombre <span class="text-danger">*</span></label>
+                                                <input class="form-control" name="name" placeholder="Ej: Camaronera Norte" required="required"/>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label" style="font-weight:800;">Tipo</label>
+                                                <select class="form-select" name="facility_type">
+                                                    <option value="farm">Granja</option>
+                                                    <option value="hatchery">Hatchery</option>
+                                                    <option value="laboratory">Laboratorio</option>
+                                                    <option value="warehouse">Bodega</option>
+                                                    <option value="office">Oficina</option>
+                                                    <option value="other">Otro</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label" style="font-weight:800;">Ciudad / Provincia</label>
+                                                <div class="sf-combo">
+                                                    <input type="hidden" name="city"/>
+                                                    <button type="button" class="sf-combo-control">
+                                                        <span class="sf-combo-value is-placeholder">Selecciona provincia…</span>
+                                                        <i class="fa fa-chevron-down sf-combo-caret"/>
+                                                    </button>
+                                                    <div class="sf-combo-panel">
+                                                        <div class="sf-combo-search-wrap">
+                                                            <i class="fa fa-search"/>
+                                                            <input type="text" class="sf-combo-search" placeholder="Buscar provincia…" autocomplete="off"/>
+                                                        </div>
+                                                        <ul class="sf-combo-list" role="listbox">
+                                                            <t t-foreach="provinces" t-as="prov">
+                                                                <li class="sf-combo-opt" t-att-data-value="prov" role="option"><t t-esc="prov"/></li>
+                                                            </t>
+                                                        </ul>
+                                                        <div class="sf-combo-empty" style="display:none;">Sin coincidencias</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label" style="font-weight:800;">Código <span class="text-muted" style="font-weight:500;">(opcional)</span></label>
+                                                <input class="form-control" name="code" placeholder="Ej: INST-001"/>
+                                            </div>
+                                            <div class="col-12">
+                                                <label class="form-label" style="font-weight:800;">Dirección <span class="text-muted" style="font-weight:500;">(opcional)</span></label>
+                                                <input class="form-control" name="address" placeholder="Referencia / dirección"/>
+                                            </div>
+                                            <div class="col-12 d-flex gap-2">
+                                                <a class="s-btn s-btn-ghost" href="/marketplace/mis-instalaciones">Cancelar</a>
+                                                <button class="s-btn s-btn-primary"><i class="fa fa-check me-1"></i> Crear instalación</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </t>
+                            <t t-elif="is_edit_fac and sel_facility">
+                                <!-- FORMULARIO: editar instalación -->
+                                <div class="mp-table-card">
+                                    <div class="card-body p-4">
+                                        <div class="mp-sec-head">
+                                            <span class="mp-sec-ico"><i class="fa fa-pencil"></i></span>
+                                            <h3 class="mp-sec-title">Editar instalación</h3>
+                                        </div>
+                                        <form method="post" t-att-action="'/marketplace/mis-instalaciones/facility/%s/actualizar' % sel_facility.id" class="row g-3 sf">
+                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                            <div class="col-md-6">
+                                                <label class="form-label" style="font-weight:800;">Nombre <span class="text-danger">*</span></label>
+                                                <input class="form-control" name="name" t-att-value="sel_facility.name" required="required"/>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label" style="font-weight:800;">Tipo</label>
+                                                <select class="form-select" name="facility_type">
+                                                    <option value="farm" t-att-selected="sel_facility.facility_type=='farm'">Granja</option>
+                                                    <option value="hatchery" t-att-selected="sel_facility.facility_type=='hatchery'">Hatchery</option>
+                                                    <option value="laboratory" t-att-selected="sel_facility.facility_type=='laboratory'">Laboratorio</option>
+                                                    <option value="warehouse" t-att-selected="sel_facility.facility_type=='warehouse'">Bodega</option>
+                                                    <option value="office" t-att-selected="sel_facility.facility_type=='office'">Oficina</option>
+                                                    <option value="other" t-att-selected="sel_facility.facility_type=='other'">Otro</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label" style="font-weight:800;">Ciudad / Provincia</label>
+                                                <div class="sf-combo">
+                                                    <input type="hidden" name="city" t-att-value="sel_facility.city or ''"/>
+                                                    <button type="button" class="sf-combo-control">
+                                                        <span t-attf-class="sf-combo-value #{'' if sel_facility.city else 'is-placeholder'}"><t t-esc="sel_facility.city or 'Selecciona provincia…'"/></span>
+                                                        <i class="fa fa-chevron-down sf-combo-caret"/>
+                                                    </button>
+                                                    <div class="sf-combo-panel">
+                                                        <div class="sf-combo-search-wrap"><i class="fa fa-search"/><input type="text" class="sf-combo-search" placeholder="Buscar provincia…" autocomplete="off"/></div>
+                                                        <ul class="sf-combo-list" role="listbox">
+                                                            <t t-foreach="provinces" t-as="prov"><li class="sf-combo-opt" t-att-data-value="prov" role="option"><t t-esc="prov"/></li></t>
+                                                        </ul>
+                                                        <div class="sf-combo-empty" style="display:none;">Sin coincidencias</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label" style="font-weight:800;">Código</label>
+                                                <input class="form-control" name="code" t-att-value="sel_facility.code or ''"/>
+                                            </div>
+                                            <div class="col-12">
+                                                <label class="form-label" style="font-weight:800;">Dirección</label>
+                                                <input class="form-control" name="address" t-att-value="sel_facility.address or ''"/>
+                                            </div>
+                                            <div class="col-12 d-flex gap-2">
+                                                <a class="s-btn s-btn-ghost" t-att-href="'/marketplace/mis-instalaciones?facility=%s' % sel_facility.id">Cancelar</a>
+                                                <button class="s-btn s-btn-primary"><i class="fa fa-check me-1"></i> Guardar cambios</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </t>
+                            <t t-elif="sel_facility">
+                                <!-- Datos de la instalación -->
+                                <div class="mp-table-card mb-3">
+                                    <div class="card-body p-4">
+                                        <div class="mp-sec-head">
+                                            <span class="mp-sec-ico"><i class="fa fa-building"></i></span>
+                                            <h3 class="mp-sec-title"><t t-esc="sel_facility.name"/></h3>
+                                            <a class="s-btn s-btn-ghost btn-sm mp-sec-count"
+                                               t-att-href="'/marketplace/mis-instalaciones?facility=%s&amp;edit=1' % sel_facility.id">
+                                                <i class="fa fa-pencil me-1"></i> Editar
+                                            </a>
+                                        </div>
+                                        <div class="mp-spec-grid">
+                                            <div class="mp-spec">
+                                                <span class="mp-spec-ico"><i class="fa fa-tag"></i></span>
+                                                <div class="mp-spec-body">
+                                                    <div class="mp-spec-label">Tipo</div>
+                                                    <div class="mp-spec-value"><t t-esc="dict(sel_facility._fields['facility_type'].selection).get(sel_facility.facility_type)"/></div>
+                                                </div>
+                                            </div>
+                                            <div class="mp-spec">
+                                                <span class="mp-spec-ico"><i class="fa fa-map-marker"></i></span>
+                                                <div class="mp-spec-body">
+                                                    <div class="mp-spec-label">Ciudad / Provincia</div>
+                                                    <div class="mp-spec-value"><t t-esc="sel_facility.city or '—'"/><t t-if="sel_facility.province">, <t t-esc="sel_facility.province"/></t></div>
+                                                </div>
+                                            </div>
+                                            <div class="mp-spec">
+                                                <span class="mp-spec-ico"><i class="fa fa-hashtag"></i></span>
+                                                <div class="mp-spec-body">
+                                                    <div class="mp-spec-label">Código</div>
+                                                    <div class="mp-spec-value"><t t-esc="sel_facility.code or '—'"/></div>
+                                                </div>
+                                            </div>
+                                            <div class="mp-spec">
+                                                <span class="mp-spec-ico"><i class="fa fa-tint"></i></span>
+                                                <div class="mp-spec-body">
+                                                    <div class="mp-spec-label">Piscinas</div>
+                                                    <div class="mp-spec-value"><t t-esc="len(sel_ponds)"/></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Piscinas de la instalación -->
+                                <div class="mp-table-card">
+                                    <div class="card-body p-4">
+                                        <div class="mp-sec-head">
+                                            <span class="mp-sec-ico"><i class="fa fa-tint"></i></span>
+                                            <h3 class="mp-sec-title">Piscinas</h3>
+                                            <t t-if="sel_ponds"><span class="s-badge s-badge--teal mp-sec-count"><t t-esc="len(sel_ponds)"/></span></t>
+                                        </div>
+
+                                        <t t-if="sel_ponds">
+                                            <div class="table-responsive mp-table-wrap">
+                                                <table class="table align-middle mb-0">
+                                                    <thead>
+                                                        <tr><th>Foto</th><th>Piscina</th><th>Tipo</th><th>Área</th><th>Volumen</th><th></th></tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <t t-foreach="sel_ponds" t-as="p">
+                                                            <tr>
+                                                                <td>
+                                                                    <t t-if="p.image">
+                                                                        <img t-att-src="'/marketplace/mis-instalaciones/pond/%s/imagen' % p.id"
+                                                                             alt="Foto piscina" class="sf-pond-thumb"/>
+                                                                    </t>
+                                                                    <t t-else="">
+                                                                        <span class="sf-pond-thumb sf-pond-thumb--empty"><i class="fa fa-tint"></i></span>
+                                                                    </t>
+                                                                </td>
+                                                                <td class="fw-semibold"><t t-esc="p.name or p.display_name"/></td>
+                                                                <td><t t-esc="dict(p._fields['pond_type'].selection).get(p.pond_type) if p.pond_type else '—'"/></td>
+                                                                <td><t t-esc="round(p.area_m2, 1)"/> m²</td>
+                                                                <td><t t-esc="round(p.volume_m3, 1)"/> m³</td>
+                                                                <td class="text-end">
+                                                                    <a class="sf-fac-del" style="text-decoration:none;" title="Editar"
+                                                                        t-att-href="'/marketplace/mis-instalaciones?facility=%s&amp;edit_pond=%s' % (sel_facility.id, p.id)">
+                                                                        <i class="fa fa-pencil"></i>
+                                                                    </a>
+                                                                    <button type="button" class="sf-fac-del sf-del-btn" title="Eliminar"
+                                                                        t-att-data-url="'/marketplace/mis-instalaciones/pond/%s/eliminar' % p.id"
+                                                                        data-msg="Se eliminará la piscina. Esta acción no se puede deshacer.">
+                                                                        <i class="fa fa-trash-o"></i>
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        </t>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </t>
+                                        <t t-else="">
+                                            <div class="text-muted" style="font-size:13px; padding:4px 2px 12px;">Esta instalación aún no tiene piscinas.</div>
+                                        </t>
+
+                                        <hr class="my-3"/>
+                                        <t t-if="edit_pond">
+                                            <!-- FORMULARIO: editar piscina -->
+                                            <div class="s-eyebrow mb-2"><i class="fa fa-pencil me-1"></i> Editar piscina: <t t-esc="edit_pond.name"/></div>
+                                            <form method="post" t-att-action="'/marketplace/mis-instalaciones/pond/%s/actualizar' % edit_pond.id"
+                                                enctype="multipart/form-data" class="row g-2 mt-1 sf" id="sfPondForm">
+                                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                <input type="hidden" name="redirect_facility" t-att-value="sel_facility.id"/>
+                                                <div class="col-md-6">
+                                                    <label class="form-label" style="font-weight:800;">Nombre <span class="text-danger">*</span></label>
+                                                    <input class="form-control" name="name" t-att-value="edit_pond.name" required="required"/>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label" style="font-weight:800;">Tipo</label>
+                                                    <select class="form-select" name="pond_type">
+                                                        <option value="earth" t-att-selected="edit_pond.pond_type=='earth'">Tierra</option>
+                                                        <option value="geomembrane" t-att-selected="edit_pond.pond_type=='geomembrane'">Geomembrana</option>
+                                                        <option value="tank" t-att-selected="edit_pond.pond_type=='tank'">Tanque</option>
+                                                        <option value="raceway" t-att-selected="edit_pond.pond_type=='raceway'">Canal</option>
+                                                        <option value="other" t-att-selected="edit_pond.pond_type=='other'">Otro</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label" style="font-weight:800;">Capacidad</label>
+                                                    <select class="form-select" name="capacity_mode" id="sfPondMode">
+                                                        <option value="dimensions" t-att-selected="edit_pond.capacity_mode=='dimensions'">Por dimensiones</option>
+                                                        <option value="volume" t-att-selected="edit_pond.capacity_mode=='volume'">Volumen directo</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-6"></div>
+                                                <div class="col-md-4 sf-pond-dims">
+                                                    <label class="form-label" style="font-weight:800;">Largo (m)</label>
+                                                    <input class="form-control" type="number" step="0.01" name="length_m" t-att-value="edit_pond.length_m or ''"/>
+                                                </div>
+                                                <div class="col-md-4 sf-pond-dims">
+                                                    <label class="form-label" style="font-weight:800;">Ancho (m)</label>
+                                                    <input class="form-control" type="number" step="0.01" name="width_m" t-att-value="edit_pond.width_m or ''"/>
+                                                </div>
+                                                <div class="col-md-4 sf-pond-dims">
+                                                    <label class="form-label" style="font-weight:800;">Prof. (m)</label>
+                                                    <input class="form-control" type="number" step="0.01" name="depth_m" t-att-value="edit_pond.depth_m or ''"/>
+                                                </div>
+                                                <div class="col-md-6 sf-pond-vol" style="display:none;">
+                                                    <label class="form-label" style="font-weight:800;">Volumen (m³)</label>
+                                                    <input class="form-control" type="number" step="0.01" name="manual_volume_m3" t-att-value="edit_pond.manual_volume_m3 or ''"/>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label" style="font-weight:800;">Foto de la piscina</label>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <t t-if="edit_pond.image">
+                                                            <img t-att-src="'/marketplace/mis-instalaciones/pond/%s/imagen' % edit_pond.id" class="sf-pond-thumb" alt="Foto"/>
+                                                        </t>
+                                                        <input class="form-control" type="file" name="image" accept="image/*"/>
+                                                    </div>
+                                                    <div class="text-muted" style="font-size:12px; margin-top:4px;">Deja vacío para conservar la foto actual.</div>
+                                                </div>
+                                                <div class="col-12 d-flex gap-2">
+                                                    <a class="s-btn s-btn-ghost" t-att-href="'/marketplace/mis-instalaciones?facility=%s' % sel_facility.id">Cancelar</a>
+                                                    <button class="s-btn s-btn-primary"><i class="fa fa-check me-1"></i> Guardar cambios</button>
+                                                </div>
+                                            </form>
+                                        </t>
+                                        <t t-else="">
+                                        <details class="sf-add">
+                                            <summary class="sf-add-toggle"><i class="fa fa-plus me-1"></i> Agregar piscina</summary>
+                                            <form method="post" action="/marketplace/mis-instalaciones/pond/crear"
+                                                enctype="multipart/form-data" class="row g-2 mt-2 sf" id="sfPondForm">
+                                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                <input type="hidden" name="redirect_facility" t-att-value="sel_facility.id"/>
+                                                <!-- Usa la instalación actualmente seleccionada -->
+                                                <input type="hidden" name="facility_id" t-att-value="sel_facility.id"/>
+                                                <div class="col-md-6">
+                                                    <label class="form-label" style="font-weight:800;">Nombre <span class="text-danger">*</span></label>
+                                                    <input class="form-control" name="name" placeholder="Ej: Piscina 1" required="required"/>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label" style="font-weight:800;">Tipo</label>
+                                                    <select class="form-select" name="pond_type">
+                                                        <option value="earth">Tierra</option>
+                                                        <option value="geomembrane">Geomembrana</option>
+                                                        <option value="tank">Tanque</option>
+                                                        <option value="raceway">Canal</option>
+                                                        <option value="other">Otro</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label" style="font-weight:800;">Capacidad</label>
+                                                    <select class="form-select" name="capacity_mode" id="sfPondMode">
+                                                        <option value="dimensions">Por dimensiones</option>
+                                                        <option value="volume">Volumen directo</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-6"></div>
+                                                <!-- Dimensiones -->
+                                                <div class="col-md-4 sf-pond-dims">
+                                                    <label class="form-label" style="font-weight:800;">Largo (m)</label>
+                                                    <input class="form-control" type="number" step="0.01" name="length_m" placeholder="0.00"/>
+                                                </div>
+                                                <div class="col-md-4 sf-pond-dims">
+                                                    <label class="form-label" style="font-weight:800;">Ancho (m)</label>
+                                                    <input class="form-control" type="number" step="0.01" name="width_m" placeholder="0.00"/>
+                                                </div>
+                                                <div class="col-md-4 sf-pond-dims">
+                                                    <label class="form-label" style="font-weight:800;">Prof. (m)</label>
+                                                    <input class="form-control" type="number" step="0.01" name="depth_m" placeholder="0.00"/>
+                                                </div>
+                                                <!-- Volumen directo -->
+                                                <div class="col-md-6 sf-pond-vol" style="display:none;">
+                                                    <label class="form-label" style="font-weight:800;">Volumen (m³)</label>
+                                                    <input class="form-control" type="number" step="0.01" name="manual_volume_m3" placeholder="0.00"/>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label" style="font-weight:800;">Foto de la piscina <span class="text-muted" style="font-weight:500;">(opcional)</span></label>
+                                                    <input class="form-control" type="file" name="image" accept="image/*"/>
+                                                </div>
+                                                <div class="col-12"><button class="s-btn s-btn-primary"><i class="fa fa-check me-1"></i> Añadir piscina</button></div>
+                                            </form>
+                                        </details>
+                                        </t>
+                                    </div>
+                                </div>
+                            </t>
+                            <t t-else="">
+                                <div class="mp-table-card">
+                                    <div class="card-body p-4">
+                                        <div class="s-empty">
+                                            <div class="s-empty-ico"><i class="fa fa-building-o"></i></div>
+                                            <h3>Sin instalación seleccionada</h3>
+                                            <p>Crea una instalación en el panel de la izquierda para empezar.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </t>
+                        </div>
+                    </div>
+
+                    <!-- Formulario oculto + modal de confirmación de borrado -->
+                    <form id="sfDelForm" method="post" style="display:none;">
+                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                    </form>
+                    <div id="sfConfirm" class="sf-modal">
+                        <div class="sf-modal-card">
+                            <div class="sf-modal-ico"><i class="fa fa-exclamation-triangle"></i></div>
+                            <h3 class="sf-modal-title">¿Eliminar?</h3>
+                            <p class="sf-modal-msg" id="sfConfirmMsg">Esta acción no se puede deshacer.</p>
+                            <div class="sf-modal-actions">
+                                <button type="button" class="s-btn s-btn-ghost" id="sfConfirmCancel">Cancelar</button>
+                                <button type="button" class="s-btn sf-btn-danger" id="sfConfirmOk"><i class="fa fa-trash-o me-1"></i> Eliminar</button>
+                            </div>
+                        </div>
+                    </div>
+                    <script type="text/javascript">
+<![CDATA[
+(function(){
+  function init(){
+    // Toggle capacidad: dimensiones vs volumen directo
+    var mode=document.getElementById("sfPondMode");
+    if(mode){
+      var dims=document.querySelectorAll(".sf-pond-dims");
+      var vol=document.querySelectorAll(".sf-pond-vol");
+      var applyMode=function(){
+        var isVol=mode.value==="volume";
+        dims.forEach(function(d){ d.style.display=isVol?"none":""; });
+        vol.forEach(function(v){ v.style.display=isVol?"":"none"; });
+      };
+      mode.addEventListener("change",applyMode);
+      applyMode();
+    }
+    var modal=document.getElementById("sfConfirm");
+    var form=document.getElementById("sfDelForm");
+    if(!modal||!form) return;
+    var msg=document.getElementById("sfConfirmMsg");
+    var ok=document.getElementById("sfConfirmOk");
+    var cancel=document.getElementById("sfConfirmCancel");
+    var pending=null;
+    function open(url,text){ pending=url; if(msg&&text){ msg.textContent=text; } modal.classList.add("open"); }
+    function close(){ modal.classList.remove("open"); pending=null; }
+    document.querySelectorAll(".sf-del-btn").forEach(function(b){
+      b.addEventListener("click",function(){ open(b.getAttribute("data-url"), b.getAttribute("data-msg")); });
+    });
+    if(ok){ ok.addEventListener("click",function(){ if(pending){ form.action=pending; form.submit(); } }); }
+    if(cancel){ cancel.addEventListener("click",close); }
+    modal.addEventListener("click",function(e){ if(e.target===modal){ close(); } });
+    document.addEventListener("keydown",function(e){ if(e.key==="Escape"){ close(); } });
+  }
+  if(document.readyState==="loading"){ document.addEventListener("DOMContentLoaded",init); } else { init(); }
+})();
+]]>
+                    </script>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <!-- ============================================================ -->
+    <!-- 5) SOLICITUDES DE CHEQUEO (VENDEDOR)                         -->
+    <!-- ============================================================ -->
+    <template id="my_check_requests" name="Marketplace - Solicitudes">
+        <t t-call="website.layout">
+            <div class="shrimp-bg">
+                <div class="shrimp-page py-4">
+
+                    <!-- Banner -->
+                    <div class="sf-banner mb-4">
+                        <div class="sf-banner-row">
+                            <div class="sf-banner-txt">
+                                <h1>Solicitudes de chequeo</h1>
+                                <p>Chequeos que has solicitado o en los que participas como vendedor.</p>
+                            </div>
+                            <span class="sf-kicker"><i class="fa fa-search"></i> Solicitudes</span>
+                        </div>
+                    </div>
+
+                    <t t-if="saved">
+                        <div class="alert alert-success" style="border-radius:14px;">
+                            <t t-if="saved == 'approved'">Solicitud aprobada: la transacción fue generada.</t>
+                            <t t-elif="saved == 'rejected'">Solicitud rechazada.</t>
+                            <t t-else="">Operación realizada.</t>
+                        </div>
+                    </t>
+                    <t t-if="error">
+                        <div class="alert alert-danger" style="border-radius:14px;">
+                            <t t-if="error == 'state'">La solicitud ya no está pendiente.</t>
+                            <t t-else=""><t t-esc="message or 'No se pudo procesar la solicitud.'"/></t>
+                        </div>
+                    </t>
+
+                    <!-- Filtro por estado -->
+                    <div class="s-cat-chips s-cat-chips--scroll mb-3">
+                        <a t-att-class="'s-cat-chip' + ('' if filter_state else ' active')" href="/marketplace/solicitudes">Todas</a>
+                        <t t-foreach="state_options" t-as="opt">
+                            <a t-att-class="'s-cat-chip' + (' active' if filter_state == opt[0] else '')"
+                               t-att-href="'/marketplace/solicitudes?state=%s' % opt[0]"><t t-esc="opt[1]"/></a>
+                        </t>
+                    </div>
+
+                    <div class="mp-table-card">
+                        <div class="card-body p-4">
+                            <div class="mp-sec-head">
+                                <span class="mp-sec-ico"><i class="fa fa-list-ul"></i></span>
+                                <h3 class="mp-sec-title">Solicitudes</h3>
+                                <span class="s-badge mp-sec-count" t-if="requests"><t t-esc="len(requests)"/></span>
+                            </div>
+
+                            <t t-if="not requests">
+                                <div class="s-empty">
+                                    <div class="s-empty-ico"><i class="fa fa-search"></i></div>
+                                    <h3>Sin solicitudes</h3>
+                                    <p>No tienes solicitudes de chequeo por el momento.</p>
+                                </div>
+                            </t>
+                            <t t-else="">
+                                <div class="mp-table-wrap table-responsive">
+                                    <table class="table align-middle mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th>Referencia</th><th>Producto</th><th>Tu rol</th>
+                                                <th>Vendedor</th><th>Comprador</th>
+                                                <th>Cantidad</th><th>Estado</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <t t-foreach="requests" t-as="r">
+                                                <t t-set="is_seller" t-value="r.seller_partner_id.id == partner.id"/>
+                                                <tr>
+                                                    <td style="font-weight:800;"><t t-esc="r.name"/></td>
+                                                    <td><t t-esc="r.product_id.name"/></td>
+                                                    <td>
+                                                        <t t-if="is_seller"><span class="s-badge s-badge--teal">Vendes</span></t>
+                                                        <t t-else=""><span class="s-badge">Compras</span></t>
+                                                    </td>
+                                                    <td><t t-esc="r.seller_partner_id.name"/></td>
+                                                    <td><t t-esc="r.buyer_partner_id.name"/></td>
+                                                    <td><t t-esc="r.qty"/> <span class="text-faint"><t t-esc="r.uom_id.name or ''"/></span></td>
+                                                    <td>
+                                                        <t t-set="state_label" t-value="dict(r._fields['state'].selection).get(r.state)"/>
+                                                        <t t-if="r.state == 'approved'"><span class="s-badge s-badge--green"><t t-esc="state_label"/></span></t>
+                                                        <t t-elif="r.state == 'rejected'"><span class="s-badge" style="background:rgba(220,53,69,.10); color:#dc3545;"><t t-esc="state_label"/></span></t>
+                                                        <t t-elif="r.state in ('requested', 'under_review')"><span class="s-badge" style="background:rgba(224,169,42,.14); color:#a97b12;"><t t-esc="state_label"/></span></t>
+                                                        <t t-else=""><span class="s-badge"><t t-esc="state_label"/></span></t>
+                                                    </td>
+                                                </tr>
+                                            </t>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </t>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <!-- ============================================================ -->
+    <!-- 6) TRAZABILIDAD ON-SCREEN                                    -->
+    <!-- ============================================================ -->
+    <template id="traceability_screen" name="Marketplace - Trazabilidad">
+        <t t-call="website.layout">
+            <style>
+              .trz .mp-spec{ background: var(--shrimp-bg-alt); box-shadow: var(--shrimp-shadow); }
+              .trz .mp-spec-ico{ background: #fff; }
+            </style>
+            <div class="shrimp-bg">
+                <div class="shrimp-page trz py-4" style="max-width:1100px;">
+
+                    <!-- Banner -->
+                    <div class="sf-banner mb-4">
+                        <div class="sf-banner-row">
+                            <div class="sf-banner-txt">
+                                <h1>Trazabilidad del lote</h1>
+                                <p>Historial completo del producto: origen, evolución, movimientos y certificados. Ref. <t t-esc="tx.name"/>.</p>
+                            </div>
+                            <button type="button" class="s-btn s-btn-ghost js-cert-view"
+                                    style="background:rgba(255,255,255,.16); color:#fff; border-color:rgba(255,255,255,.35);"
+                                    t-att-data-url="'/marketplace/compras/%s/trazabilidad/pdf' % tx.uuid_ref">
+                                <i class="fa fa-file-pdf-o me-1"></i> Ver certificado PDF
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Resumen -->
+                    <div class="mp-table-card mb-4">
+                        <div class="card-body p-4">
+                            <div class="mp-sec-head">
+                                <span class="mp-sec-ico"><i class="fa fa-info-circle"></i></span>
+                                <h3 class="mp-sec-title"><t t-esc="tx.product_id.name or 'Producto'"/></h3>
+                            </div>
+                            <div class="mp-spec-grid">
+                                <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-user-o"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Vendedor</div><div class="mp-spec-value"><t t-esc="tx.seller_partner_id.name"/></div></div></div>
+                                <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-user"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Comprador</div><div class="mp-spec-value"><t t-esc="tx.buyer_partner_id.name"/></div></div></div>
+                                <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-cubes"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Cantidad</div><div class="mp-spec-value"><t t-esc="tx.transaction_qty"/> <t t-esc="tx.product_id.uom_id.name or ''"/></div></div></div>
+                                <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-tag"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Etapa</div><div class="mp-spec-value"><t t-esc="tx.product_id.stage_id.name or '—'"/></div></div></div>
+                                <t t-if="tx.product_id.origin_facility_id"><div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-building"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Instalación de origen</div><div class="mp-spec-value"><t t-esc="tx.product_id.origin_facility_id.name"/></div></div></div></t>
+                                <t t-if="tx.product_id.origin_pond_id"><div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-tint"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Piscina de origen</div><div class="mp-spec-value"><t t-esc="tx.product_id.origin_pond_id.display_name"/></div></div></div></t>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Evolución del producto -->
+                    <div class="mp-table-card mb-4">
+                        <div class="card-body p-4">
+                            <div class="mp-sec-head">
+                                <span class="mp-sec-ico"><i class="fa fa-line-chart"></i></span>
+                                <h3 class="mp-sec-title">Evolución del producto</h3>
+                                <span class="s-badge mp-sec-count" t-if="evolutions"><t t-esc="len(evolutions)"/></span>
+                            </div>
+                            <t t-if="evolutions">
+                                <div class="mp-table-wrap table-responsive">
+                                    <table class="table align-middle mb-0">
+                                        <thead><tr><th>Fecha</th><th>Etapa</th><th>Tamaño (mg)</th><th>Superv. (%)</th><th>Disponible</th><th>Nota</th></tr></thead>
+                                        <tbody>
+                                            <t t-foreach="evolutions" t-as="e">
+                                                <tr>
+                                                    <td><t t-esc="e.date"/></td>
+                                                    <td><span class="s-badge"><t t-esc="e.stage_id.name or '—'"/></span></td>
+                                                    <td><t t-esc="e.avg_size_mg"/></td>
+                                                    <td><t t-esc="e.survival_rate"/></td>
+                                                    <td><t t-esc="e.available_qty"/></td>
+                                                    <td class="text-faint"><t t-esc="e.note or '—'"/></td>
+                                                </tr>
+                                            </t>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </t>
+                            <t t-else=""><div class="text-muted">Sin historial de evolución.</div></t>
+                        </div>
+                    </div>
+
+                    <!-- Movimientos -->
+                    <div class="mp-table-card mb-4">
+                        <div class="card-body p-4">
+                            <div class="mp-sec-head">
+                                <span class="mp-sec-ico"><i class="fa fa-exchange"></i></span>
+                                <h3 class="mp-sec-title">Movimientos</h3>
+                            </div>
+                            <t t-if="moves">
+                                <div class="mp-table-wrap table-responsive">
+                                    <table class="table align-middle mb-0">
+                                        <thead><tr><th>Fecha</th><th>Producto</th><th>Origen</th><th>Destino</th><th>Cantidad</th></tr></thead>
+                                        <tbody>
+                                            <t t-foreach="moves" t-as="m">
+                                                <tr>
+                                                    <td><t t-esc="m.date or m.create_date"/></td>
+                                                    <td><t t-esc="m.product_id.name"/></td>
+                                                    <td><t t-esc="m.source_partner_id.name or '—'"/></td>
+                                                    <td><t t-esc="m.dest_partner_id.name or '—'"/></td>
+                                                    <td><t t-esc="m.qty"/></td>
+                                                </tr>
+                                            </t>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </t>
+                            <t t-else=""><div class="text-muted">Sin movimientos registrados.</div></t>
+                        </div>
+                    </div>
+
+                    <div class="row g-4">
+                        <div class="col-lg-6">
+                            <div class="mp-table-card h-100">
+                                <div class="card-body p-4">
+                                    <div class="mp-sec-head"><span class="mp-sec-ico"><i class="fa fa-flask"></i></span><h3 class="mp-sec-title">Lotes</h3></div>
+                                    <t t-if="lots">
+                                        <div class="mp-table-wrap table-responsive">
+                                            <table class="table align-middle mb-0">
+                                                <thead><tr><th>Producto</th><th>Propietario</th><th class="text-end">Disponible</th></tr></thead>
+                                                <tbody>
+                                                    <t t-foreach="lots" t-as="l">
+                                                        <tr><td><t t-esc="l.product_id.name"/></td><td><t t-esc="l.owner_id.name"/></td><td class="text-end"><t t-esc="l.available_qty"/></td></tr>
+                                                    </t>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </t>
+                                    <t t-else=""><div class="text-muted">Sin lotes.</div></t>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-6">
+                            <div class="mp-table-card h-100">
+                                <div class="card-body p-4">
+                                    <div class="mp-sec-head"><span class="mp-sec-ico"><i class="fa fa-map-marker"></i></span><h3 class="mp-sec-title">Siembra en piscinas</h3></div>
+                                    <t t-if="allocations">
+                                        <div class="mp-table-wrap table-responsive">
+                                            <table class="table align-middle mb-0">
+                                                <thead><tr><th>Piscina</th><th class="text-end">Cantidad</th><th>Fecha</th></tr></thead>
+                                                <tbody>
+                                                    <t t-foreach="allocations" t-as="a">
+                                                        <tr><td><t t-esc="a.pond_id.display_name"/></td><td class="text-end"><t t-esc="a.allocated_qty"/></td><td><t t-esc="a.allocation_date"/></td></tr>
+                                                    </t>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </t>
+                                    <t t-else=""><div class="text-muted">Sin asignaciones a piscinas.</div></t>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Certificados del producto -->
+                    <div class="mp-table-card mt-4" t-if="tx.product_id.certificate_line_ids">
+                        <div class="card-body p-4">
+                            <div class="mp-sec-head">
+                                <span class="mp-sec-ico"><i class="fa fa-file-text-o"></i></span>
+                                <h3 class="mp-sec-title">Certificados del producto</h3>
+                                <span class="s-badge s-badge--teal mp-sec-count"><t t-esc="len(tx.product_id.certificate_line_ids)"/></span>
+                            </div>
+                            <div class="mp-table-wrap table-responsive">
+                                <table class="table align-middle mb-0">
+                                    <thead><tr><th>Certificado</th><th>Entidad</th><th>N°</th><th>Emisión</th><th>Expira</th><th class="text-end">Archivo</th></tr></thead>
+                                    <tbody>
+                                        <t t-foreach="tx.product_id.certificate_line_ids" t-as="line">
+                                            <tr>
+                                                <td style="font-weight:800;"><t t-esc="line.certificate_id.name"/></td>
+                                                <td><t t-esc="line.certificate_id.issuer or '—'"/></td>
+                                                <td><t t-esc="line.number or '—'"/></td>
+                                                <td><t t-esc="line.issue_date or '—'"/></td>
+                                                <td><t t-esc="line.expiry_date or '—'"/></td>
+                                                <td class="text-end">
+                                                    <t t-if="line.attachment_id">
+                                                        <button type="button" class="s-btn s-btn-ghost btn-sm js-cert-view"
+                                                            t-att-data-url="'/marketplace/product/%s/certificate/%s' % (tx.product_id.uuid_ref, line.attachment_id.id)">
+                                                            Ver certificado
+                                                        </button>
+                                                    </t>
+                                                    <t t-else=""><span class="text-muted">—</span></t>
+                                                </td>
+                                            </tr>
+                                        </t>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <t t-call="shrimp_marketplace.cert_viewer"/>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <!-- ============================================================ -->
+    <!-- 7) STOREFRONT PÚBLICO DEL VENDEDOR                           -->
+    <!-- ============================================================ -->
+    <template id="seller_storefront" name="Marketplace - Vendedor">
+        <t t-call="website.layout">
+            <div class="shrimp-bg">
+                <div class="shrimp-page py-4">
+
+                    <div class="mb-3">
+                        <t t-call="shrimp_marketplace.s_back_button"><t t-set="back_fallback" t-value="'/marketplace'"/></t>
+                    </div>
+
+                    <!-- ===== Cabecera de perfil (banda con degradado, texto blanco) ===== -->
+                    <style>
+                      .s-vhero{ background:var(--shrimp-grad); border-radius:var(--shrimp-radius-lg); padding:26px 28px; box-shadow:var(--shrimp-shadow); color:#fff; }
+                      .s-vhero-row{ display:flex; align-items:center; gap:20px; flex-wrap:wrap; }
+                      .s-vhero .s-avatar{ width:88px; height:88px; min-width:88px; font-size:34px; border:4px solid rgba(255,255,255,.35); background:rgba(255,255,255,.15); color:#fff; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; overflow:hidden; font-weight:800; }
+                      .s-vhero .s-avatar img{ width:100%; height:100%; object-fit:cover; }
+                      .s-vhero-info{ flex:1; min-width:220px; }
+                      .s-vhero .s-vhero-name{ font-size:var(--fs-h2); font-weight:800; letter-spacing:-.02em; margin:0 0 10px; color:#fff; }
+                      .s-vhero-meta{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; font-size:var(--fs-sm); color:rgba(255,255,255,.9); }
+                      .s-vhero-meta .s-badge{ background:rgba(255,255,255,.2); color:#fff; }
+                      .s-vhero-rating{ text-align:center; min-width:120px; }
+                      .s-vhero-rating .s-rating-big{ color:#fff; font-size:34px; font-weight:800; line-height:1; }
+                      .s-vhero-rating .s-rating .fa{ color:#ffd15c; }
+                      .s-vhero-rating .s-rating .s-rating-empty{ color:rgba(255,255,255,.4); }
+                      .s-vhero-rating .s-rating-count{ color:rgba(255,255,255,.85); }
+                    </style>
+                    <div class="s-vhero mb-4">
+                        <div class="s-vhero-row">
+                            <div class="s-avatar">
+                                <t t-if="seller.image_128">
+                                    <img t-att-src="'/web/image/res.partner/%s/image_128' % seller.id" t-att-alt="seller.name"/>
+                                </t>
+                                <t t-else=""><t t-esc="(seller.name or '?')[:1].upper()"/></t>
+                            </div>
+                            <div class="s-vhero-info">
+                                <h1 class="s-vhero-name"><t t-esc="seller.name"/></h1>
+                                <div class="s-vhero-meta">
+                                    <span class="s-badge">
+                                        <i class="fa fa-tag me-1"></i>
+                                        <t t-esc="dict(seller._fields['shrimp_user_type'].selection).get(seller.shrimp_user_type)"/>
+                                    </span>
+                                    <t t-if="seller.city"><span><i class="fa fa-map-marker me-1"></i><t t-esc="seller.city"/></span></t>
+                                    <t t-if="certificate_lines"><span><i class="fa fa-certificate me-1"></i><t t-esc="len(certificate_lines)"/> certificación(es)</span></t>
+                                </div>
+                            </div>
+                            <div class="s-vhero-rating">
+                                <t t-if="seller.shrimp_rating_count">
+                                    <div class="s-rating-big"><t t-esc="'%.1f' % seller.shrimp_rating_avg"/></div>
+                                    <div class="s-rating">
+                                        <t t-foreach="range(1, 6)" t-as="i">
+                                            <i t-att-class="'fa fa-star' + ('' if i &lt;= round(seller.shrimp_rating_avg) else ' s-rating-empty')"></i>
+                                        </t>
+                                    </div>
+                                    <div class="s-rating-count"><t t-esc="seller.shrimp_rating_count"/> reseña(s)</div>
+                                </t>
+                                <t t-else="">
+                                    <div class="s-rating"><t t-foreach="range(1, 6)" t-as="i"><i class="fa fa-star s-rating-empty"></i></t></div>
+                                    <div class="s-rating-count">Sin calificaciones aún</div>
+                                </t>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-4 mt-1">
+                        <!-- Productos -->
+                        <div class="col-lg-8">
+                            <h3 style="font-size:var(--fs-h3); font-weight:700;">Productos publicados (<t t-esc="products_count"/>)</h3>
+                            <t t-if="not products">
+                                <div class="s-empty"><div class="s-empty-ico"><i class="fa fa-cube"></i></div><h3>Sin productos</h3><p>Este vendedor no tiene productos publicados ahora mismo.</p></div>
+                            </t>
+                            <div class="s-prod-grid" t-if="products">
+                                <t t-foreach="products" t-as="p">
+                                    <t t-set="cover" t-value="p.photo_attachment_ids[:1]"/>
+                                    <t t-set="uom_label" t-value="p.uom_id.name"/>
+                                    <div class="s-prod-card">
+                                        <a class="s-prod-imgwrap" t-att-href="'/marketplace/product/%s' % p.uuid_ref">
+                                            <t t-if="cover">
+                                                <img class="s-prod-img" t-att-src="'/web/content/%s?access_token=%s' % (cover[0].id, cover[0].access_token)" t-att-alt="p.name"/>
+                                            </t>
+                                            <t t-else=""><div class="s-prod-noimg"><i class="fa fa-image me-2"></i> Sin foto</div></t>
+                                        </a>
+                                        <div class="s-prod-body">
+                                            <div class="s-badges"><t t-if="p.stage_id"><span class="s-badge"><t t-esc="p.stage_id.name"/></span></t></div>
+                                            <a class="s-prod-title" style="text-decoration:none;" t-att-href="'/marketplace/product/%s' % p.uuid_ref" t-esc="p.name"/>
+                                            <div class="s-prod-foot"><div class="s-prod-price">$<t t-esc="'%.2f' % p.price"/><span class="s-unit"> / <t t-esc="uom_label"/></span></div></div>
+                                        </div>
+                                    </div>
+                                </t>
+                            </div>
+                        </div>
+
+                        <!-- Reseñas + certificaciones -->
+                        <div class="col-lg-4">
+                            <t t-if="certificate_lines">
+                                <div class="s-panel s-card--pad mb-4">
+                                    <h4 style="font-size:var(--fs-lg); font-weight:700; margin-bottom:12px;">Certificaciones</h4>
+                                    <div class="s-badges">
+                                        <t t-foreach="certificate_lines" t-as="cl">
+                                            <span class="s-badge s-badge--success"><i class="fa fa-certificate me-1"></i><t t-esc="cl.certificate_id.name"/></span>
+                                        </t>
+                                    </div>
+                                </div>
+                            </t>
+
+                            <div class="s-panel s-card--pad">
+                                <h4 style="font-size:var(--fs-lg); font-weight:700; margin-bottom:16px;">Reseñas</h4>
+                                <t t-if="not reviews">
+                                    <div class="text-soft" style="font-size:var(--fs-sm);">Todavía no hay reseñas de este vendedor.</div>
+                                </t>
+                                <t t-foreach="reviews" t-as="rv">
+                                    <div class="s-review">
+                                        <div class="s-review-head">
+                                            <div class="s-rating" style="font-size:13px;">
+                                                <t t-foreach="range(1, 6)" t-as="i">
+                                                    <i t-att-class="'fa fa-star' + ('' if i &lt;= rv.rating else ' s-rating-empty')"></i>
+                                                </t>
+                                            </div>
+                                            <span class="s-review-author"><t t-esc="rv.reviewer_partner_id.name"/></span>
+                                        </div>
+                                        <t t-if="rv.comment"><p class="s-review-text"><t t-esc="rv.comment"/></p></t>
+                                    </div>
+                                </t>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+</odoo>

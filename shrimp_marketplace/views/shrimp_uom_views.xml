@@ -1,0 +1,45 @@
+<odoo>
+
+    <record id="view_shrimp_uom_list" model="ir.ui.view">
+        <field name="name">shrimp.uom.list</field>
+        <field name="model">shrimp.uom</field>
+        <field name="arch" type="xml">
+            <list string="Unidades de medida" editable="bottom">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="code"/>
+                <field name="commission_cents"/>
+                <field name="active" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_shrimp_uom_form" model="ir.ui.view">
+        <field name="name">shrimp.uom.form</field>
+        <field name="model">shrimp.uom</field>
+        <field name="arch" type="xml">
+            <form string="Unidad de medida">
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="code"/>
+                        <field name="sequence"/>
+                        <field name="commission_cents"/>
+                        <field name="active"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_shrimp_uom" model="ir.actions.act_window">
+        <field name="name">Unidades de medida</field>
+        <field name="res_model">shrimp.uom</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_shrimp_uom" name="Unidades de medida"
+              parent="menu_shrimp_config_root" action="action_shrimp_uom" sequence="60"
+              groups="base.group_system"/>
+
+</odoo>

@@ -1,0 +1,28 @@
+<odoo>
+    <record id="res_config_settings_view_form_shrimp" model="ir.ui.view">
+        <field name="name">res.config.settings.form.shrimp.marketplace</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app string="Marketplace Camarón" name="shrimp_marketplace"
+                     logo="/shrimp_marketplace/static/description/icon.png">
+                    <block title="Comisiones" name="shrimp_commission_block">
+                        <setting string="Comisión por venta"
+                                 help="La comisión que cobra el marketplace se configura por cada Unidad de medida (centavos por unidad vendida), en el menú Configuración › Unidades de medida. Cada unidad puede tener su propia tarifa. Solo el administrador del sistema puede verla y editarla."/>
+                        <setting string="Costo del chequeo"
+                                 help="Valor fijo que se cobra al comprador por enviar un equipo a verificar el producto al solicitar un chequeo. Se cobra además del valor del producto.">
+                            <div class="content-group">
+                                <div class="row mt16">
+                                    <label for="shrimp_check_fee" class="col-lg-6 o_light_label"/>
+                                    <field name="shrimp_check_fee"/>
+                                    <span class="text-muted">por solicitud de chequeo</span>
+                                </div>
+                            </div>
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+</odoo>

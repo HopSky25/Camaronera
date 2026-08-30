@@ -1,0 +1,294 @@
+<odoo>
+  <data>
+
+    <!-- SEARCH -->
+    <record id="view_shrimp_product_search" model="ir.ui.view">
+      <field name="name">shrimp.product.search</field>
+      <field name="model">shrimp.product</field>
+      <field name="arch" type="xml">
+        <search string="Buscar productos">
+          <field name="name" />
+          <field name="seller_partner_id" />
+
+          <field name="location" />
+          <field name="species_id" />
+          <field name="stage_id" />
+          <field name="genetics_line_id" />
+          <field name="seller_role" />
+          <field name="state" />
+
+          <separator />
+
+          <filter string="Activos" name="active" domain="[('active','=',True)]" />
+          <filter string="Inactivos" name="inactive" domain="[('active','=',False)]" />
+
+          <separator />
+
+          <filter string="Borrador" name="draft" domain="[('state','=','draft')]" />
+          <filter string="Publicado" name="published" domain="[('state','=','published')]" />
+          <filter string="Vendido" name="sold" domain="[('state','=','sold')]" />
+          <filter string="Cancelado" name="cancel" domain="[('state','=','cancel')]" />
+
+          <separator />
+
+          <filter string="Semillero" name="seller_semillero"
+            domain="[('seller_role','=','semillero')]" />
+          <filter string="Laboratorio" name="seller_laboratorio"
+            domain="[('seller_role','=','laboratorio')]" />
+
+          <separator />
+
+          <filter string="Con etapa" name="with_stage" domain="[('stage_id','!=',False)]" />
+          <filter string="Sin etapa" name="without_stage" domain="[('stage_id','=',False)]" />
+
+          <separator />
+
+          <!-- <filter string="Con certificados" name="has_certs"
+          domain="[('certificate_line_ids','!=',False)]"/>
+          <filter string="Sin certificados" name="no_certs" domain="[('certificate_line_ids','=',False)]"/>
+
+          <separator/> -->
+
+          <filter string="Con stock" name="with_stock" domain="[('available_qty','&gt;',0)]" />
+          <filter string="Sin stock" name="without_stock" domain="[('available_qty','&lt;=',0)]" />
+
+          <!-- <group expand="0" string="Agrupar por">
+            <filter string="Vendedor" name="grp_seller" context="{'group_by': 'seller_partner_id'}"/>
+            <filter string="Rol vendedor" name="grp_seller_role" context="{'group_by': 'seller_role'}"/>
+            <filter string="Estado" name="grp_state" context="{'group_by': 'state'}"/>
+            <filter string="Etapa" name="grp_stage" context="{'group_by': 'stage'}"/>
+            <filter string="Ubicación" name="grp_location" context="{'group_by': 'location'}"/>
+            <filter string="Fecha entrega" name="grp_delivery" context="{'group_by':
+          'expected_delivery_date'}"/>
+          </group> -->
+        </search>
+      </field>
+    </record>
+
+    <!-- TREE / LIST -->
+    <record id="view_shrimp_product_tree" model="ir.ui.view">
+      <field name="name">shrimp.product.tree</field>
+      <field name="model">shrimp.product</field>
+      <field name="arch" type="xml">
+        <list string="Productos" default_order="write_date desc">
+          <field name="name" />
+          <field name="state" widget="badge" />
+          <field name="seller_partner_id" />
+          <field name="seller_role" widget="badge" />
+          <field name="species_id" />
+          <field name="stage_id" />
+          <field name="genetics_line_id" />
+          <field name="initial_qty" />
+          <field name="available_qty" />
+          <field name="uom_id" />
+          <field name="price" />
+          <field name="location" />
+          <field name="expected_delivery_date" />
+          <field name="transaction_count" string="Transacciones" />
+          <field name="active" widget="boolean_toggle" />
+        </list>
+      </field>
+    </record>
+
+    <!-- FORM -->
+    <record id="view_shrimp_product_form" model="ir.ui.view">
+      <field name="name">shrimp.product.form</field>
+      <field name="model">shrimp.product</field>
+      <field name="arch" type="xml">
+        <form string="Producto" chatter_position="sided">
+
+          <header>
+            <field name="state"
+              widget="statusbar"
+              statusbar_visible="draft,published,sold,cancel"
+              statusbar_clickable="1" />
+          </header>
+
+          <sheet>
+
+            <!-- SMART BUTTONS -->
+            <div class="oe_button_box" name="button_box">
+              <button name="%(action_shrimp_transaction)d"
+                type="action"
+                class="oe_stat_button"
+                icon="fa-exchange"
+                invisible="not id"
+                context="{'search_default_product_id': id, 'default_product_id': id}">
+                <field name="transaction_count" widget="statinfo" string="Transacciones" />
+              </button>
+
+              <button name="action_view_stock_lots"
+                type="object"
+                class="oe_stat_button"
+                icon="fa-cubes"
+                invisible="not id">
+                <field name="stock_lot_count" widget="statinfo" string="Lotes" />
+              </button>
+            </div>
+
+            <div class="oe_title">
+              <h1>
+                <field name="name" placeholder="Nombre del producto" />
+              </h1>
+            </div>
+
+            <group>
+              <group string="Información general">
+                <field name="seller_partner_id" required="1" />
+                <field name="seller_role" />
+                <field name="species_id" />
+                <field name="stage_id" />
+                <field name="genetics_line_id" />
+              </group>
+              <group string="Logística">
+                <field name="location" />
+                <field name="expected_delivery_date" />
+                <field name="available_from" />
+                <field name="available_to" />
+              </group>
+            </group>
+
+            <notebook>
+
+              <page string="Comercial">
+                <group>
+                  <group string="Stock y precio">
+                    <field name="initial_qty" required="1" readonly="id" />
+                    <field name="available_qty" readonly="1" />
+                    <field name="uom_id" />
+                    <field name="price" required="1" />
+                    <field name="active" />
+                  </group>
+                  <group string="Resumen">
+                    <field name="state" readonly="1" />
+                    <field name="transaction_count" readonly="1" />
+                  </group>
+                </group>
+              </page>
+
+              <page string="Calidad y genética">
+                <group>
+                  <group>
+                    <field name="species_id" />
+                    <field name="stage_id" />
+                    <field name="genetics_line_id" />
+                    <field name="avg_size_mg" />
+                    <field name="survival_rate" />
+                  </group>
+                  <group>
+                    <field name="health_status" nolabel="0" />
+                  </group>
+                </group>
+              </page>
+
+              <page string="Adjuntos">
+                <!-- Fotos -->
+                <group string="Fotos" col="4">
+                  <field name="photo_attachment_ids"
+                    nolabel="1"
+                    colspan="4"
+                    widget="many2many_kanban">
+                    <kanban class="o_kanban_attachments">
+                      <field name="id" />
+                      <field name="name" />
+                      <field name="mimetype" />
+                      <templates>
+                        <t t-name="card">
+                          <div class="o_kanban_record" style="width:220px;">
+                            <div class="o_kanban_image"
+                              style="height:140px; overflow:hidden; background:#f2f4f8;">
+                              <t
+                                t-if="record.mimetype and record.mimetype.value and record.mimetype.value.startsWith('image/')">
+                                <img
+                                  t-att-src="'/web/image/ir.attachment/' + record.id.raw_value + '/datas'"
+                                  style="width:100%; height:140px; object-fit:cover;" />
+                              </t>
+                              <t t-else="">
+                                <div
+                                  class="d-flex align-items-center justify-content-center text-muted"
+                                  style="height:140px;">
+                                  <i class="fa fa-file-o me-1"></i> Archivo </div>
+                              </t>
+                            </div>
+                            <div class="o_kanban_details">
+                              <div class="text-truncate"
+                                t-esc="record.name and record.name.value or ''" />
+                            </div>
+                          </div>
+                        </t>
+                      </templates>
+                    </kanban>
+                  </field>
+                </group>
+              </page>
+
+              <page string="Certificados">
+                <group string="Certificados del producto">
+                  <field name="certificate_line_ids" nolabel="1" colspan="4">
+                    <list editable="bottom">
+                      <field name="certificate_id"/>
+                      <field name="issuer" readonly="1"/>
+                      <field name="number"/>
+                      <field name="issue_date"/>
+                      <field name="expiry_date"/>
+                      <field name="attachment_id"/>
+                    </list>
+                  </field>
+                </group>
+                <group string="Certificados del vendedor (heredados)">
+                  <div class="text-muted" colspan="4" style="margin-bottom:6px;">
+                    Certificados que pertenecen al vendedor del producto. Solo lectura.
+                  </div>
+                  <field name="seller_certificate_line_ids" nolabel="1" colspan="4" readonly="1">
+                    <list create="0" edit="0" delete="0"
+                          decoration-success="status == 'approved'"
+                          decoration-danger="status == 'rejected'"
+                          decoration-warning="status == 'pending'">
+                      <field name="certificate_id"/>
+                      <field name="issuer"/>
+                      <field name="certificate_number"/>
+                      <field name="issue_date"/>
+                      <field name="expiry_date"/>
+                      <field name="status" widget="badge"/>
+                    </list>
+                  </field>
+                </group>
+              </page>
+
+              <page string="Transacciones">
+                <field name="transaction_ids" nolabel="1" colspan="4">
+                  <list create="0" edit="0" default_order="create_date desc">
+                    <field name="create_date" />
+                    <field name="name" />
+                    <field name="state" widget="badge" />
+                    <field name="transaction_type" />
+                    <field name="seller_partner_id" />
+                    <field name="buyer_partner_id" />
+                    <field name="location" />
+                    <field name="sold_qty" />
+                    <field name="sold_date" />
+                    <field name="desired_qty" />
+                    <field name="desired_date" />
+                  </list>
+                </field>
+              </page>
+
+            </notebook>
+          </sheet>
+
+          <chatter />
+        </form>
+      </field>
+    </record>
+
+    <!-- ACTION -->
+    <record id="action_shrimp_product" model="ir.actions.act_window">
+      <field name="name">Productos</field>
+      <field name="res_model">shrimp.product</field>
+      <field name="view_mode">list,form</field>
+      <field name="search_view_id" ref="view_shrimp_product_search" />
+      <field name="context">{'search_default_active': 1}</field>
+    </record>
+
+  </data>
+</odoo>

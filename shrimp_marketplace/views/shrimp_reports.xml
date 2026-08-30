@@ -1,0 +1,200 @@
+<odoo>
+
+    <!-- ============================================================ -->
+    <!-- 1) REPORTE DE VENTAS (transacciones)                          -->
+    <!-- ============================================================ -->
+    <record id="view_shrimp_tx_pivot" model="ir.ui.view">
+        <field name="name">shrimp.transaction.pivot</field>
+        <field name="model">shrimp.transaction</field>
+        <field name="arch" type="xml">
+            <pivot string="Ventas" sample="1">
+                <field name="transaction_type" type="row"/>
+                <field name="create_date" interval="month" type="col"/>
+                <field name="amount_total" type="measure"/>
+                <field name="transaction_qty" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_shrimp_tx_graph" model="ir.ui.view">
+        <field name="name">shrimp.transaction.graph</field>
+        <field name="model">shrimp.transaction</field>
+        <field name="arch" type="xml">
+            <graph string="Ventas" type="bar" sample="1">
+                <field name="create_date" interval="month"/>
+                <field name="amount_total" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="view_shrimp_tx_search_report" model="ir.ui.view">
+        <field name="name">shrimp.transaction.search.report</field>
+        <field name="model">shrimp.transaction</field>
+        <field name="arch" type="xml">
+            <search string="Ventas">
+                <field name="seller_partner_id"/>
+                <field name="buyer_partner_id"/>
+                <field name="product_id"/>
+                <filter name="f_done" string="Completadas" domain="[('state','=','done')]"/>
+                <filter name="f_confirmed" string="Confirmadas" domain="[('state','=','confirmed')]"/>
+                <separator/>
+                <filter name="g_type" string="Tipo" context="{'group_by':'transaction_type'}"/>
+                <filter name="g_seller" string="Vendedor" context="{'group_by':'seller_partner_id'}"/>
+                <filter name="g_state" string="Estado" context="{'group_by':'state'}"/>
+                <filter name="g_date" string="Mes" context="{'group_by':'create_date:month'}"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_report_sales" model="ir.actions.act_window">
+        <field name="name">Ventas</field>
+        <field name="res_model">shrimp.transaction</field>
+        <field name="view_mode">graph,pivot,list</field>
+        <field name="search_view_id" ref="view_shrimp_tx_search_report"/>
+    </record>
+
+    <!-- ============================================================ -->
+    <!-- 2) REPORTE DE COMISIONES (cobros)                             -->
+    <!-- ============================================================ -->
+    <record id="view_shrimp_charge_pivot" model="ir.ui.view">
+        <field name="name">shrimp.charge.pivot</field>
+        <field name="model">shrimp.charge</field>
+        <field name="arch" type="xml">
+            <pivot string="Comisiones" sample="1">
+                <field name="seller_partner_id" type="row"/>
+                <field name="date" interval="month" type="col"/>
+                <field name="amount" type="measure"/>
+                <field name="qty" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_shrimp_charge_graph" model="ir.ui.view">
+        <field name="name">shrimp.charge.graph</field>
+        <field name="model">shrimp.charge</field>
+        <field name="arch" type="xml">
+            <graph string="Comisiones" type="line" sample="1">
+                <field name="date" interval="month"/>
+                <field name="amount" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="view_shrimp_charge_list" model="ir.ui.view">
+        <field name="name">shrimp.charge.list</field>
+        <field name="model">shrimp.charge</field>
+        <field name="arch" type="xml">
+            <list string="Cobros">
+                <field name="name"/>
+                <field name="date"/>
+                <field name="seller_partner_id"/>
+                <field name="buyer_partner_id"/>
+                <field name="product_id"/>
+                <field name="qty"/>
+                <field name="uom_id"/>
+                <field name="rate_cents"/>
+                <field name="amount" sum="Total comisión"/>
+                <field name="sale_order_id"/>
+                <field name="invoice_id"/>
+                <field name="invoice_state" widget="badge"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_shrimp_charge_form" model="ir.ui.view">
+        <field name="name">shrimp.charge.form</field>
+        <field name="model">shrimp.charge</field>
+        <field name="arch" type="xml">
+            <form string="Cobro de comisión">
+                <header>
+                    <button name="action_generate_sale_documents" type="object"
+                            string="Generar pedido y factura" class="btn-primary"
+                            invisible="sale_order_id"/>
+                    <button name="action_open_sale_order" type="object"
+                            string="Ver pedido de venta"
+                            invisible="not sale_order_id"/>
+                    <button name="action_open_invoice" type="object"
+                            string="Ver factura"
+                            invisible="not invoice_id"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1"/></h1>
+                    </div>
+                    <group>
+                        <group string="Venta">
+                            <field name="date"/>
+                            <field name="seller_partner_id"/>
+                            <field name="buyer_partner_id"/>
+                            <field name="product_id"/>
+                            <field name="transaction_id"/>
+                        </group>
+                        <group string="Comisión">
+                            <field name="qty"/>
+                            <field name="uom_id"/>
+                            <field name="rate_cents"/>
+                            <field name="currency_id" invisible="1"/>
+                            <field name="amount" widget="monetary"/>
+                        </group>
+                    </group>
+                    <group string="Documentos en Ventas / Contabilidad">
+                        <field name="sale_order_id"/>
+                        <field name="invoice_id"/>
+                        <field name="invoice_state" widget="badge"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_report_commissions" model="ir.actions.act_window">
+        <field name="name">Comisiones cobradas</field>
+        <field name="res_model">shrimp.charge</field>
+        <field name="view_mode">list,form,graph,pivot</field>
+    </record>
+
+    <!-- ============================================================ -->
+    <!-- 3) REPORTE DE MOVIMIENTOS DE STOCK                            -->
+    <!-- ============================================================ -->
+    <record id="view_shrimp_move_pivot" model="ir.ui.view">
+        <field name="name">shrimp.stock.move.pivot</field>
+        <field name="model">shrimp.stock.move</field>
+        <field name="arch" type="xml">
+            <pivot string="Movimientos" sample="1">
+                <field name="product_id" type="row"/>
+                <field name="date" interval="month" type="col"/>
+                <field name="qty" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_shrimp_move_graph" model="ir.ui.view">
+        <field name="name">shrimp.stock.move.graph</field>
+        <field name="model">shrimp.stock.move</field>
+        <field name="arch" type="xml">
+            <graph string="Movimientos" type="bar" sample="1">
+                <field name="date" interval="month"/>
+                <field name="qty" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="action_report_moves" model="ir.actions.act_window">
+        <field name="name">Movimientos de stock</field>
+        <field name="res_model">shrimp.stock.move</field>
+        <field name="view_mode">graph,pivot,list</field>
+    </record>
+
+    <!-- ============================================================ -->
+    <!-- MENÚS DE REPORTES                                             -->
+    <!-- ============================================================ -->
+    <menuitem id="menu_shrimp_reports_root" name="Reportes"
+              parent="menu_shrimp_root" sequence="70"/>
+    <menuitem id="menu_report_sales" name="Ventas"
+              parent="menu_shrimp_reports_root" action="action_report_sales" sequence="10"/>
+    <menuitem id="menu_report_commissions" name="Comisiones"
+              parent="menu_shrimp_reports_root" action="action_report_commissions" sequence="20"/>
+    <menuitem id="menu_report_moves" name="Movimientos"
+              parent="menu_shrimp_reports_root" action="action_report_moves" sequence="30"/>
+
+</odoo>

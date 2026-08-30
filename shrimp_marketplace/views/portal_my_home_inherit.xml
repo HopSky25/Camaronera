@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+  <template id="portal_my_home_add_marketplace_buttons" inherit_id="portal.portal_my_home">
+
+    <xpath expr="//div[contains(@class, 'o_portal_my_home')]" position="inside">
+      <div class="mp-panel mt-4 mb-4">
+
+        <div class="mp-panel-head">
+          <div class="mp-eyebrow">Tu panel</div>
+          <h3 class="mp-panel-title">Marketplace</h3>
+          <div class="mp-panel-sub">Publica, compra, gestiona tu operación y sigue la trazabilidad de cada lote.</div>
+        </div>
+
+        <div class="mp-grid">
+
+          <a href="/marketplace/products/new" class="mp-tile mp-tile--accent">
+            <div class="mp-tile-ico mp-ico-green"><i class="fa fa-plus-circle"></i></div>
+            <div class="mp-tile-title">Publicar producto</div>
+            <div class="mp-tile-desc">Crea una nueva publicación para ofrecer tu lote en el marketplace.</div>
+          </a>
+
+          <a href="/marketplace/products" class="mp-tile">
+            <div class="mp-tile-ico mp-ico-blue"><i class="fa fa-cubes"></i></div>
+            <div class="mp-tile-title">Mis productos</div>
+            <div class="mp-tile-desc">Gestiona los lotes que has publicado y su estado.</div>
+          </a>
+
+          <a href="/marketplace" class="mp-tile">
+            <div class="mp-tile-ico mp-ico-teal"><i class="fa fa-shopping-bag"></i></div>
+            <div class="mp-tile-title">Marketplace</div>
+            <div class="mp-tile-desc">Explora los productos disponibles y filtra por lo que necesitas.</div>
+          </a>
+
+          <a href="/marketplace/calendar" class="mp-tile">
+            <div class="mp-tile-ico mp-ico-amber"><i class="fa fa-calendar"></i></div>
+            <div class="mp-tile-title">Calendario de entregas</div>
+            <div class="mp-tile-desc">Revisa fechas planificadas y organiza tus compromisos.</div>
+          </a>
+
+          <a href="/marketplace/compras" class="mp-tile">
+            <div class="mp-tile-ico mp-ico-blue"><i class="fa fa-shopping-cart"></i></div>
+            <div class="mp-tile-title">Historial de compras</div>
+            <div class="mp-tile-desc">Consulta tus compras y descarga su trazabilidad.</div>
+          </a>
+
+          <a href="/marketplace/ventas" class="mp-tile">
+            <div class="mp-tile-ico mp-ico-green"><i class="fa fa-line-chart"></i></div>
+            <div class="mp-tile-title">Ventas realizadas</div>
+            <div class="mp-tile-desc">Revisa los productos que te han comprado.</div>
+          </a>
+
+          <a href="/marketplace/planificacion" class="mp-tile">
+            <div class="mp-tile-ico mp-ico-teal"><i class="fa fa-tasks"></i></div>
+            <div class="mp-tile-title">Planificación</div>
+            <div class="mp-tile-desc">Organiza compras, ventas y fechas clave de entrega.</div>
+          </a>
+
+          <a href="/marketplace/reportes" class="mp-tile">
+            <div class="mp-tile-ico mp-ico-green"><i class="fa fa-bar-chart"></i></div>
+            <div class="mp-tile-title">Mis reportes</div>
+            <div class="mp-tile-desc">Resumen de tus ventas, compras y comisiones con gráficas.</div>
+          </a>
+
+          <a href="/marketplace/solicitudes" class="mp-tile">
+            <div class="mp-tile-ico mp-ico-coral"><i class="fa fa-check-square-o"></i></div>
+            <div class="mp-tile-title">Solicitudes de chequeo</div>
+            <div class="mp-tile-desc">Aprueba o rechaza las solicitudes que recibes como vendedor.</div>
+          </a>
+
+          <a href="/marketplace/mis-lotes" class="mp-tile">
+            <div class="mp-tile-ico mp-ico-blue"><i class="fa fa-flask"></i></div>
+            <div class="mp-tile-title">Mi inventario</div>
+            <div class="mp-tile-desc">Consulta los lotes que has recibido tras tus compras.</div>
+          </a>
+
+          <a href="/marketplace/mis-instalaciones" class="mp-tile">
+            <div class="mp-tile-ico mp-ico-teal"><i class="fa fa-map-o"></i></div>
+            <div class="mp-tile-title">Instalaciones y piscinas</div>
+            <div class="mp-tile-desc">Registra instalaciones, piscinas y asigna lotes para la siembra.</div>
+          </a>
+
+          <a href="/marketplace/mi-cuenta" class="mp-tile">
+            <div class="mp-tile-ico mp-ico-coral"><i class="fa fa-user-o"></i></div>
+            <div class="mp-tile-title">Mi cuenta y certificados</div>
+            <div class="mp-tile-desc">Edita tus datos y gestiona o renueva tus certificados.</div>
+          </a>
+
+        </div>
+      </div>
+    </xpath>
+
+    <xpath expr="." position="inside">
+      <style>
+        .mp-panel-head{ margin-bottom: 22px; }
+        .mp-eyebrow{ text-transform:uppercase; letter-spacing:.12em; font-size:12px; font-weight:700; color:#123e5c; margin-bottom:6px; }
+        .mp-panel-title{ font-weight:800; letter-spacing:-.02em; font-size:28px; margin:0; color:#1d1d1f; }
+        .mp-panel-sub{ color:#6e6e73; font-size:15px; margin-top:4px; }
+        .mp-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:16px; }
+        .mp-tile{ position:relative; display:block; background:#fff; border:1px solid rgba(0,0,0,.10); border-radius:18px; padding:22px 22px 20px; text-decoration:none !important; box-shadow:0 1px 3px rgba(0,0,0,.05), 0 8px 24px rgba(0,0,0,.04); transition:transform .22s ease, box-shadow .22s ease; overflow:hidden; }
+        .mp-tile::before{ content:""; position:absolute; top:0; left:0; right:0; height:4px; background:linear-gradient(90deg,#123e5c,#14a0b0); opacity:.55; transition:opacity .22s ease; }
+        .mp-tile:hover{ transform:translateY(-4px); box-shadow:0 10px 24px rgba(0,0,0,.10), 0 24px 60px rgba(0,0,0,.08); text-decoration:none !important; }
+        .mp-tile:hover::before{ opacity:1; }
+        .mp-tile--accent{ background:linear-gradient(180deg, rgba(46,158,107,.06), #fff); }
+        .mp-tile-ico{ width:52px; height:52px; border-radius:15px; display:flex; align-items:center; justify-content:center; font-size:22px; margin-bottom:16px; color:#fff !important; box-shadow:0 8px 18px rgba(18,62,92,.20); }
+        .mp-tile-ico i{ color:#fff; }
+        .mp-ico-blue { background:linear-gradient(135deg,#123e5c,#2e7da6); }
+        .mp-ico-teal { background:linear-gradient(135deg,#0e8ea0,#46c9d4); box-shadow:0 8px 18px rgba(14,142,160,.24); }
+        .mp-ico-coral{ background:linear-gradient(135deg,#c0562e,#e0894f); box-shadow:0 8px 18px rgba(192,86,45,.24); }
+        .mp-ico-green{ background:linear-gradient(135deg,#1f7d56,#2e9e6b); box-shadow:0 8px 18px rgba(31,125,86,.24); }
+        .mp-ico-amber{ background:linear-gradient(135deg,#a87700,#e0a106); box-shadow:0 8px 18px rgba(217,154,6,.24); }
+        .mp-tile-title{ color:#1d1d1f; font-size:17px; font-weight:800; letter-spacing:-.01em; margin-bottom:5px; }
+        .mp-tile-desc{ color:#6e6e73; font-size:14px; line-height:1.5; }
+        @media (max-width: 575.98px){ .mp-grid{ grid-template-columns:1fr; } }
+      </style>
+    </xpath>
+
+  </template>
+</odoo>

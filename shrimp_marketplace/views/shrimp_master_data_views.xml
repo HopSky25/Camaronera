@@ -1,0 +1,328 @@
+<odoo>
+    <data>
+
+        <!-- =========================================================
+            ESPECIES
+        ========================================================= -->
+
+        <record id="view_shrimp_species_tree" model="ir.ui.view">
+            <field name="name">shrimp.species.tree</field>
+            <field name="model">shrimp.species</field>
+            <field name="arch" type="xml">
+                <list>
+                    <field name="name"/>
+                    <field name="scientific_name"/>
+                    <field name="code"/>
+                    <field name="active"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="view_shrimp_species_form" model="ir.ui.view">
+            <field name="name">shrimp.species.form</field>
+            <field name="model">shrimp.species</field>
+            <field name="arch" type="xml">
+                <form string="Especie">
+                    <sheet>
+                        <group>
+                            <field name="name"/>
+                            <field name="scientific_name"/>
+                            <field name="code"/>
+                            <field name="active"/>
+                        </group>
+                        <group>
+                            <field name="description"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_shrimp_species" model="ir.actions.act_window">
+            <field name="name">Especies</field>
+            <field name="res_model">shrimp.species</field>
+            <field name="view_mode">list,form</field>
+        </record>
+
+
+        <!-- =========================================================
+            STAGES
+        ========================================================= -->
+
+        <record id="view_shrimp_stage_tree" model="ir.ui.view">
+            <field name="name">shrimp.stage.tree</field>
+            <field name="model">shrimp.stage</field>
+            <field name="arch" type="xml">
+                <list>
+                    <field name="sequence"/>
+                    <field name="name"/>
+                    <field name="code"/>
+                    <field name="active"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="view_shrimp_stage_form" model="ir.ui.view">
+            <field name="name">shrimp.stage.form</field>
+            <field name="model">shrimp.stage</field>
+            <field name="arch" type="xml">
+                <form string="Estadío">
+                    <sheet>
+                        <group>
+                            <field name="sequence"/>
+                            <field name="name"/>
+                            <field name="code"/>
+                            <field name="active"/>
+                        </group>
+                        <group>
+                            <field name="description"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_shrimp_stage" model="ir.actions.act_window">
+            <field name="name">Estadíos</field>
+            <field name="res_model">shrimp.stage</field>
+            <field name="view_mode">list,form</field>
+        </record>
+
+
+        <!-- =========================================================
+            GENETICS
+        ========================================================= -->
+
+        <record id="view_shrimp_genetics_tree" model="ir.ui.view">
+            <field name="name">shrimp.genetics.tree</field>
+            <field name="model">shrimp.genetics.line</field>
+            <field name="arch" type="xml">
+                <list>
+                    <field name="name"/>
+                    <field name="code"/>
+                    <field name="species_id"/>
+                    <field name="brand"/>
+                    <field name="active"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="view_shrimp_genetics_form" model="ir.ui.view">
+            <field name="name">shrimp.genetics.form</field>
+            <field name="model">shrimp.genetics.line</field>
+            <field name="arch" type="xml">
+                <form string="Línea genética">
+                    <sheet>
+                        <group>
+                            <field name="name"/>
+                            <field name="code"/>
+                            <field name="species_id"/>
+                            <field name="brand"/>
+                            <field name="active"/>
+                        </group>
+                        <group>
+                            <field name="description"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_shrimp_genetics" model="ir.actions.act_window">
+            <field name="name">Líneas genéticas</field>
+            <field name="res_model">shrimp.genetics.line</field>
+            <field name="view_mode">list,form</field>
+        </record>
+
+
+        <!-- =========================================================
+            FACILITIES
+        ========================================================= -->
+
+        <record id="view_shrimp_facility_tree" model="ir.ui.view">
+            <field name="name">shrimp.facility.tree</field>
+            <field name="model">shrimp.partner.facility</field>
+            <field name="arch" type="xml">
+                <list>
+                    <field name="name"/>
+                    <field name="partner_id"/>
+                    <field name="facility_type"/>
+                    <field name="city"/>
+                    <field name="active"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="view_shrimp_facility_form" model="ir.ui.view">
+            <field name="name">shrimp.facility.form</field>
+            <field name="model">shrimp.partner.facility</field>
+            <field name="arch" type="xml">
+                <form string="Instalación">
+                    <sheet>
+                        <group>
+                            <field name="partner_id"/>
+                            <field name="name"/>
+                            <field name="code"/>
+                            <field name="facility_type"/>
+                        </group>
+                        <group>
+                            <field name="address"/>
+                            <field name="city"/>
+                            <field name="province"/>
+                            <field name="country_id"/>
+                        </group>
+                        <group>
+                            <field name="latitude"/>
+                            <field name="longitude"/>
+                        </group>
+                        <group>
+                            <field name="active"/>
+                            <field name="notes"/>
+                        </group>
+
+                        <notebook>
+                            <page string="Piscinas">
+                                <field name="pond_ids">
+                                    <list>
+                                        <field name="name"/>
+                                        <field name="pond_type"/>
+                                        <field name="volume_m3"/>
+                                    </list>
+                                </field>
+                            </page>
+                        </notebook>
+
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_shrimp_facility" model="ir.actions.act_window">
+            <field name="name">Instalaciones</field>
+            <field name="res_model">shrimp.partner.facility</field>
+            <field name="view_mode">list,form</field>
+        </record>
+
+
+        <!-- =========================================================
+            PONDS
+        ========================================================= -->
+
+        <record id="view_shrimp_pond_tree" model="ir.ui.view">
+            <field name="name">shrimp.pond.tree</field>
+            <field name="model">shrimp.partner.pond</field>
+            <field name="arch" type="xml">
+                <list>
+                    <field name="name"/>
+                    <field name="partner_id"/>
+                    <field name="facility_id"/>
+                    <field name="pond_type"/>
+                    <field name="area_m2"/>
+                    <field name="volume_m3"/>
+                    <field name="active"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="view_shrimp_pond_form" model="ir.ui.view">
+            <field name="name">shrimp.pond.form</field>
+            <field name="model">shrimp.partner.pond</field>
+            <field name="arch" type="xml">
+                <form string="Piscina">
+                    <sheet>
+
+                        <group>
+                            <field name="partner_id"/>
+                            <field name="facility_id"/>
+                            <field name="name"/>
+                            <field name="code"/>
+                        </group>
+
+                        <group>
+                            <field name="pond_type"/>
+                            <field name="capacity_mode"/>
+                        </group>
+
+                        <group string="Dimensiones">
+                            <field name="length_m"/>
+                            <field name="width_m"/>
+                            <field name="depth_m"/>
+                        </group>
+
+                        <group string="Volumen">
+                            <field name="manual_volume_m3"/>
+                            <field name="volume_m3" readonly="1"/>
+                            <field name="area_m2" readonly="1"/>
+                            <field name="usable_volume_m3"/>
+                        </group>
+
+                        <group>
+                            <field name="max_stock_units"/>
+                            <field name="active"/>
+                        </group>
+
+                        <group>
+                            <field name="notes"/>
+                        </group>
+
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_shrimp_pond" model="ir.actions.act_window">
+            <field name="name">Piscinas</field>
+            <field name="res_model">shrimp.partner.pond</field>
+            <field name="view_mode">list,form</field>
+        </record>
+
+
+        <!-- =========================================================
+            LOT ALLOCATION
+        ========================================================= -->
+
+        <record id="view_shrimp_lot_allocation_tree" model="ir.ui.view">
+            <field name="name">shrimp.lot.allocation.tree</field>
+            <field name="model">shrimp.lot.allocation</field>
+            <field name="arch" type="xml">
+                <list>
+                    <field name="allocation_date"/>
+                    <field name="stock_lot_id"/>
+                    <field name="pond_id"/>
+                    <field name="allocated_qty"/>
+                    <field name="state"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="view_shrimp_lot_allocation_form" model="ir.ui.view">
+            <field name="name">shrimp.lot.allocation.form</field>
+            <field name="model">shrimp.lot.allocation</field>
+            <field name="arch" type="xml">
+                <form string="Asignación de lote">
+                    <sheet>
+                        <group>
+                            <field name="stock_lot_id"/>
+                            <field name="pond_id"/>
+                            <field name="allocated_qty"/>
+                            <field name="allocation_date"/>
+                            <field name="state"/>
+                        </group>
+                        <group>
+                            <field name="notes"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_shrimp_lot_allocation" model="ir.actions.act_window">
+            <field name="name">Asignaciones</field>
+            <field name="res_model">shrimp.lot.allocation</field>
+            <field name="view_mode">list,form</field>
+        </record>
+
+
+
+    </data>
+</odoo>

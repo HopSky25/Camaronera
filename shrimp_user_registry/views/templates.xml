@@ -1,0 +1,649 @@
+<odoo>
+
+  <template id="registry_form" name="Registro Shrimp">
+    <t t-call="website.layout">
+      <t t-set="values" t-value="values or {}"/>
+      <div class="shrimp-bg">
+        <div class="shrimp-page py-4">
+
+          <!-- Banner de encabezado -->
+          <div class="sf-banner">
+            <div class="sf-banner-row">
+              <div class="sf-banner-txt">
+                <h1>Crea tu cuenta</h1>
+                <p>Elige tu perfil y completa solo los campos requeridos. Puedes adjuntar tus
+                   certificados y las fotos de tus instalaciones.</p>
+              </div>
+              <span class="sf-kicker"><i class="fa fa-user-plus"></i> Registro</span>
+            </div>
+          </div>
+
+          <!-- Error backend -->
+          <t t-if="error">
+            <div class="alert alert-danger" role="alert">
+              <t t-esc="error" />
+            </div>
+          </t>
+
+          <!-- Alert frontend -->
+          <div id="formAlert" class="alert alert-danger d-none" role="alert">
+            <span id="formAlertText"></span>
+          </div>
+
+          <form id="shrimpRegisterForm" class="sf" action="/registro/submit" method="post"
+            enctype="multipart/form-data" novalidate="novalidate">
+            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()" />
+
+          <div class="row g-4">
+
+            <!-- Col izquierda: guía -->
+            <div class="col-lg-4">
+              <div class="card" style="position:sticky; top:16px;">
+                <div class="card-body p-4">
+                  <div class="s-eyebrow mb-2">Guía rápida</div>
+                  <ol class="mb-3 ps-3 small text-muted">
+                    <li>Selecciona tu tipo de usuario</li>
+                    <li>Completa datos básicos</li>
+                    <li>Adjunta certificados y fotos si aplica</li>
+                    <li>Crea tu cuenta</li>
+                  </ol>
+                  <div class="p-3 rounded-3"
+                    style="background:rgba(18,62,92,.06); border:1px solid rgba(18,62,92,.12);">
+                    <div class="small" style="font-weight:700; color:var(--c-blue);">Recomendaciones</div>
+                    <ul class="mb-0 ps-3 small text-muted">
+                      <li>Contraseña de 8+ caracteres</li>
+                      <li>Certificados en PDF/JPG/PNG</li>
+                      <li>Fotos nítidas de instalaciones</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Col derecha: pasos 1 y 2 -->
+            <div class="col-lg-8">
+
+                <!-- Card: Perfil -->
+                <div class="card mb-4">
+                  <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                      <div>
+                        <div class="s-eyebrow">Paso 1</div>
+                        <h5 class="mb-0" style="font-weight:600;">Tipo de usuario</h5>
+                      </div>
+                      <span class="badge rounded-pill" style="background:var(--c-blue); color:#fff; font-weight:600;">
+                        Requerido</span>
+                    </div>
+
+                    <label class="form-label small text-muted">Selecciona tu perfil <span
+                        class="text-danger">*</span></label>
+                    <select id="shrimp_user_type" class="form-select" name="shrimp_user_type"
+                      required="required">
+                      <option value="">Seleccione...</option>
+                      <option value="semillero" t-att-selected="'selected' if values.get('shrimp_user_type') == 'semillero' else None">Semillero</option>
+                      <option value="laboratorio" t-att-selected="'selected' if values.get('shrimp_user_type') == 'laboratorio' else None">Laboratorio</option>
+                      <option value="camaronera" t-att-selected="'selected' if values.get('shrimp_user_type') == 'camaronera' else None">Camaronera</option>
+                    </select>
+                    <div class="text-muted small mt-2">
+                      Esto determina qué campos y certificados se mostrarán.
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Card: Básicos -->
+                <div class="card mb-4">
+                  <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                      <div>
+                        <div class="s-eyebrow">Paso 2</div>
+                        <h5 class="mb-0" style="font-weight:600;">Datos básicos</h5>
+                      </div>
+                      <span class="text-muted small">Obligatorios</span>
+                    </div>
+
+                    <div class="row g-3">
+                      <div class="col-12">
+                        <label class="form-label small text-muted">Nombre / Razón social <span
+                            class="text-danger">*</span></label>
+                        <input class="form-control" type="text" name="name" required="required"
+                          t-att-value="values.get('name')"
+                          placeholder="Ej. Semillero El Oro S.A." />
+                      </div>
+
+                      <div class="col-md-6">
+                        <label class="form-label small text-muted">RUC o Cédula <span
+                            class="text-danger">*</span></label>
+                        <input class="form-control" type="text" name="vat_or_id" required="required"
+                          t-att-value="values.get('vat_or_id')"
+                          placeholder="Ej. 0999999999001" />
+                      </div>
+
+                      <div class="col-md-6">
+                        <label class="form-label small text-muted">Correo <span
+                            class="text-danger">*</span></label>
+                        <input class="form-control" type="email" name="email" required="required"
+                          t-att-value="values.get('email')"
+                          placeholder="correo@ejemplo.com" />
+                      </div>
+
+                      <div class="col-md-6">
+                        <label class="form-label small text-muted">Contraseña <span
+                            class="text-danger">*</span></label>
+                        <input id="password" class="form-control" type="password" name="password"
+                          required="required"
+                          minlength="8" placeholder="Mínimo 8 caracteres" />
+                        <div class="text-muted small mt-2">
+                          Recomendado: letras + números + símbolos.
+                        </div>
+                      </div>
+
+                      <div class="col-md-6">
+                        <label class="form-label small text-muted">Confirmar contraseña <span
+                            class="text-danger">*</span></label>
+                        <input id="password_confirm" class="form-control" type="password"
+                          required="required"
+                          minlength="8" placeholder="Repite la contraseña" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- Fila completa: Paso 3 (campos por tipo) -->
+            <div class="row g-4 sf-cert-row">
+              <div class="col-12">
+
+                <!-- Card: Campos por tipo -->
+                <div class="card mb-4">
+                  <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                      <div>
+                        <div class="s-eyebrow">Paso 3</div>
+                        <h5 class="mb-0" style="font-weight:600;">Campos por tipo</h5>
+                      </div>
+                      <span class="text-muted small">Sección dinámica</span>
+                    </div>
+
+                    <!-- Tabs (visuales) -->
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                      <span class="badge rounded-pill text-bg-light border" id="pill_semillero"
+                        style="font-weight:600;">Semillero</span>
+                      <span class="badge rounded-pill text-bg-light border" id="pill_laboratorio"
+                        style="font-weight:600;">Laboratorio</span>
+                      <span class="badge rounded-pill text-bg-light border" id="pill_camaronera"
+                        style="font-weight:600;">Camaronera</span>
+                    </div>
+
+                    <!-- SEMILLERO -->
+                    <div id="section_semillero" class="d-none">
+                      <div class="p-3 rounded-3 mb-3"
+                        style="background:rgba(18,62,92,.06); border:1px solid rgba(18,62,92,.12);">
+                        <div class="d-flex align-items-center justify-content-between gap-2">
+                          <div>
+                            <div style="font-weight:600; color:var(--c-blue);">Semillero</div>
+                            <div class="text-muted small">Adjunta certificados y fotos</div>
+                          </div>
+                          <i class="fa fa-leaf" style="color:var(--c-blue);"></i>
+                        </div>
+                      </div>
+
+                      <!-- Certificados (cards) -->
+                      <div class="mt-2 shrimp-cert-block" t-att-data-role="'semillero'">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                          <label class="form-label mb-0" style="font-weight:600;">Certificados</label>
+                          <button type="button" class="btn btn-outline-secondary btn-sm shrimpAddCert">
+                            + Agregar
+                          </button>
+                        </div>
+
+                        <!-- Contenedor de filas (cards) -->
+                        <div class="shrimpCertTbody"></div>
+
+                        <small class="text-muted d-block mt-2">
+                          Agrega certificados y adjunta el archivo correspondiente.
+                        </small>
+                      </div>
+
+                      <div class="row g-3 mt-3">
+                        <div class="col-md-6">
+                          <label class="form-label small text-muted">Fotos</label>
+                          <input class="form-control" type="file" name="sem_photo_files"
+                            multiple="multiple" accept="image/*"
+                            style="border-style:dashed;" />
+                        </div>
+                        <div class="col-md-6">
+                          <label class="form-label small text-muted">Fotos de instalaciones</label>
+                          <input class="form-control" type="file" name="sem_facility_files"
+                            multiple="multiple" accept="image/*"
+                            style="border-style:dashed;" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- LAB -->
+                    <div id="section_laboratorio" class="d-none">
+                      <div class="p-3 rounded-3 mb-3"
+                        style="background:rgba(18,62,92,.06); border:1px solid rgba(18,62,92,.12);">
+                        <div class="d-flex align-items-center justify-content-between gap-2">
+                          <div>
+                            <div style="font-weight:600; color:var(--c-blue);">Laboratorio</div>
+                            <div class="text-muted small">Certificación y ubicación</div>
+                          </div>
+                          <i class="fa fa-flask" style="color:var(--c-blue);"></i>
+                        </div>
+                      </div>
+
+                      <div class="mb-3">
+                        <label class="form-label small text-muted"> Razón social <span
+                            id="lab_required_badge" class="text-danger d-none">*</span>
+                        </label>
+                        <input id="lab_razon_social" class="form-control" type="text"
+                          name="lab_razon_social"
+                          t-att-value="values.get('lab_razon_social')"
+                          placeholder="Ej. Laboratorio XYZ S.A." />
+                      </div>
+
+                      <div class="mt-2 shrimp-cert-block" t-att-data-role="'laboratorio'">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                          <label class="form-label mb-0" style="font-weight:600;">Certificados</label>
+                          <button type="button" class="btn btn-outline-secondary btn-sm shrimpAddCert">
+                            + Agregar
+                          </button>
+                        </div>
+                        <div class="shrimpCertTbody"></div>
+                        <small class="text-muted d-block mt-2">
+                          Agrega certificados y adjunta el archivo correspondiente.
+                        </small>
+                      </div>
+
+                      <div class="mt-3">
+                        <label class="form-label small text-muted"> Ubicación <span
+                            id="lab_ubic_required_badge" class="text-danger d-none">*</span>
+                        </label>
+                        <input id="lab_ubicacion" class="form-control" type="text"
+                          name="lab_ubicacion"
+                          t-att-value="values.get('lab_ubicacion')"
+                          placeholder="Ej. Durán, Guayas" />
+                      </div>
+                    </div>
+
+                    <!-- CAMARONERA -->
+                    <div id="section_camaronera" class="d-none">
+                      <div class="p-3 rounded-3 mb-3"
+                        style="background:rgba(18,62,92,.06); border:1px solid rgba(18,62,92,.12);">
+                        <div class="d-flex align-items-center justify-content-between gap-2">
+                          <div>
+                            <div style="font-weight:600; color:var(--c-blue);">Camaronera</div>
+                            <div class="text-muted small">Datos operativos</div>
+                          </div>
+                          <i class="fa fa-industry" style="color:var(--c-blue);"></i>
+                        </div>
+                      </div>
+
+                      <div class="mb-3">
+                        <label class="form-label small text-muted"> Razón social <span
+                            id="farm_required_badge" class="text-danger d-none">*</span>
+                        </label>
+                        <input id="farm_razon_social" class="form-control" type="text"
+                          name="farm_razon_social"
+                          t-att-value="values.get('farm_razon_social')"
+                          placeholder="Ej. Camaronera ABC S.A." />
+                      </div>
+
+                      <div class="row g-3">
+                        <div class="col-md-6">
+                          <label class="form-label small text-muted">Representante legal</label>
+                          <input class="form-control" type="text" name="farm_representante"
+                            t-att-value="values.get('farm_representante')" />
+                        </div>
+                        <div class="col-md-6">
+                          <label class="form-label small text-muted">Teléfono</label>
+                          <input class="form-control" type="text" name="farm_telefono"
+                            t-att-value="values.get('farm_telefono')" />
+                        </div>
+
+                        <div class="col-12">
+                          <label class="form-label small text-muted"> Ubicación <span
+                              id="farm_ubic_required_badge" class="text-danger d-none">*</span>
+                          </label>
+                          <input id="farm_ubicacion" class="form-control" type="text"
+                            name="farm_ubicacion"
+                            t-att-value="values.get('farm_ubicacion')"
+                            placeholder="Ej. Santa Elena" />
+                        </div>
+
+                        <div class="col-md-6">
+                          <label class="form-label small text-muted">Capacidad (ton/año)</label>
+                          <input class="form-control" type="number" step="0.01"
+                            name="farm_capacidad"
+                            t-att-value="values.get('farm_capacidad')" />
+                        </div>
+                        <div class="col-md-6">
+                          <label class="form-label small text-muted">Área (ha)</label>
+                          <input class="form-control" type="number" step="0.01" name="farm_area_ha"
+                            t-att-value="values.get('farm_area_ha')" />
+                        </div>
+                      </div>
+
+                      <div class="mt-3 shrimp-cert-block" t-att-data-role="'camaronera'">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                          <label class="form-label mb-0" style="font-weight:600;">Certificados</label>
+                          <button type="button" class="btn btn-outline-secondary btn-sm shrimpAddCert">
+                            + Agregar
+                          </button>
+                        </div>
+                        <div class="shrimpCertTbody"></div>
+                        <small class="text-muted d-block mt-2">
+                          Agrega certificados y adjunta el archivo correspondiente.
+                        </small>
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- Fila completa: footer -->
+            <div class="row g-4">
+              <div class="col-12">
+                <!-- Footer submit -->
+                <div class="card border-0 sf-footer">
+                  <div class="card-body p-3 d-flex flex-wrap justify-content-between align-items-center gap-3">
+                    <div class="text-muted" style="font-size:13px;">
+                      <i class="fa fa-info-circle me-1"></i> Al crear la cuenta aceptas el uso de tus datos para operar en la plataforma.
+                    </div>
+                    <button id="submitBtn" class="btn btn-primary px-4" type="submit" style="font-weight:700;">
+                      <i class="fa fa-check me-1"></i> Crear cuenta
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </form>
+
+          <!-- JS (ajustado a cards de certificados, mismo backend naming) -->
+          <script type="text/javascript">
+      <![CDATA[
+      (function () {
+
+        let globalIndex = 0;
+        let certCacheByRole = {};
+
+        function setRequired(el, isReq) {
+          if (!el) return;
+          if (isReq) el.setAttribute("required", "required");
+          else el.removeAttribute("required");
+        }
+
+        function showAlert(msg) {
+          const alertBox = document.getElementById("formAlert");
+          const alertText = document.getElementById("formAlertText");
+          if (!alertBox || !alertText) return;
+          alertText.textContent = msg;
+          alertBox.classList.remove("d-none");
+          alertBox.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+
+        function clearAlert() {
+          const alertBox = document.getElementById("formAlert");
+          const alertText = document.getElementById("formAlertText");
+          if (!alertBox || !alertText) return;
+          alertText.textContent = "";
+          alertBox.classList.add("d-none");
+        }
+
+        async function fetchCerts(role) {
+          if (certCacheByRole[role]) return certCacheByRole[role];
+
+          const payload = {
+            jsonrpc: "2.0",
+            method: "call",
+            params: { role: role },
+            id: Date.now(),
+          };
+
+          const r = await fetch("/registro/certificados", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+            credentials: "same-origin",
+          });
+
+          const data = await r.json();
+          if (data.error) {
+            throw new Error(data.error.data?.message || data.error.message || "Error RPC");
+          }
+
+          const res = data.result || [];
+          certCacheByRole[role] = res;
+          return res;
+        }
+
+        function buildOptions(certs) {
+          const out = ['<option value="">Seleccione…</option>'];
+          certs.forEach(c => {
+            const issuer = (c.issuer || "").replace(/"/g, "&quot;");
+            out.push(`<option value="${c.id}" data-issuer="${issuer}">${c.name}</option>`);
+          });
+          return out.join("");
+        }
+
+        function certCardHtml(idx, optionsHtml) {
+          return `
+            <div class="card border-0 shadow-sm mb-3" style="border-radius:16px; border:1px solid rgba(0,0,0,.06) !important;">
+              <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <div style="font-weight:900;">Certificado</div>
+                  <button type="button" class="btn btn-outline-danger btn-sm delBtn" style="border-radius:12px;">Eliminar</button>
+                </div>
+
+                <div class="row g-2">
+                  <div class="col-md-5">
+                    <label class="form-label small text-muted mb-1">Certificado</label>
+                    <select class="form-select form-select-sm certSel"
+                            name="cert_line_${idx}_id" required style="border-radius:12px;">
+                      ${optionsHtml}
+                    </select>
+                  </div>
+
+                  <div class="col-md-3">
+                    <label class="form-label small text-muted mb-1">Entidad</label>
+                    <input class="form-control form-control-sm issuer" type="text" readonly
+                           style="border-radius:12px;" placeholder="Entidad"/>
+                  </div>
+
+                  <div class="col-md-4">
+                    <label class="form-label small text-muted mb-1">N°</label>
+                    <input class="form-control form-control-sm"
+                           name="cert_line_${idx}_number"
+                           style="border-radius:12px;" placeholder="Opcional"/>
+                  </div>
+
+                  <div class="col-md-4">
+                    <label class="form-label small text-muted mb-1">Emisión</label>
+                    <input class="form-control form-control-sm" type="date"
+                           name="cert_line_${idx}_issue_date"
+                           style="border-radius:12px;"/>
+                  </div>
+
+                  <div class="col-md-4">
+                    <label class="form-label small text-muted mb-1">Expira</label>
+                    <input class="form-control form-control-sm" type="date"
+                           name="cert_line_${idx}_expiry_date"
+                           style="border-radius:12px;"/>
+                  </div>
+
+                  <div class="col-md-4">
+                    <label class="form-label small text-muted mb-1">Archivo</label>
+                    <input class="form-control form-control-sm" type="file"
+                           name="cert_line_${idx}_file" required
+                           style="border-radius:12px; border-style:dashed;"/>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+
+        async function addCertRow(block) {
+          const role = block.getAttribute("data-role");
+          const container = block.querySelector(".shrimpCertTbody");
+          if (!container) return;
+
+          const certs = await fetchCerts(role);
+          const idx = globalIndex++;
+
+          const wrapper = document.createElement("div");
+          wrapper.innerHTML = certCardHtml(idx, buildOptions(certs));
+          const card = wrapper.firstElementChild;
+          container.appendChild(card);
+
+          const sel = card.querySelector(".certSel");
+          const issuerInp = card.querySelector(".issuer");
+
+          sel.addEventListener("change", () => {
+            const opt = sel.selectedOptions[0];
+            issuerInp.value = opt ? (opt.getAttribute("data-issuer") || "") : "";
+          });
+
+          card.querySelector(".delBtn").addEventListener("click", () => card.remove());
+        }
+
+        function refreshCertTables(activeRole) {
+          document.querySelectorAll(".shrimp-cert-block").forEach(block => {
+            const role = block.getAttribute("data-role");
+            const container = block.querySelector(".shrimpCertTbody");
+            if (container) container.innerHTML = "";
+            if (role === activeRole) {
+              addCertRow(block);
+            }
+          });
+        }
+
+        function toggleSections(typeSel) {
+          const secSem = document.getElementById("section_semillero");
+          const secLab = document.getElementById("section_laboratorio");
+          const secFarm = document.getElementById("section_camaronera");
+
+          const labRazon = document.getElementById("lab_razon_social");
+          const labUbic = document.getElementById("lab_ubicacion");
+          const farmRazon = document.getElementById("farm_razon_social");
+          const farmUbic = document.getElementById("farm_ubicacion");
+
+          const labReqBadge = document.getElementById("lab_required_badge");
+          const labUbicReqBadge = document.getElementById("lab_ubic_required_badge");
+          const farmReqBadge = document.getElementById("farm_required_badge");
+          const farmUbicReqBadge = document.getElementById("farm_ubic_required_badge");
+
+          const pillSem = document.getElementById("pill_semillero");
+          const pillLab = document.getElementById("pill_laboratorio");
+          const pillFarm = document.getElementById("pill_camaronera");
+
+          [secSem, secLab, secFarm].forEach(s => s && s.classList.add("d-none"));
+          [labReqBadge, labUbicReqBadge, farmReqBadge, farmUbicReqBadge].forEach(b => b && b.classList.add("d-none"));
+
+          setRequired(labRazon, false);
+          setRequired(labUbic, false);
+          setRequired(farmRazon, false);
+          setRequired(farmUbic, false);
+
+          // reset pills
+          [pillSem, pillLab, pillFarm].forEach(p => {
+            if (!p) return;
+            p.classList.remove("text-bg-success", "text-bg-primary", "text-bg-warning");
+            p.classList.add("text-bg-light", "border");
+          });
+
+          if (typeSel === "semillero") {
+            secSem.classList.remove("d-none");
+            if (pillSem) { pillSem.classList.remove("text-bg-light","border"); pillSem.classList.add("text-bg-success"); }
+          }
+          if (typeSel === "laboratorio") {
+            secLab.classList.remove("d-none");
+            setRequired(labRazon, true);
+            setRequired(labUbic, true);
+            labReqBadge && labReqBadge.classList.remove("d-none");
+            labUbicReqBadge && labUbicReqBadge.classList.remove("d-none");
+            if (pillLab) { pillLab.classList.remove("text-bg-light","border"); pillLab.classList.add("text-bg-primary"); }
+          }
+          if (typeSel === "camaronera") {
+            secFarm.classList.remove("d-none");
+            setRequired(farmRazon, true);
+            setRequired(farmUbic, true);
+            farmReqBadge && farmReqBadge.classList.remove("d-none");
+            farmUbicReqBadge && farmUbicReqBadge.classList.remove("d-none");
+            if (pillFarm) { pillFarm.classList.remove("text-bg-light","border"); pillFarm.classList.add("text-bg-warning"); }
+          }
+        }
+
+        function init() {
+          const form = document.getElementById("shrimpRegisterForm");
+          const typeSel = document.getElementById("shrimp_user_type");
+          const pass = document.getElementById("password");
+          const pass2 = document.getElementById("password_confirm");
+
+          if (!form || !typeSel) return false;
+
+          document.querySelectorAll(".shrimpAddCert").forEach(btn => {
+            btn.addEventListener("click", () => {
+              const block = btn.closest(".shrimp-cert-block");
+              if (block) addCertRow(block);
+            });
+          });
+
+          typeSel.addEventListener("change", () => {
+            clearAlert();
+            toggleSections(typeSel.value);
+            refreshCertTables(typeSel.value);
+          });
+
+          form.addEventListener("submit", function (e) {
+            clearAlert();
+
+            if (!typeSel.value) {
+              e.preventDefault();
+              showAlert("Selecciona el tipo de usuario.");
+              return;
+            }
+
+            if (pass && pass2 && pass.value !== pass2.value) {
+              e.preventDefault();
+              showAlert("Las contraseñas no coinciden.");
+              return;
+            }
+
+            if (!form.checkValidity()) {
+              e.preventDefault();
+              showAlert("Revisa los campos obligatorios del formulario.");
+            }
+          });
+
+          toggleSections(typeSel.value);
+          if (typeSel.value) refreshCertTables(typeSel.value);
+          return true;
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+          if (init()) return;
+          let tries = 0;
+          const timer = setInterval(() => {
+            tries++;
+            if (init() || tries > 20) clearInterval(timer);
+          }, 200);
+        });
+
+      })();
+      ]]>
+      </script>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+</odoo>

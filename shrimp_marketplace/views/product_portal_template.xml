@@ -1,0 +1,2187 @@
+<odoo>
+    <template id="products_list" name="Marketplace Productos">
+        <t t-call="website.layout">
+            <div class="shrimp-bg">
+
+                <!-- ===== Cabecera: banner con gradiente (mismo estilo que Publicar) ===== -->
+                <div class="shrimp-page shrimp-page--full pt-4">
+                    <div class="sf-banner">
+                        <div class="sf-banner-row">
+                            <div class="sf-banner-txt">
+                                <h1>Mis productos</h1>
+                                <p>Gestiona los lotes que has publicado: su estado, precio e información.</p>
+                            </div>
+                            <span class="sf-kicker"><i class="fa fa-cubes"></i> Inventario</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="shrimp-page shrimp-page--full pb-4" id="listado">
+                    <div class="s-market-layout">
+
+                        <!-- ===== SIDEBAR de filtros ===== -->
+                        <aside class="s-market-side">
+                            <form method="get" action="/marketplace/products" class="s-filter-panel">
+                                <div class="s-filter-head">
+                                    <div class="s-filter-head-title">
+                                        <span class="s-filter-icon"><i class="fa fa-sliders"></i></span>
+                                        <span>Filtros</span>
+                                    </div>
+                                    <a class="s-filter-clear" href="/marketplace/products">Limpiar</a>
+                                </div>
+
+                                <!-- Buscar -->
+                                <div class="s-filter-sec">
+                                    <div class="s-filter-sec-label"><i class="fa fa-search"></i> Buscar</div>
+                                    <input class="form-control" type="text" name="q"
+                                        t-att-value="filters.get('q') or ''"
+                                        placeholder="Nombre, especie o ubicación…" />
+                                </div>
+
+                                <!-- Ubicación -->
+                                <div class="s-filter-sec">
+                                    <div class="s-filter-sec-label"><i class="fa fa-map-marker"></i> Ubicación</div>
+                                    <t t-set="provinces" t-value="['Azuay','Bolívar','Cañar','Carchi','Chimborazo','Cotopaxi','El Oro','Esmeraldas','Galápagos','Guayas','Imbabura','Loja','Los Ríos','Manabí','Morona Santiago','Napo','Orellana','Pastaza','Pichincha','Santa Elena','Santo Domingo de los Tsáchilas','Sucumbíos','Tungurahua','Zamora Chinchipe']"/>
+                                    <select class="form-select" name="location">
+                                        <option value="">Todas las zonas</option>
+                                        <t t-foreach="provinces" t-as="loc">
+                                            <option t-att-value="loc" t-att-selected="(filters.get('location') or '') == loc"><t t-esc="loc" /></option>
+                                        </t>
+                                    </select>
+                                </div>
+
+                                <!-- Rango de precio -->
+                                <div class="s-filter-sec">
+                                    <div class="s-filter-sec-label"><i class="fa fa-tag"></i> Precio (por unidad)</div>
+                                    <div class="s-price-range">
+                                        <div class="s-price-input">
+                                            <span>$</span>
+                                            <input type="number" step="0.01" min="0" name="price_min"
+                                                t-att-value="filters.get('price_min') or ''" placeholder="mín" />
+                                        </div>
+                                        <span class="s-price-sep">—</span>
+                                        <div class="s-price-input">
+                                            <span>$</span>
+                                            <input type="number" step="0.01" min="0" name="price_max"
+                                                t-att-value="filters.get('price_max') or ''" placeholder="máx" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- conserva la etapa activa al aplicar otros filtros -->
+                                <input type="hidden" name="stage" t-att-value="filters.get('stage') or ''" />
+                                <button class="s-btn s-btn-primary s-btn-block" type="submit">
+                                    <i class="fa fa-search me-1"></i> Aplicar filtros
+                                </button>
+                            </form>
+                        </aside>
+
+                        <!-- ===== MAIN: chips de etapa + contador + grid ===== -->
+                        <div class="s-market-main">
+
+                            <!-- Chips de etapa -->
+                            <div class="s-cat-chips s-cat-chips--scroll mb-3">
+                                <a t-att-class="'s-cat-chip' + ('' if filters.get('stage') else ' active')" href="/marketplace/products">Todas</a>
+                                <t t-foreach="stage_options" t-as="opt">
+                                    <a t-att-class="'s-cat-chip' + (' active' if str(filters.get('stage') or '') == str(opt.id) else '')"
+                                       t-att-href="'/marketplace/products?stage=%s' % opt.id"><t t-esc="opt.name" /></a>
+                                </t>
+                            </div>
+
+                            <div class="s-sortbar mb-3">
+                                <div class="text-soft" style="font-size:var(--fs-sm);">
+                                    <strong><t t-esc="products_count" /></strong> producto(s)
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <t t-if="request.env.user.partner_id.shrimp_user_type">
+                                        <a class="s-btn s-btn-primary btn-sm" href="/marketplace/products/new"><i class="fa fa-plus me-1"></i> Publicar</a>
+                                    </t>
+                                    <form method="get" action="/marketplace/products" class="s-sort">
+                                        <input type="hidden" name="q" t-att-value="filters.get('q') or ''" />
+                                        <input type="hidden" name="stage" t-att-value="filters.get('stage') or ''" />
+                                        <input type="hidden" name="location" t-att-value="filters.get('location') or ''" />
+                                        <input type="hidden" name="price_min" t-att-value="filters.get('price_min') or ''" />
+                                        <input type="hidden" name="price_max" t-att-value="filters.get('price_max') or ''" />
+                                        <label><i class="fa fa-sort-amount-asc me-1"></i> Ordenar</label>
+                                        <select class="form-select" name="order" onchange="this.form.submit()">
+                                            <option value="" t-att-selected="not filters.get('order')">Más recientes</option>
+                                            <option value="price_asc" t-att-selected="filters.get('order') == 'price_asc'">Precio: menor a mayor</option>
+                                            <option value="price_desc" t-att-selected="filters.get('order') == 'price_desc'">Precio: mayor a menor</option>
+                                            <option value="qty_desc" t-att-selected="filters.get('order') == 'qty_desc'">Cantidad ↓</option>
+                                        </select>
+                                    </form>
+                                </div>
+                            </div>
+
+                            <!-- Grid de productos -->
+                            <div class="s-prod-grid" t-if="products">
+                                <t t-foreach="products" t-as="p">
+                                    <t t-set="cover" t-value="p.photo_attachment_ids[:1]" />
+                                    <t t-set="uom_label" t-value="p.uom_id.name" />
+                                    <t t-set="no_stock" t-value="p.available_qty &lt;= 0" />
+
+                                    <div class="s-prod-card">
+                                        <a class="s-prod-imgwrap" t-att-href="'/marketplace/product/%s' % p.uuid_ref">
+                                            <t t-if="cover">
+                                                <img class="s-prod-img"
+                                                    t-att-src="'/web/content/%s?access_token=%s' % (cover[0].id, cover[0].access_token)"
+                                                    t-att-alt="p.name" loading="lazy" />
+                                            </t>
+                                            <t t-else="">
+                                                <div class="s-prod-noimg"><i class="fa fa-image me-2"></i> Sin foto</div>
+                                            </t>
+                                        </a>
+
+                                        <div class="s-prod-body">
+                                            <div class="s-badges">
+                                                <t t-if="p.stage_id"><span class="s-badge"><t t-esc="p.stage_id.name" /></span></t>
+                                                <t t-if="p.species_id"><span class="s-badge s-badge--teal"><t t-esc="p.species_id.name" /></span></t>
+                                                <t t-if="no_stock"><span class="s-badge" style="background:rgba(220,53,69,.10); color:#dc3545;">Sin stock</span></t>
+                                                <t t-else=""><span class="s-badge s-badge--green">Disponible</span></t>
+                                            </div>
+
+                                            <a class="s-prod-title" style="text-decoration:none;"
+                                               t-att-href="'/marketplace/product/%s' % p.uuid_ref" t-esc="p.name" />
+
+                                            <div class="s-prod-meta">
+                                                <div><i class="fa fa-cubes me-1 text-faint"></i>
+                                                    <t t-if="no_stock">Sin stock</t>
+                                                    <t t-else=""><b><t t-esc="p.available_qty" /></b> <t t-esc="uom_label" /> disp.</t>
+                                                </div>
+                                                <div><i class="fa fa-map-marker me-1 text-faint"></i> <t t-esc="p.location or '—'" /></div>
+                                            </div>
+
+                                            <div class="s-prod-foot">
+                                                <div class="s-prod-price">$<t t-esc="'%.2f' % p.price" /><span class="s-unit"> / <t t-esc="uom_label" /></span></div>
+                                            </div>
+                                            <div class="s-prod-actions">
+                                                <a class="s-btn s-btn-ghost btn-sm" t-att-href="'/marketplace/product/%s' % p.uuid_ref">Ver</a>
+                                                <a class="s-btn s-btn-primary btn-sm" t-att-href="'/marketplace/products/%s/edit' % p.uuid_ref"><i class="fa fa-pencil me-1"></i> Editar</a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </t>
+                            </div>
+
+                            <!-- Estado vacío -->
+                            <t t-if="not products">
+                                <div class="s-empty">
+                                    <div class="s-empty-ico"><i class="fa fa-cube"></i></div>
+                                    <h3>Sin productos</h3>
+                                    <p>No tienes productos con esos filtros. Publica un lote nuevo o limpia la búsqueda.</p>
+                                    <a class="s-btn s-btn-primary" href="/marketplace/products/new">Publicar producto</a>
+                                </div>
+                            </t>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <template id="product_new_form" name="Nuevo Producto">
+        <t t-call="website.layout">
+            <div class="shrimp-bg">
+                <div class="shrimp-page shrimp-page--wide py-4">
+
+                    <!-- Volver: arriba a la izquierda (lugar cómodo y consistente) -->
+                    <div class="mb-3">
+                        <t t-call="shrimp_marketplace.s_back_button"><t t-set="back_fallback" t-value="'/marketplace/products'"/></t>
+                    </div>
+
+                    <!-- Visor de certificado (modal) -->
+                    <t t-call="shrimp_marketplace.cert_viewer"/>
+
+                    <!-- Banner de encabezado -->
+                    <div class="sf-banner">
+                        <div class="sf-banner-row">
+                            <div class="sf-banner-txt">
+                                <h1><t t-esc="'Editar producto' if is_edit else 'Publica tu producto'"/></h1>
+                                <p t-if="not is_edit">Completa la ficha del lote, define precio y cantidad, y adjunta fotos y
+                                   certificados. Se guardará como borrador para que lo revises antes de publicarlo.</p>
+                                <p t-if="is_edit">Actualiza la información de tu producto. Puedes añadir fotos y
+                                   certificados nuevos; los cambios se guardan al confirmar.</p>
+                            </div>
+                            <span class="sf-kicker">
+                                <t t-if="is_edit"><i class="fa fa-pencil"></i> Edición</t>
+                                <t t-else=""><i class="fa fa-plus-circle"></i> Nueva publicación</t>
+                            </span>
+                        </div>
+                    </div>
+
+                    <form id="product_create_form"
+                        class="sf"
+                        t-att-action="form_action"
+                        method="post"
+                        enctype="multipart/form-data">
+                        <div class="row g-4">
+
+                            <!-- =========================
+                            IZQUIERDA: GALERÍA + GUÍA
+                        ========================== -->
+                            <div class="col-lg-4">
+
+                                <!-- GALERÍA (como otras vistas) -->
+                                <div class="card border-0 mb-4"
+                                    style="border-radius:16px; box-shadow: 0 10px 30px rgba(16,24,40,.06);">
+                                    <div class="card-body p-4">
+
+                                        <div
+                                            class="d-flex justify-content-between align-items-center mb-2">
+                                            <div>
+                                                <div class="text-muted" style="font-size:12px;">
+                                                    Recomendado</div>
+                                                <div style="font-weight:900;">Fotos del lote</div>
+                                            </div>
+                                            <span class="badge rounded-pill text-bg-light border"
+                                                style="font-weight:800;">
+                                                Múltiples
+                                            </span>
+                                        </div>
+
+                                        <div class="text-muted mb-3" style="font-size:12px;">
+                                            La primera imagen que selecciones será la portada.
+                                        </div>
+
+                                        <!-- Main image -->
+                                        <div class="rounded-4 overflow-hidden position-relative"
+                                            style="border:1px solid rgba(0,0,0,.06); background:#fff;">
+                                            <div id="np_main_placeholder"
+                                                class="d-flex flex-column align-items-center justify-content-center text-muted"
+                                                style="height:240px; gap:10px;">
+                                                <i class="fa fa-picture-o" style="font-size:56px; opacity:.5;"></i>
+                                                <span style="font-weight:700; font-size:15px;">Sin fotos</span>
+                                            </div>
+
+                                            <img id="np_main_img"
+                                                class="img-fluid"
+                                                style="display:none; width:100%; height:240px; object-fit:cover;"
+                                                src=""
+                                                data-index="0"
+                                                alt="Foto producto" />
+
+                                            <!-- Flechas -->
+                                            <button type="button" id="np_prev_btn"
+                                                class="np-arrow np-arrow-prev"
+                                                aria-label="Anterior" style="display:none;">
+                                                <i class="fa fa-chevron-left"></i>
+                                            </button>
+                                            <button type="button" id="np_next_btn"
+                                                class="np-arrow np-arrow-next"
+                                                aria-label="Siguiente" style="display:none;">
+                                                <i class="fa fa-chevron-right"></i>
+                                            </button>
+                                        </div>
+
+                                        <!-- Thumbnails + Add -->
+                                        <div class="mt-3 d-flex gap-2 flex-wrap align-items-center"
+                                            id="np_thumbs">
+                                            <!-- Botón + -->
+                                            <button type="button" id="np_add_btn"
+                                                class="np-add-thumb"
+                                                aria-label="Agregar fotos">
+                                                <i class="fa fa-plus"></i>
+                                            </button>
+
+                                            <!-- input real (se envía con el form) -->
+                                            <input id="np_add_input"
+                                                class="form-control"
+                                                type="file"
+                                                name="photo_files"
+                                                multiple="multiple"
+                                                accept="image/*"
+                                                style="display:none;" />
+                                        </div>
+
+                                        <div class="text-muted mt-2" style="font-size:12px;">
+                                            Formatos recomendados: JPG/PNG. Puedes agregar varias.
+                                        </div>
+
+                                        <!-- Fotos actuales (solo edición) -->
+                                        <t t-if="is_edit and product.photo_attachment_ids">
+                                            <hr class="my-3"/>
+                                            <div class="text-muted mb-2" style="font-size:12px; font-weight:700;">Fotos actuales</div>
+                                            <div class="d-flex gap-2 flex-wrap">
+                                                <t t-foreach="product.photo_attachment_ids" t-as="ph">
+                                                    <img t-att-src="'/marketplace/producto/%s/foto/%s' % (product.uuid_ref, ph.id)"
+                                                         alt="Foto actual"
+                                                         style="width:62px; height:62px; object-fit:cover; border-radius:12px; border:1px solid var(--shrimp-border);"/>
+                                                </t>
+                                            </div>
+                                            <div class="text-muted mt-2" style="font-size:11.5px;">Las nuevas fotos que agregues se sumarán a estas.</div>
+                                        </t>
+
+                                    </div>
+                                </div>
+
+                                <!-- GUÍA RAPIDA -->
+                                <div class="card border-0"
+                                    style="border-radius:16px; box-shadow: 0 10px 30px rgba(16,24,40,.06); position:sticky; top:16px;">
+                                    <div class="card-body p-4">
+
+                                        <div class="mb-2" style="font-weight:900;">Guía rápida</div>
+                                        <ol class="mb-3 ps-3" style="font-size:13px;">
+                                            <li>Ingresa información básica</li>
+                                            <li>Define producción y calidad</li>
+                                            <li>Define precio y cantidad</li>
+                                            <li>Adjunta certificados y fotos</li>
+                                        </ol>
+
+                                        <div class="p-3 rounded-3 mb-3"
+                                            style="background:rgba(18,62,92,.06); border:1px solid rgba(18,62,92,.12);">
+                                            <div style="font-weight:900; font-size:13px;">Tips</div>
+                                            <ul class="mb-0 ps-3" style="font-size:13px;">
+                                                <li>Usa un nombre descriptivo (lote + fecha)</li>
+                                                <li>Completa la fecha estimada de entrega</li>
+                                                <li>Adjunta fotos nítidas y certificados</li>
+                                            </ul>
+                                        </div>
+
+                                        <div class="rounded-3 p-3"
+                                            style="border:1px solid rgba(0,0,0,.06); background:#fff;">
+                                            <div class="text-muted" style="font-size:12px;">
+                                                Publicación</div>
+                                            <div style="font-weight:900;">Se guardará como borrador</div>
+                                            <div class="text-muted" style="font-size:12px;">
+                                                Luego podrás publicar desde el detalle del producto.
+                                            </div>
+                                        </div>
+
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-8">
+                                <input type="hidden" name="csrf_token"
+                                    t-att-value="request.csrf_token()" />
+
+                                <!-- Card: Básico -->
+                                <div class="card border-0 mb-4"
+                                    style="border-radius:16px; box-shadow: 0 10px 30px rgba(16,24,40,.06);">
+                                    <div class="card-body p-4">
+                                        <div
+                                            class="d-flex justify-content-between align-items-center mb-3">
+                                            <div>
+                                                <div class="text-muted" style="font-size:12px;">Paso
+                                                    1</div>
+                                                <h5 class="mb-0" style="font-weight:900;">Información
+                                                    básica</h5>
+                                            </div>
+                                            <span
+                                                class="badge rounded-pill text-bg-light border"
+                                                style="font-weight:800;">
+                                                Requerido</span>
+                                        </div>
+
+                                        <!-- Selector de vendedor: solo para usuarios internos/admin -->
+                                        <t t-if="is_internal">
+                                            <div class="mb-3">
+                                                <label class="form-label" style="font-weight:800;">Vendedor
+                                                    (semillero / laboratorio) <span class="text-danger">*</span></label>
+                                                <select class="form-select" name="seller_partner_id"
+                                                    required="required" style="border-radius:14px;">
+                                                    <option value="">Selecciona el vendedor…</option>
+                                                    <t t-foreach="seller_options" t-as="sp">
+                                                        <option t-att-value="sp.id" t-att-selected="sp.id == product.seller_partner_id.id">
+                                                            <t t-esc="sp.name"/>
+                                                            (<t t-esc="dict(sp._fields['shrimp_user_type'].selection).get(sp.shrimp_user_type)"/>)
+                                                        </option>
+                                                    </t>
+                                                </select>
+                                                <div class="form-text">Publicas en nombre de este vendedor.</div>
+                                            </div>
+                                        </t>
+
+                                        <div class="mb-3">
+                                            <label class="form-label" style="font-weight:800;">Nombre
+                                                del producto <span
+                                                    class="text-danger">*</span></label>
+                                            <input class="form-control" type="text" name="name"
+                                                required="required"
+                                                t-att-value="product.name"
+                                                style="border-radius:14px; padding:12px 12px;"
+                                                placeholder="Ej: PL12 - Línea XYZ (Lote Enero)" />
+                                        </div>
+
+                                        <div class="row g-3">
+                                            <div class="col-md-4">
+                                                <label class="form-label" style="font-weight:800;">
+                                                    Especie</label>
+                                                <select class="form-select" name="species_id"
+                                                    style="border-radius:14px; padding:12px 12px;">
+                                                    <option value="">Seleccione…</option>
+                                                    <t t-foreach="species_options" t-as="sp">
+                                                        <option t-att-value="sp.id" t-att-selected="sp.id == product.species_id.id">
+                                                            <t t-esc="sp.name" />
+                                                        </option>
+                                                    </t>
+                                                </select>
+                                            </div>
+
+                                            <div class="col-md-4">
+                                                <label class="form-label" style="font-weight:800;">
+                                                    Etapa</label>
+                                                <select class="form-select" name="stage_id"
+                                                    style="border-radius:14px; padding:12px 12px;">
+                                                    <option value="">Seleccione…</option>
+                                                    <t t-foreach="stage_options" t-as="st">
+                                                        <option t-att-value="st.id" t-att-selected="st.id == product.stage_id.id">
+                                                            <t t-esc="st.name" />
+                                                        </option>
+                                                    </t>
+                                                </select>
+                                            </div>
+
+                                            <div class="col-md-4">
+                                                <label class="form-label" style="font-weight:800;">Línea
+                                                    genética</label>
+                                                <select class="form-select" name="genetics_line_id"
+                                                    style="border-radius:14px; padding:12px 12px;">
+                                                    <option value="">Seleccione…</option>
+                                                    <t t-foreach="genetics_options" t-as="gl">
+                                                        <option t-att-value="gl.id" t-att-selected="gl.id == product.genetics_line_id.id">
+                                                            <t t-esc="gl.name" />
+                                                        </option>
+                                                    </t>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Card: Producción / calidad -->
+                                <div class="card border-0 mb-4"
+                                    style="border-radius:16px; box-shadow: 0 10px 30px rgba(16,24,40,.06);">
+                                    <div class="card-body p-4">
+                                        <div
+                                            class="d-flex justify-content-between align-items-center mb-3">
+                                            <div>
+                                                <div class="text-muted" style="font-size:12px;">Paso
+                                                    2</div>
+                                                <h5 class="mb-0" style="font-weight:900;">Producción
+                                                    y calidad</h5>
+                                            </div>
+                                            <span class="text-muted" style="font-size:12px;">
+                                                Opcional</span>
+                                        </div>
+
+                                        <div class="row g-3">
+                                            <div class="col-md-4">
+                                                <label class="form-label"
+                                                    style="font-weight:800;">Tamaño
+                                                    (mg)</label>
+                                                <input class="form-control" type="number"
+                                                    step="0.01" name="avg_size_mg"
+                                                    t-att-value="product.avg_size_mg or ''"
+                                                    style="border-radius:14px; padding:12px 12px;"
+                                                    placeholder="0.00" />
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label"
+                                                    style="font-weight:800;">Supervivencia
+                                                    (%)</label>
+                                                <input class="form-control" type="number"
+                                                    step="0.01" name="survival_rate"
+                                                    t-att-value="product.survival_rate or ''"
+                                                    style="border-radius:14px; padding:12px 12px;"
+                                                    placeholder="0.00" />
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label"
+                                                    style="font-weight:800;">
+                                                    Ubicación</label>
+                                                <t t-set="provinces" t-value="['Azuay','Bolívar','Cañar','Carchi','Chimborazo','Cotopaxi','El Oro','Esmeraldas','Galápagos','Guayas','Imbabura','Loja','Los Ríos','Manabí','Morona Santiago','Napo','Orellana','Pastaza','Pichincha','Santa Elena','Santo Domingo de los Tsáchilas','Sucumbíos','Tungurahua','Zamora Chinchipe']"/>
+                                                <div class="sf-combo">
+                                                    <input type="hidden" name="location" t-att-value="product.location or ''"/>
+                                                    <button type="button" class="sf-combo-control">
+                                                        <span t-attf-class="sf-combo-value #{'' if product.location else 'is-placeholder'}"><t t-esc="product.location or 'Selecciona provincia…'"/></span>
+                                                        <i class="fa fa-chevron-down sf-combo-caret"/>
+                                                    </button>
+                                                    <div class="sf-combo-panel">
+                                                        <div class="sf-combo-search-wrap">
+                                                            <i class="fa fa-search"/>
+                                                            <input type="text" class="sf-combo-search" placeholder="Buscar provincia…" autocomplete="off"/>
+                                                        </div>
+                                                        <ul class="sf-combo-list" role="listbox">
+                                                            <t t-foreach="provinces" t-as="prov">
+                                                                <li class="sf-combo-opt" t-att-data-value="prov" role="option"><t t-esc="prov"/></li>
+                                                            </t>
+                                                        </ul>
+                                                        <div class="sf-combo-empty" style="display:none;">Sin coincidencias</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="mt-3">
+                                            <label class="form-label" style="font-weight:800;">Fecha
+                                                estimada de entrega</label>
+                                            <input class="form-control" type="date"
+                                                name="expected_delivery_date"
+                                                t-att-value="product.expected_delivery_date or ''"
+                                                style="border-radius:14px; padding:12px 12px;" />
+                                            <div class="text-muted mt-2" style="font-size:12px;">
+                                                Fecha estimada en la que el lote estaría listo
+                                                para
+                                                entrega.
+                                            </div>
+                                        </div>
+
+                                        <!-- Origen (opcional): instalación y piscina -->
+                                        <div class="row g-3 mt-1">
+                                            <div class="col-md-6">
+                                                <label class="form-label" style="font-weight:800;">Instalación de origen <span class="text-muted" style="font-weight:500;">(opcional)</span></label>
+                                                <select class="form-select" name="origin_facility_id" id="originFacility" style="border-radius:14px; padding:12px 12px;">
+                                                    <option value="">Sin instalación</option>
+                                                    <t t-foreach="facility_options" t-as="fac">
+                                                        <option t-att-value="fac.id" t-att-selected="fac.id == product.origin_facility_id.id"><t t-esc="fac.name"/></option>
+                                                    </t>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label" style="font-weight:800;">Piscina de origen <span class="text-muted" style="font-weight:500;">(opcional)</span></label>
+                                                <select class="form-select" name="origin_pond_id" id="originPond" style="border-radius:14px; padding:12px 12px;">
+                                                    <option value="">Sin piscina</option>
+                                                    <t t-foreach="pond_options" t-as="pnd">
+                                                        <option t-att-value="pnd.id" t-att-data-facility="pnd.facility_id.id or ''" t-att-selected="pnd.id == product.origin_pond_id.id"><t t-esc="pnd.display_name"/></option>
+                                                    </t>
+                                                </select>
+                                                <div class="text-muted" style="font-size:12px; margin-top:4px;">Se filtran según la instalación seleccionada.</div>
+                                            </div>
+                                        </div>
+
+                                        <div class="mt-3">
+                                            <label class="form-label" style="font-weight:800;">Estado
+                                                sanitario /
+                                                Observaciones</label>
+                                            <textarea class="form-control" name="health_status"
+                                                rows="3"
+                                                style="border-radius:14px; padding:12px 12px;"
+                                                placeholder="Ej: pruebas, laboratorio, notas, etc."><t t-esc="product.health_status or ''"/></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Card: Comercial -->
+                                <div class="card border-0 mb-4"
+                                    style="border-radius:16px; box-shadow: 0 10px 30px rgba(16,24,40,.06);">
+                                    <div class="card-body p-4">
+                                        <div
+                                            class="d-flex justify-content-between align-items-center mb-3">
+                                            <div>
+                                                <div class="text-muted" style="font-size:12px;">Paso
+                                                    3</div>
+                                                <h5 class="mb-0" style="font-weight:900;">Información
+                                                    comercial</h5>
+                                            </div>
+                                            <span
+                                                class="badge rounded-pill text-bg-light border"
+                                                style="font-weight:800;">
+                                                Requerido</span>
+                                        </div>
+
+                                        <div class="row g-3">
+                                            <div class="col-md-4">
+                                                <label class="form-label" style="font-weight:800;">Presentación <span class="text-danger">*</span></label>
+                                                <select class="form-select" name="presentation" id="prodPresentation"
+                                                        style="border-radius:14px; padding:12px 12px;">
+                                                    <option value="">Sin especificar</option>
+                                                    <option value="entero" t-att-selected="product.presentation == 'entero'">Entero</option>
+                                                    <option value="cola" t-att-selected="product.presentation == 'cola'">Cola</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label" style="font-weight:800;">Talla <span class="text-danger">*</span></label>
+                                                <select class="form-select" name="size_grade_id" id="prodSizeGrade"
+                                                        style="border-radius:14px; padding:12px 12px;">
+                                                    <option value="">Seleccione…</option>
+                                                    <t t-foreach="size_grade_options" t-as="sg">
+                                                        <option t-att-value="sg.id" t-att-data-presentation="sg.presentation"
+                                                                t-att-selected="sg.id == product.size_grade_id.id"><t t-esc="sg.name"/></option>
+                                                    </t>
+                                                </select>
+                                                <div class="text-muted mt-2" style="font-size:12px;">Se filtra según la presentación.</div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label" style="font-weight:800;">Unidad</label>
+                                                <select class="form-select" name="uom_id"
+                                                    t-att-disabled="uom_locked or None"
+                                                    style="border-radius:14px; padding:12px 12px;">
+                                                    <t t-foreach="uom_options" t-as="u">
+                                                        <option t-att-value="u.id"
+                                                            t-att-selected="(u.id == product.uom_id.id) if product else (u.code == 'libra')">
+                                                            <t t-esc="u.name"/></option>
+                                                    </t>
+                                                </select>
+                                                <t t-if="uom_locked">
+                                                    <input type="hidden" name="uom_id" t-att-value="product.uom_id.id"/>
+                                                    <div class="text-muted mt-2" style="font-size:12px;">
+                                                        <i class="fa fa-lock me-1"></i> La unidad no se puede cambiar porque el producto ya tiene compras.
+                                                    </div>
+                                                </t>
+                                            </div>
+                                        </div>
+
+                                        <div class="row g-3 mt-1">
+                                            <div class="col-md-4">
+                                                <label class="form-label" style="font-weight:800;">Cantidad disponible <span class="text-danger">*</span></label>
+                                                <input class="form-control" type="number"
+                                                    step="0.01" name="initial_qty"
+                                                    t-att-value="product.initial_qty or ''"
+                                                    style="border-radius:14px; padding:12px 12px;"
+                                                    required="required" />
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label" style="font-weight:800;">Precio <span class="text-danger">*</span></label>
+                                                <input class="form-control" type="number"
+                                                    step="0.01" name="price"
+                                                    t-att-value="product.price or ''"
+                                                    style="border-radius:14px; padding:12px 12px;"
+                                                    required="required" />
+                                                <div class="text-muted mt-2" style="font-size:12px;">Precio por unidad seleccionada.</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <!-- Fila completa: certificados + footer -->
+                        <div class="row g-4 sf-cert-row">
+                            <div class="col-12">
+
+                                <!-- Card: Certificados -->
+                                <div class="card border-0 mb-4"
+                                    style="border-radius:16px; box-shadow: 0 10px 30px rgba(16,24,40,.06);">
+                                    <div class="card-body p-4">
+
+                                        <div
+                                            class="d-flex justify-content-between align-items-center mb-3">
+                                            <div>
+                                                <div class="text-muted" style="font-size:12px;">Paso
+                                                    4</div>
+                                                <h5 class="mb-0" style="font-weight:900;">Certificados
+                                                    del producto</h5>
+                                            </div>
+                                            <button type="button"
+                                                class="s-btn s-btn-primary btn-sm shrimpAddProdCert">
+                                                <i class="fa fa-plus me-1"></i> Agregar certificado
+                                            </button>
+                                        </div>
+
+                                        <div class="text-muted mb-3" style="font-size:12px;">
+                                            Selecciona el certificado del catálogo, completa los
+                                            datos y adjunta el
+                                            archivo.
+                                        </div>
+
+                                        <div id="prodCertContainer">
+
+                                            <t t-set="cert_idx" t-value="0" />
+
+                                            <!-- Certificados ya adjuntos (solo edición, lectura) -->
+                                            <t t-if="is_edit">
+                                                <t t-foreach="product.certificate_line_ids" t-as="pcl">
+                                                    <div class="card border-0 shadow-sm mb-3 prod-cert-card"
+                                                        style="border-radius:16px; border:1px solid rgba(0,0,0,.06) !important;">
+                                                        <div class="card-body p-3">
+                                                            <input type="checkbox" t-att-name="'remove_cert_%s' % pcl.id" value="1" class="prod-cert-del-flag d-none"/>
+                                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                                <div style="font-weight:900;"><i class="fa fa-check-circle me-1" style="color:var(--shrimp-success);"></i> Certificado adjunto</div>
+                                                                <button type="button" class="s-btn s-btn-danger btn-sm prod-cert-del-btn">
+                                                                    <i class="fa fa-trash-o me-1"></i> Eliminar
+                                                                </button>
+                                                            </div>
+                                                            <div class="row g-2">
+                                                                <div class="col-md-5"><label class="form-label small text-muted mb-1">Certificado</label>
+                                                                    <input class="form-control form-control-sm" type="text" readonly="readonly" t-att-value="pcl.certificate_id.name"/></div>
+                                                                <div class="col-md-3"><label class="form-label small text-muted mb-1">Entidad</label>
+                                                                    <input class="form-control form-control-sm" type="text" readonly="readonly" t-att-value="pcl.issuer or ''"/></div>
+                                                                <div class="col-md-4"><label class="form-label small text-muted mb-1">N°</label>
+                                                                    <input class="form-control form-control-sm" type="text" readonly="readonly" t-att-value="pcl.number or ''"/></div>
+                                                                <div class="col-md-4"><label class="form-label small text-muted mb-1">Emisión</label>
+                                                                    <input class="form-control form-control-sm" type="text" readonly="readonly" t-att-value="pcl.issue_date or ''"/></div>
+                                                                <div class="col-md-4"><label class="form-label small text-muted mb-1">Expira</label>
+                                                                    <input class="form-control form-control-sm" type="text" readonly="readonly" t-att-value="pcl.expiry_date or ''"/></div>
+                                                                <div class="col-md-4"><label class="form-label small text-muted mb-1">Archivo</label>
+                                                                    <t t-if="pcl.attachment_id"><button type="button" class="s-btn s-btn-ghost btn-sm w-100 js-cert-view" t-att-data-url="'/marketplace/product/%s/certificate/%s' % (product.uuid_ref, pcl.attachment_id.id)">Ver certificado</button></t>
+                                                                    <t t-else=""><span class="text-muted">—</span></t></div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </t>
+                                            </t>
+
+                                            <t t-foreach="default_user_certificates" t-as="line">
+                                                <div class="mp-usercert">
+                                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                                        <div class="mp-usercert-title"><i class="fa fa-user-circle-o me-1"></i> Certificado del usuario</div>
+                                                        <div class="d-flex gap-2">
+                                                            <a class="s-btn s-btn-ghost btn-sm"
+                                                               t-att-href="'/marketplace/my-certificate/%s/file' % line.id" target="_blank">
+                                                                <i class="fa fa-download me-1"></i> Descargar
+                                                            </a>
+                                                            <button type="button" class="s-btn s-btn-danger btn-sm delBtn">
+                                                                <i class="fa fa-trash-o me-1"></i> Eliminar
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- El dato se envía por estos ocultos; lo visible es solo lectura -->
+                                                    <input type="hidden"
+                                                        t-att-name="'prod_cert_%s_source_user_cert_line_id' % cert_idx"
+                                                        t-att-value="line.id" />
+                                                    <input type="hidden"
+                                                        t-att-name="'prod_cert_%s_certificate_id' % cert_idx"
+                                                        t-att-value="line.certificate_id.id" />
+
+                                                    <div class="mp-usercert-grid">
+                                                        <div class="mp-uc-field"><span class="mp-uc-lbl">Certificado</span><span class="mp-uc-val"><t t-esc="line.certificate_id.name"/></span></div>
+                                                        <div class="mp-uc-field"><span class="mp-uc-lbl">Entidad</span><span class="mp-uc-val"><t t-esc="line.issuer or '—'"/></span></div>
+                                                        <div class="mp-uc-field"><span class="mp-uc-lbl">N°</span><span class="mp-uc-val"><t t-esc="line.certificate_number or '—'"/></span></div>
+                                                        <div class="mp-uc-field"><span class="mp-uc-lbl">Emisión</span><span class="mp-uc-val"><t t-esc="line.issue_date or '—'"/></span></div>
+                                                        <div class="mp-uc-field"><span class="mp-uc-lbl">Expira</span><span class="mp-uc-val"><t t-esc="line.expiry_date or '—'"/></span></div>
+                                                    </div>
+                                                </div>
+
+                                                <t t-set="cert_idx" t-value="cert_idx + 1" />
+                                            </t>
+
+                                        </div>
+
+                                        <small class="text-muted d-block mt-2"
+                                            style="font-size:12px;">
+                                            Puedes agregar varios certificados. El archivo es
+                                            requerido por cada fila.
+                                        </small>
+
+                                    </div>
+                                </div>
+
+                                <!-- Footer sticky -->
+                                <div class="card border-0 sf-footer">
+                                    <div
+                                        class="card-body p-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                                        <div class="text-muted" style="font-size:13px;">
+                                            <i class="fa fa-info-circle me-1"></i> Revisa los datos antes de guardar.
+                                        </div>
+                                        <div class="d-flex gap-2">
+                                            <a class="btn btn-outline-secondary px-4"
+                                                href="/marketplace/products">
+                                                Cancelar
+                                            </a>
+                                            <button class="btn btn-primary px-4" type="submit"
+                                                style="font-weight:700;">
+                                                <i class="fa fa-check me-1"></i>
+                                                <t t-esc="'Guardar cambios' if is_edit else 'Guardar borrador'"/>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+
+                            </div>
+                        </div>
+
+                    </form>
+
+                </div>
+            </div>
+        </t>
+
+        <!-- =========================
+            CSS: Galería (flechas, +)
+        ========================== -->
+        <style>
+            .np-arrow{
+            position:absolute;
+            top:50%;
+            transform:translateY(-50%);
+            width:42px;
+            height:42px;
+            border:1px solid rgba(255,255,255,.35);
+            background:rgba(255,255,255,.55);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            border-radius:999px;
+            box-shadow:0 12px 28px rgba(16,24,40,.22);
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            padding:0;
+            cursor:pointer;
+            z-index:5;
+            }
+            .np-arrow:hover{ background:rgba(255,255,255,.72); }
+            .np-arrow:active{ transform:translateY(-50%) scale(.98); }
+            .np-arrow-prev{ left:10px; }
+            .np-arrow-next{ right:10px; }
+
+            .np-thumb{
+            width:62px; height:62px;
+            object-fit:cover;
+            cursor:pointer;
+            border-radius:12px;
+            border:1px solid rgba(0,0,0,.12);
+            transition:.12s ease;
+            display:block;
+            }
+            .np-thumb:hover{ transform:translateY(-1px); }
+
+            .np-add-thumb{
+            width:62px; height:62px;
+            border-radius:12px;
+            border:1px dashed rgba(0,0,0,.22);
+            background:rgba(255,255,255,.9);
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            cursor:pointer;
+            transition:.12s ease;
+            flex:0 0 auto;
+            }
+            .np-add-thumb:hover{
+            background:#fff;
+            transform: translateY(-1px);
+            box-shadow:0 10px 22px rgba(16,24,40,.10);
+            }
+        </style>
+
+        <!-- =========================
+            JS: Galería + certificados
+        ========================== -->
+        <script type="text/javascript">
+<![CDATA[
+(function () {
+
+  // ======= GALERÍA (nuevo producto) =======
+  function initNewGallery(){
+    const addBtn = document.getElementById("np_add_btn");
+    const addInput = document.getElementById("np_add_input");
+    const thumbs = document.getElementById("np_thumbs");
+
+    const mainImg = document.getElementById("np_main_img");
+    const placeholder = document.getElementById("np_main_placeholder");
+
+    const prevBtn = document.getElementById("np_prev_btn");
+    const nextBtn = document.getElementById("np_next_btn");
+
+    if (!addBtn || !addInput || !thumbs || !mainImg || !placeholder) return;
+
+    function getThumbImgs(){
+      return Array.from(thumbs.querySelectorAll("img.np-thumb"));
+    }
+
+    function reindex(){
+      getThumbImgs().forEach((img, idx) => img.dataset.index = String(idx));
+    }
+
+    function showArrowsIfNeeded(){
+      const n = getThumbImgs().length;
+      if (!prevBtn || !nextBtn) return;
+      const show = n > 1;
+      prevBtn.style.display = show ? "flex" : "none";
+      nextBtn.style.display = show ? "flex" : "none";
+    }
+
+function setActive(idx){
+  const list = getThumbImgs();
+  const t = list[idx];
+  if (!t) return;
+
+  // ✅ poner imagen en main
+  mainImg.src = t.dataset.url;
+  mainImg.dataset.index = String(idx);
+
+  // ✅ mostrar img / ocultar placeholder SIEMPRE
+  
+  placeholder.style.setProperty("display", "none", "important");
+        mainImg.style.setProperty("display", "block", "important");
+
+
+  list.forEach((el, i) => {
+    if (i === idx) {
+      el.style.border = "2px solid rgba(18,62,92,.55)";
+      el.style.boxShadow = "0 8px 18px rgba(18,62,92,.15)";
+    } else {
+      el.style.border = "1px solid rgba(0,0,0,.12)";
+      el.style.boxShadow = "none";
+    }
+  });
+
+  showArrowsIfNeeded();
+}
+
+
+ function go(delta) {
+      const thumbs = getThumbImgs();
+      const n = thumbs.length;
+      if (!n) return;
+
+      // si main es div "Sin fotos", no hay navegación
+      if (!mainImg.tagName || mainImg.tagName.toLowerCase() !== "img") return;
+
+      const current = parseInt((mainImg.dataset && mainImg.dataset.index) || "0", 10);
+      const next = (current + delta + n) % n;
+      setActive(next);
+    }
+
+    if (prevBtn) prevBtn.addEventListener("click", () => go(-1));
+    if (nextBtn) nextBtn.addEventListener("click", () => go(1));
+
+    addBtn.addEventListener("click", () => addInput.click());
+
+    addInput.addEventListener("change", () => {
+      const files = Array.from(addInput.files || []);
+      if (!files.length) return;
+
+      // Insertar thumbs antes del botón +
+      const beforeNode = addBtn;
+
+      files.forEach((f) => {
+        if (!f.type || !f.type.startsWith("image/")) return;
+        const url = URL.createObjectURL(f);
+
+        const img = document.createElement("img");
+        img.className = "np-thumb";
+        img.dataset.url = url;
+        img.alt = "Miniatura";
+        img.src = url;
+
+        thumbs.insertBefore(img, beforeNode);
+      });
+
+      reindex();
+
+      // activar la primera si no había ninguna
+      const list = getThumbImgs();
+      if (list.length) setActive(0);
+    });
+
+    // click miniaturas
+    thumbs.addEventListener("click", (e) => {
+      const t = e.target.closest("img.np-thumb");
+      if (!t) return;
+      const idx = parseInt(t.dataset.index || "0", 10);
+      setActive(idx);
+    });
+  }
+
+  // ======= CERTIFICADOS (tu código intacto) =======
+  let prodCertIndex = 0;
+  let prodCertCache = null;
+
+  async function fetchProductCerts() {
+    if (prodCertCache) return prodCertCache;
+
+    const payload = { jsonrpc: "2.0", method: "call", params: {}, id: Date.now() };
+    const r = await fetch("/marketplace/certificados_producto", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      credentials: "same-origin",
+    });
+
+    const data = await r.json();
+    if (data.error) throw new Error(data.error.data?.message || data.error.message || "Error RPC");
+    prodCertCache = data.result || [];
+    return prodCertCache;
+  }
+
+  function buildOptions(certs) {
+    const out = ['<option value="">Seleccione…</option>'];
+    certs.forEach(c => {
+      const issuer = (c.issuer || "").replace(/"/g, "&quot;");
+      out.push(`<option value="${c.id}" data-issuer="${issuer}">${c.name}</option>`);
+    });
+    return out.join("");
+  }
+
+  function rowHtml(idx, optionsHtml) {
+    return `
+      <div class="card border-0 mb-3 mp-cert-row">
+        <div class="card-body p-3">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div style="font-weight:800;"><i class="fa fa-certificate me-1" style="color:var(--shrimp-teal);"></i> Nuevo certificado</div>
+            <button type="button" class="s-btn s-btn-danger btn-sm delBtn"><i class="fa fa-trash-o me-1"></i> Eliminar</button>
+          </div>
+
+          <div class="row g-3">
+            <div class="col-md-5">
+              <label class="form-label" style="font-weight:800; font-size:13px;">Certificado</label>
+              <select class="form-select certSel" name="prod_cert_${idx}_id" required>
+                ${optionsHtml}
+              </select>
+            </div>
+
+            <div class="col-md-3">
+              <label class="form-label" style="font-weight:800; font-size:13px;">Entidad</label>
+              <input class="form-control issuer" type="text" readonly placeholder="Entidad"/>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label" style="font-weight:800; font-size:13px;">N°</label>
+              <input class="form-control" name="prod_cert_${idx}_number" placeholder="Opcional"/>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label" style="font-weight:800; font-size:13px;">Emisión</label>
+              <input class="form-control" type="date" name="prod_cert_${idx}_issue_date"/>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label" style="font-weight:800; font-size:13px;">Expira</label>
+              <input class="form-control" type="date" name="prod_cert_${idx}_expiry_date"/>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label" style="font-weight:800; font-size:13px;">Archivo <span class="text-danger">*</span></label>
+              <input class="form-control" type="file" name="prod_cert_${idx}_file" required accept="image/*,application/pdf"/>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  async function addRow() {
+    const container = document.getElementById("prodCertContainer");
+    if (!container) return;
+
+    const certs = await fetchProductCerts();
+    const idx = prodCertIndex++;
+
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = rowHtml(idx, buildOptions(certs));
+    const card = wrapper.firstElementChild;
+    // Los nuevos certificados se agregan al inicio de la lista.
+    container.insertBefore(card, container.firstChild);
+
+    const sel = card.querySelector(".certSel");
+    const issuerInp = card.querySelector(".issuer");
+
+    sel.addEventListener("change", () => {
+      const opt = sel.selectedOptions[0];
+      issuerInp.value = opt ? (opt.getAttribute("data-issuer") || "") : "";
+    });
+
+    card.querySelector(".delBtn").addEventListener("click", () => card.remove());
+  }
+
+  function initCerts() {
+    const btn = document.querySelector(".shrimpAddProdCert");
+    if (!btn) return;
+
+    btn.addEventListener("click", () => addRow());
+
+    // inicia con 1 fila
+     // addRow();
+  }
+
+  function initPondFilter(){
+    var fac = document.getElementById("originFacility");
+    var pond = document.getElementById("originPond");
+    if(!fac || !pond) return;
+    var opts = Array.prototype.slice.call(pond.querySelectorAll("option[value]")).filter(function(o){ return o.value; });
+    function apply(){
+      var f = fac.value;
+      var currentOk = false;
+      opts.forEach(function(o){
+        var of = o.getAttribute("data-facility") || "";
+        // Muestra piscinas de la instalación elegida; si no hay instalación, muéstralas todas.
+        var show = !f || of === f;
+        o.hidden = !show;
+        o.disabled = !show;
+        if(show && o.selected) currentOk = true;
+      });
+      if(!currentOk){ pond.value = ""; }
+    }
+    fac.addEventListener("change", apply);
+    apply();
+  }
+
+  function initProdCertDelete(){
+    document.querySelectorAll(".prod-cert-del-btn").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        var card = btn.closest(".prod-cert-card");
+        if(!card) return;
+        var flag = card.querySelector(".prod-cert-del-flag");
+        if(flag){ flag.checked = true; }
+        card.style.display = "none";
+      });
+    });
+  }
+
+  function initSizeFilter(){
+    var pres = document.getElementById("prodPresentation");
+    var size = document.getElementById("prodSizeGrade");
+    if(!pres || !size) return;
+    var opts = Array.prototype.slice.call(size.querySelectorAll("option[value]")).filter(function(o){ return o.value; });
+    function apply(){
+      var p = pres.value;
+      var ok = false;
+      opts.forEach(function(o){
+        var op = o.getAttribute("data-presentation") || "";
+        var show = !!p && op === p;   // sin presentación no hay tallas válidas
+        o.hidden = !show; o.disabled = !show;
+        if(show && o.selected) ok = true;
+      });
+      if(!ok){ size.value = ""; }
+    }
+    pres.addEventListener("change", apply);
+    apply();
+  }
+
+  function init(){
+    initNewGallery();
+    initCerts();
+    initPondFilter();
+    initProdCertDelete();
+    initSizeFilter();
+  }
+
+  document.addEventListener("DOMContentLoaded", init);
+
+})();
+]]>
+        </script>
+
+    </template>
+
+    <template id="product_detail" name="Detalle de Producto - Marketplace">
+        <style>
+            /* ===== Detalle de producto — sistema de marca (tarjetas con acento) ===== */
+            .mp-gallery-card, .mp-info-card, .mp-table-card{
+            position:relative; overflow:hidden; background:#fff;
+            border:1px solid var(--shrimp-border);
+            border-radius:var(--shrimp-radius-lg);
+            box-shadow:var(--shrimp-shadow);
+            transition:box-shadow .2s ease;
+            }
+            .mp-gallery-card::before, .mp-info-card::before, .mp-table-card::before{
+            content:""; position:absolute; left:0; top:22px; bottom:22px; width:4px;
+            border-radius:0 4px 4px 0; background:var(--shrimp-grad); z-index:1;
+            }
+            .mp-info-card:hover, .mp-table-card:hover{ box-shadow:var(--shrimp-shadow-hover); }
+
+            /* Galería */
+            .mp-gallery-frame{ background:#fff; padding:22px; }
+            .mp-gallery-main{
+            width:100%; max-height:460px; min-height:320px; height:auto;
+            object-fit:contain; display:block; margin:0 auto;
+            border-radius:var(--shrimp-radius); background:#f2f5f8;
+            }
+            .mp-thumb{
+            width:76px; height:76px; object-fit:cover; cursor:pointer; background:#fff;
+            border-radius:12px; border:1px solid var(--shrimp-border); transition:.15s ease;
+            }
+            .mp-thumb:hover{ transform:translateY(-2px); }
+            .mp-arrow{
+            position:absolute; top:50%; transform:translateY(-50%); width:44px; height:44px;
+            border:1px solid rgba(255,255,255,.55); background:rgba(255,255,255,.72);
+            backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+            border-radius:999px; box-shadow:var(--shrimp-shadow);
+            display:flex; align-items:center; justify-content:center; padding:0; cursor:pointer;
+            z-index:5; color:var(--shrimp-brand);
+            }
+            .mp-arrow i{ margin:0; line-height:1; }
+            .mp-arrow:hover{ background:#fff; }
+            .mp-arrow:active{ transform:translateY(-50%) scale(.98); }
+            .mp-arrow-prev{ left:16px; } .mp-arrow-next{ right:16px; }
+
+            /* Caja de precio — resalte de marca */
+            .mp-section-box{
+            position:relative;
+            background:linear-gradient(135deg, rgba(18,62,92,.06), rgba(14,142,160,.07));
+            border:1px solid rgba(18,62,92,.14);
+            border-radius:var(--shrimp-radius);
+            padding:20px;
+            }
+            .mp-price-value{ font-weight:800; letter-spacing:-.03em; font-size:36px; line-height:1; color:var(--shrimp-brand); }
+            .mp-price-unit{ color:var(--shrimp-ink-faint); font-size:13px; font-weight:700; }
+
+            /* Encabezado de sección (icono chip + título) */
+            .mp-sec-head{ display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+            .mp-sec-ico{
+            width:38px; height:38px; min-width:38px; border-radius:11px;
+            display:flex; align-items:center; justify-content:center; color:#fff; font-size:15px;
+            background:var(--shrimp-grad); box-shadow:0 8px 16px rgba(18,62,92,.22);
+            }
+            .mp-sec-title{ font-weight:800; letter-spacing:-.01em; font-size:17px; color:var(--shrimp-ink); margin:0; }
+            .mp-sec-count{ margin-left:auto; }
+
+            /* Tablas de marca */
+            .mp-table-wrap table{ min-width:100%; }
+            .mp-table-wrap thead th{
+            text-transform:uppercase; letter-spacing:.06em; font-size:11.5px; color:var(--shrimp-ink-faint);
+            font-weight:800; border-bottom:1px solid var(--shrimp-border); padding:10px 12px;
+            }
+            .mp-table-wrap td{ vertical-align:middle; padding:12px; border-bottom:1px solid var(--shrimp-bg-alt); font-size:14px; }
+            .mp-table-wrap tbody tr:last-child td{ border-bottom:0; }
+            .mp-table-wrap tbody tr:hover{ background:#f7f9fb; }
+
+            .mp-action-btn{ border-radius:var(--shrimp-radius-pill); font-weight:700; height:44px; padding-left:22px; padding-right:22px; }
+
+            /* Sombra en los campos (specs) del detalle */
+            .mp-spec{ box-shadow: var(--shrimp-shadow); }
+            .mp-spec:hover{ box-shadow: var(--shrimp-shadow-hover); }
+        </style>
+
+        <t t-call="website.layout">
+            <div class="shrimp-bg">
+                <div class="shrimp-page shrimp-page--wide py-4">
+
+                    <!-- Visor de certificado (modal) -->
+                    <t t-call="shrimp_marketplace.cert_viewer"/>
+
+                    <!-- Top bar -->
+                    <div
+                        class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+                        <t t-call="shrimp_marketplace.s_back_button"><t t-set="back_fallback" t-value="'/marketplace/products'"/></t>
+
+                        <t t-if="request.params.get('published')">
+                            <div class="alert alert-success py-2 px-3 mb-0"
+                                style="border-radius:14px;">
+                                <i class="fa fa-check me-1"></i> Producto publicado correctamente. </div>
+                        </t>
+                        <t t-if="request.params.get('error') == 'no_stock'">
+                            <div class="alert alert-warning py-2 px-3 mb-0" style="border-radius:14px;">
+                                <i class="fa fa-exclamation-triangle me-1"></i> No puedes publicar sin stock disponible.
+                            </div>
+                        </t>
+                        <t t-if="request.params.get('error') == 'size_required'">
+                            <div class="alert alert-warning py-2 px-3 mb-0" style="border-radius:14px;">
+                                <i class="fa fa-exclamation-triangle me-1"></i> Debes indicar la <strong>presentación</strong> y la <strong>talla</strong> antes de publicar. Edita el producto para completarlas.
+                            </div>
+                        </t>
+                    </div>
+
+                    <div class="row g-4">
+
+                        <!-- HEADER: banner con gradiente (identidad de marca) -->
+                        <div class="col-12">
+                            <div class="sf-banner">
+                                <div class="sf-banner-row">
+                                    <div class="sf-banner-txt">
+                                        <h1><t t-esc="product.name" /></h1>
+                                        <p>
+                                            <i class="fa fa-user-circle-o me-1"></i> Vendido por
+                                            <a t-att-href="'/marketplace/vendedor/%s' % product.seller_partner_id.uuid_ref"
+                                               style="color:#fff; font-weight:700; text-decoration:underline;">
+                                                <t t-esc="product.seller_partner_id.name" />
+                                            </a>
+                                            <t t-if="product.seller_partner_id.shrimp_rating_count">
+                                                <span style="margin-left:6px;"><i class="fa fa-star" style="color:#ffd15c;"></i>
+                                                    <t t-esc="'%.1f' % product.seller_partner_id.shrimp_rating_avg" />
+                                                </span>
+                                            </t>
+                                        </p>
+                                    </div>
+                                    <span class="sf-kicker">
+                                        <t t-if="product.state == 'published'"><i class="fa fa-check"></i> Publicado</t>
+                                        <t t-if="product.state == 'draft'"><i class="fa fa-pencil"></i> Borrador</t>
+                                        <t t-if="product.state == 'sold'"><i class="fa fa-shopping-bag"></i> Vendido</t>
+                                        <t t-if="product.state == 'cancel'"><i class="fa fa-ban"></i> Cancelado</t>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- GALLERY + SUMMARY -->
+                        <div class="col-12">
+                            <div class="row g-4 align-items-start">
+
+                                <!-- LEFT: GALLERY -->
+                                <div class="col-lg-5">
+                                    <div class="mp-gallery-card">
+                                        <div class="card-body p-0">
+
+                                            <t t-if="photos">
+                                                <div class="position-relative mp-gallery-frame">
+
+                                                    <img id="mp_main_img"
+                                                        class="mp-gallery-main"
+                                                        t-att-src="photos[0]['url']"
+                                                        t-att-data-index="0"
+                                                        alt="Foto producto" />
+
+                                                    <t t-if="len(photos) &gt; 1">
+                                                        <button type="button" id="mp_prev_btn"
+                                                            class="mp-arrow mp-arrow-prev"
+                                                            aria-label="Anterior">
+                                                            <i class="fa fa-chevron-left"></i>
+                                                        </button>
+
+                                                        <button type="button" id="mp_next_btn"
+                                                            class="mp-arrow mp-arrow-next"
+                                                            aria-label="Siguiente">
+                                                            <i class="fa fa-chevron-right"></i>
+                                                        </button>
+                                                    </t>
+                                                </div>
+                                            </t>
+
+                                            <t t-else="">
+                                                <div
+                                                    class="d-flex align-items-center justify-content-center text-muted"
+                                                    style="min-height:320px; background:rgba(255,255,255,.9); border-radius:18px;">
+                                                    <div class="text-center p-4">
+                                                        <div class="mb-1" style="font-weight:900;">Sin
+                                                            fotos</div>
+                                                        <div style="font-size:12px;">
+                                                            Agrega una foto principal para destacar
+                                                            tu publicación.
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </t>
+
+                                            <t t-if="len(photos) &gt; 1">
+                                                <div class="px-4 pb-4 pt-0" style="background:#fff;">
+                                                    <div
+                                                        class="d-flex gap-2 flex-wrap justify-content-center"
+                                                        id="mp_thumbs">
+                                                        <t t-foreach="photos" t-as="img"
+                                                            t-foreach-index="i">
+                                                            <img t-att-src="img['url']"
+                                                                class="rounded-3 border mp-thumb"
+                                                                t-att-data-index="i"
+                                                                t-att-data-url="img['url']"
+                                                                alt="Miniatura" />
+                                                        </t>
+                                                    </div>
+                                                </div>
+                                            </t>
+
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- RIGHT: SUMMARY -->
+                                <div class="col-lg-7">
+                                    <div class="mp-info-card">
+                                        <div class="card-body p-4">
+
+                                            <!-- Datos rápidos (chips) -->
+                                            <div class="s-badges mb-3">
+                                                <t t-if="product.species_id"><span class="s-badge s-badge--teal"><i class="fa fa-flask me-1"></i><t t-esc="product.species_id.name"/></span></t>
+                                                <t t-if="product.stage_id"><span class="s-badge"><t t-esc="product.stage_id.name"/></span></t>
+                                                <t t-if="product.genetics_line_id"><span class="s-badge"><i class="fa fa-dna me-1"></i><t t-esc="product.genetics_line_id.name"/></span></t>
+                                                <t t-if="product.location"><span class="s-badge"><i class="fa fa-map-marker me-1"></i><t t-esc="product.location"/></span></t>
+                                            </div>
+
+                                            <!-- Price / Stock / Delivery -->
+                                            <div class="mp-section-box mb-3">
+                                                <div class="row g-3 align-items-center">
+                                                    <div class="col-md-7">
+                                                        <div class="text-muted"
+                                                            style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; font-weight:700;">Precio</div>
+                                                        <div class="mp-price-value">
+                                                            $<t t-esc="'%.2f' % product.price" />
+                                                            <span class="mp-price-unit">
+                                                                / <t
+                                                                    t-esc="product.uom_id.name" />
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-5 text-md-end">
+                                                        <div class="text-muted"
+                                                            style="font-size:12px;">Disponible</div>
+                                                        <div
+                                                            style="font-weight:900; font-size:18px;">
+                                                            <t t-esc="product.available_qty" />
+                                                            <t
+                                                                t-esc="product.uom_id.name" />
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <t t-if="product.expected_delivery_date">
+                                                    <div class="mt-3 rounded-3 p-3"
+                                                        style="background:rgba(18,62,92,.06); border:1px solid rgba(18,62,92,.12);">
+                                                        <div
+                                                            class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+                                                            <div>
+                                                                <div class="text-muted"
+                                                                    style="font-size:12px;">
+                                                                    Fecha estimada de entrega
+                                                                </div>
+                                                                <div style="font-weight:900;">
+                                                                    <i class="fa fa-calendar me-1"></i>
+                                                                    <t
+                                                                        t-esc="product.expected_delivery_date" />
+                                                                </div>
+                                                            </div>
+                                                            <span
+                                                                class="badge rounded-pill text-bg-light border"
+                                                                style="font-weight:900;">
+                                                                Planificada
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </t>
+                                            </div>
+
+                                            <!-- Especificaciones -->
+                                            <div class="mp-sec-head">
+                                                <span class="mp-sec-ico"><i class="fa fa-list-ul"></i></span>
+                                                <h3 class="mp-sec-title">Especificaciones</h3>
+                                            </div>
+                                            <div class="mp-spec-grid mb-3">
+                                                <div class="mp-spec">
+                                                    <span class="mp-spec-ico"><i class="fa fa-flask"></i></span>
+                                                    <div class="mp-spec-body">
+                                                        <div class="mp-spec-label">Especie</div>
+                                                        <div class="mp-spec-value"><t t-esc="product.species_id.name or '—'"/></div>
+                                                    </div>
+                                                </div>
+                                                <div class="mp-spec">
+                                                    <span class="mp-spec-ico"><i class="fa fa-layer-group"></i></span>
+                                                    <div class="mp-spec-body">
+                                                        <div class="mp-spec-label">Etapa</div>
+                                                        <div class="mp-spec-value"><t t-esc="product.stage_id.name or '—'"/></div>
+                                                    </div>
+                                                </div>
+                                                <div class="mp-spec">
+                                                    <span class="mp-spec-ico"><i class="fa fa-dna"></i></span>
+                                                    <div class="mp-spec-body">
+                                                        <div class="mp-spec-label">Línea genética / cepa</div>
+                                                        <div class="mp-spec-value"><t t-esc="product.genetics_line_id.name or '—'"/></div>
+                                                    </div>
+                                                </div>
+                                                <div class="mp-spec">
+                                                    <span class="mp-spec-ico"><i class="fa fa-balance-scale"></i></span>
+                                                    <div class="mp-spec-body">
+                                                        <div class="mp-spec-label">Tamaño promedio</div>
+                                                        <div class="mp-spec-value"><t t-esc="product.avg_size_mg or '—'"/> mg</div>
+                                                    </div>
+                                                </div>
+                                                <div class="mp-spec">
+                                                    <span class="mp-spec-ico"><i class="fa fa-heartbeat"></i></span>
+                                                    <div class="mp-spec-body">
+                                                        <div class="mp-spec-label">Supervivencia</div>
+                                                        <div class="mp-spec-value"><t t-esc="product.survival_rate or '—'"/> %</div>
+                                                    </div>
+                                                </div>
+                                                <div class="mp-spec">
+                                                    <span class="mp-spec-ico"><i class="fa fa-map-marker"></i></span>
+                                                    <div class="mp-spec-body">
+                                                        <div class="mp-spec-label">Ubicación</div>
+                                                        <div class="mp-spec-value"><t t-esc="product.location or '—'"/></div>
+                                                    </div>
+                                                </div>
+                                                <t t-if="product.presentation">
+                                                    <div class="mp-spec">
+                                                        <span class="mp-spec-ico"><i class="fa fa-cube"></i></span>
+                                                        <div class="mp-spec-body">
+                                                            <div class="mp-spec-label">Presentación</div>
+                                                            <div class="mp-spec-value"><t t-esc="dict(product._fields['presentation'].selection).get(product.presentation)"/></div>
+                                                        </div>
+                                                    </div>
+                                                </t>
+                                                <t t-if="product.size_grade_id">
+                                                    <div class="mp-spec">
+                                                        <span class="mp-spec-ico"><i class="fa fa-balance-scale"></i></span>
+                                                        <div class="mp-spec-body">
+                                                            <div class="mp-spec-label">Talla</div>
+                                                            <div class="mp-spec-value"><t t-esc="product.size_grade_id.name"/></div>
+                                                        </div>
+                                                    </div>
+                                                </t>
+                                            </div>
+
+                                            <!-- Estado sanitario -->
+                                            <t t-if="product.health_status">
+                                                <div class="s-health mb-3">
+                                                    <div class="s-health-title"><i class="fa fa-stethoscope me-2"></i> Estado sanitario / observaciones</div>
+                                                    <p><t t-esc="product.health_status"/></p>
+                                                </div>
+                                            </t>
+
+                                            <!-- Actions -->
+                                            <div class="d-flex flex-wrap gap-2 mt-1 mp-detail-actions align-items-stretch">
+                                                <t t-if="not is_owner and product.state == 'published' and product.available_qty &gt; 0">
+                                                    <a class="s-btn s-btn-primary"
+                                                        t-att-href="'/marketplace/buy/%s' % product.uuid_ref">
+                                                        <i class="fa fa-shopping-cart me-1"></i> Comprar </a>
+                                                </t>
+
+                                                <t t-if="is_owner or is_internal">
+                                                    <a class="s-btn s-btn-ghost"
+                                                        t-att-href="'/marketplace/products/%s/edit' % product.uuid_ref">
+                                                        <i class="fa fa-pencil me-1"></i> Editar </a>
+                                                </t>
+
+                                                <t t-if="is_owner and product.state == 'draft'">
+                                                    <form
+                                                        t-att-action="'/marketplace/products/%s/publish' % product.uuid_ref"
+                                                        method="post" class="d-inline">
+                                                        <input type="hidden" name="csrf_token"
+                                                            t-att-value="request.csrf_token()" />
+                                                        <button type="submit"
+                                                            class="s-btn s-btn-primary">
+                                                            <i class="fa fa-check me-1"></i>
+                                                            Publicar </button>
+                                                    </form>
+                                                </t>
+                                            </div>
+
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <!-- COMPRADORES (solo dueño) -->
+                        <t t-if="is_owner or is_internal">
+                            <div class="col-12">
+                                <div class="mp-table-card">
+                                    <div class="card-body p-4">
+                                        <div class="mp-sec-head">
+                                            <span class="mp-sec-ico"><i class="fa fa-users"></i></span>
+                                            <h3 class="mp-sec-title">Quiénes te compraron</h3>
+                                            <t t-if="buyers"><span class="s-badge s-badge--teal mp-sec-count"><t t-esc="len(buyers)"/></span></t>
+                                        </div>
+                                        <t t-if="not buyers">
+                                            <div class="text-muted" style="font-size:14px; padding:6px 0;">
+                                                <i class="fa fa-info-circle me-1"></i> Aún nadie te ha comprado este producto.
+                                            </div>
+                                        </t>
+                                        <div t-if="buyers" class="table-responsive mp-table-wrap">
+                                            <table class="table align-middle mb-0">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Comprador</th>
+                                                        <th>Compras</th>
+                                                        <th>Cantidad</th>
+                                                        <th class="text-end">Total</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <t t-foreach="buyers" t-as="b">
+                                                        <tr>
+                                                            <td class="fw-semibold"><t t-esc="b['name']"/></td>
+                                                            <td><t t-esc="b['count']"/></td>
+                                                            <td><t t-esc="'%g' % b['qty']"/> <t t-esc="product.uom_id.name or ''"/></td>
+                                                            <td class="text-end fw-semibold">$<t t-esc="'%.2f' % b['amount']"/></td>
+                                                        </tr>
+                                                    </t>
+                                                </tbody>
+                                                <tfoot>
+                                                    <tr style="border-top:2px solid var(--shrimp-border-strong);">
+                                                        <td class="fw-bold">Total</td>
+                                                        <td></td>
+                                                        <td class="fw-bold"><t t-esc="'%g' % buyers_total_qty"/> <t t-esc="product.uom_id.name or ''"/></td>
+                                                        <td class="text-end fw-bold">$<t t-esc="'%.2f' % buyers_total_amount"/></td>
+                                                    </tr>
+                                                </tfoot>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </t>
+
+                        <!-- CERTIFICADOS DEL VENDEDOR (vigentes a la publicación) -->
+                        <t t-if="valid_seller_certs">
+                            <div class="col-12">
+                                <div class="mp-table-card">
+                                    <div class="card-body p-4">
+                                        <div class="mp-sec-head">
+                                            <span class="mp-sec-ico"><i class="fa fa-id-badge"></i></span>
+                                            <h3 class="mp-sec-title">Certificados del vendedor</h3>
+                                            <span class="s-badge s-badge--teal mp-sec-count"><t t-esc="len(valid_seller_certs)"/></span>
+                                        </div>
+                                        <p class="text-muted" style="font-size:13px; margin:-6px 0 14px;">
+                                            Certificados del vendedor vigentes a la fecha de publicación
+                                            (<t t-esc="publish_date"/>).
+                                        </p>
+                                        <div class="table-responsive mp-table-wrap">
+                                            <table class="table align-middle mb-0">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Certificado</th>
+                                                        <th>Entidad</th>
+                                                        <th>N°</th>
+                                                        <th>Emisión</th>
+                                                        <th>Expira</th>
+                                                        <th class="text-end">Archivo</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <t t-foreach="valid_seller_certs" t-as="c">
+                                                        <tr>
+                                                            <td class="fw-semibold"><t t-esc="c.certificate_id.name"/></td>
+                                                            <td><t t-esc="c.certificate_id.issuer or '—'"/></td>
+                                                            <td><t t-esc="c.certificate_number or '—'"/></td>
+                                                            <td><t t-esc="c.issue_date or '—'"/></td>
+                                                            <td><t t-esc="c.expiry_date or '—'"/></td>
+                                                            <td class="text-end">
+                                                                <t t-if="c.file_attachment_id">
+                                                                    <button type="button"
+                                                                        class="s-btn s-btn-ghost btn-sm js-cert-view"
+                                                                        t-att-data-url="'/marketplace/product/%s/user-certificate/%s' % (product.uuid_ref, c.id)">
+                                                                        Ver certificado
+                                                                    </button>
+                                                                </t>
+                                                                <t t-else="">
+                                                                    <span class="text-muted">—</span>
+                                                                </t>
+                                                            </td>
+                                                        </tr>
+                                                    </t>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </t>
+
+                        <!-- CERTIFICATES -->
+                        <div class="col-12">
+                            <div class="mp-table-card">
+                                <div class="card-body p-4">
+
+                                    <div class="mp-sec-head">
+                                        <span class="mp-sec-ico"><i class="fa fa-file-text-o"></i></span>
+                                        <h3 class="mp-sec-title">Certificados del producto</h3>
+                                        <t t-if="product.certificate_line_ids">
+                                            <span class="s-badge s-badge--teal mp-sec-count">
+                                                <t t-esc="len(product.certificate_line_ids)" />
+                                            </span>
+                                        </t>
+                                    </div>
+
+                                    <t t-if="product.certificate_line_ids">
+                                        <div class="table-responsive mp-table-wrap">
+                                            <table class="table align-middle mb-0">
+                                                <thead class="text-muted" style="font-size:12px;">
+                                                    <tr>
+                                                        <th>Certificado</th>
+                                                        <th>Entidad</th>
+                                                        <th>N°</th>
+                                                        <th>Emisión</th>
+                                                        <th>Expira</th>
+                                                        <th class="text-end">Archivo</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <t t-foreach="product.certificate_line_ids"
+                                                        t-as="line">
+                                                        <tr>
+                                                            <td class="fw-semibold">
+                                                                <t t-esc="line.certificate_id.name" />
+                                                            </td>
+                                                            <td>
+                                                                <t
+                                                                    t-esc="line.certificate_id.issuer" />
+                                                            </td>
+                                                            <td>
+                                                                <t t-esc="line.number or '—'" />
+                                                            </td>
+                                                            <td>
+                                                                <t t-esc="line.issue_date or '—'" />
+                                                            </td>
+                                                            <td>
+                                                                <t t-esc="line.expiry_date or '—'" />
+                                                            </td>
+                                                            <td class="text-end">
+                                                                <t t-if="line.attachment_id">
+                                                                    <button type="button"
+                                                                        class="s-btn s-btn-ghost btn-sm js-cert-view"
+                                                                        t-att-data-url="'/marketplace/product/%s/certificate/%s' % (product.uuid_ref, line.attachment_id.id)">
+                                                                        Ver certificado
+                                                                    </button>
+                                                                </t>
+                                                                <t t-else="">
+                                                                    <span class="text-muted">—</span>
+                                                                </t>
+                                                            </td>
+                                                        </tr>
+                                                    </t>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </t>
+
+                                    <t t-else="">
+                                        <div class="rounded-4 p-4 text-center"
+                                            style="background:#fff; border:1px dashed rgba(0,0,0,.12);">
+                                            <div style="font-weight:900;" class="mb-1">Sin
+                                                certificados</div>
+                                            <div class="text-muted" style="font-size:13px;">
+                                                Este producto no tiene certificados cargados.
+                                            </div>
+                                        </div>
+                                    </t>
+
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="mp-table-card">
+                                <div class="card-body p-4">
+                                    <div class="mp-sec-head">
+                                        <span class="mp-sec-ico"><i class="fa fa-history"></i></span>
+                                        <h3 class="mp-sec-title">Evolución del producto</h3>
+                                        <t t-if="evolution_lines">
+                                            <span class="s-badge s-badge--teal mp-sec-count">
+                                                <t t-esc="len(evolution_lines)" />
+                                            </span>
+                                        </t>
+                                    </div>
+
+                                    <t t-if="evolution_lines">
+                                        <div class="table-responsive mp-table-wrap">
+                                            <table class="table align-middle mb-0">
+                                                <thead class="text-muted" style="font-size:12px;">
+                                                    <tr>
+                                                        <th>Fecha</th>
+                                                        <th>Etapa</th>
+                                                        <th>Tamaño mg</th>
+                                                        <th>Supervivencia</th>
+                                                        <th>Stock disponible</th>
+                                                        <th>Observación</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <t t-foreach="evolution_lines" t-as="ev">
+                                                        <tr>
+                                                            <td>
+                                                                <t t-esc="ev.date" />
+                                                            </td>
+                                                            <td>
+                                                                <t t-esc="ev.stage_id.name or '—'" />
+                                                            </td>
+                                                            <td>
+                                                                <t t-esc="ev.avg_size_mg or '—'" />
+                                                            </td>
+                                                            <td>
+                                                                <t t-esc="ev.survival_rate or '—'" />
+                                                                % </td>
+                                                            <td>
+                                                                <t t-esc="ev.available_qty or '—'" />
+                                                                <t
+                                                                    t-esc="product.uom_id.name" />
+                                                            </td>
+                                                            <td>
+                                                                <t
+                                                                    t-esc="ev.note or ev.health_status or '—'" />
+                                                            </td>
+                                                        </tr>
+                                                    </t>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </t>
+
+                                    <t t-else="">
+                                        <div class="rounded-4 p-4 text-center"
+                                            style="background:#fff; border:1px dashed rgba(0,0,0,.12);">
+                                            <div style="font-weight:900;" class="mb-1">
+                                                Sin histórico de evolución
+                                            </div>
+                                            <div class="text-muted" style="font-size:13px;">
+                                                Aún no se han registrado cambios productivos para
+                                                este lote.
+                                            </div>
+                                        </div>
+                                    </t>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </t>
+
+        <script>
+            (function () {
+            function initMarketplaceGallery() {
+            const mainImg = document.getElementById("mp_main_img");
+            const thumbsWrap = document.getElementById("mp_thumbs");
+            const prevBtn = document.getElementById("mp_prev_btn");
+            const nextBtn = document.getElementById("mp_next_btn");
+
+            if (!mainImg || !thumbsWrap) return;
+
+            function getThumbs() {
+            return Array.from(thumbsWrap.querySelectorAll(".mp-thumb"));
+            }
+
+            function setActive(idx) {
+            const thumbs = getThumbs();
+            const t = thumbs[idx];
+            if (!t) return;
+
+            mainImg.src = t.dataset.url;
+            mainImg.dataset.index = String(idx);
+
+            thumbs.forEach((el, i) => {
+            if (i === idx) {
+            el.style.border = "2px solid rgba(18,62,92,.55)";
+            el.style.boxShadow = "0 8px 18px rgba(18,62,92,.15)";
+            } else {
+            el.style.border = "1px solid rgba(0,0,0,.12)";
+            el.style.boxShadow = "none";
+            }
+            });
+            }
+
+            thumbsWrap.addEventListener("click", function (e) {
+            const thumb = e.target.closest(".mp-thumb");
+            if (!thumb) return;
+
+            const idx = parseInt(thumb.dataset.index || "0", 10);
+            setActive(idx);
+            });
+
+            function go(delta) {
+            const thumbs = getThumbs();
+            const n = thumbs.length;
+            if (!n) return;
+
+            const current = parseInt(mainImg.dataset.index || "0", 10);
+            const next = (current + delta + n) % n;
+            setActive(next);
+            }
+
+            if (prevBtn) prevBtn.addEventListener("click", () => go(-1));
+            if (nextBtn) nextBtn.addEventListener("click", () => go(1));
+
+            setActive(0);
+            }
+
+            if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", initMarketplaceGallery);
+            } else {
+            initMarketplaceGallery();
+            }
+            })();
+        </script>
+    </template>
+
+    <template id="product_public_detail" name="Detalle Público - Marketplace">
+        <t t-call="website.layout">
+            <div class="shrimp-bg">
+                <div class="shrimp-page py-4">
+
+                    <!-- Visor de certificado (modal) -->
+                    <t t-call="shrimp_marketplace.cert_viewer"/>
+
+                    <!-- Breadcrumb / volver -->
+                    <div class="mb-3">
+                        <t t-call="shrimp_marketplace.s_back_button"><t t-set="back_fallback" t-value="'/marketplace'"/></t>
+                    </div>
+
+                    <div class="row g-4">
+
+                        <!-- Columna izquierda: fotos -->
+                        <div class="col-lg-6">
+
+                            <div class="card border-0"
+                                style="border-radius:16px; box-shadow: 0 10px 30px rgba(16,24,40,.06); overflow:hidden;">
+                                <div class="card-body p-3">
+
+                                    <!-- Foto principal -->
+                                    <t t-if="photos and len(photos) &gt; 0">
+                                        <img class="img-fluid rounded-4 mb-3"
+                                            t-att-src="'/web/image/%s' % photos[0].id"
+                                            alt="Foto producto"
+                                            style="width:100%; height:420px; object-fit:cover;" />
+                                    </t>
+                                    <t t-else="">
+                                        <div
+                                            class="d-flex align-items-center justify-content-center rounded-4 text-muted"
+                                            style="height:420px; background:#fff; border:1px dashed rgba(0,0,0,.12);">
+                                            Sin fotos
+                                        </div>
+                                    </t>
+
+                                    <!-- Miniaturas -->
+                                    <t t-if="photos and len(photos) &gt; 1">
+                                        <div class="d-flex gap-2 flex-wrap mt-2">
+                                            <t t-foreach="photos" t-as="img" t-foreach-index="i">
+                                                <t t-if="i &gt; 0">
+                                                    <img t-att-src="'/web/image/%s' % img.id"
+                                                        class="rounded-3 border"
+                                                        style="width:80px; height:80px; object-fit:cover; cursor:pointer;" />
+                                                </t>
+                                            </t>
+                                        </div>
+                                    </t>
+
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <!-- Columna derecha: info -->
+                        <div class="col-lg-6">
+
+                            <div class="card h-100 border-0"
+                                style="border-radius:16px; box-shadow: 0 10px 30px rgba(16,24,40,.06);">
+                                <div class="card-body p-4">
+
+                                    <!-- Header: título + badges -->
+                                    <div
+                                        class="d-flex justify-content-between align-items-start gap-3 mb-2">
+                                        <div>
+                                            <h2 class="mb-1"
+                                                style="font-weight:900; letter-spacing:-.3px;">
+                                                <t t-esc="product.name" />
+                                            </h2>
+
+                                            <div class="text-muted" style="font-size:13px;">
+                                                <i class="fa fa-user me-1"></i> Vendido por <strong>
+                                                    <t t-esc="product.seller_partner_id.name" />
+                                                </strong>
+                                            </div>
+                                        </div>
+
+                                        <div class="text-end">
+                                            <span class="badge bg-success"
+                                                t-if="product.state == 'published'">
+                                                <i class="fa fa-check me-1"></i> Publicado </span>
+                                            <span class="badge bg-dark"
+                                                t-if="product.state == 'sold'">
+                                                <i class="fa fa-shopping-bag me-1"></i> Vendido </span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Precio + disponibilidad -->
+                                    <div class="rounded-4 p-3 mb-3"
+                                        style="background:#fff; border:1px solid rgba(0,0,0,.06);">
+                                        <div class="row align-items-center g-2">
+                                            <div class="col-7">
+                                                <div class="small text-muted">Precio</div>
+                                                <div class="display-6 fw-bold mb-0"
+                                                    style="line-height: 1;">
+                                                    <t t-esc="product.price" />
+                                                </div>
+                                                <div class="text-muted" style="font-size:12px;"> Por <t
+                                                        t-esc="product.uom_id.name" />
+                                                </div>
+                                            </div>
+                                            <div class="col-5 text-end">
+                                                <div class="small text-muted">Disponible</div>
+                                                <div class="fs-5 fw-semibold">
+                                                    <t t-esc="product.available_qty" />
+                                                    <t t-esc="product.uom_id.name" />
+                                                </div>
+                                                <t t-if="product.expected_delivery_date">
+                                                    <div class="text-muted" style="font-size:12px;">
+                                                        Entrega estimada: <t
+                                                            t-esc="product.expected_delivery_date" />
+                                                    </div>
+                                                </t>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Quick facts -->
+                                    <div class="row g-2 mb-3">
+
+                                        <div class="col-6">
+                                            <div class="p-3 rounded-4 h-100"
+                                                style="background:#fff; border:1px solid rgba(0,0,0,.06);">
+                                                <div class="small text-muted"><i
+                                                        class="fa fa-tag me-1"></i> Etapa</div>
+                                                <div class="fw-semibold">
+                                                    <t t-esc="product.stage_id.name or '—'" />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-6">
+                                            <div class="p-3 rounded-4 h-100"
+                                                style="background:#fff; border:1px solid rgba(0,0,0,.06);">
+                                                <div class="small text-muted"><i
+                                                        class="fa fa-leaf me-1"></i> Especie</div>
+                                                <div class="fw-semibold">
+                                                    <t t-esc="product.species_id.name or '—'" />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-6">
+                                            <div class="p-3 rounded-4 h-100"
+                                                style="background:#fff; border:1px solid rgba(0,0,0,.06);">
+                                                <div class="small text-muted"><i
+                                                        class="fa fa-map-marker me-1"></i> Ubicación</div>
+                                                <div class="fw-semibold">
+                                                    <t t-esc="product.location or '—'" />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-6">
+                                            <div class="p-3 rounded-4 h-100"
+                                                style="background:#fff; border:1px solid rgba(0,0,0,.06);">
+                                                <div class="small text-muted"><i
+                                                        class="fa fa-line-chart me-1"></i>
+                                                    Supervivencia</div>
+                                                <div class="fw-semibold"><t
+                                                        t-esc="product.survival_rate or '—'" /> %</div>
+                                            </div>
+                                        </div>
+
+                                    </div>
+
+                                    <!-- Acordeón: detalles -->
+                                    <div class="accordion" id="prod_details_public">
+
+                                        <div class="accordion-item">
+                                            <h2 class="accordion-header" id="headingOnePub">
+                                                <button class="accordion-button" type="button"
+                                                    data-bs-toggle="collapse"
+                                                    data-bs-target="#collapseOnePub"
+                                                    aria-expanded="true"
+                                                    aria-controls="collapseOnePub">
+                                                    <i class="fa fa-flask me-2"></i> Genética y
+                                                    calidad </button>
+                                            </h2>
+                                            <div id="collapseOnePub"
+                                                class="accordion-collapse collapse show"
+                                                aria-labelledby="headingOnePub"
+                                                data-bs-parent="#prod_details_public">
+                                                <div class="accordion-body">
+                                                    <div class="row g-2">
+                                                        <div class="col-12">
+                                                            <div class="small text-muted">Línea
+                                                                genética / cepa</div>
+                                                            <div class="fw-semibold">
+                                                                <t
+                                                                    t-esc="product.genetics_line_id.name or '—'" />
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-6">
+                                                            <div class="small text-muted">Tamaño
+                                                                (mg)</div>
+                                                            <div class="fw-semibold">
+                                                                <t
+                                                                    t-esc="product.avg_size_mg or '—'" />
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-6">
+                                                            <div class="small text-muted">Supervivencia
+                                                                (%)</div>
+                                                            <div class="fw-semibold">
+                                                                <t
+                                                                    t-esc="product.survival_rate or '—'" />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="accordion-item">
+                                            <h2 class="accordion-header" id="headingTwoPub">
+                                                <button class="accordion-button collapsed"
+                                                    type="button"
+                                                    data-bs-toggle="collapse"
+                                                    data-bs-target="#collapseTwoPub"
+                                                    aria-expanded="false"
+                                                    aria-controls="collapseTwoPub">
+                                                    <i class="fa fa-stethoscope me-2"></i> Estado
+                                                    sanitario / observaciones </button>
+                                            </h2>
+                                            <div id="collapseTwoPub"
+                                                class="accordion-collapse collapse"
+                                                aria-labelledby="headingTwoPub"
+                                                data-bs-parent="#prod_details_public">
+                                                <div class="accordion-body">
+                                                    <t t-if="product.health_status">
+                                                        <div class="border rounded-4 p-3"
+                                                            style="background:#fff;">
+                                                            <t t-esc="product.health_status" />
+                                                        </div>
+                                                    </t>
+                                                    <t t-else="">
+                                                        <div class="text-muted">—</div>
+                                                    </t>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="accordion-item">
+                                            <h2 class="accordion-header" id="headingThreePub">
+                                                <button class="accordion-button collapsed"
+                                                    type="button"
+                                                    data-bs-toggle="collapse"
+                                                    data-bs-target="#collapseThreePub"
+                                                    aria-expanded="false"
+                                                    aria-controls="collapseThreePub">
+                                                    <i class="fa fa-file-text-o me-2"></i>
+                                                    Certificados <t
+                                                        t-if="product.cert_attachment_ids">
+                                                        <span
+                                                            class="badge bg-light text-dark border ms-2">
+                                                            <t
+                                                                t-esc="len(product.cert_attachment_ids)" />
+                                                        </span>
+                                                    </t>
+                                                </button>
+                                            </h2>
+                                            <div id="collapseThreePub"
+                                                class="accordion-collapse collapse"
+                                                aria-labelledby="headingThreePub"
+                                                data-bs-parent="#prod_details_public">
+                                                <div class="accordion-body">
+                                                    <t t-if="product.cert_attachment_ids">
+                                                        <ul class="list-unstyled mb-0">
+                                                            <t
+                                                                t-foreach="product.cert_attachment_ids"
+                                                                t-as="cert">
+                                                                <li
+                                                                    class="d-flex align-items-center justify-content-between py-1">
+                                                                    <div class="text-truncate">
+                                                                        <i class="fa fa-file me-1"></i>
+                                                                        <t t-esc="cert.name" />
+                                                                    </div>
+                                                                    <button type="button"
+                                                                        class="s-btn s-btn-ghost btn-sm js-cert-view"
+                                                                        t-att-data-url="'/marketplace/product/%s/certificate/%s' % (product.uuid_ref, cert.id)">
+                                                                        Ver certificado
+                                                                    </button>
+                                                                </li>
+                                                            </t>
+                                                        </ul>
+                                                    </t>
+                                                    <t t-else="">
+                                                        <div class="text-muted">Sin certificados</div>
+                                                    </t>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                    </div>
+
+                                    <!-- Acciones (solo comprar + volver) -->
+                                    <div class="d-flex flex-wrap gap-2 mt-4">
+                                        <a class="btn btn-primary"
+                                            t-att-href="'/marketplace/buy/%s' % product.uuid_ref"
+                                            style="border-radius:14px; font-weight:900;">
+                                            <i class="fa fa-shopping-cart me-1"></i> Comprar </a>
+                                        <t t-call="shrimp_marketplace.s_back_button"><t t-set="back_fallback" t-value="'/marketplace/products'"/></t>
+                                    </div>
+
+                                </div>
+                            </div>
+
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+</odoo>

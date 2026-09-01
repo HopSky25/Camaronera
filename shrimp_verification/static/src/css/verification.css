@@ -1,0 +1,147 @@
+/* Verificación de camarón — portal del verificador y avisos al comprador */
+
+.sv-kpi {
+    display: block;
+    padding: 18px;
+    border-radius: 14px;
+    background: #fff;
+    border: 1px solid #e3e8ec;
+    text-decoration: none;
+    color: #123e5c;
+    transition: transform .15s ease, box-shadow .15s ease;
+}
+.sv-kpi:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(18,62,92,.10); color: #123e5c; }
+.sv-kpi-num { font-size: 30px; font-weight: 700; line-height: 1; }
+.sv-kpi-lbl { font-size: 12px; color: #5a6b74; margin-top: 6px; }
+.sv-kpi--new   { border-left: 4px solid #14a0b0; }
+.sv-kpi--field { border-left: 4px solid #e69c24; }
+.sv-kpi--done  { border-left: 4px solid #2e9e5b; }
+
+.sv-card {
+    display: block;
+    padding: 18px;
+    border-radius: 14px;
+    background: #fff;
+    border: 1px solid #e3e8ec;
+    text-decoration: none;
+    color: inherit;
+}
+.sv-card:hover { border-color: #14a0b0; color: inherit; }
+
+.sv-muted { color: #5a6b74; }
+.sv-yield { font-size: 22px; font-weight: 700; color: #123e5c; }
+
+.sv-badge {
+    font-size: 11px; font-weight: 600; padding: 3px 10px;
+    border-radius: 999px; background: #eef2f5; color: #5a6b74;
+}
+.sv-badge--assigned     { background: #e6f6f8; color: #0d7c88; }
+.sv-badge--in_field     { background: #fdf1e0; color: #a86a10; }
+.sv-badge--done         { background: #e9f0fb; color: #2a5db0; }
+.sv-badge--approved,
+.sv-badge--approved_obs { background: #e6f6ec; color: #217a48; }
+.sv-badge--rejected     { background: #fdeaea; color: #b3261e; }
+
+.sv-chip {
+    font-size: 11px; padding: 3px 10px; border-radius: 999px;
+    background: #f3f6f8; color: #5a6b74;
+}
+
+.sv-summary {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 14px; padding: 16px; background: #f8fafc;
+    border: 1px solid #e3e8ec; border-radius: 12px;
+}
+.sv-summary > div { display: flex; flex-direction: column; gap: 2px; }
+.sv-summary .sv-muted { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+
+.sv-section {
+    background: #fff; border: 1px solid #e3e8ec; border-radius: 14px;
+    padding: 22px; margin-bottom: 18px;
+}
+.sv-section h3 {
+    font-size: 16px; font-weight: 700; color: #123e5c;
+    margin: 0 0 16px; display: flex; align-items: center; gap: 10px;
+}
+.sv-section--verdict { border-color: #14a0b0; }
+.sv-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: #123e5c; color: #fff; font-size: 13px;
+}
+
+.sv-calc {
+    margin-top: 14px; padding: 12px 14px; border-radius: 10px;
+    background: #f8fafc; border: 1px dashed #cdd8df; font-size: 14px;
+}
+.sv-ok  { color: #217a48; font-weight: 600; }
+.sv-bad { color: #b3261e; font-weight: 600; }
+
+.sv-table th { font-size: 12px; color: #5a6b74; font-weight: 600; }
+
+.sv-whatsapp {
+    background: #f2f7f3; border: 1px solid #cfe3d5; border-radius: 10px;
+    padding: 14px; font-size: 13px; white-space: pre-wrap; color: #1d3a29;
+}
+
+.sv-empty { text-align: center; padding: 60px 20px; color: #5a6b74; }
+
+.sv-alert { padding: 16px 18px; border-radius: 12px; border: 1px solid; }
+.sv-alert--wait  { background: #fdf8ee; border-color: #edd9b0; color: #7a5610; }
+.sv-alert--ready { background: #edf9f1; border-color: #b6e0c6; color: #17603a; }
+
+.sv-buybox {
+    border: 1px solid #14a0b0; border-radius: 14px;
+    padding: 18px; margin-bottom: 18px; background: #fbfeff;
+}
+.sv-buybox-head { font-weight: 700; color: #0d7c88; margin-bottom: 8px; }
+
+.sv-btn-danger { background: #b3261e; color: #fff; border: none; }
+.sv-btn-danger:hover { background: #94201a; color: #fff; }
+
+.sv-pending { text-align: center; max-width: 620px; margin: 0 auto; color: #123e5c; }
+
+/* --- Selector de verificador con acreditación consultable --- */
+.sv-verifiers { display: flex; flex-direction: column; gap: 8px; }
+
+.sv-verifier {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px; border: 1px solid #e3e8ec; border-radius: 12px;
+    background: #fff; cursor: pointer; margin: 0;
+    transition: border-color .15s ease, background .15s ease;
+}
+.sv-verifier:hover { border-color: #14a0b0; background: #fbfeff; }
+.sv-verifier:has(.sv-verifier-radio:checked) {
+    border-color: #14a0b0; background: #f2fbfc; box-shadow: 0 0 0 3px rgba(20,160,176,.12);
+}
+.sv-verifier--noacc { border-style: dashed; }
+
+.sv-verifier-radio { margin: 0; flex: 0 0 auto; }
+.sv-verifier-body { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; }
+.sv-verifier-name { font-weight: 600; color: #123e5c; }
+.sv-verifier-meta { font-size: 12px; color: #5a6b74; }
+
+.sv-acc { font-size: 11px; font-weight: 600; margin-top: 2px; }
+.sv-acc--ok { color: #217a48; }
+.sv-acc--no { color: #a86a10; }
+
+.sv-eye {
+    flex: 0 0 auto; width: 36px; height: 36px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: #eef6f8; color: #0d7c88; text-decoration: none;
+}
+.sv-eye:hover { background: #14a0b0; color: #fff; }
+
+/* Verificacion opcional (larvas): mismo bloque, menos peso visual */
+.sv-buybox--optional { border-style: dashed; border-color: #cdd8df; background: #fbfcfd; }
+.sv-buybox--optional .sv-buybox-head { color: #5a6b74; }
+
+/* Avisos informativos que se desvanecen solos (los accionables no) */
+.sv-alert--auto { transition: opacity .6s ease, transform .6s ease, margin .6s ease; }
+.sv-alert--fading { opacity: 0; transform: translateY(-6px); }
+
+/* Evidencia fotográfica de campo dentro de la trazabilidad */
+.sv-evidence { display:block; width:120px; height:90px; border-radius:10px;
+               overflow:hidden; border:1px solid #e3e8ec; }
+.sv-evidence img { width:100%; height:100%; object-fit:cover; display:block; }
+.sv-evidence:hover { border-color:#14a0b0; }

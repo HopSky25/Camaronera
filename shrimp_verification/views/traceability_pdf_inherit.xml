@@ -1,0 +1,181 @@
+<odoo>
+
+  <template id="report_traceability_verification"
+            inherit_id="shrimp_marketplace.report_shrimp_full_traceability"
+            name="Certificado de trazabilidad - verificación en campo">
+
+    <!-- El certificado es el documento que el comprador enseña a terceros: si el
+         lote pasó por un verificador acreditado, tiene que constar aquí. -->
+    <xpath expr="//div[hasclass('st-foot')]" position="before">
+      <t t-set="ver" t-value="doc.verification_id[:1]"/>
+      <t t-if="ver">
+        <div class="st-sec">8. Verificación en campo</div>
+        <table class="st-tbl">
+          <tbody>
+            <tr>
+              <th style="width:28%;">Verificador</th>
+              <td>
+                <t t-esc="ver.verifier_partner_id.name or '—'"/>
+                <t t-if="ver.verifier_partner_id.ver_registro_num">
+                  (registro <t t-esc="ver.verifier_partner_id.ver_registro_num"/>)
+                </t>
+              </td>
+            </tr>
+            <tr>
+              <th>Acreditación</th>
+              <td>
+                <t t-if="ver.verifier_partner_id.verifier_accreditation_line_id">
+                  <t t-esc="ver.verifier_partner_id.verifier_accreditation_line_id.certificate_id.name"/>
+                  <t t-if="ver.verifier_partner_id.verifier_accreditation_line_id.expiry_date">
+                    · vigente hasta
+                    <t t-esc="ver.verifier_partner_id.verifier_accreditation_line_id.expiry_date"/>
+                  </t>
+                </t>
+                <t t-else="">Sin acreditación registrada</t>
+              </td>
+            </tr>
+            <tr>
+              <th>Referencia y resultado</th>
+              <td>
+                <t t-esc="ver.name"/> ·
+                <strong>
+                  <t t-if="ver.state == 'approved'">Aprobada</t>
+                  <t t-elif="ver.state == 'approved_obs'">Aprobada con observaciones</t>
+                  <t t-elif="ver.state == 'rejected'">Rechazada</t>
+                  <t t-else="">En proceso</t>
+                </strong>
+                <t t-if="ver.verified_date"> · <t t-esc="ver.verified_date"/></t>
+              </td>
+            </tr>
+            <tr t-if="ver.batch_code or ver.plant_name">
+              <th>Lote y planta</th>
+              <td>
+                <t t-esc="ver.batch_code or '—'"/>
+                <t t-if="ver.plant_name"> · <t t-esc="ver.plant_name"/></t>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Camarón adulto: pesos, rendimientos y clasificación -->
+        <t t-if="ver.scope == 'adult' and ver.total_processed_lb">
+          <table class="st-tbl">
+            <thead>
+              <tr>
+                <th class="st-r">Enviado</th><th class="st-r">En planta</th>
+                <th class="st-r">Basura</th><th class="st-r">Neto</th>
+                <th class="st-r">Procesado</th><th class="st-r">Rendimiento</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="st-r"><t t-esc="'{:.2f}'.format(ver.weight_sent_lb)"/></td>
+                <td class="st-r"><t t-esc="'{:.2f}'.format(ver.weight_plant_lb)"/></td>
+                <td class="st-r"><t t-esc="'{:.2f}'.format(ver.trash_lb)"/></td>
+                <td class="st-r"><t t-esc="'{:.2f}'.format(ver.net_weight_lb)"/></td>
+                <td class="st-r"><t t-esc="'{:.2f}'.format(ver.total_processed_lb)"/></td>
+                <td class="st-r"><t t-esc="'{:.2f} %'.format(ver.yield_pct)"/></td>
+              </tr>
+            </tbody>
+          </table>
+          <table class="st-tbl" t-if="ver.line_ids">
+            <thead>
+              <tr><th>Clase</th><th>Talla</th><th class="st-r">Libras</th><th class="st-r">% del total</th></tr>
+            </thead>
+            <tbody>
+              <t t-foreach="ver.line_ids" t-as="ln">
+                <tr>
+                  <td><t t-esc="dict(ln._fields['quality_class'].selection).get(ln.quality_class)"/></td>
+                  <td><t t-esc="ln.size_code"/></td>
+                  <td class="st-r"><t t-esc="'{:.2f}'.format(ln.weight_lb)"/></td>
+                  <td class="st-r"><t t-esc="'{:.2f}'.format(ln.percent_of_total)"/></td>
+                </tr>
+              </t>
+            </tbody>
+          </table>
+          <table class="st-tbl">
+            <tbody>
+              <tr>
+                <th style="width:28%;">Metabisulfito</th>
+                <td>
+                  <t t-esc="'{:.2f}'.format(ver.metabisulfite_ppm)"/> ppm
+                  <t t-if="ver.metabisulfite_result == 'pass'"> · conforme</t>
+                  <t t-if="ver.metabisulfite_result == 'fail'"> · NO CONFORME</t>
+                </td>
+              </tr>
+              <tr>
+                <th>Presentación y sabor</th>
+                <td>
+                  <t t-esc="ver.presentation or '—'"/>
+                  <t t-if="ver.taste_result"> · sabor <t t-esc="ver.taste_result"/></t>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </t>
+
+        <!-- Larva: cantidad, supervivencia, tamaño y sanidad -->
+        <t t-if="ver.scope == 'larvae' and ver.larvae_qty_verified">
+          <table class="st-tbl">
+            <thead>
+              <tr>
+                <th class="st-r">Cantidad verificada</th><th class="st-r">Desvío</th>
+                <th class="st-r">Supervivencia</th><th class="st-r">Tamaño (mg)</th>
+                <th>Estado sanitario</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="st-r"><t t-esc="'{:.2f}'.format(ver.larvae_qty_verified)"/></td>
+                <td class="st-r"><t t-esc="'{:.2f} %'.format(ver.larvae_qty_diff_pct)"/></td>
+                <td class="st-r"><t t-esc="'{:.2f} %'.format(ver.larvae_survival_rate)"/></td>
+                <td class="st-r"><t t-esc="'{:.3f}'.format(ver.larvae_avg_size_mg)"/></td>
+                <td><t t-esc="ver.larvae_health_status or '—'"/></td>
+              </tr>
+            </tbody>
+          </table>
+        </t>
+
+        <table class="st-tbl" t-if="ver.incident_notes or ver.verdict_notes">
+          <tbody>
+            <tr t-if="ver.incident_notes">
+              <th style="width:28%;">Incidencias</th>
+              <td><t t-esc="ver.incident_notes"/></td>
+            </tr>
+            <tr t-if="ver.verdict_notes">
+              <th>Conclusión</th>
+              <td><t t-esc="ver.verdict_notes"/></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Evidencia fotográfica embebida: da peso probatorio al certificado.
+             Maquetada con inline-block y no con una tabla agrupada, porque las
+             comprensiones de listas dentro de QWeb rompen el render. -->
+        <t t-if="ver.photo_ids">
+          <t t-set="fotos" t-value="ver.photo_data_uris()"/>
+          <t t-if="fotos">
+            <div class="st-sec" style="margin-top:10px;">9. Evidencia fotográfica de campo</div>
+            <div style="width:100%;">
+              <t t-foreach="fotos" t-as="f">
+                <div style="display:inline-block; width:31%; margin:1%; vertical-align:top; text-align:center;">
+                  <img t-att-src="f['uri']"
+                       style="width:100%; height:120px; border:1px solid #d8e0e5;"/>
+                  <div style="font-size:8px; color:#5a6b74; margin-top:2px;">
+                    <t t-esc="f['name']"/>
+                  </div>
+                </div>
+              </t>
+            </div>
+            <div class="st-empty" t-if="len(ver.photo_ids) &gt; len(fotos)">
+              Se muestran <t t-esc="len(fotos)"/> de <t t-esc="len(ver.photo_ids)"/>
+              fotografías. El resto puede consultarse en la versión en línea.
+            </div>
+          </t>
+        </t>
+      </t>
+    </xpath>
+
+  </template>
+
+</odoo>

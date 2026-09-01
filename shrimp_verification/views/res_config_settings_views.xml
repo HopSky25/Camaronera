@@ -1,0 +1,31 @@
+<odoo>
+
+  <record id="res_config_settings_view_form_verification" model="ir.ui.view">
+    <field name="name">res.config.settings.form.shrimp.verification</field>
+    <field name="model">res.config.settings</field>
+    <field name="inherit_id" ref="shrimp_marketplace.res_config_settings_view_form_shrimp"/>
+    <field name="arch" type="xml">
+      <xpath expr="//block[@name='shrimp_commission_block']" position="inside">
+        <setting string="Honorario de verificación"
+                 help="Lo que cobra el verificador acreditado por ir a campo e inspeccionar el lote. Se registra en cada verificación al momento de crearla; cambiar este valor no altera las verificaciones ya emitidas.">
+          <div class="content-group">
+            <div class="row mt16">
+              <label for="shrimp_verification_fee" class="col-lg-6 o_light_label"/>
+              <field name="shrimp_verification_fee"/>
+              <span class="text-muted">por verificación en campo</span>
+            </div>
+          </div>
+        </setting>
+      </xpath>
+    </field>
+  </record>
+
+  <data noupdate="1">
+    <!-- Valor de arranque; se cambia desde Ajustes › Marketplace Camarón. -->
+    <record id="param_verification_fee" model="ir.config_parameter">
+      <field name="key">shrimp_verification.fee</field>
+      <field name="value">500.00</field>
+    </record>
+  </data>
+
+</odoo>

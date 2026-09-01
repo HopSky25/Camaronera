@@ -1,0 +1,140 @@
+<odoo>
+
+  <template id="portal_my_home_verifier"
+            inherit_id="shrimp_marketplace.portal_my_home_add_marketplace_buttons"
+            name="Panel del verificador">
+
+    <!-- El panel de vendedor/comprador no aplica a un verificador: no publica
+         lotes, no tiene piscinas ni inventario. Se oculta para ese rol. -->
+    <xpath expr="//div[hasclass('mp-panel')]" position="attributes">
+      <attribute name="t-if">request.env.user.partner_id.shrimp_user_type != 'verificador'</attribute>
+    </xpath>
+
+    <xpath expr="//div[hasclass('mp-panel')]" position="before">
+      <t t-if="request.env.user.partner_id.shrimp_user_type == 'verificador'">
+        <t t-set="me" t-value="request.env.user.partner_id"/>
+        <t t-set="Verif" t-value="request.env['shrimp.verification'].sudo()"/>
+        <t t-set="mine" t-value="[('verifier_partner_id', '=', me.id)]"/>
+        <t t-set="n_assigned" t-value="Verif.search_count(mine + [('state', '=', 'assigned')])"/>
+        <t t-set="n_field" t-value="Verif.search_count(mine + [('state', '=', 'in_field')])"/>
+        <t t-set="n_done" t-value="Verif.search_count(mine + [('state', '=', 'done')])"/>
+        <t t-set="n_closed" t-value="Verif.search_count(mine + [('state', 'in', ['approved', 'approved_obs'])])"/>
+        <t t-set="n_rejected" t-value="Verif.search_count(mine + [('state', '=', 'rejected')])"/>
+
+        <div class="mp-panel mt-4 mb-4">
+          <div class="mp-panel-head">
+            <div class="mp-eyebrow">Tu panel</div>
+            <h3 class="mp-panel-title">Verificación en campo</h3>
+            <div class="mp-panel-sub">
+              Compras que debes inspeccionar antes de que se concreten.
+            </div>
+          </div>
+
+          <div t-if="not me.verifier_is_accredited" class="alert alert-warning" role="alert">
+            <strong>Tu acreditación todavía no está aprobada.</strong>
+            Mientras tanto no aparecerás como verificador disponible para los
+            compradores, así que no recibirás nuevas asignaciones.
+          </div>
+
+          <div class="mp-grid">
+
+            <a href="/verificador/bandeja?state=assigned" class="mp-tile mp-tile--accent">
+              <div class="mp-tile-ico mp-ico-teal"><i class="fa fa-inbox"/></div>
+              <div class="mp-tile-title">
+                Compras por verificar
+                <span t-if="n_assigned" class="vp-count"><t t-esc="n_assigned"/></span>
+              </div>
+              <div class="mp-tile-desc">
+                Órdenes asignadas que todavía no has empezado. Ábrelas para
+                iniciar el trabajo de campo.
+              </div>
+            </a>
+
+            <a href="/verificador/bandeja?state=in_field" class="mp-tile">
+              <div class="mp-tile-ico mp-ico-amber"><i class="fa fa-flask"/></div>
+              <div class="mp-tile-title">
+                En campo
+                <span t-if="n_field" class="vp-count vp-count--amber"><t t-esc="n_field"/></span>
+              </div>
+              <div class="mp-tile-desc">
+                Inspecciones en curso. Aquí llenas el informe: peso, cuerpo o
+                cola, metabisulfito, clasificación y sabor.
+              </div>
+            </a>
+
+            <a href="/verificador/bandeja?state=done" class="mp-tile">
+              <div class="mp-tile-ico mp-ico-blue"><i class="fa fa-gavel"/></div>
+              <div class="mp-tile-title">
+                Por dictaminar
+                <span t-if="n_done" class="vp-count vp-count--blue"><t t-esc="n_done"/></span>
+              </div>
+              <div class="mp-tile-desc">
+                Informes completos a la espera de tu veredicto: aprobar, aprobar
+                con observaciones o rechazar.
+              </div>
+            </a>
+
+            <a href="/verificador/bandeja?state=approved" class="mp-tile">
+              <div class="mp-tile-ico mp-ico-green"><i class="fa fa-check-circle"/></div>
+              <div class="mp-tile-title">
+                Ya verificadas
+                <span t-if="n_closed" class="vp-count vp-count--green"><t t-esc="n_closed"/></span>
+              </div>
+              <div class="mp-tile-desc">
+                Verificaciones aprobadas. Consulta el informe y copia el parte
+                para WhatsApp.
+              </div>
+            </a>
+
+            <a href="/verificador/bandeja?state=rejected" class="mp-tile">
+              <div class="mp-tile-ico mp-ico-coral"><i class="fa fa-times-circle"/></div>
+              <div class="mp-tile-title">
+                Rechazadas
+                <span t-if="n_rejected" class="vp-count vp-count--coral"><t t-esc="n_rejected"/></span>
+              </div>
+              <div class="mp-tile-desc">
+                Lotes que no pasaron la inspección y cuya compra se canceló.
+              </div>
+            </a>
+
+            <a href="/verificador/bandeja" class="mp-tile">
+              <div class="mp-tile-ico mp-ico-blue"><i class="fa fa-list"/></div>
+              <div class="mp-tile-title">Todas mis verificaciones</div>
+              <div class="mp-tile-desc">
+                La bandeja completa, con buscador por referencia, lote o producto.
+              </div>
+            </a>
+
+            <a href="/marketplace/mis-certificados" class="mp-tile">
+              <div class="mp-tile-ico mp-ico-coral"><i class="fa fa-id-badge"/></div>
+              <div class="mp-tile-title">Mi acreditación</div>
+              <div class="mp-tile-desc">
+                Consulta o renueva el documento que te autoriza a verificar.
+              </div>
+            </a>
+
+            <a href="/marketplace/mi-cuenta" class="mp-tile">
+              <div class="mp-tile-ico mp-ico-teal"><i class="fa fa-user-o"/></div>
+              <div class="mp-tile-title">Mi cuenta</div>
+              <div class="mp-tile-desc">Edita los datos de tu empresa y tu contacto.</div>
+            </a>
+
+          </div>
+        </div>
+      </t>
+    </xpath>
+
+    <xpath expr="//style" position="inside">
+      .vp-count{ display:inline-flex; align-items:center; justify-content:center;
+                 min-width:24px; height:24px; padding:0 7px; margin-left:8px;
+                 border-radius:999px; font-size:13px; font-weight:700;
+                 background:#0e8ea0; color:#fff; vertical-align:middle; }
+      .vp-count--amber { background:#c98a06; }
+      .vp-count--blue  { background:#123e5c; }
+      .vp-count--green { background:#1f7d56; }
+      .vp-count--coral { background:#c0562e; }
+    </xpath>
+
+  </template>
+
+</odoo>

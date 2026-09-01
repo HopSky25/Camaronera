@@ -126,7 +126,7 @@ class ShrimpCharge(models.Model):
                         "name": "Comisión marketplace – %s" % (charge.product_id.display_name or ""),
                         "product_uom_qty": charge.qty or 1.0,
                         "price_unit": (charge.rate_cents or 0.0) / 100.0,
-                        "tax_id": [(6, 0, [])],
+                        "tax_ids": [(6, 0, [])],
                     })],
                 })
                 so.action_confirm()
@@ -137,9 +137,14 @@ class ShrimpCharge(models.Model):
                     invoice.action_post()
                     charge.invoice_id = invoice.id
             except Exception as e:  # noqa: BLE001 - no debe romper la compra
+                # Se registra el fallo Y se marca en el propio cobro: si solo va
+                # al log, un error aquí pasa desapercibido y los cobros quedan
+                # sin facturar sin que nadie lo note.
                 _logger.exception(
                     "No se pudo generar el documento de venta para el cobro %s: %s",
                     charge.name, e)
+                charge.sudo().message_post(body="No se pudo facturar: %s" % e) \
+                    if hasattr(charge, "message_post") else None
 
     def action_generate_sale_documents(self):
         """Botón: genera manualmente el pedido de venta y la factura del cobro."""

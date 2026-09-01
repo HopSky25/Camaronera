@@ -183,6 +183,9 @@
                                                         <th>Etapa</th>
                                                         <th class="text-end">Cantidad</th>
                                                         <th class="text-end">Precio</th>
+                                                        <th t-if="mode == 'sales'" class="text-end">
+                                                            Total y neto
+                                                        </th>
                                                         <th>Entrega</th>
                                                         <th>Estado</th>
                                                     </tr>
@@ -251,6 +254,29 @@
                                                                 <t
                                                                     t-esc="tx.product_id.price if tx.product_id else '—'" />
                                                             </td>
+
+                                                            <t t-if="mode == 'sales'">
+                                                                <td class="text-end">
+                                                                    <t t-set="cobro"
+                                                                        t-value="request.env['shrimp.charge'].sudo().search([('transaction_id','=',tx.id)], limit=1)"/>
+                                                                    <div class="fw-semibold">
+                                                                        <t t-esc="'{:.2f}'.format(tx.amount_total or 0.0)"/>
+                                                                    </div>
+                                                                    <t t-if="cobro">
+                                                                        <div class="text-muted small">
+                                                                            − <t t-esc="'{:.2f}'.format(cobro.amount)"/> comisión
+                                                                            (<t t-esc="'{:.0f}'.format(cobro.rate_cents)"/>¢/<t t-esc="cobro.uom_id.name or 'u'"/>)
+                                                                        </div>
+                                                                        <div class="fw-semibold" style="color:#1f7d56;">
+                                                                            = <t t-esc="'{:.2f}'.format((tx.amount_total or 0.0) - cobro.amount)"/>
+                                                                        </div>
+                                                                        <div t-if="cobro.invoice_id" class="text-muted small">
+                                                                            <t t-esc="cobro.invoice_id.name"/>
+                                                                        </div>
+                                                                    </t>
+                                                                    <div t-else="" class="text-muted small">sin comisión</div>
+                                                                </td>
+                                                            </t>
 
                                                             <td>
                                                                 <t

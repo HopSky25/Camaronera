@@ -7,14 +7,14 @@
     <!-- El panel de vendedor/comprador no aplica a un verificador: no publica
          lotes, no tiene piscinas ni inventario. Se oculta para ese rol. -->
     <xpath expr="//div[hasclass('mp-panel')]" position="attributes">
-      <attribute name="t-if">request.env.user.partner_id.shrimp_user_type != 'verificador'</attribute>
+      <attribute name="t-if">not request.env.user.partner_id.shrimp_verifier_company()</attribute>
     </xpath>
 
     <xpath expr="//div[hasclass('mp-panel')]" position="before">
-      <t t-if="request.env.user.partner_id.shrimp_user_type == 'verificador'">
+      <t t-if="request.env.user.partner_id.shrimp_verifier_company()">
         <t t-set="me" t-value="request.env.user.partner_id"/>
         <t t-set="Verif" t-value="request.env['shrimp.verification'].sudo()"/>
-        <t t-set="mine" t-value="[('verifier_partner_id', '=', me.id)]"/>
+        <t t-set="mine" t-value="[('verifier_partner_id', '=', me.shrimp_verifier_company().id)] if me.shrimp_is_verifier_admin() else [('technician_partner_id', '=', me.id)]"/>
         <t t-set="n_assigned" t-value="Verif.search_count(mine + [('state', '=', 'assigned')])"/>
         <t t-set="n_field" t-value="Verif.search_count(mine + [('state', '=', 'in_field')])"/>
         <t t-set="n_done" t-value="Verif.search_count(mine + [('state', '=', 'done')])"/>
@@ -104,6 +104,22 @@
                 La bandeja completa, con buscador por referencia, lote o producto.
               </div>
             </a>
+
+            <t t-if="me.shrimp_is_verifier_admin()">
+              <a href="/verificador/tecnicos" class="mp-tile">
+                <div class="mp-tile-ico mp-ico-blue"><i class="fa fa-users"/></div>
+                <div class="mp-tile-title">
+                  Mis técnicos
+                  <span t-if="me.field_tech_count" class="vp-count vp-count--blue">
+                    <t t-esc="me.field_tech_count"/>
+                  </span>
+                </div>
+                <div class="mp-tile-desc">
+                  Da de alta a los técnicos que van a campo y reparte el trabajo
+                  entre ellos.
+                </div>
+              </a>
+            </t>
 
             <a href="/marketplace/mis-certificados" class="mp-tile">
               <div class="mp-tile-ico mp-ico-coral"><i class="fa fa-id-badge"/></div>

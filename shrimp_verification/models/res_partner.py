@@ -51,11 +51,59 @@ class ResPartner(models.Model):
         string="N.º de registro o licencia",
         help="Número de la habilitación que lo autoriza a verificar.")
 
+    # ---- Empresa verificadora y sus técnicos de campo ----
+    # Se aprovecha el parent_id nativo de Odoo: la empresa es el partner con la
+    # acreditación, y los técnicos son sus contactos hijos.
+    shrimp_is_field_tech = fields.Boolean(
+        string="Técnico de campo",
+        help="Contacto de una empresa verificadora que hace las inspecciones en campo.",
+    )
+
+    field_tech_ids = fields.One2many(
+        "res.partner", "parent_id", string="Técnicos de campo",
+        domain=[("shrimp_is_field_tech", "=", True)],
+    )
+
+    field_tech_count = fields.Integer(
+        string="N.º de técnicos", compute="_compute_field_tech_count")
+
     verification_ids = fields.One2many(
         "shrimp.verification",
         "verifier_partner_id",
-        string="Verificaciones asignadas",
+        string="Verificaciones de la empresa",
     )
+
+    technician_verification_ids = fields.One2many(
+        "shrimp.verification",
+        "technician_partner_id",
+        string="Verificaciones como técnico",
+    )
+
+    # ---- Reputación como verificador ----
+    verifier_review_ids = fields.One2many(
+        "shrimp.verifier.review", "verifier_partner_id",
+        string="Reseñas recibidas como verificador")
+
+    # Reseñas del trabajo que hizo esta persona como técnico. NO se muestran al
+    # comprador: la reputación pública es la de la empresa, que es a quien
+    # contrata. Esto es para que el admin sepa a quién apoyar.
+    tech_review_ids = fields.One2many(
+        "shrimp.verifier.review", "technician_partner_id",
+        string="Reseñas de su trabajo en campo")
+
+    tech_rating_avg = fields.Float(
+        string="Nota media en campo", compute="_compute_tech_rating",
+        store=True, digits=(3, 2))
+    tech_rating_count = fields.Integer(
+        string="N.º de reseñas de su trabajo", compute="_compute_tech_rating",
+        store=True)
+
+    verifier_rating_avg = fields.Float(
+        string="Calificación como verificador", compute="_compute_verifier_rating",
+        store=True, digits=(3, 2))
+    verifier_rating_count = fields.Integer(
+        string="N.º de reseñas como verificador", compute="_compute_verifier_rating",
+        store=True)
 
     verification_count = fields.Integer(
         string="N.º de verificaciones",
@@ -94,6 +142,45 @@ class ResPartner(models.Model):
             # La de expiración más lejana: es la que mejor acredita hoy.
             rec.verifier_accreditation_line_id = lines.sorted(
                 key=lambda c: (c.expiry_date or fields.Date.today()), reverse=True)[:1]
+
+    @api.depends("tech_review_ids.rating")
+    def _compute_tech_rating(self):
+        for rec in self:
+            reseñas = rec.tech_review_ids
+            rec.tech_rating_count = len(reseñas)
+            rec.tech_rating_avg = (
+                sum(reseñas.mapped("rating")) / len(reseñas) if reseñas else 0.0)
+
+    @api.depends("verifier_review_ids.rating")
+    def _compute_verifier_rating(self):
+        for rec in self:
+            reseñas = rec.verifier_review_ids
+            rec.verifier_rating_count = len(reseñas)
+            rec.verifier_rating_avg = (
+                sum(reseñas.mapped("rating")) / len(reseñas) if reseñas else 0.0)
+
+    @api.depends("child_ids.shrimp_is_field_tech", "child_ids.active")
+    def _compute_field_tech_count(self):
+        for rec in self:
+            rec.field_tech_count = len(rec.child_ids.filtered("shrimp_is_field_tech"))
+
+    def shrimp_verifier_company(self):
+        """Empresa verificadora a la que pertenece este contacto.
+
+        Un técnico devuelve su empresa; la propia empresa se devuelve a sí misma.
+        Cualquier otro contacto devuelve vacío.
+        """
+        self.ensure_one()
+        if self.shrimp_is_field_tech and self.parent_id.shrimp_user_type == "verificador":
+            return self.parent_id
+        if self.shrimp_user_type == "verificador":
+            return self
+        return self.browse()
+
+    def shrimp_is_verifier_admin(self):
+        """True si es la cuenta de la empresa (no un técnico)."""
+        self.ensure_one()
+        return self.shrimp_user_type == "verificador" and not self.shrimp_is_field_tech
 
     @api.depends("verification_ids.state")
     def _compute_verification_stats(self):
@@ -136,4 +223,7 @@ class ResPartner(models.Model):
         domain = [("shrimp_user_type", "=", "verificador"), ("active", "=", True)]
         if only_accredited:
             domain.append(("verifier_is_accredited", "=", True))
-        return self.sudo().search(domain, order="shrimp_rating_avg desc, name asc")
+        # Mejor calificados primero; a igualdad, los que más reseñas acumulan,
+        # para que una única nota de 5 no adelante a quien lleva veinte trabajos.
+        return self.sudo().search(
+            domain, order="verifier_rating_avg desc, verifier_rating_count desc, name asc")

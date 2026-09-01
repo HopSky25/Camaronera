@@ -68,6 +68,9 @@
                   class="btn-danger" invisible="state not in ('in_field','done')"/>
           <button name="action_copy_whatsapp" string="Parte para WhatsApp" type="object"
                   class="btn-secondary" invisible="state == 'assigned'"/>
+          <button name="action_generate_verification_documents" type="object"
+                  string="Facturar honorario"
+                  invisible="invoice_id or state not in ['approved','approved_obs','rejected']"/>
           <field name="state" widget="statusbar"
                  statusbar_visible="assigned,in_field,done,approved"/>
         </header>
@@ -86,6 +89,11 @@
                      readonly="state not in ('assigned',)"/>
               <field name="fee" readonly="state != 'assigned'"/>
               <field name="currency_id" invisible="1"/>
+              <field name="margin_pct" readonly="1" invisible="not margin_pct"/>
+              <field name="platform_amount" readonly="1" invisible="not platform_amount"/>
+              <field name="verifier_amount" readonly="1" invisible="not verifier_amount"/>
+              <field name="invoice_id" readonly="1" invisible="not invoice_id"/>
+              <field name="vendor_bill_id" readonly="1" invisible="not vendor_bill_id"/>
             </group>
             <group string="Contexto de campo">
               <field name="batch_code"/>

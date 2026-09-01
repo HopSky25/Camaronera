@@ -32,8 +32,11 @@
                 <t t-else="">Cancelada</t>
               </strong>
               <div class="small mt-1">
-                <t t-esc="ver.name"/> · verificador
-                <strong t-esc="ver.verifier_partner_id.name"/>
+                <t t-esc="ver.name"/> ·
+                <strong t-esc="ver.technician_partner_id.name or ver.verifier_partner_id.name"/>
+                <t t-if="ver.technician_partner_id and ver.technician_partner_id != ver.verifier_partner_id">
+                  (<t t-esc="ver.verifier_partner_id.name"/>)
+                </t>
                 <t t-if="ver.verified_date"> · <t t-esc="ver.verified_date"/></t>
               </div>
             </div>
@@ -42,7 +45,16 @@
               <div class="mp-spec">
                 <span class="mp-spec-ico"><i class="fa fa-user-o"/></span>
                 <div class="mp-spec-body">
-                  <div class="mp-spec-label">Verificador</div>
+                  <div class="mp-spec-label">Técnico de campo</div>
+                  <div class="mp-spec-value">
+                    <t t-esc="ver.technician_partner_id.name or ver.verifier_partner_id.name"/>
+                  </div>
+                </div>
+              </div>
+              <div class="mp-spec">
+                <span class="mp-spec-ico"><i class="fa fa-building-o"/></span>
+                <div class="mp-spec-body">
+                  <div class="mp-spec-label">Empresa verificadora</div>
                   <div class="mp-spec-value"><t t-esc="ver.verifier_partner_id.name"/></div>
                 </div>
               </div>

@@ -86,6 +86,11 @@
                         Compra <strong t-esc="v.buyer_partner_id.name"/> ·
                         <t t-esc="'{:.2f}'.format((v.transaction_id.transaction_qty or 0))"/> lb
                       </div>
+                      <div class="sv-muted small mt-1">
+                        <i class="fa fa-user-o me-1" title="Técnico"/>
+                        <t t-if="v.technician_partner_id"><t t-esc="v.technician_partner_id.name"/></t>
+                        <t t-else=""><em>sin técnico asignado</em></t>
+                      </div>
                     </div>
                     <div class="text-end">
                       <t t-if="v.total_processed_lb">
@@ -138,6 +143,8 @@
             <div><span class="sv-muted">Comprador</span><strong t-esc="v.buyer_partner_id.name"/></div>
             <div><span class="sv-muted">Cantidad comprada</span>
                  <strong t-esc="'{:.2f} lb'.format((v.transaction_id.transaction_qty or 0))"/></div>
+            <div><span class="sv-muted">Técnico de campo</span>
+                 <strong t-esc="v.technician_partner_id.name or 'sin asignar'"/></div>
           </div>
 
           <t t-if="saved">
@@ -156,14 +163,63 @@
             </div>
           </t>
 
+          <!-- Asignación de técnico: solo el admin de la empresa reparte -->
+          <t t-if="es_admin and not v.is_final">
+            <div class="sv-section">
+              <h3>Técnico de campo</h3>
+              <t t-if="v.technician_partner_id">
+                <p>
+                  Asignada a <strong t-esc="v.technician_partner_id.name"/>.
+                  Solo esa persona puede iniciar el trabajo de campo.
+                </p>
+              </t>
+              <t t-else="">
+                <p class="sv-muted">
+                  Sin asignar. Elige quién va a campo; también puedes atenderla tú.
+                </p>
+              </t>
+              <form method="post" t-attf-action="/verificador/verificacion/#{v.uuid_ref}/asignar"
+                    class="row g-2 align-items-end">
+                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                <div class="col-md-6">
+                  <select name="technician_id" class="form-select" required="required">
+                    <option value="">— Elegir técnico —</option>
+                    <option t-att-value="v.verifier_partner_id.id"
+                            t-att-selected="v.technician_partner_id == v.verifier_partner_id or None">
+                      Yo mismo (<t t-esc="v.verifier_partner_id.name"/>)
+                    </option>
+                    <t t-foreach="tecnicos" t-as="t">
+                      <option t-att-value="t.id"
+                              t-att-selected="v.technician_partner_id == t or None">
+                        <t t-esc="t.name"/>
+                      </option>
+                    </t>
+                  </select>
+                </div>
+                <div class="col-md-3">
+                  <button class="s-btn s-btn-primary w-100" type="submit">
+                    <t t-if="v.technician_partner_id">Reasignar</t>
+                    <t t-else="">Asignar</t>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </t>
+
           <!-- Iniciar trabajo de campo -->
           <t t-if="v.state == 'assigned'">
-            <form method="post" t-att-action="'/verificador/verificacion/{}/iniciar'.format(v.uuid_ref)" class="mb-4">
+            <t t-set="soy_el_tecnico" t-value="v.technician_partner_id == request.env.user.partner_id"/>
+            <form t-if="soy_el_tecnico" method="post"
+                  t-att-action="'/verificador/verificacion/{}/iniciar'.format(v.uuid_ref)" class="mb-4">
               <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
               <button class="s-btn s-btn-primary" type="submit">
                 <i class="fa fa-play me-1"/> Iniciar trabajo de campo
               </button>
             </form>
+            <div t-else="" class="alert alert-info mb-4">
+              Esperando a que <strong t-esc="v.technician_partner_id.name or 'el técnico asignado'"/>
+              inicie el trabajo en campo. Solo esa persona puede hacerlo.
+            </div>
           </t>
 
           <t t-if="not v.is_final">
@@ -547,47 +603,148 @@
               <input type="hidden" name="qty" id="qty_hidden_verify"/>
 
               <label class="fw-bold mb-2">Verificador</label>
+
+              <!-- Buscador: con muchas verificadoras la lista se vuelve larga.
+                   Se filtra en el navegador porque están todas en la página;
+                   si algún día son cientos, habría que paginar en el servidor. -->
+              <div class="sv-verifier-search" t-if="len(verifiers) &gt; 3">
+                <i class="fa fa-search"/>
+                <input type="text" id="sv_buscar_verif" class="form-control"
+                       placeholder="Buscar verificadora por nombre o zona..."
+                       autocomplete="off"/>
+              </div>
               <!-- Lista en vez de <select>: un <option> no admite un enlace, y
                    hace falta el "ojito" para consultar la acreditación de cada uno. -->
               <div class="sv-verifiers mb-3">
                 <t t-foreach="verifiers" t-as="ver">
-                  <label class="sv-verifier">
+                  <label class="sv-verifier"
+                         t-attf-data-buscar="#{(ver.name or '').lower()} #{(ver.ver_cobertura or '').lower()} #{(ver.city or '').lower()}">
+                    <!-- El radio se oculta pero sigue existiendo: es lo que
+                         viaja en el POST y lo que el JS consulta. La selección
+                         se comunica marcando la tarjeta entera. -->
                     <input type="radio" name="verifier_ref" t-att-value="ver.uuid_ref"
                            required="required" class="sv-verifier-radio"/>
-                    <span class="sv-verifier-body">
+
+                    <span class="sv-verifier-head">
                       <span class="sv-verifier-name"><t t-esc="ver.name"/></span>
-                      <span class="sv-verifier-meta">
-                        <t t-if="ver.shrimp_rating_count">
-                          <t t-esc="'{:.1f}'.format(ver.shrimp_rating_avg)"/>★
-                          (<t t-esc="ver.shrimp_rating_count"/>)
-                        </t>
-                        <t t-if="ver.city"> · <t t-esc="ver.city"/></t>
-                        <t t-if="ver.ver_cobertura"> · <t t-esc="ver.ver_cobertura"/></t>
-                      </span>
-                      <span class="sv-acc sv-acc--ok">
-                        <i class="fa fa-check-circle" title="Acreditado"/>
-                        Acreditado
-                        <t t-if="ver.verifier_accreditation_line_id.expiry_date">
-                          hasta <t t-esc="ver.verifier_accreditation_line_id.expiry_date"/>
-                        </t>
-                      </span>
+                      <t t-if="ver.verifier_accreditation_line_id">
+                        <a t-attf-href="/marketplace/verificador/#{ver.uuid_ref}/acreditacion"
+                           target="_blank" class="sv-eye"
+                           title="Ver el certificado que lo acredita como verificador"
+                           onclick="event.stopPropagation();">
+                          <i class="fa fa-eye"/>
+                        </a>
+                      </t>
                     </span>
-                    <t t-if="ver.verifier_accreditation_line_id">
-                      <a t-attf-href="/marketplace/verificador/#{ver.uuid_ref}/acreditacion"
-                         target="_blank" class="sv-eye"
-                         title="Ver el certificado que lo autoriza como verificador"
-                         onclick="event.stopPropagation();">
-                        <i class="fa fa-eye"/>
-                      </a>
-                    </t>
+
+                    <span class="sv-verifier-meta">
+                      <t t-if="ver.verifier_rating_count">
+                        <span class="sv-stars">
+                          <t t-foreach="range(5)" t-as="n">
+                            <i t-attf-class="fa fa-star#{'' if n &lt; int(round(ver.verifier_rating_avg)) else '-o'}"/>
+                          </t>
+                        </span>
+                        <strong><t t-esc="'{:.1f}'.format(ver.verifier_rating_avg)"/></strong>
+                        (<t t-esc="ver.verifier_rating_count"/>)
+                      </t>
+                      <t t-else=""><em>sin reseñas todavía</em></t>
+                      <t t-if="ver.ver_cobertura"> · <t t-esc="ver.ver_cobertura"/></t>
+                    </span>
+
+                    <t t-set="ultima" t-value="ver.verifier_review_ids[:1]"/>
+                    <span t-if="ultima and ultima.comment" class="sv-verifier-quote">
+                      «<t t-esc="ultima.comment[:100]"/><t t-if="len(ultima.comment) &gt; 100">…</t>»
+                    </span>
+
+                    <span class="sv-acc sv-acc--ok">
+                      <i class="fa fa-check-circle" title="Acreditado"/>
+                      Acreditado
+                      <t t-if="ver.verifier_accreditation_line_id.expiry_date">
+                        hasta <t t-esc="ver.verifier_accreditation_line_id.expiry_date"/>
+                      </t>
+                    </span>
+
+                    <span class="sv-verifier-check"><i class="fa fa-check"/></span>
                   </label>
                 </t>
+                <div id="sv_sin_resultados" class="sv-empty" style="display:none;">
+                  <i class="fa fa-search fa-2x mb-2"/>
+                  <p class="mb-0">Ninguna verificadora coincide con esa búsqueda.</p>
+                </div>
               </div>
 
+              <div id="sv_ver_todas" class="mb-3" style="display:none;">
+                <a href="#" class="sv-muted small">
+                  <i class="fa fa-chevron-down me-1"/>
+                  Ver las <span id="sv_restantes">0</span> verificadoras restantes
+                </a>
+              </div>
+
+              <t t-set="tarifa" t-value="request.env['shrimp.verification.fee'].sudo()"/>
+              <t t-set="params" t-value="request.env['ir.config_parameter'].sudo()"/>
+              <t t-set="fee_base" t-value="float(params.get_param('shrimp_verification.fee_base') or 250.0)"/>
+              <t t-set="fee_cents" t-value="float(params.get_param('shrimp_verification.fee_cents') or 2.0)"/>
+              <t t-set="fee_min" t-value="float(params.get_param('shrimp_verification.fee_min') or 300.0)"/>
+              <t t-set="fee_max" t-value="float(params.get_param('shrimp_verification.fee_max') or 800.0)"/>
               <button t-attf-class="s-btn s-btn-block #{'s-btn-primary' if es_adulto else 's-btn-ghost'}"
-                      type="submit" id="btn_verify">
+                      type="button" id="btn_verify">
                 <i class="fa fa-clipboard-check me-1"/> Enviar a verificación
               </button>
+
+              <!-- Desglose antes de confirmar: el comprador debe saber qué paga
+                   y, sobre todo, QUÉ NO se le cobra todavía. -->
+              <div id="svModal" class="buy-modal" style="display:none;">
+                <div class="buy-modal-card">
+                  <div class="mp-sec-head">
+                    <span class="mp-sec-ico"><i class="fa fa-shield"/></span>
+                    <h3 class="mp-sec-title">Enviar a verificación</h3>
+                  </div>
+                  <p class="text-soft" style="font-size:13px; margin-bottom:14px;">
+                    Un verificador acreditado irá a campo a inspeccionar el lote.
+                    Al confirmar se <strong>reserva la cantidad</strong> indicada.
+                  </p>
+
+                  <div class="buy-modal-row">
+                    <span>Producto (<span id="svQty">0</span> <t t-esc="product.uom_id.name or ''"/>)</span>
+                    <span>$<span id="svProd">0.00</span></span>
+                  </div>
+                  <div class="buy-modal-row">
+                    <span>
+                      Verificación en campo
+                      <span class="sv-fee-detail" id="svFeeDetail"/>
+                    </span>
+                    <span>$<span id="svFee">0.00</span></span>
+                  </div>
+                  <!-- Parámetros de la tarifa, para calcularla en el navegador -->
+                  <span id="svFeeCfg" style="display:none;"
+                        t-att-data-base="fee_base" t-att-data-cents="fee_cents"
+                        t-att-data-min="fee_min" t-att-data-max="fee_max"/>
+                  <div class="buy-modal-row last buy-modal-total">
+                    <span>Total de la operación</span>
+                    <span>$<span id="svTotal">0.00</span></span>
+                  </div>
+
+                  <div class="sv-modal-note">
+                    <div><i class="fa fa-info-circle me-1"/>
+                      <strong>Ahora no se cobra el producto.</strong>
+                      Se paga al concluir la compra, después de que el verificador
+                      apruebe. Si rechaza, la reserva se libera y no pagas el lote.
+                    </div>
+                    <div class="mt-2">
+                      Verificador elegido: <strong id="svVerif">—</strong>
+                    </div>
+                  </div>
+
+                  <div class="d-flex gap-2 mt-3">
+                    <button type="button" class="s-btn s-btn-ghost" id="svCancel" style="flex:1;">
+                      Cancelar
+                    </button>
+                    <button type="button" class="s-btn s-btn-primary" id="svConfirm" style="flex:1;">
+                      <i class="fa fa-check me-1"/> Confirmar y enviar
+                    </button>
+                  </div>
+                </div>
+              </div>
               <div class="sv-muted small mt-2">
                 La cantidad queda reservada. No se cobra ni se transfiere el producto
                 hasta que el verificador apruebe y tú concluyas la compra.
@@ -627,8 +784,82 @@
                   if(qtyVerify){ qtyVerify.value = q; }
                 });
 
+                // ---- Desglose de valores antes de confirmar ----
+                var modal   = document.getElementById('svModal');
+                var precioEl= document.getElementById('unit_price');
+                var precio  = precioEl ? (parseFloat(precioEl.dataset.price || '0') || 0) : 0;
+                var cfgEl   = document.getElementById('svFeeCfg');
+                var cfg = cfgEl ? {
+                  base:  parseFloat(cfgEl.dataset.base  || '0') || 0,
+                  cents: parseFloat(cfgEl.dataset.cents || '0') || 0,
+                  min:   parseFloat(cfgEl.dataset.min   || '0') || 0,
+                  max:   parseFloat(cfgEl.dataset.max   || '0') || 0
+                } : {base:0, cents:0, min:0, max:0};
+
+                // Mismo cálculo que en el servidor: base + variable, acotado.
+                function honorarioDe(q){
+                  var bruto = cfg.base + (q * cfg.cents / 100);
+                  var val = bruto;
+                  if(cfg.min){ val = Math.max(val, cfg.min); }
+                  if(cfg.max){ val = Math.min(val, cfg.max); }
+                  return { total: val, bruto: bruto };
+                }
+
+                function dinero(n){ return (isNaN(n) ? 0 : n).toFixed(2); }
+
+                function abrirDesglose(){
+                  var q = qty();
+                  var elegido = f.querySelector('input[name="verifier_ref"]:checked');
+                  if(q &lt;= 0 || q &gt; available){
+                    alert('Ingresa una cantidad valida antes de continuar.');
+                    return;
+                  }
+                  if(!elegido){
+                    alert('Elige un verificador antes de continuar.');
+                    return;
+                  }
+                  var nombre = elegido.closest('label')
+                                      .querySelector('.sv-verifier-name');
+                  var hon = honorarioDe(q);
+                  document.getElementById('svQty').textContent = q;
+                  document.getElementById('svProd').textContent = dinero(q * precio);
+                  document.getElementById('svFee').textContent = dinero(hon.total);
+                  document.getElementById('svTotal').textContent = dinero(q * precio + hon.total);
+
+                  // Se explica de dónde sale el importe, en vez de soltar un número.
+                  var detalle = '$' + dinero(cfg.base) + ' base + ' +
+                                cfg.cents + '\u00A2 x ' + q;
+                  if(hon.total &lt; hon.bruto){ detalle += ' (tope $' + dinero(cfg.max) + ')'; }
+                  if(hon.total &gt; hon.bruto){ detalle += ' (mínimo $' + dinero(cfg.min) + ')'; }
+                  document.getElementById('svFeeDetail').textContent = detalle;
+                  document.getElementById('svVerif').textContent =
+                    nombre ? nombre.textContent.trim() : '—';
+                  if(modal){ modal.style.display = 'flex'; }
+                }
+
+                if(btnVerify){ btnVerify.addEventListener('click', abrirDesglose); }
+                var cancelar = document.getElementById('svCancel');
+                if(cancelar){
+                  cancelar.addEventListener('click', function(){
+                    if(modal){ modal.style.display = 'none'; }
+                  });
+                }
+                var confirmar = document.getElementById('svConfirm');
+                if(confirmar){
+                  confirmar.addEventListener('click', function(){
+                    confirmar.setAttribute('disabled', 'disabled');
+                    f.submit();
+                  });
+                }
+
                 function sync(){
                   var elegido = f.querySelector('input[name="verifier_ref"]:checked');
+
+                  // Respaldo de :has(): marcar la tarjeta elegida por clase.
+                  f.querySelectorAll('label.sv-verifier').forEach(function(el){
+                    var r = el.querySelector('input[name="verifier_ref"]');
+                    el.classList.toggle('is-selected', !!(r &amp;&amp; r.checked));
+                  });
                   var q = qty();
                   var valido = q &gt; 0 &amp;&amp; q &lt;= available;
 
@@ -645,6 +876,58 @@
                   r.addEventListener('change', sync);
                 });
                 if(qtyInput){ qtyInput.addEventListener('input', sync); }
+
+                // ---- Buscador y recorte de la lista de verificadoras ----
+                // Vienen todas en la página, así que el filtro es instantáneo.
+                var VISIBLES = 3;
+                var buscador = document.getElementById('sv_buscar_verif');
+                var verTodas = document.getElementById('sv_ver_todas');
+                var restantes = document.getElementById('sv_restantes');
+                var sinResultados = document.getElementById('sv_sin_resultados');
+                var fichas = Array.prototype.slice.call(
+                  f.querySelectorAll('label.sv-verifier'));
+                var expandido = false;
+
+                function pintarLista() {
+                  var texto = (buscador ? buscador.value : '').trim().toLowerCase();
+                  var coinciden = fichas.filter(function (el) {
+                    return !texto || (el.dataset.buscar || '').indexOf(texto) !== -1;
+                  });
+
+                  // Buscando se muestran todas las coincidencias; sin buscar,
+                  // solo las primeras (que son las mejor calificadas).
+                  var tope = (texto || expandido) ? coinciden.length : VISIBLES;
+
+                  fichas.forEach(function (el) {
+                    var pos = coinciden.indexOf(el);
+                    var marcado = el.querySelector('input[name="verifier_ref"]:checked');
+                    // La elegida no se oculta nunca: si desapareciera, el
+                    // comprador enviaría el formulario sin saber a quién eligió.
+                    el.style.display = (marcado || (pos !== -1 &amp;&amp; pos &lt; tope)) ? '' : 'none';
+                  });
+
+                  if (sinResultados) {
+                    sinResultados.style.display = coinciden.length ? 'none' : '';
+                  }
+                  var ocultas = Math.max(0, coinciden.length - tope);
+                  if (verTodas) {
+                    verTodas.style.display = ocultas &gt; 0 ? '' : 'none';
+                    if (restantes) { restantes.textContent = ocultas; }
+                  }
+                }
+
+                if (buscador) { buscador.addEventListener('input', pintarLista); }
+                if (verTodas) {
+                  verTodas.addEventListener('click', function (ev) {
+                    ev.preventDefault();
+                    expandido = true;
+                    pintarLista();
+                  });
+                }
+                fichas.forEach(function (el) {
+                  el.addEventListener('change', pintarLista);
+                });
+                pintarLista();
                 if(undo){
                   undo.addEventListener('click', function(ev){
                     ev.preventDefault();
@@ -727,6 +1010,63 @@
                     <button class="s-btn s-btn-primary" type="submit">Concluir compra</button>
                   </form>
                 </t>
+              </div>
+
+              <!-- Calificar el trabajo de verificación -->
+              <t t-set="verif" t-value="ptx.verification_id[:1]"/>
+              <t t-if="verif and verif.state in ('approved', 'approved_obs', 'rejected')">
+                <t t-set="ya" t-value="request.env['shrimp.verifier.review'].sudo().search([('verification_id','=',verif.id)], limit=1)"/>
+                <div class="sv-rate-box mt-3">
+                  <t t-if="ya">
+                    <div class="sv-muted small">
+                      Calificaste esta verificación con
+                      <strong><t t-esc="ya.rating"/>/5</strong>.
+                      <t t-if="ya.comment">«<t t-esc="ya.comment"/>»</t>
+                    </div>
+                  </t>
+                  <t t-else="">
+                    <form method="post"
+                          t-attf-action="/marketplace/verificacion/#{verif.uuid_ref}/calificar">
+                      <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                      <div class="fw-bold mb-2">
+                        ¿Qué tal el trabajo de
+                        <t t-esc="verif.technician_partner_id.name or verif.verifier_partner_id.name"/>?
+                      </div>
+                      <div class="row g-2 align-items-end">
+                        <div class="col-md-2">
+                          <label class="small">Global *</label>
+                          <select name="rating" class="form-select" required="required">
+                            <option value="">—</option>
+                            <t t-foreach="[5,4,3,2,1]" t-as="n">
+                              <option t-att-value="n"><t t-esc="n"/> ★</option>
+                            </t>
+                          </select>
+                        </div>
+                        <t t-foreach="[('punctuality','Puntualidad'),('thoroughness','Rigor'),('communication','Comunicación')]" t-as="asp">
+                          <div class="col-md-2">
+                            <label class="small"><t t-esc="asp[1]"/></label>
+                            <select t-att-name="asp[0]" class="form-select">
+                              <option value="">—</option>
+                              <t t-foreach="[5,4,3,2,1]" t-as="n">
+                                <option t-att-value="n"><t t-esc="n"/></option>
+                              </t>
+                            </select>
+                          </div>
+                        </t>
+                        <div class="col-md-4">
+                          <label class="small">Comentario</label>
+                          <input class="form-control" name="comment"
+                                 placeholder="Puntual, informe claro..."/>
+                        </div>
+                      </div>
+                      <button class="s-btn s-btn-ghost mt-2" type="submit">
+                        <i class="fa fa-star me-1"/> Enviar calificación
+                      </button>
+                    </form>
+                  </t>
+                </div>
+              </t>
+              <div style="display:none;">
               </div>
             </div>
           </t>

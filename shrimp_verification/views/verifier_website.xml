@@ -1,0 +1,62 @@
+<odoo>
+
+  <!-- Portada del sitio de verificadores -->
+  <template id="verifier_landing" name="Verificadores - Portada">
+    <t t-call="website.layout">
+      <div class="vw-hero">
+        <div class="vw-hero-inner">
+          <div class="vw-badge"><i class="fa fa-shield me-1"/> Plataforma de verificación</div>
+          <h1>Verificación de camarón en campo</h1>
+          <p>
+            Inspecciona los lotes antes de que la compra se concrete. Registra
+            peso, cuerpo o cola, metabisulfito, clasificación y sabor, y emite
+            tu veredicto desde donde estés.
+          </p>
+          <div class="vw-cta">
+            <t t-if="request.env.user._is_public()">
+              <a href="/web/login" class="s-btn s-btn-primary">Entrar</a>
+              <a href="/registro" class="s-btn s-btn-ghost">Registrarme como verificador</a>
+            </t>
+            <t t-else="">
+              <a href="/verificador/bandeja" class="s-btn s-btn-primary">
+                <i class="fa fa-inbox me-1"/> Ir a mi bandeja
+              </a>
+            </t>
+          </div>
+        </div>
+      </div>
+
+      <div class="vw-steps">
+        <div class="vw-step">
+          <div class="vw-step-num">1</div>
+          <h3>Recibes la asignación</h3>
+          <p>El comprador te elige al comprar. La orden entra en tu bandeja con el
+             lote, el vendedor y la cantidad.</p>
+        </div>
+        <div class="vw-step">
+          <div class="vw-step-num">2</div>
+          <h3>Inspeccionas en campo</h3>
+          <p>Registras los análisis desde el móvil. El informe se guarda por
+             partes: no hace falta completarlo de una sentada.</p>
+        </div>
+        <div class="vw-step">
+          <div class="vw-step-num">3</div>
+          <h3>Emites tu veredicto</h3>
+          <p>Apruebas, apruebas con observaciones o rechazas. El comprador recibe
+             el aviso y solo entonces se concreta la compra.</p>
+        </div>
+      </div>
+
+      <div class="vw-note">
+        <h4>Los cinco análisis del camarón adulto</h4>
+        <p>Peso · Cuerpo o cola · Metabisulfito · Clasificación · Sabor</p>
+        <p class="vw-note-small">
+          En larvas el informe se adapta: cantidad, supervivencia, tamaño y estado
+          sanitario. Los rendimientos se calculan solos y el parte para WhatsApp
+          sale en el mismo formato de siempre.
+        </p>
+      </div>
+    </t>
+  </template>
+
+</odoo>

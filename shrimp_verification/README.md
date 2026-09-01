@@ -121,6 +121,98 @@ Dos cosas que no son obvias y que hay que respetar:
   escribe "1.05%" pero significa 1,05 = 5 % de sobrepeso. Además se **trunca**,
   no se redondea: 1,0575 se escribe 1,05.
 
+## Dos plataformas separadas
+
+El verificador tiene su propio sitio web, distinto del marketplace:
+
+| | Camaronera | Verificadores |
+|---|---|---|
+| Dominio | `http://localhost:8069` | `http://verificadores.localhost:8069` |
+| Portada | landing del marketplace | landing de verificación |
+| Menú | Marketplace, Mi panel, Registro | Mi bandeja, En campo, Por dictaminar, Ya verificadas, Mi acreditación |
+| Registro | los cuatro roles | solo verificador |
+
+Qué sitio es cuál lo decide el campo **`shrimp_is_verifier_site`** en `website`
+(Ajustes › Sitios web), no el id ni el nombre: así se puede renombrar o mover sin
+romper nada. Si se entra a `/verificador/...` desde el sitio del marketplace, se
+redirige al sitio de verificación; y su portada es la propia, no la del
+marketplace.
+
+**Sin dominio no hay separación.** Odoo distingue los sitios por el dominio; si
+está vacío, sirve siempre el primero. En producción hay que apuntar el subdominio
+al servidor.
+
+**La separación es de experiencia, no de seguridad.** Las cuentas son compartidas
+entre sitios, así que un verificador podría entrar por el otro dominio. Lo que de
+verdad protege son los controladores: `/verificador/*` responde 403 a quien no
+sea verificador, y las rutas de publicación rechazan a quien no publica.
+
+**La sesión no se comparte entre dominios**: son cookies distintas, así que al
+cambiar de plataforma hay que iniciar sesión otra vez.
+
+## Empresa verificadora y sus técnicos
+
+La verificadora es una **empresa** y su trabajo lo hacen **técnicos de campo**.
+Se modela con el `parent_id` nativo de Odoo:
+
+- **Empresa** — `res.partner` con `shrimp_user_type = 'verificador'`. Tiene la
+  acreditación y es a quien elige el comprador.
+- **Técnicos** — contactos hijos con `shrimp_is_field_tech`, cada uno con su
+  usuario de portal. Trabajan bajo la acreditación de la empresa.
+
+Cada verificación guarda a los dos: `verifier_partner_id` (la empresa que eligió
+el comprador) y `technician_partner_id` (quien pisó el campo). El informe, la
+trazabilidad y el certificado nombran al **técnico**, con la empresa como
+respaldo: firma lo que vio quien estuvo allí.
+
+### Quién puede qué
+
+| | Admin de la empresa | Técnico |
+|---|---|---|
+| Bandeja | todas las de su empresa | solo las suyas |
+| Asignar técnico | ✓ | — |
+| **Iniciar trabajo de campo** | ✗ | ✓ solo las suyas |
+| Llenar informe y subir fotos | ✓ | ✓ |
+| Emitir veredicto | ✓ | ✓ |
+| Mis técnicos | ✓ | ✗ (403) |
+
+El arranque del trabajo de campo está reservado al técnico asignado **a
+propósito**: si lo pudiera marcar el admin desde la oficina, la hora de inicio
+dejaría de ser un dato real.
+
+### Estados
+
+    received → assigned → in_field → done → approved / approved_obs / rejected
+    (sin       (con        (solo el
+     técnico)   técnico)    técnico)
+
+Al dar de baja a un técnico se desactiva su acceso pero **no se borra**: sus
+verificaciones pasadas deben seguir mostrando quién las hizo.
+
+### Fotos de campo
+
+El formulario acepta selección múltiple y las fotos **se acumulan entre
+guardados**: el técnico puede subir dos ahora y dos más luego sin perder las
+primeras. En el certificado van embebidas (máximo 6, redimensionadas).
+
+## Reputación: pública la de la empresa, interna la del técnico
+
+El comprador contrata a la **empresa**, así que es la empresa la que se califica
+y la que aparece con estrellas en el selector de compra, ordenada de mejor a peor
+(`verifier_rating_avg desc, verifier_rating_count desc`: a igualdad de nota va
+primero quien más reseñas acumula, para que una única nota de 5 no adelante a
+quien lleva veinte trabajos).
+
+Cada reseña guarda además **qué técnico** hizo el trabajo. Esa nota por técnico
+**no se muestra al comprador**: aparece solo en «Mis técnicos», para que el admin
+sepa a quién apoyar o formar. Exponerla públicamente tendría dos problemas —el
+comprador calificaría a alguien que no eligió, y con pocas reseñas por persona
+las medias serían ruido—.
+
+Modelo `shrimp.verifier.review`, separado de `shrimp.review` (que califica al
+vendedor): una valora el producto y quien lo vendió, la otra la inspección.
+Mezclarlas contaminaría ambas notas.
+
 ## El portal del verificador
 
 Un verificador no publica lotes, no compra, no tiene piscinas ni inventario, así
@@ -200,8 +292,22 @@ Se configura en **Ajustes › Marketplace Camarón › Honorario de verificació
 (parámetro `shrimp_verification.fee`, arranca en 500). Se copia a cada
 verificación al crearla, así que cambiar el valor no altera las ya emitidas.
 
-Todavía **no genera pedido de venta ni factura**, a diferencia de la comisión del
-marketplace. Queda pendiente si se quiere cerrar el circuito económico.
+### Cómo se cobra
+
+    Comprador  --honorario-->  PLATAFORMA  --neto-->  Empresa verificadora
+                               retiene el margen (15 % por defecto)
+
+Al cerrar el veredicto se emiten dos documentos: **factura de venta al
+comprador** por el honorario completo y **factura de proveedor de la empresa
+verificadora** por su parte. La diferencia es el margen de la plataforma,
+configurable en Ajustes y **congelado** en cada verificación al emitirse.
+
+Se factura **con el veredicto, aprobado o rechazado**: el honorario retribuye la
+inspección hecha, no su resultado. Cobrar solo al aprobar le daría al verificador
+un incentivo a aprobar para cobrar.
+
+Si algo falla al facturar, **queda un mensaje en la propia verificación** (no
+solo en el log) y hay un botón *Facturar honorario* para reintentarlo.
 
 ## Estados
 

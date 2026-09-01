@@ -28,9 +28,18 @@ class ShrimpVerification(models.Model):
         ondelete="cascade", index=True, tracking=True,
     )
     verifier_partner_id = fields.Many2one(
-        "res.partner", string="Verificador", required=True,
+        "res.partner", string="Empresa verificadora", required=True,
         ondelete="restrict", index=True, tracking=True,
         domain=[("shrimp_user_type", "=", "verificador")],
+    )
+
+    # Quien realmente pisa el campo. La empresa es la acreditada y la que elige
+    # el comprador; el técnico es el que firma lo que vio.
+    technician_partner_id = fields.Many2one(
+        "res.partner", string="Técnico de campo",
+        ondelete="restrict", index=True, tracking=True,
+        help="Técnico de la empresa que hace la inspección. Solo él puede "
+             "iniciar el trabajo de campo.",
     )
     buyer_partner_id = fields.Many2one(
         "res.partner", string="Comprador", related="transaction_id.buyer_partner_id",
@@ -221,6 +230,7 @@ class ShrimpVerification(models.Model):
     # ------------------------------------------------------------------
     state = fields.Selection(
         [
+            ("received", "Recibida"),
             ("assigned", "Asignada"),
             ("in_field", "En campo"),
             ("done", "Informe completo"),
@@ -229,7 +239,7 @@ class ShrimpVerification(models.Model):
             ("rejected", "Rechazada"),
             ("cancelled", "Cancelada"),
         ],
-        string="Estado", default="assigned", required=True, index=True, tracking=True,
+        string="Estado", default="received", required=True, index=True, tracking=True,
     )
 
     assigned_date = fields.Datetime(string="Fecha de asignación", default=fields.Datetime.now, readonly=True)
@@ -238,6 +248,35 @@ class ShrimpVerification(models.Model):
     verdict_notes = fields.Text(string="Conclusión del verificador")
 
     fee = fields.Monetary(string="Honorario de verificación", currency_field="currency_id")
+
+    # ---- Circuito económico del honorario ----
+    # Lo paga el comprador; la plataforma lo factura, retiene su margen y liquida
+    # el resto a la empresa verificadora.
+    margin_pct = fields.Float(
+        string="Margen de la plataforma (%)", digits=(5, 2), readonly=True,
+        help="Porcentaje retenido, congelado al emitir los documentos.")
+    platform_amount = fields.Monetary(
+        string="Retiene la plataforma", currency_field="currency_id",
+        compute="_compute_reparto", store=True)
+    verifier_amount = fields.Monetary(
+        string="Liquidar al verificador", currency_field="currency_id",
+        compute="_compute_reparto", store=True)
+
+    sale_order_id = fields.Many2one(
+        "sale.order", string="Pedido al comprador", readonly=True, copy=False)
+    invoice_id = fields.Many2one(
+        "account.move", string="Factura al comprador", readonly=True, copy=False)
+    vendor_bill_id = fields.Many2one(
+        "account.move", string="Factura del verificador", readonly=True, copy=False)
+    invoice_state = fields.Selection(
+        related="invoice_id.state", string="Estado de la factura", readonly=True)
+
+    @api.depends("fee", "margin_pct")
+    def _compute_reparto(self):
+        for rec in self:
+            pct = rec.margin_pct or 0.0
+            rec.platform_amount = round((rec.fee or 0.0) * pct / 100.0, 2)
+            rec.verifier_amount = round((rec.fee or 0.0) - rec.platform_amount, 2)
 
     is_final = fields.Boolean(compute="_compute_is_final", string="Cerrada")
     buyer_notified = fields.Boolean(string="Comprador avisado", readonly=True, copy=False)
@@ -336,6 +375,21 @@ class ShrimpVerification(models.Model):
                 raise ValidationError(
                     _("El verificador no puede ser el comprador ni el vendedor de la compra."))
 
+    @api.constrains("technician_partner_id", "verifier_partner_id")
+    def _check_technician_belongs_to_company(self):
+        for rec in self:
+            tec = rec.technician_partner_id
+            if not tec:
+                continue
+            # Vale el propio partner de la empresa (cuando el admin hace el
+            # trabajo) o un técnico dado de alta por ella.
+            if tec == rec.verifier_partner_id:
+                continue
+            if not (tec.shrimp_is_field_tech and tec.parent_id == rec.verifier_partner_id):
+                raise ValidationError(_(
+                    "El técnico «%s» no pertenece a la empresa verificadora «%s»."
+                ) % (tec.name, rec.verifier_partner_id.name))
+
     @api.constrains("weight_sent_lb", "weight_plant_lb", "trash_lb")
     def _check_weights(self):
         for rec in self:
@@ -366,10 +420,31 @@ class ShrimpVerification(models.Model):
     # ==================================================================
     # Acciones del flujo
     # ==================================================================
+    def action_assign_technician(self, technician=None):
+        """El admin de la empresa reparte el trabajo entre sus técnicos."""
+        for rec in self:
+            if rec.is_final:
+                raise UserError(_("Esta verificación ya está cerrada."))
+            if technician is not None:
+                rec.technician_partner_id = technician
+            if not rec.technician_partner_id:
+                raise UserError(_("Debes elegir un técnico de campo."))
+            if rec.state == "received":
+                rec.state = "assigned"
+            rec._notify_technician_assigned()
+
     def action_start_field(self):
         for rec in self:
             if rec.state != "assigned":
-                raise UserError(_("Solo se puede iniciar el trabajo de campo de una verificación asignada."))
+                raise UserError(_(
+                    "Solo se puede iniciar el trabajo de campo de una verificación "
+                    "asignada a un técnico."))
+            # Solo quien va a campo puede marcar que empezó: así la hora de
+            # inicio es un dato real y no algo que firmó otro desde la oficina.
+            if rec.technician_partner_id and self.env.user.partner_id != rec.technician_partner_id:
+                raise UserError(_(
+                    "Solo %s, el técnico asignado, puede iniciar este trabajo de campo."
+                ) % rec.technician_partner_id.name)
             rec.write({"state": "in_field", "field_start_date": fields.Datetime.now()})
 
     def _missing_report_fields(self):
@@ -409,6 +484,15 @@ class ShrimpVerification(models.Model):
                     _("Faltan datos del informe: %s.") % ", ".join(missing))
             rec.state = "done"
 
+    def _puede_dictaminar(self, partner):
+        """El técnico que fue a campo, o el admin de su empresa."""
+        self.ensure_one()
+        if not partner:
+            return False
+        if self.technician_partner_id and partner == self.technician_partner_id:
+            return True
+        return partner == self.verifier_partner_id
+
     def _close(self, state, notes=None):
         self.ensure_one()
         if self.state in ("approved", "approved_obs", "rejected", "cancelled"):
@@ -424,6 +508,10 @@ class ShrimpVerification(models.Model):
         if notes:
             vals["verdict_notes"] = notes
         self.write(vals)
+        # El honorario se factura con el veredicto emitido, aprobado o
+        # rechazado: retribuye la inspección, no su resultado.
+        if state in ("approved", "approved_obs", "rejected"):
+            self._create_verification_documents()
         self._notify_buyer_verdict()
 
     def action_approve(self):
@@ -446,8 +534,161 @@ class ShrimpVerification(models.Model):
             rec.transaction_id.action_cancel_for_verification()
 
     # ==================================================================
+    # Facturación del honorario
+    # ==================================================================
+    def _get_verification_product(self):
+        """Producto de servicio con el que se factura la verificación. Se crea
+        en tiempo de ejecución para no depender del orden de carga de módulos."""
+        producto = self.env.ref(
+            "shrimp_verification.product_field_verification",
+            raise_if_not_found=False)
+        if producto:
+            return producto
+        tmpl = self.env["product.template"].sudo().create({
+            "name": "Verificación de camarón en campo",
+            "type": "service",
+            "invoice_policy": "order",
+            "list_price": 0.0,
+            "sale_ok": True,
+            "purchase_ok": True,
+            "default_code": "VERIF-CAMPO",
+        })
+        variante = tmpl.product_variant_id
+        self.env["ir.model.data"].sudo().create({
+            "name": "product_field_verification",
+            "module": "shrimp_verification",
+            "model": "product.product",
+            "res_id": variante.id,
+            "noupdate": True,
+        })
+        return variante
+
+    def _margen_configurado(self):
+        try:
+            return float(self.env["ir.config_parameter"].sudo().get_param(
+                "shrimp_verification.margin_pct") or 0.0)
+        except (TypeError, ValueError):
+            return 0.0
+
+    def _create_verification_documents(self):
+        """Emite los dos documentos del honorario:
+
+        1. Pedido y factura al COMPRADOR por el honorario completo.
+        2. Factura de proveedor de la EMPRESA VERIFICADORA por su parte.
+
+        Se llama al cerrar el veredicto, sea aprobado o rechazado: el honorario
+        retribuye la inspección hecha, no su resultado. Cobrar solo cuando se
+        aprueba le daría al verificador un incentivo a aprobar.
+        """
+        Sale = self.env["sale.order"].sudo()
+        Move = self.env["account.move"].sudo()
+
+        for rec in self:
+            if rec.sale_order_id or (rec.fee or 0.0) <= 0:
+                continue
+            if not rec.buyer_partner_id or not rec.verifier_partner_id:
+                continue
+
+            producto = rec._get_verification_product()
+            if not producto:
+                rec.message_post(body=_(
+                    "No se pudo facturar la verificación: falta el producto de servicio."))
+                continue
+
+            # El margen se congela aquí: cambiarlo después no debe alterar
+            # documentos ya emitidos.
+            rec.margin_pct = rec._margen_configurado()
+
+            etiqueta = _("Verificación en campo – %s") % (rec.name or "")
+            try:
+                pedido = Sale.create({
+                    "partner_id": rec.buyer_partner_id.id,
+                    "client_order_ref": rec.name,
+                    "order_line": [(0, 0, {
+                        "product_id": producto.id,
+                        "name": etiqueta,
+                        "product_uom_qty": 1.0,
+                        "price_unit": rec.fee,
+                        "tax_ids": [(6, 0, [])],
+                    })],
+                })
+                pedido.action_confirm()
+                rec.sale_order_id = pedido.id
+
+                factura = pedido._create_invoices()
+                if factura:
+                    factura.action_post()
+                    rec.invoice_id = factura.id
+            except Exception as e:  # noqa: BLE001 - no debe romper el veredicto
+                _logger.exception("Verificación %s: fallo al facturar al comprador", rec.name)
+                rec.message_post(body=_(
+                    "No se pudo facturar al comprador: %s") % e)
+                continue
+
+            # Liquidación a la empresa verificadora por su parte del honorario.
+            if (rec.verifier_amount or 0.0) <= 0:
+                continue
+            try:
+                gasto = Move.create({
+                    "move_type": "in_invoice",
+                    "partner_id": rec.verifier_partner_id.id,
+                    "invoice_date": fields.Date.context_today(rec),
+                    "ref": _("Honorario de verificación %s") % (rec.name or ""),
+                    "invoice_line_ids": [(0, 0, {
+                        "product_id": producto.id,
+                        "name": etiqueta,
+                        "quantity": 1.0,
+                        "price_unit": rec.verifier_amount,
+                        "tax_ids": [(6, 0, [])],
+                    })],
+                })
+                gasto.action_post()
+                rec.vendor_bill_id = gasto.id
+            except Exception as e:  # noqa: BLE001
+                _logger.exception("Verificación %s: fallo al liquidar al verificador", rec.name)
+                rec.message_post(body=_(
+                    "No se pudo registrar la liquidación al verificador: %s") % e)
+
+    def action_generate_verification_documents(self):
+        """Botón: reintentar la facturación si algo falló."""
+        self._create_verification_documents()
+        return True
+
+    def action_open_invoice(self):
+        self.ensure_one()
+        return {"type": "ir.actions.act_window", "res_model": "account.move",
+                "res_id": self.invoice_id.id, "view_mode": "form", "target": "current"}
+
+    def action_open_vendor_bill(self):
+        self.ensure_one()
+        return {"type": "ir.actions.act_window", "res_model": "account.move",
+                "res_id": self.vendor_bill_id.id, "view_mode": "form", "target": "current"}
+
+    # ==================================================================
     # Avisos
     # ==================================================================
+    def _notify_technician_assigned(self):
+        """Avisa al técnico de que tiene una inspección que hacer."""
+        self.ensure_one()
+        tec = self.technician_partner_id
+        if not tec or tec == self.verifier_partner_id:
+            return
+        usuario = self.env["res.users"].sudo().search(
+            [("partner_id", "=", tec.id)], limit=1)
+        if usuario:
+            try:
+                self.activity_schedule(
+                    "mail.mail_activity_data_todo",
+                    user_id=usuario.id,
+                    summary=_("Verificar en campo: %s") % (self.product_id.display_name or ""),
+                    note=_("Compra %s. Cantidad: %s.") % (
+                        self.transaction_id.name, self.transaction_id.transaction_qty),
+                )
+            except Exception:
+                pass
+        self._send_template("shrimp_verification.mail_template_verification_assigned",
+                            tec.email)
+
     def _notify_verifier_assigned(self):
         """Deja la orden en la bandeja del verificador: actividad + correo."""
         self.ensure_one()

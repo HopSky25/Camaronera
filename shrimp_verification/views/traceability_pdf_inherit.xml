@@ -13,7 +13,16 @@
         <table class="st-tbl">
           <tbody>
             <tr>
-              <th style="width:28%;">Verificador</th>
+              <th style="width:28%;">Técnico de campo</th>
+              <td>
+                <strong t-esc="ver.technician_partner_id.name or ver.verifier_partner_id.name or '—'"/>
+                <t t-if="ver.technician_partner_id and ver.technician_partner_id != ver.verifier_partner_id">
+                  · quien realizó la inspección
+                </t>
+              </td>
+            </tr>
+            <tr>
+              <th>Empresa verificadora</th>
               <td>
                 <t t-esc="ver.verifier_partner_id.name or '—'"/>
                 <t t-if="ver.verifier_partner_id.ver_registro_num">

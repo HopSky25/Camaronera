@@ -67,7 +67,7 @@ class ShrimpCheckRequest(models.Model):
         ("approved", "Aprobado"),
         ("rejected", "Rechazado"),
         ("cancelled", "Cancelado"),
-    ], default="requested", required=True, tracking=True, index=True)
+    ], string="Estado", default="requested", required=True, tracking=True, index=True)
 
     transaction_id = fields.Many2one(
         "shrimp.transaction",
@@ -96,7 +96,7 @@ class ShrimpCheckRequest(models.Model):
     # Cobro del chequeo (se cobra al COMPRADOR: enviamos un equipo a verificar).
     check_fee = fields.Monetary(string="Costo del chequeo", currency_field="currency_id")
     currency_id = fields.Many2one(
-        "res.currency", default=lambda self: self.env.company.currency_id)
+        "res.currency", string="Moneda", default=lambda self: self.env.company.currency_id)
     sale_order_id = fields.Many2one(
         "sale.order", string="Pedido de venta", readonly=True, copy=False)
     invoice_id = fields.Many2one(

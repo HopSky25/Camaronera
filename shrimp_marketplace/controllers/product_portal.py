@@ -233,6 +233,7 @@ class ShrimpProductPortalController(http.Controller):
             "product": request.env["shrimp.product"],
             "is_edit": False,
             "uom_locked": False,
+            "purchase_locked": False,
             "form_action": "/marketplace/products/create",
             **self._get_product_form_options(),
         })
@@ -297,6 +298,7 @@ class ShrimpProductPortalController(http.Controller):
             "uom_id": uom_id,
             "price": price,
             "location": location or False,
+            "batch_code": (post.get("batch_code") or "").strip() or False,
             "presentation": post.get("presentation") or False,
             "size_grade_id": int(post.get("size_grade_id")) if post.get("size_grade_id") else False,
             "origin_facility_id": int(post.get("origin_facility_id")) if post.get("origin_facility_id") else False,
@@ -489,6 +491,7 @@ class ShrimpProductPortalController(http.Controller):
             "product": product,
             "is_edit": True,
             "uom_locked": product.has_purchases(),
+            "purchase_locked": product.has_purchases(),
             "form_action": f"/marketplace/products/{product.uuid_ref}/update",
             **self._get_product_form_options(),
         })
@@ -517,11 +520,19 @@ class ShrimpProductPortalController(http.Controller):
             "origin_pond_id": int(post.get("origin_pond_id")) if post.get("origin_pond_id") else False,
             "uom_id": (int(post.get("uom_id")) if post.get("uom_id") else product.uom_id.id),
             "price": _to_float(post.get("price")),
+            "batch_code": (post.get("batch_code") or "").strip() or False,
             "health_status": post.get("health_status") or False,
             "expected_delivery_date": post.get("expected_delivery_date") or False,
             "available_from": post.get("available_from") or False,
             "available_to": post.get("available_to") or False,
         }
+
+        # Si el producto ya tiene compras, los campos críticos quedan bloqueados:
+        # se descartan del vals para conservar su valor actual (los inputs del
+        # formulario también van deshabilitados).
+        if product.has_purchases():
+            for locked in product._LOCKED_AFTER_PURCHASE:
+                vals.pop(locked, None)
 
         try:
             product.write(vals)

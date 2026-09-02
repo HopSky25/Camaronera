@@ -8,8 +8,8 @@ class ShrimpProduct(models.Model):
     _description = "Productos"
     _inherit = ["mail.thread", "mail.activity.mixin", "shrimp.uuid.mixin"]
 
-    name = fields.Char(required=True)
-    seller_partner_id = fields.Many2one("res.partner", required=True, index=True)
+    name = fields.Char(string="Nombre", required=True)
+    seller_partner_id = fields.Many2one("res.partner", string="Vendedor", required=True, index=True)
 
     # species = fields.Char(string="Especie")
 
@@ -123,6 +123,7 @@ class ShrimpProduct(models.Model):
 
     state = fields.Selection(
         [("draft", "Borrador"), ("published", "Publicado"), ("sold", "Vendido"), ("cancel", "Cancelado")],
+        string="Estado",
         default="draft",
         required=True,
         index=True,
@@ -132,6 +133,7 @@ class ShrimpProduct(models.Model):
 
     seller_role = fields.Selection(
         [("semillero", "Semillero"), ("laboratorio", "Laboratorio")],
+        string="Rol del vendedor",
         required=True,
         default="semillero",
         index=True,
@@ -208,6 +210,20 @@ class ShrimpProduct(models.Model):
         compute="_compute_evolution_count",
     )
 
+    def price_for_partner(self, partner):
+        """Precio efectivo para un comprador: su precio asignado si existe,
+        si no, el precio de publicación."""
+        self.ensure_one()
+        if partner:
+            cp = self.env["shrimp.client.price"].sudo().search([
+                ("product_id", "=", self.id),
+                ("client_partner_id", "=", partner.id),
+                ("active", "=", True),
+            ], limit=1)
+            if cp:
+                return cp.price
+        return self.price
+
     def has_purchases(self):
         """True si el producto ya tiene transacciones de compra (confirmadas/hechas)."""
         self.ensure_one()
@@ -216,15 +232,43 @@ class ShrimpProduct(models.Model):
             ("state", "in", ["confirmed", "done"]),
         ]))
 
+    # Campos críticos que NO pueden cambiar una vez que el producto tiene compras.
+    _LOCKED_AFTER_PURCHASE = {
+        "species_id": "Especie",
+        "stage_id": "Estadío",
+        "genetics_line_id": "Línea genética",
+        "presentation": "Presentación",
+        "size_grade_id": "Talla",
+        "uom_id": "Unidad de medida",
+        "price": "Precio",
+        "initial_qty": "Cantidad inicial",
+        "seller_role": "Rol del vendedor",
+    }
+
+    @staticmethod
+    def _field_value_changed(rec, fname, newval):
+        """Compara el valor nuevo (tal como llega en vals) con el actual."""
+        cur = rec[fname]
+        if isinstance(cur, models.BaseModel):        # Many2one
+            return cur.id != (newval or False)
+        if isinstance(cur, float):                   # Float (precio, cantidad)
+            return float_compare(cur, newval or 0.0, precision_digits=2) != 0
+        return (cur or False) != (newval or False)   # Selection / Char
+
     def write(self, vals):
-        # Restricción: no se puede cambiar la unidad de medida si ya hubo compras.
-        if "uom_id" in vals and vals.get("uom_id"):
+        # Restricción: campos críticos bloqueados si el producto ya tiene compras.
+        present = set(self._LOCKED_AFTER_PURCHASE).intersection(vals.keys())
+        if present:
             for rec in self:
-                if rec.uom_id.id != vals["uom_id"] and rec.has_purchases():
+                if not rec.has_purchases():
+                    continue
+                blocked = [f for f in present if self._field_value_changed(rec, f, vals[f])]
+                if blocked:
+                    labels = ", ".join(self._LOCKED_AFTER_PURCHASE[f] for f in blocked)
                     raise ValidationError(_(
-                        "No puedes cambiar la unidad de medida de «%s» porque ya tiene "
-                        "compras registradas."
-                    ) % rec.name)
+                        "No puedes modificar estos campos de «%s» porque ya tiene "
+                        "compras registradas: %s."
+                    ) % (rec.name, labels))
 
         tracked_fields = {
             "stage_id",
@@ -258,8 +302,8 @@ class ShrimpProduct(models.Model):
         for rec in self:
             rec.evolution_count = len(rec.evolution_ids)
 
-    stock_lot_count = fields.Integer(compute="_compute_stock_lot_count")
-    transaction_count = fields.Integer(compute="_compute_transaction_count")
+    stock_lot_count = fields.Integer(string="N.º de lotes", compute="_compute_stock_lot_count")
+    transaction_count = fields.Integer(string="N.º de transacciones", compute="_compute_transaction_count")
 
     @api.depends("transaction_ids")
     def _compute_transaction_count(self):
@@ -435,6 +479,9 @@ class ShrimpProduct(models.Model):
 
         tx_type = self._get_tx_type_by_partners(seller_partner, buyer_partner)
 
+        # Precio efectivo: usa el precio asignado al comprador si existe.
+        unit_price = self.price_for_partner(buyer_partner)
+
         tx_vals = {
             "transaction_type": tx_type,
             "product_id": self.id,
@@ -443,8 +490,8 @@ class ShrimpProduct(models.Model):
             "location": self.location,
             "state": "draft",
             "transaction_qty": qty,
-            "price_unit": self.price,
-            "amount_total": qty * self.price,
+            "price_unit": unit_price,
+            "amount_total": qty * unit_price,
         }
 
         if tx_type == "semillero_to_laboratorio":

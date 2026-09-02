@@ -119,6 +119,17 @@ class ShrimpTransactionPortalController(http.Controller):
             order=self._get_tx_order(kw),
         )
 
+        # En modo ventas: reseñas que este vendedor ya dejó a sus compradores.
+        buyer_reviews_by_tx = {}
+        if mode == "sales" and txs:
+            my_buyer_reviews = request.env["shrimp.review"].sudo().search([
+                ("reviewer_partner_id", "=", partner.id),
+                ("direction", "=", "to_buyer"),
+                ("transaction_id", "in", txs.ids),
+            ])
+            buyer_reviews_by_tx = {
+                r.transaction_id.id: r for r in my_buyer_reviews if r.transaction_id}
+
         return request.render("shrimp_marketplace.marketplace_transaction_history", {
             "page_name": "marketplace_history",
             "page_title": title,
@@ -126,6 +137,8 @@ class ShrimpTransactionPortalController(http.Controller):
             "base_url": base_url,
             "mode": mode,
             "transactions": txs,
+            "buyer_reviews_by_tx": buyer_reviews_by_tx,
+            "saved": kw.get("saved"),
             "filters": {
                 "q": kw.get("q") or "",
                 "tx_state": kw.get("tx_state") or "",
@@ -156,11 +169,16 @@ class ShrimpTransactionPortalController(http.Controller):
         check_fee = float(request.env["ir.config_parameter"].sudo().get_param(
             "shrimp_marketplace.check_fee") or 0.0)
 
+        unit_price = product.price_for_partner(buyer_partner)
+        has_custom_price = unit_price != product.price
+
         return request.render("shrimp_marketplace.buy_product", {
             "product": product,
             "seller": seller,
             "reviews": reviews,
             "check_fee": check_fee,
+            "unit_price": unit_price,
+            "has_custom_price": has_custom_price,
         })
 
     @http.route("/marketplace/buy/<product_ref>/confirm", type="http", auth="user", website=True, methods=["POST"], csrf=True)
@@ -338,6 +356,10 @@ class ShrimpTransactionPortalController(http.Controller):
             "transactions": transactions,
             "reviewed_tx_ids": reviewed_tx_ids,
             "reviews_by_tx": reviews_by_tx,
+            "today": fields.Date.context_today(request.env.user),
+            "saved": kw.get("saved"),
+            "error": kw.get("error"),
+            "error_message": kw.get("message"),
             "filters": {
                 "q": q,
                 "tx_state": tx_state,
@@ -370,11 +392,13 @@ class ShrimpTransactionPortalController(http.Controller):
         existing = Review.search([
             ("reviewer_partner_id", "=", partner.id),
             ("transaction_id", "=", tx.id),
+            ("direction", "=", "to_seller"),
         ], limit=1)
         if existing:
             existing.write({"rating": rating, "comment": comment})
         else:
             Review.create({
+                "direction": "to_seller",
                 "seller_partner_id": tx.seller_partner_id.id,
                 "reviewer_partner_id": partner.id,
                 "transaction_id": tx.id,
@@ -382,6 +406,58 @@ class ShrimpTransactionPortalController(http.Controller):
                 "comment": comment,
             })
         return request.redirect("/marketplace/compras?saved=review")
+
+    @http.route("/marketplace/compras/<tx_ref>/recibir", type="http", auth="user",
+                website=True, methods=["POST"], csrf=True)
+    def marketplace_receive_purchase(self, tx_ref, **post):
+        """El comprador confirma la recepción de la compra: sube su inventario
+        (producto en borrador), respetando la fecha de entrega."""
+        partner = self._get_current_partner()
+        tx = request.env["shrimp.transaction"].sudo().resolve_ref(tx_ref)
+        if not tx or tx.buyer_partner_id.id != partner.id:
+            raise Forbidden()
+        try:
+            tx.action_receive()
+        except ValidationError as e:
+            msg = quote(ustr(e))
+            return request.redirect(f"/marketplace/compras?error=receive&message={msg}")
+        return request.redirect("/marketplace/compras?saved=received")
+
+    @http.route("/marketplace/ventas/<tx_ref>/calificar-comprador", type="http", auth="user",
+                website=True, methods=["POST"], csrf=True)
+    def marketplace_rate_buyer(self, tx_ref, **post):
+        """El vendedor de la transacción califica al comprador."""
+        partner = self._get_current_partner()
+        tx = request.env["shrimp.transaction"].sudo().resolve_ref(tx_ref)
+        # Solo el vendedor de esa transacción puede calificar al comprador
+        if not tx or tx.seller_partner_id.id != partner.id:
+            raise Forbidden()
+        try:
+            rating = int(post.get("rating") or 0)
+        except ValueError:
+            rating = 0
+        if not (1 <= rating <= 5):
+            return request.redirect("/marketplace/ventas?error=rating")
+
+        comment = (post.get("comment") or "").strip()
+        Review = request.env["shrimp.review"].sudo()
+        existing = Review.search([
+            ("reviewer_partner_id", "=", partner.id),
+            ("transaction_id", "=", tx.id),
+            ("direction", "=", "to_buyer"),
+        ], limit=1)
+        if existing:
+            existing.write({"rating": rating, "comment": comment})
+        else:
+            Review.create({
+                "direction": "to_buyer",
+                "seller_partner_id": tx.buyer_partner_id.id,   # calificado = comprador
+                "reviewer_partner_id": partner.id,             # autor = vendedor
+                "transaction_id": tx.id,
+                "rating": rating,
+                "comment": comment,
+            })
+        return request.redirect("/marketplace/ventas?saved=review")
 
     @http.route("/marketplace/reportes", type="http", auth="user", website=True)
     def marketplace_my_reports(self, **kw):

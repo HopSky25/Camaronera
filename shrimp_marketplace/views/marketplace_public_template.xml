@@ -54,9 +54,11 @@
 
     <!-- Fragmento reutilizable: tarjetas de producto (página inicial + "cargar más") -->
     <template id="marketplace_product_cards" name="Marketplace - Tarjetas">
+        <t t-set="partner_prices" t-value="partner_prices or {}" />
         <t t-foreach="products" t-as="p">
             <t t-set="cover" t-value="p.photo_attachment_ids[:1]" />
             <t t-set="uom_label" t-value="p.uom_id.name" />
+            <t t-set="my_price" t-value="partner_prices.get(p.id)" />
 
             <div class="s-prod-card">
                 <a class="s-prod-imgwrap" t-att-href="'/marketplace/product/%s' % p.uuid_ref">
@@ -98,7 +100,16 @@
                     </div>
 
                     <div class="s-prod-foot">
-                        <div class="s-prod-price">$<t t-esc="'%.2f' % p.price" /><span class="s-unit"> / <t t-esc="uom_label" /></span></div>
+                        <div class="s-prod-price">
+                            <t t-if="my_price is not None">
+                                $<t t-esc="'%.2f' % my_price" /><span class="s-unit"> / <t t-esc="uom_label" /></span>
+                                <span class="s-badge s-badge--success" style="margin-left:6px; font-size:10px; vertical-align:middle;">Tu precio</span>
+                                <div class="text-faint" style="font-size:11px; text-decoration:line-through;">$<t t-esc="'%.2f' % p.price" /></div>
+                            </t>
+                            <t t-else="">
+                                $<t t-esc="'%.2f' % p.price" /><span class="s-unit"> / <t t-esc="uom_label" /></span>
+                            </t>
+                        </div>
                         <t t-if="p.seller_partner_id.shrimp_rating_count">
                             <span class="s-rating" style="font-size:13px;">
                                 <i class="fa fa-star"></i> <t t-esc="'%.1f' % p.seller_partner_id.shrimp_rating_avg"/>
@@ -562,7 +573,13 @@
                                         <div class="row align-items-center g-2">
                                             <div class="col-7">
                                                 <div class="buy-unit"> Precio por <t t-esc="product.uom_id.name" /></div>
-                                                <div class="buy-price" id="unit_price" t-att-data-price="product.price">$<t t-esc="'%.2f' % product.price" /></div>
+                                                <div class="buy-price" id="unit_price" t-att-data-price="unit_price">$<t t-esc="'%.2f' % unit_price" /></div>
+                                                <t t-if="has_custom_price">
+                                                    <div style="font-size:12px; margin-top:2px;">
+                                                        <span class="s-badge s-badge--success" style="font-size:10px;">Tu precio</span>
+                                                        <span class="text-faint" style="text-decoration:line-through; margin-left:4px;">$<t t-esc="'%.2f' % product.price" /></span>
+                                                    </div>
+                                                </t>
                                             </div>
                                             <div class="col-5 text-end">
                                                 <div class="buy-unit">Disponible</div>

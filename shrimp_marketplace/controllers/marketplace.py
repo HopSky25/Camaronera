@@ -139,6 +139,22 @@ class ShrimpMarketplacePublicController(http.Controller):
         }
         return products, filters, sort, best_price_id
 
+    def _partner_price_map(self, products):
+        """Mapa {product_id: precio} con los precios asignados al comprador
+        logueado. Vacío para usuarios públicos o sin precios asignados."""
+        user = request.env.user
+        if not products or user._is_public():
+            return {}
+        partner = user.partner_id
+        if not partner:
+            return {}
+        cps = request.env["shrimp.client.price"].sudo().search([
+            ("client_partner_id", "=", partner.id),
+            ("product_id", "in", products.ids),
+            ("active", "=", True),
+        ])
+        return {cp.product_id.id: cp.price for cp in cps}
+
     # Cuántas opciones muestra el botón "Top 10 mejores".
     BEST_LIMIT = 10
 
@@ -204,6 +220,7 @@ class ShrimpMarketplacePublicController(http.Controller):
             "best_price_id": best_price_id,
             "is_best": is_best,
             "all_url": all_url,
+            "partner_prices": self._partner_price_map(page),
         })
 
     @http.route("/marketplace/cards", type="http", auth="public", website=True, sitemap=False)
@@ -232,6 +249,7 @@ class ShrimpMarketplacePublicController(http.Controller):
         html = request.env["ir.qweb"]._render("shrimp_marketplace.marketplace_product_cards", {
             "products": batch,
             "best_price_id": best_price_id,
+            "partner_prices": self._partner_price_map(batch),
         })
 
         payload = json.dumps({
@@ -312,6 +330,10 @@ class ShrimpMarketplacePublicController(http.Controller):
             and (not c.expiry_date or c.expiry_date >= publish_date)
         )
 
+        buyer_partner = request.env.user.partner_id if not request.env.user._is_public() else False
+        unit_price = product.price_for_partner(buyer_partner)
+        has_custom_price = unit_price != product.price
+
         return request.render("shrimp_marketplace.product_detail", {
             "product": product,
             "photos": photos,
@@ -323,6 +345,8 @@ class ShrimpMarketplacePublicController(http.Controller):
             "buyers_total_amount": buyers_total_amount,
             "valid_seller_certs": valid_seller_certs,
             "publish_date": publish_date,
+            "unit_price": unit_price,
+            "has_custom_price": has_custom_price,
         })
 
     @http.route("/marketplace/producto/<product_ref>", type="http", auth="public", website=True)

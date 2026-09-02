@@ -16,6 +16,7 @@ from . import shrimp_product_certificate_line
 from . import shrimp_check_request
 from . import shrimp_review
 from . import shrimp_charge
+from . import shrimp_client_price
 from . import res_config_settings
 from . import shrimp_api_key
 

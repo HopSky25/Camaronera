@@ -223,8 +223,54 @@
                                                                         t-esc="tx.seller_partner_id.name or '—'" />
                                                                 </t>
                                                                 <t t-if="mode == 'sales'">
-                                                                    <t
-                                                                        t-esc="tx.buyer_partner_id.name or '—'" />
+                                                                    <div style="font-weight:700;">
+                                                                        <t t-esc="tx.buyer_partner_id.name or '—'" />
+                                                                    </div>
+                                                                    <t t-if="tx.state in ('confirmed', 'done') and tx.buyer_partner_id">
+                                                                        <t t-set="brv" t-value="buyer_reviews_by_tx.get(tx.id)"/>
+                                                                        <t t-if="brv">
+                                                                            <div class="s-rating" style="font-size:12px; margin-top:2px;" t-att-title="brv.comment or ''">
+                                                                                <t t-foreach="range(1,6)" t-as="i"><i t-att-class="'fa fa-star' + ('' if i &lt;= brv.rating else ' s-rating-empty')"></i></t>
+                                                                                <span class="text-faint" style="margin-left:4px;">tu calificación</span>
+                                                                            </div>
+                                                                        </t>
+                                                                        <t t-else="">
+                                                                            <button type="button" class="s-btn s-btn-ghost btn-sm mt-1"
+                                                                                    data-bs-toggle="modal" t-att-data-bs-target="'#rateBuyerModal%s' % tx.id">
+                                                                                <i class="fa fa-star me-1"></i> Calificar comprador
+                                                                            </button>
+                                                                            <!-- Modal calificar comprador -->
+                                                                            <div class="modal fade" t-att-id="'rateBuyerModal%s' % tx.id" tabindex="-1" aria-hidden="true">
+                                                                                <div class="modal-dialog modal-dialog-centered">
+                                                                                    <div class="modal-content">
+                                                                                        <form method="post" t-att-action="'/marketplace/ventas/%s/calificar-comprador' % tx.uuid_ref">
+                                                                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                                                            <div class="modal-header">
+                                                                                                <h5 class="modal-title">Calificar a <t t-esc="tx.buyer_partner_id.name"/></h5>
+                                                                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                                                                                            </div>
+                                                                                            <div class="modal-body">
+                                                                                                <p class="text-soft" style="font-size:var(--fs-sm);">¿Cómo fue tu experiencia con este comprador?</p>
+                                                                                                <div class="s-star-input">
+                                                                                                    <t t-foreach="[5,4,3,2,1]" t-as="star">
+                                                                                                        <input type="radio" name="rating" t-att-value="star"
+                                                                                                               t-att-id="'bstar_%s_%s' % (tx.id, star)" t-att-checked="star == 5"/>
+                                                                                                        <label t-att-for="'bstar_%s_%s' % (tx.id, star)"><i class="fa fa-star"></i></label>
+                                                                                                    </t>
+                                                                                                </div>
+                                                                                                <textarea class="form-control mt-3" name="comment" rows="3"
+                                                                                                          placeholder="Deja un comentario (opcional)"></textarea>
+                                                                                            </div>
+                                                                                            <div class="modal-footer">
+                                                                                                <button type="button" class="s-btn s-btn-ghost" data-bs-dismiss="modal">Cancelar</button>
+                                                                                                <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-paper-plane me-1"></i> Enviar reseña</button>
+                                                                                            </div>
+                                                                                        </form>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        </t>
+                                                                    </t>
                                                                 </t>
                                                             </td>
 
@@ -307,6 +353,16 @@
                     <t t-if="request.params.get('saved') == 'review'">
                         <div class="alert alert-success" style="border-radius:var(--shrimp-radius-sm);">
                             <i class="fa fa-check-circle me-1"></i> ¡Gracias! Tu calificación fue registrada.
+                        </div>
+                    </t>
+                    <t t-if="request.params.get('saved') == 'received'">
+                        <div class="alert alert-success" style="border-radius:var(--shrimp-radius-sm);">
+                            <i class="fa fa-check-circle me-1"></i> Recepción confirmada. El producto se agregó a tu inventario en estado <strong>borrador</strong>; publícalo cuando quieras desde «Mis productos».
+                        </div>
+                    </t>
+                    <t t-if="request.params.get('error') == 'receive'">
+                        <div class="alert alert-warning" style="border-radius:var(--shrimp-radius-sm);">
+                            <i class="fa fa-exclamation-triangle me-1"></i> <t t-esc="request.params.get('message') or 'No se pudo confirmar la recepción.'"/>
                         </div>
                     </t>
                     <t t-if="request.params.get('error') == 'rating'">
@@ -484,6 +540,27 @@
                                                         <a t-att-href="'/marketplace/compras/%s/trazabilidad/pdf' % tx.uuid_ref"
                                                             class="s-btn s-btn-primary">
                                                             <i class="fa fa-file-pdf-o me-1"></i> PDF </a>
+
+                                                        <!-- Confirmar recepción: sube el inventario del comprador (borrador),
+                                                             respetando la fecha de entrega -->
+                                                        <t t-if="tx.state == 'confirmed'">
+                                                            <t t-set="deliv" t-value="tx._delivery_date()"/>
+                                                            <t t-if="deliv &lt;= today">
+                                                                <form method="post" t-att-action="'/marketplace/compras/%s/recibir' % tx.uuid_ref">
+                                                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                                    <button type="submit" class="s-btn s-btn-primary w-100"
+                                                                            onclick="return confirm('¿Confirmar la recepción? Se subirá el producto a tu inventario en estado borrador.');">
+                                                                        <i class="fa fa-truck me-1"></i> Confirmar recepción
+                                                                    </button>
+                                                                </form>
+                                                            </t>
+                                                            <t t-else="">
+                                                                <div class="s-badge s-badge--teal" style="text-align:center;">
+                                                                    <i class="fa fa-clock-o me-1"></i> Entrega: <t t-esc="deliv.strftime('%d/%m/%Y')"/>
+                                                                </div>
+                                                                <div class="text-muted small" style="text-align:center;">Podrás confirmar recepción a partir de esa fecha.</div>
+                                                            </t>
+                                                        </t>
 
                                                         <!-- Calificar vendedor (#4): solo si aún no lo ha calificado -->
                                                         <t t-if="tx.state in ('confirmed', 'done') and tx.id not in reviewed_tx_ids">

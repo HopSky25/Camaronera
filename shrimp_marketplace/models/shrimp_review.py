@@ -5,14 +5,24 @@ from odoo.exceptions import ValidationError
 class ShrimpReview(models.Model):
     _name = "shrimp.review"
     _inherit = "shrimp.uuid.mixin"
-    _description = "Reseña / calificación de vendedor"
+    _description = "Reseña / calificación"
     _order = "create_date desc"
     _rec_name = "seller_partner_id"
 
+    # Dirección de la reseña:
+    #  - to_seller: el comprador califica al vendedor (seller_partner_id = vendedor)
+    #  - to_buyer:  el vendedor califica al comprador (seller_partner_id = comprador)
+    # En ambos casos `seller_partner_id` es el CALIFICADO y `reviewer_partner_id`
+    # es quien EMITE la reseña.
+    direction = fields.Selection(
+        [("to_seller", "Comprador → Vendedor"),
+         ("to_buyer", "Vendedor → Comprador")],
+        string="Dirección", required=True, default="to_seller", index=True)
+
     seller_partner_id = fields.Many2one(
-        "res.partner", string="Vendedor", required=True, ondelete="cascade", index=True)
+        "res.partner", string="Calificado", required=True, ondelete="cascade", index=True)
     reviewer_partner_id = fields.Many2one(
-        "res.partner", string="Comprador", required=True, ondelete="cascade", index=True)
+        "res.partner", string="Autor", required=True, ondelete="cascade", index=True)
     transaction_id = fields.Many2one(
         "shrimp.transaction", string="Transacción", ondelete="set null",
         help="Compra que da origen a la reseña (si aplica).")
@@ -30,7 +40,7 @@ class ShrimpReview(models.Model):
     def _check_not_self(self):
         for rec in self:
             if rec.seller_partner_id == rec.reviewer_partner_id:
-                raise ValidationError(_("Un vendedor no puede calificarse a sí mismo."))
+                raise ValidationError(_("No puedes calificarte a ti mismo."))
 
     _sql_constraints = [
         # Una reseña por comprador y transacción (evita duplicados en la misma compra)

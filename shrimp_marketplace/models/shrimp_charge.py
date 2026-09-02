@@ -25,7 +25,7 @@ class ShrimpCharge(models.Model):
         help="Centavos cobrados por cada unidad vendida al momento del cobro.")
     amount = fields.Monetary(string="Comisión cobrada", currency_field="currency_id")
     currency_id = fields.Many2one(
-        "res.currency", default=lambda self: self.env.company.currency_id)
+        "res.currency", string="Moneda", default=lambda self: self.env.company.currency_id)
     date = fields.Datetime(string="Fecha del cobro", default=fields.Datetime.now)
 
     # Integración con Ventas / Contabilidad de Odoo

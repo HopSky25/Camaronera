@@ -1,0 +1,134 @@
+<odoo>
+
+    <template id="client_prices_page" name="Precios por cliente">
+        <t t-call="website.layout">
+            <div class="shrimp-bg">
+                <div class="shrimp-page shrimp-page--full pt-4">
+
+                    <!-- Cabecera -->
+                    <div class="sf-banner mb-4">
+                        <div class="sf-banner-row">
+                            <div class="sf-banner-txt">
+                                <h1>Precios por cliente</h1>
+                                <p>Asigna un precio por libra a un cliente en productos específicos.
+                                   Cuando ese cliente inicie sesión, verá tu precio asignado en esos productos.</p>
+                            </div>
+                            <span class="sf-kicker"><i class="fa fa-tags"></i> Lista de precios</span>
+                        </div>
+                    </div>
+
+                    <!-- Mensajes -->
+                    <t t-if="message == 'ok'">
+                        <div class="alert alert-success" role="alert">Precio guardado correctamente.</div>
+                    </t>
+                    <t t-if="message == 'deleted'">
+                        <div class="alert alert-secondary" role="alert">Precio eliminado.</div>
+                    </t>
+                    <t t-if="error == 'validation'">
+                        <div class="alert alert-danger" role="alert"><t t-esc="message"/></div>
+                    </t>
+                    <t t-if="error == 'datos'">
+                        <div class="alert alert-danger" role="alert">Completa el cliente, el producto y el precio.</div>
+                    </t>
+                    <t t-if="error == 'producto'">
+                        <div class="alert alert-danger" role="alert">Ese producto no te pertenece.</div>
+                    </t>
+
+                    <div class="row g-4">
+                        <!-- Formulario nuevo precio -->
+                        <div class="col-lg-4">
+                            <div class="card border-0" style="border-radius:16px; box-shadow:0 10px 30px rgba(16,24,40,.06);">
+                                <div class="card-body p-4 sf">
+                                    <h5 style="font-weight:900;" class="mb-3">Asignar precio</h5>
+                                    <form method="post" action="/marketplace/precios/nuevo">
+                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                        <div class="mb-3">
+                                            <label class="form-label" style="font-weight:800;">Cliente <span class="text-danger">*</span></label>
+                                            <select class="form-select" name="client_partner_id" required="required" style="border-radius:14px;">
+                                                <option value="">Selecciona un cliente…</option>
+                                                <t t-foreach="client_options" t-as="c">
+                                                    <option t-att-value="c.id"><t t-esc="c.name"/></option>
+                                                </t>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label" style="font-weight:800;">Producto <span class="text-danger">*</span></label>
+                                            <select class="form-select" name="product_id" required="required" style="border-radius:14px;">
+                                                <option value="">Selecciona un producto…</option>
+                                                <t t-foreach="product_options" t-as="p">
+                                                    <option t-att-value="p.id"><t t-esc="p.name"/> — publicación $<t t-esc="'%.2f' % p.price"/></option>
+                                                </t>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label" style="font-weight:800;">Precio por libra <span class="text-danger">*</span></label>
+                                            <input class="form-control" type="number" step="0.01" min="0" name="price" required="required" style="border-radius:14px;" placeholder="Ej: 2.35"/>
+                                        </div>
+                                        <button type="submit" class="s-btn s-btn-primary s-btn-block">
+                                            <i class="fa fa-check me-1"></i> Guardar precio
+                                        </button>
+                                    </form>
+                                    <div class="text-muted mt-3" style="font-size:12px;">
+                                        Si ya existe un precio para ese cliente y producto, se actualiza.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tabla de precios asignados -->
+                        <div class="col-lg-8">
+                            <div class="mp-table-card">
+                                <div class="mp-sec-head">
+                                    <span class="mp-sec-ico"><i class="fa fa-list"></i></span>
+                                    <span class="mp-sec-title">Precios asignados</span>
+                                    <span class="s-badge mp-sec-count"><t t-esc="len(prices)"/></span>
+                                </div>
+                                <t t-if="prices">
+                                    <div class="table-responsive">
+                                        <table class="table align-middle mb-0">
+                                            <thead>
+                                                <tr>
+                                                    <th>Cliente</th>
+                                                    <th>Producto</th>
+                                                    <th class="text-end">Precio/lb</th>
+                                                    <th class="text-end">Publicación</th>
+                                                    <th></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <t t-foreach="prices" t-as="cp">
+                                                    <tr>
+                                                        <td style="font-weight:700;"><t t-esc="cp.client_partner_id.name"/></td>
+                                                        <td><t t-esc="cp.product_id.name"/></td>
+                                                        <td class="text-end" style="font-weight:800;">$<t t-esc="'%.2f' % cp.price"/></td>
+                                                        <td class="text-end text-faint">$<t t-esc="'%.2f' % cp.product_id.price"/></td>
+                                                        <td class="text-end">
+                                                            <form method="post" t-att-action="'/marketplace/precios/%s/eliminar' % cp.uuid_ref"
+                                                                  onsubmit="return confirm('¿Eliminar este precio asignado?');" style="display:inline;">
+                                                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                                <button type="submit" class="s-btn s-btn-danger btn-sm">
+                                                                    <i class="fa fa-trash"></i>
+                                                                </button>
+                                                            </form>
+                                                        </td>
+                                                    </tr>
+                                                </t>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </t>
+                                <t t-else="">
+                                    <div class="p-4 text-center text-muted">
+                                        Aún no has asignado precios a ningún cliente.
+                                    </div>
+                                </t>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </t>
+    </template>
+
+</odoo>

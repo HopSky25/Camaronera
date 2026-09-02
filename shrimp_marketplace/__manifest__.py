@@ -52,6 +52,7 @@ y portal público.
         "views/landing_template.xml",
         "views/marketplace_public_template.xml",
         "views/product_portal_template.xml",
+        "views/client_price_template.xml",
         "views/transaction_portal_template.xml",
         "views/account_portal_template.xml",
 

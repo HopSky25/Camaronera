@@ -8,12 +8,12 @@ class ShrimpStockMove(models.Model):
     _description = "Movimiento de stock (trazabilidad)"
     _order = "create_date desc"
 
-    product_id = fields.Many2one("shrimp.product", required=True, index=True)
+    product_id = fields.Many2one("shrimp.product", string="Producto", required=True, index=True)
 
     source_partner_id = fields.Many2one("res.partner", string="Origen")
     dest_partner_id = fields.Many2one("res.partner", string="Destino")
 
-    qty = fields.Float(required=True)
+    qty = fields.Float(string="Cantidad", required=True)
 
     parent_move_id = fields.Many2one(
         "shrimp.stock.move",
@@ -21,9 +21,9 @@ class ShrimpStockMove(models.Model):
         index=True,
     )
 
-    transaction_id = fields.Many2one("shrimp.transaction", index=True)
+    transaction_id = fields.Many2one("shrimp.transaction", string="Transacción", index=True)
 
-    date = fields.Datetime(default=fields.Datetime.now)
+    date = fields.Datetime(string="Fecha", default=fields.Datetime.now)
 
     @api.constrains("qty")
     def _check_qty(self):

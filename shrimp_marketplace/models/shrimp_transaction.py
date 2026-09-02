@@ -23,6 +23,7 @@ class ShrimpTransaction(models.Model):
 
     state = fields.Selection(
         [("draft", "Borrador"), ("confirmed", "Confirmada"), ("done", "Completada"), ("cancel", "Cancelada")],
+        string="Estado",
         default="draft",
         tracking=True,
     )
@@ -33,13 +34,14 @@ class ShrimpTransaction(models.Model):
             ("laboratorio_to_camaronera", "Laboratorio → Camaronera"),
             ("camaronera_to_buyer", "Camaronera → Comprador"),
         ],
+        string="Tipo de transacción",
         required=True,
         tracking=True,
     )
 
     product_id = fields.Many2one("shrimp.product", string="Producto", required=True)
-    seller_partner_id = fields.Many2one("res.partner", required=True, tracking=True)
-    buyer_partner_id = fields.Many2one("res.partner", required=True, tracking=True)
+    seller_partner_id = fields.Many2one("res.partner", string="Vendedor", required=True, tracking=True)
+    buyer_partner_id = fields.Many2one("res.partner", string="Comprador", required=True, tracking=True)
 
     location = fields.Char(string="Ubicación", tracking=True)
 
@@ -296,18 +298,56 @@ class ShrimpTransaction(models.Model):
         return new_product
 
     def action_confirm(self):
+        """Compra confirmada: se descuenta el stock del vendedor y se generan los
+        movimientos (mercadería "en tránsito"). El inventario del comprador NO se
+        crea aún: eso ocurre cuando el comprador confirma la recepción
+        (`action_receive`), respetando la fecha de entrega."""
         for rec in self:
             if rec.state != "draft":
                 continue
 
             consumed_lots = rec._consume_source_lots()
-            moves = rec._create_stock_moves(consumed_lots)
-            rec._create_buyer_side_records(moves)
+            rec._create_stock_moves(consumed_lots)
 
             rec.state = "confirmed"
 
             rec.product_id._compute_available_qty()
             rec.product_id._update_state_from_stock()
+
+    def _delivery_date(self):
+        """Fecha de entrega a respetar para la recepción."""
+        self.ensure_one()
+        return (self.desired_date
+                or self.product_id.expected_delivery_date
+                or fields.Date.context_today(self))
+
+    def action_receive(self):
+        """El comprador confirma la recepción: se sube su inventario y (si aplica)
+        se crea su producto en BORRADOR. Solo se permite en/después de la fecha de
+        entrega."""
+        for rec in self:
+            if rec.state != "confirmed":
+                raise ValidationError(_(
+                    "Solo puedes confirmar la recepción de una compra confirmada."))
+
+            delivery = rec._delivery_date()
+            if fields.Date.context_today(rec) < delivery:
+                raise ValidationError(_(
+                    "Aún no puedes confirmar la recepción: la fecha de entrega es %s."
+                ) % delivery.strftime("%d/%m/%Y"))
+
+            # Idempotencia: no duplicar inventario si ya existe para estos movimientos.
+            already = self.env["shrimp.stock.lot"].sudo().search_count([
+                ("origin_move_id", "in", rec.stock_move_ids.ids),
+                ("owner_id", "=", rec.buyer_partner_id.id),
+            ])
+            if not already:
+                rec._create_buyer_side_records(rec.stock_move_ids)
+            rec.state = "done"
+
+    def action_receive_ref(self):
+        """Wrapper público para invocar desde botones/controladores."""
+        return self.action_receive()
 
     def get_full_traceability_data(self):
         self.ensure_one()

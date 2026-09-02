@@ -9,8 +9,8 @@ class ShrimpStockLot(models.Model):
     _description = "Stock por lote (trazabilidad)"
     _rec_name = "product_id"
 
-    product_id = fields.Many2one("shrimp.product", required=True, index=True, ondelete="cascade")
-    owner_id = fields.Many2one("res.partner", required=True, index=True)
+    product_id = fields.Many2one("shrimp.product", string="Producto", required=True, index=True, ondelete="cascade")
+    owner_id = fields.Many2one("res.partner", string="Propietario", required=True, index=True)
 
     origin_move_id = fields.Many2one(
         "shrimp.stock.move",
@@ -18,13 +18,14 @@ class ShrimpStockLot(models.Model):
         index=True,
     )
 
-    initial_qty = fields.Float(required=True)
-    available_qty = fields.Float(required=True)
+    initial_qty = fields.Float(string="Cantidad inicial", required=True)
+    available_qty = fields.Float(string="Cantidad disponible", required=True)
 
     uom_id = fields.Many2one("shrimp.uom", string="Unidad de medida")
 
     state = fields.Selection(
         [("available", "Disponible"), ("consumed", "Consumido")],
+        string="Estado",
         default="available",
         index=True,
     )

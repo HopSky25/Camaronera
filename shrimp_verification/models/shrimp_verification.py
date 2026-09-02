@@ -278,6 +278,9 @@ class ShrimpVerification(models.Model):
             rec.platform_amount = round((rec.fee or 0.0) * pct / 100.0, 2)
             rec.verifier_amount = round((rec.fee or 0.0) - rec.platform_amount, 2)
 
+    review_ids = fields.One2many(
+        "shrimp.verifier.review", "verification_id", string="Reseñas del comprador")
+
     acceptance_ids = fields.One2many(
         "shrimp.verification.acceptance", "verification_id", string="Posturas de las partes")
     acceptance_deadline = fields.Datetime(

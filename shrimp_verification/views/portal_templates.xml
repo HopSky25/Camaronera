@@ -502,8 +502,227 @@
             </t>
           </t>
 
+          <!-- ============================================================
+               EXPEDIENTE CERRADO
+               Una verificación con veredicto ya no se edita, pero es cuando
+               más se consulta: es el respaldo del trabajo hecho. Antes esta
+               página quedaba en blanco en cuanto se dictaminaba.
+               ============================================================ -->
+          <t t-if="v.is_final">
+
+            <!-- Veredicto -->
+            <t t-set="favorable" t-value="v.state in ('approved', 'approved_obs')"/>
+            <div t-attf-class="sv-veredicto sv-veredicto--#{'ok' if favorable else 'ko'}">
+              <div class="sv-veredicto-icono">
+                <i t-attf-class="fa fa-#{'check-circle' if favorable else 'times-circle'}"/>
+              </div>
+              <div class="sv-veredicto-txt">
+                <h2>
+                  <t t-if="v.state == 'approved'">Verificación aprobada</t>
+                  <t t-elif="v.state == 'approved_obs'">Aprobada con observaciones</t>
+                  <t t-elif="v.state == 'rejected'">Verificación rechazada</t>
+                  <t t-else="">Verificación cancelada</t>
+                </h2>
+                <p class="mb-0">
+                  <t t-if="v.verified_date">
+                    Dictaminada el <t t-esc="v.verified_date.strftime('%d/%m/%Y')"/>
+                  </t>
+                  <t t-if="v.technician_partner_id">
+                    · inspección de <strong t-esc="v.technician_partner_id.name"/>
+                  </t>
+                </p>
+              </div>
+            </div>
+
+            <t t-if="v.verdict_notes">
+              <div class="sv-section">
+                <h3>Conclusión del verificador</h3>
+                <p class="mb-0" t-esc="v.verdict_notes"/>
+              </div>
+            </t>
+
+            <!-- Cómo avanzó el proceso -->
+            <div class="sv-section">
+              <h3>Recorrido de la verificación</h3>
+              <table class="sv-linea">
+                <t t-foreach="v.stage_timeline()" t-as="paso">
+                  <tr t-attf-class="sv-linea-paso sv-linea-paso--#{paso['estado']}">
+                    <td class="sv-linea-punto"><span/></td>
+                    <td>
+                      <div class="sv-linea-titulo" t-esc="paso['titulo']"/>
+                      <div class="sv-linea-detalle" t-esc="paso['detalle']"/>
+                    </td>
+                  </tr>
+                </t>
+              </table>
+            </div>
+
+            <!-- Qué hicieron las partes con el informe. Al verificador esto le
+                 importa más que a nadie: es el resultado de su trabajo. -->
+            <t t-if="v.acceptance_ids">
+              <div class="sv-section">
+                <h3>Qué dijeron las partes</h3>
+                <t t-if="v.acceptance_state == 'closed'">
+                  <div class="sv-alert sv-alert--ok">
+                    <i class="fa fa-check-circle me-1"/>
+                    Comprador y vendedor aceptaron tu informe. La compra se cerró.
+                  </div>
+                </t>
+                <t t-elif="v.acceptance_state == 'broken'">
+                  <div class="sv-alert sv-alert--ko">
+                    <i class="fa fa-times-circle me-1"/>
+                    Una de las partes no aceptó el informe y la compra se canceló.
+                  </div>
+                </t>
+                <t t-elif="v.acceptance_state == 'waiting'">
+                  <div class="sv-alert sv-alert--warn">
+                    <i class="fa fa-hourglass-half me-1"/>
+                    Esperando que comprador y vendedor acepten
+                    <t t-if="v.acceptance_deadline">
+                      · plazo hasta el <t t-esc="v._texto_plazo()"/>
+                    </t>
+                  </div>
+                </t>
+                <div class="sv-partes">
+                  <t t-foreach="v.acceptance_ids" t-as="a">
+                    <div t-attf-class="sv-parte sv-parte--#{a.decision}">
+                      <div class="sv-parte-rol">
+                        <t t-if="a.role == 'buyer'">Comprador</t><t t-else="">Vendedor</t>
+                      </div>
+                      <div class="sv-parte-nombre" t-esc="a.partner_id.name"/>
+                      <div class="sv-parte-estado">
+                        <t t-if="a.decision == 'pending'">Sin responder</t>
+                        <t t-elif="a.decision == 'accepted'">Aceptó<t t-if="a.auto"> (venció el plazo)</t></t>
+                        <t t-elif="a.decision == 'counter'">Propuso otro precio</t>
+                        <t t-else="">Rechazó</t>
+                      </div>
+                      <div class="sv-parte-motivo" t-if="a.reason" t-esc="a.reason"/>
+                    </div>
+                  </t>
+                </div>
+              </div>
+            </t>
+
+            <!-- El informe, en lectura -->
+            <div class="sv-section">
+              <h3>Informe registrado</h3>
+              <t t-if="v.scope == 'larvae'">
+                <div class="sv-datos">
+                  <div><span>Cantidad verificada</span><strong t-esc="'{:,.0f}'.format(v.larvae_qty_verified or 0)"/></div>
+                  <div><span>Desvío de cantidad</span><strong t-esc="'{:+.2f} %'.format(v.larvae_qty_diff_pct or 0)"/></div>
+                  <div><span>Supervivencia</span><strong t-esc="'{:.2f} %'.format(v.larvae_survival_rate or 0)"/></div>
+                  <div><span>Tamaño promedio</span><strong t-esc="'{:.3f} mg'.format(v.larvae_avg_size_mg or 0)"/></div>
+                  <div><span>Estado sanitario</span><strong t-esc="v.etiqueta('larvae_health_status')"/></div>
+                </div>
+                <t t-if="v.larvae_health_notes">
+                  <p class="sv-muted mb-0 mt-2" t-esc="v.larvae_health_notes"/>
+                </t>
+              </t>
+              <t t-else="">
+                <div class="sv-datos">
+                  <div><span>Peso vendido</span><strong t-esc="'{:,.2f} lb'.format(v.weight_sent_lb or 0)"/></div>
+                  <div><span>Peso en planta</span><strong t-esc="'{:,.2f} lb'.format(v.weight_plant_lb or 0)"/></div>
+                  <div><span>Basura</span><strong t-esc="'{:,.2f} lb'.format(v.trash_lb or 0)"/></div>
+                  <div><span>Peso neto</span><strong t-esc="'{:,.2f} lb'.format(v.net_weight_lb or 0)"/></div>
+                  <div><span>Sobrepeso</span><strong t-esc="'{:+,.2f} lb'.format(v.overweight_lb or 0)"/></div>
+                  <div><span>Presentación</span><strong t-esc="v.etiqueta('presentation')"/></div>
+                  <div><span>Metabisulfito</span><strong t-esc="'{:.2f} ppm'.format(v.metabisulfite_ppm or 0)"/></div>
+                  <div><span>Resultado</span><strong t-esc="v.etiqueta('metabisulfite_result')"/></div>
+                  <div><span>Sabor</span><strong t-esc="v.etiqueta('taste_result')"/></div>
+                  <div><span>Rendimiento</span><strong t-esc="'{:.2f} %'.format(v.yield_pct or 0)"/></div>
+                  <div><span>Rend. Clase A</span><strong t-esc="'{:.2f} %'.format(v.yield_class_a_pct or 0)"/></div>
+                  <div><span>Rend. Clase B</span><strong t-esc="'{:.2f} %'.format(v.yield_class_b_pct or 0)"/></div>
+                </div>
+
+                <t t-if="v.line_ids">
+                  <h4 class="sv-h4 mt-3">Clasificación por tallas</h4>
+                  <table class="sv-tabla">
+                    <thead>
+                      <tr><th>Clase</th><th>Talla</th><th class="text-end">Libras</th><th class="text-end">% del total</th></tr>
+                    </thead>
+                    <tbody>
+                      <t t-foreach="v.line_ids" t-as="l">
+                        <tr>
+                          <td t-esc="dict(l._fields['quality_class']._description_selection(request.env)).get(l.quality_class, l.quality_class)"/>
+                          <td t-esc="l.size_code"/>
+                          <td class="text-end" t-esc="'{:,.2f}'.format(l.weight_lb or 0)"/>
+                          <td class="text-end" t-esc="'{:.2f} %'.format(l.percent_of_total or 0)"/>
+                        </tr>
+                      </t>
+                    </tbody>
+                  </table>
+                </t>
+              </t>
+
+              <t t-if="v.incident_notes">
+                <div class="sv-alert sv-alert--warn mt-3">
+                  <strong>Incidencias:</strong> <t t-esc="v.incident_notes"/>
+                </div>
+              </t>
+            </div>
+
+            <!-- Fotos de campo -->
+            <t t-if="v.photo_ids">
+              <div class="sv-section">
+                <h3>Fotos de campo <span class="sv-muted">(<t t-esc="len(v.photo_ids)"/>)</span></h3>
+                <div class="sv-fotos">
+                  <t t-foreach="v.photo_ids" t-as="f">
+                    <a t-attf-href="/marketplace/verificacion/#{v.uuid_ref}/foto/#{f.id}" target="_blank">
+                      <img t-attf-src="/marketplace/verificacion/#{v.uuid_ref}/foto/#{f.id}" alt="Foto de campo"/>
+                    </a>
+                  </t>
+                </div>
+              </div>
+            </t>
+
+            <!-- Honorario. La verificadora necesita ver si ya se le liquidó. -->
+            <t t-if="v.fee">
+              <div class="sv-section">
+                <h3>Honorario</h3>
+                <div class="sv-datos">
+                  <div><span>Honorario de la inspección</span><strong t-esc="'{:,.2f}'.format(v.fee or 0)"/></div>
+                  <div><span>Te corresponde</span><strong t-esc="'{:,.2f}'.format(v.verifier_amount or 0)"/></div>
+                  <div>
+                    <span>Liquidación</span>
+                    <strong>
+                      <t t-if="v.vendor_bill_id">Emitida · <t t-esc="v.vendor_bill_id.name"/></t>
+                      <t t-else="">Pendiente de emitir</t>
+                    </strong>
+                  </div>
+                </div>
+                <p class="sv-muted small mb-0 mt-2">
+                  El honorario se liquida con el veredicto emitido, sea aprobado o
+                  rechazado: retribuye la inspección hecha, no su resultado.
+                </p>
+              </div>
+            </t>
+
+            <!-- Cómo te calificó el comprador -->
+            <t t-if="v.review_ids">
+              <t t-set="r" t-value="v.review_ids[0]"/>
+              <div class="sv-section">
+                <h3>Calificación del comprador</h3>
+                <div class="sv-estrellas">
+                  <t t-foreach="[1, 2, 3, 4, 5]" t-as="n">
+                    <i t-attf-class="fa fa-star#{'' if n &lt;= r.rating else '-o'}"/>
+                  </t>
+                  <span class="ms-2" t-esc="'{} de 5'.format(r.rating)"/>
+                </div>
+                <div class="sv-datos mt-2">
+                  <div><span>Puntualidad</span><strong t-esc="r.punctuality or '—'"/></div>
+                  <div><span>Rigor del informe</span><strong t-esc="r.thoroughness or '—'"/></div>
+                  <div><span>Comunicación</span><strong t-esc="r.communication or '—'"/></div>
+                </div>
+                <t t-if="r.comment">
+                  <p class="sv-cita mt-2" t-esc="r.comment"/>
+                </t>
+              </div>
+            </t>
+
+          </t>
+
           <!-- Parte para WhatsApp -->
-          <t t-if="v.total_processed_lb">
+          <t t-if="v.total_processed_lb or v.larvae_qty_verified">
             <div class="sv-section">
               <h3>Parte para WhatsApp</h3>
               <p class="sv-muted small">Mismo formato de siempre, pero calculado.</p>

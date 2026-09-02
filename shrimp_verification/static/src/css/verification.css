@@ -368,3 +368,63 @@
   color: #123E5C; text-decoration: none;
 }
 .sv-evidence:hover { background: #eaf7f8; color: #0D2B3E; border-color: #cfe9ee; }
+
+/* ==================================================================
+   Expediente de una verificación ya dictaminada
+   ================================================================== */
+.sv-veredicto {
+  display: flex; align-items: center; gap: 18px;
+  border-radius: 12px; padding: 20px 24px; margin-bottom: 22px;
+  background: #fff; border: 1px solid #e3eaed; border-left: 5px solid #14A0B0;
+}
+.sv-veredicto--ko { border-left-color: #b3261e; }
+.sv-veredicto-icono .fa { font-size: 2.2rem; color: #14A0B0; }
+.sv-veredicto--ko .sv-veredicto-icono .fa { color: #b3261e; }
+.sv-veredicto-txt h2 { font-size: 1.35rem; font-weight: 700; color: #123E5C; margin: 0 0 4px; }
+.sv-veredicto-txt p { color: #5A6B74; font-size: .92rem; }
+
+.sv-h4 { font-size: .98rem; font-weight: 700; color: #123E5C; }
+
+/* Rejilla de datos: etiqueta arriba, valor abajo. Se lee de un barrido
+   vertical, que es como se compara un informe contra otro. */
+.sv-datos { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+.sv-datos > div {
+  background: #f7fafb; border: 1px solid #eef2f4; border-radius: 8px; padding: 10px 12px;
+}
+.sv-datos span {
+  display: block; font-size: .72rem; text-transform: uppercase;
+  letter-spacing: .06em; color: #8b9ba3; margin-bottom: 2px;
+}
+.sv-datos strong { font-size: 1.02rem; color: #123E5C; }
+
+.sv-tabla { width: 100%; border-collapse: collapse; font-size: .92rem; }
+.sv-tabla th {
+  text-align: left; font-size: .74rem; text-transform: uppercase;
+  letter-spacing: .06em; color: #8b9ba3; font-weight: 600;
+  border-bottom: 2px solid #e3eaed; padding: 8px 10px;
+}
+.sv-tabla td { padding: 8px 10px; border-bottom: 1px solid #eef2f4; color: #243b45; }
+.sv-tabla tbody tr:last-child td { border-bottom: 0; }
+
+/* Recorrido del proceso */
+.sv-linea { border-collapse: collapse; }
+.sv-linea-punto { width: 26px; vertical-align: top; padding: 6px 0; }
+.sv-linea-punto span {
+  display: block; width: 12px; height: 12px; border-radius: 50%; background: #D3DCE1;
+}
+.sv-linea-paso--hecha .sv-linea-punto span { background: #14A0B0; }
+.sv-linea-paso--actual .sv-linea-punto span { background: #123E5C; box-shadow: 0 0 0 3px #cfe9ee; }
+.sv-linea-paso--cancelada .sv-linea-punto span { background: #b3261e; }
+.sv-linea td { padding: 4px 0 10px; }
+.sv-linea-titulo { font-weight: 600; color: #8b9ba3; }
+.sv-linea-paso--hecha .sv-linea-titulo { color: #5A6B74; }
+.sv-linea-paso--actual .sv-linea-titulo { color: #123E5C; }
+.sv-linea-paso--cancelada .sv-linea-titulo { color: #b3261e; }
+.sv-linea-detalle { font-size: .82rem; color: #a9b6bd; }
+
+.sv-estrellas .fa { color: #e6a919; font-size: 1.15rem; }
+.sv-estrellas span { color: #5A6B74; font-size: .92rem; }
+.sv-cita {
+  border-left: 3px solid #cfe9ee; padding: 4px 0 4px 12px;
+  color: #3d5560; font-style: italic; margin: 0;
+}

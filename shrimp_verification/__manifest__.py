@@ -35,6 +35,7 @@ genera el parte en el mismo formato de texto que el equipo ya usa por WhatsApp.
         "views/registry_form_inherit.xml",
         "views/website_settings_views.xml",
         "views/verifier_website.xml",
+        "views/marca_website.xml",
         "views/portal_templates.xml",
         "views/acceptance_templates.xml",
         "views/technicians_templates.xml",

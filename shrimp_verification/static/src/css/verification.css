@@ -178,3 +178,95 @@
 
 /* Detalle de cómo se calcula el honorario, bajo su línea del desglose */
 .sv-fee-detail { display: block; font-size: 11px; color: #8a98a0; margin-top: 2px; }
+
+/* ==================================================================
+   Aceptación del informe por las dos partes
+   ================================================================== */
+.sv-accept { max-width: 860px; margin: 0 auto; }
+
+.sv-accept-head {
+  display: flex; align-items: center; gap: 16px;
+  background: #fff; border-left: 5px solid #123E5C;
+  border-radius: 10px; padding: 18px 22px; margin-bottom: 18px;
+  box-shadow: 0 1px 3px rgba(18, 62, 92, .08);
+}
+.sv-accept-head h1 { font-size: 1.45rem; margin: 0; color: #123E5C; }
+.sv-accept-head .fa { color: #123E5C; }
+.sv-accept-head--ok { border-left-color: #14A0B0; }
+.sv-accept-head--ok .fa { color: #14A0B0; }
+.sv-accept-head--ko { border-left-color: #b3261e; }
+.sv-accept-head--ko .fa { color: #b3261e; }
+
+/* Postura de cada parte, lado a lado: de un vistazo se ve quién falta */
+.sv-partes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 640px) { .sv-partes { grid-template-columns: 1fr; } }
+.sv-parte {
+  background: #fff; border: 1px solid #e3eaed; border-top: 3px solid #D3DCE1;
+  border-radius: 8px; padding: 12px 14px;
+}
+.sv-parte--accepted { border-top-color: #14A0B0; }
+.sv-parte--counter  { border-top-color: #e69c24; }
+.sv-parte--rejected { border-top-color: #b3261e; }
+.sv-parte-rol    { font-size: .74rem; text-transform: uppercase; letter-spacing: .08em; color: #8b9ba3; }
+.sv-parte-nombre { font-weight: 600; color: #123E5C; }
+.sv-parte-estado { font-size: .88rem; color: #5A6B74; margin-top: 2px; }
+.sv-parte--accepted .sv-parte-estado { color: #0f7c88; }
+.sv-parte--rejected .sv-parte-estado { color: #b3261e; }
+.sv-parte-motivo { font-size: .82rem; color: #8b9ba3; margin-top: 4px; font-style: italic; }
+
+.sv-plazo { margin-top: 12px; color: #5A6B74; font-size: .92rem; }
+
+.sv-h2 { font-size: 1.05rem; color: #123E5C; margin: 22px 0 8px; font-weight: 700; }
+
+/* El parte se muestra tal cual lo escriben por WhatsApp: monoespaciado y
+   respetando los saltos, porque el orden de las líneas es el que ya conocen */
+.sv-parte-texto {
+  background: #f7fafb; border: 1px solid #e3eaed; border-radius: 8px;
+  padding: 14px 16px; font-size: .86rem; line-height: 1.5; color: #243b45;
+  white-space: pre-wrap; word-break: break-word;
+}
+
+.sv-alert { border-radius: 8px; padding: 12px 14px; margin: 14px 0; font-size: .92rem; }
+.sv-alert--ok   { background: #eaf7f8; border-left: 4px solid #14A0B0; color: #0f5c66; }
+.sv-alert--warn { background: #fff4e5; border-left: 4px solid #e69c24; color: #7a5310; }
+.sv-alert--ko   { background: #fdecea; border-left: 4px solid #b3261e; color: #8c1d18; }
+
+.sv-fotos { display: flex; flex-wrap: wrap; gap: 10px; }
+.sv-fotos img {
+  width: 130px; height: 130px; object-fit: cover;
+  border-radius: 8px; border: 1px solid #e3eaed;
+}
+
+.sv-contra {
+  background: #fff8ec; border: 1px solid #f0dcb8; border-radius: 10px;
+  padding: 16px 18px; margin-top: 22px;
+}
+.sv-contra-cifras { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+.sv-contra-cifras > div { display: flex; flex-direction: column; }
+.sv-contra-cifras span.sv-muted { font-size: .74rem; text-transform: uppercase; letter-spacing: .06em; }
+.sv-contra-cifras strong { font-size: 1.3rem; color: #123E5C; }
+.sv-contra-cifras s { font-size: 1.1rem; color: #8b9ba3; }
+
+.sv-acciones { margin-top: 22px; display: flex; flex-direction: column; gap: 14px; }
+.sv-caja {
+  background: #fff; border: 1px solid #e3eaed; border-radius: 10px; padding: 16px 18px;
+}
+.sv-caja--ko { border-color: #f2d5d2; }
+.sv-contra-form { display: flex; gap: 10px; flex-wrap: wrap; }
+.sv-contra-form .form-control { flex: 1 1 180px; }
+.s-btn-ko { background: #b3261e; border-color: #b3261e; color: #fff; }
+.s-btn-ko:hover { background: #8c1d18; color: #fff; }
+
+/* Aviso en cabecera de compras y ventas */
+.sv-banner-aceptar {
+  background: #fff; border: 1px solid #cfe9ee; border-left: 5px solid #14A0B0;
+  border-radius: 10px; padding: 16px 18px; margin-bottom: 20px;
+}
+.sv-banner-aceptar-head { color: #123E5C; font-size: 1.02rem; margin-bottom: 4px; }
+.sv-banner-aceptar-item {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding: 10px 12px; border-radius: 8px; background: #f7fafb;
+  text-decoration: none; color: #243b45; margin-top: 6px;
+}
+.sv-banner-aceptar-item:hover { background: #eaf7f8; color: #123E5C; }
+.sv-banner-aceptar-plazo { color: #5A6B74; font-size: .86rem; white-space: nowrap; }

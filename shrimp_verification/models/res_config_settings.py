@@ -33,6 +33,19 @@ class ResConfigSettings(models.TransientModel):
              "y garantizar que el verificador está acreditado. El resto se le "
              "liquida a la empresa verificadora.")
 
+    shrimp_verification_acceptance_hours = fields.Integer(
+        string="Plazo para aceptar el informe (horas)",
+        config_parameter="shrimp_verification.acceptance_hours", default=48,
+        help="Tiempo que tienen comprador y vendedor para aceptar o rechazar el "
+             "informe. Vencido el plazo sin respuesta, se da por aceptado.")
+
+    shrimp_verification_weight_tolerance_pct = fields.Float(
+        string="Tolerancia de peso (%)",
+        config_parameter="shrimp_verification.weight_tolerance_pct", default=2.0,
+        help="Cuánto puede faltar del peso vendido sin contarlo como "
+             "incumplimiento del vendedor. Entre la pesada en finca y la de "
+             "planta siempre hay merma.")
+
     shrimp_verification_fee_max = fields.Float(
         string="Honorario máximo", config_parameter="shrimp_verification.fee_max",
         default=800.0,

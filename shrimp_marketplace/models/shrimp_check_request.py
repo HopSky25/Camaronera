@@ -210,7 +210,7 @@ class ShrimpCheckRequest(models.Model):
                         "name": "Chequeo de producto – %s" % (rec.product_id.display_name or ""),
                         "product_uom_qty": 1.0,
                         "price_unit": rec.check_fee,
-                        "tax_id": [(6, 0, [])],
+                        "tax_ids": [(6, 0, [])],
                     })],
                 })
                 so.action_confirm()

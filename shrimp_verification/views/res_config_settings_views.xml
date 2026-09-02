@@ -1,0 +1,67 @@
+<odoo>
+
+  <record id="res_config_settings_view_form_verification" model="ir.ui.view">
+    <field name="name">res.config.settings.form.shrimp.verification</field>
+    <field name="model">res.config.settings</field>
+    <field name="inherit_id" ref="shrimp_marketplace.res_config_settings_view_form_shrimp"/>
+    <field name="arch" type="xml">
+      <xpath expr="//block[@name='shrimp_commission_block']" position="inside">
+        <setting string="Honorario de verificación"
+                 help="Lo que cobra el verificador por ir a campo. Se calcula como base + centavos por unidad, acotado entre un mínimo y un máximo: el desplazamiento no depende del lote, pero el muestreo y la clasificación sí. Se registra en cada verificación al crearla; cambiarlo no altera las ya emitidas.">
+          <div class="content-group">
+            <div class="row mt16">
+              <label for="shrimp_verification_fee_base" class="col-lg-6 o_light_label"/>
+              <field name="shrimp_verification_fee_base"/>
+              <span class="text-muted">fijo por salida a campo</span>
+            </div>
+            <div class="row">
+              <label for="shrimp_verification_fee_cents" class="col-lg-6 o_light_label"/>
+              <field name="shrimp_verification_fee_cents"/>
+              <span class="text-muted">centavos por unidad verificada</span>
+            </div>
+            <div class="row">
+              <label for="shrimp_verification_fee_min" class="col-lg-6 o_light_label"/>
+              <field name="shrimp_verification_fee_min"/>
+              <span class="text-muted">por debajo no compensa salir</span>
+            </div>
+            <div class="row">
+              <label for="shrimp_verification_fee_max" class="col-lg-6 o_light_label"/>
+              <field name="shrimp_verification_fee_max"/>
+              <span class="text-muted">tope por verificación</span>
+            </div>
+            <div class="row">
+              <label for="shrimp_verification_margin_pct" class="col-lg-6 o_light_label"/>
+              <field name="shrimp_verification_margin_pct"/>
+              <span class="text-muted">% que retiene la plataforma</span>
+            </div>
+          </div>
+        </setting>
+      </xpath>
+    </field>
+  </record>
+
+  <data noupdate="1">
+    <!-- Valor de arranque; se cambia desde Ajustes › Marketplace Camarón. -->
+    <record id="param_verification_fee_base" model="ir.config_parameter">
+      <field name="key">shrimp_verification.fee_base</field>
+      <field name="value">250.00</field>
+    </record>
+    <record id="param_verification_fee_cents" model="ir.config_parameter">
+      <field name="key">shrimp_verification.fee_cents</field>
+      <field name="value">2.00</field>
+    </record>
+    <record id="param_verification_fee_min" model="ir.config_parameter">
+      <field name="key">shrimp_verification.fee_min</field>
+      <field name="value">300.00</field>
+    </record>
+    <record id="param_verification_fee_max" model="ir.config_parameter">
+      <field name="key">shrimp_verification.fee_max</field>
+      <field name="value">800.00</field>
+    </record>
+    <record id="param_verification_margin" model="ir.config_parameter">
+      <field name="key">shrimp_verification.margin_pct</field>
+      <field name="value">15.00</field>
+    </record>
+  </data>
+
+</odoo>

@@ -1,0 +1,23 @@
+<odoo>
+  <!-- El verificador ve las suyas; comprador y vendedor ven las de sus compras.
+       Nadie del portal ve verificaciones de operaciones ajenas. -->
+  <record id="rule_shrimp_verification_portal" model="ir.rule">
+    <field name="name">Shrimp Verification: propias</field>
+    <field name="model_id" ref="model_shrimp_verification"/>
+    <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+    <field name="domain_force">['|','|',
+        ('verifier_partner_id','=',user.partner_id.id),
+        ('buyer_partner_id','=',user.partner_id.id),
+        ('seller_partner_id','=',user.partner_id.id)]</field>
+  </record>
+
+  <record id="rule_shrimp_verification_line_portal" model="ir.rule">
+    <field name="name">Shrimp Verification Line: propias</field>
+    <field name="model_id" ref="model_shrimp_verification_line"/>
+    <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+    <field name="domain_force">['|','|',
+        ('verification_id.verifier_partner_id','=',user.partner_id.id),
+        ('verification_id.buyer_partner_id','=',user.partner_id.id),
+        ('verification_id.seller_partner_id','=',user.partner_id.id)]</field>
+  </record>
+</odoo>

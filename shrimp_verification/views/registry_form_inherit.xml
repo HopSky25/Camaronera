@@ -1,0 +1,204 @@
+<odoo>
+
+  <!-- El combo "Selecciona tu perfil" tiene las opciones escritas a mano en la
+       plantilla del registro, no leídas del selection del campo. Por eso añadir
+       el rol al modelo no basta: hay que añadir también la opción aquí. -->
+  <template id="registry_form_verificador"
+            inherit_id="shrimp_user_registry.registry_form"
+            name="Registro - opción Verificador">
+    <xpath expr="//select[@name='shrimp_user_type']/option[@value='camaronera']" position="after">
+      <!-- El perfil de verificador solo se ofrece en su propia plataforma:
+           en el sitio de la camaronera no tiene sentido registrarse así. -->
+      <option value="verificador"
+              t-if="request.website.sudo().shrimp_is_verifier_site"
+              t-att-selected="'selected' if values.get('shrimp_user_type') == 'verificador' else None">
+        Verificador
+      </option>
+    </xpath>
+  </template>
+
+  <!-- Paso 3: chip y bloque de campos propios del verificador -->
+  <template id="registry_form_verificador_section"
+            inherit_id="shrimp_user_registry.registry_form"
+            name="Registro - campos del Verificador">
+
+    <xpath expr="//span[@id='pill_camaronera']" position="after">
+      <span class="badge rounded-pill text-bg-light border" id="pill_verificador"
+            t-if="request.website.sudo().shrimp_is_verifier_site"
+            style="font-weight:600;">Verificador</span>
+    </xpath>
+
+    <xpath expr="//div[@id='section_camaronera']" position="after">
+      <div id="section_verificador" class="d-none"
+           t-if="request.website.sudo().shrimp_is_verifier_site">
+        <div class="p-3 rounded-3 mb-3"
+             style="background:rgba(20,160,176,.08); border:1px solid rgba(20,160,176,.20);">
+          <div class="d-flex align-items-center justify-content-between gap-2">
+            <div>
+              <div style="font-weight:600; color:#0d7c88;">Verificador</div>
+              <div class="text-muted small">
+                Datos de la empresa o profesional y la acreditación que lo autoriza
+              </div>
+            </div>
+            <i class="fa fa-shield" style="color:#0d7c88;" title="Verificador"/>
+          </div>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label" style="font-weight:600;">
+              Razón social <span class="text-danger">*</span>
+            </label>
+            <input type="text" class="form-control" name="ver_razon_social" id="ver_razon_social"
+                   t-att-value="values.get('ver_razon_social') or ''"/>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" style="font-weight:600;">
+              Responsable técnico <span class="text-danger">*</span>
+            </label>
+            <input type="text" class="form-control" name="ver_representante" id="ver_representante"
+                   t-att-value="values.get('ver_representante') or ''"/>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" style="font-weight:600;">
+              Teléfono <span class="text-danger">*</span>
+            </label>
+            <input type="text" class="form-control" name="ver_telefono" id="ver_telefono"
+                   t-att-value="values.get('ver_telefono') or ''"/>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" style="font-weight:600;">N.º de registro o licencia</label>
+            <input type="text" class="form-control" name="ver_registro_num"
+                   t-att-value="values.get('ver_registro_num') or ''"/>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" style="font-weight:600;">Base de operaciones</label>
+            <input type="text" class="form-control" name="ver_ubicacion"
+                   t-att-value="values.get('ver_ubicacion') or ''"/>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" style="font-weight:600;">Zona de cobertura</label>
+            <input type="text" class="form-control" name="ver_cobertura"
+                   placeholder="Guayas, El Oro, Manabí..."
+                   t-att-value="values.get('ver_cobertura') or ''"/>
+          </div>
+        </div>
+
+        <div class="alert alert-info mt-3 mb-0" role="status">
+          <strong>Acreditación obligatoria.</strong> Debes adjuntar el documento que
+          te autoriza a verificar. Sin una acreditación aprobada y vigente no
+          aparecerás como disponible para los compradores.
+        </div>
+
+        <!-- Certificados: el JS del registro rellena este bloque por data-role -->
+        <div class="mt-3 shrimp-cert-block" t-att-data-role="'verificador'">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <label class="form-label mb-0" style="font-weight:600;">Acreditaciones</label>
+            <button type="button" class="btn btn-outline-secondary btn-sm shrimpAddCert">
+              + Agregar
+            </button>
+          </div>
+          <div class="shrimpCertTbody"/>
+        </div>
+      </div>
+    </xpath>
+
+    <!-- El JS original no conoce esta sección, así que se muestra y oculta aquí. -->
+    <xpath expr="//div[@id='section_camaronera']" position="after">
+      <script type="text/javascript">
+        (function () {
+          function sync() {
+            var sel = document.getElementById("shrimp_user_type");
+            var sec = document.getElementById("section_verificador");
+            var pill = document.getElementById("pill_verificador");
+            if (!sel || !sec) { return; }
+            var on = sel.value === "verificador";
+            sec.classList.toggle("d-none", !on);
+            if (pill) {
+              pill.classList.toggle("text-bg-light", !on);
+              pill.classList.toggle("border", !on);
+              pill.classList.toggle("text-bg-info", on);
+            }
+            ["ver_razon_social", "ver_representante", "ver_telefono"].forEach(function (id) {
+              var el = document.getElementById(id);
+              if (el) { el.required = on; }
+            });
+          }
+          document.addEventListener("DOMContentLoaded", function () {
+            var sel = document.getElementById("shrimp_user_type");
+            if (!sel) { return; }
+            sel.addEventListener("change", sync);
+            sync();
+          });
+        })();
+      </script>
+    </xpath>
+
+  </template>
+
+  <!-- En la plataforma de verificadores, registrarse solo tiene un sentido -->
+  <template id="registry_form_verifier_site"
+            inherit_id="shrimp_user_registry.registry_form"
+            name="Registro - solo verificador en su sitio">
+
+    <!-- En esta plataforma el perfil es siempre Verificador: pedir que se elija
+         no aporta nada. La tarjeta del paso 1 se OCULTA con CSS, no se elimina:
+         el <select> tiene que seguir en el DOM porque el JS del registro lo usa
+         para pintar el paso 3 y el POST necesita su valor. -->
+    <xpath expr="//div[@class='s-eyebrow'][normalize-space()='Paso 1']/ancestor::div[hasclass('card')][1]"
+           position="attributes">
+      <attribute name="t-attf-style">
+        #{'display:none;' if request.website.sudo().shrimp_is_verifier_site else ''}
+      </attribute>
+    </xpath>
+
+    <!-- Con el paso 1 oculto, los siguientes se renumeran para que el usuario
+         no vea una secuencia que empieza en 2. -->
+    <xpath expr="//div[@class='s-eyebrow'][normalize-space()='Paso 2']" position="replace">
+      <div class="s-eyebrow">
+        Paso <t t-esc="1 if request.website.sudo().shrimp_is_verifier_site else 2"/>
+      </div>
+    </xpath>
+    <xpath expr="//div[@class='s-eyebrow'][normalize-space()='Paso 3']" position="replace">
+      <div class="s-eyebrow">
+        Paso <t t-esc="2 if request.website.sudo().shrimp_is_verifier_site else 3"/>
+      </div>
+    </xpath>
+
+
+    <!-- En la plataforma de verificadores no se ofrecen los demás perfiles.
+         Se resuelve en el servidor: si dependiera del JS, un fallo de script
+         dejaría el formulario ofreciendo roles que ese sitio no admite. -->
+    <xpath expr="//select[@name='shrimp_user_type']/option[@value='semillero']" position="attributes">
+      <attribute name="t-if">not request.website.sudo().shrimp_is_verifier_site</attribute>
+    </xpath>
+    <xpath expr="//select[@name='shrimp_user_type']/option[@value='laboratorio']" position="attributes">
+      <attribute name="t-if">not request.website.sudo().shrimp_is_verifier_site</attribute>
+    </xpath>
+    <xpath expr="//select[@name='shrimp_user_type']/option[@value='camaronera']" position="attributes">
+      <attribute name="t-if">not request.website.sudo().shrimp_is_verifier_site</attribute>
+    </xpath>
+
+    <xpath expr="//select[@name='shrimp_user_type']" position="attributes">
+      <attribute name="t-att-data-verifier-site">
+        '1' if request.website.sudo().shrimp_is_verifier_site else None
+      </attribute>
+    </xpath>
+    <xpath expr="//select[@name='shrimp_user_type']" position="after">
+      <script type="text/javascript">
+        (function () {
+          document.addEventListener("DOMContentLoaded", function () {
+            var sel = document.getElementById("shrimp_user_type");
+            if (!sel || sel.dataset.verifierSite !== "1") { return; }
+            // Las demás opciones ya no llegan del servidor: aquí solo se
+            // preselecciona la única válida y se dispara el evento para que
+            // el paso 3 se pinte solo.
+            sel.value = "verificador";
+            sel.dispatchEvent(new Event("change", { bubbles: true }));
+          });
+        })();
+      </script>
+    </xpath>
+  </template>
+
+</odoo>

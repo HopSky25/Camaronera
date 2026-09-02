@@ -1,0 +1,180 @@
+/* Verificación de camarón — portal del verificador y avisos al comprador */
+
+.sv-kpi {
+    display: block;
+    padding: 18px;
+    border-radius: 14px;
+    background: #fff;
+    border: 1px solid #e3e8ec;
+    text-decoration: none;
+    color: #123e5c;
+    transition: transform .15s ease, box-shadow .15s ease;
+}
+.sv-kpi:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(18,62,92,.10); color: #123e5c; }
+.sv-kpi-num { font-size: 30px; font-weight: 700; line-height: 1; }
+.sv-kpi-lbl { font-size: 12px; color: #5a6b74; margin-top: 6px; }
+.sv-kpi--new   { border-left: 4px solid #14a0b0; }
+.sv-kpi--field { border-left: 4px solid #e69c24; }
+.sv-kpi--done  { border-left: 4px solid #2e9e5b; }
+
+.sv-card {
+    display: block;
+    padding: 18px;
+    border-radius: 14px;
+    background: #fff;
+    border: 1px solid #e3e8ec;
+    text-decoration: none;
+    color: inherit;
+}
+.sv-card:hover { border-color: #14a0b0; color: inherit; }
+
+.sv-muted { color: #5a6b74; }
+.sv-yield { font-size: 22px; font-weight: 700; color: #123e5c; }
+
+.sv-badge {
+    font-size: 11px; font-weight: 600; padding: 3px 10px;
+    border-radius: 999px; background: #eef2f5; color: #5a6b74;
+}
+.sv-badge--assigned     { background: #e6f6f8; color: #0d7c88; }
+.sv-badge--in_field     { background: #fdf1e0; color: #a86a10; }
+.sv-badge--done         { background: #e9f0fb; color: #2a5db0; }
+.sv-badge--approved,
+.sv-badge--approved_obs { background: #e6f6ec; color: #217a48; }
+.sv-badge--rejected     { background: #fdeaea; color: #b3261e; }
+
+.sv-chip {
+    font-size: 11px; padding: 3px 10px; border-radius: 999px;
+    background: #f3f6f8; color: #5a6b74;
+}
+
+.sv-summary {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 14px; padding: 16px; background: #f8fafc;
+    border: 1px solid #e3e8ec; border-radius: 12px;
+}
+.sv-summary > div { display: flex; flex-direction: column; gap: 2px; }
+.sv-summary .sv-muted { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+
+.sv-section {
+    background: #fff; border: 1px solid #e3e8ec; border-radius: 14px;
+    padding: 22px; margin-bottom: 18px;
+}
+.sv-section h3 {
+    font-size: 16px; font-weight: 700; color: #123e5c;
+    margin: 0 0 16px; display: flex; align-items: center; gap: 10px;
+}
+.sv-section--verdict { border-color: #14a0b0; }
+.sv-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: #123e5c; color: #fff; font-size: 13px;
+}
+
+.sv-calc {
+    margin-top: 14px; padding: 12px 14px; border-radius: 10px;
+    background: #f8fafc; border: 1px dashed #cdd8df; font-size: 14px;
+}
+.sv-ok  { color: #217a48; font-weight: 600; }
+.sv-bad { color: #b3261e; font-weight: 600; }
+
+.sv-table th { font-size: 12px; color: #5a6b74; font-weight: 600; }
+
+.sv-whatsapp {
+    background: #f2f7f3; border: 1px solid #cfe3d5; border-radius: 10px;
+    padding: 14px; font-size: 13px; white-space: pre-wrap; color: #1d3a29;
+}
+
+.sv-empty { text-align: center; padding: 60px 20px; color: #5a6b74; }
+
+.sv-alert { padding: 16px 18px; border-radius: 12px; border: 1px solid; }
+.sv-alert--wait  { background: #fdf8ee; border-color: #edd9b0; color: #7a5610; }
+.sv-alert--ready { background: #edf9f1; border-color: #b6e0c6; color: #17603a; }
+
+.sv-buybox {
+    border: 1px solid #14a0b0; border-radius: 14px;
+    padding: 18px; margin-bottom: 18px; background: #fbfeff;
+}
+.sv-buybox-head { font-weight: 700; color: #0d7c88; margin-bottom: 8px; }
+
+.sv-btn-danger { background: #b3261e; color: #fff; border: none; }
+.sv-btn-danger:hover { background: #94201a; color: #fff; }
+
+.sv-pending { text-align: center; max-width: 620px; margin: 0 auto; color: #123e5c; }
+
+/* --- Tarjeta de verificadora en la página de compra --- */
+.sv-verifiers { display: flex; flex-direction: column; gap: 10px; }
+
+.sv-verifier {
+    position: relative;
+    display: block;
+    padding: 14px 46px 14px 16px;   /* hueco a la derecha para la marca */
+    border: 1px solid #e3e8ec; border-radius: 14px;
+    background: #fff; cursor: pointer; margin: 0;
+    transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
+}
+.sv-verifier:hover { border-color: #9fd4dc; background: #fbfeff; }
+
+/* El radio sigue en el DOM (lo necesitan el POST y el JS) pero no se ve:
+   quien comunica la selección es la tarjeta. */
+.sv-verifier-radio {
+    position: absolute; opacity: 0; width: 1px; height: 1px;
+    pointer-events: none;
+}
+
+/* Estado seleccionado. Se marca por :has() y también por la clase que pone el
+   JS, para no depender del soporte de :has() en navegadores antiguos. */
+.sv-verifier:has(.sv-verifier-radio:checked),
+.sv-verifier.is-selected {
+    border-color: #14a0b0; background: #f2fbfc;
+    box-shadow: 0 0 0 3px rgba(20,160,176,.14);
+}
+.sv-verifier:has(.sv-verifier-radio:checked) .sv-verifier-check,
+.sv-verifier.is-selected .sv-verifier-check { opacity: 1; transform: scale(1); }
+
+.sv-verifier-check {
+    position: absolute; top: 14px; right: 14px;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: #14a0b0; color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; opacity: 0; transform: scale(.6);
+    transition: opacity .15s ease, transform .15s ease;
+}
+
+.sv-verifier-head {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 4px;
+}
+.sv-verifier-name { font-weight: 700; color: #123e5c; font-size: 15px; }
+
+.sv-verifier-meta { display: block; font-size: 13px; color: #5a6b74; }
+.sv-verifier-quote { display: block; font-size: 12px; color: #5a6b74;
+                     font-style: italic; margin-top: 3px; }
+.sv-verifier .sv-acc { display: block; margin-top: 5px; }
+
+/* El ojo, pequeño y pegado al nombre para no robar altura a la tarjeta */
+.sv-eye {
+    flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: #eef6f8; color: #0d7c88; text-decoration: none; font-size: 12px;
+}
+.sv-eye:hover { background: #14a0b0; color: #fff; }
+
+/* Reputación del verificador */
+.sv-stars { color: #e0a106; letter-spacing: 1px; margin-right: 4px; }
+.sv-verifier-quote { display:block; font-size:12px; color:#5a6b74;
+                     font-style:italic; margin-top:3px; }
+.sv-rate-box { padding:14px; border-radius:12px; background:#fff;
+               border:1px dashed #cdd8df; }
+
+/* Buscador de verificadoras */
+.sv-verifier-search { position: relative; margin-bottom: 10px; }
+.sv-verifier-search .fa-search { position: absolute; left: 12px; top: 50%;
+                                 transform: translateY(-50%); color: #8a98a0; }
+.sv-verifier-search input { padding-left: 34px; }
+
+/* Nota del desglose antes de confirmar la verificación */
+.sv-modal-note { margin-top: 14px; padding: 12px 14px; border-radius: 10px;
+                 background: #f2fbfc; border: 1px solid #cfe9ed;
+                 font-size: 12.5px; color: #2b4f5a; line-height: 1.5; }
+
+/* Detalle de cómo se calcula el honorario, bajo su línea del desglose */
+.sv-fee-detail { display: block; font-size: 11px; color: #8a98a0; margin-top: 2px; }

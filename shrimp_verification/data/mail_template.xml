@@ -1,0 +1,103 @@
+<odoo>
+  <data noupdate="1">
+
+    <record id="mail_template_verification_assigned" model="mail.template">
+      <field name="name">Verificación asignada</field>
+      <field name="model_id" ref="shrimp_verification.model_shrimp_verification"/>
+      <field name="subject">Nueva verificación asignada: {{ object.name }}</field>
+      <field name="email_from">{{ user.email_formatted or '' }}</field>
+      <field name="body_html" type="html">
+        <div style="font-family:Arial,sans-serif;font-size:14px;color:#243b45;">
+          <p>Hola <t t-out="object.verifier_partner_id.name or ''"/>,</p>
+          <p>Se te asignó una nueva verificación de campo.</p>
+          <table style="border-collapse:collapse;margin:12px 0;">
+            <tr><td style="padding:4px 12px 4px 0;"><b>Referencia</b></td><td><t t-out="object.name or ''"/></td></tr>
+            <tr><td style="padding:4px 12px 4px 0;"><b>Producto</b></td><td><t t-out="object.product_id.name or ''"/></td></tr>
+            <tr><td style="padding:4px 12px 4px 0;"><b>Vendedor</b></td><td><t t-out="object.seller_partner_id.name or ''"/></td></tr>
+            <tr><td style="padding:4px 12px 4px 0;"><b>Comprador</b></td><td><t t-out="object.buyer_partner_id.name or ''"/></td></tr>
+            <tr><td style="padding:4px 12px 4px 0;"><b>Cantidad</b></td><td><t t-out="object.transaction_id.transaction_qty or 0"/></td></tr>
+          </table>
+          <p>Debes registrar los cinco análisis: peso, cuerpo o cola, metabisulfito,
+             clasificación y sabor.</p>
+          <p>
+            <a t-attf-href="{{ object.get_base_url() }}/verificador/verificacion/{{ object.uuid_ref }}"
+               style="background:#123e5c;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;">
+              Abrir en mi bandeja
+            </a>
+          </p>
+        </div>
+      </field>
+    </record>
+
+    <record id="mail_template_verification_verdict" model="mail.template">
+      <field name="name">Veredicto de verificación</field>
+      <field name="model_id" ref="shrimp_verification.model_shrimp_verification"/>
+      <field name="subject">Tu compra fue verificada: {{ object.name }}</field>
+      <field name="email_from">{{ user.email_formatted or '' }}</field>
+      <field name="body_html" type="html">
+        <div style="font-family:Arial,sans-serif;font-size:14px;color:#243b45;">
+          <p>Hola <t t-out="object.buyer_partner_id.name or ''"/>,</p>
+
+          <t t-if="object.state in ('approved','approved_obs')">
+            <p>El verificador <b><t t-out="object.verifier_partner_id.name or ''"/></b>
+               <t t-if="object.state == 'approved'">aprobó</t>
+               <t t-else="">aprobó <b>con observaciones</b></t>
+               la inspección de tu compra. Ya puedes concluirla.</p>
+          </t>
+          <t t-else="">
+            <p>El verificador <b><t t-out="object.verifier_partner_id.name or ''"/></b>
+               <b>rechazó</b> la inspección. La compra fue cancelada y el producto
+               volvió a quedar disponible.</p>
+          </t>
+
+          <table style="border-collapse:collapse;margin:12px 0;">
+            <tr><td style="padding:4px 12px 4px 0;"><b>Rendimiento</b></td><td><t t-out="'%.2f' % (object.yield_pct or 0)"/> %</td></tr>
+            <tr><td style="padding:4px 12px 4px 0;"><b>Clase A</b></td><td><t t-out="'%.2f' % (object.yield_class_a_pct or 0)"/> %</td></tr>
+            <tr><td style="padding:4px 12px 4px 0;"><b>Metabisulfito</b></td><td><t t-out="object.metabisulfite_ppm or 0"/> ppm</td></tr>
+            <tr><td style="padding:4px 12px 4px 0;"><b>Sabor</b></td><td><t t-out="object.taste_result or '-'"/></td></tr>
+          </table>
+
+          <t t-if="object.incident_notes">
+            <p style="background:#fff4e5;border-left:4px solid #e69c24;padding:10px;">
+              <b>Incidencias:</b> <t t-out="object.incident_notes"/>
+            </p>
+          </t>
+
+          <p>
+            <a t-attf-href="{{ object.get_base_url() }}/marketplace/compras"
+               style="background:#123e5c;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;">
+              Ver mis compras
+            </a>
+          </p>
+        </div>
+      </field>
+    </record>
+
+    <record id="mail_template_accreditation_approved" model="mail.template">
+      <field name="name">Acreditación de verificador aprobada</field>
+      <field name="model_id" ref="shrimp_user_registry.model_shrimp_user_certificate_line"/>
+      <field name="subject">Tu acreditación fue aprobada</field>
+      <field name="email_from">{{ user.email_formatted or '' }}</field>
+      <field name="body_html" type="html">
+        <div style="font-family:Arial,sans-serif;font-size:14px;color:#243b45;">
+          <p>Hola <t t-out="object.partner_id.name or ''"/>,</p>
+          <p>Tu acreditación <b><t t-out="object.certificate_id.name or ''"/></b> fue
+             <b>aprobada</b>. Ya apareces como verificador disponible para los
+             compradores del marketplace.</p>
+          <table style="border-collapse:collapse;margin:12px 0;">
+            <tr><td style="padding:4px 12px 4px 0;"><b>Número</b></td><td><t t-out="object.certificate_number or '-'"/></td></tr>
+            <tr><td style="padding:4px 12px 4px 0;"><b>Vigente hasta</b></td><td><t t-out="object.expiry_date or 'sin vencimiento'"/></td></tr>
+          </table>
+          <p>Las órdenes de verificación te llegarán a tu bandeja.</p>
+          <p>
+            <a t-attf-href="{{ object.get_base_url() }}/verificador/bandeja"
+               style="background:#123e5c;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;">
+              Abrir mi bandeja
+            </a>
+          </p>
+        </div>
+      </field>
+    </record>
+
+  </data>
+</odoo>

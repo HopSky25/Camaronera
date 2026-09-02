@@ -1,0 +1,32 @@
+<odoo>
+
+  <template id="purchases_list_verification_actions"
+            inherit_id="shrimp_marketplace.marketplace_purchased_products"
+            name="Compras - acciones según el estado de verificación">
+
+    <!-- Comprobante: la compra pendiente todavía no se ha realizado, así que no
+         hay nada que comprobar. Tampoco en una compra cancelada. -->
+    <xpath expr="//a[contains(@t-att-href, 'marketplace/thanks')]" position="attributes">
+      <attribute name="t-if">tx.state not in ('pending_verification', 'cancel')</attribute>
+    </xpath>
+
+    <!-- Certificado PDF: certifica la cadena de custodia. Mientras la compra
+         está pendiente no se han movido lotes, así que el certificado saldría
+         vacío y daría una garantía que todavía no existe. -->
+    <xpath expr="//a[contains(@t-att-href, 'trazabilidad/pdf')]" position="attributes">
+      <attribute name="t-if">tx.state not in ('pending_verification', 'cancel')</attribute>
+    </xpath>
+
+    <!-- En su lugar, acceso al estado de la verificación en curso. -->
+    <xpath expr="//a[contains(@t-att-href, 'marketplace/thanks')]" position="before">
+      <t t-if="tx.state == 'pending_verification'">
+        <a t-attf-href="/marketplace/verificacion/pendiente/#{tx.uuid_ref}"
+           class="s-btn s-btn-primary">
+          <i class="fa fa-hourglass-half me-1"/> Ver verificación
+        </a>
+      </t>
+    </xpath>
+
+  </template>
+
+</odoo>

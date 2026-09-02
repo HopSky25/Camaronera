@@ -156,6 +156,10 @@ class ShrimpRegistryController(http.Controller):
                     "farm_area_ha": _to_float(post.get("farm_area_ha"), 0.0),
                 })
 
+            # Hook de extension: otros modulos (p. ej. shrimp_verification)
+            # aportan aqui los campos propios de su rol y sus validaciones.
+            partner_vals.update(self._extra_partner_vals(user_type, post))
+
             # -----------------------------
             # 4. CREACIÓN TRANSACCIONAL
             # -----------------------------
@@ -281,6 +285,14 @@ class ShrimpRegistryController(http.Controller):
                 "values": post,
             })
         
+
+    def _extra_partner_vals(self, user_type, post):
+        """Campos adicionales del partner segun el tipo de usuario.
+
+        Punto de extension para modulos que agregan roles al registro. Puede
+        lanzar ValidationError si el rol tiene requisitos propios.
+        """
+        return {}
 
     @http.route("/registro/certificados", type="json", auth="public", website=True, csrf=False)
     def certificados_por_rol(self, role=None):

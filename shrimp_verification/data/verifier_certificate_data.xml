@@ -1,0 +1,31 @@
+<odoo>
+  <data noupdate="1">
+    <!-- Catálogo mínimo de acreditaciones del verificador. Un verificador debe
+         tener al menos una de estas aprobada y vigente para poder inspeccionar. -->
+    <record id="cert_acreditacion_verificador" model="shrimp.certificate">
+      <field name="name">Acreditación de Verificador</field>
+      <field name="issuer">Organismo de acreditación</field>
+      <field name="role">verificador</field>
+      <field name="certificate_type">quality</field>
+      <field name="code">ACRED-VER</field>
+      <field name="description">Documento que autoriza a la empresa o persona a realizar verificaciones de campo de camarón.</field>
+      <field name="expires_required" eval="True"/>
+      <field name="duration_value">2</field>
+      <field name="duration_period">years</field>
+      <field name="sequence">1</field>
+    </record>
+
+    <record id="cert_habilitacion_laboratorio_analisis" model="shrimp.certificate">
+      <field name="name">Habilitación de laboratorio de análisis</field>
+      <field name="issuer">Agrocalidad</field>
+      <field name="role">verificador</field>
+      <field name="certificate_type">biosecurity</field>
+      <field name="code">HAB-LAB</field>
+      <field name="description">Habilitación para realizar los ensayos de metabisulfito y calidad.</field>
+      <field name="expires_required" eval="True"/>
+      <field name="duration_value">1</field>
+      <field name="duration_period">years</field>
+      <field name="sequence">2</field>
+    </record>
+  </data>
+</odoo>

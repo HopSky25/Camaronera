@@ -1,0 +1,76 @@
+<odoo>
+
+  <template id="submenu_mi_panel_verificador"
+            inherit_id="shrimp_marketplace.submenu_mi_panel_dropdown"
+            name="Mi panel - verificador">
+
+    <!-- El desplegable de vendedor/comprador no se muestra a un verificador. -->
+    <xpath expr="//li[ul[contains(@t-attf-class, 'mp-menu')]]" position="attributes">
+      <attribute name="t-if">submenu.is_visible and submenu.name == 'Mi panel' and request.env.user.partner_id.shrimp_user_type != 'verificador'</attribute>
+    </xpath>
+
+    <xpath expr="//li[ul[contains(@t-attf-class, 'mp-menu')]]" position="before">
+      <li t-if="submenu.is_visible and submenu.name == 'Mi panel' and request.env.user.partner_id.shrimp_user_type == 'verificador'"
+          t-attf-class="#{item_class or ''} dropdown" role="presentation">
+        <a href="#"
+           t-attf-class="dropdown-toggle #{link_class or ''} #{submenu._is_active() and 'active'} #{dropdown_toggler_classes}"
+           data-bs-toggle="dropdown" data-bs-auto-close="outside" role="menuitem">
+          <span t-field="submenu.name"/>
+        </a>
+        <ul t-attf-class="dropdown-menu mp-menu #{dropdown_menu_classes}" role="menu">
+          <li>
+            <a role="menuitem" class="dropdown-item mp-menu-item" href="/verificador/bandeja?state=assigned">
+              <span class="mp-menu-ico mp-mi-teal"><i class="fa fa-inbox"/></span>
+              <span>Compras por verificar</span>
+            </a>
+          </li>
+          <li>
+            <a role="menuitem" class="dropdown-item mp-menu-item" href="/verificador/bandeja?state=in_field">
+              <span class="mp-menu-ico mp-mi-amber"><i class="fa fa-flask"/></span>
+              <span>En campo</span>
+            </a>
+          </li>
+          <li>
+            <a role="menuitem" class="dropdown-item mp-menu-item" href="/verificador/bandeja?state=done">
+              <span class="mp-menu-ico mp-mi-navy"><i class="fa fa-gavel"/></span>
+              <span>Por dictaminar</span>
+            </a>
+          </li>
+          <li>
+            <a role="menuitem" class="dropdown-item mp-menu-item" href="/verificador/bandeja?state=approved">
+              <span class="mp-menu-ico mp-mi-green"><i class="fa fa-check-circle"/></span>
+              <span>Ya verificadas</span>
+            </a>
+          </li>
+          <li><hr class="dropdown-divider"/></li>
+          <li>
+            <a role="menuitem" class="dropdown-item mp-menu-item" href="/verificador/bandeja">
+              <span class="mp-menu-ico mp-mi-blue"><i class="fa fa-list"/></span>
+              <span>Todas mis verificaciones</span>
+            </a>
+          </li>
+          <li>
+            <a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace/mis-certificados">
+              <span class="mp-menu-ico mp-mi-coral"><i class="fa fa-id-badge"/></span>
+              <span>Mi acreditación</span>
+            </a>
+          </li>
+          <li>
+            <a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace/mi-cuenta">
+              <span class="mp-menu-ico mp-mi-teal"><i class="fa fa-user-o"/></span>
+              <span>Mi cuenta</span>
+            </a>
+          </li>
+          <li>
+            <a role="menuitem" class="dropdown-item mp-menu-item fw-semibold" href="/my">
+              <span class="mp-menu-ico mp-mi-navy"><i class="fa fa-th-large"/></span>
+              <span>Ver panel completo</span>
+            </a>
+          </li>
+        </ul>
+      </li>
+    </xpath>
+
+  </template>
+
+</odoo>

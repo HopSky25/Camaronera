@@ -1,0 +1,186 @@
+<odoo>
+
+  <!-- ================================================================
+       BANDEJA: acreditaciones de verificadores por aprobar
+       ================================================================ -->
+  <record id="view_verifier_accreditation_list" model="ir.ui.view">
+    <field name="name">shrimp.user.certificate.line.verifier.list</field>
+    <field name="model">shrimp.user.certificate.line</field>
+    <field name="arch" type="xml">
+      <list string="Acreditaciones de verificadores"
+            decoration-success="status == 'approved'"
+            decoration-danger="status == 'rejected'"
+            decoration-warning="status == 'pending'"
+            decoration-muted="is_expired">
+        <field name="partner_id" string="Verificador"/>
+        <field name="certificate_id" string="Acreditación"/>
+        <field name="issuer"/>
+        <field name="certificate_number" string="N.º"/>
+        <field name="issue_date"/>
+        <field name="expiry_date"/>
+        <field name="is_expired" string="Vencida"/>
+        <field name="status" widget="badge"
+               decoration-success="status == 'approved'"
+               decoration-danger="status == 'rejected'"
+               decoration-warning="status == 'pending'"/>
+        <button name="action_open_attachment" type="object"
+                string="Ver documento" icon="fa-eye"/>
+        <button name="action_approve" type="object" string="Aprobar" icon="fa-check"
+                class="text-success" invisible="status == 'approved'"/>
+        <button name="action_reject" type="object" string="Rechazar" icon="fa-times"
+                class="text-danger" invisible="status == 'rejected'"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_verifier_accreditation_search" model="ir.ui.view">
+    <field name="name">shrimp.user.certificate.line.verifier.search</field>
+    <field name="model">shrimp.user.certificate.line</field>
+    <field name="arch" type="xml">
+      <search string="Acreditaciones de verificadores">
+        <field name="partner_id" string="Verificador"/>
+        <field name="certificate_id"/>
+        <field name="certificate_number"/>
+        <filter name="f_pending" string="Por revisar" domain="[('status','=','pending')]"/>
+        <filter name="f_approved" string="Aprobadas" domain="[('status','=','approved')]"/>
+        <filter name="f_rejected" string="Rechazadas" domain="[('status','=','rejected')]"/>
+        <separator/>
+        <filter name="f_expired" string="Vencidas" domain="[('is_expired','=',True)]"/>
+        <filter name="f_valid" string="Vigentes" domain="[('is_expired','=',False)]"/>
+        <group>
+          <filter name="g_partner" string="Verificador" context="{'group_by':'partner_id'}"/>
+          <filter name="g_status" string="Estado" context="{'group_by':'status'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
+  <record id="action_verifier_accreditation" model="ir.actions.act_window">
+    <field name="name">Acreditaciones por aprobar</field>
+    <field name="res_model">shrimp.user.certificate.line</field>
+    <field name="view_mode">list,form</field>
+    <field name="search_view_id" ref="view_verifier_accreditation_search"/>
+    <field name="domain">[('is_verifier_accreditation','=',True)]</field>
+    <field name="context">{'search_default_f_pending': 1}</field>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">No hay acreditaciones por revisar</p>
+      <p>Aquí apruebas el documento que habilita a un verificador para inspeccionar
+         en campo. Hasta que lo apruebes, el verificador aparece a los compradores
+         como <b>sin acreditación vigente</b>.</p>
+    </field>
+  </record>
+
+  <!-- ================================================================
+       FICHA DEL VERIFICADOR
+       ================================================================ -->
+  <record id="view_verifier_partner_list" model="ir.ui.view">
+    <field name="name">res.partner.verifier.list</field>
+    <field name="model">res.partner</field>
+    <field name="arch" type="xml">
+      <list string="Verificadores" decoration-muted="not verifier_is_accredited">
+        <field name="name"/>
+        <field name="ver_razon_social" string="Razón social"/>
+        <field name="ver_representante" string="Responsable"/>
+        <field name="ver_telefono" string="Teléfono"/>
+        <field name="ver_cobertura" string="Cobertura"/>
+        <field name="ver_registro_num" string="N.º registro"/>
+        <field name="verifier_is_accredited" string="Acreditado" widget="boolean_toggle" readonly="1"/>
+        <field name="verification_count" string="Asignadas"/>
+        <field name="verification_done_count" string="Aprobadas"/>
+        <field name="shrimp_rating_avg" string="Calificación"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_verifier_partner_form" model="ir.ui.view">
+    <field name="name">res.partner.verifier.form</field>
+    <field name="model">res.partner</field>
+    <field name="arch" type="xml">
+      <form string="Verificador">
+        <sheet>
+          <div class="oe_title">
+            <h1><field name="name" placeholder="Nombre del verificador"/></h1>
+          </div>
+
+          <div class="alert alert-warning" role="alert" invisible="verifier_is_accredited">
+            Sin acreditación aprobada y vigente. Los compradores lo ven marcado
+            como <b>sin acreditación vigente</b>.
+          </div>
+          <div class="alert alert-success" role="status" invisible="not verifier_is_accredited">
+            Acreditado y disponible para los compradores.
+          </div>
+
+          <group>
+            <group string="Datos del verificador">
+              <field name="shrimp_user_type" readonly="1"/>
+              <field name="ver_razon_social"/>
+              <field name="ver_representante"/>
+              <field name="ver_telefono"/>
+              <field name="ver_registro_num"/>
+            </group>
+            <group string="Operación">
+              <field name="email"/>
+              <field name="vat_or_id"/>
+              <field name="ver_ubicacion"/>
+              <field name="ver_cobertura"/>
+              <field name="verifier_is_accredited" readonly="1"/>
+              <field name="verifier_accreditation_line_id" readonly="1"/>
+            </group>
+          </group>
+
+          <notebook>
+            <page string="Acreditaciones">
+              <field name="certificate_line_ids" readonly="1">
+                <list decoration-success="status == 'approved'"
+                      decoration-danger="status == 'rejected'"
+                      decoration-warning="status == 'pending'">
+                  <field name="certificate_id"/>
+                  <field name="certificate_number"/>
+                  <field name="issue_date"/>
+                  <field name="expiry_date"/>
+                  <field name="status" widget="badge"/>
+                  <button name="action_open_attachment" type="object"
+                          string="Ver documento" icon="fa-eye"/>
+                  <button name="action_approve" type="object" string="Aprobar"
+                          icon="fa-check" class="text-success" invisible="status == 'approved'"/>
+                  <button name="action_reject" type="object" string="Rechazar"
+                          icon="fa-times" class="text-danger" invisible="status == 'rejected'"/>
+                </list>
+              </field>
+            </page>
+            <page string="Verificaciones">
+              <field name="verification_ids" readonly="1">
+                <list>
+                  <field name="name"/>
+                  <field name="product_id"/>
+                  <field name="buyer_partner_id"/>
+                  <field name="batch_code"/>
+                  <field name="yield_pct"/>
+                  <field name="state" widget="badge"/>
+                </list>
+              </field>
+            </page>
+          </notebook>
+        </sheet>
+        <chatter/>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_verifier_partner_search" model="ir.ui.view">
+    <field name="name">res.partner.verifier.search</field>
+    <field name="model">res.partner</field>
+    <field name="arch" type="xml">
+      <search string="Verificadores">
+        <field name="name"/>
+        <field name="ver_razon_social"/>
+        <field name="ver_cobertura"/>
+        <filter name="f_accredited" string="Acreditados"
+                domain="[('verifier_is_accredited','=',True)]"/>
+        <filter name="f_not_accredited" string="Sin acreditar"
+                domain="[('verifier_is_accredited','=',False)]"/>
+      </search>
+    </field>
+  </record>
+
+</odoo>

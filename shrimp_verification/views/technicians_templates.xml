@@ -1,0 +1,141 @@
+<odoo>
+
+  <template id="my_technicians" name="Verificador - Mis técnicos">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page py-4">
+
+          <div class="sf-banner mb-4">
+            <div class="sf-banner-row">
+              <div class="sf-banner-txt">
+                <h1>Mis técnicos de campo</h1>
+                <p>Da de alta a quienes hacen las inspecciones. Cada uno entra con
+                   su propia cuenta y firma el informe con su nombre.</p>
+              </div>
+            </div>
+          </div>
+
+          <t t-if="saved"><div class="alert alert-success">Cambios guardados.</div></t>
+          <t t-if="error"><div class="alert alert-danger"><t t-esc="message or 'No se pudo guardar.'"/></div></t>
+
+          <div class="sv-section">
+            <h3>Agregar técnico</h3>
+            <form method="post" action="/verificador/tecnicos/agregar">
+              <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label>Nombre completo <span class="text-danger">*</span></label>
+                  <input class="form-control" name="name" required="required"/>
+                </div>
+                <div class="col-md-4">
+                  <label>Correo (será su usuario) <span class="text-danger">*</span></label>
+                  <input type="email" class="form-control" name="email" required="required"/>
+                </div>
+                <div class="col-md-4">
+                  <label>Contraseña inicial <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control" name="password"
+                         minlength="8" required="required" placeholder="mínimo 8 caracteres"/>
+                </div>
+                <div class="col-md-4">
+                  <label>Teléfono</label>
+                  <input class="form-control" name="phone"/>
+                </div>
+                <div class="col-md-4">
+                  <label>Cargo</label>
+                  <input class="form-control" name="function" placeholder="Técnico de campo"/>
+                </div>
+              </div>
+              <button class="s-btn s-btn-primary mt-3" type="submit">
+                <i class="fa fa-user-plus me-1"/> Agregar técnico
+              </button>
+              <div class="sv-muted small mt-2">
+                Comunícale la contraseña; podrá cambiarla desde su cuenta.
+              </div>
+            </form>
+          </div>
+
+          <div class="sv-section">
+            <h3>Técnicos de <t t-esc="empresa.name"/></h3>
+            <t t-if="tecnicos">
+              <table class="table sv-table align-middle">
+                <thead>
+                  <tr>
+                    <th>Nombre</th><th>Correo</th>
+                    <th class="text-center">Abiertas</th>
+                    <th class="text-center">Completadas</th>
+                    <th>Nota en campo</th>
+                    <th>Estado</th><th/>
+                  </tr>
+                </thead>
+                <tbody>
+                  <t t-foreach="tecnicos" t-as="t">
+                    <tr t-att-class="'' if t.active else 'text-muted'">
+                      <td>
+                        <strong t-esc="t.name"/>
+                        <t t-set="com" t-value="carga.get(t.id, {}).get('ultimo_comentario')"/>
+                        <div t-if="com" class="sv-muted small fst-italic">«<t t-esc="com[:70]"/>»</div>
+                      </td>
+                      <td><t t-esc="t.email or '—'"/></td>
+                      <td class="text-center"><t t-esc="carga.get(t.id, {}).get('abiertas', 0)"/></td>
+                      <td class="text-center"><t t-esc="carga.get(t.id, {}).get('cerradas', 0)"/></td>
+                      <td>
+                        <t t-if="t.tech_rating_count">
+                          <span class="sv-stars">
+                            <t t-foreach="range(5)" t-as="n">
+                              <i t-attf-class="fa fa-star#{'' if n &lt; int(round(t.tech_rating_avg)) else '-o'}"/>
+                            </t>
+                          </span>
+                          <strong t-esc="'{:.1f}'.format(t.tech_rating_avg)"/>
+                          <span class="sv-muted small">
+                            (<t t-esc="t.tech_rating_count"/>)
+                          </span>
+                        </t>
+                        <span t-else="" class="sv-muted small">sin reseñas</span>
+                      </td>
+                      <td>
+                        <span t-if="t.active" class="sv-acc sv-acc--ok">Activo</span>
+                        <span t-else="" class="sv-acc sv-acc--no">Dado de baja</span>
+                      </td>
+                      <td class="text-end">
+                        <form method="post" t-attf-action="/verificador/tecnicos/#{t.id}/estado">
+                          <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                          <button class="s-btn s-btn-ghost" type="submit">
+                            <t t-if="t.active">Dar de baja</t>
+                            <t t-else="">Reactivar</t>
+                          </button>
+                        </form>
+                      </td>
+                    </tr>
+                  </t>
+                </tbody>
+              </table>
+              <div class="alert alert-info mt-2 mb-0">
+                <strong>La nota en campo es información interna.</strong>
+                Los compradores solo ven la calificación de
+                <t t-esc="empresa.name"/>
+                <t t-if="empresa.verifier_rating_count">
+                  (<t t-esc="'{:.1f}'.format(empresa.verifier_rating_avg)"/> ★ sobre
+                  <t t-esc="empresa.verifier_rating_count"/> reseñas)
+                </t>, no la de cada técnico. Esto te sirve para saber a quién
+                apoyar o formar, no para exponerlo.
+              </div>
+              <div class="sv-muted small mt-2">
+                Al dar de baja se desactiva su acceso, pero sus verificaciones
+                anteriores siguen mostrando quién las hizo.
+              </div>
+            </t>
+            <t t-else="">
+              <div class="sv-empty">
+                <i class="fa fa-users fa-2x mb-3"/>
+                <p>Todavía no tienes técnicos. Mientras tanto, las verificaciones
+                   puedes atenderlas tú mismo desde la bandeja.</p>
+              </div>
+            </t>
+          </div>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+</odoo>

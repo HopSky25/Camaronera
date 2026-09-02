@@ -1,0 +1,291 @@
+<odoo>
+
+  <record id="view_shrimp_verification_list" model="ir.ui.view">
+    <field name="name">shrimp.verification.list</field>
+    <field name="model">shrimp.verification</field>
+    <field name="arch" type="xml">
+      <list decoration-success="state in ('approved','approved_obs')"
+            decoration-danger="state == 'rejected'"
+            decoration-info="state == 'in_field'"
+            decoration-muted="state == 'cancelled'">
+        <field name="name"/>
+        <field name="product_id"/>
+        <field name="seller_partner_id"/>
+        <field name="buyer_partner_id"/>
+        <field name="verifier_partner_id"/>
+        <field name="batch_code"/>
+        <field name="yield_pct" widget="percentage" optional="show"/>
+        <field name="metabisulfite_result" optional="show"/>
+        <field name="taste_result" optional="hide"/>
+        <field name="assigned_date" optional="hide"/>
+        <field name="state" widget="badge"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_shrimp_verification_kanban" model="ir.ui.view">
+    <field name="name">shrimp.verification.kanban</field>
+    <field name="model">shrimp.verification</field>
+    <field name="arch" type="xml">
+      <kanban default_group_by="state" quick_create="false">
+        <field name="state"/>
+        <templates>
+          <t t-name="card">
+            <div class="oe_kanban_global_click p-2">
+              <div class="d-flex justify-content-between">
+                <strong><field name="name"/></strong>
+                <span class="badge text-bg-secondary"><field name="batch_code"/></span>
+              </div>
+              <div class="text-muted small mt-1"><field name="product_id"/></div>
+              <div class="small mt-1">
+                <i class="fa fa-user me-1" title="Verificador"/><field name="verifier_partner_id"/>
+              </div>
+              <div class="small mt-1">
+                Rend. <field name="yield_pct"/> % · <field name="total_processed_lb"/> lb
+              </div>
+            </div>
+          </t>
+        </templates>
+      </kanban>
+    </field>
+  </record>
+
+  <record id="view_shrimp_verification_form" model="ir.ui.view">
+    <field name="name">shrimp.verification.form</field>
+    <field name="model">shrimp.verification</field>
+    <field name="arch" type="xml">
+      <form>
+        <header>
+          <button name="action_start_field" string="Iniciar trabajo de campo" type="object"
+                  class="btn-primary" invisible="state != 'assigned'"/>
+          <button name="action_mark_done" string="Informe completo" type="object"
+                  class="btn-primary" invisible="state != 'in_field'"/>
+          <button name="action_approve" string="Aprobar" type="object"
+                  class="btn-primary" invisible="state != 'done'"/>
+          <button name="action_approve_with_observations" string="Aprobar con observaciones"
+                  type="object" invisible="state != 'done'"/>
+          <button name="action_reject" string="Rechazar" type="object"
+                  class="btn-danger" invisible="state not in ('in_field','done')"/>
+          <button name="action_copy_whatsapp" string="Parte para WhatsApp" type="object"
+                  class="btn-secondary" invisible="state == 'assigned'"/>
+          <button name="action_generate_verification_documents" type="object"
+                  string="Facturar honorario"
+                  invisible="invoice_id or state not in ['approved','approved_obs','rejected']"/>
+          <field name="state" widget="statusbar"
+                 statusbar_visible="assigned,in_field,done,approved"/>
+        </header>
+        <sheet>
+          <div class="oe_title">
+            <h1><field name="name" readonly="1"/></h1>
+          </div>
+
+          <group>
+            <group string="Compra">
+              <field name="transaction_id" readonly="1"/>
+              <field name="product_id" readonly="1"/>
+              <field name="seller_partner_id" readonly="1"/>
+              <field name="buyer_partner_id" readonly="1"/>
+              <field name="verifier_partner_id"
+                     readonly="state not in ('assigned',)"/>
+              <field name="fee" readonly="state != 'assigned'"/>
+              <field name="currency_id" invisible="1"/>
+              <field name="margin_pct" readonly="1" invisible="not margin_pct"/>
+              <field name="platform_amount" readonly="1" invisible="not platform_amount"/>
+              <field name="verifier_amount" readonly="1" invisible="not verifier_amount"/>
+              <field name="invoice_id" readonly="1" invisible="not invoice_id"/>
+              <field name="vendor_bill_id" readonly="1" invisible="not vendor_bill_id"/>
+            </group>
+            <group string="Contexto de campo">
+              <field name="batch_code"/>
+              <field name="pond_id"/>
+              <field name="pond_label"/>
+              <field name="facility_id"/>
+              <field name="plant_name"/>
+              <field name="harvest_date"/>
+              <field name="process_date"/>
+            </group>
+          </group>
+
+          <notebook>
+            <page string="1 · Peso">
+              <group>
+                <group>
+                  <field name="weight_sent_lb"/>
+                  <field name="weight_plant_lb"/>
+                  <field name="trash_lb"/>
+                </group>
+                <group>
+                  <field name="overweight_lb"/>
+                  <field name="overweight_factor"/>
+                  <field name="net_weight_lb"/>
+                </group>
+              </group>
+              <div class="alert alert-info" role="status">
+                El <b>factor de sobrepeso</b> es un ratio, no un porcentaje: 1,05
+                significa un 5 % de sobrepeso. El <b>peso neto</b> (planta menos
+                basura) es la base del rendimiento.
+              </div>
+            </page>
+
+            <page string="2 · Cuerpo o cola">
+              <group>
+                <field name="presentation"/>
+                <field name="presentation_matches_product"/>
+              </group>
+              <div class="alert alert-warning" role="alert"
+                   invisible="presentation_matches_product">
+                La presentación encontrada en campo no coincide con la que el
+                vendedor publicó.
+              </div>
+            </page>
+
+            <page string="3 · Metabisulfito">
+              <group>
+                <group>
+                  <field name="metabisulfite_ppm"/>
+                  <field name="metabisulfite_limit_ppm"/>
+                </group>
+                <group>
+                  <field name="metabisulfite_result"/>
+                </group>
+              </group>
+              <field name="metabisulfite_notes" placeholder="Observaciones del análisis..."/>
+            </page>
+
+            <page string="4 · Clasificación">
+              <field name="line_ids">
+                <list editable="bottom">
+                  <field name="sequence" widget="handle"/>
+                  <field name="quality_class"/>
+                  <field name="size_code" placeholder="U15, 16, 21..."/>
+                  <field name="weight_lb" sum="Total"/>
+                  <field name="percent_of_total"/>
+                </list>
+              </field>
+              <group class="mt-3">
+                <group>
+                  <field name="class_a_lb"/>
+                  <field name="class_b_lb"/>
+                  <field name="class_c_lb"/>
+                  <field name="total_processed_lb"/>
+                </group>
+                <group>
+                  <field name="yield_pct"/>
+                  <field name="yield_class_a_pct"/>
+                  <field name="yield_class_b_pct"/>
+                  <field name="yield_class_c_pct"/>
+                </group>
+              </group>
+            </page>
+
+            <page string="5 · Sabor">
+              <group>
+                <group>
+                  <field name="taste_result"/>
+                  <field name="smell_ok"/>
+                  <field name="color_ok"/>
+                </group>
+              </group>
+              <field name="taste_notes" placeholder="Notas de la cata..."/>
+            </page>
+
+            <page string="Gramajes y conteos">
+              <group>
+                <group>
+                  <field name="grams_farm"/>
+                  <field name="grams_plant_1"/>
+                  <field name="grams_plant_2"/>
+                  <field name="grams_variation"/>
+                </group>
+              </group>
+              <field name="count_ids">
+                <list editable="bottom">
+                  <field name="sequence" widget="handle"/>
+                  <field name="value"/>
+                  <field name="note"/>
+                </list>
+              </field>
+            </page>
+
+            <page string="Evidencia e incidencias">
+              <field name="incident_notes"
+                     placeholder="Rotura de cadena de frío, volcamiento, demoras, mal olor..."/>
+              <group>
+                <group>
+                  <field name="gps_latitude"/>
+                  <field name="gps_longitude"/>
+                </group>
+              </group>
+              <field name="photo_ids" widget="many2many_binary"/>
+            </page>
+
+            <page string="Veredicto">
+              <group>
+                <field name="verdict_notes"/>
+                <field name="assigned_date"/>
+                <field name="field_start_date"/>
+                <field name="verified_date"/>
+                <field name="buyer_notified"/>
+              </group>
+            </page>
+          </notebook>
+        </sheet>
+        <chatter/>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_shrimp_verification_search" model="ir.ui.view">
+    <field name="name">shrimp.verification.search</field>
+    <field name="model">shrimp.verification</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="name"/>
+        <field name="batch_code"/>
+        <field name="product_id"/>
+        <field name="verifier_partner_id"/>
+        <field name="buyer_partner_id"/>
+        <filter name="mine" string="Mis verificaciones"
+                domain="[('verifier_partner_id.user_ids','in',uid)]"/>
+        <separator/>
+        <filter name="open" string="Abiertas"
+                domain="[('state','in',['assigned','in_field','done'])]"/>
+        <filter name="approved" string="Aprobadas"
+                domain="[('state','in',['approved','approved_obs'])]"/>
+        <filter name="rejected" string="Rechazadas" domain="[('state','=','rejected')]"/>
+        <group>
+          <filter name="g_state" string="Estado" context="{'group_by':'state'}"/>
+          <filter name="g_verifier" string="Verificador" context="{'group_by':'verifier_partner_id'}"/>
+          <filter name="g_seller" string="Vendedor" context="{'group_by':'seller_partner_id'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
+  <record id="action_shrimp_verification" model="ir.actions.act_window">
+    <field name="name">Verificaciones</field>
+    <field name="res_model">shrimp.verification</field>
+    <field name="view_mode">kanban,list,form</field>
+    <field name="search_view_id" ref="view_shrimp_verification_search"/>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">Todavía no hay verificaciones</p>
+      <p>Las verificaciones se crean solas cuando un comprador adquiere camarón
+         adulto y elige un verificador.</p>
+    </field>
+  </record>
+
+  <record id="action_shrimp_verifiers" model="ir.actions.act_window">
+    <field name="name">Verificadores</field>
+    <field name="res_model">res.partner</field>
+    <field name="view_mode">list,form</field>
+    <field name="domain">[('shrimp_user_type','=','verificador')]</field>
+    <field name="context">{'default_shrimp_user_type': 'verificador'}</field>
+    <field name="search_view_id" ref="view_verifier_partner_search"/>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">Registra tu primer verificador</p>
+      <p>Un verificador es un contacto de tipo Verificador. Puede registrarse
+         solo desde /registro y subir sus certificados de acreditación.</p>
+    </field>
+  </record>
+
+</odoo>

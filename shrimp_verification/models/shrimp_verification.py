@@ -415,6 +415,7 @@ class ShrimpVerification(models.Model):
         records = super().create(vals_list)
         for rec in records:
             rec._notify_verifier_assigned()
+            rec._notify_stage()
         return records
 
     # ==================================================================
@@ -432,6 +433,7 @@ class ShrimpVerification(models.Model):
             if rec.state == "received":
                 rec.state = "assigned"
             rec._notify_technician_assigned()
+            rec._notify_stage()
 
     def action_start_field(self):
         for rec in self:
@@ -446,6 +448,9 @@ class ShrimpVerification(models.Model):
                     "Solo %s, el técnico asignado, puede iniciar este trabajo de campo."
                 ) % rec.technician_partner_id.name)
             rec.write({"state": "in_field", "field_start_date": fields.Datetime.now()})
+            # Comprador y vendedor se enteran en el momento en que el técnico
+            # pisa el sitio: es el dato que más preguntan por WhatsApp.
+            rec._notify_stage()
 
     def _missing_report_fields(self):
         """Qué falta para poder emitir un veredicto. Depende del alcance:
@@ -483,6 +488,7 @@ class ShrimpVerification(models.Model):
                 raise UserError(
                     _("Faltan datos del informe: %s.") % ", ".join(missing))
             rec.state = "done"
+            rec._notify_stage()
 
     def _puede_dictaminar(self, partner):
         """El técnico que fue a campo, o el admin de su empresa."""
@@ -531,6 +537,7 @@ class ShrimpVerification(models.Model):
     def action_cancel(self):
         for rec in self:
             rec.write({"state": "cancelled"})
+            rec._notify_stage()
             rec.transaction_id.action_cancel_for_verification()
 
     # ==================================================================
@@ -665,6 +672,203 @@ class ShrimpVerification(models.Model):
                 "res_id": self.vendor_bill_id.id, "view_mode": "form", "target": "current"}
 
     # ==================================================================
+    # Seguimiento por etapas
+    # ==================================================================
+    # Las etapas visibles del proceso, en orden. La cancelación no está aquí
+    # porque no es un paso del avance sino una salida del camino.
+    ETAPAS = [
+        ("received", "Recibida",         "La verificadora recibió la orden"),
+        ("assigned", "Asignada",         "Hay un técnico responsable"),
+        ("in_field", "En campo",         "El técnico está inspeccionando"),
+        ("done",     "Informe completo", "Los cinco análisis quedaron registrados"),
+        ("verdict",  "Verificada",       "Se emitió el veredicto"),
+    ]
+
+    # Quién se entera de cada cambio de etapa. Comprador y vendedor siguen el
+    # avance de punta a punta: son los que tienen plata en juego. La empresa
+    # verificadora solo recibe aviso de lo que no disparó ella misma.
+    AUDIENCIA_ETAPA = {
+        "received":     ("buyer", "seller"),
+        # El técnico no va aquí: _notify_technician_assigned ya le manda su
+        # propia plantilla, más detallada. Ponerlo sería un correo duplicado.
+        "assigned":     ("buyer", "seller"),
+        "in_field":     ("buyer", "seller", "verifier"),
+        "done":         ("buyer", "seller", "verifier"),
+        "cancelled":    ("buyer", "seller", "verifier", "technician"),
+    }
+
+    def _stage_recipients(self, roles):
+        """Devuelve [(partner, url_de_su_portal)] sin repetidos ni vacíos.
+
+        Cada parte entra por una puerta distinta, así que el botón del correo
+        no puede ser el mismo para todos: al comprador se le manda a sus
+        compras, al vendedor a sus ventas y a la verificadora a la orden.
+        """
+        self.ensure_one()
+        base = self.get_base_url()
+        mapa = {
+            "buyer":      (self.buyer_partner_id,      "/marketplace/compras"),
+            "seller":     (self.seller_partner_id,     "/marketplace/ventas"),
+            "verifier":   (self.verifier_partner_id,   "/verificador/verificacion/%s" % self.uuid_ref),
+            "technician": (self.technician_partner_id, "/verificador/verificacion/%s" % self.uuid_ref),
+        }
+        salida, vistos = [], set()
+        for rol in roles:
+            partner, ruta = mapa.get(rol, (None, ""))
+            if not partner or not partner.email or partner.id in vistos:
+                continue
+            vistos.add(partner.id)
+            salida.append((partner, base + ruta))
+        return salida
+
+    def _notify_stage(self):
+        """Avisa por correo a quien corresponda del cambio de etapa."""
+        self.ensure_one()
+        roles = self.AUDIENCIA_ETAPA.get(self.state)
+        if not roles:
+            return
+        entregados = [
+            (partner, self._send_template(
+                "shrimp_verification.mail_template_verification_stage",
+                partner.email,
+                ctx={"portal_url": url, "destinatario": partner.name},
+            ))
+            for partner, url in self._stage_recipients(roles)
+        ]
+        self._log_notificacion(entregados)
+
+    def _log_notificacion(self, entregados):
+        """Deja constancia en el chatter de a quién se le avisó y a quién no.
+
+        Sin esto, un SMTP mal configurado se traga los correos en silencio y
+        nadie se entera hasta que un comprador reclama que nunca supo nada.
+        """
+        self.ensure_one()
+        if not entregados:
+            return
+        ok = [p.name for p, enviado in entregados if enviado]
+        fallo = [p.name for p, enviado in entregados if not enviado]
+        partes = []
+        if ok:
+            partes.append(_("Notificados por correo: %s.") % ", ".join(ok))
+        if fallo and not self._hay_servidor_de_correo():
+            partes.append(_(
+                "No se envió correo a %s: no hay ningún servidor de correo "
+                "saliente configurado en Ajustes > Técnico > Servidores de "
+                "correo saliente."
+            ) % ", ".join(fallo))
+        elif fallo:
+            partes.append(_(
+                "No se pudo enviar el correo a: %s. Revisa el servidor de "
+                "correo saliente en Ajustes."
+            ) % ", ".join(fallo))
+        # _message_log y no message_post: esto es una anotación de auditoría,
+        # no un mensaje que deba volver a notificar a los seguidores (eso
+        # dispararía una segunda tanda de correos por cada aviso enviado).
+        self.sudo()._message_log(body=" ".join(partes))
+
+    def _stage_index(self):
+        """Hasta qué etapa llegó realmente, como índice de ETAPAS.
+
+        Para una verificación cancelada el estado ya no dice nada del avance,
+        así que se deduce de los hitos que sí quedaron grabados: si hay fecha de
+        veredicto llegó al final, si hay fecha de inicio en campo llegó ahí, y
+        así hacia atrás. Sin esto una cancelación mostraría la línea de tiempo
+        entera en gris, como si nunca hubiera pasado nada.
+        """
+        self.ensure_one()
+        por_estado = {"received": 0, "assigned": 1, "in_field": 2, "done": 3,
+                      "approved": 4, "approved_obs": 4, "rejected": 4}
+        if self.state in por_estado:
+            return por_estado[self.state]
+        if self.verified_date:
+            return 4
+        if self.field_start_date:
+            return 2
+        if self.technician_partner_id:
+            return 1
+        return 0
+
+    def stage_timeline(self):
+        """Línea de tiempo para el correo: qué etapas ya pasaron, cuál es la
+        actual y cuáles faltan. Se calcula acá y no en la plantilla para que el
+        HTML del correo quede legible."""
+        self.ensure_one()
+        indice = self._stage_index()
+        cancelada = self.state == "cancelled"
+        pasos = []
+        for i, (_clave, titulo, detalle) in enumerate(self.ETAPAS):
+            # "Verificada" solo es cierto si el veredicto fue favorable; en un
+            # rechazo la etapa igual se cumplió, pero se llama de otro modo.
+            if _clave == "verdict" and self.state in ("rejected", "cancelled"):
+                titulo = _("Veredicto")
+            if cancelada:
+                estado = "hecha" if i <= indice else "pendiente"
+            else:
+                estado = "hecha" if i < indice else ("actual" if i == indice else "pendiente")
+            pasos.append({"titulo": titulo, "detalle": detalle, "estado": estado})
+        if cancelada:
+            pasos.append({
+                "titulo": _("Cancelada"),
+                "detalle": _("El proceso se interrumpió aquí"),
+                "estado": "cancelada",
+            })
+        return pasos
+
+    def etiqueta(self, campo):
+        """Texto legible de un campo de selección. En los correos no puede
+        salir la clave interna: al comprador "good" no le dice nada, "Bueno" sí."""
+        self.ensure_one()
+        valor = self[campo]
+        if not valor:
+            return "-"
+        seleccion = self._fields[campo]._description_selection(self.env)
+        return dict(seleccion).get(valor, valor)
+
+    def stage_headline(self):
+        """Titular del correo. En castellano llano: lo lee un camaronero, no un
+        operador del sistema."""
+        self.ensure_one()
+        return {
+            "received":     _("Tu compra entró a verificación"),
+            "assigned":     _("Ya hay un técnico asignado"),
+            "in_field":     _("Comenzó la inspección en campo"),
+            "done":         _("El informe de campo está completo"),
+            "approved":     _("La verificación fue aprobada"),
+            "approved_obs": _("Aprobada con observaciones"),
+            "rejected":     _("La verificación fue rechazada"),
+            "cancelled":    _("La verificación fue cancelada"),
+        }.get(self.state, _("Avance de la verificación"))
+
+    def stage_detail(self):
+        """Explicación de qué pasó y qué sigue, según la etapa."""
+        self.ensure_one()
+        empresa = self.verifier_partner_id.name or _("la verificadora")
+        tecnico = self.technician_partner_id.name or _("un técnico")
+        return {
+            "received": _(
+                "%(empresa)s recibió la orden de verificación y va a asignar un "
+                "técnico de campo."
+            ) % {"empresa": empresa},
+            "assigned": _(
+                "%(empresa)s asignó a %(tecnico)s como técnico responsable de la "
+                "inspección. Él es quien va a ir al sitio y quien firma el informe."
+            ) % {"empresa": empresa, "tecnico": tecnico},
+            "in_field": _(
+                "%(tecnico)s está en el sitio realizando los cinco análisis: peso, "
+                "cuerpo o cola, metabisulfito, clasificación y sabor."
+            ) % {"tecnico": tecnico},
+            "done": _(
+                "%(tecnico)s terminó de registrar los análisis. %(empresa)s va a "
+                "revisar el informe y emitir el veredicto."
+            ) % {"tecnico": tecnico, "empresa": empresa},
+            "cancelled": _(
+                "La verificación se canceló y la compra quedó sin efecto. El "
+                "producto vuelve a estar disponible."
+            ),
+        }.get(self.state, "")
+
+    # ==================================================================
     # Avisos
     # ==================================================================
     def _notify_technician_assigned(self):
@@ -710,22 +914,52 @@ class ShrimpVerification(models.Model):
                             self.verifier_partner_id.email)
 
     def _notify_buyer_verdict(self):
+        """El veredicto le importa a las dos partes: al comprador porque decide
+        si concluye la compra, y al vendedor porque de él salió el producto."""
         self.ensure_one()
-        self._send_template("shrimp_verification.mail_template_verification_verdict",
-                            self.buyer_partner_id.email)
+        entregados = []
+        for partner, url in self._stage_recipients(("buyer", "seller")):
+            ok = self._send_template(
+                "shrimp_verification.mail_template_verification_verdict",
+                partner.email,
+                ctx={"portal_url": url, "destinatario": partner.name},
+            )
+            entregados.append((partner, ok))
         self.sudo().write({"buyer_notified": True})
+        self._log_notificacion(entregados)
 
-    def _send_template(self, xmlid, email_to):
-        if not email_to:
-            return
+    @api.model
+    def _hay_servidor_de_correo(self):
+        """¿Hay a dónde entregar el correo?
+
+        Si no hay ningún servidor SMTP configurado, intentar el envío no falla
+        rápido: Odoo abre un socket y espera el timeout por cada destinatario,
+        y eso deja colgada la página del comprador varios minutos. Mejor no
+        intentarlo y decirlo claro en el chatter.
+        """
+        return bool(self.env["ir.mail_server"].sudo().search_count([]))
+
+    def _send_template(self, xmlid, email_to, ctx=None):
+        """Envía una plantilla a una dirección. Devuelve True solo si el correo
+        salió de verdad: si no hay servidor SMTP configurado Odoo no lanza
+        excepción, deja el mail en estado ``exception``, y eso hay que poder
+        distinguirlo de un envío exitoso para reportarlo en el chatter."""
+        if not email_to or not self._hay_servidor_de_correo():
+            return False
         try:
             template = self.env.ref(xmlid, raise_if_not_found=False)
-            if template:
-                template.sudo().send_mail(
-                    self.id, force_send=True, email_values={"email_to": email_to})
+            if not template:
+                return False
+            if ctx:
+                template = template.with_context(**ctx)
+            mail_id = template.sudo().send_mail(
+                self.id, force_send=True, email_values={"email_to": email_to})
         except Exception:
             # El correo nunca debe romper el flujo de compra ni el de verificación.
-            pass
+            return False
+        # Con force_send y auto_delete, el registro desaparece al enviarse bien.
+        mail = self.env["mail.mail"].sudo().browse(mail_id).exists()
+        return (not mail) or mail.state == "sent"
 
     # ==================================================================
     # Parte para WhatsApp — mismo formato que ya usa el equipo

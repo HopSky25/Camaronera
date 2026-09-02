@@ -15,7 +15,9 @@ producción. Es idempotente: se puede correr las veces que haga falta.
 """
 
 # --- Ajusta esto según el entorno -------------------------------------------
-NOMBRE_SITIO_VERIFICADORES = "Verificadores"
+# El sitio se identifica por su dominio, no por su nombre: el nombre es de
+# marca y cambia (era "Verificadores", hoy es "Trazul Verificadores"), mientras
+# que el dominio es lo que de verdad lo distingue para Odoo.
 DOMINIO_CAMARONERA = "http://localhost:8069"
 DOMINIO_VERIFICADORES = "http://verificadores.localhost:8069"
 # ----------------------------------------------------------------------------
@@ -32,11 +34,16 @@ MENU_VERIFICADOR = [
 W = env["website"].sudo()
 M = env["website.menu"].sudo()
 
-verif = W.search([("name", "=", NOMBRE_SITIO_VERIFICADORES)], limit=1)
+verif = W.search([("domain", "like", DOMINIO_VERIFICADORES)], limit=1)
+if not verif:
+    # Reserva: por nombre, para la primera corrida en una base donde el sitio
+    # existe pero todavía no tiene dominio asignado.
+    verif = W.search([("name", "ilike", "verificador")], limit=1)
 if not verif:
     raise SystemExit(
-        "No existe el sitio '%s'. Créalo en Sitio web › Configuración › Sitios web "
-        "y vuelve a ejecutar este script." % NOMBRE_SITIO_VERIFICADORES)
+        "No existe el sitio de verificadores (dominio %s). Créalo en "
+        "Sitio web › Configuración › Sitios web y vuelve a ejecutar este script."
+        % DOMINIO_VERIFICADORES)
 
 principal = W.search([("id", "!=", verif.id)], order="id", limit=1)
 if not principal:
@@ -62,6 +69,32 @@ M.search([("website_id", "=", verif.id), ("parent_id", "!=", False)]).unlink()
 for nombre, url, secuencia in MENU_VERIFICADOR:
     M.create({"name": nombre, "url": url, "parent_id": raiz.id,
               "sequence": secuencia, "website_id": verif.id})
+
+# ---------------------------------------------------------------------------
+# Sanear la personalizacion de tema del sitio
+# ---------------------------------------------------------------------------
+# Al crear un sitio, Odoo deja preparada la osamenta de personalizacion del
+# tema: dos .scss de override (user_values.scss y user_theme_color_palette.scss)
+# apuntados por registros ir.asset con directiva "replace". Si el tema no
+# termina de instalarse, esos overrides no se pueden resolver, y UN SOLO
+# archivo irresoluble tumba el bundle CSS completo del sitio: la pagina sale
+# sin maquetar, con todo pegado al margen izquierdo, y Odoo no lo reporta como
+# error en el log, solo escribe el aviso dentro del propio bundle.
+#
+# Como no personalizamos colores desde el editor —la identidad de Trazul vive
+# en verification.css— lo correcto es no tener esos overrides.
+for sitio in W.search([]):
+    if sitio.theme_id and sitio.theme_id.state != "installed":
+        print("  quitando tema sin instalar de [%s]: %s" % (sitio.id, sitio.theme_id.name))
+        sitio.theme_id = False
+    Assets = env["website.assets"].with_context(website_id=sitio.id).sudo()
+    for url in ("/website/static/src/scss/options/user_values.scss",
+                "/website/static/src/scss/options/colors/user_theme_color_palette.scss"):
+        Assets.reset_asset(url, "web.assets_frontend")
+
+# Los bundles ya compilados guardan el error en cache: hay que botarlos.
+env["ir.attachment"].sudo().search([("url", "like", "/web/assets/%")]).unlink()
+env.registry.clear_cache("assets")
 
 env.cr.commit()
 

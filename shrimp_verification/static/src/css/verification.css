@@ -270,3 +270,101 @@
 }
 .sv-banner-aceptar-item:hover { background: #eaf7f8; color: #123E5C; }
 .sv-banner-aceptar-plazo { color: #5A6B74; font-size: .86rem; white-space: nowrap; }
+
+/* ==================================================================
+   Portada del sitio de verificadores
+   Estas clases se usaban en verifier_website.xml sin ninguna regla
+   detrás: la página salía sin maquetar, con todo pegado al margen
+   izquierdo. Aquí van con la marca Trazul.
+   ================================================================== */
+.vw-hero {
+  /* Color plano primero: si el degradado no se aplica, la cabecera sigue
+     siendo oscura y el texto blanco se lee. */
+  background-color: #123E5C;
+  background-image: linear-gradient(135deg, #0D2B3E 0%, #123E5C 45%, #14A0B0 100%);
+  color: #fff;
+  padding: 64px 24px 72px;
+}
+.vw-hero-inner { max-width: 900px; margin: 0 auto; }
+.vw-hero h1 {
+  font-size: clamp(2rem, 4.5vw, 3rem); font-weight: 800;
+  letter-spacing: -.02em; margin: 14px 0 16px; color: #fff;
+}
+.vw-hero p {
+  font-size: 1.08rem; line-height: 1.65;
+  color: rgba(255, 255, 255, .88); max-width: 660px; margin: 0;
+}
+.vw-badge {
+  display: inline-flex; align-items: center;
+  background: rgba(255, 255, 255, .16);
+  border: 1px solid rgba(255, 255, 255, .28);
+  color: #fff; border-radius: 999px;
+  padding: 6px 14px; font-size: .82rem;
+  text-transform: uppercase; letter-spacing: .08em; font-weight: 600;
+}
+.vw-cta { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 28px; }
+/* Los botones base declaran el color con !important, así que invertirlos sobre
+   la cabecera oscura exige lo mismo: sin esto "Entrar" queda blanco sobre
+   blanco y el fantasma sale con texto oscuro sobre fondo oscuro. */
+.vw-cta .s-btn-primary {
+  background: #fff; border-color: #fff; color: #123E5C !important;
+}
+.vw-cta .s-btn-primary:hover {
+  background: #eaf7f8; border-color: #eaf7f8; color: #0D2B3E !important;
+}
+.vw-cta .s-btn-ghost {
+  background: transparent; border: 1px solid rgba(255, 255, 255, .55);
+  color: #fff !important;
+}
+.vw-cta .s-btn-ghost:hover {
+  background: rgba(255, 255, 255, .14); color: #fff !important;
+}
+
+/* Los tres pasos, en tarjetas */
+.vw-steps {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
+  max-width: 1080px; margin: -36px auto 0; padding: 0 24px;
+  position: relative; z-index: 2;
+}
+@media (max-width: 900px) { .vw-steps { grid-template-columns: 1fr; margin-top: -24px; } }
+.vw-step {
+  background: #fff; border: 1px solid #e3eaed; border-radius: 12px;
+  padding: 26px 22px; box-shadow: 0 4px 18px rgba(18, 62, 92, .10);
+}
+.vw-step h3 { font-size: 1.1rem; font-weight: 700; color: #123E5C; margin: 14px 0 8px; }
+.vw-step p { font-size: .94rem; line-height: 1.6; color: #5A6B74; margin: 0; }
+.vw-step-num {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: #14A0B0; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 1.05rem;
+}
+
+/* Cierre: los cinco análisis */
+.vw-note {
+  max-width: 1080px; margin: 40px auto 60px; padding: 26px 28px;
+  background: #f7fafb; border: 1px solid #e3eaed;
+  border-left: 5px solid #14A0B0; border-radius: 12px;
+}
+.vw-note h4 { font-size: 1.08rem; font-weight: 700; color: #123E5C; margin: 0 0 8px; }
+.vw-note p { color: #3d5560; margin: 0 0 6px; font-size: 1rem; }
+.vw-note-small { font-size: .9rem !important; color: #8b9ba3 !important; margin: 0 !important; }
+
+/* ==================================================================
+   Insignias de estado y enlaces de evidencia
+   ================================================================== */
+.sv-acc {
+  display: inline-block; border-radius: 999px;
+  padding: 3px 11px; font-size: .78rem; font-weight: 600;
+  background: #eef2f4; color: #5A6B74;
+}
+.sv-acc--ok { background: #eaf7f8; color: #0f7c88; }
+.sv-acc--no { background: #fdecea; color: #b3261e; }
+
+.sv-evidence {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: #f7fafb; border: 1px solid #e3eaed; border-radius: 8px;
+  padding: 6px 12px; font-size: .88rem;
+  color: #123E5C; text-decoration: none;
+}
+.sv-evidence:hover { background: #eaf7f8; color: #0D2B3E; border-color: #cfe9ee; }

@@ -846,14 +846,16 @@
 
                     <span class="sv-verifier-head">
                       <span class="sv-verifier-name"><t t-esc="ver.name"/></span>
-                      <t t-if="ver.verifier_accreditation_line_id">
-                        <a t-attf-href="/marketplace/verificador/#{ver.uuid_ref}/acreditacion"
-                           target="_blank" class="sv-eye"
-                           title="Ver el certificado que lo acredita como verificador"
-                           onclick="event.stopPropagation();">
-                          <i class="fa fa-eye"/>
-                        </a>
-                      </t>
+                      <!-- El ojo abre la ficha de la verificadora. Antes tiraba
+                           directo al archivo del certificado, que sin contexto no
+                           dice mucho: el comprador necesita saber a quién le está
+                           confiando la inspección, no solo que tiene un papel. -->
+                      <button type="button" class="sv-eye js-verif-info"
+                              t-attf-data-verif="verif_#{ver.id}"
+                              title="Ver la ficha de la verificadora"
+                              onclick="event.preventDefault(); event.stopPropagation();">
+                        <i class="fa fa-eye"/>
+                      </button>
                     </span>
 
                     <span class="sv-verifier-meta">
@@ -886,6 +888,176 @@
                     <span class="sv-verifier-check"><i class="fa fa-check"/></span>
                   </label>
                 </t>
+                <!-- Fichas de las verificadoras. Se rinden todas aquí, ocultas:
+                     el visor de certificados de shrimp_marketplace engancha sus
+                     botones al cargar la página, así que tienen que existir ya
+                     en el DOM para que el PDF funcione desde dentro del modal. -->
+                <t t-foreach="verifiers" t-as="ver">
+                  <div class="sv-info-modal" t-attf-id="verif_#{ver.id}">
+                    <div class="sv-info-card">
+                      <div class="sv-info-head">
+                        <div>
+                          <div class="sv-info-nombre"><t t-esc="ver.name"/></div>
+                          <div class="sv-info-sub" t-if="ver.ver_razon_social and ver.ver_razon_social != ver.name"
+                               t-esc="ver.ver_razon_social"/>
+                        </div>
+                        <button type="button" class="sv-info-cerrar js-verif-cerrar"
+                                aria-label="Cerrar">
+                          <i class="fa fa-times"/>
+                        </button>
+                      </div>
+
+                      <div class="sv-info-body">
+                        <!-- Acreditación: es lo primero que importa -->
+                        <div class="sv-info-acred">
+                          <div>
+                            <i class="fa fa-check-circle me-1"/>
+                            <strong>Acreditada</strong>
+                            <t t-if="ver.verifier_accreditation_line_id.expiry_date">
+                              · vigente hasta
+                              <t t-esc="ver.verifier_accreditation_line_id.expiry_date.strftime('%d/%m/%Y')"/>
+                            </t>
+                            <div class="sv-info-sub" t-if="ver.verifier_accreditation_line_id.certificate_id">
+                              <t t-esc="ver.verifier_accreditation_line_id.certificate_id.name"/>
+                              <t t-if="ver.verifier_accreditation_line_id.certificate_number">
+                                · N.º <t t-esc="ver.verifier_accreditation_line_id.certificate_number"/>
+                              </t>
+                            </div>
+                          </div>
+                          <!-- El PDF abre en el visor que ya usa el resto del
+                               marketplace: mismo modal con iframe, sin descargar. -->
+                          <t t-set="doc" t-value="ver.verifier_accreditation_line_id.file_attachment_id"/>
+                          <t t-if="doc">
+                            <!-- El icono sigue al tipo de archivo: casi todas las
+                                 acreditaciones son PDF, pero alguna llega escaneada
+                                 como imagen y un icono de PDF ahí engañaría. -->
+                            <t t-set="es_pdf" t-value="(doc.mimetype or '') == 'application/pdf'"/>
+                            <button type="button" class="sv-info-pdf js-cert-view"
+                                    t-attf-data-url="/marketplace/verificador/#{ver.uuid_ref}/acreditacion"
+                                    title="Abrir el certificado de acreditación">
+                              <i t-attf-class="fa fa-file-#{'pdf' if es_pdf else 'image'}-o"/>
+                              <span>Ver certificado</span>
+                            </button>
+                          </t>
+                        </div>
+
+                        <!-- Números del historial en la plataforma -->
+                        <div class="sv-info-cifras">
+                          <div>
+                            <span>Calificación</span>
+                            <strong>
+                              <t t-if="ver.verifier_rating_count">
+                                <t t-esc="'{:.1f}'.format(ver.verifier_rating_avg)"/> / 5
+                              </t>
+                              <t t-else="">—</t>
+                            </strong>
+                            <small>
+                              <t t-if="ver.verifier_rating_count">
+                                <t t-esc="ver.verifier_rating_count"/> reseña<t t-if="ver.verifier_rating_count != 1">s</t>
+                              </t>
+                              <t t-else="">sin reseñas</t>
+                            </small>
+                          </div>
+                          <div>
+                            <span>Inspecciones</span>
+                            <strong t-esc="ver.verification_done_count or 0"/>
+                            <small>concluidas</small>
+                          </div>
+                          <div>
+                            <span>Técnicos</span>
+                            <strong t-esc="ver.field_tech_count or 0"/>
+                            <small>de campo</small>
+                          </div>
+                        </div>
+
+                        <!-- Quién es y dónde opera -->
+                        <div class="sv-info-datos">
+                          <div t-if="ver.ver_representante">
+                            <span>Responsable técnico</span>
+                            <strong t-esc="ver.ver_representante"/>
+                          </div>
+                          <div t-if="ver.ver_registro_num">
+                            <span>Registro</span>
+                            <strong t-esc="ver.ver_registro_num"/>
+                          </div>
+                          <div t-if="ver.ver_ubicacion or ver.city">
+                            <span>Base de operaciones</span>
+                            <strong t-esc="ver.ver_ubicacion or ver.city"/>
+                          </div>
+                          <div t-if="ver.ver_cobertura">
+                            <span>Zonas que cubre</span>
+                            <strong t-esc="ver.ver_cobertura"/>
+                          </div>
+                          <div t-if="ver.ver_telefono or ver.phone">
+                            <span>Teléfono</span>
+                            <strong t-esc="ver.ver_telefono or ver.phone"/>
+                          </div>
+                          <div t-if="ver.email">
+                            <span>Correo</span>
+                            <strong t-esc="ver.email"/>
+                          </div>
+                        </div>
+
+                        <!-- Lo que dijeron otros compradores -->
+                        <t t-set="resenas" t-value="ver.verifier_review_ids.filtered(lambda r: r.comment)[:3]"/>
+                        <t t-if="resenas">
+                          <div class="sv-info-resenas">
+                            <h6>Lo que dicen otros compradores</h6>
+                            <t t-foreach="resenas" t-as="r">
+                              <div class="sv-info-resena">
+                                <span class="sv-stars">
+                                  <t t-foreach="range(5)" t-as="n">
+                                    <i t-attf-class="fa fa-star#{'' if n &lt; r.rating else '-o'}"/>
+                                  </t>
+                                </span>
+                                <p t-esc="r.comment"/>
+                              </div>
+                            </t>
+                          </div>
+                        </t>
+                      </div>
+                    </div>
+                  </div>
+                </t>
+
+                <script type="text/javascript">
+<![CDATA[
+(function(){
+  function init(){
+    function cerrar(){
+      document.querySelectorAll('.sv-info-modal.open').forEach(function(m){
+        m.classList.remove('open');
+      });
+    }
+    document.querySelectorAll('.js-verif-info').forEach(function(b){
+      b.addEventListener('click', function(ev){
+        ev.preventDefault(); ev.stopPropagation();
+        var m = document.getElementById(b.getAttribute('data-verif'));
+        if(m){ cerrar(); m.classList.add('open'); }
+      });
+    });
+    document.querySelectorAll('.js-verif-cerrar').forEach(function(b){
+      b.addEventListener('click', function(ev){ ev.preventDefault(); cerrar(); });
+    });
+    // Clic en el fondo cierra; clic dentro de la tarjeta, no.
+    document.querySelectorAll('.sv-info-modal').forEach(function(m){
+      m.addEventListener('click', function(ev){ if(ev.target === m){ cerrar(); } });
+    });
+    // Escape cierra la ficha, pero solo si el visor del PDF no está abierto:
+    // si no, una sola tecla cerraría las dos capas de golpe.
+    document.addEventListener('keydown', function(ev){
+      if(ev.key !== 'Escape') return;
+      var visor = document.getElementById('certModal');
+      if(visor && visor.classList.contains('open')) return;
+      cerrar();
+    });
+  }
+  if(document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', init); }
+  else { init(); }
+})();
+]]>
+                </script>
+
                 <div id="sv_sin_resultados" class="sv-empty" style="display:none;">
                   <i class="fa fa-search fa-2x mb-2"/>
                   <p class="mb-0">Ninguna verificadora coincide con esa búsqueda.</p>

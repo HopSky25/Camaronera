@@ -443,3 +443,93 @@
 #wrap a:hover { color: #123E5C; }
 /* El marketplace ya tiene su propia paleta: no se le toca. */
 #wrap .shrimp-bg a { color: inherit; }
+
+/* ==================================================================
+   Ficha de la verificadora (la abre el ojo de la tarjeta)
+   z-index 2900: por debajo del visor de certificados de
+   shrimp_marketplace, que está en 3000 y tiene que quedar encima.
+   ================================================================== */
+.sv-info-modal {
+  position: fixed; inset: 0; background: rgba(13, 27, 38, .6);
+  display: none; align-items: center; justify-content: center;
+  z-index: 2900; padding: 20px;
+}
+.sv-info-modal.open { display: flex; }
+.sv-info-card {
+  background: #fff; border-radius: 14px; width: min(620px, 100%);
+  max-height: 88vh; display: flex; flex-direction: column; overflow: hidden;
+  box-shadow: 0 18px 50px rgba(13, 43, 62, .35);
+}
+.sv-info-head {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  padding: 18px 22px; border-bottom: 1px solid #e3eaed;
+  background: linear-gradient(135deg, #0D2B3E 0%, #123E5C 60%, #17788F 100%);
+}
+.sv-info-nombre { font-size: 1.18rem; font-weight: 700; color: #fff; }
+.sv-info-head .sv-info-sub { color: rgba(255, 255, 255, .75); font-size: .86rem; }
+.sv-info-cerrar {
+  background: rgba(255, 255, 255, .16); border: 0; color: #fff;
+  width: 32px; height: 32px; border-radius: 50%; flex: 0 0 auto; cursor: pointer;
+}
+.sv-info-cerrar:hover { background: rgba(255, 255, 255, .3); }
+
+.sv-info-body { padding: 20px 22px; overflow-y: auto; }
+.sv-info-sub { font-size: .84rem; color: #8b9ba3; }
+
+.sv-info-acred {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  background: #eaf7f8; border: 1px solid #cfe9ee; border-radius: 10px;
+  padding: 12px 14px; color: #0f5c66; flex-wrap: wrap;
+}
+.sv-info-acred .fa-check-circle { color: #14A0B0; }
+
+/* Botón del PDF: cuadrado con el icono grande, para que se lea como
+   "aquí está el documento" y no como un enlace más. */
+.sv-info-pdf {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: #fff; border: 1px solid #123E5C; border-radius: 8px;
+  color: #123E5C; padding: 8px 14px; font-size: .9rem; font-weight: 600;
+  cursor: pointer; flex: 0 0 auto;
+}
+.sv-info-pdf .fa { font-size: 1.35rem; color: #b3261e; }
+.sv-info-pdf:hover { background: #123E5C; color: #fff; }
+.sv-info-pdf:hover .fa { color: #fff; }
+
+.sv-info-cifras {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 18px 0;
+}
+.sv-info-cifras > div {
+  background: #f7fafb; border: 1px solid #eef2f4; border-radius: 10px;
+  padding: 12px; text-align: center;
+}
+.sv-info-cifras span {
+  display: block; font-size: .7rem; text-transform: uppercase;
+  letter-spacing: .06em; color: #8b9ba3;
+}
+.sv-info-cifras strong { display: block; font-size: 1.4rem; color: #123E5C; line-height: 1.2; }
+.sv-info-cifras small { color: #8b9ba3; font-size: .76rem; }
+
+.sv-info-datos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; }
+@media (max-width: 520px) {
+  .sv-info-datos { grid-template-columns: 1fr; }
+  .sv-info-cifras { grid-template-columns: 1fr; }
+}
+.sv-info-datos > div { border-bottom: 1px solid #f1f5f6; padding-bottom: 8px; }
+.sv-info-datos span {
+  display: block; font-size: .7rem; text-transform: uppercase;
+  letter-spacing: .06em; color: #8b9ba3;
+}
+.sv-info-datos strong { color: #243b45; font-weight: 600; font-size: .95rem; }
+
+.sv-info-resenas { margin-top: 20px; border-top: 1px solid #e3eaed; padding-top: 14px; }
+.sv-info-resenas h6 { font-size: .82rem; text-transform: uppercase; letter-spacing: .06em; color: #8b9ba3; }
+.sv-info-resena { margin-bottom: 12px; }
+.sv-info-resena p {
+  margin: 2px 0 0; color: #3d5560; font-style: italic; font-size: .92rem;
+  border-left: 3px solid #cfe9ee; padding-left: 10px;
+}
+
+/* El ojo era un <a> y ahora es un <button>: hay que quitarle el aspecto
+   de botón nativo para que siga viéndose igual. */
+button.sv-eye { background: none; border: 0; padding: 0; cursor: pointer; }
+.sv-info-pdf .fa-file-image-o { color: #17788F; }

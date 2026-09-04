@@ -539,8 +539,227 @@
             </t>
           </t>
 
+          <!-- ============================================================
+               EXPEDIENTE CERRADO
+               Una verificación con veredicto ya no se edita, pero es cuando
+               más se consulta: es el respaldo del trabajo hecho. Antes esta
+               página quedaba en blanco en cuanto se dictaminaba.
+               ============================================================ -->
+          <t t-if="v.is_final">
+
+            <!-- Veredicto -->
+            <t t-set="favorable" t-value="v.state in ('approved', 'approved_obs')"/>
+            <div t-attf-class="sv-veredicto sv-veredicto--#{'ok' if favorable else 'ko'}">
+              <div class="sv-veredicto-icono">
+                <i t-attf-class="fa fa-#{'check-circle' if favorable else 'times-circle'}"/>
+              </div>
+              <div class="sv-veredicto-txt">
+                <h2>
+                  <t t-if="v.state == 'approved'">Verificación aprobada</t>
+                  <t t-elif="v.state == 'approved_obs'">Aprobada con observaciones</t>
+                  <t t-elif="v.state == 'rejected'">Verificación rechazada</t>
+                  <t t-else="">Verificación cancelada</t>
+                </h2>
+                <p class="mb-0">
+                  <t t-if="v.verified_date">
+                    Dictaminada el <t t-esc="v.verified_date.strftime('%d/%m/%Y')"/>
+                  </t>
+                  <t t-if="v.technician_partner_id">
+                    · inspección de <strong t-esc="v.technician_partner_id.name"/>
+                  </t>
+                </p>
+              </div>
+            </div>
+
+            <t t-if="v.verdict_notes">
+              <div class="sv-section">
+                <h3>Conclusión del verificador</h3>
+                <p class="mb-0" t-esc="v.verdict_notes"/>
+              </div>
+            </t>
+
+            <!-- Cómo avanzó el proceso -->
+            <div class="sv-section">
+              <h3>Recorrido de la verificación</h3>
+              <table class="sv-linea">
+                <t t-foreach="v.stage_timeline()" t-as="paso">
+                  <tr t-attf-class="sv-linea-paso sv-linea-paso--#{paso['estado']}">
+                    <td class="sv-linea-punto"><span/></td>
+                    <td>
+                      <div class="sv-linea-titulo" t-esc="paso['titulo']"/>
+                      <div class="sv-linea-detalle" t-esc="paso['detalle']"/>
+                    </td>
+                  </tr>
+                </t>
+              </table>
+            </div>
+
+            <!-- Qué hicieron las partes con el informe. Al verificador esto le
+                 importa más que a nadie: es el resultado de su trabajo. -->
+            <t t-if="v.acceptance_ids">
+              <div class="sv-section">
+                <h3>Qué dijeron las partes</h3>
+                <t t-if="v.acceptance_state == 'closed'">
+                  <div class="sv-alert sv-alert--ok">
+                    <i class="fa fa-check-circle me-1"/>
+                    Comprador y vendedor aceptaron tu informe. La compra se cerró.
+                  </div>
+                </t>
+                <t t-elif="v.acceptance_state == 'broken'">
+                  <div class="sv-alert sv-alert--ko">
+                    <i class="fa fa-times-circle me-1"/>
+                    Una de las partes no aceptó el informe y la compra se canceló.
+                  </div>
+                </t>
+                <t t-elif="v.acceptance_state == 'waiting'">
+                  <div class="sv-alert sv-alert--warn">
+                    <i class="fa fa-hourglass-half me-1"/>
+                    Esperando que comprador y vendedor acepten
+                    <t t-if="v.acceptance_deadline">
+                      · plazo hasta el <t t-esc="v._texto_plazo()"/>
+                    </t>
+                  </div>
+                </t>
+                <div class="sv-partes">
+                  <t t-foreach="v.acceptance_ids" t-as="a">
+                    <div t-attf-class="sv-parte sv-parte--#{a.decision}">
+                      <div class="sv-parte-rol">
+                        <t t-if="a.role == 'buyer'">Comprador</t><t t-else="">Vendedor</t>
+                      </div>
+                      <div class="sv-parte-nombre" t-esc="a.partner_id.name"/>
+                      <div class="sv-parte-estado">
+                        <t t-if="a.decision == 'pending'">Sin responder</t>
+                        <t t-elif="a.decision == 'accepted'">Aceptó<t t-if="a.auto"> (venció el plazo)</t></t>
+                        <t t-elif="a.decision == 'counter'">Propuso otro precio</t>
+                        <t t-else="">Rechazó</t>
+                      </div>
+                      <div class="sv-parte-motivo" t-if="a.reason" t-esc="a.reason"/>
+                    </div>
+                  </t>
+                </div>
+              </div>
+            </t>
+
+            <!-- El informe, en lectura -->
+            <div class="sv-section">
+              <h3>Informe registrado</h3>
+              <t t-if="v.scope == 'larvae'">
+                <div class="sv-datos">
+                  <div><span>Cantidad verificada</span><strong t-esc="'{:,.0f}'.format(v.larvae_qty_verified or 0)"/></div>
+                  <div><span>Desvío de cantidad</span><strong t-esc="'{:+.2f} %'.format(v.larvae_qty_diff_pct or 0)"/></div>
+                  <div><span>Supervivencia</span><strong t-esc="'{:.2f} %'.format(v.larvae_survival_rate or 0)"/></div>
+                  <div><span>Tamaño promedio</span><strong t-esc="'{:.3f} mg'.format(v.larvae_avg_size_mg or 0)"/></div>
+                  <div><span>Estado sanitario</span><strong t-esc="v.etiqueta('larvae_health_status')"/></div>
+                </div>
+                <t t-if="v.larvae_health_notes">
+                  <p class="sv-muted mb-0 mt-2" t-esc="v.larvae_health_notes"/>
+                </t>
+              </t>
+              <t t-else="">
+                <div class="sv-datos">
+                  <div><span>Peso vendido</span><strong t-esc="'{:,.2f} lb'.format(v.weight_sent_lb or 0)"/></div>
+                  <div><span>Peso en planta</span><strong t-esc="'{:,.2f} lb'.format(v.weight_plant_lb or 0)"/></div>
+                  <div><span>Basura</span><strong t-esc="'{:,.2f} lb'.format(v.trash_lb or 0)"/></div>
+                  <div><span>Peso neto</span><strong t-esc="'{:,.2f} lb'.format(v.net_weight_lb or 0)"/></div>
+                  <div><span>Sobrepeso</span><strong t-esc="'{:+,.2f} lb'.format(v.overweight_lb or 0)"/></div>
+                  <div><span>Presentación</span><strong t-esc="v.etiqueta('presentation')"/></div>
+                  <div><span>Metabisulfito</span><strong t-esc="'{:.2f} ppm'.format(v.metabisulfite_ppm or 0)"/></div>
+                  <div><span>Resultado</span><strong t-esc="v.etiqueta('metabisulfite_result')"/></div>
+                  <div><span>Sabor</span><strong t-esc="v.etiqueta('taste_result')"/></div>
+                  <div><span>Rendimiento</span><strong t-esc="'{:.2f} %'.format(v.yield_pct or 0)"/></div>
+                  <div><span>Rend. Clase A</span><strong t-esc="'{:.2f} %'.format(v.yield_class_a_pct or 0)"/></div>
+                  <div><span>Rend. Clase B</span><strong t-esc="'{:.2f} %'.format(v.yield_class_b_pct or 0)"/></div>
+                </div>
+
+                <t t-if="v.line_ids">
+                  <h4 class="sv-h4 mt-3">Clasificación por tallas</h4>
+                  <table class="sv-tabla">
+                    <thead>
+                      <tr><th>Clase</th><th>Talla</th><th class="text-end">Libras</th><th class="text-end">% del total</th></tr>
+                    </thead>
+                    <tbody>
+                      <t t-foreach="v.line_ids" t-as="l">
+                        <tr>
+                          <td t-esc="dict(l._fields['quality_class']._description_selection(request.env)).get(l.quality_class, l.quality_class)"/>
+                          <td t-esc="l.size_code"/>
+                          <td class="text-end" t-esc="'{:,.2f}'.format(l.weight_lb or 0)"/>
+                          <td class="text-end" t-esc="'{:.2f} %'.format(l.percent_of_total or 0)"/>
+                        </tr>
+                      </t>
+                    </tbody>
+                  </table>
+                </t>
+              </t>
+
+              <t t-if="v.incident_notes">
+                <div class="sv-alert sv-alert--warn mt-3">
+                  <strong>Incidencias:</strong> <t t-esc="v.incident_notes"/>
+                </div>
+              </t>
+            </div>
+
+            <!-- Fotos de campo -->
+            <t t-if="v.photo_ids">
+              <div class="sv-section">
+                <h3>Fotos de campo <span class="sv-muted">(<t t-esc="len(v.photo_ids)"/>)</span></h3>
+                <div class="sv-fotos">
+                  <t t-foreach="v.photo_ids" t-as="f">
+                    <a t-attf-href="/marketplace/verificacion/#{v.uuid_ref}/foto/#{f.id}" target="_blank">
+                      <img t-attf-src="/marketplace/verificacion/#{v.uuid_ref}/foto/#{f.id}" alt="Foto de campo"/>
+                    </a>
+                  </t>
+                </div>
+              </div>
+            </t>
+
+            <!-- Honorario. La verificadora necesita ver si ya se le liquidó. -->
+            <t t-if="v.fee">
+              <div class="sv-section">
+                <h3>Honorario</h3>
+                <div class="sv-datos">
+                  <div><span>Honorario de la inspección</span><strong t-esc="'{:,.2f}'.format(v.fee or 0)"/></div>
+                  <div><span>Te corresponde</span><strong t-esc="'{:,.2f}'.format(v.verifier_amount or 0)"/></div>
+                  <div>
+                    <span>Liquidación</span>
+                    <strong>
+                      <t t-if="v.vendor_bill_id">Emitida · <t t-esc="v.vendor_bill_id.name"/></t>
+                      <t t-else="">Pendiente de emitir</t>
+                    </strong>
+                  </div>
+                </div>
+                <p class="sv-muted small mb-0 mt-2">
+                  El honorario se liquida con el veredicto emitido, sea aprobado o
+                  rechazado: retribuye la inspección hecha, no su resultado.
+                </p>
+              </div>
+            </t>
+
+            <!-- Cómo te calificó el comprador -->
+            <t t-if="v.review_ids">
+              <t t-set="r" t-value="v.review_ids[0]"/>
+              <div class="sv-section">
+                <h3>Calificación del comprador</h3>
+                <div class="sv-estrellas">
+                  <t t-foreach="[1, 2, 3, 4, 5]" t-as="n">
+                    <i t-attf-class="fa fa-star#{'' if n &lt;= r.rating else '-o'}"/>
+                  </t>
+                  <span class="ms-2" t-esc="'{} de 5'.format(r.rating)"/>
+                </div>
+                <div class="sv-datos mt-2">
+                  <div><span>Puntualidad</span><strong t-esc="r.punctuality or '—'"/></div>
+                  <div><span>Rigor del informe</span><strong t-esc="r.thoroughness or '—'"/></div>
+                  <div><span>Comunicación</span><strong t-esc="r.communication or '—'"/></div>
+                </div>
+                <t t-if="r.comment">
+                  <p class="sv-cita mt-2" t-esc="r.comment"/>
+                </t>
+              </div>
+            </t>
+
+          </t>
+
           <!-- Parte para WhatsApp -->
-          <t t-if="v.total_processed_lb">
+          <t t-if="v.total_processed_lb or v.larvae_qty_verified">
             <div class="sv-section">
               <h3>Parte para WhatsApp</h3>
               <p class="sv-muted small">Mismo formato de siempre, pero calculado.</p>
@@ -753,14 +972,16 @@
 
                     <span class="sv-verifier-head">
                       <span class="sv-verifier-name"><t t-esc="ver.name"/></span>
-                      <t t-if="ver.verifier_accreditation_line_id">
-                        <a t-attf-href="/marketplace/verificador/#{ver.uuid_ref}/acreditacion"
-                           target="_blank" class="sv-eye"
-                           title="Ver el certificado que lo acredita como verificador"
-                           onclick="event.stopPropagation();">
-                          <i class="fa fa-eye"/>
-                        </a>
-                      </t>
+                      <!-- El ojo abre la ficha de la verificadora. Antes tiraba
+                           directo al archivo del certificado, que sin contexto no
+                           dice mucho: el comprador necesita saber a quién le está
+                           confiando la inspección, no solo que tiene un papel. -->
+                      <button type="button" class="sv-eye js-verif-info"
+                              t-attf-data-verif="verif_#{ver.id}"
+                              title="Ver la ficha de la verificadora"
+                              onclick="event.preventDefault(); event.stopPropagation();">
+                        <i class="fa fa-eye"/>
+                      </button>
                     </span>
 
                     <span class="sv-verifier-meta">
@@ -793,6 +1014,176 @@
                     <span class="sv-verifier-check"><i class="fa fa-check"/></span>
                   </label>
                 </t>
+                <!-- Fichas de las verificadoras. Se rinden todas aquí, ocultas:
+                     el visor de certificados de shrimp_marketplace engancha sus
+                     botones al cargar la página, así que tienen que existir ya
+                     en el DOM para que el PDF funcione desde dentro del modal. -->
+                <t t-foreach="verifiers" t-as="ver">
+                  <div class="sv-info-modal" t-attf-id="verif_#{ver.id}">
+                    <div class="sv-info-card">
+                      <div class="sv-info-head">
+                        <div>
+                          <div class="sv-info-nombre"><t t-esc="ver.name"/></div>
+                          <div class="sv-info-sub" t-if="ver.ver_razon_social and ver.ver_razon_social != ver.name"
+                               t-esc="ver.ver_razon_social"/>
+                        </div>
+                        <button type="button" class="sv-info-cerrar js-verif-cerrar"
+                                aria-label="Cerrar">
+                          <i class="fa fa-times"/>
+                        </button>
+                      </div>
+
+                      <div class="sv-info-body">
+                        <!-- Acreditación: es lo primero que importa -->
+                        <div class="sv-info-acred">
+                          <div>
+                            <i class="fa fa-check-circle me-1"/>
+                            <strong>Acreditada</strong>
+                            <t t-if="ver.verifier_accreditation_line_id.expiry_date">
+                              · vigente hasta
+                              <t t-esc="ver.verifier_accreditation_line_id.expiry_date.strftime('%d/%m/%Y')"/>
+                            </t>
+                            <div class="sv-info-sub" t-if="ver.verifier_accreditation_line_id.certificate_id">
+                              <t t-esc="ver.verifier_accreditation_line_id.certificate_id.name"/>
+                              <t t-if="ver.verifier_accreditation_line_id.certificate_number">
+                                · N.º <t t-esc="ver.verifier_accreditation_line_id.certificate_number"/>
+                              </t>
+                            </div>
+                          </div>
+                          <!-- El PDF abre en el visor que ya usa el resto del
+                               marketplace: mismo modal con iframe, sin descargar. -->
+                          <t t-set="doc" t-value="ver.verifier_accreditation_line_id.file_attachment_id"/>
+                          <t t-if="doc">
+                            <!-- El icono sigue al tipo de archivo: casi todas las
+                                 acreditaciones son PDF, pero alguna llega escaneada
+                                 como imagen y un icono de PDF ahí engañaría. -->
+                            <t t-set="es_pdf" t-value="(doc.mimetype or '') == 'application/pdf'"/>
+                            <button type="button" class="sv-info-pdf js-cert-view"
+                                    t-attf-data-url="/marketplace/verificador/#{ver.uuid_ref}/acreditacion"
+                                    title="Abrir el certificado de acreditación">
+                              <i t-attf-class="fa fa-file-#{'pdf' if es_pdf else 'image'}-o"/>
+                              <span>Ver certificado</span>
+                            </button>
+                          </t>
+                        </div>
+
+                        <!-- Números del historial en la plataforma -->
+                        <div class="sv-info-cifras">
+                          <div>
+                            <span>Calificación</span>
+                            <strong>
+                              <t t-if="ver.verifier_rating_count">
+                                <t t-esc="'{:.1f}'.format(ver.verifier_rating_avg)"/> / 5
+                              </t>
+                              <t t-else="">—</t>
+                            </strong>
+                            <small>
+                              <t t-if="ver.verifier_rating_count">
+                                <t t-esc="ver.verifier_rating_count"/> reseña<t t-if="ver.verifier_rating_count != 1">s</t>
+                              </t>
+                              <t t-else="">sin reseñas</t>
+                            </small>
+                          </div>
+                          <div>
+                            <span>Inspecciones</span>
+                            <strong t-esc="ver.verification_done_count or 0"/>
+                            <small>concluidas</small>
+                          </div>
+                          <div>
+                            <span>Técnicos</span>
+                            <strong t-esc="ver.field_tech_count or 0"/>
+                            <small>de campo</small>
+                          </div>
+                        </div>
+
+                        <!-- Quién es y dónde opera -->
+                        <div class="sv-info-datos">
+                          <div t-if="ver.ver_representante">
+                            <span>Responsable técnico</span>
+                            <strong t-esc="ver.ver_representante"/>
+                          </div>
+                          <div t-if="ver.ver_registro_num">
+                            <span>Registro</span>
+                            <strong t-esc="ver.ver_registro_num"/>
+                          </div>
+                          <div t-if="ver.ver_ubicacion or ver.city">
+                            <span>Base de operaciones</span>
+                            <strong t-esc="ver.ver_ubicacion or ver.city"/>
+                          </div>
+                          <div t-if="ver.ver_cobertura">
+                            <span>Zonas que cubre</span>
+                            <strong t-esc="ver.ver_cobertura"/>
+                          </div>
+                          <div t-if="ver.ver_telefono or ver.phone">
+                            <span>Teléfono</span>
+                            <strong t-esc="ver.ver_telefono or ver.phone"/>
+                          </div>
+                          <div t-if="ver.email">
+                            <span>Correo</span>
+                            <strong t-esc="ver.email"/>
+                          </div>
+                        </div>
+
+                        <!-- Lo que dijeron otros compradores -->
+                        <t t-set="resenas" t-value="ver.verifier_review_ids.filtered(lambda r: r.comment)[:3]"/>
+                        <t t-if="resenas">
+                          <div class="sv-info-resenas">
+                            <h6>Lo que dicen otros compradores</h6>
+                            <t t-foreach="resenas" t-as="r">
+                              <div class="sv-info-resena">
+                                <span class="sv-stars">
+                                  <t t-foreach="range(5)" t-as="n">
+                                    <i t-attf-class="fa fa-star#{'' if n &lt; r.rating else '-o'}"/>
+                                  </t>
+                                </span>
+                                <p t-esc="r.comment"/>
+                              </div>
+                            </t>
+                          </div>
+                        </t>
+                      </div>
+                    </div>
+                  </div>
+                </t>
+
+                <script type="text/javascript">
+<![CDATA[
+(function(){
+  function init(){
+    function cerrar(){
+      document.querySelectorAll('.sv-info-modal.open').forEach(function(m){
+        m.classList.remove('open');
+      });
+    }
+    document.querySelectorAll('.js-verif-info').forEach(function(b){
+      b.addEventListener('click', function(ev){
+        ev.preventDefault(); ev.stopPropagation();
+        var m = document.getElementById(b.getAttribute('data-verif'));
+        if(m){ cerrar(); m.classList.add('open'); }
+      });
+    });
+    document.querySelectorAll('.js-verif-cerrar').forEach(function(b){
+      b.addEventListener('click', function(ev){ ev.preventDefault(); cerrar(); });
+    });
+    // Clic en el fondo cierra; clic dentro de la tarjeta, no.
+    document.querySelectorAll('.sv-info-modal').forEach(function(m){
+      m.addEventListener('click', function(ev){ if(ev.target === m){ cerrar(); } });
+    });
+    // Escape cierra la ficha, pero solo si el visor del PDF no está abierto:
+    // si no, una sola tecla cerraría las dos capas de golpe.
+    document.addEventListener('keydown', function(ev){
+      if(ev.key !== 'Escape') return;
+      var visor = document.getElementById('certModal');
+      if(visor && visor.classList.contains('open')) return;
+      cerrar();
+    });
+  }
+  if(document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', init); }
+  else { init(); }
+})();
+]]>
+                </script>
+
                 <div id="sv_sin_resultados" class="sv-empty" style="display:none;">
                   <i class="fa fa-search fa-2x mb-2"/>
                   <p class="mb-0">Ninguna verificadora coincide con esa búsqueda.</p>

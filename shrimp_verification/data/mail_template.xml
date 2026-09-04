@@ -1,11 +1,11 @@
 <odoo>
-  <data noupdate="1">
+  <data noupdate="0">
 
     <record id="mail_template_verification_assigned" model="mail.template">
       <field name="name">Verificación asignada</field>
       <field name="model_id" ref="shrimp_verification.model_shrimp_verification"/>
       <field name="subject">Nueva verificación asignada: {{ object.name }}</field>
-      <field name="email_from">{{ user.email_formatted or '' }}</field>
+      <field name="email_from">{{ user.company_id.email_formatted or user.email_formatted or '' }}</field>
       <field name="body_html" type="html">
         <div style="font-family:Arial,sans-serif;font-size:14px;color:#243b45;">
           <p>Hola <t t-out="object.verifier_partner_id.name or ''"/>,</p>
@@ -29,34 +29,61 @@
       </field>
     </record>
 
+    <!-- Veredicto final. Va al comprador y al vendedor, por eso el saludo y el
+         botón salen del contexto y el texto no dice "tu compra". -->
     <record id="mail_template_verification_verdict" model="mail.template">
       <field name="name">Veredicto de verificación</field>
       <field name="model_id" ref="shrimp_verification.model_shrimp_verification"/>
-      <field name="subject">Tu compra fue verificada: {{ object.name }}</field>
-      <field name="email_from">{{ user.email_formatted or '' }}</field>
+      <field name="subject">{{ object.stage_headline() }} - {{ object.name }}</field>
+      <field name="email_from">{{ user.company_id.email_formatted or user.email_formatted or '' }}</field>
       <field name="body_html" type="html">
-        <div style="font-family:Arial,sans-serif;font-size:14px;color:#243b45;">
-          <p>Hola <t t-out="object.buyer_partner_id.name or ''"/>,</p>
+        <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#243b45;max-width:560px;">
+
+          <div style="border-bottom:3px solid #14A0B0;padding-bottom:10px;margin-bottom:18px;">
+            <span style="font-size:22px;font-weight:bold;color:#123E5C;">tr</span><span style="font-size:22px;font-weight:bold;color:#14A0B0;">azul</span>
+            <span style="float:right;color:#5A6B74;font-size:12px;padding-top:9px;">
+              <t t-out="object.name or ''"/>
+            </span>
+          </div>
+
+          <p>Hola <t t-out="ctx.get('destinatario') or ''"/>,</p>
 
           <t t-if="object.state in ('approved','approved_obs')">
-            <p>El verificador <b><t t-out="object.verifier_partner_id.name or ''"/></b>
-               <t t-if="object.state == 'approved'">aprobó</t>
-               <t t-else="">aprobó <b>con observaciones</b></t>
-               la inspección de tu compra. Ya puedes concluirla.</p>
+            <h2 style="color:#127a4b;font-size:18px;margin:14px 0 6px;">
+              <t t-if="object.state == 'approved'">Verificación aprobada</t>
+              <t t-else="">Aprobada con observaciones</t>
+            </h2>
+            <p style="margin:0 0 18px;color:#3d5560;">
+              <b><t t-out="object.verifier_partner_id.name or ''"/></b> concluyó la
+              inspección en campo del producto
+              <b><t t-out="object.product_id.name or ''"/></b>
+              <t t-if="object.technician_partner_id">, realizada por
+                <t t-out="object.technician_partner_id.name"/></t>.
+              El comprador ya puede concluir la compra.
+            </p>
           </t>
           <t t-else="">
-            <p>El verificador <b><t t-out="object.verifier_partner_id.name or ''"/></b>
-               <b>rechazó</b> la inspección. La compra fue cancelada y el producto
-               volvió a quedar disponible.</p>
+            <h2 style="color:#b3261e;font-size:18px;margin:14px 0 6px;">Verificación rechazada</h2>
+            <p style="margin:0 0 18px;color:#3d5560;">
+              <b><t t-out="object.verifier_partner_id.name or ''"/></b> rechazó la
+              inspección en campo. La compra fue cancelada y el producto volvió a
+              quedar disponible.
+            </p>
           </t>
 
-          <table style="border-collapse:collapse;margin:12px 0;">
-            <tr><td style="padding:4px 12px 4px 0;"><b>Rendimiento</b></td><td><t t-out="'%.2f' % (object.yield_pct or 0)"/> %</td></tr>
-            <tr><td style="padding:4px 12px 4px 0;"><b>Clase A</b></td><td><t t-out="'%.2f' % (object.yield_class_a_pct or 0)"/> %</td></tr>
-            <tr><td style="padding:4px 12px 4px 0;"><b>Metabisulfito</b></td><td><t t-out="object.metabisulfite_ppm or 0"/> ppm</td></tr>
-            <tr><td style="padding:4px 12px 4px 0;"><b>Sabor</b></td><td><t t-out="object.taste_result or '-'"/></td></tr>
+          <table style="border-collapse:collapse;margin:0 0 18px;">
+            <tr><td style="padding:3px 14px 3px 0;color:#5A6B74;">Compra</td><td><t t-out="object.transaction_id.name or '-'"/></td></tr>
+            <tr><td style="padding:3px 14px 3px 0;color:#5A6B74;">Rendimiento</td><td><b><t t-out="'%.2f' % (object.yield_pct or 0)"/> %</b></td></tr>
+            <tr><td style="padding:3px 14px 3px 0;color:#5A6B74;">Clase A</td><td><t t-out="'%.2f' % (object.yield_class_a_pct or 0)"/> %</td></tr>
+            <tr><td style="padding:3px 14px 3px 0;color:#5A6B74;">Metabisulfito</td><td><t t-out="object.metabisulfite_ppm or 0"/> ppm (<t t-out="object.etiqueta('metabisulfite_result')"/>)</td></tr>
+            <tr><td style="padding:3px 14px 3px 0;color:#5A6B74;">Sabor</td><td><t t-out="object.etiqueta('taste_result')"/></td></tr>
           </table>
 
+          <t t-if="object.verdict_notes">
+            <p style="background:#f2f7f9;border-left:4px solid #14A0B0;padding:10px;">
+              <b>Conclusión del verificador:</b> <t t-out="object.verdict_notes"/>
+            </p>
+          </t>
           <t t-if="object.incident_notes">
             <p style="background:#fff4e5;border-left:4px solid #e69c24;padding:10px;">
               <b>Incidencias:</b> <t t-out="object.incident_notes"/>
@@ -64,10 +91,15 @@
           </t>
 
           <p>
-            <a t-attf-href="{{ object.get_base_url() }}/marketplace/compras"
-               style="background:#123e5c;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;">
-              Ver mis compras
+            <a t-attf-href="{{ ctx.get('portal_url') or object.get_base_url() }}"
+               style="background:#123E5C;color:#ffffff;padding:11px 20px;border-radius:6px;text-decoration:none;display:inline-block;">
+              Ver el detalle
             </a>
+          </p>
+
+          <p style="color:#8b9ba3;font-size:12px;border-top:1px solid #e3eaed;padding-top:12px;margin-top:22px;">
+            Este aviso es automático. Recibes el resultado porque eres parte de
+            esta operación en Trazul.
           </p>
         </div>
       </field>
@@ -77,7 +109,7 @@
       <field name="name">Acreditación de verificador aprobada</field>
       <field name="model_id" ref="shrimp_user_registry.model_shrimp_user_certificate_line"/>
       <field name="subject">Tu acreditación fue aprobada</field>
-      <field name="email_from">{{ user.email_formatted or '' }}</field>
+      <field name="email_from">{{ user.company_id.email_formatted or user.email_formatted or '' }}</field>
       <field name="body_html" type="html">
         <div style="font-family:Arial,sans-serif;font-size:14px;color:#243b45;">
           <p>Hola <t t-out="object.partner_id.name or ''"/>,</p>
@@ -94,6 +126,98 @@
                style="background:#123e5c;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;">
               Abrir mi bandeja
             </a>
+          </p>
+        </div>
+      </field>
+    </record>
+
+
+    <!-- Aviso de avance de etapa. Una sola plantilla para todas las etapas
+         intermedias: el cuerpo se adapta con stage_headline() y stage_detail(),
+         y el botón cambia de destino segun quien lo reciba (ctx.portal_url). -->
+    <record id="mail_template_verification_stage" model="mail.template">
+      <field name="name">Verificación: avance de etapa</field>
+      <field name="model_id" ref="shrimp_verification.model_shrimp_verification"/>
+      <field name="subject">{{ object.stage_headline() }} - {{ object.name }}</field>
+      <field name="email_from">{{ user.company_id.email_formatted or user.email_formatted or '' }}</field>
+      <field name="body_html" type="html">
+        <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#243b45;max-width:560px;">
+
+          <div style="border-bottom:3px solid #14A0B0;padding-bottom:10px;margin-bottom:18px;">
+            <span style="font-size:22px;font-weight:bold;color:#123E5C;">tr</span><span style="font-size:22px;font-weight:bold;color:#14A0B0;">azul</span>
+            <span style="float:right;color:#5A6B74;font-size:12px;padding-top:9px;">
+              <t t-out="object.name or ''"/>
+            </span>
+          </div>
+
+          <p>Hola <t t-out="ctx.get('destinatario') or ''"/>,</p>
+
+          <h2 style="color:#123E5C;font-size:18px;margin:14px 0 6px;">
+            <t t-out="object.stage_headline()"/>
+          </h2>
+          <p style="margin:0 0 18px;color:#3d5560;">
+            <t t-out="object.stage_detail()"/>
+          </p>
+
+          <!-- Linea de tiempo -->
+          <table style="border-collapse:collapse;margin:0 0 20px;width:100%;">
+            <t t-foreach="object.stage_timeline()" t-as="paso">
+              <tr>
+                <td style="width:22px;vertical-align:top;padding:5px 0;">
+                  <t t-if="paso['estado'] == 'hecha'">
+                    <div style="width:13px;height:13px;border-radius:50%;background:#14A0B0;"></div>
+                  </t>
+                  <t t-elif="paso['estado'] == 'actual'">
+                    <div style="width:13px;height:13px;border-radius:50%;background:#123E5C;box-shadow:0 0 0 3px #cfe9ee;"></div>
+                  </t>
+                  <t t-elif="paso['estado'] == 'cancelada'">
+                    <div style="width:13px;height:13px;border-radius:50%;background:#b3261e;"></div>
+                  </t>
+                  <t t-else="">
+                    <div style="width:13px;height:13px;border-radius:50%;background:#D3DCE1;"></div>
+                  </t>
+                </td>
+                <td style="padding:4px 0 8px;">
+                  <t t-if="paso['estado'] == 'actual'">
+                    <span style="font-weight:bold;color:#123E5C;"><t t-out="paso['titulo']"/></span>
+                    <span style="color:#14A0B0;font-size:12px;"> &#8592; aquí vamos</span>
+                  </t>
+                  <t t-elif="paso['estado'] == 'hecha'">
+                    <span style="color:#5A6B74;"><t t-out="paso['titulo']"/></span>
+                  </t>
+                  <t t-elif="paso['estado'] == 'cancelada'">
+                    <span style="font-weight:bold;color:#b3261e;"><t t-out="paso['titulo']"/></span>
+                  </t>
+                  <t t-else="">
+                    <span style="color:#a9b6bd;"><t t-out="paso['titulo']"/></span>
+                  </t>
+                  <div style="font-size:12px;color:#8b9ba3;"><t t-out="paso['detalle']"/></div>
+                </td>
+              </tr>
+            </t>
+          </table>
+
+          <table style="border-collapse:collapse;margin:0 0 20px;">
+            <tr><td style="padding:3px 14px 3px 0;color:#5A6B74;">Producto</td><td><b><t t-out="object.product_id.name or '-'"/></b></td></tr>
+            <tr><td style="padding:3px 14px 3px 0;color:#5A6B74;">Compra</td><td><t t-out="object.transaction_id.name or '-'"/></td></tr>
+            <tr><td style="padding:3px 14px 3px 0;color:#5A6B74;">Vendedor</td><td><t t-out="object.seller_partner_id.name or '-'"/></td></tr>
+            <tr><td style="padding:3px 14px 3px 0;color:#5A6B74;">Comprador</td><td><t t-out="object.buyer_partner_id.name or '-'"/></td></tr>
+            <tr><td style="padding:3px 14px 3px 0;color:#5A6B74;">Verificadora</td><td><t t-out="object.verifier_partner_id.name or '-'"/></td></tr>
+            <t t-if="object.technician_partner_id">
+              <tr><td style="padding:3px 14px 3px 0;color:#5A6B74;">Técnico</td><td><t t-out="object.technician_partner_id.name"/></td></tr>
+            </t>
+          </table>
+
+          <p>
+            <a t-attf-href="{{ ctx.get('portal_url') or object.get_base_url() }}"
+               style="background:#123E5C;color:#ffffff;padding:11px 20px;border-radius:6px;text-decoration:none;display:inline-block;">
+              Ver el detalle
+            </a>
+          </p>
+
+          <p style="color:#8b9ba3;font-size:12px;border-top:1px solid #e3eaed;padding-top:12px;margin-top:22px;">
+            Este aviso es automático. Recibes el avance porque eres parte de esta
+            operación en Trazul.
           </p>
         </div>
       </field>

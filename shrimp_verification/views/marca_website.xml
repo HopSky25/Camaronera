@@ -1,0 +1,91 @@
+<odoo>
+
+  <!-- ================================================================
+       Retoques de marca sobre las plantillas de Odoo.
+
+       Van aquí y no en el script de configuración porque son cambios a
+       vistas del núcleo: si se editaran en la base, una actualización de
+       Odoo los revertiría. Como herencias de módulo, sobreviven.
+       ================================================================ -->
+
+  <!-- Teléfono y correo de la cabecera. En el snippet de Odoo vienen fijos
+       (+1 555-555-5556 e info@yourcompany.example.com): un número de
+       California en la barra de una camaronera ecuatoriana. Ahora salen de la
+       ficha de la compañía, y si no están puestos no se muestra nada, que es
+       mejor que un dato falso.
+
+       Se sacan a plantillas aparte porque el snippet repite el enlace en cada
+       variante de cabecera —tres veces el teléfono, dos el correo— y hay que
+       sustituirlas todas. -->
+  <template id="header_telefono_empresa" name="Cabecera - teléfono de la compañía">
+    <t t-set="_empresa" t-value="website.company_id or res_company"/>
+    <a t-if="_empresa.phone" t-attf-href="tel:#{_empresa.phone}"
+       t-attf-class="nav-link o_nav-link_secondary #{_extra_clase or ''}">
+      <small>
+        <i class="fa fa-1x fa-fw fa-phone me-1"/>
+        <span class="o_force_ltr" t-out="_empresa.phone"/>
+      </small>
+    </a>
+  </template>
+
+  <template id="header_correo_empresa" name="Cabecera - correo de la compañía">
+    <t t-set="_empresa" t-value="website.company_id or res_company"/>
+    <a t-if="_empresa.email" t-attf-href="mailto:#{_empresa.email}"
+       t-attf-class="nav-link o_nav-link_secondary #{_extra_clase or ''}">
+      <small>
+        <i class="fa fa-1x fa-fw fa-envelope me-1"/>
+        <t t-out="_empresa.email"/>
+      </small>
+    </a>
+  </template>
+
+  <template id="header_contacto_de_la_empresa" inherit_id="website.header_text_element"
+            name="Cabecera - contacto real en vez del de ejemplo">
+
+    <!-- Cada xpath consume la primera coincidencia que queda, así que se
+         repiten tantas veces como el snippet trae el enlace. -->
+    <xpath expr="//a[@href='tel:+1 555-555-5556']" position="replace">
+      <t t-call="shrimp_verification.header_telefono_empresa"/>
+    </xpath>
+    <xpath expr="//a[@href='tel:+1 555-555-5556']" position="replace">
+      <t t-call="shrimp_verification.header_telefono_empresa">
+        <t t-set="_extra_clase" t-valuef="p-2 o_navlink_background_hover d-flex align-items-center h-100 text-reset"/>
+      </t>
+    </xpath>
+    <xpath expr="//a[@href='tel:+1 555-555-5556']" position="replace">
+      <t t-call="shrimp_verification.header_telefono_empresa">
+        <t t-set="_extra_clase" t-valuef="p-2"/>
+      </t>
+    </xpath>
+
+    <xpath expr="//a[@href='mailto:info@yourcompany.example.com']" position="replace">
+      <t t-call="shrimp_verification.header_correo_empresa"/>
+    </xpath>
+    <xpath expr="//a[@href='mailto:info@yourcompany.example.com']" position="replace">
+      <t t-call="shrimp_verification.header_correo_empresa"/>
+    </xpath>
+
+  </template>
+
+  <!-- "Powered by Odoo · Cree un sitio web gratuito" en el pie.
+       Desactivar la vista no sirve: es una plantilla con t-name y t-call la
+       resuelve por clave, ignorando el campo active. Hay que vaciarla. -->
+  <template id="sin_promocion_de_odoo" inherit_id="web.brand_promotion"
+            name="Pie - sin promoción de Odoo">
+    <xpath expr="//div[hasclass('o_brand_promotion')]" position="replace"/>
+  </template>
+
+  <!-- El copyright del pie venía como "Copyright © Company name", texto fijo.
+       Se hereda website.layout con prioridad mayor que la vista de Odoo (15)
+       para que este reemplazo se aplique despues del suyo. -->
+  <template id="copyright_de_la_empresa" inherit_id="website.layout" priority="20"
+            name="Pie - nombre real de la compañía">
+    <xpath expr="//footer//span[hasclass('o_footer_copyright_name')]" position="replace">
+      <span class="o_footer_copyright_name me-2 small">
+        <t t-set="_empresa" t-value="website.company_id or res_company"/>
+        Derechos reservados &#169; <t t-out="_empresa.name"/>
+      </span>
+    </xpath>
+  </template>
+
+</odoo>

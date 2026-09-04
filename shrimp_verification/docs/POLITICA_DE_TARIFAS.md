@@ -217,3 +217,83 @@ mercado actualizados.
 - Seafood Inspection, SGS — https://www.sgs.com/en-us/services/seafood
 - SGS Pre-Shipment Inspection, comparativa de costes — https://www.tradeaiders.com/sgs-pre-shipment-inspection-alternatives-6-options-that-cost-less-honest-comparison.html
 - Cámara Nacional de Acuacultura — https://www.cna-ecuador.com/
+
+---
+
+## Quién paga la verificación cuando el trato se cae
+
+El informe del verificador no cierra la compra por sí solo: comprador y
+vendedor tienen que aceptarlo. Eso es lo que lo vuelve un arbitraje y no la
+herramienta de una de las partes. Pero abre una pregunta que hay que responder
+por escrito, porque de otro modo se convierte en un agujero.
+
+### El agujero que se cierra
+
+Si el vendedor pudiera rechazar sin costo, pasaría esto: publica camarón a
+$2.50, el comprador paga $400 de verificación, el informe sale mejor de lo
+ofrecido, el vendedor se da cuenta de que vendió barato y rechaza. Resultado:
+el comprador pierde $400 y no se lleva nada, y el vendedor se queda con un
+informe de calidad de un tercero acreditado, gratis, para relistar más caro.
+
+### La regla
+
+**El honorario lo carga quien se salió del trato sin un motivo medible en el
+informe.**
+
+| Situación | Quién paga |
+|---|---|
+| Las dos partes aceptan | El comprador (contrató la verificación) |
+| El informe confirma lo publicado y el **vendedor** rechaza | El vendedor |
+| El informe confirma lo publicado y el **comprador** rechaza | El comprador |
+| El informe **no** confirma lo publicado, rechace quien sea | El vendedor |
+| El verificador rechaza la inspección | El vendedor |
+
+"Motivo medible" no es una apreciación: son datos que el verificador midió y
+que se comparan contra lo que el anuncio prometía.
+
+- **Peso:** que el peso en planta esté por debajo del vendido más allá de la
+  tolerancia configurada (2 % por defecto, por la merma normal entre la pesada
+  en finca y la de planta). Que venga de más nunca es incumplimiento.
+- **Metabisulfito:** que no dé conforme.
+- **Sabor:** que salga rechazado.
+- **Talla:** que la talla predominante del lote no sea la publicada.
+- **Observaciones:** que el veredicto sea "aprobada con observaciones".
+
+Por eso la factura del honorario **no se emite con el veredicto** sino al
+resolverse la aceptación: antes de ese momento no se sabe a quién facturar, y
+adelantarse obligaría a emitir nota de crédito y refacturar. Al verificador,
+en cambio, se le liquida con el veredicto: cobra por la inspección hecha, no
+por su resultado.
+
+## Ajuste de precio en vez de cancelar
+
+Cuando el informe encuentra que el producto no cumplió lo publicado, el
+comprador tiene una tercera opción además de aceptar o rechazar: **proponer un
+precio acorde a lo que se midió**. El vendedor lo acepta o lo rechaza.
+
+Esto no es una concesión, es cómo funciona el comercio real de camarón: cuando
+el rendimiento sale por debajo, no se cae la venta, se renegocia sobre el
+rendimiento real. Si la única salida fuera aceptar un mal trato o cancelar, se
+cancelaría, y la plataforma perdería la comisión de una operación que las dos
+partes querían cerrar.
+
+Dos límites deliberados:
+
+1. **Solo el comprador puede proponer, y solo hacia abajo.** Si el resultado
+   sale mejor de lo ofrecido, el vendedor no puede pedir más: publicó un precio
+   y el comprador lo aceptó. Esa ventaja es la recompensa del comprador por
+   haber pagado la verificación, y es justamente lo que hace que valga la pena
+   pedirla.
+2. **Solo si hay incumplimiento medido.** Con un informe que confirma lo
+   publicado, la caja de contraoferta no aparece. Sin este límite, todo
+   comprador regatearía después de cada inspección favorable.
+
+## Plazo de respuesta
+
+Comprador y vendedor tienen **48 horas** (configurable) para responder. Vencido
+el plazo sin respuesta, la postura pendiente **se da por aceptada**.
+
+El silencio se lee como conformidad, no como rechazo, por dos razones: el
+informe lo firmó un tercero acreditado que las dos partes eligieron, y la
+alternativa mataría ventas buenas porque alguien no revisó el correo un fin de
+semana, además de dejar el stock reservado sin poder revenderlo.

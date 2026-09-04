@@ -395,6 +395,91 @@ class ShrimpVerificationPortal(http.Controller):
         return request.redirect(f"/marketplace/thanks/{tx.uuid_ref}?verified=1")
 
     # ==================================================================
+    # Aceptación del informe por comprador y vendedor
+    # ==================================================================
+    def _verificacion_de_parte(self, ref):
+        """Devuelve (verificación, postura) validando que quien entra es parte.
+
+        Un tercero no puede ni mirar el informe, y ninguna de las dos partes
+        puede decidir por la otra: cada una solo maneja su propia postura.
+        """
+        v = request.env["shrimp.verification"].sudo().resolve_ref(ref)
+        if not v:
+            raise NotFound()
+        partner = self._partner()
+        if partner == v.buyer_partner_id:
+            rol = "buyer"
+        elif partner == v.seller_partner_id:
+            rol = "seller"
+        else:
+            raise Forbidden()
+        postura = v.acceptance_ids.filtered(lambda a: a.role == rol)[:1]
+        return v, postura
+
+    @http.route("/marketplace/verificacion/<ref>/aceptacion", type="http", auth="user",
+                website=True)
+    def acceptance_panel(self, ref, **kw):
+        v, postura = self._verificacion_de_parte(ref)
+        cumple, motivos = v.cumple_lo_publicado()
+        otra = (v.acceptance_ids - postura)[:1]
+        return request.render("shrimp_verification.verification_acceptance", {
+            "v": v,
+            "tx": v.transaction_id,
+            "postura": postura,
+            "otra": otra,
+            "cumple": cumple,
+            "motivos": motivos,
+            "contraoferta": v.acceptance_ids.filtered(lambda a: a.decision == "counter")[:1],
+            "error": kw.get("error"),
+        })
+
+    def _volver_al_panel(self, v, error=None):
+        destino = "/marketplace/verificacion/%s/aceptacion" % v.uuid_ref
+        if error:
+            destino += "?error=%s" % quote(error)
+        return request.redirect(destino)
+
+    @http.route("/marketplace/verificacion/<ref>/aceptar", type="http", auth="user",
+                website=True, methods=["POST"], csrf=True)
+    def acceptance_accept(self, ref, **post):
+        v, postura = self._verificacion_de_parte(ref)
+        if not postura:
+            raise NotFound()
+        try:
+            postura.sudo().action_accept(reason=post.get("reason") or None)
+        except (UserError, ValidationError) as e:
+            return self._volver_al_panel(v, e.args[0] if e.args else "")
+        return self._volver_al_panel(v)
+
+    @http.route("/marketplace/verificacion/<ref>/rechazar", type="http", auth="user",
+                website=True, methods=["POST"], csrf=True)
+    def acceptance_reject(self, ref, **post):
+        v, postura = self._verificacion_de_parte(ref)
+        if not postura:
+            raise NotFound()
+        try:
+            postura.sudo().action_reject(reason=(post.get("reason") or "").strip() or None)
+        except (UserError, ValidationError) as e:
+            return self._volver_al_panel(v, e.args[0] if e.args else "")
+        return self._volver_al_panel(v)
+
+    @http.route("/marketplace/verificacion/<ref>/contraoferta", type="http", auth="user",
+                website=True, methods=["POST"], csrf=True)
+    def acceptance_counter(self, ref, **post):
+        v, postura = self._verificacion_de_parte(ref)
+        if not postura:
+            raise NotFound()
+        try:
+            precio = float((post.get("precio") or "0").replace(",", "."))
+        except ValueError:
+            return self._volver_al_panel(v, _("El precio propuesto no es un número válido."))
+        try:
+            postura.sudo().action_counter(precio, reason=(post.get("reason") or "").strip() or None)
+        except (UserError, ValidationError) as e:
+            return self._volver_al_panel(v, e.args[0] if e.args else "")
+        return self._volver_al_panel(v)
+
+    # ==================================================================
     # Técnicos de campo (solo el admin de la empresa)
     # ==================================================================
     @http.route("/verificador/tecnicos", type="http", auth="user", website=True)

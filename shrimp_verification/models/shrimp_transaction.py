@@ -9,8 +9,16 @@ class ShrimpTransaction(models.Model):
     # Estado intermedio: la compra ya está grabada, pero todavía no consumió
     # lotes. El stock queda RESERVADO hasta que el verificador emita veredicto.
     state = fields.Selection(
-        selection_add=[("pending_verification", "Pendiente de verificación"), ("confirmed",)],
-        ondelete={"pending_verification": "set default"},
+        selection_add=[
+            ("pending_verification", "Pendiente de verificación"),
+            # El veredicto no cierra la venta: la deja a la firma de las dos
+            # partes. Solo cuando comprador y vendedor aceptan el informe se
+            # consumen lotes y se cobra comisión.
+            ("pending_acceptance", "Esperando aceptación de las partes"),
+            ("confirmed",),
+        ],
+        ondelete={"pending_verification": "set default",
+                  "pending_acceptance": "set default"},
     )
 
     verification_id = fields.One2many(
@@ -32,14 +40,24 @@ class ShrimpTransaction(models.Model):
         help="La verificación fue aprobada y el comprador puede concluir la compra.",
     )
 
-    @api.depends("state", "verification_id.state")
+    @api.depends("state", "verification_id.state", "verification_id.acceptance_state")
     def _compute_can_be_completed(self):
         for rec in self:
             rec.can_be_completed = (
-                rec.state == "pending_verification"
+                rec.state in ("pending_verification", "pending_acceptance")
                 and rec.verification_id
                 and rec.verification_id.state in ("approved", "approved_obs")
+                # Un veredicto favorable ya no basta: hace falta que las dos
+                # partes hayan firmado que aceptan el informe.
+                and rec.verification_id.acceptance_state == "closed"
             )
+
+    def action_await_acceptance(self):
+        """Pasa la compra a la firma de las partes tras un veredicto favorable."""
+        for rec in self:
+            if rec.state == "pending_verification":
+                rec.write({"state": "pending_acceptance"})
+        return True
 
     def action_confirm(self):
         """Permite confirmar también las compras que venían de verificación.
@@ -48,7 +66,9 @@ class ShrimpTransaction(models.Model):
         aprobadas por el verificador se pasan a borrador para que el mismo
         código base consuma lotes y genere la trazabilidad.
         """
-        ready = self.filtered(lambda t: t.state == "pending_verification" and t.can_be_completed)
+        ready = self.filtered(
+            lambda t: t.state in ("pending_verification", "pending_acceptance")
+            and t.can_be_completed)
         if ready:
             super(ShrimpTransaction, ready).write({"state": "draft"})
         return super().action_confirm()
@@ -56,10 +76,12 @@ class ShrimpTransaction(models.Model):
     def action_complete_after_verification(self):
         """Botón del comprador: concluir la compra ya verificada."""
         for rec in self:
-            if rec.state != "pending_verification":
+            if rec.state not in ("pending_verification", "pending_acceptance"):
                 raise UserError(_("Esta compra no está pendiente de verificación."))
             if not rec.can_be_completed:
-                raise UserError(_("La verificación todavía no está aprobada."))
+                raise UserError(_(
+                    "La compra todavía no está lista: hace falta el veredicto "
+                    "aprobado y que comprador y vendedor acepten el informe."))
             rec.action_confirm()
             # Comisión del marketplace, igual que en la compra directa.
             self.env["shrimp.charge"].sudo().register_for_transaction(rec, rec.transaction_qty)
@@ -72,5 +94,5 @@ class ShrimpTransaction(models.Model):
         consumirse, solo estaban reservados.
         """
         for rec in self:
-            if rec.state == "pending_verification":
+            if rec.state in ("pending_verification", "pending_acceptance"):
                 rec.write({"state": "cancel"})

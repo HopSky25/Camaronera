@@ -189,6 +189,362 @@
 /* Detalle de cómo se calcula el honorario, bajo su línea del desglose */
 .sv-fee-detail { display: block; font-size: 11px; color: #8a98a0; margin-top: 2px; }
 
+
+/* ==================================================================
+   Aceptación del informe por las dos partes
+   ================================================================== */
+.sv-accept { max-width: 860px; margin: 0 auto; }
+
+.sv-accept-head {
+  display: flex; align-items: center; gap: 16px;
+  background: #fff; border-left: 5px solid #123E5C;
+  border-radius: 10px; padding: 18px 22px; margin-bottom: 18px;
+  box-shadow: 0 1px 3px rgba(18, 62, 92, .08);
+}
+.sv-accept-head h1 { font-size: 1.45rem; margin: 0; color: #123E5C; }
+.sv-accept-head .fa { color: #123E5C; }
+.sv-accept-head--ok { border-left-color: #14A0B0; }
+.sv-accept-head--ok .fa { color: #14A0B0; }
+.sv-accept-head--ko { border-left-color: #b3261e; }
+.sv-accept-head--ko .fa { color: #b3261e; }
+
+/* Postura de cada parte, lado a lado: de un vistazo se ve quién falta */
+.sv-partes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 640px) { .sv-partes { grid-template-columns: 1fr; } }
+.sv-parte {
+  background: #fff; border: 1px solid #e3eaed; border-top: 3px solid #D3DCE1;
+  border-radius: 8px; padding: 12px 14px;
+}
+.sv-parte--accepted { border-top-color: #14A0B0; }
+.sv-parte--counter  { border-top-color: #e69c24; }
+.sv-parte--rejected { border-top-color: #b3261e; }
+.sv-parte-rol    { font-size: .74rem; text-transform: uppercase; letter-spacing: .08em; color: #8b9ba3; }
+.sv-parte-nombre { font-weight: 600; color: #123E5C; }
+.sv-parte-estado { font-size: .88rem; color: #5A6B74; margin-top: 2px; }
+.sv-parte--accepted .sv-parte-estado { color: #0f7c88; }
+.sv-parte--rejected .sv-parte-estado { color: #b3261e; }
+.sv-parte-motivo { font-size: .82rem; color: #8b9ba3; margin-top: 4px; font-style: italic; }
+
+.sv-plazo { margin-top: 12px; color: #5A6B74; font-size: .92rem; }
+
+.sv-h2 { font-size: 1.05rem; color: #123E5C; margin: 22px 0 8px; font-weight: 700; }
+
+/* El parte se muestra tal cual lo escriben por WhatsApp: monoespaciado y
+   respetando los saltos, porque el orden de las líneas es el que ya conocen */
+.sv-parte-texto {
+  background: #f7fafb; border: 1px solid #e3eaed; border-radius: 8px;
+  padding: 14px 16px; font-size: .86rem; line-height: 1.5; color: #243b45;
+  white-space: pre-wrap; word-break: break-word;
+}
+
+.sv-alert { border-radius: 8px; padding: 12px 14px; margin: 14px 0; font-size: .92rem; }
+.sv-alert--ok   { background: #eaf7f8; border-left: 4px solid #14A0B0; color: #0f5c66; }
+.sv-alert--warn { background: #fff4e5; border-left: 4px solid #e69c24; color: #7a5310; }
+.sv-alert--ko   { background: #fdecea; border-left: 4px solid #b3261e; color: #8c1d18; }
+
+.sv-fotos { display: flex; flex-wrap: wrap; gap: 10px; }
+.sv-fotos img {
+  width: 130px; height: 130px; object-fit: cover;
+  border-radius: 8px; border: 1px solid #e3eaed;
+}
+
+.sv-contra {
+  background: #fff8ec; border: 1px solid #f0dcb8; border-radius: 10px;
+  padding: 16px 18px; margin-top: 22px;
+}
+.sv-contra-cifras { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+.sv-contra-cifras > div { display: flex; flex-direction: column; }
+.sv-contra-cifras span.sv-muted { font-size: .74rem; text-transform: uppercase; letter-spacing: .06em; }
+.sv-contra-cifras strong { font-size: 1.3rem; color: #123E5C; }
+.sv-contra-cifras s { font-size: 1.1rem; color: #8b9ba3; }
+
+.sv-acciones { margin-top: 22px; display: flex; flex-direction: column; gap: 14px; }
+.sv-caja {
+  background: #fff; border: 1px solid #e3eaed; border-radius: 10px; padding: 16px 18px;
+}
+.sv-caja--ko { border-color: #f2d5d2; }
+.sv-contra-form { display: flex; gap: 10px; flex-wrap: wrap; }
+.sv-contra-form .form-control { flex: 1 1 180px; }
+.s-btn-ko { background: #b3261e; border-color: #b3261e; color: #fff; }
+.s-btn-ko:hover { background: #8c1d18; color: #fff; }
+
+/* Aviso en cabecera de compras y ventas */
+.sv-banner-aceptar {
+  background: #fff; border: 1px solid #cfe9ee; border-left: 5px solid #14A0B0;
+  border-radius: 10px; padding: 16px 18px; margin-bottom: 20px;
+}
+.sv-banner-aceptar-head { color: #123E5C; font-size: 1.02rem; margin-bottom: 4px; }
+.sv-banner-aceptar-item {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding: 10px 12px; border-radius: 8px; background: #f7fafb;
+  text-decoration: none; color: #243b45; margin-top: 6px;
+}
+.sv-banner-aceptar-item:hover { background: #eaf7f8; color: #123E5C; }
+.sv-banner-aceptar-plazo { color: #5A6B74; font-size: .86rem; white-space: nowrap; }
+
+/* ==================================================================
+   Portada del sitio de verificadores
+   Estas clases se usaban en verifier_website.xml sin ninguna regla
+   detrás: la página salía sin maquetar, con todo pegado al margen
+   izquierdo. Aquí van con la marca Trazul.
+   ================================================================== */
+.vw-hero {
+  /* Color plano primero: si el degradado no se aplica, la cabecera sigue
+     siendo oscura y el texto blanco se lee. */
+  background-color: #123E5C;
+  background-image: linear-gradient(135deg, #0D2B3E 0%, #123E5C 45%, #14A0B0 100%);
+  color: #fff;
+  padding: 64px 24px 72px;
+}
+.vw-hero-inner { max-width: 900px; margin: 0 auto; }
+.vw-hero h1 {
+  font-size: clamp(2rem, 4.5vw, 3rem); font-weight: 800;
+  letter-spacing: -.02em; margin: 14px 0 16px; color: #fff;
+}
+.vw-hero p {
+  font-size: 1.08rem; line-height: 1.65;
+  color: rgba(255, 255, 255, .88); max-width: 660px; margin: 0;
+}
+.vw-badge {
+  display: inline-flex; align-items: center;
+  background: rgba(255, 255, 255, .16);
+  border: 1px solid rgba(255, 255, 255, .28);
+  color: #fff; border-radius: 999px;
+  padding: 6px 14px; font-size: .82rem;
+  text-transform: uppercase; letter-spacing: .08em; font-weight: 600;
+}
+.vw-cta { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 28px; }
+/* Los botones base declaran el color con !important, así que invertirlos sobre
+   la cabecera oscura exige lo mismo: sin esto "Entrar" queda blanco sobre
+   blanco y el fantasma sale con texto oscuro sobre fondo oscuro. */
+.vw-cta .s-btn-primary {
+  background: #fff; border-color: #fff; color: #123E5C !important;
+}
+.vw-cta .s-btn-primary:hover {
+  background: #eaf7f8; border-color: #eaf7f8; color: #0D2B3E !important;
+}
+.vw-cta .s-btn-ghost {
+  background: transparent; border: 1px solid rgba(255, 255, 255, .55);
+  color: #fff !important;
+}
+.vw-cta .s-btn-ghost:hover {
+  background: rgba(255, 255, 255, .14); color: #fff !important;
+}
+
+/* Los tres pasos, en tarjetas */
+.vw-steps {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
+  max-width: 1080px; margin: -36px auto 0; padding: 0 24px;
+  position: relative; z-index: 2;
+}
+@media (max-width: 900px) { .vw-steps { grid-template-columns: 1fr; margin-top: -24px; } }
+.vw-step {
+  background: #fff; border: 1px solid #e3eaed; border-radius: 12px;
+  padding: 26px 22px; box-shadow: 0 4px 18px rgba(18, 62, 92, .10);
+}
+.vw-step h3 { font-size: 1.1rem; font-weight: 700; color: #123E5C; margin: 14px 0 8px; }
+.vw-step p { font-size: .94rem; line-height: 1.6; color: #5A6B74; margin: 0; }
+.vw-step-num {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: #14A0B0; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 1.05rem;
+}
+
+/* Cierre: los cinco análisis */
+.vw-note {
+  max-width: 1080px; margin: 40px auto 60px; padding: 26px 28px;
+  background: #f7fafb; border: 1px solid #e3eaed;
+  border-left: 5px solid #14A0B0; border-radius: 12px;
+}
+.vw-note h4 { font-size: 1.08rem; font-weight: 700; color: #123E5C; margin: 0 0 8px; }
+.vw-note p { color: #3d5560; margin: 0 0 6px; font-size: 1rem; }
+.vw-note-small { font-size: .9rem !important; color: #8b9ba3 !important; margin: 0 !important; }
+
+/* ==================================================================
+   Insignias de estado y enlaces de evidencia
+   ================================================================== */
+.sv-acc {
+  display: inline-block; border-radius: 999px;
+  padding: 3px 11px; font-size: .78rem; font-weight: 600;
+  background: #eef2f4; color: #5A6B74;
+}
+.sv-acc--ok { background: #eaf7f8; color: #0f7c88; }
+.sv-acc--no { background: #fdecea; color: #b3261e; }
+
+.sv-evidence {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: #f7fafb; border: 1px solid #e3eaed; border-radius: 8px;
+  padding: 6px 12px; font-size: .88rem;
+  color: #123E5C; text-decoration: none;
+}
+.sv-evidence:hover { background: #eaf7f8; color: #0D2B3E; border-color: #cfe9ee; }
+
+/* ==================================================================
+   Expediente de una verificación ya dictaminada
+   ================================================================== */
+.sv-veredicto {
+  display: flex; align-items: center; gap: 18px;
+  border-radius: 12px; padding: 20px 24px; margin-bottom: 22px;
+  background: #fff; border: 1px solid #e3eaed; border-left: 5px solid #14A0B0;
+}
+.sv-veredicto--ko { border-left-color: #b3261e; }
+.sv-veredicto-icono .fa { font-size: 2.2rem; color: #14A0B0; }
+.sv-veredicto--ko .sv-veredicto-icono .fa { color: #b3261e; }
+.sv-veredicto-txt h2 { font-size: 1.35rem; font-weight: 700; color: #123E5C; margin: 0 0 4px; }
+.sv-veredicto-txt p { color: #5A6B74; font-size: .92rem; }
+
+.sv-h4 { font-size: .98rem; font-weight: 700; color: #123E5C; }
+
+/* Rejilla de datos: etiqueta arriba, valor abajo. Se lee de un barrido
+   vertical, que es como se compara un informe contra otro. */
+.sv-datos { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+.sv-datos > div {
+  background: #f7fafb; border: 1px solid #eef2f4; border-radius: 8px; padding: 10px 12px;
+}
+.sv-datos span {
+  display: block; font-size: .72rem; text-transform: uppercase;
+  letter-spacing: .06em; color: #8b9ba3; margin-bottom: 2px;
+}
+.sv-datos strong { font-size: 1.02rem; color: #123E5C; }
+
+.sv-tabla { width: 100%; border-collapse: collapse; font-size: .92rem; }
+.sv-tabla th {
+  text-align: left; font-size: .74rem; text-transform: uppercase;
+  letter-spacing: .06em; color: #8b9ba3; font-weight: 600;
+  border-bottom: 2px solid #e3eaed; padding: 8px 10px;
+}
+.sv-tabla td { padding: 8px 10px; border-bottom: 1px solid #eef2f4; color: #243b45; }
+.sv-tabla tbody tr:last-child td { border-bottom: 0; }
+
+/* Recorrido del proceso */
+.sv-linea { border-collapse: collapse; }
+.sv-linea-punto { width: 26px; vertical-align: top; padding: 6px 0; }
+.sv-linea-punto span {
+  display: block; width: 12px; height: 12px; border-radius: 50%; background: #D3DCE1;
+}
+.sv-linea-paso--hecha .sv-linea-punto span { background: #14A0B0; }
+.sv-linea-paso--actual .sv-linea-punto span { background: #123E5C; box-shadow: 0 0 0 3px #cfe9ee; }
+.sv-linea-paso--cancelada .sv-linea-punto span { background: #b3261e; }
+.sv-linea td { padding: 4px 0 10px; }
+.sv-linea-titulo { font-weight: 600; color: #8b9ba3; }
+.sv-linea-paso--hecha .sv-linea-titulo { color: #5A6B74; }
+.sv-linea-paso--actual .sv-linea-titulo { color: #123E5C; }
+.sv-linea-paso--cancelada .sv-linea-titulo { color: #b3261e; }
+.sv-linea-detalle { font-size: .82rem; color: #a9b6bd; }
+
+.sv-estrellas .fa { color: #e6a919; font-size: 1.15rem; }
+.sv-estrellas span { color: #5A6B74; font-size: .92rem; }
+.sv-cita {
+  border-left: 3px solid #cfe9ee; padding: 4px 0 4px 12px;
+  color: #3d5560; font-style: italic; margin: 0;
+}
+
+/* ==================================================================
+   Botones de las páginas de Odoo que quedan fuera de .shrimp-bg
+   (contacto, agradecimiento). Sin esto salen del morado por defecto
+   de Odoo, que no tiene nada que ver con la marca.
+   ================================================================== */
+#wrap .btn-primary,
+#wrap .btn-primary:focus {
+  background-color: #123E5C; border-color: #123E5C; color: #fff;
+}
+#wrap .btn-primary:hover { background-color: #0D2B3E; border-color: #0D2B3E; color: #fff; }
+#wrap a { color: #14A0B0; }
+#wrap a:hover { color: #123E5C; }
+/* El marketplace ya tiene su propia paleta: no se le toca. */
+#wrap .shrimp-bg a { color: inherit; }
+
+/* ==================================================================
+   Ficha de la verificadora (la abre el ojo de la tarjeta)
+   z-index 2900: por debajo del visor de certificados de
+   shrimp_marketplace, que está en 3000 y tiene que quedar encima.
+   ================================================================== */
+.sv-info-modal {
+  position: fixed; inset: 0; background: rgba(13, 27, 38, .6);
+  display: none; align-items: center; justify-content: center;
+  z-index: 2900; padding: 20px;
+}
+.sv-info-modal.open { display: flex; }
+.sv-info-card {
+  background: #fff; border-radius: 14px; width: min(620px, 100%);
+  max-height: 88vh; display: flex; flex-direction: column; overflow: hidden;
+  box-shadow: 0 18px 50px rgba(13, 43, 62, .35);
+}
+.sv-info-head {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  padding: 18px 22px; border-bottom: 1px solid #e3eaed;
+  background: linear-gradient(135deg, #0D2B3E 0%, #123E5C 60%, #17788F 100%);
+}
+.sv-info-nombre { font-size: 1.18rem; font-weight: 700; color: #fff; }
+.sv-info-head .sv-info-sub { color: rgba(255, 255, 255, .75); font-size: .86rem; }
+.sv-info-cerrar {
+  background: rgba(255, 255, 255, .16); border: 0; color: #fff;
+  width: 32px; height: 32px; border-radius: 50%; flex: 0 0 auto; cursor: pointer;
+}
+.sv-info-cerrar:hover { background: rgba(255, 255, 255, .3); }
+
+.sv-info-body { padding: 20px 22px; overflow-y: auto; }
+.sv-info-sub { font-size: .84rem; color: #8b9ba3; }
+
+.sv-info-acred {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  background: #eaf7f8; border: 1px solid #cfe9ee; border-radius: 10px;
+  padding: 12px 14px; color: #0f5c66; flex-wrap: wrap;
+}
+.sv-info-acred .fa-check-circle { color: #14A0B0; }
+
+/* Botón del PDF: cuadrado con el icono grande, para que se lea como
+   "aquí está el documento" y no como un enlace más. */
+.sv-info-pdf {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: #fff; border: 1px solid #123E5C; border-radius: 8px;
+  color: #123E5C; padding: 8px 14px; font-size: .9rem; font-weight: 600;
+  cursor: pointer; flex: 0 0 auto;
+}
+.sv-info-pdf .fa { font-size: 1.35rem; color: #b3261e; }
+.sv-info-pdf:hover { background: #123E5C; color: #fff; }
+.sv-info-pdf:hover .fa { color: #fff; }
+
+.sv-info-cifras {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 18px 0;
+}
+.sv-info-cifras > div {
+  background: #f7fafb; border: 1px solid #eef2f4; border-radius: 10px;
+  padding: 12px; text-align: center;
+}
+.sv-info-cifras span {
+  display: block; font-size: .7rem; text-transform: uppercase;
+  letter-spacing: .06em; color: #8b9ba3;
+}
+.sv-info-cifras strong { display: block; font-size: 1.4rem; color: #123E5C; line-height: 1.2; }
+.sv-info-cifras small { color: #8b9ba3; font-size: .76rem; }
+
+.sv-info-datos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; }
+@media (max-width: 520px) {
+  .sv-info-datos { grid-template-columns: 1fr; }
+  .sv-info-cifras { grid-template-columns: 1fr; }
+}
+.sv-info-datos > div { border-bottom: 1px solid #f1f5f6; padding-bottom: 8px; }
+.sv-info-datos span {
+  display: block; font-size: .7rem; text-transform: uppercase;
+  letter-spacing: .06em; color: #8b9ba3;
+}
+.sv-info-datos strong { color: #243b45; font-weight: 600; font-size: .95rem; }
+
+.sv-info-resenas { margin-top: 20px; border-top: 1px solid #e3eaed; padding-top: 14px; }
+.sv-info-resenas h6 { font-size: .82rem; text-transform: uppercase; letter-spacing: .06em; color: #8b9ba3; }
+.sv-info-resena { margin-bottom: 12px; }
+.sv-info-resena p {
+  margin: 2px 0 0; color: #3d5560; font-style: italic; font-size: .92rem;
+  border-left: 3px solid #cfe9ee; padding-left: 10px;
+}
+
+/* El ojo era un <a> y ahora es un <button>: hay que quitarle el aspecto
+   de botón nativo para que siga viéndose igual. */
+button.sv-eye { background: none; border: 0; padding: 0; cursor: pointer; }
+.sv-info-pdf .fa-file-image-o { color: #17788F; }
+
 /* =========================================================================
    PORTADA DEL SITIO DE VERIFICADORES (vw-*)
    Paleta teal/navy propia del verificador.

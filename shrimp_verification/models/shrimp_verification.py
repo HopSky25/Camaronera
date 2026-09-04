@@ -280,6 +280,29 @@ class ShrimpVerification(models.Model):
             rec.platform_amount = round((rec.fee or 0.0) * pct / 100.0, 2)
             rec.verifier_amount = round((rec.fee or 0.0) - rec.platform_amount, 2)
 
+    review_ids = fields.One2many(
+        "shrimp.verifier.review", "verification_id", string="Reseñas del comprador")
+
+    acceptance_ids = fields.One2many(
+        "shrimp.verification.acceptance", "verification_id", string="Posturas de las partes")
+    acceptance_deadline = fields.Datetime(
+        string="Plazo para aceptar", readonly=True, copy=False,
+        help="Vencido el plazo sin respuesta, la postura pendiente se da por aceptada.")
+    acceptance_state = fields.Selection(
+        [
+            ("na", "No corresponde"),
+            ("waiting", "Esperando a las partes"),
+            ("closed", "Aceptada por ambas"),
+            ("broken", "Trato caído"),
+        ],
+        string="Aceptación de las partes", default="na", readonly=True, copy=False, index=True)
+
+    # Quién termina pagando la verificación. Arranca en el comprador, que es
+    # quien la contrata, y se reasigna si el trato se cae por culpa medible de
+    # la otra parte.
+    fee_payer_partner_id = fields.Many2one(
+        "res.partner", string="Paga la verificación", readonly=True, copy=False)
+
     is_final = fields.Boolean(compute="_compute_is_final", string="Cerrada")
     buyer_notified = fields.Boolean(string="Comprador avisado", readonly=True, copy=False)
 
@@ -417,6 +440,7 @@ class ShrimpVerification(models.Model):
         records = super().create(vals_list)
         for rec in records:
             rec._notify_verifier_assigned()
+            rec._notify_stage()
         return records
 
     # ==================================================================
@@ -434,6 +458,7 @@ class ShrimpVerification(models.Model):
             if rec.state == "received":
                 rec.state = "assigned"
             rec._notify_technician_assigned()
+            rec._notify_stage()
 
     def action_start_field(self):
         for rec in self:
@@ -448,6 +473,9 @@ class ShrimpVerification(models.Model):
                     "Solo %s, el técnico asignado, puede iniciar este trabajo de campo."
                 ) % rec.technician_partner_id.name)
             rec.write({"state": "in_field", "field_start_date": fields.Datetime.now()})
+            # Comprador y vendedor se enteran en el momento en que el técnico
+            # pisa el sitio: es el dato que más preguntan por WhatsApp.
+            rec._notify_stage()
 
     def _missing_report_fields(self):
         """Qué falta para poder emitir un veredicto. Depende del alcance:
@@ -485,6 +513,7 @@ class ShrimpVerification(models.Model):
                 raise UserError(
                     _("Faltan datos del informe: %s.") % ", ".join(missing))
             rec.state = "done"
+            rec._notify_stage()
 
     def _puede_dictaminar(self, partner):
         """El técnico que fue a campo, o el admin de su empresa."""
@@ -510,11 +539,20 @@ class ShrimpVerification(models.Model):
         if notes:
             vals["verdict_notes"] = notes
         self.write(vals)
-        # El honorario se factura con el veredicto emitido, aprobado o
+        # Al verificador se le liquida con el veredicto emitido, aprobado o
         # rechazado: retribuye la inspección, no su resultado.
         if state in ("approved", "approved_obs", "rejected"):
-            self._create_verification_documents()
+            self._create_verifier_bill()
+        if state == "rejected":
+            # Nadie tiene que aceptar nada: el informe ya tumbó la compra y el
+            # honorario lo carga el vendedor, cuyo producto no pasó.
+            self.fee_payer_partner_id = self.seller_partner_id.id
+            self._create_payer_invoice()
         self._notify_buyer_verdict()
+        if state in ("approved", "approved_obs"):
+            # El veredicto favorable no cierra la compra: la pone a la firma de
+            # comprador y vendedor.
+            self._abrir_ronda_aceptacion()
 
     def action_approve(self):
         for rec in self:
@@ -533,7 +571,344 @@ class ShrimpVerification(models.Model):
     def action_cancel(self):
         for rec in self:
             rec.write({"state": "cancelled"})
+            rec._notify_stage()
             rec.transaction_id.action_cancel_for_verification()
+
+    # ==================================================================
+    # Aceptación de las dos partes
+    # ==================================================================
+    # Un informe que solo vincula al comprador no es un arbitraje, es la
+    # herramienta de una de las partes. Por eso la compra no se cierra con el
+    # veredicto: se cierra cuando comprador y vendedor firman que lo aceptan.
+
+    def _horas_de_plazo(self):
+        try:
+            return int(self.env["ir.config_parameter"].sudo().get_param(
+                "shrimp_verification.acceptance_hours") or 48)
+        except (TypeError, ValueError):
+            return 48
+
+    def _tolerancia_peso(self):
+        """Cuánto puede faltar del peso vendido sin considerarlo incumplimiento.
+        Entre la pesada del vendedor y la de planta siempre hay merma."""
+        try:
+            return float(self.env["ir.config_parameter"].sudo().get_param(
+                "shrimp_verification.weight_tolerance_pct") or 2.0)
+        except (TypeError, ValueError):
+            return 2.0
+
+    def cumple_lo_publicado(self):
+        """¿El producto entregado cumple lo que el anuncio prometía?
+
+        Devuelve (bool, [motivos]). De aquí sale quién carga con el honorario
+        cuando el trato se cae, así que solo entran datos medidos por el
+        verificador y comparables contra el anuncio: nada de apreciaciones.
+        """
+        self.ensure_one()
+        motivos = []
+        tx = self.transaction_id
+
+        if self.state == "rejected":
+            motivos.append(_("el verificador rechazó la inspección"))
+            return False, motivos
+        if self.state == "approved_obs":
+            motivos.append(_("el verificador aprobó con observaciones"))
+
+        if self.scope == "larvae":
+            if (self.larvae_qty_diff_pct or 0.0) < -self._tolerancia_peso():
+                motivos.append(_("llegaron menos larvas de las vendidas"))
+            if self.larvae_health_status == "rejected":
+                motivos.append(_("el estado sanitario no es aceptable"))
+            return (not motivos), motivos
+
+        # Peso: solo cuenta el faltante. Que venga de más no es incumplimiento.
+        vendido = tx.transaction_qty or self.weight_sent_lb or 0.0
+        if vendido and self.weight_plant_lb:
+            faltante_pct = (vendido - self.weight_plant_lb) / vendido * 100.0
+            if faltante_pct > self._tolerancia_peso():
+                motivos.append(_("faltó peso: llegaron %.2f lb de %.2f vendidas") % (
+                    self.weight_plant_lb, vendido))
+
+        if self.metabisulfite_result == "fail":
+            motivos.append(_("el metabisulfito no dio conforme"))
+        if self.taste_result == "rejected":
+            motivos.append(_("el sabor fue rechazado"))
+
+        # Talla: la que domina el lote verificado contra la publicada.
+        talla_publicada = (tx.product_id.size_grade_id.name or "").strip().upper()
+        if talla_publicada and self.line_ids:
+            dominante = max(self.line_ids, key=lambda l: l.weight_lb or 0.0)
+            talla_real = (dominante.size_code or "").strip().upper()
+            if talla_real and talla_real != talla_publicada:
+                motivos.append(_("la talla predominante es %s y se publicó %s") % (
+                    talla_real, talla_publicada))
+
+        return (not motivos), motivos
+
+    def _abrir_plazo(self):
+        for rec in self:
+            rec.acceptance_deadline = fields.Datetime.add(
+                fields.Datetime.now(), hours=rec._horas_de_plazo())
+
+    def _abrir_ronda_aceptacion(self):
+        """Tras un veredicto favorable, pone la compra a la firma de las partes."""
+        Postura = self.env["shrimp.verification.acceptance"].sudo()
+        for rec in self:
+            if rec.acceptance_state != "na":
+                continue
+            existentes = rec.acceptance_ids.mapped("role")
+            for rol, partner in (("buyer", rec.buyer_partner_id),
+                                 ("seller", rec.seller_partner_id)):
+                if rol not in existentes and partner:
+                    Postura.create({
+                        "verification_id": rec.id,
+                        "role": rol,
+                        "partner_id": partner.id,
+                    })
+            rec.acceptance_state = "waiting"
+            rec.fee_payer_partner_id = rec.buyer_partner_id.id
+            rec._abrir_plazo()
+            rec.transaction_id.action_await_acceptance()
+            rec._notify_acceptance("opened")
+
+    def _resolver_aceptacion(self):
+        """Cierra la ronda si ya hay decisión de las dos partes."""
+        for rec in self:
+            if rec.acceptance_state != "waiting":
+                continue
+            posturas = rec.acceptance_ids
+            if len(posturas) < 2:
+                continue
+
+            rechazo = posturas.filtered(lambda a: a.decision == "rejected")
+            if rechazo:
+                rec._cerrar_trato_caido(rechazo[0])
+                continue
+
+            comprador = posturas.filtered(lambda a: a.role == "buyer")[:1]
+            vendedor = posturas.filtered(lambda a: a.role == "seller")[:1]
+
+            # Una contraoferta del comprador vale como su aceptación del precio
+            # nuevo: lo que falta es que el vendedor la firme.
+            comprador_ok = comprador.decision in ("accepted", "counter")
+            if not (comprador_ok and vendedor.decision == "accepted"):
+                # Todavía falta uno: avisarle que la pelota está en su cancha.
+                if len(posturas.filtered(lambda a: a.decision == "pending")) == 1:
+                    rec._notify_acceptance("waiting_on_one")
+                continue
+
+            if comprador.decision == "counter":
+                rec._aplicar_contraoferta(comprador)
+            rec._cerrar_trato_aceptado()
+
+    def _aplicar_contraoferta(self, postura):
+        """Deja la compra al precio que las dos partes terminaron firmando."""
+        self.ensure_one()
+        tx = self.transaction_id
+        anterior = tx.price_unit or 0.0
+        tx.sudo().write({
+            "price_unit": postura.counter_price,
+            "amount_total": postura.counter_total,
+        })
+        tx.sudo().message_post(body=_(
+            "Precio ajustado tras la verificación: de %(antes)s a %(ahora)s por unidad. "
+            "Total %(total)s. Lo propuso el comprador y lo aceptó el vendedor."
+        ) % {
+            "antes": anterior,
+            "ahora": postura.counter_price,
+            "total": postura.counter_total,
+        })
+
+    def _cerrar_trato_aceptado(self):
+        self.ensure_one()
+        self.acceptance_state = "closed"
+        # El honorario lo paga el comprador: contrató la verificación y el
+        # trato salió adelante.
+        self.fee_payer_partner_id = self.buyer_partner_id.id
+        self._create_payer_invoice()
+        self.transaction_id.action_complete_after_verification()
+        self._notify_acceptance("closed")
+
+    def _cerrar_trato_caido(self, rechazo):
+        """El trato se cayó. Lo que hay que decidir aquí es quién paga la
+        verificación, y la regla es una sola: la carga el que se salió del
+        trato sin un motivo medible en el informe."""
+        self.ensure_one()
+        cumple, motivos = self.cumple_lo_publicado()
+        if cumple:
+            # El producto era lo prometido: paga el que se echó atrás.
+            culpable = rechazo.partner_id
+            explicacion = _(
+                "El informe confirmó lo publicado, así que la verificación la "
+                "paga quien se retiró del trato.")
+        else:
+            # El producto no era lo prometido: paga el vendedor, haya rechazado
+            # él o se haya retirado el comprador con razón.
+            culpable = self.seller_partner_id
+            explicacion = _(
+                "El producto no cumplió lo publicado (%s), así que la "
+                "verificación la paga el vendedor.") % "; ".join(motivos)
+
+        self.acceptance_state = "broken"
+        self.fee_payer_partner_id = culpable.id
+        self.sudo()._message_log(body=_(
+            "Trato caído: lo rechazó %(quien)s. %(explicacion)s Se factura a "
+            "%(pagador)s."
+        ) % {
+            "quien": rechazo.partner_id.name,
+            "explicacion": explicacion,
+            "pagador": culpable.name,
+        })
+        self._create_payer_invoice()
+        self.transaction_id.action_cancel_for_verification()
+        self._notify_acceptance("broken")
+
+    @api.model
+    def _cron_vencer_plazos(self):
+        """Da por aceptadas las posturas que se quedaron sin respuesta.
+
+        El informe lo firmó un tercero acreditado: si nadie lo objeta dentro
+        del plazo, callar es consentir. La alternativa —cancelar por silencio—
+        mataría ventas buenas porque alguien no revisó el correo el fin de
+        semana, y dejaría el stock trabado.
+        """
+        vencidas = self.sudo().search([
+            ("acceptance_state", "=", "waiting"),
+            ("acceptance_deadline", "<=", fields.Datetime.now()),
+        ])
+        for rec in vencidas:
+            pendientes = rec.acceptance_ids.filtered(lambda a: a.decision == "pending")
+            if not pendientes:
+                continue
+            pendientes.action_accept(
+                reason=_("Aceptada automáticamente: venció el plazo sin respuesta."),
+                auto=True)
+        return True
+
+    def _texto_plazo(self):
+        self.ensure_one()
+        if not self.acceptance_deadline:
+            return ""
+        local = fields.Datetime.context_timestamp(self, self.acceptance_deadline)
+        return local.strftime("%d/%m/%Y a las %H:%M")
+
+    def _notify_acceptance(self, evento):
+        """Avisos de la ronda de firmas.
+
+        Van por la misma plantilla de etapa, forzando titular y detalle desde
+        el contexto: para el sistema la verificación sigue "aprobada" todo el
+        tiempo, pero para las partes están pasando cosas distintas.
+        """
+        self.ensure_one()
+        tx = self.transaction_id
+        plazo = self._texto_plazo()
+        contra = self.acceptance_ids.filtered(lambda a: a.decision == "counter")[:1]
+        _cumple, motivos = self.cumple_lo_publicado()
+
+        if evento == "opened":
+            destinos = ["buyer", "seller"]
+            titular = _("Falta tu aceptación del informe")
+            detalle = _(
+                "%(empresa)s terminó la inspección. Antes de cerrar la compra, "
+                "comprador y vendedor tienen que aceptar el informe. Revísalo y "
+                "responde antes del %(plazo)s: si no dices nada, se dará por "
+                "aceptado."
+            ) % {"empresa": self.verifier_partner_id.name or "", "plazo": plazo}
+
+        elif evento == "counter":
+            destinos = ["seller"]
+            titular = _("El comprador propone otro precio")
+            detalle = _(
+                "El informe encontró que el producto no cumplió lo publicado "
+                "(%(motivos)s). En vez de tumbar la compra, el comprador propone "
+                "pagar %(nuevo)s por unidad en lugar de %(antes)s, o sea "
+                "%(total)s en total. Acéptalo o recházalo antes del %(plazo)s."
+            ) % {
+                "motivos": "; ".join(motivos) or _("hay diferencias con el anuncio"),
+                "nuevo": contra.counter_price,
+                "antes": tx.price_unit,
+                "total": contra.counter_total,
+                "plazo": plazo,
+            }
+
+        elif evento == "waiting_on_one":
+            pendiente = self.acceptance_ids.filtered(lambda a: a.decision == "pending")[:1]
+            if not pendiente:
+                return
+            destinos = [pendiente.role]
+            titular = _("Solo faltas tú para cerrar la compra")
+            detalle = _(
+                "La otra parte ya aceptó el informe del verificador. En cuanto "
+                "respondas, la compra queda cerrada. Tienes hasta el %(plazo)s; "
+                "si no dices nada, se dará por aceptado."
+            ) % {"plazo": plazo}
+
+        elif evento == "closed":
+            destinos = ["buyer", "seller"]
+            titular = _("Compra cerrada")
+            detalle = _(
+                "Comprador y vendedor aceptaron el informe de %(empresa)s. La "
+                "compra quedó concretada por %(total)s y la trazabilidad ya "
+                "está registrada."
+            ) % {
+                "empresa": self.verifier_partner_id.name or "",
+                "total": tx.amount_total,
+            }
+
+        elif evento == "broken":
+            destinos = ["buyer", "seller", "verifier"]
+            rechazo = self.acceptance_ids.filtered(lambda a: a.decision == "rejected")[:1]
+            titular = _("El trato no se concretó")
+            detalle = _(
+                "%(quien)s no aceptó el informe%(motivo)s. La compra se canceló "
+                "y el producto vuelve a quedar disponible. El honorario de la "
+                "verificación lo asume %(pagador)s."
+            ) % {
+                "quien": rechazo.partner_id.name or _("Una de las partes"),
+                "motivo": (_(": %s") % rechazo.reason) if rechazo.reason else "",
+                "pagador": (self.fee_payer_partner_id.name or ""),
+            }
+        else:
+            return
+
+        entregados = []
+        for partner, url in self._stage_recipients(destinos):
+            ok = self._send_template(
+                "shrimp_verification.mail_template_verification_stage",
+                partner.email,
+                ctx={"portal_url": url, "destinatario": partner.name,
+                     "titular": titular, "detalle": detalle},
+            )
+            entregados.append((partner, ok))
+        self._log_notificacion(entregados)
+
+    @api.model
+    def pendientes_de_aceptar(self, partner=None):
+        """Verificaciones esperando la firma del usuario actual.
+
+        Se usa para el aviso que va arriba de "mis compras" y "mis ventas": es
+        una acción con plazo, esconderla dentro de una fila de la tabla haría
+        que se venciera sin que nadie la viera.
+        """
+        partner = partner or self.env.user.partner_id
+        if not partner:
+            return self.browse()
+        return self.sudo().search([
+            ("acceptance_state", "=", "waiting"),
+            ("acceptance_ids.partner_id", "=", partner.id),
+            ("acceptance_ids.decision", "=", "pending"),
+        ]).filtered(lambda v: any(
+            a.partner_id == partner and a.decision == "pending" for a in v.acceptance_ids))
+
+    def action_open_acceptances(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": "shrimp.verification.acceptance",
+            "name": _("Posturas de las partes"),
+            "view_mode": "list,form",
+            "domain": [("verification_id", "=", self.id)],
+        }
 
     # ==================================================================
     # Facturación del honorario
@@ -573,63 +948,38 @@ class ShrimpVerification(models.Model):
             return 0.0
 
     def _create_verification_documents(self):
-        """Emite los dos documentos del honorario:
+        """Emite todo lo que ya se pueda emitir del honorario.
 
-        1. Pedido y factura al COMPRADOR por el honorario completo.
-        2. Factura de proveedor de la EMPRESA VERIFICADORA por su parte.
+        Se conserva como un solo botón de reintento, pero por dentro son dos
+        momentos distintos: al verificador se le liquida con el veredicto, y al
+        pagador se le factura cuando se sabe quién es.
+        """
+        self._create_verifier_bill()
+        self._create_payer_invoice()
 
-        Se llama al cerrar el veredicto, sea aprobado o rechazado: el honorario
-        retribuye la inspección hecha, no su resultado. Cobrar solo cuando se
+    def _create_verifier_bill(self):
+        """Liquidación a la EMPRESA VERIFICADORA por su parte del honorario.
+
+        Se emite al cerrar el veredicto, sea aprobado o rechazado: el honorario
+        retribuye la inspección hecha, no su resultado. Pagarle solo cuando
         aprueba le daría al verificador un incentivo a aprobar.
         """
-        Sale = self.env["sale.order"].sudo()
         Move = self.env["account.move"].sudo()
-
         for rec in self:
-            if rec.sale_order_id or (rec.fee or 0.0) <= 0:
+            if rec.vendor_bill_id or (rec.fee or 0.0) <= 0 or not rec.verifier_partner_id:
                 continue
-            if not rec.buyer_partner_id or not rec.verifier_partner_id:
-                continue
-
             producto = rec._get_verification_product()
             if not producto:
                 rec.message_post(body=_(
-                    "No se pudo facturar la verificación: falta el producto de servicio."))
+                    "No se pudo liquidar la verificación: falta el producto de servicio."))
                 continue
-
             # El margen se congela aquí: cambiarlo después no debe alterar
             # documentos ya emitidos.
-            rec.margin_pct = rec._margen_configurado()
-
-            etiqueta = _("Verificación en campo – %s") % (rec.name or "")
-            try:
-                pedido = Sale.create({
-                    "partner_id": rec.buyer_partner_id.id,
-                    "client_order_ref": rec.name,
-                    "order_line": [(0, 0, {
-                        "product_id": producto.id,
-                        "name": etiqueta,
-                        "product_uom_qty": 1.0,
-                        "price_unit": rec.fee,
-                        "tax_ids": [(6, 0, [])],
-                    })],
-                })
-                pedido.action_confirm()
-                rec.sale_order_id = pedido.id
-
-                factura = pedido._create_invoices()
-                if factura:
-                    factura.action_post()
-                    rec.invoice_id = factura.id
-            except Exception as e:  # noqa: BLE001 - no debe romper el veredicto
-                _logger.exception("Verificación %s: fallo al facturar al comprador", rec.name)
-                rec.message_post(body=_(
-                    "No se pudo facturar al comprador: %s") % e)
-                continue
-
-            # Liquidación a la empresa verificadora por su parte del honorario.
+            if not rec.margin_pct:
+                rec.margin_pct = rec._margen_configurado()
             if (rec.verifier_amount or 0.0) <= 0:
                 continue
+            etiqueta = _("Verificación en campo – %s") % (rec.name or "")
             try:
                 gasto = Move.create({
                     "move_type": "in_invoice",
@@ -651,6 +1001,58 @@ class ShrimpVerification(models.Model):
                 rec.message_post(body=_(
                     "No se pudo registrar la liquidación al verificador: %s") % e)
 
+    def _create_payer_invoice(self):
+        """Factura del honorario a quien corresponda pagarlo.
+
+        No se emite con el veredicto sino al resolverse la aceptación, porque
+        hasta ese momento no se sabe quién paga: si el trato se cae, lo carga
+        el que se salió sin motivo medible, y facturar antes obligaría a
+        emitir una nota de crédito y refacturar.
+        """
+        Sale = self.env["sale.order"].sudo()
+
+        for rec in self:
+            pagador = rec.fee_payer_partner_id or rec.buyer_partner_id
+            if rec.sale_order_id or (rec.fee or 0.0) <= 0 or not pagador:
+                continue
+
+            producto = rec._get_verification_product()
+            if not producto:
+                rec.message_post(body=_(
+                    "No se pudo facturar la verificación: falta el producto de servicio."))
+                continue
+
+            if not rec.margin_pct:
+                rec.margin_pct = rec._margen_configurado()
+
+            etiqueta = _("Verificación en campo – %s") % (rec.name or "")
+            try:
+                pedido = Sale.create({
+                    "partner_id": pagador.id,
+                    "client_order_ref": rec.name,
+                    "order_line": [(0, 0, {
+                        "product_id": producto.id,
+                        "name": etiqueta,
+                        "product_uom_qty": 1.0,
+                        "price_unit": rec.fee,
+                        "tax_ids": [(6, 0, [])],
+                    })],
+                })
+                pedido.action_confirm()
+                rec.sale_order_id = pedido.id
+
+                factura = pedido._create_invoices()
+                if factura:
+                    factura.action_post()
+                    rec.invoice_id = factura.id
+                rec.sudo()._message_log(body=_(
+                    "Honorario de verificación facturado a %s.") % pagador.name)
+            except Exception as e:  # noqa: BLE001 - no debe romper el veredicto
+                _logger.exception("Verificación %s: fallo al facturar el honorario", rec.name)
+                rec.message_post(body=_(
+                    "No se pudo facturar el honorario a %(quien)s: %(error)s"
+                ) % {"quien": pagador.name, "error": e})
+
     def action_generate_verification_documents(self):
         """Botón: reintentar la facturación si algo falló."""
         self._create_verification_documents()
@@ -665,6 +1067,223 @@ class ShrimpVerification(models.Model):
         self.ensure_one()
         return {"type": "ir.actions.act_window", "res_model": "account.move",
                 "res_id": self.vendor_bill_id.id, "view_mode": "form", "target": "current"}
+
+    # ==================================================================
+    # Seguimiento por etapas
+    # ==================================================================
+    # Las etapas visibles del proceso, en orden. La cancelación no está aquí
+    # porque no es un paso del avance sino una salida del camino.
+    ETAPAS = [
+        ("received", "Recibida",         "La verificadora recibió la orden"),
+        ("assigned", "Asignada",         "Hay un técnico responsable"),
+        ("in_field", "En campo",         "El técnico está inspeccionando"),
+        ("done",     "Informe completo", "Los cinco análisis quedaron registrados"),
+        ("verdict",  "Verificada",       "Se emitió el veredicto"),
+        ("accepted", "Aceptada",         "Comprador y vendedor firmaron el informe"),
+    ]
+
+    # Quién se entera de cada cambio de etapa. Comprador y vendedor siguen el
+    # avance de punta a punta: son los que tienen plata en juego. La empresa
+    # verificadora solo recibe aviso de lo que no disparó ella misma.
+    AUDIENCIA_ETAPA = {
+        "received":     ("buyer", "seller"),
+        # El técnico no va aquí: _notify_technician_assigned ya le manda su
+        # propia plantilla, más detallada. Ponerlo sería un correo duplicado.
+        "assigned":     ("buyer", "seller"),
+        "in_field":     ("buyer", "seller", "verifier"),
+        "done":         ("buyer", "seller", "verifier"),
+        "cancelled":    ("buyer", "seller", "verifier", "technician"),
+    }
+
+    def _stage_recipients(self, roles):
+        """Devuelve [(partner, url_de_su_portal)] sin repetidos ni vacíos.
+
+        Cada parte entra por una puerta distinta, así que el botón del correo
+        no puede ser el mismo para todos: al comprador se le manda a sus
+        compras, al vendedor a sus ventas y a la verificadora a la orden.
+        """
+        self.ensure_one()
+        base = self.get_base_url()
+        mapa = {
+            "buyer":      (self.buyer_partner_id,      "/marketplace/compras"),
+            "seller":     (self.seller_partner_id,     "/marketplace/ventas"),
+            "verifier":   (self.verifier_partner_id,   "/verificador/verificacion/%s" % self.uuid_ref),
+            "technician": (self.technician_partner_id, "/verificador/verificacion/%s" % self.uuid_ref),
+        }
+        salida, vistos = [], set()
+        for rol in roles:
+            partner, ruta = mapa.get(rol, (None, ""))
+            if not partner or not partner.email or partner.id in vistos:
+                continue
+            vistos.add(partner.id)
+            salida.append((partner, base + ruta))
+        return salida
+
+    def _notify_stage(self):
+        """Avisa por correo a quien corresponda del cambio de etapa."""
+        self.ensure_one()
+        roles = self.AUDIENCIA_ETAPA.get(self.state)
+        if not roles:
+            return
+        entregados = [
+            (partner, self._send_template(
+                "shrimp_verification.mail_template_verification_stage",
+                partner.email,
+                ctx={"portal_url": url, "destinatario": partner.name},
+            ))
+            for partner, url in self._stage_recipients(roles)
+        ]
+        self._log_notificacion(entregados)
+
+    def _log_notificacion(self, entregados):
+        """Deja constancia en el chatter de a quién se le avisó y a quién no.
+
+        Sin esto, un SMTP mal configurado se traga los correos en silencio y
+        nadie se entera hasta que un comprador reclama que nunca supo nada.
+        """
+        self.ensure_one()
+        if not entregados:
+            return
+        ok = [p.name for p, enviado in entregados if enviado]
+        fallo = [p.name for p, enviado in entregados if not enviado]
+        partes = []
+        if ok:
+            partes.append(_("Notificados por correo: %s.") % ", ".join(ok))
+        if fallo and not self._hay_servidor_de_correo():
+            partes.append(_(
+                "No se envió correo a %s: no hay ningún servidor de correo "
+                "saliente configurado en Ajustes > Técnico > Servidores de "
+                "correo saliente."
+            ) % ", ".join(fallo))
+        elif fallo:
+            partes.append(_(
+                "No se pudo enviar el correo a: %s. Revisa el servidor de "
+                "correo saliente en Ajustes."
+            ) % ", ".join(fallo))
+        # _message_log y no message_post: esto es una anotación de auditoría,
+        # no un mensaje que deba volver a notificar a los seguidores (eso
+        # dispararía una segunda tanda de correos por cada aviso enviado).
+        self.sudo()._message_log(body=" ".join(partes))
+
+    def _stage_index(self):
+        """Hasta qué etapa llegó realmente, como índice de ETAPAS.
+
+        Para una verificación cancelada el estado ya no dice nada del avance,
+        así que se deduce de los hitos que sí quedaron grabados: si hay fecha de
+        veredicto llegó al final, si hay fecha de inicio en campo llegó ahí, y
+        así hacia atrás. Sin esto una cancelación mostraría la línea de tiempo
+        entera en gris, como si nunca hubiera pasado nada.
+        """
+        self.ensure_one()
+        if self.acceptance_state == "closed":
+            return 5
+        por_estado = {"received": 0, "assigned": 1, "in_field": 2, "done": 3,
+                      "approved": 4, "approved_obs": 4, "rejected": 4}
+        if self.state in por_estado:
+            return por_estado[self.state]
+        if self.verified_date:
+            return 4
+        if self.field_start_date:
+            return 2
+        if self.technician_partner_id:
+            return 1
+        return 0
+
+    def stage_timeline(self):
+        """Línea de tiempo para el correo: qué etapas ya pasaron, cuál es la
+        actual y cuáles faltan. Se calcula acá y no en la plantilla para que el
+        HTML del correo quede legible."""
+        self.ensure_one()
+        indice = self._stage_index()
+        cancelada = self.state == "cancelled"
+        pasos = []
+        for i, (_clave, titulo, detalle) in enumerate(self.ETAPAS):
+            # "Verificada" solo es cierto si el veredicto fue favorable; en un
+            # rechazo la etapa igual se cumplió, pero se llama de otro modo.
+            if _clave == "verdict" and self.state in ("rejected", "cancelled"):
+                titulo = _("Veredicto")
+            if cancelada:
+                estado = "hecha" if i <= indice else "pendiente"
+            else:
+                estado = "hecha" if i < indice else ("actual" if i == indice else "pendiente")
+            pasos.append({"titulo": titulo, "detalle": detalle, "estado": estado})
+        if cancelada:
+            pasos.append({
+                "titulo": _("Cancelada"),
+                "detalle": _("El proceso se interrumpió aquí"),
+                "estado": "cancelada",
+            })
+        return pasos
+
+    def etiqueta(self, campo):
+        """Texto legible de un campo de selección. En los correos no puede
+        salir la clave interna: al comprador "good" no le dice nada, "Bueno" sí."""
+        self.ensure_one()
+        valor = self[campo]
+        if not valor:
+            return "-"
+        seleccion = self._fields[campo]._description_selection(self.env)
+        return dict(seleccion).get(valor, valor)
+
+    def stage_headline(self):
+        """Titular del correo. En castellano llano: lo lee un camaronero, no un
+        operador del sistema.
+
+        Se puede forzar desde el contexto porque los avisos de la ronda de
+        aceptación no son cambios de estado —la verificación sigue "aprobada"
+        mientras las partes firman— y aun así necesitan su propio titular.
+        """
+        self.ensure_one()
+        forzado = self.env.context.get("titular")
+        if forzado:
+            return forzado
+        if self.acceptance_state == "waiting":
+            return _("Falta la aceptación de las partes")
+        if self.acceptance_state == "broken":
+            return _("El trato no se concretó")
+        if self.acceptance_state == "closed":
+            return _("Compra cerrada")
+        return {
+            "received":     _("Tu compra entró a verificación"),
+            "assigned":     _("Ya hay un técnico asignado"),
+            "in_field":     _("Comenzó la inspección en campo"),
+            "done":         _("El informe de campo está completo"),
+            "approved":     _("La verificación fue aprobada"),
+            "approved_obs": _("Aprobada con observaciones"),
+            "rejected":     _("La verificación fue rechazada"),
+            "cancelled":    _("La verificación fue cancelada"),
+        }.get(self.state, _("Avance de la verificación"))
+
+    def stage_detail(self):
+        """Explicación de qué pasó y qué sigue, según la etapa."""
+        self.ensure_one()
+        forzado = self.env.context.get("detalle")
+        if forzado:
+            return forzado
+        empresa = self.verifier_partner_id.name or _("la verificadora")
+        tecnico = self.technician_partner_id.name or _("un técnico")
+        return {
+            "received": _(
+                "%(empresa)s recibió la orden de verificación y va a asignar un "
+                "técnico de campo."
+            ) % {"empresa": empresa},
+            "assigned": _(
+                "%(empresa)s asignó a %(tecnico)s como técnico responsable de la "
+                "inspección. Él es quien va a ir al sitio y quien firma el informe."
+            ) % {"empresa": empresa, "tecnico": tecnico},
+            "in_field": _(
+                "%(tecnico)s está en el sitio realizando los cinco análisis: peso, "
+                "cuerpo o cola, metabisulfito, clasificación y sabor."
+            ) % {"tecnico": tecnico},
+            "done": _(
+                "%(tecnico)s terminó de registrar los análisis. %(empresa)s va a "
+                "revisar el informe y emitir el veredicto."
+            ) % {"tecnico": tecnico, "empresa": empresa},
+            "cancelled": _(
+                "La verificación se canceló y la compra quedó sin efecto. El "
+                "producto vuelve a estar disponible."
+            ),
+        }.get(self.state, "")
 
     # ==================================================================
     # Avisos
@@ -712,22 +1331,52 @@ class ShrimpVerification(models.Model):
                             self.verifier_partner_id.email)
 
     def _notify_buyer_verdict(self):
+        """El veredicto le importa a las dos partes: al comprador porque decide
+        si concluye la compra, y al vendedor porque de él salió el producto."""
         self.ensure_one()
-        self._send_template("shrimp_verification.mail_template_verification_verdict",
-                            self.buyer_partner_id.email)
+        entregados = []
+        for partner, url in self._stage_recipients(("buyer", "seller")):
+            ok = self._send_template(
+                "shrimp_verification.mail_template_verification_verdict",
+                partner.email,
+                ctx={"portal_url": url, "destinatario": partner.name},
+            )
+            entregados.append((partner, ok))
         self.sudo().write({"buyer_notified": True})
+        self._log_notificacion(entregados)
 
-    def _send_template(self, xmlid, email_to):
-        if not email_to:
-            return
+    @api.model
+    def _hay_servidor_de_correo(self):
+        """¿Hay a dónde entregar el correo?
+
+        Si no hay ningún servidor SMTP configurado, intentar el envío no falla
+        rápido: Odoo abre un socket y espera el timeout por cada destinatario,
+        y eso deja colgada la página del comprador varios minutos. Mejor no
+        intentarlo y decirlo claro en el chatter.
+        """
+        return bool(self.env["ir.mail_server"].sudo().search_count([]))
+
+    def _send_template(self, xmlid, email_to, ctx=None):
+        """Envía una plantilla a una dirección. Devuelve True solo si el correo
+        salió de verdad: si no hay servidor SMTP configurado Odoo no lanza
+        excepción, deja el mail en estado ``exception``, y eso hay que poder
+        distinguirlo de un envío exitoso para reportarlo en el chatter."""
+        if not email_to or not self._hay_servidor_de_correo():
+            return False
         try:
             template = self.env.ref(xmlid, raise_if_not_found=False)
-            if template:
-                template.sudo().send_mail(
-                    self.id, force_send=True, email_values={"email_to": email_to})
+            if not template:
+                return False
+            if ctx:
+                template = template.with_context(**ctx)
+            mail_id = template.sudo().send_mail(
+                self.id, force_send=True, email_values={"email_to": email_to})
         except Exception:
             # El correo nunca debe romper el flujo de compra ni el de verificación.
-            pass
+            return False
+        # Con force_send y auto_delete, el registro desaparece al enviarse bien.
+        mail = self.env["mail.mail"].sudo().browse(mail_id).exists()
+        return (not mail) or mail.state == "sent"
 
     # ==================================================================
     # Parte para WhatsApp — mismo formato que ya usa el equipo

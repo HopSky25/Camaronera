@@ -1,0 +1,297 @@
+<odoo>
+
+  <!-- ================================================================
+       Panel de aceptación del informe. Lo abren tanto el comprador como el
+       vendedor: cada uno ve el mismo informe y decide sobre su propia
+       postura. El controlador ya resolvió cuál de las dos le toca.
+       ================================================================ -->
+  <template id="verification_acceptance" name="Aceptación del informe de verificación">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page py-5">
+
+          <div class="sv-accept">
+
+            <!-- Cabecera según en qué quedó la ronda -->
+            <t t-if="v.acceptance_state == 'closed'">
+              <div class="sv-accept-head sv-accept-head--ok">
+                <i class="fa fa-check-circle fa-2x"/>
+                <div>
+                  <h1>Compra cerrada</h1>
+                  <p class="sv-muted mb-0">Las dos partes aceptaron el informe.</p>
+                </div>
+              </div>
+            </t>
+            <t t-elif="v.acceptance_state == 'broken'">
+              <div class="sv-accept-head sv-accept-head--ko">
+                <i class="fa fa-times-circle fa-2x"/>
+                <div>
+                  <h1>El trato no se concretó</h1>
+                  <p class="sv-muted mb-0">
+                    El honorario de la verificación lo asume
+                    <strong t-esc="v.fee_payer_partner_id.name or '—'"/>.
+                  </p>
+                </div>
+              </div>
+            </t>
+            <t t-else="">
+              <div class="sv-accept-head">
+                <i class="fa fa-gavel fa-2x"/>
+                <div>
+                  <h1>Falta aceptar el informe</h1>
+                  <p class="sv-muted mb-0">
+                    La compra se cierra cuando comprador y vendedor aceptan el
+                    resultado de la verificación.
+                  </p>
+                </div>
+              </div>
+            </t>
+
+            <t t-if="error">
+              <div class="sv-alert sv-alert--ko"><i class="fa fa-exclamation-triangle me-1"/><t t-esc="error"/></div>
+            </t>
+
+            <!-- Qué decidió cada parte -->
+            <div class="sv-partes">
+              <t t-foreach="v.acceptance_ids" t-as="a">
+                <div t-attf-class="sv-parte sv-parte--#{a.decision}">
+                  <div class="sv-parte-rol">
+                    <t t-if="a.role == 'buyer'">Comprador</t>
+                    <t t-else="">Vendedor</t>
+                    <t t-if="a == postura"> (tú)</t>
+                  </div>
+                  <div class="sv-parte-nombre" t-esc="a.partner_id.name"/>
+                  <div class="sv-parte-estado">
+                    <t t-if="a.decision == 'pending'"><i class="fa fa-clock-o me-1"/>Sin responder</t>
+                    <t t-elif="a.decision == 'accepted'"><i class="fa fa-check me-1"/>Aceptó<t t-if="a.auto"> (por vencimiento del plazo)</t></t>
+                    <t t-elif="a.decision == 'counter'"><i class="fa fa-exchange me-1"/>Propuso otro precio</t>
+                    <t t-else=""><i class="fa fa-times me-1"/>Rechazó</t>
+                  </div>
+                  <div class="sv-parte-motivo" t-if="a.reason" t-esc="a.reason"/>
+                </div>
+              </t>
+            </div>
+
+            <t t-if="v.acceptance_state == 'waiting' and v.acceptance_deadline">
+              <p class="sv-plazo">
+                <i class="fa fa-hourglass-half me-1"/>
+                Tienes hasta el <strong t-esc="v._texto_plazo()"/>.
+                Si no respondes, el informe se dará por aceptado.
+              </p>
+            </t>
+
+            <!-- Resumen de la operación -->
+            <div class="sv-summary my-4">
+              <div><span class="sv-muted">Producto</span><strong t-esc="tx.product_id.name"/></div>
+              <div><span class="sv-muted">Cantidad</span><strong t-esc="'{:.2f} lb'.format(tx.transaction_qty or 0)"/></div>
+              <div><span class="sv-muted">Precio unitario</span><strong t-esc="'{:.2f}'.format(tx.price_unit or 0)"/></div>
+              <div><span class="sv-muted">Total</span><strong t-esc="'{:.2f}'.format(tx.amount_total or 0)"/></div>
+              <div><span class="sv-muted">Verificadora</span><strong t-esc="v.verifier_partner_id.name or '—'"/></div>
+              <div><span class="sv-muted">Técnico</span><strong t-esc="v.technician_partner_id.name or '—'"/></div>
+            </div>
+
+            <!-- Veredicto y contraste con lo publicado -->
+            <t t-if="cumple">
+              <div class="sv-alert sv-alert--ok">
+                <i class="fa fa-check-circle me-1"/>
+                El informe confirma lo que el anuncio ofrecía.
+              </div>
+            </t>
+            <t t-else="">
+              <div class="sv-alert sv-alert--warn">
+                <i class="fa fa-exclamation-triangle me-1"/>
+                <strong>El producto no cumplió lo publicado:</strong>
+                <ul class="mb-0 mt-1">
+                  <li t-foreach="motivos" t-as="m" t-esc="m"/>
+                </ul>
+              </div>
+            </t>
+
+            <!-- El parte, en el mismo formato que ya usan por WhatsApp -->
+            <h2 class="sv-h2">Informe del verificador</h2>
+            <pre class="sv-parte-texto" t-esc="v.whatsapp_report()"/>
+
+            <t t-if="v.verdict_notes">
+              <p><strong>Conclusión:</strong> <t t-esc="v.verdict_notes"/></p>
+            </t>
+
+            <t t-set="fotos" t-value="v.photo_ids"/>
+            <t t-if="fotos">
+              <h2 class="sv-h2">Fotos de campo</h2>
+              <div class="sv-fotos">
+                <t t-foreach="fotos" t-as="f">
+                  <a t-attf-href="/marketplace/verificacion/#{v.uuid_ref}/foto/#{f.id}" target="_blank">
+                    <img t-attf-src="/marketplace/verificacion/#{v.uuid_ref}/foto/#{f.id}" alt="Foto de campo"/>
+                  </a>
+                </t>
+              </div>
+            </t>
+
+            <!-- ============ Acciones ============ -->
+            <t t-if="v.acceptance_state == 'waiting' and postura">
+
+              <!-- Si hay una contraoferta sobre la mesa, es lo primero que
+                   tiene que ver el vendedor: ya no decide sobre el precio
+                   original sino sobre el nuevo. -->
+              <t t-if="contraoferta and postura.role == 'seller'">
+                <div class="sv-contra">
+                  <h2 class="sv-h2 mb-1">El comprador propone otro precio</h2>
+                  <p class="sv-muted" t-if="contraoferta.reason" t-esc="contraoferta.reason"/>
+                  <div class="sv-contra-cifras">
+                    <div>
+                      <span class="sv-muted">Precio pactado</span>
+                      <s t-esc="'{:.2f}'.format(tx.price_unit or 0)"/>
+                    </div>
+                    <i class="fa fa-long-arrow-right"/>
+                    <div>
+                      <span class="sv-muted">Propuesto</span>
+                      <strong t-esc="'{:.2f}'.format(contraoferta.counter_price or 0)"/>
+                    </div>
+                    <div>
+                      <span class="sv-muted">Total</span>
+                      <strong t-esc="'{:.2f}'.format(contraoferta.counter_total or 0)"/>
+                    </div>
+                  </div>
+                </div>
+              </t>
+
+              <t t-if="postura.decision == 'pending'">
+                <div class="sv-acciones">
+
+                  <form method="post"
+                        t-attf-action="/marketplace/verificacion/#{v.uuid_ref}/aceptar">
+                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                    <button type="submit" class="s-btn s-btn-primary">
+                      <i class="fa fa-check me-1"/>
+                      <t t-if="contraoferta and postura.role == 'seller'">Aceptar el precio propuesto</t>
+                      <t t-else="">Acepto el informe</t>
+                    </button>
+                  </form>
+
+                  <!-- Regatear solo tiene sentido cuando hay algo medido que lo
+                       justifique. Si el informe confirmó lo publicado, esta caja
+                       no aparece: el precio ya estaba pactado. -->
+                  <t t-if="postura.role == 'buyer' and not cumple">
+                    <form method="post" class="sv-caja"
+                          t-attf-action="/marketplace/verificacion/#{v.uuid_ref}/contraoferta">
+                      <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                      <label class="fw-bold">¿Prefieres seguir, pero a otro precio?</label>
+                      <p class="sv-muted small mb-2">
+                        En vez de tumbar la compra, propón un precio por libra acorde
+                        a lo que el verificador encontró. El vendedor lo acepta o lo
+                        rechaza. Debe ser menor a
+                        <strong t-esc="'{:.2f}'.format(tx.price_unit or 0)"/>.
+                      </p>
+                      <div class="sv-contra-form">
+                        <input type="number" step="0.01" min="0.01" name="precio"
+                               class="form-control" placeholder="Precio por libra" required="required"/>
+                        <input type="text" name="reason" class="form-control"
+                               placeholder="Por qué (opcional)"/>
+                        <button type="submit" class="s-btn">
+                          <i class="fa fa-exchange me-1"/>Proponer
+                        </button>
+                      </div>
+                    </form>
+                  </t>
+
+                  <form method="post" class="sv-caja sv-caja--ko"
+                        t-attf-action="/marketplace/verificacion/#{v.uuid_ref}/rechazar">
+                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                    <label class="fw-bold">Rechazar el informe</label>
+                    <p class="sv-muted small mb-2">
+                      La compra se cancela y el producto vuelve a quedar disponible.
+                      <t t-if="cumple">
+                        <strong>Ojo:</strong> como el informe confirmó lo publicado,
+                        el honorario de la verificación lo pagas tú.
+                      </t>
+                      <t t-else="">
+                        Como el producto no cumplió lo publicado, el honorario lo
+                        asume el vendedor.
+                      </t>
+                    </p>
+                    <div class="sv-contra-form">
+                      <input type="text" name="reason" class="form-control"
+                             placeholder="Motivo del rechazo" required="required"/>
+                      <button type="submit" class="s-btn s-btn-ko">
+                        <i class="fa fa-times me-1"/>Rechazar
+                      </button>
+                    </div>
+                  </form>
+
+                </div>
+              </t>
+              <t t-else="">
+                <div class="sv-alert sv-alert--ok">
+                  Ya respondiste. Falta la otra parte para cerrar la compra.
+                </div>
+              </t>
+            </t>
+
+            <div class="mt-4">
+              <a class="s-btn" href="/marketplace/compras"
+                 t-if="postura.role == 'buyer'">Volver a mis compras</a>
+              <a class="s-btn" href="/marketplace/ventas"
+                 t-if="postura.role == 'seller'">Volver a mis ventas</a>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </t>
+  </template>
+
+  <!-- ================================================================
+       Aviso en cabecera de "mis compras" y "mis ventas".
+       Va arriba y no dentro de la tabla porque es una acción con plazo:
+       si se vence sin que la vean, el sistema decide por ellos.
+       ================================================================ -->
+  <template id="acceptance_banner" name="Aviso: informes pendientes de aceptar">
+    <t t-set="sv_pendientes"
+       t-value="request.env['shrimp.verification'].sudo().pendientes_de_aceptar()"/>
+    <t t-if="sv_pendientes">
+      <div class="sv-banner-aceptar">
+        <div class="sv-banner-aceptar-head">
+          <i class="fa fa-gavel me-2"/>
+          <strong>
+            <t t-if="len(sv_pendientes) == 1">Tienes un informe de verificación esperando tu respuesta</t>
+            <t t-else="">Tienes <t t-esc="len(sv_pendientes)"/> informes de verificación esperando tu respuesta</t>
+          </strong>
+        </div>
+        <p class="sv-muted small mb-2">
+          La compra no se cierra hasta que comprador y vendedor acepten el
+          resultado. Si no respondes dentro del plazo, se dará por aceptado.
+        </p>
+        <t t-foreach="sv_pendientes" t-as="sv">
+          <a class="sv-banner-aceptar-item"
+             t-attf-href="/marketplace/verificacion/#{sv.uuid_ref}/aceptacion">
+            <span>
+              <strong t-esc="sv.product_id.name or sv.name"/>
+              <span class="sv-muted"> · compra <t t-esc="sv.transaction_id.name"/></span>
+            </span>
+            <span class="sv-banner-aceptar-plazo">
+              hasta el <t t-esc="sv._texto_plazo()"/>
+              <i class="fa fa-chevron-right ms-2"/>
+            </span>
+          </a>
+        </t>
+      </div>
+    </t>
+  </template>
+
+  <template id="purchases_acceptance_banner"
+            inherit_id="shrimp_marketplace.marketplace_purchased_products"
+            name="Compras - aviso de informes por aceptar">
+    <xpath expr="//div[hasclass('sf-banner')]" position="after">
+      <t t-call="shrimp_verification.acceptance_banner"/>
+    </xpath>
+  </template>
+
+  <template id="sales_acceptance_banner"
+            inherit_id="shrimp_marketplace.marketplace_transaction_history"
+            name="Ventas - aviso de informes por aceptar">
+    <xpath expr="//div[hasclass('sf-banner')]" position="after">
+      <t t-call="shrimp_verification.acceptance_banner"/>
+    </xpath>
+  </template>
+
+</odoo>

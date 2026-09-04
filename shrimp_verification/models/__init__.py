@@ -9,3 +9,4 @@ from . import shrimp_verifier_review
 from . import shrimp_verification
 from . import shrimp_transaction
 from . import shrimp_product
+from . import shrimp_verification_acceptance

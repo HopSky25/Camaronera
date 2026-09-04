@@ -5,6 +5,7 @@ from odoo import http, _
 from odoo.http import request
 from odoo.exceptions import ValidationError
 from odoo.tools.mimetypes import guess_mimetype
+from odoo.addons.auth_signup.controllers.main import AuthSignupHome
 import logging
 _logger = logging.getLogger(__name__)
 
@@ -59,6 +60,18 @@ def _to_float(value, default=0.0):
 def _to_bool(value):
     return str(value or "").strip().lower() in ("1", "true", "on", "yes", "si")
 
+
+
+class ShrimpAuthSignupRedirect(AuthSignupHome):
+    """Intercepta el botón "Crear cuenta" del login: en vez del signup nativo de
+    Odoo, lleva al formulario de registro propio (/registro).
+    Se conserva el flujo con token (usuarios invitados que fijan su contraseña)."""
+
+    @http.route()
+    def web_auth_signup(self, *args, **kw):
+        if not kw.get("token") and request.httprequest.method == "GET":
+            return request.redirect("/registro")
+        return super().web_auth_signup(*args, **kw)
 
 
 class ShrimpRegistryController(http.Controller):

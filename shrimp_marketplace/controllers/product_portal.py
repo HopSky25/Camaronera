@@ -129,8 +129,10 @@ class ShrimpProductPortalController(http.Controller):
         price_max_raw = (kw.get("price_max") or "").strip()
         order = (kw.get("order") or "").strip()
 
+        # Se incluyen también los productos dados de baja (archivados) para que el
+        # vendedor pueda verlos y reactivarlos; se usa active_test=False.
+        Product = Product.with_context(active_test=False)
         domain = [
-            ("active", "=", True),
             ("seller_partner_id", "=", partner.id),
         ]
 
@@ -602,6 +604,27 @@ class ShrimpProductPortalController(http.Controller):
         # Correo: producto publicado.
         self._notify_product_event(product, "shrimp_marketplace.mail_template_shrimp_product_published")
         return request.redirect(f"/marketplace/product/{product.uuid_ref}?published=1")
+
+    @http.route("/marketplace/products/<product_ref>/baja", type="http", auth="user", website=True, methods=["POST"], csrf=True)
+    def marketplace_product_deactivate(self, product_ref, **post):
+        """Da de baja (archiva) un producto: sale del marketplace pero se conserva
+        y puede reactivarse."""
+        product = self._get_owned_product(product_ref)
+        product.write({"active": False, "state": "draft"})
+        return request.redirect("/marketplace/products?baja=1")
+
+    @http.route("/marketplace/products/<product_ref>/reactivar", type="http", auth="user", website=True, methods=["POST"], csrf=True)
+    def marketplace_product_reactivate(self, product_ref, **post):
+        """Reactiva un producto dado de baja (queda en borrador para republicar)."""
+        product = request.env["shrimp.product"].sudo().with_context(
+            active_test=False).resolve_ref(product_ref)
+        if not product:
+            raise NotFound()
+        partner = self._get_current_partner()
+        if product.seller_partner_id.id != partner.id and not self._is_internal():
+            raise Forbidden()
+        product.write({"active": True})
+        return request.redirect("/marketplace/products?reactivado=1")
 
     @http.route("/marketplace/my-certificate/<int:line_id>/file", type="http", auth="user", website=True, sitemap=False)
     def download_my_certificate(self, line_id, **kwargs):

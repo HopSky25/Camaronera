@@ -152,6 +152,8 @@ class ShrimpVerificationPortal(http.Controller):
             "v": rec,
             "es_admin": self._es_admin_empresa(),
             "tecnicos": self._empresa().field_tech_ids.filtered("active"),
+            "taste_criteria": request.env["shrimp.taste.criterion"].sudo().search(
+                [("active", "=", True)]),
             "warnings": rec.report_warnings(),
             # OJO: el parte NO se pasa por el qcontext. Odoo aplica formato de
             # cadena al contexto al renderizar la pagina de website, y el texto
@@ -180,6 +182,10 @@ class ShrimpVerificationPortal(http.Controller):
         rec = self._my_verification(ref, editable=True)
         F = self._to_float
 
+        # Criterios de cata marcados como correctos (checkboxes múltiples).
+        crit_ids = [int(x) for x in request.httprequest.form.getlist("taste_criteria")
+                    if str(x).isdigit()]
+
         vals = {
             "batch_code": (post.get("batch_code") or "").strip() or False,
             "pond_label": (post.get("pond_label") or "").strip() or False,
@@ -199,8 +205,7 @@ class ShrimpVerificationPortal(http.Controller):
             # 5 · sabor
             "taste_result": post.get("taste_result") or False,
             "taste_notes": (post.get("taste_notes") or "").strip() or False,
-            "smell_ok": bool(post.get("smell_ok")),
-            "color_ok": bool(post.get("color_ok")),
+            "taste_criteria_ok_ids": [(6, 0, crit_ids)],
             # gramajes
             "grams_farm": F(post.get("grams_farm")),
             "grams_plant_1": F(post.get("grams_plant_1")),

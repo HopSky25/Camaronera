@@ -193,8 +193,10 @@ class ShrimpVerification(models.Model):
         string="Sabor", tracking=True,
     )
     taste_notes = fields.Text(string="Observaciones de sabor")
-    smell_ok = fields.Boolean(string="Olor correcto", default=True)
-    color_ok = fields.Boolean(string="Color correcto", default=True)
+    taste_criteria_ok_ids = fields.Many2many(
+        "shrimp.taste.criterion",
+        string="Criterios de cata correctos",
+        help="Criterios de la tabla de cata que el verificador marcó como correctos.")
 
     # ------------------------------------------------------------------
     # Gramajes y conteos
@@ -881,8 +883,11 @@ class ShrimpVerification(models.Model):
             w.append(_("La presentación encontrada no coincide con la publicada por el vendedor."))
         if self.taste_result == "rejected":
             w.append(_("El sabor fue rechazado."))
-        if not self.smell_ok or not self.color_ok:
-            w.append(_("Se marcó olor o color fuera de norma."))
+        faltantes = self.env["shrimp.taste.criterion"].search(
+            [("active", "=", True)]) - self.taste_criteria_ok_ids
+        if faltantes:
+            w.append(_("Criterios de cata fuera de norma: %s.")
+                     % ", ".join(faltantes.mapped("name")))
         tx_qty = self.transaction_id.transaction_qty or 0.0
         if tx_qty and self.weight_plant_lb and float_compare(
                 abs(self.weight_plant_lb - tx_qty), tx_qty * 0.10, precision_digits=2) == 1:

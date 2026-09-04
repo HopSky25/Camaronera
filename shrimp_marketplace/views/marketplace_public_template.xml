@@ -646,6 +646,8 @@
                                             </div>
                                         </t>
 
+                                        <div id="buyMsg" class="sv-msg" style="display:none;" role="alert"></div>
+
                                         <!-- Comprar directo (pago simulado) -->
                                         <form id="buyForm"
                                             t-att-action="'/marketplace/buy/%s/confirm' % product.uuid_ref"
@@ -675,7 +677,7 @@
                                                 <div class="s-pay-spinner"></div>
                                                 <h4 style="margin:16px 0 6px;">Procesando pago…</h4>
                                                 <p class="text-soft" style="margin:0 0 12px;">No cierres esta ventana. Estamos confirmando tu cobro de forma segura.</p>
-                                                <div class="s-pay-count"><span id="payCount">20</span> s</div>
+                                                <div class="s-pay-count"><span id="payCount">5</span> s</div>
                                             </div>
                                         </div>
                                         <script type="text/javascript">
@@ -687,13 +689,13 @@
                                                     ev.preventDefault();
                                                     var qtyEl = document.getElementById('qty_hidden_buy');
                                                     var qty = parseFloat((qtyEl &amp;&amp; qtyEl.value) || '0');
-                                                    if(!qty || qty &lt;= 0){ alert('Ingresa una cantidad válida antes de pagar.'); return; }
+                                                    if(!qty || qty &lt;= 0){ var m=document.getElementById('buyMsg'); if(m){ m.textContent='Ingresa una cantidad válida antes de pagar.'; m.style.display='block'; m.scrollIntoView({behavior:'smooth',block:'center'}); } return; }
                                                     var overlay = document.getElementById('payOverlay');
                                                     var countEl = document.getElementById('payCount');
                                                     var btn = document.getElementById('btn_buy');
                                                     if(btn){ btn.disabled = true; }
                                                     if(overlay){ overlay.style.display = 'flex'; }
-                                                    var left = 20;
+                                                    var left = 5;
                                                     var timer = setInterval(function(){
                                                         left -= 1;
                                                         if(countEl){ countEl.textContent = left; }
@@ -770,8 +772,9 @@
   function fmt(n){ return (isNaN(n) ? 0 : n).toFixed(2); }
   btn.addEventListener('click', function(){
     var qty = parseFloat((qtyInput && qtyInput.value) || '0') || 0;
-    if(!qty || qty <= 0){ alert('Ingresa una cantidad válida antes de solicitar el chequeo.'); return; }
-    if(qty > avail){ alert('La cantidad supera lo disponible.'); return; }
+    var m=document.getElementById('buyMsg');
+    if(!qty || qty <= 0){ if(m){ m.textContent='Ingresa una cantidad válida antes de solicitar el chequeo.'; m.style.display='block'; m.scrollIntoView({behavior:'smooth',block:'center'}); } return; }
+    if(qty > avail){ if(m){ m.textContent='La cantidad supera lo disponible.'; m.style.display='block'; m.scrollIntoView({behavior:'smooth',block:'center'}); } return; }
     document.getElementById('chkQty').textContent = qty;
     document.getElementById('chkProd').textContent = fmt(qty * price);
     document.getElementById('chkFee').textContent = fmt(fee);
@@ -790,7 +793,7 @@
       var overlay = document.getElementById('payOverlay');
       var countEl = document.getElementById('payCount');
       if(overlay){ overlay.style.display = 'flex'; }
-      var left = 20;
+      var left = 5;
       var timer = setInterval(function(){
         left -= 1;
         if(countEl){ countEl.textContent = left; }

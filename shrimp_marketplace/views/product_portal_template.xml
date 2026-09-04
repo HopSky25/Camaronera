@@ -134,10 +134,13 @@
 
                                         <div class="s-prod-body">
                                             <div class="s-badges">
+                                                <t t-if="not p.active"><span class="s-badge" style="background:rgba(108,117,125,.15); color:#5a636b;"><i class="fa fa-ban me-1"></i>Dada de baja</span></t>
                                                 <t t-if="p.stage_id"><span class="s-badge"><t t-esc="p.stage_id.name" /></span></t>
                                                 <t t-if="p.species_id"><span class="s-badge s-badge--teal"><t t-esc="p.species_id.name" /></span></t>
-                                                <t t-if="no_stock"><span class="s-badge" style="background:rgba(220,53,69,.10); color:#dc3545;">Sin stock</span></t>
-                                                <t t-else=""><span class="s-badge s-badge--green">Disponible</span></t>
+                                                <t t-if="p.active">
+                                                    <t t-if="no_stock"><span class="s-badge" style="background:rgba(220,53,69,.10); color:#dc3545;">Sin stock</span></t>
+                                                    <t t-else=""><span class="s-badge s-badge--green">Disponible</span></t>
+                                                </t>
                                             </div>
 
                                             <a class="s-prod-title" style="text-decoration:none;"
@@ -155,8 +158,22 @@
                                                 <div class="s-prod-price">$<t t-esc="'%.2f' % p.price" /><span class="s-unit"> / <t t-esc="uom_label" /></span></div>
                                             </div>
                                             <div class="s-prod-actions">
-                                                <a class="s-btn s-btn-ghost btn-sm" t-att-href="'/marketplace/product/%s' % p.uuid_ref">Ver</a>
-                                                <a class="s-btn s-btn-primary btn-sm" t-att-href="'/marketplace/products/%s/edit' % p.uuid_ref"><i class="fa fa-pencil me-1"></i> Editar</a>
+                                                <t t-if="p.active">
+                                                    <a class="s-btn s-btn-ghost btn-sm" t-att-href="'/marketplace/product/%s' % p.uuid_ref">Ver</a>
+                                                    <a class="s-btn s-btn-primary btn-sm" t-att-href="'/marketplace/products/%s/edit' % p.uuid_ref"><i class="fa fa-pencil me-1"></i> Editar</a>
+                                                    <form method="post" t-att-action="'/marketplace/products/%s/baja' % p.uuid_ref" style="display:inline;"
+                                                          onsubmit="return confirm('¿Dar de baja este producto? Saldrá del marketplace. Podrás reactivarlo después.');">
+                                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                        <button type="submit" class="s-btn s-btn-danger btn-sm" title="Dar de baja"><i class="fa fa-ban"></i></button>
+                                                    </form>
+                                                </t>
+                                                <t t-else="">
+                                                    <a class="s-btn s-btn-ghost btn-sm" t-att-href="'/marketplace/products/%s/edit' % p.uuid_ref">Editar</a>
+                                                    <form method="post" t-att-action="'/marketplace/products/%s/reactivar' % p.uuid_ref" style="display:inline; flex:1;">
+                                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                        <button type="submit" class="s-btn s-btn-primary btn-sm w-100"><i class="fa fa-refresh me-1"></i> Reactivar</button>
+                                                    </form>
+                                                </t>
                                             </div>
                                         </div>
                                     </div>

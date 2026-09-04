@@ -28,6 +28,7 @@ genera el parte en el mismo formato de texto que el equipo ya usa por WhatsApp.
         "data/sequence.xml",
         "data/mail_template.xml",
         "data/verifier_certificate_data.xml",
+        "data/taste_criterion_data.xml",
         "views/res_config_settings_views.xml",
         "views/verifier_approval_views.xml",
         "views/shrimp_verification_views.xml",
@@ -42,6 +43,7 @@ genera el parte en el mismo formato de texto que el equipo ya usa por WhatsApp.
         "views/portal_home_inherit.xml",
         "views/navbar_dropdown_inherit.xml",
         "views/menus.xml",
+        "views/shrimp_taste_criterion_views.xml",
     ],
     "assets": {
         "web.assets_frontend": [

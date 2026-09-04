@@ -55,19 +55,29 @@
 .sv-summary > div { display: flex; flex-direction: column; gap: 2px; }
 .sv-summary .sv-muted { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
 
+/* Secciones del informe: mismo look que las tarjetas del sistema (mp-table-card) */
 .sv-section {
-    background: #fff; border: 1px solid #e3e8ec; border-radius: 14px;
-    padding: 22px; margin-bottom: 18px;
+    position: relative; overflow: hidden;
+    background: #fff; border: 1px solid var(--shrimp-border, #e3e8ec);
+    border-radius: 18px; box-shadow: 0 2px 10px rgba(16,35,60,.05);
+    padding: 24px; margin-bottom: 18px;
+    transition: box-shadow .2s ease;
 }
+.sv-section::before {
+    content: ""; position: absolute; left: 0; top: 22px; bottom: 22px; width: 4px;
+    border-radius: 0 4px 4px 0; background: var(--shrimp-grad, linear-gradient(180deg,#14a0b0,#0d7c88)); z-index: 1;
+}
+.sv-section:hover { box-shadow: 0 12px 30px rgba(16,35,60,.08); }
 .sv-section h3 {
-    font-size: 16px; font-weight: 700; color: #123e5c;
-    margin: 0 0 16px; display: flex; align-items: center; gap: 10px;
+    font-size: 17px; font-weight: 800; color: var(--vw-ink); letter-spacing: -.01em;
+    margin: 0 0 16px; display: flex; align-items: center; gap: 12px;
 }
-.sv-section--verdict { border-color: #14a0b0; }
+.sv-section--verdict::before { background: #14a0b0; }
 .sv-num {
     display: inline-flex; align-items: center; justify-content: center;
-    width: 26px; height: 26px; border-radius: 50%;
-    background: #123e5c; color: #fff; font-size: 13px;
+    width: 38px; height: 38px; min-width: 38px; border-radius: 11px;
+    background: var(--shrimp-grad, linear-gradient(140deg,#14a0b0,#0d7c88)); color: #fff; font-size: 14px; font-weight: 800;
+    box-shadow: 0 8px 16px rgba(18,62,92,.22);
 }
 
 .sv-calc {
@@ -178,3 +188,185 @@
 
 /* Detalle de cómo se calcula el honorario, bajo su línea del desglose */
 .sv-fee-detail { display: block; font-size: 11px; color: #8a98a0; margin-top: 2px; }
+
+/* =========================================================================
+   PORTADA DEL SITIO DE VERIFICADORES (vw-*)
+   Paleta teal/navy propia del verificador.
+   ========================================================================= */
+:root{
+  --vw-navy:#0f3a4d; --vw-teal:#14a0b0; --vw-teal-dark:#0d7c88;
+  --vw-ink:#123e5c; --vw-soft:#5a6b74; --vw-line:#e3e8ec;
+}
+.vw-page{ background:#f5f8fa; }
+.vw-page section{ max-width:1120px; margin:0 auto; padding:0 20px; }
+
+/* ---- HERO ---- */
+.vw-hero{
+  position:relative; overflow:hidden; max-width:none; margin:0; padding:88px 20px 96px;
+  background:
+    radial-gradient(1200px 500px at 80% -10%, rgba(20,160,176,.35), transparent 60%),
+    linear-gradient(160deg, #0f3a4d 0%, #0d7c88 60%, #14a0b0 120%);
+  color:#eaf6f8; text-align:center;
+}
+.vw-hero-inner{ position:relative; z-index:2; max-width:860px; margin:0 auto; }
+.vw-orb{ position:absolute; border-radius:50%; filter:blur(50px); opacity:.5; z-index:1; }
+.vw-orb--1{ width:340px; height:340px; background:#2bd0c0; top:-90px; right:-60px; }
+.vw-orb--2{ width:300px; height:300px; background:#0b5c66; bottom:-120px; left:-70px; opacity:.6; }
+.vw-grid{
+  position:absolute; inset:0; z-index:1; opacity:.10;
+  background-image:linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg,#fff 1px, transparent 1px);
+  background-size:44px 44px; mask-image:radial-gradient(600px 300px at 50% 0%, #000, transparent 75%);
+}
+.vw-badge{
+  display:inline-flex; align-items:center; gap:8px; font-size:13px; font-weight:600;
+  padding:7px 16px; border-radius:999px; background:rgba(255,255,255,.12);
+  border:1px solid rgba(255,255,255,.22); backdrop-filter:blur(6px); color:#eaf6f8; margin-bottom:22px;
+}
+.vw-badge-dot{ width:8px; height:8px; border-radius:50%; background:#7ff0e0; box-shadow:0 0 0 4px rgba(127,240,224,.25); }
+.vw-display{ font-size:clamp(2rem, 5vw, 3.4rem); font-weight:800; line-height:1.05; letter-spacing:-.02em; margin:0 0 18px; color:#fff; }
+.vw-grad{ display:block; background:linear-gradient(90deg,#9defff,#7ff0e0); -webkit-background-clip:text; background-clip:text; color:transparent; }
+.vw-lead{ font-size:clamp(1rem,2vw,1.18rem); line-height:1.6; color:#cfe9ee; max-width:680px; margin:0 auto 30px; }
+.vw-cta{ display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+.vw-btn{
+  display:inline-flex; align-items:center; justify-content:center; font-weight:700; font-size:15px;
+  padding:13px 26px; border-radius:14px; text-decoration:none; border:1px solid transparent; transition:all .18s ease;
+}
+.vw-btn--primary{ background:#fff; color:var(--vw-teal-dark); }
+.vw-btn--primary:hover{ transform:translateY(-2px); box-shadow:0 12px 28px rgba(0,0,0,.22); color:var(--vw-navy); }
+.vw-btn--glass{ background:rgba(255,255,255,.10); color:#fff; border-color:rgba(255,255,255,.35); }
+.vw-btn--glass:hover{ background:rgba(255,255,255,.20); color:#fff; }
+.vw-hero-stats{ display:flex; gap:14px; justify-content:center; flex-wrap:wrap; margin-top:38px; }
+.vw-stat{
+  min-width:130px; padding:16px 20px; border-radius:16px;
+  background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.18); backdrop-filter:blur(6px);
+}
+.vw-stat-num{ font-size:24px; font-weight:800; color:#fff; line-height:1; }
+.vw-stat-lbl{ font-size:12px; color:#bfe2e8; margin-top:6px; }
+
+/* ---- SECCIONES ---- */
+.vw-section{ padding-top:64px; }
+.vw-sec-head{ text-align:center; margin-bottom:34px; }
+.vw-kicker{ display:inline-block; font-size:12px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--vw-teal-dark); margin-bottom:8px; }
+.vw-sec-head h2{ font-size:clamp(1.5rem,3vw,2rem); font-weight:800; color:var(--vw-ink); letter-spacing:-.02em; margin:0; }
+
+/* ---- PASOS ---- */
+.vw-steps{ display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
+.vw-step{
+  position:relative; background:#fff; border:1px solid var(--vw-line); border-radius:18px; padding:26px 22px;
+  transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.vw-step:hover{ transform:translateY(-4px); box-shadow:0 16px 34px rgba(15,58,77,.10); border-color:#bfe2e8; }
+.vw-step-num{
+  width:44px; height:44px; border-radius:13px; display:flex; align-items:center; justify-content:center;
+  font-size:20px; font-weight:800; color:#fff; margin-bottom:16px;
+  background:linear-gradient(140deg,var(--vw-teal),var(--vw-teal-dark)); box-shadow:0 8px 18px rgba(20,160,176,.30);
+}
+.vw-step h3{ font-size:17px; font-weight:800; color:var(--vw-ink); margin:0 0 8px; }
+.vw-step p{ font-size:14px; color:var(--vw-soft); line-height:1.55; margin:0; }
+
+/* ---- ANÁLISIS ---- */
+.vw-analisis{
+  background:linear-gradient(150deg,#ffffff, #f2fbfc); border:1px solid #cfe9ed; border-radius:20px;
+  padding:34px; text-align:center; box-shadow:0 12px 30px rgba(15,58,77,.06);
+}
+.vw-analisis-head h3{ font-size:20px; font-weight:800; color:var(--vw-ink); margin:0 0 6px; }
+.vw-muted{ color:var(--vw-soft); }
+.vw-analisis-head .vw-muted{ font-size:14px; margin:0 0 22px; }
+.vw-chips{ display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+.vw-chip{
+  display:inline-flex; align-items:center; gap:8px; font-size:14px; font-weight:700; color:var(--vw-teal-dark);
+  background:#fff; border:1px solid #bfe2e8; border-radius:999px; padding:10px 18px;
+}
+.vw-chip i{ color:var(--vw-teal); }
+.vw-analisis-note{ font-size:13px; color:var(--vw-soft); margin:22px 0 0; }
+
+/* ---- RESPONSIVE ---- */
+@media (max-width:768px){
+  .vw-hero{ padding:64px 18px 72px; }
+  .vw-steps{ grid-template-columns:1fr; }
+  .vw-analisis{ padding:24px 18px; }
+}
+
+/* Mensaje en pantalla del flujo de compra con verificación (reemplaza alert()) */
+.sv-msg{
+  background:#fdeaea; border:1px solid #f3c0bd; color:#b3261e;
+  border-radius:12px; padding:12px 14px; font-size:14px; font-weight:600;
+  margin-bottom:14px;
+}
+.sv-msg::before{ content:"\f06a"; font-family:"FontAwesome"; margin-right:8px; }
+
+/* Desglose de pago un poco más ancho */
+#svModal .buy-modal-card{ max-width:560px; }
+
+/* Timeline "¿Qué sigue?" en compra pendiente de verificación */
+.vw-flow{ display:flex; flex-direction:column; gap:4px; }
+.vw-flow-step{ display:flex; align-items:flex-start; gap:12px; padding:10px 0; position:relative; }
+.vw-flow-step:not(:last-child)::before{
+  content:""; position:absolute; left:15px; top:34px; bottom:-4px; width:2px; background:var(--vw-line);
+}
+.vw-flow-dot{
+  flex:0 0 auto; width:32px; height:32px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center;
+  font-size:13px; background:#eef2f5; color:#8a98a0; border:2px solid #e3e8ec; z-index:1;
+}
+.vw-flow-step.done .vw-flow-dot{ background:#e6f6ec; color:#217a48; border-color:#b6e0c6; }
+.vw-flow-step.active .vw-flow-dot{ background:var(--vw-teal); color:#fff; border-color:var(--vw-teal); box-shadow:0 0 0 4px rgba(20,160,176,.15); }
+.vw-flow-step.done:not(:last-child)::before{ background:#b6e0c6; }
+
+/* ===== Bandeja del verificador ===== */
+.vw-kpi{
+  display:flex; align-items:center; gap:14px; padding:16px 18px; border-radius:16px;
+  background:#fff; border:1px solid var(--vw-line); text-decoration:none; color:var(--vw-ink);
+  transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+.vw-kpi:hover{ transform:translateY(-2px); box-shadow:0 10px 24px rgba(15,58,77,.10); color:var(--vw-ink); }
+.vw-kpi.is-active{ border-color:var(--vw-teal); box-shadow:0 0 0 3px rgba(20,160,176,.14); }
+.vw-kpi-ico{
+  flex:0 0 auto; width:46px; height:46px; border-radius:13px; display:inline-flex;
+  align-items:center; justify-content:center; font-size:19px; background:#eef2f5; color:#8a98a0;
+}
+.vw-kpi--new  .vw-kpi-ico{ background:#e6f6f8; color:#0d7c88; }
+.vw-kpi--field .vw-kpi-ico{ background:#fdf1e0; color:#a86a10; }
+.vw-kpi--done .vw-kpi-ico{ background:#e6f6ec; color:#217a48; }
+.vw-kpi-body{ display:flex; flex-direction:column; line-height:1.1; }
+.vw-kpi-num{ font-size:26px; font-weight:800; color:var(--vw-ink); }
+.vw-kpi-lbl{ font-size:12.5px; color:var(--vw-soft); margin-top:3px; }
+
+.vw-order{
+  display:flex; align-items:center; gap:16px; justify-content:space-between;
+  padding:18px 20px; border-radius:16px; background:#fff; border:1px solid var(--vw-line);
+  border-left:4px solid var(--vw-line); text-decoration:none; color:inherit;
+  transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+.vw-order:hover{ transform:translateY(-2px); box-shadow:0 12px 28px rgba(15,58,77,.10); color:inherit; border-left-color:var(--vw-teal); }
+.vw-order--assigned{ border-left-color:#0d7c88; }
+.vw-order--in_field{ border-left-color:#e69c24; }
+.vw-order--done{ border-left-color:#2a5db0; }
+.vw-order--approved, .vw-order--approved_obs{ border-left-color:#217a48; }
+.vw-order--rejected{ border-left-color:#b3261e; }
+.vw-order-main{ min-width:0; flex:1; }
+.vw-order-meta{ display:flex; flex-wrap:wrap; gap:6px 16px; margin-top:8px; font-size:13px; color:var(--vw-soft); }
+.vw-order-meta strong{ color:var(--vw-ink); font-weight:700; }
+.vw-order-side{ flex:0 0 auto; text-align:right; }
+.vw-order-yield{ font-size:24px; font-weight:800; color:var(--vw-teal-dark); line-height:1; }
+
+@media (max-width:575.98px){
+  .vw-order{ flex-direction:column; align-items:flex-start; }
+  .vw-order-side{ text-align:left; }
+}
+
+/* Switches de criterios de cata (toggle) */
+.sv-switches{ display:flex; flex-wrap:wrap; gap:12px 22px; margin-top:8px; }
+.sv-switch{ display:inline-flex; align-items:center; gap:10px; cursor:pointer; user-select:none; margin:0; }
+.sv-switch input{ position:absolute; opacity:0; width:0; height:0; }
+.sv-switch-track{
+  position:relative; width:46px; height:26px; border-radius:999px; background:#cfd8df;
+  transition:background .18s ease; flex:0 0 auto;
+}
+.sv-switch-thumb{
+  position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%;
+  background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.28); transition:transform .18s ease;
+}
+.sv-switch input:checked + .sv-switch-track{ background:var(--vw-teal); }
+.sv-switch input:checked + .sv-switch-track .sv-switch-thumb{ transform:translateX(20px); }
+.sv-switch input:focus-visible + .sv-switch-track{ box-shadow:0 0 0 3px rgba(20,160,176,.28); }
+.sv-switch-label{ font-size:14px; color:var(--vw-ink); font-weight:600; }

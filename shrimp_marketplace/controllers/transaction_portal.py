@@ -3,7 +3,7 @@ from urllib.parse import quote
 
 from dateutil.relativedelta import relativedelta
 
-from odoo import http
+from odoo import http, fields
 from odoo.http import request
 from odoo.exceptions import ValidationError
 from odoo.tools import ustr

@@ -3,89 +3,250 @@
   <!-- Portada del sitio de verificadores -->
   <template id="verifier_landing" name="Verificadores - Portada">
     <t t-call="website.layout">
-      <div class="vw-page">
+      <div class="vl-page">
 
         <!-- ================= HERO ================= -->
-        <section class="vw-hero">
-          <span class="vw-orb vw-orb--1" aria-hidden="true"></span>
-          <span class="vw-orb vw-orb--2" aria-hidden="true"></span>
-          <span class="vw-grid" aria-hidden="true"></span>
+        <section class="vl-hero">
+          <div class="vl-wrap">
+            <div class="vl-hero-grid">
 
-          <div class="vw-hero-inner">
-            <div class="vw-badge"><span class="vw-badge-dot"></span> Plataforma de verificación en campo</div>
+              <div class="vl-hero-copy">
+                <span class="vl-hero-badge"><span class="vl-dot"></span> Verificación en campo · <b>camarón</b></span>
+                <h1>La compra se cierra<br/>cuando <span>tú das fe</span> del lote.</h1>
+                <p class="vl-hero-lead">
+                  Inspeccionas el camarón a pie de piscina, registras los cinco
+                  análisis desde el móvil y emites tu veredicto. El comprador solo
+                  paga cuando apruebas — y tú cobras por cada verificación.
+                </p>
+                <div class="vl-hero-cta">
+                  <t t-if="request.env.user._is_public()">
+                    <a href="/registro" class="vl-btn vl-btn--primary vl-btn--lg"><i class="fa fa-shield"/>Ser verificador acreditado</a>
+                    <a href="/web/login" class="vl-btn vl-btn--ghost vl-btn--lg"><i class="fa fa-sign-in"/>Entrar</a>
+                  </t>
+                  <t t-else="">
+                    <a href="/verificador/bandeja" class="vl-btn vl-btn--primary vl-btn--lg"><i class="fa fa-inbox"/>Ir a mi bandeja</a>
+                    <a href="/verificador/reportes" class="vl-btn vl-btn--ghost vl-btn--lg"><i class="fa fa-bar-chart"/>Mis reportes</a>
+                  </t>
+                </div>
+                <div class="vl-hero-trust">
+                  <div><div class="n">5</div><div class="t">análisis por lote</div></div>
+                  <div><div class="n">100%</div><div class="t">trazable</div></div>
+                  <div><div class="n">Móvil</div><div class="t">informe en campo</div></div>
+                </div>
+              </div>
 
-            <h1 class="vw-display">
-              Verifica el camarón
-              <span class="vw-grad">antes de cerrar la compra.</span>
-            </h1>
+              <!-- Mockup de un informe de verificación -->
+              <div class="vl-mock">
+                <div class="vl-float vl-float--tl">
+                  <span class="vl-float-ico ok"><i class="fa fa-check"/></span>
+                  <div><div class="vl-float-t">Veredicto emitido</div><div class="vl-float-s">hace 2 min</div></div>
+                </div>
+                <div class="vl-card">
+                  <div class="vl-card-top">
+                    <span class="ttl"><i class="fa fa-flask me-2"/>Informe de verificación</span>
+                    <span class="ref">#VF-2043</span>
+                  </div>
+                  <div class="vl-card-body">
+                    <div class="vl-check"><span class="vl-check-ico"><i class="fa fa-balance-scale"/></span><span class="vl-check-name">Peso</span><span class="vl-check-val">21.4 g · 47/lb</span></div>
+                    <div class="vl-check"><span class="vl-check-ico"><i class="fa fa-cutlery"/></span><span class="vl-check-name">Cuerpo o cola</span><span class="vl-check-val">Entero</span></div>
+                    <div class="vl-check"><span class="vl-check-ico"><i class="fa fa-tint"/></span><span class="vl-check-name">Metabisulfito</span><span class="vl-check-val">Correcto</span></div>
+                    <div class="vl-check"><span class="vl-check-ico"><i class="fa fa-sort-amount-desc"/></span><span class="vl-check-name">Clasificación</span><span class="vl-check-val">92% primera</span></div>
+                    <div class="vl-check"><span class="vl-check-ico"><i class="fa fa-spoon"/></span><span class="vl-check-name">Sabor</span><span class="vl-check-val">Aprobado</span></div>
+                  </div>
+                  <div class="vl-card-foot">
+                    <span class="vl-stamp"><i class="fa fa-check-circle"/> APROBADO</span>
+                    <div class="vl-yield"><div class="n">96.5%</div><div class="t">rendimiento</div></div>
+                  </div>
+                </div>
+                <div class="vl-float vl-float--br">
+                  <span class="vl-float-ico money"><i class="fa fa-money"/></span>
+                  <div><div class="vl-float-t">Honorario</div><div class="vl-float-s">$45.00 liquidado</div></div>
+                </div>
+              </div>
 
-            <p class="vw-lead">
-              Inspecciona los lotes en campo, registra los cinco análisis —peso,
-              cuerpo o cola, metabisulfito, clasificación y sabor— y emite tu
-              veredicto desde donde estés. El comprador solo concreta la compra
-              cuando tú apruebas.
-            </p>
-
-            <div class="vw-cta">
-              <t t-if="request.env.user._is_public()">
-                <a href="/web/login" class="vw-btn vw-btn--primary"><i class="fa fa-sign-in me-2"/>Entrar</a>
-                <a href="/registro" class="vw-btn vw-btn--glass"><i class="fa fa-shield me-2"/>Registrarme como verificador</a>
-              </t>
-              <t t-else="">
-                <a href="/verificador/bandeja" class="vw-btn vw-btn--primary"><i class="fa fa-inbox me-2"/>Ir a mi bandeja</a>
-              </t>
             </div>
+          </div>
+        </section>
 
-            <div class="vw-hero-stats">
-              <div class="vw-stat"><div class="vw-stat-num">5</div><div class="vw-stat-lbl">análisis por lote</div></div>
-              <div class="vw-stat"><div class="vw-stat-num">100%</div><div class="vw-stat-lbl">trazable</div></div>
-              <div class="vw-stat"><div class="vw-stat-num">Móvil</div><div class="vw-stat-lbl">informe en campo</div></div>
+        <!-- ================= BANDA DE MÉTRICAS ================= -->
+        <section class="vl-stats">
+          <div class="vl-wrap">
+            <div class="vl-stats-grid">
+              <div class="vl-stat"><div class="n">5</div><div class="t">análisis normalizados por lote</div></div>
+              <div class="vl-stat"><div class="n">24 h</div><div class="t">de la asignación al veredicto</div></div>
+              <div class="vl-stat"><div class="n">0</div><div class="t">papeles: el informe es 100% digital</div></div>
+              <div class="vl-stat"><div class="n">100%</div><div class="t">de las compras respaldadas por tu firma</div></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= POR QUÉ / BENEFICIOS ================= -->
+        <section class="vl-section">
+          <div class="vl-wrap">
+            <div class="vl-head">
+              <span class="vl-eyebrow">Por qué existe</span>
+              <h2>El trato se cierra con la verdad del campo</h2>
+              <p>El comprador no paga a ciegas y el vendedor demuestra su calidad. Tú, verificador acreditado, das la palabra que destraba la operación — y quedas como la referencia de confianza en cada lote.</p>
+            </div>
+            <div class="vl-benefits">
+              <div class="vl-benefit">
+                <span class="vl-benefit-ico"><i class="fa fa-shield"/></span>
+                <h3>Evita sorpresas</h3>
+                <p>Peso real, presentación y sanidad se comprueban antes de pagar. Nada de fotos que no coinciden con el lote.</p>
+              </div>
+              <div class="vl-benefit">
+                <span class="vl-benefit-ico"><i class="fa fa-lock"/></span>
+                <h3>Pago protegido</h3>
+                <p>La cantidad queda reservada. El comprador solo paga si apruebas; si rechazas, se libera y no pierde nada.</p>
+              </div>
+              <div class="vl-benefit">
+                <span class="vl-benefit-ico"><i class="fa fa-certificate"/></span>
+                <h3>Tu firma vale</h3>
+                <p>Cada informe queda ligado al lote, al vendedor y al comprador, con tu acreditación como verificador visible.</p>
+              </div>
+              <div class="vl-benefit">
+                <span class="vl-benefit-ico"><i class="fa fa-money"/></span>
+                <h3>Cobras por lote</h3>
+                <p>Tu tarifa por verificación se liquida a la cuenta bancaria que registras en tu perfil. La plataforma hace la cuenta.</p>
+              </div>
             </div>
           </div>
         </section>
 
         <!-- ================= CÓMO FUNCIONA ================= -->
-        <section class="vw-section">
-          <div class="vw-sec-head">
-            <span class="vw-kicker">Cómo funciona</span>
-            <h2>Tres pasos, de la asignación al veredicto</h2>
-          </div>
-          <div class="vw-steps">
-            <div class="vw-step">
-              <div class="vw-step-num">1</div>
-              <h3>Recibes la asignación</h3>
-              <p>El comprador te elige al comprar. La orden entra en tu bandeja con el lote, el vendedor y la cantidad.</p>
+        <section class="vl-section vl-section--alt">
+          <div class="vl-wrap">
+            <div class="vl-head">
+              <span class="vl-eyebrow">Cómo funciona</span>
+              <h2>De la asignación al veredicto en cuatro pasos</h2>
             </div>
-            <div class="vw-step">
-              <div class="vw-step-num">2</div>
-              <h3>Inspeccionas en campo</h3>
-              <p>Registras los análisis desde el móvil. El informe se guarda por partes: no hace falta completarlo de una sentada.</p>
-            </div>
-            <div class="vw-step">
-              <div class="vw-step-num">3</div>
-              <h3>Emites tu veredicto</h3>
-              <p>Apruebas, apruebas con observaciones o rechazas. El comprador recibe el aviso y solo entonces se concreta la compra.</p>
+            <div class="vl-steps">
+              <div class="vl-step">
+                <div class="vl-step-num">1</div>
+                <h3>Recibes la asignación</h3>
+                <p>El comprador te elige al comprar. La orden entra a tu bandeja con el lote, el vendedor y la cantidad.</p>
+              </div>
+              <div class="vl-step">
+                <div class="vl-step-num">2</div>
+                <h3>Inspeccionas en campo</h3>
+                <p>Registras los cinco análisis desde el móvil. El informe se guarda por partes: no hace falta terminarlo de una sentada.</p>
+              </div>
+              <div class="vl-step">
+                <div class="vl-step-num">3</div>
+                <h3>Emites tu veredicto</h3>
+                <p>Apruebas, apruebas con observaciones o rechazas, adjuntando fotos y notas como evidencia.</p>
+              </div>
+              <div class="vl-step">
+                <div class="vl-step-num">4</div>
+                <h3>Se cierra la compra</h3>
+                <p>El comprador recibe el aviso, concreta el pago y tu honorario queda liquidado. Todo trazado.</p>
+              </div>
             </div>
           </div>
         </section>
 
         <!-- ================= LOS 5 ANÁLISIS ================= -->
-        <section class="vw-section">
-          <div class="vw-analisis">
-            <div class="vw-analisis-head">
-              <h3><i class="fa fa-flask me-2"/>Los cinco análisis del camarón adulto</h3>
-              <p class="vw-muted">Se calculan los rendimientos y el parte para WhatsApp sale en el formato de siempre.</p>
+        <section class="vl-section">
+          <div class="vl-wrap">
+            <div class="vl-head">
+              <span class="vl-eyebrow">El estándar</span>
+              <h2>Cinco análisis, un informe que nadie discute</h2>
+              <p>Cada lote de camarón adulto se mide igual. La plataforma calcula rendimientos y arma el parte en el mismo formato que tu equipo ya usa por WhatsApp.</p>
             </div>
-            <div class="vw-chips">
-              <span class="vw-chip"><i class="fa fa-balance-scale"/> Peso</span>
-              <span class="vw-chip"><i class="fa fa-cutlery"/> Cuerpo o cola</span>
-              <span class="vw-chip"><i class="fa fa-tint"/> Metabisulfito</span>
-              <span class="vw-chip"><i class="fa fa-sort-amount-desc"/> Clasificación</span>
-              <span class="vw-chip"><i class="fa fa-spoon"/> Sabor</span>
+            <div class="vl-analisis">
+              <div class="vl-an"><span class="vl-an-step">01</span><span class="vl-an-ico"><i class="fa fa-balance-scale"/></span><h4>Peso</h4><p>Peso promedio y piezas por libra. Detecta sobrepeso y glaseo.</p></div>
+              <div class="vl-an"><span class="vl-an-step">02</span><span class="vl-an-ico"><i class="fa fa-cutlery"/></span><h4>Cuerpo o cola</h4><p>Presentación entero o cola y su rendimiento real.</p></div>
+              <div class="vl-an"><span class="vl-an-step">03</span><span class="vl-an-ico"><i class="fa fa-tint"/></span><h4>Metabisulfito</h4><p>Control del conservante dentro de la norma permitida.</p></div>
+              <div class="vl-an"><span class="vl-an-step">04</span><span class="vl-an-ico"><i class="fa fa-sort-amount-desc"/></span><h4>Clasificación</h4><p>Porcentaje por talla y proporción de primera clase.</p></div>
+              <div class="vl-an"><span class="vl-an-step">05</span><span class="vl-an-ico"><i class="fa fa-spoon"/></span><h4>Sabor</h4><p>Cata de olor y sabor: el sello final de la calidad.</p></div>
             </div>
-            <p class="vw-analisis-note">
-              <i class="fa fa-info-circle me-1"/> En larvas el informe se adapta: cantidad, supervivencia, tamaño y estado sanitario.
-            </p>
+            <p class="vl-note"><i class="fa fa-info-circle"/> ¿Larvas? El informe se adapta: cantidad, supervivencia, tamaño y estado sanitario.</p>
+          </div>
+        </section>
+
+        <!-- ================= PARA QUIÉN ================= -->
+        <section class="vl-section vl-section--alt">
+          <div class="vl-wrap">
+            <div class="vl-head">
+              <span class="vl-eyebrow">Para quién</span>
+              <h2>Empresas verificadoras y sus técnicos de campo</h2>
+            </div>
+            <div class="vl-audience">
+              <div class="vl-aud vl-aud--a">
+                <span class="vl-aud-ico"><i class="fa fa-building"/></span>
+                <h3>Empresa verificadora</h3>
+                <p>Registras tu empresa con su acreditación, gestionas a tu equipo de técnicos y repartes las órdenes que llegan de los compradores.</p>
+                <ul class="vl-aud-list">
+                  <li><i class="fa fa-check"/> Acreditación verificada</li>
+                  <li><i class="fa fa-check"/> Reparto de órdenes a técnicos</li>
+                  <li><i class="fa fa-check"/> Cuenta bancaria para cobros</li>
+                  <li><i class="fa fa-check"/> Reportes de tu actividad</li>
+                </ul>
+                <t t-if="request.env.user._is_public()">
+                  <a href="/registro" class="vl-btn vl-btn--primary"><i class="fa fa-shield"/>Registrar mi empresa</a>
+                </t>
+              </div>
+              <div class="vl-aud vl-aud--b">
+                <span class="vl-aud-ico"><i class="fa fa-user-o"/></span>
+                <h3>Técnico de campo</h3>
+                <p>Recibes las órdenes asignadas, vas a campo y levantas el informe con los cinco análisis directamente desde el móvil.</p>
+                <ul class="vl-aud-list">
+                  <li><i class="fa fa-check"/> Bandeja con tus asignaciones</li>
+                  <li><i class="fa fa-check"/> Informe guiado por pasos</li>
+                  <li><i class="fa fa-check"/> Veredicto con fotos y notas</li>
+                  <li><i class="fa fa-check"/> Historial de tu trabajo</li>
+                </ul>
+                <t t-if="not request.env.user._is_public()">
+                  <a href="/verificador/bandeja" class="vl-btn vl-btn--dark"><i class="fa fa-inbox"/>Ir a mi bandeja</a>
+                </t>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= FAQ ================= -->
+        <section class="vl-section">
+          <div class="vl-wrap">
+            <div class="vl-head">
+              <span class="vl-eyebrow">Preguntas frecuentes</span>
+              <h2>Lo que todo verificador pregunta</h2>
+            </div>
+            <div class="vl-faq">
+              <details>
+                <summary>¿Qué necesito para ser verificador?</summary>
+                <p>Registrar tu empresa con su acreditación y tus datos bancarios. Nuestro equipo valida la información y activamos tu bandeja para empezar a recibir órdenes.</p>
+              </details>
+              <details>
+                <summary>¿Cómo y cuándo cobro?</summary>
+                <p>Por cada verificación concretada. El honorario se liquida a la cuenta bancaria que registras en tu perfil; puedes revisar tus cobros en la sección de reportes.</p>
+              </details>
+              <details>
+                <summary>¿Puedo trabajar con un equipo?</summary>
+                <p>Sí. Das de alta a tus técnicos desde el panel y les repartes las órdenes que llegan. Cada informe queda a nombre de tu empresa verificadora.</p>
+              </details>
+              <details>
+                <summary>¿Qué pasa si rechazo un lote?</summary>
+                <p>El comprador recibe el aviso, la reserva de stock se libera y queda registrada tu justificación con la evidencia fotográfica. Nadie paga por un lote que no cumple.</p>
+              </details>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= CTA FINAL ================= -->
+        <section class="vl-cta">
+          <div class="vl-wrap vl-cta-inner">
+            <span class="vl-eyebrow vl-eyebrow--light">Empieza hoy</span>
+            <h2>Da la palabra que cierra cada compra</h2>
+            <p>Regístrate como verificador acreditado, arma tu equipo y empieza a cobrar por cada lote que respaldas.</p>
+            <div class="vl-cta-btns">
+              <t t-if="request.env.user._is_public()">
+                <a href="/registro" class="vl-btn vl-btn--primary vl-btn--lg"><i class="fa fa-shield"/>Ser verificador acreditado</a>
+                <a href="/web/login" class="vl-btn vl-btn--ghost vl-btn--lg"><i class="fa fa-sign-in"/>Ya tengo cuenta</a>
+              </t>
+              <t t-else="">
+                <a href="/verificador/bandeja" class="vl-btn vl-btn--primary vl-btn--lg"><i class="fa fa-inbox"/>Ir a mi bandeja</a>
+              </t>
+            </div>
           </div>
         </section>
 

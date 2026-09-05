@@ -7,11 +7,25 @@
     <field name="sequence" eval="20"/>
   </record>
 
-  <!-- "Mi panel": enlace al portal con todas las secciones -->
+  <!-- Tres menús independientes (antes eran secciones de "Mi panel") -->
   <record id="menu_panel_root" model="website.menu">
-    <field name="name">Mi panel</field>
-    <field name="url">/my</field>
+    <field name="name">Productos</field>
+    <field name="url">/marketplace/products</field>
     <field name="parent_id" ref="website.main_menu"/>
     <field name="sequence" eval="25"/>
+  </record>
+
+  <record id="menu_panel_operaciones" model="website.menu">
+    <field name="name">Operaciones</field>
+    <field name="url">/marketplace/compras</field>
+    <field name="parent_id" ref="website.main_menu"/>
+    <field name="sequence" eval="26"/>
+  </record>
+
+  <record id="menu_panel_cuenta" model="website.menu">
+    <field name="name">Mi cuenta</field>
+    <field name="url">/marketplace/mi-cuenta</field>
+    <field name="parent_id" ref="website.main_menu"/>
+    <field name="sequence" eval="27"/>
   </record>
 </odoo>

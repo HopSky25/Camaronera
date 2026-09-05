@@ -1,0 +1,43 @@
+<odoo>
+
+  <record id="view_shrimp_tech_role_list" model="ir.ui.view">
+    <field name="name">shrimp.tech.role.list</field>
+    <field name="model">shrimp.tech.role</field>
+    <field name="arch" type="xml">
+      <list string="Cargos de técnico" editable="bottom">
+        <field name="sequence" widget="handle"/>
+        <field name="name"/>
+        <field name="active" widget="boolean_toggle"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_shrimp_tech_role_form" model="ir.ui.view">
+    <field name="name">shrimp.tech.role.form</field>
+    <field name="model">shrimp.tech.role</field>
+    <field name="arch" type="xml">
+      <form string="Cargo de técnico">
+        <sheet>
+          <group>
+            <field name="name"/>
+            <field name="sequence"/>
+            <field name="active"/>
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="action_shrimp_tech_role" model="ir.actions.act_window">
+    <field name="name">Cargos de técnico</field>
+    <field name="res_model">shrimp.tech.role</field>
+    <field name="view_mode">list,form</field>
+  </record>
+
+  <menuitem id="menu_shrimp_tech_role"
+            name="Cargos de técnico"
+            parent="menu_shrimp_verification_root"
+            action="action_shrimp_tech_role"
+            sequence="45"/>
+
+</odoo>

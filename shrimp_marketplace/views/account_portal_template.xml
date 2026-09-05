@@ -157,10 +157,20 @@
     <template id="my_certificates" name="Marketplace - Mis certificados">
         <t t-call="website.layout">
             <div class="shrimp-bg">
-                <div class="shrimp-page py-4" style="max-width:1100px;">
+                <div class="shrimp-page shrimp-page--full py-4 sf-fields">
 
                     <div class="mb-3">
                         <t t-call="shrimp_marketplace.s_back_button"><t t-set="back_fallback" t-value="'/marketplace/mi-cuenta'"/></t>
+                    </div>
+
+                    <div class="sf-banner mb-4">
+                        <div class="sf-banner-row">
+                            <div class="sf-banner-txt">
+                                <h1>Mis certificados</h1>
+                                <p>Carga y renueva los certificados que respaldan tus productos y tu perfil.</p>
+                            </div>
+                            <span class="sf-kicker"><i class="fa fa-certificate"></i> Certificados</span>
+                        </div>
                     </div>
 
                     <t t-if="saved">
@@ -175,9 +185,12 @@
                     </t>
 
                     <!-- Lista -->
-                    <div class="card mb-4">
+                    <div class="mp-table-card mb-4">
                         <div class="card-body p-4">
-                            <h6 class="fw-bold mb-3">Mis certificados cargados</h6>
+                            <div class="mp-sec-head">
+                                <span class="mp-sec-ico"><i class="fa fa-list"></i></span>
+                                <h3 class="mp-sec-title">Mis certificados cargados</h3>
+                            </div>
                             <t t-if="not lines">
                                 <div class="text-muted">Aún no has cargado certificados.</div>
                             </t>
@@ -206,28 +219,28 @@
                                                     <td>
                                                         <t t-esc="line.expiry_date or '—'"/>
                                                         <t t-if="line.expiry_date and line.expiry_date &lt; today">
-                                                            <span class="badge bg-danger ms-1 rounded-pill">Vencido</span>
+                                                            <span class="s-badge ms-1" style="background:rgba(220,53,69,.10); color:#dc3545;">Vencido</span>
                                                         </t>
                                                         <t t-elif="line.expiry_date and (line.expiry_date - today).days &lt;= 30">
-                                                            <span class="badge bg-warning text-dark ms-1 rounded-pill">Por vencer</span>
+                                                            <span class="s-badge ms-1" style="background:#fdf1e0; color:#a86a10;">Por vencer</span>
                                                         </t>
                                                     </td>
                                                     <td>
-                                                        <t t-if="line.status == 'approved'"><span class="badge bg-success rounded-pill">Aprobado</span></t>
-                                                        <t t-elif="line.status == 'rejected'"><span class="badge bg-danger rounded-pill">Rechazado</span></t>
-                                                        <t t-else=""><span class="badge bg-secondary rounded-pill">Pendiente</span></t>
+                                                        <t t-if="line.status == 'approved'"><span class="s-badge s-badge--green">Aprobado</span></t>
+                                                        <t t-elif="line.status == 'rejected'"><span class="s-badge" style="background:rgba(220,53,69,.10); color:#dc3545;">Rechazado</span></t>
+                                                        <t t-else=""><span class="s-badge">Pendiente</span></t>
                                                     </td>
                                                     <td class="text-end">
-                                                        <a class="btn btn-sm btn-outline-secondary"
-                                                            t-att-href="'/marketplace/my-certificate/%s/file' % line.id">Ver</a>
-                                                        <button type="button" class="btn btn-sm btn-outline-primary"
+                                                        <a class="s-btn s-btn-ghost btn-sm"
+                                                            t-att-href="'/marketplace/my-certificate/%s/file' % line.id"><i class="fa fa-eye me-1"></i>Ver</a>
+                                                        <button type="button" class="s-btn s-btn-ghost btn-sm"
                                                             data-bs-toggle="collapse"
-                                                            t-att-data-bs-target="'#renew_%s' % line.id">Renovar</button>
+                                                            t-att-data-bs-target="'#renew_%s' % line.id"><i class="fa fa-refresh me-1"></i>Renovar</button>
                                                         <form method="post" class="d-inline"
                                                             t-att-action="'/marketplace/mis-certificados/%s/eliminar' % line.id"
                                                             onsubmit="return confirm('¿Eliminar este certificado?');">
                                                             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                                            <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
+                                                            <button type="submit" class="s-btn s-btn-danger btn-sm"><i class="fa fa-trash"></i></button>
                                                         </form>
                                                     </td>
                                                 </tr>
@@ -254,7 +267,7 @@
                                                                 <input class="form-control form-control-sm" type="date" name="expiry_date" t-att-value="line.expiry_date or ''"/>
                                                             </div>
                                                             <div class="col-md-2">
-                                                                <button type="submit" class="btn btn-sm btn-primary w-100">Guardar</button>
+                                                                <button type="submit" class="s-btn s-btn-primary btn-sm w-100">Guardar</button>
                                                             </div>
                                                         </form>
                                                     </td>
@@ -268,9 +281,12 @@
                     </div>
 
                     <!-- Añadir nuevo -->
-                    <div class="card">
+                    <div class="mp-table-card">
                         <div class="card-body p-4">
-                            <h6 class="fw-bold mb-3">Añadir certificado</h6>
+                            <div class="mp-sec-head">
+                                <span class="mp-sec-ico"><i class="fa fa-plus"></i></span>
+                                <h3 class="mp-sec-title">Añadir certificado</h3>
+                            </div>
                             <form method="post" action="/marketplace/mis-certificados/agregar" enctype="multipart/form-data" class="row g-3">
                                 <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                 <div class="col-md-4">
@@ -299,7 +315,7 @@
                                     <input class="form-control" type="file" name="file" accept=".pdf,.jpg,.jpeg,.png" required="required"/>
                                 </div>
                                 <div class="col-md-6 d-flex align-items-end">
-                                    <button type="submit" class="btn btn-primary">Añadir certificado</button>
+                                    <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-plus me-1"></i>Añadir certificado</button>
                                 </div>
                             </form>
                         </div>
@@ -880,7 +896,7 @@
     <template id="my_check_requests" name="Marketplace - Solicitudes">
         <t t-call="website.layout">
             <div class="shrimp-bg">
-                <div class="shrimp-page py-4">
+                <div class="shrimp-page shrimp-page--full py-4">
 
                     <!-- Banner -->
                     <div class="sf-banner mb-4">

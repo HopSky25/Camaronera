@@ -282,84 +282,6 @@
 .sv-banner-aceptar-item:hover { background: #eaf7f8; color: #123E5C; }
 .sv-banner-aceptar-plazo { color: #5A6B74; font-size: .86rem; white-space: nowrap; }
 
-/* ==================================================================
-   Portada del sitio de verificadores
-   Estas clases se usaban en verifier_website.xml sin ninguna regla
-   detrás: la página salía sin maquetar, con todo pegado al margen
-   izquierdo. Aquí van con la marca Trazul.
-   ================================================================== */
-.vw-hero {
-  /* Color plano primero: si el degradado no se aplica, la cabecera sigue
-     siendo oscura y el texto blanco se lee. */
-  background-color: #123E5C;
-  background-image: linear-gradient(135deg, #0D2B3E 0%, #123E5C 45%, #14A0B0 100%);
-  color: #fff;
-  padding: 64px 24px 72px;
-}
-.vw-hero-inner { max-width: 900px; margin: 0 auto; }
-.vw-hero h1 {
-  font-size: clamp(2rem, 4.5vw, 3rem); font-weight: 800;
-  letter-spacing: -.02em; margin: 14px 0 16px; color: #fff;
-}
-.vw-hero p {
-  font-size: 1.08rem; line-height: 1.65;
-  color: rgba(255, 255, 255, .88); max-width: 660px; margin: 0;
-}
-.vw-badge {
-  display: inline-flex; align-items: center;
-  background: rgba(255, 255, 255, .16);
-  border: 1px solid rgba(255, 255, 255, .28);
-  color: #fff; border-radius: 999px;
-  padding: 6px 14px; font-size: .82rem;
-  text-transform: uppercase; letter-spacing: .08em; font-weight: 600;
-}
-.vw-cta { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 28px; }
-/* Los botones base declaran el color con !important, así que invertirlos sobre
-   la cabecera oscura exige lo mismo: sin esto "Entrar" queda blanco sobre
-   blanco y el fantasma sale con texto oscuro sobre fondo oscuro. */
-.vw-cta .s-btn-primary {
-  background: #fff; border-color: #fff; color: #123E5C !important;
-}
-.vw-cta .s-btn-primary:hover {
-  background: #eaf7f8; border-color: #eaf7f8; color: #0D2B3E !important;
-}
-.vw-cta .s-btn-ghost {
-  background: transparent; border: 1px solid rgba(255, 255, 255, .55);
-  color: #fff !important;
-}
-.vw-cta .s-btn-ghost:hover {
-  background: rgba(255, 255, 255, .14); color: #fff !important;
-}
-
-/* Los tres pasos, en tarjetas */
-.vw-steps {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
-  max-width: 1080px; margin: -36px auto 0; padding: 0 24px;
-  position: relative; z-index: 2;
-}
-@media (max-width: 900px) { .vw-steps { grid-template-columns: 1fr; margin-top: -24px; } }
-.vw-step {
-  background: #fff; border: 1px solid #e3eaed; border-radius: 12px;
-  padding: 26px 22px; box-shadow: 0 4px 18px rgba(18, 62, 92, .10);
-}
-.vw-step h3 { font-size: 1.1rem; font-weight: 700; color: #123E5C; margin: 14px 0 8px; }
-.vw-step p { font-size: .94rem; line-height: 1.6; color: #5A6B74; margin: 0; }
-.vw-step-num {
-  width: 38px; height: 38px; border-radius: 50%;
-  background: #14A0B0; color: #fff;
-  display: flex; align-items: center; justify-content: center;
-  font-weight: 800; font-size: 1.05rem;
-}
-
-/* Cierre: los cinco análisis */
-.vw-note {
-  max-width: 1080px; margin: 40px auto 60px; padding: 26px 28px;
-  background: #f7fafb; border: 1px solid #e3eaed;
-  border-left: 5px solid #14A0B0; border-radius: 12px;
-}
-.vw-note h4 { font-size: 1.08rem; font-weight: 700; color: #123E5C; margin: 0 0 8px; }
-.vw-note p { color: #3d5560; margin: 0 0 6px; font-size: 1rem; }
-.vw-note-small { font-size: .9rem !important; color: #8b9ba3 !important; margin: 0 !important; }
 
 /* ==================================================================
    Insignias de estado y enlaces de evidencia
@@ -553,94 +475,190 @@ button.sv-eye { background: none; border: 0; padding: 0; cursor: pointer; }
   --vw-navy:#0f3a4d; --vw-teal:#14a0b0; --vw-teal-dark:#0d7c88;
   --vw-ink:#123e5c; --vw-soft:#5a6b74; --vw-line:#e3e8ec;
 }
-.vw-page{ background:#f5f8fa; }
-.vw-page section{ max-width:1120px; margin:0 auto; padding:0 20px; }
+/* =========================================================================
+   PORTADA DEL SITIO DE VERIFICADORES  ·  rediseño full-width (vl-*)
+   Reutiliza los tokens teal/navy --vw-* definidos arriba.
+   Rompe el contenedor "boxed" del tema con width:100vw para ocupar
+   todo el ancho de la ventana, sin depender del ajuste de layout.
+   ========================================================================= */
+.vl-page{
+  width:100vw; margin-left:calc(50% - 50vw); margin-right:calc(50% - 50vw);
+  background:#f4f8fa; color:var(--vw-ink); overflow-x:hidden;
+}
+.vl-wrap{ max-width:1240px; margin:0 auto; padding:0 clamp(20px,4vw,48px); }
+.vl-section{ padding:clamp(56px,7vw,96px) 0; }
+.vl-section--alt{ background:#eaf2f5; }
 
-/* ---- HERO ---- */
-.vw-hero{
-  position:relative; overflow:hidden; max-width:none; margin:0; padding:88px 20px 96px;
+/* Encabezado de sección */
+.vl-eyebrow{ display:inline-flex; align-items:center; gap:8px; font-size:12px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--vw-teal-dark); }
+.vl-eyebrow--light{ color:#7ff0e0; }
+.vl-head{ max-width:720px; margin:0 auto clamp(34px,4vw,52px); text-align:center; }
+.vl-head .vl-eyebrow{ margin-bottom:14px; }
+.vl-head h2{ font-size:clamp(1.7rem,3.4vw,2.5rem); font-weight:800; letter-spacing:-.02em; color:var(--vw-ink); margin:0; line-height:1.1; }
+.vl-head p{ font-size:clamp(1rem,1.4vw,1.12rem); color:var(--vw-soft); line-height:1.6; margin:14px auto 0; max-width:640px; }
+
+/* Botones */
+.vl-btn{ display:inline-flex; align-items:center; justify-content:center; gap:9px; font-weight:700; font-size:15px; padding:13px 26px; border-radius:14px; text-decoration:none; border:1.5px solid transparent; transition:transform .18s ease, box-shadow .18s ease, background .18s ease, color .18s ease; }
+.vl-btn--lg{ padding:16px 32px; font-size:16px; }
+.vl-btn--primary{ background:var(--vw-teal); color:#fff; box-shadow:0 10px 24px rgba(20,160,176,.32); }
+.vl-btn--primary:hover{ transform:translateY(-2px); background:var(--vw-teal-dark); color:#fff; box-shadow:0 16px 34px rgba(20,160,176,.42); }
+.vl-btn--ghost{ background:transparent; color:#fff; border-color:rgba(255,255,255,.42); }
+.vl-btn--ghost:hover{ background:rgba(255,255,255,.14); color:#fff; }
+.vl-btn--dark{ background:var(--vw-navy); color:#fff; }
+.vl-btn--dark:hover{ transform:translateY(-2px); background:#0b2e3d; color:#fff; }
+
+/* ---- HERO (split asimétrico) ---- */
+/* En la portada el header va en overlay (position:absolute, ver layout), así
+   que el hero arranca en y=0 y la banda teal llega al borde superior. El
+   padding-top deja libre el alto de la navbar flotante para que el contenido
+   no quede tapado. */
+.vl-hero{ position:relative; overflow:hidden; color:#eaf6f8;
   background:
-    radial-gradient(1200px 500px at 80% -10%, rgba(20,160,176,.35), transparent 60%),
-    linear-gradient(160deg, #0f3a4d 0%, #0d7c88 60%, #14a0b0 120%);
-  color:#eaf6f8; text-align:center;
+    radial-gradient(1100px 520px at 88% -8%, rgba(43,208,192,.30), transparent 62%),
+    radial-gradient(760px 420px at 4% 118%, rgba(11,92,102,.55), transparent 60%),
+    linear-gradient(152deg,#0c3444 0%, #0d7c88 78%, #14a0b0 132%);
 }
-.vw-hero-inner{ position:relative; z-index:2; max-width:860px; margin:0 auto; }
-.vw-orb{ position:absolute; border-radius:50%; filter:blur(50px); opacity:.5; z-index:1; }
-.vw-orb--1{ width:340px; height:340px; background:#2bd0c0; top:-90px; right:-60px; }
-.vw-orb--2{ width:300px; height:300px; background:#0b5c66; bottom:-120px; left:-70px; opacity:.6; }
-.vw-grid{
-  position:absolute; inset:0; z-index:1; opacity:.10;
-  background-image:linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg,#fff 1px, transparent 1px);
-  background-size:44px 44px; mask-image:radial-gradient(600px 300px at 50% 0%, #000, transparent 75%);
-}
-.vw-badge{
-  display:inline-flex; align-items:center; gap:8px; font-size:13px; font-weight:600;
-  padding:7px 16px; border-radius:999px; background:rgba(255,255,255,.12);
-  border:1px solid rgba(255,255,255,.22); backdrop-filter:blur(6px); color:#eaf6f8; margin-bottom:22px;
-}
-.vw-badge-dot{ width:8px; height:8px; border-radius:50%; background:#7ff0e0; box-shadow:0 0 0 4px rgba(127,240,224,.25); }
-.vw-display{ font-size:clamp(2rem, 5vw, 3.4rem); font-weight:800; line-height:1.05; letter-spacing:-.02em; margin:0 0 18px; color:#fff; }
-.vw-grad{ display:block; background:linear-gradient(90deg,#9defff,#7ff0e0); -webkit-background-clip:text; background-clip:text; color:transparent; }
-.vw-lead{ font-size:clamp(1rem,2vw,1.18rem); line-height:1.6; color:#cfe9ee; max-width:680px; margin:0 auto 30px; }
-.vw-cta{ display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
-.vw-btn{
-  display:inline-flex; align-items:center; justify-content:center; font-weight:700; font-size:15px;
-  padding:13px 26px; border-radius:14px; text-decoration:none; border:1px solid transparent; transition:all .18s ease;
-}
-.vw-btn--primary{ background:#fff; color:var(--vw-teal-dark); }
-.vw-btn--primary:hover{ transform:translateY(-2px); box-shadow:0 12px 28px rgba(0,0,0,.22); color:var(--vw-navy); }
-.vw-btn--glass{ background:rgba(255,255,255,.10); color:#fff; border-color:rgba(255,255,255,.35); }
-.vw-btn--glass:hover{ background:rgba(255,255,255,.20); color:#fff; }
-.vw-hero-stats{ display:flex; gap:14px; justify-content:center; flex-wrap:wrap; margin-top:38px; }
-.vw-stat{
-  min-width:130px; padding:16px 20px; border-radius:16px;
-  background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.18); backdrop-filter:blur(6px);
-}
-.vw-stat-num{ font-size:24px; font-weight:800; color:#fff; line-height:1; }
-.vw-stat-lbl{ font-size:12px; color:#bfe2e8; margin-top:6px; }
+.vl-hero::before{ content:""; position:absolute; inset:0; opacity:.07;
+  background-image:linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px);
+  background-size:46px 46px; mask-image:radial-gradient(760px 380px at 28% 0,#000,transparent 80%); }
+.vl-hero-grid{ position:relative; z-index:2; display:grid; grid-template-columns:1.05fr .95fr; gap:clamp(30px,4vw,64px); align-items:center;
+  padding:clamp(120px,11vw,168px) 0 clamp(70px,8vw,110px); }
+.vl-hero-badge{ display:inline-flex; align-items:center; gap:9px; font-size:13px; font-weight:600; padding:7px 15px; border-radius:999px; background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.24); backdrop-filter:blur(6px); color:#eaf6f8; }
+.vl-hero-badge b{ color:#7ff0e0; font-weight:800; }
+.vl-dot{ width:8px; height:8px; border-radius:50%; background:#7ff0e0; box-shadow:0 0 0 4px rgba(127,240,224,.25); }
+.vl-hero-copy h1{ font-size:clamp(2.1rem,4.6vw,3.55rem); font-weight:800; line-height:1.05; letter-spacing:-.025em; color:#fff; margin:22px 0 0; }
+.vl-hero-copy h1 span{ background:linear-gradient(90deg,#9defff,#7ff0e0); -webkit-background-clip:text; background-clip:text; color:transparent; }
+.vl-hero-lead{ font-size:clamp(1rem,1.5vw,1.18rem); line-height:1.6; color:#cfe9ee; max-width:540px; margin:20px 0 0; }
+.vl-hero-cta{ display:flex; gap:14px; flex-wrap:wrap; margin-top:32px; }
+.vl-hero-trust{ display:flex; gap:30px; flex-wrap:wrap; margin-top:36px; padding-top:26px; border-top:1px solid rgba(255,255,255,.16); }
+.vl-hero-trust .n{ font-size:26px; font-weight:800; color:#fff; line-height:1; }
+.vl-hero-trust .t{ font-size:12.5px; color:#bfe2e8; margin-top:6px; }
 
-/* ---- SECCIONES ---- */
-.vw-section{ padding-top:64px; }
-.vw-sec-head{ text-align:center; margin-bottom:34px; }
-.vw-kicker{ display:inline-block; font-size:12px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--vw-teal-dark); margin-bottom:8px; }
-.vw-sec-head h2{ font-size:clamp(1.5rem,3vw,2rem); font-weight:800; color:var(--vw-ink); letter-spacing:-.02em; margin:0; }
+/* ---- HERO · mockup de informe ---- */
+.vl-mock{ position:relative; z-index:2; max-width:430px; justify-self:end; width:100%; }
+.vl-card{ background:#fff; border-radius:22px; box-shadow:0 34px 80px rgba(6,30,40,.48); overflow:hidden; color:var(--vw-ink); transform:rotate(-1.4deg); }
+.vl-card-top{ display:flex; align-items:center; justify-content:space-between; padding:15px 20px; background:linear-gradient(120deg,#0f3a4d,#0d7c88); color:#fff; }
+.vl-card-top .ttl{ font-weight:800; font-size:14px; }
+.vl-card-top .ref{ font-size:11.5px; color:#bfe2e8; font-weight:700; }
+.vl-card-body{ padding:8px 20px; }
+.vl-check{ display:flex; align-items:center; gap:12px; padding:11px 0; border-bottom:1px dashed var(--vw-line); }
+.vl-check:last-child{ border-bottom:0; }
+.vl-check-ico{ width:30px; height:30px; border-radius:9px; background:#e6f6ec; color:#217a48; display:inline-flex; align-items:center; justify-content:center; font-size:13px; flex:0 0 auto; }
+.vl-check-name{ font-size:13.5px; font-weight:700; color:var(--vw-ink); flex:1; }
+.vl-check-val{ font-size:12.5px; color:var(--vw-soft); font-weight:700; }
+.vl-card-foot{ display:flex; align-items:center; justify-content:space-between; padding:16px 20px; background:#f2fbfc; border-top:1px solid #cfe9ed; }
+.vl-stamp{ display:inline-flex; align-items:center; gap:8px; font-weight:800; font-size:13.5px; color:#217a48; border:2px solid #b6e0c6; background:#e6f6ec; border-radius:10px; padding:8px 13px; letter-spacing:.02em; }
+.vl-yield{ text-align:right; }
+.vl-yield .n{ font-size:22px; font-weight:800; color:var(--vw-teal-dark); line-height:1; }
+.vl-yield .t{ font-size:11px; color:var(--vw-soft); margin-top:3px; }
+.vl-float{ position:absolute; z-index:3; background:#fff; border-radius:14px; box-shadow:0 16px 40px rgba(6,30,40,.30); padding:11px 15px; display:flex; align-items:center; gap:11px; }
+.vl-float-ico{ width:34px; height:34px; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; font-size:15px; flex:0 0 auto; }
+.vl-float-ico.ok{ background:#e6f6ec; color:#217a48; }
+.vl-float-ico.money{ background:#e6f6f8; color:var(--vw-teal-dark); }
+.vl-float-t{ font-size:13px; font-weight:800; color:var(--vw-ink); line-height:1.1; }
+.vl-float-s{ font-size:11.5px; color:var(--vw-soft); margin-top:2px; }
+.vl-float--tl{ top:-20px; left:-24px; }
+.vl-float--br{ bottom:-20px; right:-20px; }
 
-/* ---- PASOS ---- */
-.vw-steps{ display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
-.vw-step{
-  position:relative; background:#fff; border:1px solid var(--vw-line); border-radius:18px; padding:26px 22px;
-  transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
-}
-.vw-step:hover{ transform:translateY(-4px); box-shadow:0 16px 34px rgba(15,58,77,.10); border-color:#bfe2e8; }
-.vw-step-num{
-  width:44px; height:44px; border-radius:13px; display:flex; align-items:center; justify-content:center;
-  font-size:20px; font-weight:800; color:#fff; margin-bottom:16px;
-  background:linear-gradient(140deg,var(--vw-teal),var(--vw-teal-dark)); box-shadow:0 8px 18px rgba(20,160,176,.30);
-}
-.vw-step h3{ font-size:17px; font-weight:800; color:var(--vw-ink); margin:0 0 8px; }
-.vw-step p{ font-size:14px; color:var(--vw-soft); line-height:1.55; margin:0; }
+/* ---- BANDA DE MÉTRICAS ---- */
+.vl-stats{ background:#fff; border-bottom:1px solid var(--vw-line); }
+.vl-stats-grid{ display:grid; grid-template-columns:repeat(4,1fr); }
+.vl-stat{ text-align:center; padding:clamp(28px,4vw,46px) 20px; border-right:1px solid var(--vw-line); }
+.vl-stat:last-child{ border-right:0; }
+.vl-stat .n{ font-size:clamp(1.9rem,3vw,2.7rem); font-weight:800; color:var(--vw-teal-dark); line-height:1; }
+.vl-stat .t{ font-size:13.5px; color:var(--vw-soft); margin-top:10px; line-height:1.4; }
 
-/* ---- ANÁLISIS ---- */
-.vw-analisis{
-  background:linear-gradient(150deg,#ffffff, #f2fbfc); border:1px solid #cfe9ed; border-radius:20px;
-  padding:34px; text-align:center; box-shadow:0 12px 30px rgba(15,58,77,.06);
-}
-.vw-analisis-head h3{ font-size:20px; font-weight:800; color:var(--vw-ink); margin:0 0 6px; }
-.vw-muted{ color:var(--vw-soft); }
-.vw-analisis-head .vw-muted{ font-size:14px; margin:0 0 22px; }
-.vw-chips{ display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
-.vw-chip{
-  display:inline-flex; align-items:center; gap:8px; font-size:14px; font-weight:700; color:var(--vw-teal-dark);
-  background:#fff; border:1px solid #bfe2e8; border-radius:999px; padding:10px 18px;
-}
-.vw-chip i{ color:var(--vw-teal); }
-.vw-analisis-note{ font-size:13px; color:var(--vw-soft); margin:22px 0 0; }
+/* ---- BENEFICIOS ---- */
+.vl-benefits{ display:grid; grid-template-columns:repeat(4,1fr); gap:20px; }
+.vl-benefit{ background:#fff; border:1px solid var(--vw-line); border-radius:18px; padding:26px 22px; transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
+.vl-benefit:hover{ transform:translateY(-4px); box-shadow:0 16px 34px rgba(15,58,77,.10); border-color:#bfe2e8; }
+.vl-benefit-ico{ width:50px; height:50px; border-radius:15px; display:inline-flex; align-items:center; justify-content:center; font-size:21px; color:#fff; background:linear-gradient(140deg,var(--vw-teal),var(--vw-teal-dark)); box-shadow:0 8px 18px rgba(20,160,176,.28); margin-bottom:16px; }
+.vl-benefit h3{ font-size:16.5px; font-weight:800; color:var(--vw-ink); margin:0 0 7px; }
+.vl-benefit p{ font-size:13.5px; color:var(--vw-soft); line-height:1.55; margin:0; }
+
+/* ---- CÓMO FUNCIONA (timeline horizontal) ---- */
+.vl-steps{ display:grid; grid-template-columns:repeat(4,1fr); gap:24px; }
+.vl-step{ position:relative; }
+.vl-step::after{ content:""; position:absolute; top:26px; left:66px; right:-24px; height:3px; z-index:0;
+  background:repeating-linear-gradient(90deg,#bfe2e8 0 9px, transparent 9px 16px); }
+.vl-step:last-child::after{ display:none; }
+.vl-step-num{ position:relative; z-index:1; width:52px; height:52px; border-radius:16px; display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:800; color:#fff; background:linear-gradient(140deg,var(--vw-teal),var(--vw-teal-dark)); box-shadow:0 10px 22px rgba(20,160,176,.30); margin-bottom:18px; }
+.vl-step h3{ font-size:16.5px; font-weight:800; color:var(--vw-ink); margin:0 0 8px; }
+.vl-step p{ font-size:13.5px; color:var(--vw-soft); line-height:1.55; margin:0; }
+
+/* ---- LOS 5 ANÁLISIS ---- */
+.vl-analisis{ display:grid; grid-template-columns:repeat(5,1fr); gap:16px; }
+.vl-an{ position:relative; background:#fff; border:1px solid var(--vw-line); border-radius:18px; padding:24px 18px; transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
+.vl-an:hover{ transform:translateY(-4px); box-shadow:0 16px 34px rgba(15,58,77,.10); border-color:#bfe2e8; }
+.vl-an-step{ position:absolute; top:16px; right:18px; font-size:14px; font-weight:800; color:#cfe0e5; }
+.vl-an-ico{ width:46px; height:46px; border-radius:13px; background:#e6f6f8; color:var(--vw-teal-dark); display:inline-flex; align-items:center; justify-content:center; font-size:19px; margin-bottom:14px; }
+.vl-an h4{ font-size:15.5px; font-weight:800; color:var(--vw-ink); margin:0 0 6px; }
+.vl-an p{ font-size:12.5px; color:var(--vw-soft); line-height:1.5; margin:0; }
+.vl-note{ text-align:center; font-size:13.5px; color:var(--vw-soft); margin:26px 0 0; }
+.vl-note i{ color:var(--vw-teal); margin-right:6px; }
+
+/* ---- PARA QUIÉN ---- */
+.vl-audience{ display:grid; grid-template-columns:1fr 1fr; gap:22px; }
+.vl-aud{ border-radius:22px; padding:clamp(28px,3vw,40px); }
+.vl-aud--a{ background:linear-gradient(150deg,#0f3a4d,#0d7c88); color:#eaf6f8; box-shadow:0 20px 46px rgba(15,58,77,.20); }
+.vl-aud--b{ background:#fff; border:1px solid var(--vw-line); color:var(--vw-ink); }
+.vl-aud-ico{ width:56px; height:56px; border-radius:16px; display:inline-flex; align-items:center; justify-content:center; font-size:24px; margin-bottom:18px; }
+.vl-aud--a .vl-aud-ico{ background:rgba(255,255,255,.14); color:#7ff0e0; border:1px solid rgba(255,255,255,.24); }
+.vl-aud--b .vl-aud-ico{ background:linear-gradient(140deg,var(--vw-teal),var(--vw-teal-dark)); color:#fff; box-shadow:0 8px 18px rgba(20,160,176,.28); }
+.vl-aud h3{ font-size:20px; font-weight:800; margin:0 0 10px; }
+.vl-aud--a h3{ color:#fff; }
+.vl-aud--b h3{ color:var(--vw-ink); }
+.vl-aud > p{ font-size:14.5px; line-height:1.6; margin:0 0 18px; }
+.vl-aud--a > p{ color:#cfe9ee; }
+.vl-aud--b > p{ color:var(--vw-soft); }
+.vl-aud-list{ list-style:none; padding:0; margin:0 0 22px; }
+.vl-aud-list li{ font-size:14px; font-weight:600; padding:7px 0; display:flex; align-items:center; gap:11px; }
+.vl-aud--a .vl-aud-list li{ color:#eaf6f8; }
+.vl-aud--b .vl-aud-list li{ color:var(--vw-ink); }
+.vl-aud--a .vl-aud-list i{ color:#7ff0e0; }
+.vl-aud--b .vl-aud-list i{ color:var(--vw-teal); }
+
+/* ---- FAQ ---- */
+.vl-faq{ max-width:820px; margin:0 auto; display:flex; flex-direction:column; gap:12px; }
+.vl-faq details{ background:#fff; border:1px solid var(--vw-line); border-radius:14px; overflow:hidden; transition:border-color .18s ease, box-shadow .18s ease; }
+.vl-faq details[open]{ border-color:#bfe2e8; box-shadow:0 10px 26px rgba(15,58,77,.07); }
+.vl-faq summary{ cursor:pointer; list-style:none; padding:18px 22px; font-weight:700; font-size:15px; color:var(--vw-ink); display:flex; justify-content:space-between; align-items:center; gap:16px; }
+.vl-faq summary::-webkit-details-marker{ display:none; }
+.vl-faq summary::after{ content:"\f107"; font-family:"FontAwesome"; color:var(--vw-teal); transition:transform .2s ease; flex:0 0 auto; }
+.vl-faq details[open] summary::after{ transform:rotate(180deg); }
+.vl-faq p{ padding:0 22px 20px; margin:0; color:var(--vw-soft); font-size:14px; line-height:1.65; }
+
+/* ---- CTA FINAL ---- */
+.vl-cta{ position:relative; overflow:hidden; text-align:center; color:#eaf6f8;
+  background:
+    radial-gradient(900px 420px at 82% -22%, rgba(43,208,192,.32), transparent 60%),
+    linear-gradient(158deg,#0f3a4d,#0d7c88 72%,#14a0b0); }
+.vl-cta-inner{ position:relative; z-index:2; max-width:720px; }
+.vl-cta-inner .vl-eyebrow{ margin-bottom:14px; }
+.vl-cta h2{ font-size:clamp(1.7rem,3.4vw,2.5rem); font-weight:800; color:#fff; letter-spacing:-.02em; margin:0 0 12px; }
+.vl-cta p{ font-size:16px; color:#cfe9ee; margin:0 auto 28px; max-width:560px; }
+.vl-cta-btns{ display:flex; gap:14px; justify-content:center; flex-wrap:wrap; }
 
 /* ---- RESPONSIVE ---- */
-@media (max-width:768px){
-  .vw-hero{ padding:64px 18px 72px; }
-  .vw-steps{ grid-template-columns:1fr; }
-  .vw-analisis{ padding:24px 18px; }
+@media (max-width:992px){
+  .vl-hero-grid{ grid-template-columns:1fr; }
+  .vl-mock{ justify-self:center; margin-top:12px; }
+  .vl-benefits{ grid-template-columns:repeat(2,1fr); }
+  .vl-steps{ grid-template-columns:repeat(2,1fr); }
+  .vl-step::after{ display:none; }
+  .vl-analisis{ grid-template-columns:repeat(3,1fr); }
+  .vl-stats-grid{ grid-template-columns:repeat(2,1fr); }
+  .vl-stat:nth-child(2){ border-right:0; }
+  .vl-stat:nth-child(1),.vl-stat:nth-child(2){ border-bottom:1px solid var(--vw-line); }
+  .vl-audience{ grid-template-columns:1fr; }
+}
+@media (max-width:576px){
+  .vl-benefits,.vl-steps,.vl-analisis,.vl-stats-grid{ grid-template-columns:1fr; }
+  .vl-stat{ border-right:0; border-bottom:1px solid var(--vw-line); }
+  .vl-stat:last-child{ border-bottom:0; }
+  .vl-hero-trust{ gap:20px; }
+  .vl-float--tl{ left:-8px; }
+  .vl-float--br{ right:-8px; }
 }
 
 /* Mensaje en pantalla del flujo de compra con verificación (reemplaza alert()) */
@@ -726,3 +744,109 @@ button.sv-eye { background: none; border: 0; padding: 0; cursor: pointer; }
 .sv-switch input:checked + .sv-switch-track .sv-switch-thumb{ transform:translateX(20px); }
 .sv-switch input:focus-visible + .sv-switch-track{ box-shadow:0 0 0 3px rgba(20,160,176,.28); }
 .sv-switch-label{ font-size:14px; color:var(--vw-ink); font-weight:600; }
+
+/* ==================================================================
+   Sin subrayado en enlaces de navegación, KPIs y tarjetas
+   (al pasar el mouse el texto no debe subrayarse)
+   ================================================================== */
+#wrapwrap header#top a,
+#wrapwrap header#top a:hover,
+#wrapwrap header#top .nav-link,
+#wrapwrap header#top .nav-link:hover,
+.vw-kpi, .vw-kpi:hover, .vw-kpi *,
+.vw-order, .vw-order:hover, .vw-order *,
+.sv-kpi, .sv-kpi:hover, .sv-kpi *,
+.sv-card, .sv-card:hover, .sv-card *,
+.vl-page a, .vl-page a:hover {
+  text-decoration: none !important;
+}
+
+/* ==================================================================
+   PALETA VERDE/TEAL PARA TODO EL SITIO DE VERIFICADORES
+   Se activa con .o_shrimp_verifier en #wrapwrap (ver layout inherit).
+   Redefinir los tokens de marca vuelve verdes todos los componentes
+   que los usan (botones, mp-sec-ico, mp-table-card, focus, chips...).
+   ================================================================== */
+#wrapwrap.o_shrimp_verifier{
+  --shrimp-brand:#0d7c88; --shrimp-brand-ink:#0a5f68; --shrimp-brand-soft:#e2f3f5;
+  --shrimp-teal:#14a0b0; --shrimp-teal-soft:#e2f3f5;
+  --shrimp-grad:linear-gradient(135deg,#0f3a4d 0%,#14a0b0 100%);
+  --shrimp-grad-soft:linear-gradient(135deg,#0d7c88 0%,#14a0b0 100%);
+}
+/* sf-banner tiene fondo navy hardcodeado -> se fuerza a teal */
+#wrapwrap.o_shrimp_verifier .sf-banner{
+  background:
+    radial-gradient(560px 280px at 92% -30%, rgba(43,208,192,.42), transparent 60%),
+    linear-gradient(135deg,#0f3a4d 0%,#0d7c88 68%,#14a0b0 130%) !important;
+}
+/* botones nativos de Odoo dentro del scope verificador */
+#wrapwrap.o_shrimp_verifier .btn-primary{
+  background-color:var(--shrimp-brand) !important; border-color:var(--shrimp-brand) !important; color:#fff !important;
+}
+#wrapwrap.o_shrimp_verifier .btn-primary:hover{
+  background-color:var(--shrimp-brand-ink) !important; border-color:var(--shrimp-brand-ink) !important;
+}
+#wrapwrap.o_shrimp_verifier a{ color:var(--shrimp-teal); }
+
+/* ==================================================================
+   Menú desplegable: opción seleccionada / hover en color de marca
+   (antes salía MORADA, el primario del tema)
+   ================================================================== */
+#wrapwrap #top_menu .dropdown-menu .dropdown-item:hover,
+#wrapwrap #top_menu .dropdown-menu .dropdown-item:focus,
+#wrapwrap #top_menu .dropdown-menu .dropdown-item.active,
+#wrapwrap #top_menu .dropdown-menu .dropdown-item:active{
+  background-color:var(--shrimp-brand-soft) !important;
+  color:var(--shrimp-brand) !important;
+}
+
+/* ==================================================================
+   FOOTER: fondo oscuro branded con texto claro (reemplaza el beige)
+   ================================================================== */
+#wrapwrap footer#bottom.o_footer{
+  background:#0f2b3a !important; color:#b9ccd5 !important; border-top:0 !important;
+}
+#wrapwrap.o_shrimp_verifier footer#bottom.o_footer{
+  background:linear-gradient(180deg,#0f3a4d 0%,#0b2c3a 100%) !important;
+}
+#wrapwrap footer#bottom.o_footer h1,
+#wrapwrap footer#bottom.o_footer h2,
+#wrapwrap footer#bottom.o_footer h3,
+#wrapwrap footer#bottom.o_footer h4,
+#wrapwrap footer#bottom.o_footer h5,
+#wrapwrap footer#bottom.o_footer strong{ color:#fff !important; }
+#wrapwrap footer#bottom.o_footer p,
+#wrapwrap footer#bottom.o_footer li,
+#wrapwrap footer#bottom.o_footer span{ color:#b9ccd5 !important; }
+#wrapwrap footer#bottom.o_footer a{ color:#cddee6 !important; text-decoration:none !important; }
+#wrapwrap footer#bottom.o_footer a:hover{ color:#fff !important; }
+#wrapwrap footer#bottom.o_footer .fa{ color:#cddee6 !important; }
+#wrapwrap .o_footer_copyright{ background:#0a2230 !important; }
+#wrapwrap .o_footer_copyright,
+#wrapwrap .o_footer_copyright *{ color:#8fa8b3 !important; }
+#wrapwrap.o_shrimp_verifier .o_footer_copyright{ background:#092533 !important; }
+
+/* ==================================================================
+   Switches de cata: definición con BORDES (el diseño plano quitó las
+   sombras, que era lo que daba forma al track y al thumb; se reponen
+   con bordes para que se vean bien).
+   ================================================================== */
+.sv-switches{ gap:14px 26px; align-items:center; }
+.sv-switch-track{ border:1px solid #b9c4cc; background:#dfe6eb; }
+.sv-switch-thumb{ border:1px solid #9fabb4; }
+.sv-switch input:checked + .sv-switch-track{ background:var(--vw-teal); border-color:var(--vw-teal-dark); }
+.sv-switch input:checked + .sv-switch-track .sv-switch-thumb{ border-color:#0a5f68; }
+
+/* ==================================================================
+   Modal de crear/editar técnico (reusa el overlay .sf-modal)
+   ================================================================== */
+.tech-modal-card{ max-width:640px; width:100%; text-align:left; padding:0; overflow:hidden; }
+.tech-modal-head{ display:flex; align-items:center; justify-content:space-between;
+  padding:18px 22px; background:var(--shrimp-grad, linear-gradient(135deg,#0f3a4d,#14a0b0)); color:#fff; }
+.tech-modal-head h3{ margin:0; font-size:18px; font-weight:800; color:#fff; }
+.tech-modal-x{ background:rgba(255,255,255,.16); border:0; color:#fff; width:32px; height:32px;
+  border-radius:50%; cursor:pointer; flex:0 0 auto; }
+.tech-modal-x:hover{ background:rgba(255,255,255,.3); }
+#techForm{ padding:22px; }
+.tech-modal-foot{ display:flex; justify-content:flex-end; gap:10px; margin-top:20px; }
+.btn-sm.s-btn{ padding:6px 12px; font-size:13px; }

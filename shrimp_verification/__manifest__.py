@@ -30,6 +30,7 @@ genera el parte en el mismo formato de texto que el equipo ya usa por WhatsApp.
         "data/ir_cron.xml",
         "data/verifier_certificate_data.xml",
         "data/taste_criterion_data.xml",
+        "data/tech_role_data.xml",
         "views/res_config_settings_views.xml",
         "views/verifier_approval_views.xml",
         "views/shrimp_verification_views.xml",
@@ -37,6 +38,7 @@ genera el parte en el mismo formato de texto que el equipo ya usa por WhatsApp.
         "views/website_settings_views.xml",
         "views/verifier_website.xml",
         "views/marca_website.xml",
+        "views/verifier_profile_templates.xml",
         "views/portal_templates.xml",
         "views/acceptance_templates.xml",
         "views/technicians_templates.xml",
@@ -47,6 +49,7 @@ genera el parte en el mismo formato de texto que el equipo ya usa por WhatsApp.
         "views/navbar_dropdown_inherit.xml",
         "views/menus.xml",
         "views/shrimp_taste_criterion_views.xml",
+        "views/shrimp_tech_role_views.xml",
     ],
     "assets": {
         "web.assets_frontend": [

@@ -21,9 +21,9 @@
           <!-- KPIs -->
           <div class="row g-3 mb-4">
             <div class="col-6 col-lg-3">
-              <a t-att-class="'vw-kpi vw-kpi--new' + (' is-active' if filter_state=='assigned' else '')" href="/verificador/bandeja?state=assigned">
+              <a t-att-class="'vw-kpi vw-kpi--new' + (' is-active' if filter_state=='pending' else '')" href="/verificador/bandeja?state=pending">
                 <span class="vw-kpi-ico"><i class="fa fa-hourglass-start"></i></span>
-                <span class="vw-kpi-body"><span class="vw-kpi-num"><t t-esc="counters['assigned']"/></span><span class="vw-kpi-lbl">Por iniciar</span></span>
+                <span class="vw-kpi-body"><span class="vw-kpi-num"><t t-esc="counters['pending']"/></span><span class="vw-kpi-lbl">Por iniciar</span></span>
               </a>
             </div>
             <div class="col-6 col-lg-3">
@@ -41,7 +41,7 @@
             <div class="col-6 col-lg-3">
               <a t-att-class="'vw-kpi' + (' is-active' if not filter_state else '')" href="/verificador/bandeja">
                 <span class="vw-kpi-ico"><i class="fa fa-th-list"></i></span>
-                <span class="vw-kpi-body"><span class="vw-kpi-num"><t t-esc="len(verifications)"/></span><span class="vw-kpi-lbl">Ver todas</span></span>
+                <span class="vw-kpi-body"><span class="vw-kpi-num"><t t-esc="counters['total']"/></span><span class="vw-kpi-lbl">Ver todas</span></span>
               </a>
             </div>
           </div>

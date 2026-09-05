@@ -51,6 +51,46 @@ class ResPartner(models.Model):
         string="N.º de registro o licencia",
         help="Número de la habilitación que lo autoriza a verificar.")
 
+    # ---- Cuenta bancaria del verificador (para el cobro de honorarios) ----
+    ver_bank_name = fields.Char(string="Banco")
+    ver_bank_account_type = fields.Selection(
+        [("ahorros", "Ahorros"), ("corriente", "Corriente")],
+        string="Tipo de cuenta")
+    ver_bank_account_number = fields.Char(string="N.º de cuenta")
+    ver_bank_holder = fields.Char(string="Titular de la cuenta")
+    ver_bank_holder_id = fields.Char(string="Cédula/RUC del titular")
+
+    # ---- Contacto operativo ----
+    ver_email_avisos = fields.Char(string="Email de avisos")
+    ver_whatsapp = fields.Char(string="WhatsApp / teléfono alterno")
+    ver_horario = fields.Char(string="Horario de atención")
+
+    # ---- Cobertura y logística ----
+    ver_provincias = fields.Char(string="Provincias / zonas que cubre")
+    ver_radio_km = fields.Integer(string="Radio de cobertura (km)")
+    ver_tiempo_respuesta = fields.Char(string="Tiempo de respuesta promedio")
+    ver_equipo_propio = fields.Boolean(string="Moviliza equipo propio")
+
+    # ---- Capacidades técnicas ----
+    ver_analisis_tipos = fields.Text(string="Tipos de análisis que realiza")
+    ver_equipos = fields.Text(string="Equipos / instrumentos")
+    ver_capacidad_lotes_dia = fields.Integer(string="Capacidad diaria de lotes")
+
+    # ---- Acreditación ----
+    ver_entidad_acredita = fields.Char(string="Entidad que acredita")
+    ver_acred_vigencia = fields.Date(string="Vigencia de la acreditación")
+    ver_acred_cert = fields.Binary(string="Certificado de acreditación (PDF)")
+    ver_acred_cert_name = fields.Char(string="Nombre del archivo del certificado")
+
+    # ---- Facturación ----
+    ver_ruc = fields.Char(string="RUC")
+    ver_razon_fiscal = fields.Char(string="Razón social fiscal")
+    ver_dir_fiscal = fields.Char(string="Dirección fiscal")
+
+    # ---- Tarifa (se muestra al comprador) ----
+    ver_fee_base = fields.Float(string="Honorario base por verificación")
+    ver_fee_por_lb = fields.Float(string="Honorario por libra")
+
     # ---- Empresa verificadora y sus técnicos de campo ----
     # Se aprovecha el parent_id nativo de Odoo: la empresa es el partner con la
     # acreditación, y los técnicos son sus contactos hijos.
@@ -58,6 +98,11 @@ class ResPartner(models.Model):
         string="Técnico de campo",
         help="Contacto de una empresa verificadora que hace las inspecciones en campo.",
     )
+
+    # Cargo del técnico, desde la tabla maestra editable (shrimp.tech.role).
+    tech_role_id = fields.Many2one(
+        "shrimp.tech.role", string="Cargo",
+        help="Cargo del técnico dentro de la empresa verificadora.")
 
     field_tech_ids = fields.One2many(
         "res.partner", "parent_id", string="Técnicos de campo",

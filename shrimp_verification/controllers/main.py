@@ -105,10 +105,14 @@ class ShrimpVerificationPortal(http.Controller):
             raise Forbidden()
         partner = self._partner()
 
-        domain = self._dominio_bandeja()
+        domain_base = self._dominio_bandeja()
+        domain = list(domain_base)
         state = (kw.get("state") or "").strip()
         if state == "open":
             domain.append(("state", "in", ["assigned", "in_field", "done"]))
+        elif state == "pending":
+            # "Por iniciar": recibidas (aún sin técnico) + asignadas
+            domain.append(("state", "in", ["received", "assigned"]))
         elif state:
             domain.append(("state", "=", state))
 
@@ -122,11 +126,15 @@ class ShrimpVerificationPortal(http.Controller):
         verifications = request.env["shrimp.verification"].sudo().search(
             domain, order="state asc, assigned_date asc")
 
+        # Los contadores son GLOBALES (todas las órdenes del verificador),
+        # no dependen del filtro activo: si no, al filtrar por un estado los
+        # demás caían a 0.
+        todas = request.env["shrimp.verification"].sudo().search(domain_base)
         counters = {
-            "received": len(verifications.filtered(lambda v: v.state == "received")),
-            "assigned": len(verifications.filtered(lambda v: v.state == "assigned")),
-            "in_field": len(verifications.filtered(lambda v: v.state == "in_field")),
-            "done": len(verifications.filtered(lambda v: v.state == "done")),
+            "pending": len(todas.filtered(lambda v: v.state in ("received", "assigned"))),
+            "in_field": len(todas.filtered(lambda v: v.state == "in_field")),
+            "done": len(todas.filtered(lambda v: v.state == "done")),
+            "total": len(todas),
         }
 
         return request.render("shrimp_verification.verifier_inbox", {
@@ -138,6 +146,130 @@ class ShrimpVerificationPortal(http.Controller):
             "filter_state": state,
             "q": q,
             "state_options": request.env["shrimp.verification"]._fields["state"].selection,
+        })
+
+    @http.route("/verificador/perfil", type="http", auth="user", website=True)
+    def verifier_profile(self, **kw):
+        salto = self._redirigir_a_plataforma_verificadores("/verificador/perfil")
+        if salto:
+            return salto
+        if not self._is_verifier():
+            raise Forbidden()
+        return request.render("shrimp_verification.verifier_profile", {
+            "page_name": "verifier_profile",
+            "empresa": self._empresa(),
+            "es_admin": self._es_admin_empresa(),
+            "saved": kw.get("saved"),
+        })
+
+    @http.route("/verificador/perfil/guardar", type="http", auth="user",
+                website=True, methods=["POST"], csrf=True)
+    def verifier_profile_save(self, **post):
+        if not self._es_admin_empresa():
+            raise Forbidden()
+        empresa = self._empresa()
+
+        def T(k):
+            return (post.get(k) or "").strip() or False
+
+        def I(k):
+            try:
+                return int(float((post.get(k) or "").replace(",", ".")))
+            except (TypeError, ValueError):
+                return 0
+
+        def F(k):
+            try:
+                return float((post.get(k) or "").replace(",", "."))
+            except (TypeError, ValueError):
+                return 0.0
+
+        vals = {
+            # Empresa
+            "ver_razon_social": T("ver_razon_social"),
+            "ver_representante": T("ver_representante"),
+            "ver_telefono": T("ver_telefono"),
+            "ver_ubicacion": T("ver_ubicacion"),
+            "ver_cobertura": T("ver_cobertura"),
+            "ver_registro_num": T("ver_registro_num"),
+            # Cuenta bancaria
+            "ver_bank_name": T("ver_bank_name"),
+            "ver_bank_account_type": post.get("ver_bank_account_type") or False,
+            "ver_bank_account_number": T("ver_bank_account_number"),
+            "ver_bank_holder": T("ver_bank_holder"),
+            "ver_bank_holder_id": T("ver_bank_holder_id"),
+            # Contacto operativo
+            "ver_email_avisos": T("ver_email_avisos"),
+            "ver_whatsapp": T("ver_whatsapp"),
+            "ver_horario": T("ver_horario"),
+            # Cobertura y logística
+            "ver_provincias": T("ver_provincias"),
+            "ver_radio_km": I("ver_radio_km"),
+            "ver_tiempo_respuesta": T("ver_tiempo_respuesta"),
+            "ver_equipo_propio": bool(post.get("ver_equipo_propio")),
+            # Capacidades técnicas
+            "ver_analisis_tipos": T("ver_analisis_tipos"),
+            "ver_equipos": T("ver_equipos"),
+            "ver_capacidad_lotes_dia": I("ver_capacidad_lotes_dia"),
+            # Acreditación
+            "ver_entidad_acredita": T("ver_entidad_acredita"),
+            "ver_acred_vigencia": post.get("ver_acred_vigencia") or False,
+            # Facturación
+            "ver_ruc": T("ver_ruc"),
+            "ver_razon_fiscal": T("ver_razon_fiscal"),
+            "ver_dir_fiscal": T("ver_dir_fiscal"),
+            # Tarifa
+            "ver_fee_base": F("ver_fee_base"),
+            "ver_fee_por_lb": F("ver_fee_por_lb"),
+        }
+
+        # Certificado de acreditación (PDF): solo se actualiza si suben uno nuevo.
+        archivo = request.httprequest.files.get("ver_acred_cert")
+        if archivo and archivo.filename:
+            contenido = archivo.read()
+            if contenido:
+                vals["ver_acred_cert"] = base64.b64encode(contenido)
+                vals["ver_acred_cert_name"] = archivo.filename
+
+        empresa.sudo().write(vals)
+        return request.redirect("/verificador/perfil?saved=1")
+
+    @http.route("/verificador/reportes", type="http", auth="user", website=True)
+    def verifier_reports(self, **kw):
+        salto = self._redirigir_a_plataforma_verificadores("/verificador/reportes")
+        if salto:
+            return salto
+        if not self._is_verifier():
+            raise Forbidden()
+        empresa = self._empresa()
+        V = request.env["shrimp.verification"].sudo()
+        recs = V.search([("verifier_partner_id", "=", empresa.id)])
+
+        def n(state):
+            return len(recs.filtered(lambda r: r.state == state))
+
+        finalizadas = recs.filtered(lambda r: r.state in ("approved", "approved_obs", "rejected"))
+        aprobadas = recs.filtered(lambda r: r.state in ("approved", "approved_obs"))
+        rechazadas = recs.filtered(lambda r: r.state == "rejected")
+        con_yield = recs.filtered(lambda r: r.total_processed_lb)
+        avg_yield = (sum(con_yield.mapped("yield_pct")) / len(con_yield)) if con_yield else 0.0
+        honorarios = sum(recs.mapped("verifier_amount"))
+
+        stats = {
+            "total": len(recs),
+            "abiertas": n("assigned") + n("in_field") + n("done") + n("received"),
+            "aprobadas": len(aprobadas),
+            "rechazadas": len(rechazadas),
+            "finalizadas": len(finalizadas),
+            "tasa_aprob": (100.0 * len(aprobadas) / len(finalizadas)) if finalizadas else 0.0,
+            "avg_yield": avg_yield,
+            "honorarios": honorarios,
+        }
+        return request.render("shrimp_verification.verifier_reports", {
+            "page_name": "verifier_reports",
+            "empresa": empresa,
+            "stats": stats,
+            "ultimas": recs.sorted(lambda r: r.create_date or r.id, reverse=True)[:10],
         })
 
     @http.route("/verificador/verificacion/<ref>", type="http", auth="user", website=True)
@@ -511,6 +643,7 @@ class ShrimpVerificationPortal(http.Controller):
             "empresa": empresa,
             "tecnicos": tecnicos,
             "carga": carga,
+            "roles": request.env["shrimp.tech.role"].sudo().search([]),
             "saved": kw.get("saved"),
             "error": kw.get("error"),
             "message": kw.get("message"),
@@ -543,13 +676,18 @@ class ShrimpVerificationPortal(http.Controller):
             return request.redirect(
                 "/verificador/tecnicos?error=1&message=Ese+correo+ya+tiene+una+cuenta")
 
+        role = request.env["shrimp.tech.role"].sudo().browse(
+            int(post.get("tech_role_id") or 0))
+        role = role if role.exists() else request.env["shrimp.tech.role"]
+
         try:
             with request.env.cr.savepoint():
                 tecnico = request.env["res.partner"].sudo().create({
                     "name": nombre,
                     "email": correo,
                     "phone": _txt("phone") or False,
-                    "function": _txt("function") or "Técnico de campo",
+                    "tech_role_id": role.id or False,
+                    "function": role.name or "Técnico de campo",
                     "parent_id": empresa.id,
                     "shrimp_is_field_tech": True,
                 })
@@ -582,6 +720,61 @@ class ShrimpVerificationPortal(http.Controller):
         if usuario:
             usuario.active = tecnico.active
         return request.redirect("/verificador/tecnicos?saved=estado")
+
+    @http.route("/verificador/tecnicos/<int:tech_id>/editar", type="http", auth="user",
+                website=True, methods=["POST"], csrf=True)
+    def technician_edit(self, tech_id, **post):
+        """Edita los datos de un técnico (nombre, contacto, cargo) y, si se
+        indica, su correo de acceso y una nueva contraseña."""
+        if not self._es_admin_empresa():
+            raise Forbidden()
+        tecnico = request.env["res.partner"].sudo().browse(tech_id)
+        if not tecnico.exists() or tecnico.parent_id != self._empresa():
+            raise NotFound()
+
+        def _txt(k):
+            return " ".join((post.get(k) or "").split())
+
+        nombre = _txt("name")
+        correo = (post.get("email") or "").strip().lower()
+        clave = post.get("password") or ""
+        if not nombre:
+            return request.redirect("/verificador/tecnicos?error=1&message=El+nombre+es+obligatorio")
+        if not correo or "@" not in correo:
+            return request.redirect("/verificador/tecnicos?error=1&message=Correo+no+valido")
+        if clave and len(clave) < 8:
+            return request.redirect(
+                "/verificador/tecnicos?error=1&message=La+contrasena+debe+tener+al+menos+8+caracteres")
+
+        Users = request.env["res.users"].sudo()
+        usuario = Users.search([("partner_id", "=", tecnico.id)], limit=1)
+        # El correo es la clave de acceso: si cambia, no debe chocar con otra cuenta.
+        otro = Users.search([("login", "=", correo), ("partner_id", "!=", tecnico.id)], limit=1)
+        if otro:
+            return request.redirect(
+                "/verificador/tecnicos?error=1&message=Ese+correo+ya+tiene+una+cuenta")
+
+        role = request.env["shrimp.tech.role"].sudo().browse(
+            int(post.get("tech_role_id") or 0))
+        role = role if role.exists() else request.env["shrimp.tech.role"]
+        try:
+            with request.env.cr.savepoint():
+                tecnico.write({
+                    "name": nombre,
+                    "email": correo,
+                    "phone": _txt("phone") or False,
+                    "tech_role_id": role.id or False,
+                    "function": role.name or tecnico.function,
+                })
+                if usuario:
+                    vals = {"login": correo, "email": correo, "name": nombre}
+                    if clave:
+                        vals["password"] = clave
+                    usuario.write(vals)
+        except Exception as e:  # noqa: BLE001
+            return request.redirect(
+                "/verificador/tecnicos?error=1&message=%s" % quote(str(e)[:120]))
+        return request.redirect("/verificador/tecnicos?saved=1")
 
     @http.route("/verificador/verificacion/<ref>/asignar", type="http", auth="user",
                 website=True, methods=["POST"], csrf=True)

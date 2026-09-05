@@ -1,0 +1,352 @@
+<odoo>
+
+  <!-- ================= PERFIL DEL VERIFICADOR ================= -->
+  <template id="verifier_profile" name="Verificador - Perfil y cuenta">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page py-4 sf-fields" style="max-width:960px;">
+
+          <div class="sf-banner mb-4">
+            <div class="sf-banner-row">
+              <div class="sf-banner-txt">
+                <h1>Mi cuenta</h1>
+                <p>Datos de tu empresa verificadora y la cuenta bancaria donde recibes tus honorarios.</p>
+              </div>
+              <span class="sf-kicker"><i class="fa fa-id-badge"></i> Perfil</span>
+            </div>
+          </div>
+
+          <t t-if="saved">
+            <div class="alert alert-success" role="alert"><i class="fa fa-check-circle me-1"></i> Datos guardados.</div>
+          </t>
+          <t t-if="not es_admin">
+            <div class="alert alert-info" role="alert">Solo el administrador de la empresa puede editar estos datos.</div>
+          </t>
+
+          <form method="post" action="/verificador/perfil/guardar" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+
+            <!-- Datos de la empresa -->
+            <div class="mp-table-card mb-4">
+              <div class="card-body p-4">
+                <div class="mp-sec-head">
+                  <span class="mp-sec-ico"><i class="fa fa-building"></i></span>
+                  <h3 class="mp-sec-title">Datos de la empresa</h3>
+                </div>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label">Razón social</label>
+                    <input type="text" class="form-control" name="ver_razon_social" t-att-value="empresa.ver_razon_social or ''" t-att-readonly="not es_admin or None"/>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Responsable técnico</label>
+                    <input type="text" class="form-control" name="ver_representante" t-att-value="empresa.ver_representante or ''" t-att-readonly="not es_admin or None"/>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Teléfono</label>
+                    <input type="text" class="form-control" name="ver_telefono" t-att-value="empresa.ver_telefono or ''" t-att-readonly="not es_admin or None"/>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Ubicación</label>
+                    <input type="text" class="form-control" name="ver_ubicacion" t-att-value="empresa.ver_ubicacion or ''" t-att-readonly="not es_admin or None"/>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">N.º de registro / licencia</label>
+                    <input type="text" class="form-control" name="ver_registro_num" t-att-value="empresa.ver_registro_num or ''" t-att-readonly="not es_admin or None"/>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Zona de cobertura</label>
+                    <input type="text" class="form-control" name="ver_cobertura" t-att-value="empresa.ver_cobertura or ''" t-att-readonly="not es_admin or None"/>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Cuenta bancaria -->
+            <div class="mp-table-card mb-4">
+              <div class="card-body p-4">
+                <div class="mp-sec-head">
+                  <span class="mp-sec-ico"><i class="fa fa-university"></i></span>
+                  <h3 class="mp-sec-title">Cuenta bancaria para cobros</h3>
+                </div>
+                <p class="text-muted" style="font-size:13px; margin-top:-6px;">Aquí se depositan tus honorarios de verificación.</p>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label">Banco</label>
+                    <input type="text" class="form-control" name="ver_bank_name" t-att-value="empresa.ver_bank_name or ''" t-att-readonly="not es_admin or None"/>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Tipo de cuenta</label>
+                    <select class="form-select" name="ver_bank_account_type" t-att-disabled="not es_admin or None">
+                      <option value="">— Seleccionar —</option>
+                      <option value="ahorros" t-att-selected="empresa.ver_bank_account_type == 'ahorros'">Ahorros</option>
+                      <option value="corriente" t-att-selected="empresa.ver_bank_account_type == 'corriente'">Corriente</option>
+                    </select>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">N.º de cuenta</label>
+                    <input type="text" class="form-control" name="ver_bank_account_number" t-att-value="empresa.ver_bank_account_number or ''" t-att-readonly="not es_admin or None"/>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Titular de la cuenta</label>
+                    <input type="text" class="form-control" name="ver_bank_holder" t-att-value="empresa.ver_bank_holder or ''" t-att-readonly="not es_admin or None"/>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Cédula/RUC del titular</label>
+                    <input type="text" class="form-control" name="ver_bank_holder_id" t-att-value="empresa.ver_bank_holder_id or ''" t-att-readonly="not es_admin or None"/>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Contacto operativo -->
+            <div class="mp-table-card mb-4">
+              <div class="card-body p-4">
+                <div class="mp-sec-head">
+                  <span class="mp-sec-ico"><i class="fa fa-address-book"></i></span>
+                  <h3 class="mp-sec-title">Contacto operativo</h3>
+                </div>
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <label class="form-label">Email de avisos</label>
+                    <input type="email" class="form-control" name="ver_email_avisos" t-att-value="empresa.ver_email_avisos or ''" t-att-readonly="not es_admin or None"/>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">WhatsApp / teléfono alterno</label>
+                    <input type="text" class="form-control" name="ver_whatsapp" t-att-value="empresa.ver_whatsapp or ''" t-att-readonly="not es_admin or None"/>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Horario de atención</label>
+                    <input type="text" class="form-control" name="ver_horario" t-att-value="empresa.ver_horario or ''" placeholder="Lun-Vie 8:00-17:00" t-att-readonly="not es_admin or None"/>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Cobertura y logística -->
+            <div class="mp-table-card mb-4">
+              <div class="card-body p-4">
+                <div class="mp-sec-head">
+                  <span class="mp-sec-ico"><i class="fa fa-map-o"></i></span>
+                  <h3 class="mp-sec-title">Cobertura y logística</h3>
+                </div>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label">Provincias / zonas que cubre</label>
+                    <input type="text" class="form-control" name="ver_provincias" t-att-value="empresa.ver_provincias or ''" placeholder="Guayas, El Oro, Manabí…" t-att-readonly="not es_admin or None"/>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Radio de cobertura (km)</label>
+                    <input type="number" min="0" class="form-control" name="ver_radio_km" t-att-value="empresa.ver_radio_km or ''" t-att-readonly="not es_admin or None"/>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Tiempo de respuesta</label>
+                    <input type="text" class="form-control" name="ver_tiempo_respuesta" t-att-value="empresa.ver_tiempo_respuesta or ''" placeholder="24 h" t-att-readonly="not es_admin or None"/>
+                  </div>
+                  <div class="col-12">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" value="1" id="ver_equipo_propio" name="ver_equipo_propio" t-att-checked="empresa.ver_equipo_propio or None" t-att-disabled="not es_admin or None"/>
+                      <label class="form-check-label" for="ver_equipo_propio">Moviliza equipo propio (vehículo/instrumentos) a campo</label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Capacidades técnicas -->
+            <div class="mp-table-card mb-4">
+              <div class="card-body p-4">
+                <div class="mp-sec-head">
+                  <span class="mp-sec-ico"><i class="fa fa-flask"></i></span>
+                  <h3 class="mp-sec-title">Capacidades técnicas</h3>
+                </div>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label">Tipos de análisis que realiza</label>
+                    <textarea class="form-control" name="ver_analisis_tipos" rows="2" placeholder="Peso, presentación, metabisulfito, clasificación, sabor…" t-att-readonly="not es_admin or None"><t t-esc="empresa.ver_analisis_tipos or ''"/></textarea>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Equipos / instrumentos</label>
+                    <textarea class="form-control" name="ver_equipos" rows="2" placeholder="Balanza calibrada, kit de metabisulfito…" t-att-readonly="not es_admin or None"><t t-esc="empresa.ver_equipos or ''"/></textarea>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Capacidad diaria de lotes</label>
+                    <input type="number" min="0" class="form-control" name="ver_capacidad_lotes_dia" t-att-value="empresa.ver_capacidad_lotes_dia or ''" t-att-readonly="not es_admin or None"/>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Acreditación -->
+            <div class="mp-table-card mb-4">
+              <div class="card-body p-4">
+                <div class="mp-sec-head">
+                  <span class="mp-sec-ico"><i class="fa fa-certificate"></i></span>
+                  <h3 class="mp-sec-title">Acreditación</h3>
+                </div>
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <label class="form-label">N.º de licencia / registro</label>
+                    <input type="text" class="form-control" name="ver_registro_num" t-att-value="empresa.ver_registro_num or ''" t-att-readonly="not es_admin or None"/>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Entidad que acredita</label>
+                    <input type="text" class="form-control" name="ver_entidad_acredita" t-att-value="empresa.ver_entidad_acredita or ''" t-att-readonly="not es_admin or None"/>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Vigencia</label>
+                    <input type="date" class="form-control" name="ver_acred_vigencia" t-att-value="empresa.ver_acred_vigencia or ''" t-att-readonly="not es_admin or None"/>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Certificado de acreditación (PDF)</label>
+                    <t t-if="empresa.ver_acred_cert">
+                      <div class="mb-2">
+                        <a t-attf-href="/web/content?model=res.partner&amp;id=#{empresa.id}&amp;field=ver_acred_cert&amp;filename_field=ver_acred_cert_name&amp;download=true"
+                           class="sv-evidence"><i class="fa fa-file-pdf-o"/> <t t-esc="empresa.ver_acred_cert_name or 'Certificado actual'"/></a>
+                      </div>
+                    </t>
+                    <t t-if="es_admin">
+                      <input type="file" class="form-control" name="ver_acred_cert" accept="application/pdf"/>
+                      <div class="form-text">Sube un PDF para reemplazar el certificado. Si dejas el campo vacío, se conserva el actual.</div>
+                    </t>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Facturación -->
+            <div class="mp-table-card mb-4">
+              <div class="card-body p-4">
+                <div class="mp-sec-head">
+                  <span class="mp-sec-ico"><i class="fa fa-file-text-o"></i></span>
+                  <h3 class="mp-sec-title">Facturación</h3>
+                </div>
+                <p class="text-muted" style="font-size:13px; margin-top:-6px;">Por si difieren de los datos operativos.</p>
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <label class="form-label">RUC</label>
+                    <input type="text" class="form-control" name="ver_ruc" t-att-value="empresa.ver_ruc or ''" t-att-readonly="not es_admin or None"/>
+                  </div>
+                  <div class="col-md-8">
+                    <label class="form-label">Razón social fiscal</label>
+                    <input type="text" class="form-control" name="ver_razon_fiscal" t-att-value="empresa.ver_razon_fiscal or ''" t-att-readonly="not es_admin or None"/>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Dirección fiscal</label>
+                    <input type="text" class="form-control" name="ver_dir_fiscal" t-att-value="empresa.ver_dir_fiscal or ''" t-att-readonly="not es_admin or None"/>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tarifa -->
+            <div class="mp-table-card mb-4">
+              <div class="card-body p-4">
+                <div class="mp-sec-head">
+                  <span class="mp-sec-ico"><i class="fa fa-money"></i></span>
+                  <h3 class="mp-sec-title">Tarifa</h3>
+                </div>
+                <p class="text-muted" style="font-size:13px; margin-top:-6px;">Se muestra al comprador al elegir verificador.</p>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label">Honorario base por verificación (USD)</label>
+                    <input type="number" step="0.01" min="0" class="form-control" name="ver_fee_base" t-att-value="empresa.ver_fee_base or ''" t-att-readonly="not es_admin or None"/>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Honorario por libra (USD)</label>
+                    <input type="number" step="0.0001" min="0" class="form-control" name="ver_fee_por_lb" t-att-value="empresa.ver_fee_por_lb or ''" t-att-readonly="not es_admin or None"/>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <t t-if="es_admin">
+              <div class="text-end">
+                <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-check me-1"></i> Guardar cambios</button>
+              </div>
+            </t>
+          </form>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+  <!-- ================= MIS REPORTES ================= -->
+  <template id="verifier_reports" name="Verificador - Mis reportes">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page shrimp-page--full py-4">
+
+          <div class="sf-banner mb-4">
+            <div class="sf-banner-row">
+              <div class="sf-banner-txt">
+                <h1>Mis reportes</h1>
+                <p>Resumen de tu actividad como verificador: verificaciones, resultados y honorarios.</p>
+              </div>
+              <span class="sf-kicker"><i class="fa fa-bar-chart"></i> Reportes</span>
+            </div>
+          </div>
+
+          <!-- KPIs -->
+          <div class="row g-3 mb-4">
+            <div class="col-6 col-lg-3">
+              <div class="vw-kpi"><span class="vw-kpi-ico"><i class="fa fa-clipboard-list"></i></span>
+                <span class="vw-kpi-body"><span class="vw-kpi-num"><t t-esc="stats['total']"/></span><span class="vw-kpi-lbl">Total verificaciones</span></span></div>
+            </div>
+            <div class="col-6 col-lg-3">
+              <div class="vw-kpi vw-kpi--field"><span class="vw-kpi-ico"><i class="fa fa-hourglass-half"></i></span>
+                <span class="vw-kpi-body"><span class="vw-kpi-num"><t t-esc="stats['abiertas']"/></span><span class="vw-kpi-lbl">Abiertas</span></span></div>
+            </div>
+            <div class="col-6 col-lg-3">
+              <div class="vw-kpi vw-kpi--done"><span class="vw-kpi-ico"><i class="fa fa-check-circle"></i></span>
+                <span class="vw-kpi-body"><span class="vw-kpi-num"><t t-esc="'%.0f%%' % stats['tasa_aprob']"/></span><span class="vw-kpi-lbl">Tasa de aprobación</span></span></div>
+            </div>
+            <div class="col-6 col-lg-3">
+              <div class="vw-kpi vw-kpi--new"><span class="vw-kpi-ico"><i class="fa fa-money"></i></span>
+                <span class="vw-kpi-body"><span class="vw-kpi-num">$<t t-esc="'%.0f' % stats['honorarios']"/></span><span class="vw-kpi-lbl">Honorarios</span></span></div>
+            </div>
+          </div>
+
+          <div class="row g-4">
+            <div class="col-lg-4">
+              <div class="mp-table-card h-100"><div class="card-body p-4">
+                <div class="mp-sec-head"><span class="mp-sec-ico"><i class="fa fa-gavel"></i></span><h3 class="mp-sec-title">Veredictos</h3></div>
+                <div class="mp-spec-grid" style="grid-template-columns:1fr;">
+                  <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-check"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Aprobadas</div><div class="mp-spec-value"><t t-esc="stats['aprobadas']"/></div></div></div>
+                  <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-times"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Rechazadas</div><div class="mp-spec-value"><t t-esc="stats['rechazadas']"/></div></div></div>
+                  <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-balance-scale"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Rendimiento promedio</div><div class="mp-spec-value"><t t-esc="'%.1f%%' % stats['avg_yield']"/></div></div></div>
+                </div>
+              </div></div>
+            </div>
+            <div class="col-lg-8">
+              <div class="mp-table-card h-100"><div class="card-body p-4">
+                <div class="mp-sec-head"><span class="mp-sec-ico"><i class="fa fa-history"></i></span><h3 class="mp-sec-title">Últimas verificaciones</h3></div>
+                <t t-if="ultimas">
+                  <div class="table-responsive">
+                    <table class="table align-middle mb-0">
+                      <thead><tr><th>Referencia</th><th>Producto</th><th class="text-end">Rend.</th><th>Estado</th></tr></thead>
+                      <tbody>
+                        <t t-foreach="ultimas" t-as="v">
+                          <tr>
+                            <td style="font-weight:700;"><t t-esc="v.name"/></td>
+                            <td><t t-esc="v.product_id.name"/></td>
+                            <td class="text-end"><t t-esc="'%.1f%%' % v.yield_pct if v.total_processed_lb else '—'"/></td>
+                            <td><span t-attf-class="sv-badge sv-badge--#{v.state}"><t t-esc="dict(v._fields['state'].selection).get(v.state)"/></span></td>
+                          </tr>
+                        </t>
+                      </tbody>
+                    </table>
+                  </div>
+                </t>
+                <t t-else=""><div class="p-3 text-center text-muted">Aún no tienes verificaciones.</div></t>
+              </div></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+</odoo>

@@ -151,6 +151,27 @@ class ShrimpPriceList(models.Model):
             and (r.open_ended or not r.dispatch_to or r.dispatch_to >= hoy))
         return [("id", "in" if quiere else "not in", vigentes.ids)]
 
+    @api.constrains("issuer_partner_id", "recipient_ids")
+    def _check_partes(self):
+        """Quién publica y quién recibe.
+
+        La lista es de camarón adulto —tallas de entero y cola—, así que la
+        publica una empacadora y la reciben camaroneras. El laboratorio y el
+        semillero venden larvas y nauplios, que se cotizan por millar y no por
+        talla: una lista así no les dice nada.
+        """
+        for rec in self:
+            if rec.issuer_partner_id.shrimp_user_type != "empacadora":
+                raise ValidationError(_(
+                    "Las listas de precios de compra las publica una "
+                    "empacadora. «%s» no lo es.") % (rec.issuer_partner_id.name or ""))
+            ajenos = rec.recipient_ids.filtered(
+                lambda p: p.shrimp_user_type != "camaronera")
+            if ajenos:
+                raise ValidationError(_(
+                    "Esta lista es de camarón adulto, así que va dirigida a "
+                    "camaroneras. No lo son: %s.") % ", ".join(ajenos.mapped("name")))
+
     @api.constrains("dispatch_from", "dispatch_to", "open_ended")
     def _check_ventana(self):
         for rec in self:

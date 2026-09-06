@@ -1,0 +1,60 @@
+<odoo>
+
+  <!-- Perfil de la empacadora en el backend -->
+  <record id="view_partner_form_packer" model="ir.ui.view">
+    <field name="name">res.partner.form.packer</field>
+    <field name="model">res.partner</field>
+    <field name="inherit_id" ref="shrimp_user_registry.view_partner_form_inherit_shrimp"/>
+    <field name="arch" type="xml">
+      <xpath expr="//notebook" position="inside">
+        <page string="Empacadora" invisible="shrimp_user_type != 'empacadora'">
+          <group>
+            <group string="Identificación">
+              <field name="emp_razon_social"/>
+              <field name="emp_representante"/>
+              <field name="emp_contacto_comercial"/>
+              <field name="emp_telefono"/>
+              <field name="emp_codigo_exportador"/>
+            </group>
+            <group string="Planta de proceso">
+              <field name="emp_planta_nombre"/>
+              <field name="emp_planta_ubicacion"/>
+              <field name="emp_capacidad_lb_dia"/>
+              <field name="emp_aprobacion_sanitaria"/>
+            </group>
+          </group>
+          <group>
+            <group string="Certificaciones">
+              <field name="emp_cert_bap"/>
+              <field name="emp_cert_asc"/>
+              <field name="emp_cert_haccp"/>
+              <field name="emp_cert_otras"/>
+            </group>
+            <group string="Mercados a los que exporta">
+              <field name="emp_mercado_asia"/>
+              <field name="emp_mercado_europa"/>
+              <field name="emp_mercado_norteamerica"/>
+              <field name="emp_mercado_local"/>
+            </group>
+          </group>
+          <field name="emp_price_list_ids" readonly="1">
+            <list>
+              <field name="name"/>
+              <field name="issue_date"/>
+              <field name="recipient_count"/>
+              <field name="line_count"/>
+              <field name="is_current"/>
+              <field name="state"/>
+            </list>
+          </field>
+        </page>
+      </xpath>
+      <!-- El registro acuícola identifica al predio ante la autoridad, así que
+           va junto al resto de los datos de la camaronera. -->
+      <xpath expr="//field[@name='farm_area_ha']" position="after">
+        <field name="shrimp_registro_acuicola" placeholder="Ej. GR-1104"/>
+      </xpath>
+    </field>
+  </record>
+
+</odoo>

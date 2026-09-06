@@ -1,0 +1,105 @@
+/* ==================================================================
+   Empacadora y listas de precios — paleta Trazul
+   ================================================================== */
+.pk-h1 { font-size: 1.6rem; font-weight: 800; color: #123E5C; margin: 0 0 18px; }
+.pk-h2 { font-size: 1.15rem; font-weight: 700; color: #123E5C; margin: 0 0 12px; }
+.pk-muted { color: #8b9ba3; }
+
+.pk-volver { display: inline-block; margin-bottom: 14px; color: #14A0B0; text-decoration: none; }
+.pk-volver:hover { color: #123E5C; }
+
+.pk-alert { border-radius: 8px; padding: 12px 14px; margin-bottom: 16px; font-size: .93rem; }
+.pk-alert--ok { background: #eaf7f8; border-left: 4px solid #14A0B0; color: #0f5c66; }
+.pk-alert--ko { background: #fdecea; border-left: 4px solid #b3261e; color: #8c1d18; }
+
+/* Tarjetas de las listas que me tocan */
+.pk-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.pk-card {
+  display: block; background: #fff; border: 1px solid #e3eaed;
+  border-top: 4px solid #14A0B0; border-radius: 10px; padding: 16px 18px;
+  text-decoration: none; color: #243b45;
+  box-shadow: 0 1px 3px rgba(18, 62, 92, .07);
+}
+.pk-card:hover { border-color: #cfe9ee; box-shadow: 0 6px 18px rgba(18, 62, 92, .12); color: #243b45; }
+.pk-card-emisor { font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; color: #14A0B0; font-weight: 700; }
+.pk-card-nombre { font-size: 1.1rem; font-weight: 700; color: #123E5C; margin: 2px 0 6px; }
+.pk-card-meta { font-size: .86rem; color: #5A6B74; }
+.pk-card-pie { display: flex; justify-content: space-between; margin-top: 12px; font-size: .84rem; color: #8b9ba3; }
+.pk-ver { color: #14A0B0; font-weight: 600; }
+
+.pk-vacio {
+  background: #f7fafb; border: 1px dashed #cfd9dd; border-radius: 10px;
+  padding: 28px; text-align: center; color: #8b9ba3;
+}
+
+/* El documento, como el papel que reparte la empacadora */
+.pk-doc {
+  background: #fff; border: 1px solid #e3eaed; border-radius: 12px;
+  padding: 26px 30px; box-shadow: 0 2px 10px rgba(18, 62, 92, .08);
+  max-width: 860px; margin: 0 auto;
+}
+.pk-doc-head {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  border-bottom: 3px solid #14A0B0; padding-bottom: 14px; margin-bottom: 14px;
+  flex-wrap: wrap; gap: 12px;
+}
+.pk-doc-emisor { font-size: 1.3rem; font-weight: 800; color: #123E5C; }
+.pk-doc-titulo { font-size: .78rem; text-transform: uppercase; letter-spacing: .12em; color: #8b9ba3; }
+.pk-doc-ref { font-weight: 700; color: #123E5C; }
+.pk-doc-fecha { font-size: .84rem; color: #8b9ba3; }
+.pk-doc-vigencia {
+  background: #f7fafb; border-radius: 8px; padding: 10px 14px;
+  color: #3d5560; font-size: .92rem; margin-bottom: 20px;
+}
+.pk-doc-para { display: block; color: #8b9ba3; font-size: .86rem; margin-top: 2px; }
+
+.pk-seccion {
+  font-size: .8rem; text-transform: uppercase; letter-spacing: .1em;
+  color: #123E5C; font-weight: 700; margin: 22px 0 8px;
+  border-bottom: 1px solid #e3eaed; padding-bottom: 5px;
+}
+
+/* Tabla de precios: se lee de un barrido vertical, como el papel */
+.pk-precios { width: 100%; border-collapse: collapse; font-size: .92rem; }
+.pk-precios th {
+  background: #f2f7f9; color: #123E5C; font-weight: 700;
+  border: 1px solid #dfe8ec; padding: 7px 10px; text-align: center; font-size: .82rem;
+}
+.pk-precios td { border: 1px solid #eef2f4; padding: 6px 10px; color: #243b45; }
+.pk-precios tbody tr:nth-child(even) { background: #fbfdfd; }
+.pk-talla { font-weight: 700; color: #123E5C; }
+.pk-precios--corta { max-width: 420px; }
+
+.pk-condiciones, .pk-pago {
+  margin-top: 20px; padding: 12px 16px; border-radius: 8px;
+  font-size: .9rem; color: #3d5560;
+}
+.pk-condiciones { background: #fff8ec; border-left: 4px solid #e69c24; }
+.pk-pago { background: #eaf7f8; border-left: 4px solid #14A0B0; }
+.pk-condiciones strong, .pk-pago strong { display: block; color: #123E5C; margin-bottom: 4px; }
+
+/* Formularios del editor */
+.pk-caja { background: #fff; border: 1px solid #e3eaed; border-radius: 10px; padding: 18px 20px; }
+.pk-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px 16px; }
+.pk-grid--3 { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.pk-grid--5 { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.pk-grid label, .pk-caja > label { display: block; font-size: .82rem; font-weight: 600; color: #5A6B74; }
+.pk-grid .form-control, .pk-caja .form-control { margin-top: 3px; }
+.pk-check { display: inline-flex; align-items: center; gap: 7px; font-weight: 500; color: #243b45; margin-top: 10px; }
+.pk-checks { display: flex; flex-wrap: wrap; gap: 18px; }
+
+.pk-tabla { width: 100%; border-collapse: collapse; font-size: .92rem; background: #fff; }
+.pk-tabla th {
+  text-align: left; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em;
+  color: #8b9ba3; font-weight: 600; border-bottom: 2px solid #e3eaed; padding: 8px 10px;
+}
+.pk-tabla td { padding: 8px 10px; border-bottom: 1px solid #eef2f4; color: #243b45; }
+.pk-borrar { background: none; border: 0; color: #b3261e; cursor: pointer; padding: 2px 6px; }
+.pk-borrar:hover { color: #8c1d18; }
+
+.pk-estado { display: inline-block; border-radius: 999px; padding: 3px 11px; font-size: .76rem; font-weight: 600; }
+.pk-estado--draft { background: #eef2f4; color: #5A6B74; }
+.pk-estado--published { background: #eaf7f8; color: #0f7c88; }
+.pk-estado--archived { background: #f4f0ea; color: #8a7355; }
+
+.pk-publicar { background: #f7fafb; border: 1px solid #e3eaed; border-radius: 10px; padding: 16px 20px; }

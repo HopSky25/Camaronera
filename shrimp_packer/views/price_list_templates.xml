@@ -1,0 +1,512 @@
+<odoo>
+
+  <!-- ================================================================
+       LISTADO: las listas que me tocan + las que yo publico
+       ================================================================ -->
+  <template id="price_lists_page" name="Listas de precios">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page shrimp-page--full py-4">
+
+          <div class="sf-banner mb-4">
+            <div class="sf-banner-row">
+              <div class="sf-banner-txt">
+                <h1>Listas de precios</h1>
+                <p>Lo que te pagan las empacadoras esta semana, por talla.</p>
+              </div>
+              <span class="sf-kicker"><i class="fa fa-list-alt"></i> Precios</span>
+            </div>
+          </div>
+
+          <t t-if="mensaje">
+            <div class="pk-alert pk-alert--ok"><i class="fa fa-check-circle me-1"/>Guardado.</div>
+          </t>
+          <t t-if="error">
+            <div class="pk-alert pk-alert--ko"><i class="fa fa-exclamation-triangle me-1"/><t t-esc="error"/></div>
+          </t>
+
+          <h2 class="pk-h2">Dirigidas a ti</h2>
+          <t t-if="vigentes">
+            <div class="pk-cards">
+              <t t-foreach="vigentes" t-as="l">
+                <a class="pk-card" t-attf-href="/marketplace/listas-de-precios/#{l.uuid_ref}">
+                  <div class="pk-card-emisor"><t t-esc="l.issuer_partner_id.name"/></div>
+                  <div class="pk-card-nombre"><t t-esc="l.name"/></div>
+                  <div class="pk-card-meta"><t t-esc="l.texto_ventana()"/></div>
+                  <div class="pk-card-pie">
+                    <span><t t-esc="l.line_count"/> precios</span>
+                    <span class="pk-ver">Ver <i class="fa fa-chevron-right"/></span>
+                  </div>
+                </a>
+              </t>
+            </div>
+          </t>
+          <t t-else="">
+            <div class="pk-vacio">
+              <i class="fa fa-inbox fa-2x mb-2"/>
+              <p class="mb-0">Todavía no hay ninguna lista dirigida a ti.
+                 Las empacadoras publican la suya cada semana.</p>
+            </div>
+          </t>
+
+          <div class="d-flex justify-content-between align-items-center mt-5">
+            <h2 class="pk-h2 mb-0">Las que publicas tú</h2>
+            <a class="s-btn s-btn-primary" href="/marketplace/listas-de-precios/nueva">
+              <i class="fa fa-plus me-1"/> Nueva lista
+            </a>
+          </div>
+          <t t-if="mias">
+            <table class="pk-tabla mt-3">
+              <thead>
+                <tr><th>Lista</th><th>Emitida</th><th>Vigencia</th><th>Dirigida a</th>
+                    <th class="text-end">Precios</th><th>Estado</th><th></th></tr>
+              </thead>
+              <tbody>
+                <t t-foreach="mias" t-as="l">
+                  <tr>
+                    <td><strong t-esc="l.name"/></td>
+                    <td t-esc="l.issue_date.strftime('%d/%m/%Y') if l.issue_date else '—'"/>
+                    <td t-esc="l.texto_ventana()"/>
+                    <td>
+                      <t t-if="l.recipient_ids">
+                        <t t-esc="', '.join(l.recipient_ids.mapped('name')[:2])"/>
+                        <t t-if="len(l.recipient_ids) &gt; 2"> +<t t-esc="len(l.recipient_ids) - 2"/></t>
+                      </t>
+                      <t t-else=""><span class="pk-muted">sin destinatarios</span></t>
+                    </td>
+                    <td class="text-end" t-esc="l.line_count"/>
+                    <td>
+                      <span t-attf-class="pk-estado pk-estado--#{l.state}">
+                        <t t-if="l.state == 'published' and l.is_current">Vigente</t>
+                        <t t-elif="l.state == 'published'">Publicada</t>
+                        <t t-elif="l.state == 'draft'">Borrador</t>
+                        <t t-else="">Archivada</t>
+                      </span>
+                    </td>
+                    <td class="text-end">
+                      <a class="s-btn s-btn-ghost btn-sm"
+                         t-attf-href="/marketplace/listas-de-precios/#{l.uuid_ref}/editar">Editar</a>
+                    </td>
+                  </tr>
+                </t>
+              </tbody>
+            </table>
+          </t>
+          <t t-else="">
+            <p class="pk-muted mt-3">Todavía no publicas ninguna lista.</p>
+          </t>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+  <!-- ================================================================
+       DETALLE: el documento, como el papel que reparten las empacadoras
+       ================================================================ -->
+  <template id="price_list_detail" name="Lista de precios">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page py-4">
+          <a class="pk-volver" href="/marketplace/listas-de-precios">
+            <i class="fa fa-arrow-left me-1"/> Volver a las listas
+          </a>
+
+          <div class="pk-doc">
+            <div class="pk-doc-head">
+              <div>
+                <div class="pk-doc-emisor" t-esc="lista.issuer_partner_id.name"/>
+                <div class="pk-doc-titulo">Lista de precios</div>
+              </div>
+              <div class="text-end">
+                <div class="pk-doc-ref" t-esc="lista.name"/>
+                <div class="pk-doc-fecha">
+                  Emitida el <t t-esc="lista.issue_date.strftime('%d/%m/%Y') if lista.issue_date else '—'"/>
+                </div>
+              </div>
+            </div>
+
+            <div class="pk-doc-vigencia">
+              <i class="fa fa-calendar me-1"/><t t-esc="lista.texto_ventana()"/>
+              <t t-if="lista.recipient_ids">
+                <span class="pk-doc-para">
+                  Para <t t-esc="', '.join(lista.recipient_ids.mapped('name'))"/>
+                </span>
+              </t>
+            </div>
+
+            <!-- ENTERO -->
+            <t t-if="entero">
+              <h3 class="pk-seccion">Entero</h3>
+              <table class="pk-precios">
+                <thead>
+                  <tr>
+                    <th rowspan="2">Talla</th>
+                    <th t-attf-colspan="#{len(entero['columnas'])}">
+                      Precio (<t t-esc="'Kg' if entero['uom'] == 'kg' else 'Lb'"/>)
+                    </th>
+                  </tr>
+                  <tr>
+                    <t t-foreach="entero['columnas']" t-as="col">
+                      <th class="text-end" t-esc="col[1]"/>
+                    </t>
+                  </tr>
+                </thead>
+                <tbody>
+                  <t t-foreach="entero['tallas']" t-as="talla">
+                    <tr>
+                      <td class="pk-talla" t-esc="talla.name"/>
+                      <t t-foreach="entero['columnas']" t-as="col">
+                        <t t-set="p" t-value="entero['precios'].get(talla.id, {}).get(col[0])"/>
+                        <td class="text-end">
+                          <t t-if="p"><t t-esc="'$ {:,.2f}'.format(p)"/></t>
+                          <t t-else=""><span class="pk-muted">—</span></t>
+                        </td>
+                      </t>
+                    </tr>
+                  </t>
+                </tbody>
+              </table>
+            </t>
+
+            <!-- COLA -->
+            <t t-if="cola">
+              <h3 class="pk-seccion">Cola</h3>
+              <table class="pk-precios">
+                <thead>
+                  <tr>
+                    <th rowspan="2">Talla</th>
+                    <th t-attf-colspan="#{len(cola['columnas'])}">
+                      Precio (<t t-esc="'Kg' if cola['uom'] == 'kg' else 'Lb'"/>)
+                    </th>
+                  </tr>
+                  <tr>
+                    <t t-foreach="cola['columnas']" t-as="col">
+                      <th class="text-end" t-esc="col[1]"/>
+                    </t>
+                  </tr>
+                </thead>
+                <tbody>
+                  <t t-foreach="cola['tallas']" t-as="talla">
+                    <tr>
+                      <td class="pk-talla" t-esc="talla.name"/>
+                      <t t-foreach="cola['columnas']" t-as="col">
+                        <t t-set="p" t-value="cola['precios'].get(talla.id, {}).get(col[0])"/>
+                        <td class="text-end">
+                          <t t-if="p"><t t-esc="'$ {:,.2f}'.format(p)"/></t>
+                          <t t-else=""><span class="pk-muted">—</span></t>
+                        </td>
+                      </t>
+                    </tr>
+                  </t>
+                </tbody>
+              </table>
+            </t>
+
+            <t t-if="not entero and not cola">
+              <p class="pk-muted">Esta lista todavía no tiene precios cargados.</p>
+            </t>
+
+            <!-- Bonificaciones -->
+            <t t-if="lista.bonus_ids">
+              <h3 class="pk-seccion">Bonificaciones</h3>
+              <table class="pk-precios pk-precios--corta">
+                <tbody>
+                  <t t-foreach="lista.bonus_ids" t-as="b">
+                    <tr>
+                      <td class="pk-talla" t-esc="b.name"/>
+                      <td class="text-end" t-esc="'$ {:,.2f}'.format(b.amount)"/>
+                      <td class="pk-muted" t-esc="b.note or ''"/>
+                    </tr>
+                  </t>
+                </tbody>
+              </table>
+            </t>
+
+            <t t-if="lista.quality_conditions">
+              <div class="pk-condiciones">
+                <strong>Condiciones de calidad</strong>
+                <p class="mb-0" t-esc="lista.quality_conditions"/>
+              </div>
+            </t>
+
+            <t t-set="pagos" t-value="lista.texto_pago()"/>
+            <t t-if="pagos">
+              <div class="pk-pago">
+                <strong>Forma de pago</strong>
+                <ul class="mb-0">
+                  <li t-foreach="pagos" t-as="linea" t-esc="linea"/>
+                </ul>
+              </div>
+            </t>
+
+            <t t-if="es_mia">
+              <div class="mt-4">
+                <a class="s-btn s-btn-ghost"
+                   t-attf-href="/marketplace/listas-de-precios/#{lista.uuid_ref}/editar">
+                  <i class="fa fa-pencil me-1"/> Editar esta lista
+                </a>
+              </div>
+            </t>
+          </div>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+  <!-- ================================================================
+       EDITOR: la empacadora arma su lista
+       ================================================================ -->
+  <template id="price_list_form" name="Editar lista de precios">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page py-4">
+          <a class="pk-volver" href="/marketplace/listas-de-precios">
+            <i class="fa fa-arrow-left me-1"/> Volver a las listas
+          </a>
+
+          <h1 class="pk-h1">
+            <t t-if="lista">Editar lista</t><t t-else="">Nueva lista de precios</t>
+          </h1>
+
+          <t t-if="error">
+            <div class="pk-alert pk-alert--ko"><i class="fa fa-exclamation-triangle me-1"/><t t-esc="error"/></div>
+          </t>
+          <t t-if="mensaje">
+            <div class="pk-alert pk-alert--ok"><i class="fa fa-check-circle me-1"/>Guardado.</div>
+          </t>
+
+          <!-- Cabecera -->
+          <form method="post" action="/marketplace/listas-de-precios/guardar" class="pk-caja">
+            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+            <input type="hidden" name="ref" t-att-value="lista.uuid_ref if lista else ''"/>
+
+            <div class="pk-grid">
+              <label>Referencia
+                <input type="text" name="name" class="form-control" required="required"
+                       placeholder="Semana 32" t-att-value="lista.name if lista else ''"/>
+              </label>
+              <label>Fecha de emisión
+                <input type="date" name="issue_date" class="form-control"
+                       t-att-value="lista.issue_date if lista else ''"/>
+              </label>
+              <label>Despacho desde
+                <input type="date" name="dispatch_from" class="form-control"
+                       t-att-value="lista.dispatch_from if lista else ''"/>
+              </label>
+              <label>Despacho hasta
+                <input type="date" name="dispatch_to" class="form-control"
+                       t-att-value="lista.dispatch_to if lista else ''"/>
+              </label>
+            </div>
+            <label class="pk-check">
+              <input type="checkbox" name="open_ended" value="1"
+                     t-att-checked="'checked' if (not lista or lista.open_ended) else None"/>
+              Hasta segunda orden (rige sin fecha de fin)
+            </label>
+
+            <!-- Destinatarios: lo que hace confidencial a la lista -->
+            <label class="mt-3 d-block">A qué productores va dirigida
+              <span class="pk-muted d-block small">
+                Solo ellos la verán. Si eliges la empresa madre de un grupo, la
+                ven también sus camaroneras.
+              </span>
+              <t t-set="clientes"
+                 t-value="request.env['res.partner'].sudo().search([('shrimp_user_type','in',['camaronera','laboratorio','semillero']),('id','!=',request.env.user.partner_id.id)], order='name')"/>
+              <select name="recipient_ids" class="form-control" multiple="multiple" size="6">
+                <t t-foreach="clientes" t-as="c">
+                  <option t-att-value="c.id"
+                          t-att-selected="'selected' if (lista and c in lista.recipient_ids) else None">
+                    <t t-esc="c.name"/>
+                    <t t-if="c.parent_id"> (de <t t-esc="c.parent_id.name"/>)</t>
+                  </option>
+                </t>
+              </select>
+            </label>
+
+            <div class="pk-grid mt-3">
+              <label>Anticipo (%)
+                <input type="number" step="0.01" name="advance_pct" class="form-control"
+                       t-att-value="lista.advance_pct if lista else ''"/>
+              </label>
+              <label>Días para el anticipo
+                <input type="number" name="advance_days" class="form-control"
+                       t-att-value="lista.advance_days if lista else ''"/>
+              </label>
+              <label>Días para el saldo
+                <input type="number" name="balance_days" class="form-control"
+                       t-att-value="lista.balance_days if lista else ''"/>
+              </label>
+              <label>Nota de pago
+                <input type="text" name="payment_notes" class="form-control"
+                       t-att-value="lista.payment_notes if lista else ''"/>
+              </label>
+            </div>
+
+            <label class="mt-3 d-block">Condiciones de calidad
+              <textarea name="quality_conditions" class="form-control" rows="2"
+                        placeholder="No branquias sucias. Sin sabores, no picados, no hongos, no color amarillo, no color mezclado."><t t-esc="lista.quality_conditions if lista else ''"/></textarea>
+            </label>
+
+            <button type="submit" class="s-btn s-btn-primary mt-3">
+              <i class="fa fa-save me-1"/> Guardar cabecera
+            </button>
+          </form>
+
+          <t t-if="lista">
+            <!-- Renglones -->
+            <h2 class="pk-h2 mt-4">Precios por talla</h2>
+            <form method="post" class="pk-caja"
+                  t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/renglon">
+              <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+              <div class="pk-grid pk-grid--5">
+                <label>Talla
+                  <select name="size_grade_id" class="form-control" required="required">
+                    <t t-foreach="tallas" t-as="t">
+                      <option t-att-value="t.id">
+                        <t t-esc="'Entero' if t.presentation == 'entero' else 'Cola'"/> · <t t-esc="t.name"/>
+                      </option>
+                    </t>
+                  </select>
+                </label>
+                <label>Canal (solo cola)
+                  <select name="channel" class="form-control">
+                    <option value="">—</option>
+                    <option value="directa">Directa</option>
+                    <option value="sobrante">Sobrante</option>
+                  </select>
+                </label>
+                <label>Calidad
+                  <select name="quality" class="form-control">
+                    <option value="ab">A - B</option>
+                    <option value="a">A</option>
+                    <option value="b">B</option>
+                    <option value="c">C</option>
+                  </select>
+                </label>
+                <label>Unidad
+                  <select name="uom" class="form-control">
+                    <option value="lb">$ / Lb</option>
+                    <option value="kg">$ / Kg</option>
+                  </select>
+                </label>
+                <label>Precio
+                  <input type="number" step="0.01" min="0" name="price" class="form-control"
+                         required="required"/>
+                </label>
+              </div>
+              <button type="submit" class="s-btn mt-2">
+                <i class="fa fa-plus me-1"/> Agregar o actualizar
+              </button>
+            </form>
+
+            <t t-if="lista.line_ids">
+              <table class="pk-tabla mt-3">
+                <thead>
+                  <tr><th>Presentación</th><th>Talla</th><th>Canal</th><th>Calidad</th>
+                      <th class="text-end">Precio</th><th></th></tr>
+                </thead>
+                <tbody>
+                  <t t-foreach="lista.line_ids" t-as="l">
+                    <tr>
+                      <td t-esc="'Entero' if l.presentation == 'entero' else 'Cola'"/>
+                      <td><strong t-esc="l.size_grade_id.name"/></td>
+                      <td t-esc="dict(l._fields['channel']._description_selection(request.env)).get(l.channel, '—')"/>
+                      <td t-esc="dict(l._fields['quality']._description_selection(request.env)).get(l.quality, '')"/>
+                      <td class="text-end">
+                        <t t-esc="'$ {:,.2f}'.format(l.price)"/>
+                        <span class="pk-muted"> / <t t-esc="'Kg' if l.uom == 'kg' else 'Lb'"/></span>
+                      </td>
+                      <td class="text-end">
+                        <form method="post"
+                              t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/renglon/#{l.id}/borrar">
+                          <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                          <button type="submit" class="pk-borrar" title="Quitar">
+                            <i class="fa fa-times"/>
+                          </button>
+                        </form>
+                      </td>
+                    </tr>
+                  </t>
+                </tbody>
+              </table>
+            </t>
+
+            <!-- Bonificaciones -->
+            <h2 class="pk-h2 mt-4">Bonificaciones</h2>
+            <form method="post" class="pk-caja"
+                  t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/bonificacion">
+              <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+              <div class="pk-grid pk-grid--3">
+                <label>Concepto
+                  <input type="text" name="name" class="form-control" placeholder="SMALL" required="required"/>
+                </label>
+                <label>Importe
+                  <input type="number" step="0.01" name="amount" class="form-control"/>
+                </label>
+                <label>Detalle
+                  <input type="text" name="note" class="form-control"/>
+                </label>
+              </div>
+              <button type="submit" class="s-btn mt-2"><i class="fa fa-plus me-1"/> Agregar</button>
+            </form>
+
+            <t t-if="lista.bonus_ids">
+              <table class="pk-tabla mt-3">
+                <tbody>
+                  <t t-foreach="lista.bonus_ids" t-as="b">
+                    <tr>
+                      <td><strong t-esc="b.name"/></td>
+                      <td class="text-end" t-esc="'$ {:,.2f}'.format(b.amount)"/>
+                      <td class="pk-muted" t-esc="b.note or ''"/>
+                      <td class="text-end">
+                        <form method="post"
+                              t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/bonificacion/#{b.id}/borrar">
+                          <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                          <button type="submit" class="pk-borrar"><i class="fa fa-times"/></button>
+                        </form>
+                      </td>
+                    </tr>
+                  </t>
+                </tbody>
+              </table>
+            </t>
+
+            <!-- Publicar -->
+            <div class="pk-publicar mt-4">
+              <t t-if="lista.state != 'published'">
+                <form method="post"
+                      t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/publicar">
+                  <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                  <p class="pk-muted mb-2">
+                    Al publicarla, los destinatarios la ven de inmediato y se archiva
+                    la lista anterior que tuvieras vigente con ellos.
+                  </p>
+                  <button type="submit" class="s-btn s-btn-primary">
+                    <i class="fa fa-paper-plane me-1"/> Publicar
+                  </button>
+                </form>
+              </t>
+              <t t-else="">
+                <form method="post"
+                      t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/archivar">
+                  <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                  <p class="pk-muted mb-2">Esta lista está publicada.</p>
+                  <button type="submit" class="s-btn"><i class="fa fa-archive me-1"/> Archivar</button>
+                </form>
+              </t>
+            </div>
+          </t>
+          <t t-else="">
+            <p class="pk-muted mt-3">
+              Guarda la cabecera y podrás cargar los precios por talla.
+            </p>
+          </t>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+</odoo>

@@ -1,0 +1,116 @@
+<odoo>
+
+  <record id="view_price_list_form" model="ir.ui.view">
+    <field name="name">shrimp.price.list.form</field>
+    <field name="model">shrimp.price.list</field>
+    <field name="arch" type="xml">
+      <form>
+        <header>
+          <button name="action_publish" type="object" string="Publicar"
+                  class="btn-primary" invisible="state == 'published'"/>
+          <button name="action_archive_list" type="object" string="Archivar"
+                  invisible="state != 'published'"/>
+          <button name="action_back_to_draft" type="object" string="Volver a borrador"
+                  invisible="state == 'draft'"/>
+          <button name="action_duplicate_for_next" type="object"
+                  string="Copiar para la próxima"/>
+          <field name="state" widget="statusbar"/>
+        </header>
+        <sheet>
+          <div class="oe_title">
+            <h1><field name="name" placeholder="Semana 32"/></h1>
+          </div>
+          <group>
+            <group>
+              <field name="issuer_partner_id"/>
+              <field name="issue_date"/>
+              <field name="currency_id" groups="base.group_multi_currency"/>
+              <field name="is_current"/>
+            </group>
+            <group>
+              <field name="dispatch_from"/>
+              <field name="open_ended"/>
+              <field name="dispatch_to" invisible="open_ended"/>
+            </group>
+          </group>
+          <notebook>
+            <page string="Precios por talla">
+              <field name="line_ids">
+                <list editable="bottom">
+                  <field name="size_grade_id"/>
+                  <field name="presentation" readonly="1"/>
+                  <field name="channel"/>
+                  <field name="quality"/>
+                  <field name="uom"/>
+                  <field name="price"/>
+                  <field name="currency_id" column_invisible="1"/>
+                </list>
+              </field>
+            </page>
+            <page string="Bonificaciones">
+              <field name="bonus_ids">
+                <list editable="bottom">
+                  <field name="sequence" widget="handle"/>
+                  <field name="name"/>
+                  <field name="amount"/>
+                  <field name="note"/>
+                  <field name="currency_id" column_invisible="1"/>
+                </list>
+              </field>
+            </page>
+            <page string="Condiciones y pago">
+              <group>
+                <field name="quality_conditions"
+                       placeholder="No branquias sucias. Sin sabores, no picados, no hongos, no color amarillo, no color mezclado."/>
+              </group>
+              <group>
+                <group string="Forma de pago">
+                  <field name="advance_pct"/>
+                  <field name="advance_days"/>
+                  <field name="balance_days"/>
+                  <field name="payment_notes"/>
+                </group>
+              </group>
+            </page>
+          </notebook>
+        </sheet>
+        <chatter/>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_price_list_list" model="ir.ui.view">
+    <field name="name">shrimp.price.list.list</field>
+    <field name="model">shrimp.price.list</field>
+    <field name="arch" type="xml">
+      <list>
+        <field name="name"/>
+        <field name="issuer_partner_id"/>
+        <field name="issue_date"/>
+        <field name="dispatch_from"/>
+        <field name="dispatch_to"/>
+        <field name="line_count"/>
+        <field name="is_current"/>
+        <field name="state"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_price_list_search" model="ir.ui.view">
+    <field name="name">shrimp.price.list.search</field>
+    <field name="model">shrimp.price.list</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="name"/>
+        <field name="issuer_partner_id"/>
+        <filter name="f_current" string="Vigentes" domain="[('is_current','=',True)]"/>
+        <filter name="f_published" string="Publicadas" domain="[('state','=','published')]"/>
+        <group>
+          <filter name="g_issuer" string="Comprador" context="{'group_by':'issuer_partner_id'}"/>
+          <filter name="g_state" string="Estado" context="{'group_by':'state'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
+</odoo>

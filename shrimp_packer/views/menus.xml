@@ -1,0 +1,21 @@
+<odoo>
+  <record id="action_price_list" model="ir.actions.act_window">
+    <field name="name">Listas de precios de compra</field>
+    <field name="res_model">shrimp.price.list</field>
+    <field name="view_mode">list,form</field>
+  </record>
+
+  <menuitem id="menu_price_list_root" name="Listas de precios"
+            parent="shrimp_marketplace.menu_shrimp_root" sequence="45"/>
+  <menuitem id="menu_price_list" name="Listas de precios de compra"
+            parent="menu_price_list_root" action="action_price_list" sequence="10"/>
+
+  <!-- Acceso desde el portal -->
+  <record id="menu_website_price_lists" model="website.menu">
+    <field name="name">Listas de precios</field>
+    <field name="url">/marketplace/listas-de-precios</field>
+    <field name="parent_id" ref="website.main_menu"/>
+    <field name="sequence">46</field>
+  </record>
+
+</odoo>

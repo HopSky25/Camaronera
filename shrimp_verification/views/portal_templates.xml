@@ -501,13 +501,11 @@
                   <div class="mt-1">
                     Clase A <strong id="svClassA"><t t-esc="'{:.2f} %'.format(v.yield_class_a_pct)"/></strong> ·
                     Clase B <strong id="svClassB"><t t-esc="'{:.2f} %'.format(v.yield_class_b_pct)"/></strong> ·
-                    Clase C <strong id="svClassC"><t t-esc="'{:.2f} %'.format(v.yield_class_c_pct)"/></strong> ·
-                    Basura <strong id="svTrash"><t t-esc="'{:.2f} %'.format(100.0 * v.trash_lb / v.weight_plant_lb if v.weight_plant_lb else 0.0)"/></strong>
+                    Clase C <strong id="svClassC"><t t-esc="'{:.2f} %'.format(v.yield_class_c_pct)"/></strong>
                   </div>
                   <div class="sv-muted small mt-1">
-                    Sobre el peso en planta: Clase A + B + C + basura = 100 %.
+                    El rendimiento va sobre el peso neto (planta menos basura). Los % por clase, sobre el total clasificado.
                   </div>
-                  <div id="svBalance" class="small mt-2 sv-muted"></div>
                 </div>
                 <script>
                   (function(){
@@ -525,22 +523,12 @@
                       });
                       var total=a+b+c;
                       var plant=fnum('weight_plant_lb'), trash=fnum('trash_lb');
+                      var net=Math.max(0, plant-trash);
                       setTxt('svTotal', total.toFixed(2)+' lb');
-                      setTxt('svYield', (plant? total/plant*100:0).toFixed(2)+' %');
-                      setTxt('svClassA', (plant? a/plant*100:0).toFixed(2)+' %');
-                      setTxt('svClassB', (plant? b/plant*100:0).toFixed(2)+' %');
-                      setTxt('svClassC', (plant? c/plant*100:0).toFixed(2)+' %');
-                      setTxt('svTrash', (plant? trash/plant*100:0).toFixed(2)+' %');
-                      var suma=total+trash, diff=suma-plant;
-                      var ok=(plant&lt;=0)||(Math.abs(diff)&lt;0.01);
-                      var box=document.getElementById('svBalance');
-                      if(box){
-                        if(plant&lt;=0){ box.textContent=''; box.className='small mt-2 sv-muted'; }
-                        else if(ok){ box.textContent='✓ Cuadra: tallas + basura = '+suma.toFixed(2)+' lb = peso en planta.'; box.className='small mt-2 sv-ok'; }
-                        else { box.textContent='✗ No cuadra: tallas + basura = '+suma.toFixed(2)+' lb vs. peso en planta '+plant.toFixed(2)+' lb (dif. '+diff.toFixed(2)+' lb). No se puede guardar hasta que coincidan.'; box.className='small mt-2 sv-bad'; }
-                      }
-                      var btns=document.querySelectorAll('form[action$="/guardar"] button[type="submit"]');
-                      Array.prototype.forEach.call(btns, function(bt){ bt.disabled=!ok; });
+                      setTxt('svYield', (net? total/net*100:0).toFixed(2)+' %');
+                      setTxt('svClassA', (total? a/total*100:0).toFixed(2)+' %');
+                      setTxt('svClassB', (total? b/total*100:0).toFixed(2)+' %');
+                      setTxt('svClassC', (total? c/total*100:0).toFixed(2)+' %');
                     }
                     Array.prototype.forEach.call(body.querySelectorAll('input'), function(el){ el.addEventListener('input', recompute); });
                     ['weight_plant_lb','trash_lb'].forEach(function(nm){ var el=document.querySelector('[name="'+nm+'"]'); if(el) el.addEventListener('input', recompute); });

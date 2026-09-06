@@ -400,22 +400,6 @@ class ShrimpVerificationPortal(http.Controller):
             "gps_longitude": F(post.get("gps_longitude")),
         }
 
-        # Cuadre de la clasificación: la suma de las tallas más la basura debe
-        # igualar el peso en planta. Se exige solo si ya hay peso en planta.
-        plant = F(post.get("weight_plant_lb"))
-        if plant > 0:
-            trash = F(post.get("trash_lb"))
-            total_lines = sum(
-                F(post.get(k)) for k in post
-                if k.startswith("line_") and k.endswith("_weight"))
-            if abs((total_lines + trash) - plant) >= 0.01:
-                return request.redirect(
-                    "/verificador/verificacion/%s?error=1&message=%s" % (
-                        rec.uuid_ref,
-                        quote("La suma de las tallas (%.2f lb) más la basura (%.2f lb) "
-                              "debe ser igual al peso en planta (%.2f lb)."
-                              % (total_lines, trash, plant))))
-
         try:
             rec.write(vals)
             self._save_lines(rec, post)

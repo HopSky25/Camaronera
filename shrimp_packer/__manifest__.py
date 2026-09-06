@@ -26,6 +26,7 @@ desarrollo que se hace en paralelo sobre ese módulo.
         "views/price_list_templates.xml",
         "views/res_partner_views.xml",
         "views/registry_form_packer.xml",
+        "views/packer_profile_templates.xml",
         "views/menus.xml",
     ],
     "assets": {

@@ -1,0 +1,203 @@
+<odoo>
+
+  <!-- ================================================================
+       DIRECTORIO DE EMPACADORAS
+       ================================================================ -->
+  <template id="packers_directory" name="Empacadoras">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page shrimp-page--full py-4">
+
+          <div class="sf-banner mb-4">
+            <div class="sf-banner-row">
+              <div class="sf-banner-txt">
+                <h1>Empacadoras</h1>
+                <p>Quién compra camarón adulto, con qué certificaciones y a qué
+                   mercados exporta. Míralo antes de decidir a quién despachas.</p>
+              </div>
+              <span class="sf-kicker"><i class="fa fa-industry"></i> Compradores</span>
+            </div>
+          </div>
+
+          <form method="get" class="pk-buscar mb-3">
+            <i class="fa fa-search"/>
+            <input type="text" name="q" class="form-control" t-att-value="q"
+                   placeholder="Buscar por nombre o ubicación de la planta..."/>
+          </form>
+
+          <t t-if="empacadoras">
+            <div class="pk-cards">
+              <t t-foreach="empacadoras" t-as="e">
+                <a class="pk-card pk-card--emp"
+                   t-attf-href="/marketplace/empacadora/#{e.uuid_ref}">
+                  <div class="pk-card-nombre" t-esc="e.name"/>
+                  <div class="pk-card-meta" t-if="e.emp_planta_ubicacion">
+                    <i class="fa fa-map-marker me-1"/><t t-esc="e.emp_planta_ubicacion"/>
+                  </div>
+                  <div class="pk-sellos mt-2">
+                    <t t-if="e.emp_cert_bap"><span class="pk-sello">BAP</span></t>
+                    <t t-if="e.emp_cert_asc"><span class="pk-sello">ASC</span></t>
+                    <t t-if="e.emp_cert_haccp"><span class="pk-sello">HACCP</span></t>
+                    <t t-if="not (e.emp_cert_bap or e.emp_cert_asc or e.emp_cert_haccp)">
+                      <span class="pk-muted small">sin certificaciones declaradas</span>
+                    </t>
+                  </div>
+                  <div class="pk-card-pie">
+                    <span>
+                      <t t-if="e.emp_capacidad_lb_dia">
+                        <t t-esc="'{:,.0f}'.format(e.emp_capacidad_lb_dia)"/> lb/día
+                      </t>
+                    </span>
+                    <span class="pk-ver">Ver ficha <i class="fa fa-chevron-right"/></span>
+                  </div>
+                </a>
+              </t>
+            </div>
+          </t>
+          <t t-else="">
+            <div class="pk-vacio">
+              <i class="fa fa-industry fa-2x mb-2"/>
+              <p class="mb-0">Todavía no hay empacadoras registradas.</p>
+            </div>
+          </t>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+  <!-- ================================================================
+       FICHA DE LA EMPACADORA
+       ================================================================ -->
+  <template id="packer_profile" name="Ficha de la empacadora">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page py-4">
+          <a class="pk-volver" href="/marketplace/empacadoras">
+            <i class="fa fa-arrow-left me-1"/> Volver a las empacadoras
+          </a>
+
+          <div class="pk-perfil">
+            <div class="pk-perfil-head">
+              <div>
+                <div class="pk-perfil-kicker">Empacadora</div>
+                <h1 class="pk-perfil-nombre" t-esc="emp.name"/>
+                <div class="pk-perfil-razon" t-if="emp.emp_razon_social and emp.emp_razon_social != emp.name"
+                     t-esc="emp.emp_razon_social"/>
+              </div>
+              <div class="pk-sellos">
+                <t t-if="emp.emp_cert_bap"><span class="pk-sello pk-sello--claro">BAP</span></t>
+                <t t-if="emp.emp_cert_asc"><span class="pk-sello pk-sello--claro">ASC</span></t>
+                <t t-if="emp.emp_cert_haccp"><span class="pk-sello pk-sello--claro">HACCP</span></t>
+              </div>
+            </div>
+
+            <t t-if="mi_lista">
+              <div class="pk-atajo">
+                <div>
+                  <strong>Tienes una lista vigente de esta empacadora</strong>
+                  <div class="pk-muted small" t-esc="mi_lista.texto_ventana()"/>
+                </div>
+                <a class="s-btn s-btn-primary"
+                   t-attf-href="/marketplace/listas-de-precios/#{mi_lista.uuid_ref}">
+                  Ver sus precios
+                </a>
+              </div>
+            </t>
+
+            <!-- La planta: dónde entrega el productor y cuánto puede recibir -->
+            <h3 class="pk-seccion">La planta</h3>
+            <div class="pk-datos">
+              <div t-if="emp.emp_planta_nombre">
+                <span>Planta de proceso</span><strong t-esc="emp.emp_planta_nombre"/>
+              </div>
+              <div t-if="emp.emp_planta_ubicacion">
+                <span>Dónde se entrega</span><strong t-esc="emp.emp_planta_ubicacion"/>
+              </div>
+              <div t-if="emp.emp_capacidad_lb_dia">
+                <span>Capacidad</span>
+                <strong t-esc="'{:,.0f} lb/día'.format(emp.emp_capacidad_lb_dia)"/>
+              </div>
+              <div t-if="emp.emp_aprobacion_sanitaria">
+                <span>Aprobación sanitaria</span><strong t-esc="emp.emp_aprobacion_sanitaria"/>
+              </div>
+              <div t-if="emp.emp_codigo_exportador">
+                <span>Código de exportador</span><strong t-esc="emp.emp_codigo_exportador"/>
+              </div>
+              <div t-if="emp.vat_or_id">
+                <span>RUC</span><strong t-esc="emp.vat_or_id"/>
+              </div>
+            </div>
+
+            <!-- Certificaciones: determinan a qué mercados puede ir el camarón -->
+            <h3 class="pk-seccion">Certificaciones</h3>
+            <t t-set="tiene_cert" t-value="emp.emp_cert_bap or emp.emp_cert_asc or emp.emp_cert_haccp or emp.emp_cert_otras"/>
+            <t t-if="tiene_cert">
+              <ul class="pk-lista">
+                <li t-if="emp.emp_cert_bap">
+                  <i class="fa fa-check-circle"/> <strong>BAP</strong>
+                  <span class="pk-muted"> — Best Aquaculture Practices</span>
+                </li>
+                <li t-if="emp.emp_cert_asc">
+                  <i class="fa fa-check-circle"/> <strong>ASC</strong>
+                  <span class="pk-muted"> — Aquaculture Stewardship Council</span>
+                </li>
+                <li t-if="emp.emp_cert_haccp">
+                  <i class="fa fa-check-circle"/> <strong>HACCP</strong>
+                  <span class="pk-muted"> — control de riesgos en el proceso</span>
+                </li>
+                <li t-if="emp.emp_cert_otras">
+                  <i class="fa fa-check-circle"/> <t t-esc="emp.emp_cert_otras"/>
+                </li>
+              </ul>
+            </t>
+            <t t-else="">
+              <p class="pk-muted">No ha declarado certificaciones.</p>
+            </t>
+
+            <!-- Mercados: explican su estructura de precios -->
+            <h3 class="pk-seccion">Mercados a los que exporta</h3>
+            <t t-set="tiene_mercado" t-value="emp.emp_mercado_asia or emp.emp_mercado_europa or emp.emp_mercado_norteamerica or emp.emp_mercado_local"/>
+            <t t-if="tiene_mercado">
+              <div class="pk-sellos">
+                <t t-if="emp.emp_mercado_asia"><span class="pk-mercado">Asia</span></t>
+                <t t-if="emp.emp_mercado_europa"><span class="pk-mercado">Europa</span></t>
+                <t t-if="emp.emp_mercado_norteamerica"><span class="pk-mercado">Norteamérica</span></t>
+                <t t-if="emp.emp_mercado_local"><span class="pk-mercado">Mercado local</span></t>
+              </div>
+              <p class="pk-nota mt-2">
+                <i class="fa fa-info-circle me-1"/>
+                A dónde exporta explica su estructura de precios: quien va a Asia
+                y Europa suele pagar mejor el entero; quien va a Norteamérica, la cola.
+              </p>
+            </t>
+            <t t-else="">
+              <p class="pk-muted">No ha declarado sus mercados.</p>
+            </t>
+
+            <!-- Contacto -->
+            <t t-if="emp.emp_contacto_comercial or emp.emp_telefono or emp.email">
+              <h3 class="pk-seccion">Contacto comercial</h3>
+              <div class="pk-datos">
+                <div t-if="emp.emp_contacto_comercial">
+                  <span>Contacto</span><strong t-esc="emp.emp_contacto_comercial"/>
+                </div>
+                <div t-if="emp.emp_representante">
+                  <span>Representante legal</span><strong t-esc="emp.emp_representante"/>
+                </div>
+                <div t-if="emp.emp_telefono or emp.phone">
+                  <span>Teléfono</span><strong t-esc="emp.emp_telefono or emp.phone"/>
+                </div>
+                <div t-if="emp.email">
+                  <span>Correo</span><strong t-esc="emp.email"/>
+                </div>
+              </div>
+            </t>
+
+          </div>
+        </div>
+      </div>
+    </t>
+  </template>
+
+</odoo>

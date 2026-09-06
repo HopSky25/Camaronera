@@ -84,6 +84,46 @@ class ShrimpPriceListPortal(http.Controller):
         return lista
 
     # ==================================================================
+    # Perfil público de la empacadora
+    # ==================================================================
+    # Es público a propósito: la camaronera quiere saber a quién le está
+    # vendiendo antes de decidir, y a la empacadora le conviene que la
+    # encuentren. Lo confidencial son los precios, no las certificaciones.
+    @http.route("/marketplace/empacadoras", type="http", auth="public", website=True)
+    def packers_directory(self, **kw):
+        P = request.env["res.partner"].sudo()
+        empacadoras = P.empacadoras_activas()
+        busca = (kw.get("q") or "").strip().lower()
+        if busca:
+            empacadoras = empacadoras.filtered(
+                lambda e: busca in (e.name or "").lower()
+                or busca in (e.emp_planta_ubicacion or "").lower())
+        return request.render("shrimp_packer.packers_directory", {
+            "empacadoras": empacadoras,
+            "q": kw.get("q") or "",
+        })
+
+    @http.route("/marketplace/empacadora/<partner_ref>", type="http", auth="public",
+                website=True)
+    def packer_profile(self, partner_ref, **kw):
+        emp = request.env["res.partner"].sudo().resolve_ref(partner_ref)
+        if not emp or emp.shrimp_user_type != "empacadora":
+            raise NotFound()
+
+        # Si quien mira tiene una lista vigente de esta empacadora, se le
+        # ofrece el atajo: es lo que va a buscar a continuación.
+        mi_lista = request.env["shrimp.price.list"].browse()
+        if not request.env.user._is_public():
+            mi_lista = request.env["shrimp.price.list"].sudo().visibles_para(
+                request.env.user.partner_id).filtered(
+                lambda l: l.issuer_partner_id == emp)[:1]
+
+        return request.render("shrimp_packer.packer_profile", {
+            "emp": emp,
+            "mi_lista": mi_lista,
+        })
+
+    # ==================================================================
     # Consulta
     # ==================================================================
     @http.route("/marketplace/listas-de-precios", type="http", auth="user", website=True)

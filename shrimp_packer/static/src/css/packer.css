@@ -144,3 +144,74 @@
 .pk-ventaja { color: #0f7c88; font-weight: 700; }
 
 .pk-nota { color: #5A6B74; font-size: .88rem; }
+
+/* ==================================================================
+   Directorio y ficha pública de la empacadora
+   ================================================================== */
+.pk-buscar { position: relative; max-width: 460px; }
+.pk-buscar .fa { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #8b9ba3; }
+.pk-buscar .form-control { padding-left: 34px; }
+
+.pk-card--emp { border-top-color: #123E5C; }
+.pk-sellos { display: flex; flex-wrap: wrap; gap: 6px; }
+.pk-sello {
+  display: inline-block; background: #123E5C; color: #fff;
+  border-radius: 4px; padding: 2px 8px; font-size: .72rem;
+  font-weight: 700; letter-spacing: .04em;
+}
+.pk-sello--claro { background: rgba(255, 255, 255, .18); border: 1px solid rgba(255, 255, 255, .35); }
+.pk-mercado {
+  display: inline-block; background: #eaf7f8; color: #0f5c66;
+  border: 1px solid #cfe9ee; border-radius: 999px;
+  padding: 4px 14px; font-size: .86rem; font-weight: 600;
+}
+
+.pk-perfil {
+  background: #fff; border: 1px solid #e3eaed; border-radius: 12px;
+  overflow: hidden; max-width: 820px; margin: 0 auto;
+  box-shadow: 0 2px 10px rgba(18, 62, 92, .08);
+}
+.pk-perfil-head {
+  background: linear-gradient(135deg, #0D2B3E 0%, #123E5C 55%, #17788F 100%);
+  color: #fff; padding: 26px 30px;
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 16px; flex-wrap: wrap;
+}
+.pk-perfil-kicker {
+  font-size: .72rem; text-transform: uppercase; letter-spacing: .12em;
+  color: rgba(255, 255, 255, .7);
+}
+.pk-perfil-nombre { font-size: 1.7rem; font-weight: 800; color: #fff; margin: 2px 0 0; }
+.pk-perfil-razon { color: rgba(255, 255, 255, .78); font-size: .92rem; }
+.pk-perfil .pk-seccion, .pk-perfil .pk-datos,
+.pk-perfil .pk-lista, .pk-perfil .pk-sellos,
+.pk-perfil > p, .pk-perfil .pk-nota { margin-left: 30px; margin-right: 30px; }
+.pk-perfil > .pk-seccion:last-of-type ~ * { margin-bottom: 26px; }
+
+/* El atajo a los precios: es lo que va a buscar el productor a continuación */
+.pk-atajo {
+  display: flex; justify-content: space-between; align-items: center; gap: 14px;
+  background: #eaf7f8; border-bottom: 1px solid #cfe9ee;
+  padding: 14px 30px; flex-wrap: wrap;
+}
+
+.pk-datos { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.pk-datos > div { background: #f7fafb; border: 1px solid #eef2f4; border-radius: 8px; padding: 10px 12px; }
+.pk-datos span {
+  display: block; font-size: .7rem; text-transform: uppercase;
+  letter-spacing: .06em; color: #8b9ba3;
+}
+.pk-datos strong { color: #123E5C; font-size: .98rem; }
+
+.pk-lista { list-style: none; padding: 0; }
+.pk-lista li { padding: 6px 0; border-bottom: 1px solid #f1f5f6; color: #243b45; }
+.pk-lista li:last-child { border-bottom: 0; }
+.pk-lista .fa-check-circle { color: #14A0B0; margin-right: 7px; }
+
+/* El marketplace fija el color de los títulos con `.shrimp-bg h1`, que tiene
+   más especificidad que una clase suelta: sin repetir el ancestro, el nombre
+   de la empacadora salía oscuro sobre la cabecera oscura. */
+.pk-perfil .pk-perfil-nombre { color: #fff; }
+.pk-perfil .pk-seccion,
+.pk-doc .pk-seccion { color: #123E5C; }
+.sf-banner .pk-h2, .pk-perfil h1 { margin-top: 0; }

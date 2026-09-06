@@ -73,10 +73,15 @@ class ShrimpPriceList(models.Model):
     recipient_count = fields.Integer(
         compute="_compute_counts", string="Destinatarios")
 
+    # copy=True a propósito: en Odoo los One2many NO se copian por defecto, y
+    # duplicar una lista sin sus precios no sirve de nada. La gracia de copiar
+    # es partir de los de la semana pasada y mover tres o cuatro.
     line_ids = fields.One2many(
-        "shrimp.price.list.line", "price_list_id", string="Precios por talla")
+        "shrimp.price.list.line", "price_list_id", string="Precios por talla",
+        copy=True)
     bonus_ids = fields.One2many(
-        "shrimp.price.list.bonus", "price_list_id", string="Bonificaciones")
+        "shrimp.price.list.bonus", "price_list_id", string="Bonificaciones",
+        copy=True)
 
     line_count = fields.Integer(compute="_compute_counts", string="Renglones")
     is_current = fields.Boolean(

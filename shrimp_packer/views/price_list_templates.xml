@@ -90,9 +90,19 @@
                         <t t-else="">Archivada</t>
                       </span>
                     </td>
-                    <td class="text-end">
+                    <td class="text-end pk-acciones">
                       <a class="s-btn s-btn-ghost btn-sm"
                          t-attf-href="/marketplace/listas-de-precios/#{l.uuid_ref}/editar">Editar</a>
+                      <!-- Partir de la anterior es como se arma la siguiente
+                           semana: nadie escribe sesenta precios de cero. -->
+                      <form method="post" class="d-inline"
+                            t-attf-action="/marketplace/listas-de-precios/#{l.uuid_ref}/duplicar">
+                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                        <button type="submit" class="s-btn s-btn-ghost btn-sm"
+                                title="Crear la lista de la próxima semana partiendo de esta">
+                          <i class="fa fa-copy"/> Copiar
+                        </button>
+                      </form>
                     </td>
                   </tr>
                 </t>

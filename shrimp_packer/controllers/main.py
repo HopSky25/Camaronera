@@ -5,6 +5,25 @@ from werkzeug.exceptions import NotFound, Forbidden
 from urllib.parse import quote
 
 from odoo.addons.shrimp_user_registry.controllers.main import ShrimpRegistryController
+from odoo.addons.shrimp_marketplace.controllers.transaction_portal import (
+    ShrimpTransactionPortalController,
+)
+
+
+class ShrimpPackerPurchase(ShrimpTransactionPortalController):
+    """Cierra la última pata de la cadena en la pantalla de compra.
+
+    El modelo ya lo impide, pero dejar que el usuario llene la cantidad y
+    reviente al confirmar es mal trato: se corta antes, igual que ya se hace
+    con las otras dos patas.
+    """
+
+    def _check_buyer_can_buy_product(self, buyer_partner, product):
+        res = super()._check_buyer_can_buy_product(buyer_partner, product)
+        if product.seller_partner_id.shrimp_user_type == "camaronera" \
+                and buyer_partner.shrimp_user_type != "empacadora":
+            raise Forbidden()
+        return res
 
 
 class ShrimpPackerRegistry(ShrimpRegistryController):
@@ -398,6 +417,29 @@ class ShrimpPriceListPortal(http.Controller):
                 "/marketplace/listas-de-precios/%s/editar?error=%s"
                 % (ref, (e.args[0] if e.args else "")))
         return request.redirect("/marketplace/listas-de-precios/%s?mensaje=publicada" % ref)
+
+    @http.route("/marketplace/listas-de-precios/<ref>/duplicar", type="http",
+                auth="user", website=True, methods=["POST"], csrf=True)
+    def price_list_duplicate(self, ref, **post):
+        """Parte de la lista anterior para armar la siguiente.
+
+        Es como se trabaja de verdad: nadie escribe sesenta precios de cero
+        cada semana, se toma la de la semana pasada y se mueven tres o cuatro.
+        La copia nace en borrador y sin fechas de despacho, para que no se
+        publique por descuido con la vigencia vieja.
+        """
+        lista = self._mi_lista(ref, editable=True)
+        nueva = lista.copy({
+            "name": _("%s (copia)") % lista.name,
+            "state": "draft",
+            "issue_date": fields.Date.context_today(request.env.user),
+            "dispatch_from": False,
+            "dispatch_to": False,
+        })
+        return request.redirect(
+            "/marketplace/listas-de-precios/%s/editar?mensaje=%s"
+            % (nueva.uuid_ref,
+               quote(_("Copia creada. Cambia la referencia y las fechas antes de publicar."))))
 
     @http.route("/marketplace/listas-de-precios/<ref>/archivar", type="http",
                 auth="user", website=True, methods=["POST"], csrf=True)

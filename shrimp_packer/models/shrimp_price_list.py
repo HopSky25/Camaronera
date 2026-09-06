@@ -338,6 +338,190 @@ class ShrimpPriceList(models.Model):
             "cantidad": cantidad,
         }
 
+    # ==================================================================
+    # Carga desde Excel
+    # ==================================================================
+    # Es el camino de entrada de verdad: en el sector la lista se arma en
+    # Excel y se manda por correo o WhatsApp. Pedirle a una empacadora que
+    # teclee sesenta precios en un formulario web es pedirle que no lo use.
+    #
+    # La plantilla es una matriz por presentación, como el papel que ya
+    # manejan. Las columnas están fijas y una celda vacía significa "no lo
+    # cotizo": así entran tanto AQUAGOLD, que llena las cuatro columnas de
+    # cola, como ECUAMARISCO, que deja sobrante B en blanco.
+    COLUMNAS_ENTERO = [("", "ab", "A - B"), ("", "c", "C")]
+    COLUMNAS_COLA = [
+        ("directa", "a", "Directa A"), ("directa", "b", "Directa B"),
+        ("sobrante", "a", "Sobrante A"), ("sobrante", "b", "Sobrante B"),
+    ]
+
+    def _columnas(self, presentation):
+        return self.COLUMNAS_ENTERO if presentation == "entero" else self.COLUMNAS_COLA
+
+    def plantilla_excel(self):
+        """Genera la plantilla con las tallas y los precios que ya tenga cargados.
+
+        Se rellena con lo actual a propósito: la forma real de trabajar es
+        partir de la semana anterior y mover tres o cuatro renglones.
+        """
+        self.ensure_one()
+        import io as _io
+        import xlsxwriter
+
+        buf = _io.BytesIO()
+        libro = xlsxwriter.Workbook(buf, {"in_memory": True})
+        titulo = libro.add_format({
+            "bold": True, "font_color": "#FFFFFF", "bg_color": "#123E5C",
+            "align": "center", "valign": "vcenter", "border": 1})
+        talla_fmt = libro.add_format({"bold": True, "bg_color": "#F2F7F9", "border": 1})
+        precio_fmt = libro.add_format({"num_format": "0.00", "border": 1})
+        nota_fmt = libro.add_format({"italic": True, "font_color": "#5A6B74"})
+
+        Talla = self.env["shrimp.size.grade"].sudo()
+        for presentation, hoja_nombre, unidad in (
+                ("entero", "ENTERO", "Kg"), ("cola", "COLA", "Lb")):
+            hoja = libro.add_worksheet(hoja_nombre)
+            columnas = self._columnas(presentation)
+            hoja.write(0, 0, "Deja en blanco lo que no compres. No cambies "
+                             "los títulos ni el orden de las columnas.", nota_fmt)
+            hoja.write(1, 0, "Talla", titulo)
+            for i, (_can, _cal, etiqueta) in enumerate(columnas):
+                hoja.write(1, i + 1, "%s ($/%s)" % (etiqueta, unidad), titulo)
+            hoja.set_column(0, 0, 14)
+            hoja.set_column(1, len(columnas), 18)
+
+            actuales = {}
+            for linea in self.line_ids.filtered(lambda l: l.presentation == presentation):
+                actuales[(linea.size_grade_id.id, linea.channel or "", linea.quality)] = linea.price
+
+            tallas = Talla.search([("presentation", "=", presentation), ("active", "=", True)],
+                                  order="sequence, name")
+            for fila, talla in enumerate(tallas, start=2):
+                hoja.write(fila, 0, talla.name, talla_fmt)
+                for i, (canal, calidad, _e) in enumerate(columnas):
+                    valor = actuales.get((talla.id, canal, calidad))
+                    hoja.write(fila, i + 1, valor if valor else None, precio_fmt)
+
+        # Bonificaciones: van aparte porque no dependen de la talla
+        hoja = libro.add_worksheet("BONIFICACIONES")
+        hoja.write(0, 0, "Concepto", titulo)
+        hoja.write(0, 1, "Importe", titulo)
+        hoja.set_column(0, 0, 20)
+        hoja.set_column(1, 1, 14)
+        for fila, bono in enumerate(self.bonus_ids, start=1):
+            hoja.write(fila, 0, bono.name)
+            hoja.write(fila, 1, bono.amount, precio_fmt)
+        if not self.bonus_ids:
+            for fila, ejemplo in enumerate(("SMALL", "MEDIUM", "LARGE"), start=1):
+                hoja.write(fila, 0, ejemplo)
+                hoja.write(fila, 1, None, precio_fmt)
+
+        libro.close()
+        return buf.getvalue()
+
+    def cargar_excel(self, contenido):
+        """Lee la plantilla y reemplaza los precios. Devuelve (resumen, errores).
+
+        Si hay un solo error no se carga nada. Una lista a medias es peor que
+        ninguna: el productor creería que está viendo el precio completo
+        cuando le falta media tabla.
+        """
+        self.ensure_one()
+        import io as _io
+        import openpyxl
+
+        try:
+            libro = openpyxl.load_workbook(_io.BytesIO(contenido), data_only=True)
+        except Exception:
+            return None, [_("No se pudo leer el archivo. ¿Es un .xlsx sin proteger?")]
+
+        Talla = self.env["shrimp.size.grade"].sudo()
+        errores, nuevos, bonos = [], [], []
+
+        for presentation, hoja_nombre, unidad in (
+                ("entero", "ENTERO", "kg"), ("cola", "COLA", "lb")):
+            if hoja_nombre not in libro.sheetnames:
+                continue
+            hoja = libro[hoja_nombre]
+            columnas = self._columnas(presentation)
+            for nfila, fila in enumerate(hoja.iter_rows(min_row=3, values_only=True), start=3):
+                if not fila or not fila[0]:
+                    continue
+                nombre = str(fila[0]).strip()
+                talla = Talla.search(
+                    [("name", "=", nombre), ("presentation", "=", presentation)], limit=1)
+                if not talla:
+                    errores.append(_("%(hoja)s fila %(fila)s: la talla «%(t)s» no existe.") % {
+                        "hoja": hoja_nombre, "fila": nfila, "t": nombre})
+                    continue
+                for i, (canal, calidad, etiqueta) in enumerate(columnas):
+                    if i + 1 >= len(fila):
+                        continue
+                    bruto = fila[i + 1]
+                    if bruto in (None, ""):
+                        continue
+                    try:
+                        precio = float(str(bruto).replace(",", "."))
+                    except (TypeError, ValueError):
+                        errores.append(
+                            _("%(hoja)s fila %(fila)s, %(col)s: «%(v)s» no es un número.") % {
+                                "hoja": hoja_nombre, "fila": nfila,
+                                "col": etiqueta, "v": bruto})
+                        continue
+                    if precio < 0:
+                        errores.append(_("%(hoja)s fila %(fila)s, %(col)s: precio negativo.") % {
+                            "hoja": hoja_nombre, "fila": nfila, "col": etiqueta})
+                        continue
+                    nuevos.append({
+                        "price_list_id": self.id,
+                        "size_grade_id": talla.id,
+                        "channel": canal or False,
+                        "quality": calidad,
+                        "uom": unidad,
+                        "price": precio,
+                    })
+
+        if "BONIFICACIONES" in libro.sheetnames:
+            for nfila, fila in enumerate(
+                    libro["BONIFICACIONES"].iter_rows(min_row=2, values_only=True), start=2):
+                if not fila or not fila[0]:
+                    continue
+                try:
+                    importe = float(str(fila[1] if len(fila) > 1 and fila[1] is not None else 0)
+                                    .replace(",", "."))
+                except (TypeError, ValueError):
+                    errores.append(_("BONIFICACIONES fila %s: el importe no es un número.") % nfila)
+                    continue
+                bonos.append({"price_list_id": self.id,
+                              "name": str(fila[0]).strip(), "amount": importe})
+
+        if errores:
+            return None, errores
+        if not nuevos:
+            return None, [_("El archivo no traía ningún precio. Revisa que hayas "
+                            "llenado las hojas ENTERO o COLA.")]
+
+        # Qué cambia respecto de lo que ya había: es lo que la empacadora
+        # quiere revisar antes de publicar.
+        antes = {(l.size_grade_id.id, l.channel or "", l.quality): l.price
+                 for l in self.line_ids}
+        despues = {(v["size_grade_id"], v["channel"] or "", v["quality"]): v["price"]
+                   for v in nuevos}
+        resumen = {
+            "total": len(nuevos),
+            "nuevos": len([k for k in despues if k not in antes]),
+            "cambiados": len([k for k in despues if k in antes and antes[k] != despues[k]]),
+            "quitados": len([k for k in antes if k not in despues]),
+            "bonos": len(bonos),
+        }
+
+        self.line_ids.unlink()
+        self.env["shrimp.price.list.line"].sudo().create(nuevos)
+        if bonos:
+            self.bonus_ids.unlink()
+            self.env["shrimp.price.list.bonus"].sudo().create(bonos)
+        return resumen, []
+
     def texto_ventana(self):
         """La vigencia en una línea, como la escriben en las listas reales."""
         self.ensure_one()

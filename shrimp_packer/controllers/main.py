@@ -2,6 +2,7 @@ from odoo import http, fields, _
 from odoo.http import request
 from odoo.exceptions import ValidationError, UserError
 from werkzeug.exceptions import NotFound, Forbidden
+from urllib.parse import quote
 
 from odoo.addons.shrimp_user_registry.controllers.main import ShrimpRegistryController
 
@@ -338,6 +339,53 @@ class ShrimpPriceListPortal(http.Controller):
         if bono.exists() and bono.price_list_id == lista:
             bono.unlink()
         return request.redirect("/marketplace/listas-de-precios/%s/editar" % ref)
+
+    # ==================================================================
+    # Carga por Excel
+    # ==================================================================
+    @http.route("/marketplace/listas-de-precios/<ref>/plantilla", type="http",
+                auth="user", website=True)
+    def price_list_template(self, ref, **kw):
+        lista = self._mi_lista(ref, editable=True)
+        contenido = lista.plantilla_excel()
+        nombre = "Precios-%s.xlsx" % (lista.name or "lista").replace("/", "-")
+        return request.make_response(contenido, headers=[
+            ("Content-Type",
+             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+            ("Content-Length", str(len(contenido))),
+            ("Content-Disposition", 'attachment; filename="%s"' % nombre),
+        ])
+
+    @http.route("/marketplace/listas-de-precios/<ref>/cargar", type="http",
+                auth="user", website=True, methods=["POST"], csrf=True)
+    def price_list_upload(self, ref, **post):
+        lista = self._mi_lista(ref, editable=True)
+        archivo = post.get("archivo")
+        if not archivo:
+            return request.redirect(
+                "/marketplace/listas-de-precios/%s/editar?error=%s"
+                % (ref, quote(_("Elige un archivo."))))
+        try:
+            contenido = archivo.read()
+        except Exception:
+            return request.redirect(
+                "/marketplace/listas-de-precios/%s/editar?error=%s"
+                % (ref, quote(_("No se pudo leer el archivo."))))
+
+        resumen, errores = lista.cargar_excel(contenido)
+        if errores:
+            # Se muestran los primeros: una lista de cincuenta errores no la
+            # lee nadie, y con arreglar los primeros suele caer el resto.
+            texto = " · ".join(errores[:5])
+            if len(errores) > 5:
+                texto += _(" (y %s más)") % (len(errores) - 5)
+            return request.redirect(
+                "/marketplace/listas-de-precios/%s/editar?error=%s" % (ref, quote(texto)))
+
+        detalle = _("%(total)s precios cargados: %(nuevos)s nuevos, "
+                    "%(cambiados)s con cambio de precio, %(quitados)s quitados.") % resumen
+        return request.redirect(
+            "/marketplace/listas-de-precios/%s/editar?mensaje=%s" % (ref, quote(detalle)))
 
     @http.route("/marketplace/listas-de-precios/<ref>/publicar", type="http",
                 auth="user", website=True, methods=["POST"], csrf=True)

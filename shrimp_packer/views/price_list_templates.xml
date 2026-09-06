@@ -283,7 +283,13 @@
             <div class="pk-alert pk-alert--ko"><i class="fa fa-exclamation-triangle me-1"/><t t-esc="error"/></div>
           </t>
           <t t-if="mensaje">
-            <div class="pk-alert pk-alert--ok"><i class="fa fa-check-circle me-1"/>Guardado.</div>
+            <div class="pk-alert pk-alert--ok">
+              <i class="fa fa-check-circle me-1"/>
+              <t t-if="mensaje == 'guardada'">Guardado.</t>
+              <t t-elif="mensaje == 'renglon'">Precio guardado.</t>
+              <t t-elif="mensaje == 'bono'">Bonificación agregada.</t>
+              <t t-else=""><t t-esc="mensaje"/></t>
+            </div>
           </t>
 
           <!-- Cabecera -->
@@ -364,8 +370,40 @@
           </form>
 
           <t t-if="lista">
+            <!-- Carga por Excel: el camino de entrada de verdad. En el sector
+                 la lista se arma en Excel; teclear sesenta precios a mano es
+                 pedirle a la empacadora que no use el sistema. -->
+            <div class="pk-excel mt-4">
+              <div class="pk-excel-txt">
+                <strong><i class="fa fa-file-excel-o me-1"/> Cargar los precios desde Excel</strong>
+                <p class="mb-0">
+                  Descarga la plantilla —viene con todas las tallas y con los
+                  precios que ya tengas cargados—, cambia lo que haga falta y
+                  súbela. Deja en blanco lo que no compres.
+                </p>
+              </div>
+              <div class="pk-excel-acciones">
+                <a class="s-btn s-btn-ghost"
+                   t-attf-href="/marketplace/listas-de-precios/#{lista.uuid_ref}/plantilla">
+                  <i class="fa fa-download me-1"/> Descargar plantilla
+                </a>
+                <form method="post" enctype="multipart/form-data" class="pk-subir"
+                      t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/cargar">
+                  <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                  <input type="file" name="archivo" class="form-control"
+                         accept=".xlsx" required="required"/>
+                  <button type="submit" class="s-btn s-btn-primary">
+                    <i class="fa fa-upload me-1"/> Subir
+                  </button>
+                </form>
+              </div>
+            </div>
+
             <!-- Renglones -->
             <h2 class="pk-h2 mt-4">Precios por talla</h2>
+            <p class="pk-muted small">
+              También puedes agregarlos o corregirlos uno a uno aquí abajo.
+            </p>
             <form method="post" class="pk-caja"
                   t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/renglon">
               <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>

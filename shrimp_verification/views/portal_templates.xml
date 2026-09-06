@@ -497,11 +497,15 @@
                 </table>
                 <div class="sv-calc">
                   Total procesado <strong id="svTotal"><t t-esc="'{:.2f} lb'.format(v.total_processed_lb)"/></strong> ·
-                  Rendimiento <strong id="svYield"><t t-esc="'{:.2f} %'.format(v.yield_pct)"/></strong> ·
-                  Clase A <strong id="svClassA"><t t-esc="'{:.2f} %'.format(v.yield_class_a_pct)"/></strong> ·
-                  Clase B <strong id="svClassB"><t t-esc="'{:.2f} %'.format(v.yield_class_b_pct)"/></strong>
+                  Rendimiento <strong id="svYield"><t t-esc="'{:.2f} %'.format(v.yield_pct)"/></strong>
+                  <div class="mt-1">
+                    Clase A <strong id="svClassA"><t t-esc="'{:.2f} %'.format(v.yield_class_a_pct)"/></strong> ·
+                    Clase B <strong id="svClassB"><t t-esc="'{:.2f} %'.format(v.yield_class_b_pct)"/></strong> ·
+                    Clase C <strong id="svClassC"><t t-esc="'{:.2f} %'.format(v.yield_class_c_pct)"/></strong> ·
+                    Basura <strong id="svTrash"><t t-esc="'{:.2f} %'.format(100.0 * v.trash_lb / v.weight_plant_lb if v.weight_plant_lb else 0.0)"/></strong>
+                  </div>
                   <div class="sv-muted small mt-1">
-                    El rendimiento se calcula sobre el peso neto (planta menos basura).
+                    Sobre el peso en planta: Clase A + B + C + basura = 100 %.
                   </div>
                   <div id="svBalance" class="small mt-2 sv-muted"></div>
                 </div>
@@ -521,11 +525,12 @@
                       });
                       var total=a+b+c;
                       var plant=fnum('weight_plant_lb'), trash=fnum('trash_lb');
-                      var net=Math.max(0, plant-trash);
                       setTxt('svTotal', total.toFixed(2)+' lb');
-                      setTxt('svYield', (net? total/net*100:0).toFixed(2)+' %');
-                      setTxt('svClassA', (total? a/total*100:0).toFixed(2)+' %');
-                      setTxt('svClassB', (total? b/total*100:0).toFixed(2)+' %');
+                      setTxt('svYield', (plant? total/plant*100:0).toFixed(2)+' %');
+                      setTxt('svClassA', (plant? a/plant*100:0).toFixed(2)+' %');
+                      setTxt('svClassB', (plant? b/plant*100:0).toFixed(2)+' %');
+                      setTxt('svClassC', (plant? c/plant*100:0).toFixed(2)+' %');
+                      setTxt('svTrash', (plant? trash/plant*100:0).toFixed(2)+' %');
                       var suma=total+trash, diff=suma-plant;
                       var ok=(plant&lt;=0)||(Math.abs(diff)&lt;0.01);
                       var box=document.getElementById('svBalance');
@@ -671,6 +676,20 @@
                     </div>
                   </t>
                 </div>
+
+                <!-- Modal de confirmación para eliminar una foto -->
+                <div class="sf-modal" id="svPhotoConfirm">
+                  <div class="sf-modal-card">
+                    <div class="sf-modal-ico"><i class="fa fa-trash"></i></div>
+                    <div class="sf-modal-title">Eliminar foto</div>
+                    <div class="sf-modal-msg">¿Seguro que deseas eliminar esta foto? Esta acción no se puede deshacer.</div>
+                    <div class="sf-modal-actions">
+                      <button type="button" class="s-btn s-btn-ghost" data-photo-cancel="1">Cancelar</button>
+                      <button type="button" class="s-btn sv-btn-danger" id="svPhotoConfirmOk">Eliminar</button>
+                    </div>
+                  </div>
+                </div>
+
                 <script>
                   (function(){
                     var input=document.getElementById('svPhotoInput');
@@ -680,15 +699,28 @@
                     var ref=gallery.getAttribute('data-ref');
                     var token=(document.querySelector('input[name="csrf_token"]')||{}).value||'';
 
-                    // Eliminar (inmediato) las fotos ya adjuntas.
+                    // Modal de confirmación (reemplaza al confirm() del navegador).
+                    var modal=document.getElementById('svPhotoConfirm');
+                    var okBtn=document.getElementById('svPhotoConfirmOk');
+                    var pending=null;
+                    function openModal(fn){ pending=fn; if(modal) modal.classList.add('open'); }
+                    function closeModal(){ pending=null; if(modal) modal.classList.remove('open'); }
+                    if(modal){
+                      Array.prototype.forEach.call(modal.querySelectorAll('[data-photo-cancel]'), function(b){ b.addEventListener('click', closeModal); });
+                      modal.addEventListener('click', function(e){ if(e.target===modal) closeModal(); });
+                    }
+                    if(okBtn) okBtn.addEventListener('click', function(){ var fn=pending; closeModal(); if(fn) fn(); });
+
+                    // Eliminar (inmediato) las fotos ya adjuntas, con confirmación en modal.
                     Array.prototype.forEach.call(gallery.querySelectorAll('[data-remove-attached]'), function(btn){
                       btn.addEventListener('click', function(){
-                        if(!window.confirm('¿Eliminar esta foto?')) return;
-                        var id=btn.getAttribute('data-id');
-                        var fd=new FormData(); fd.append('csrf_token', token);
-                        fetch('/verificador/verificacion/'+ref+'/foto/'+id+'/eliminar', {method:'POST', body:fd})
-                          .then(function(r){ if(r.ok){ var t=btn.closest('.sv-photo-thumb'); if(t) t.remove(); }
-                                             else { window.alert('No se pudo eliminar la foto.'); } });
+                        openModal(function(){
+                          var id=btn.getAttribute('data-id');
+                          var fd=new FormData(); fd.append('csrf_token', token);
+                          fetch('/verificador/verificacion/'+ref+'/foto/'+id+'/eliminar', {method:'POST', body:fd})
+                            .then(function(r){ if(r.ok){ var t=btn.closest('.sv-photo-thumb'); if(t) t.remove(); }
+                                               else { window.alert('No se pudo eliminar la foto.'); } });
+                        });
                       });
                     });
 

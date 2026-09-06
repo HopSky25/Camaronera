@@ -1013,12 +1013,14 @@
           <!-- Parte para WhatsApp -->
           <t t-if="v.total_processed_lb or v.larvae_qty_verified">
             <div class="sv-section">
-              <h3>Parte para WhatsApp</h3>
+              <div class="d-flex justify-content-between align-items-center flex-wrap gap-2" style="margin-bottom:6px;">
+                <h3 style="margin:0;">Parte para WhatsApp</h3>
+                <button class="s-btn s-btn-ghost btn-sm" type="button" onclick="navigator.clipboard.writeText(document.getElementById('svWa').textContent);this.textContent='Copiado';">
+                  <i class="fa fa-copy me-1"/> Copiar
+                </button>
+              </div>
               <p class="sv-muted small">Mismo formato de siempre, pero calculado.</p>
               <pre class="sv-whatsapp" id="svWa"><t t-esc="v.whatsapp_report()"/></pre>
-              <button class="s-btn s-btn-ghost" type="button" onclick="navigator.clipboard.writeText(document.getElementById('svWa').textContent);this.textContent='Copiado';">
-                <i class="fa fa-copy me-1"/> Copiar
-              </button>
             </div>
           </t>
 

@@ -323,7 +323,7 @@ class ShrimpVerification(models.Model):
             )
             rec.net_weight_lb = max(0.0, (rec.weight_plant_lb or 0.0) - (rec.trash_lb or 0.0))
 
-    @api.depends("line_ids.weight_lb", "line_ids.quality_class", "weight_plant_lb")
+    @api.depends("line_ids.weight_lb", "line_ids.quality_class", "net_weight_lb")
     def _compute_yields(self):
         for rec in self:
             def _sum(cls):
@@ -334,13 +334,24 @@ class ShrimpVerification(models.Model):
 
             rec.class_a_lb, rec.class_b_lb, rec.class_c_lb = a, b, c
             rec.total_processed_lb = total
-            # El rendimiento y los % por clase van sobre el PESO EN PLANTA:
-            # A + B + C + basura = 100 % del peso en planta.
-            base = rec.weight_plant_lb or 0.0
-            rec.yield_pct = (100.0 * total / base) if base else 0.0
-            rec.yield_class_a_pct = (100.0 * a / base) if base else 0.0
-            rec.yield_class_b_pct = (100.0 * b / base) if base else 0.0
-            rec.yield_class_c_pct = (100.0 * c / base) if base else 0.0
+            # El rendimiento va sobre el peso NETO (planta menos basura), que es
+            # como lo calcula el equipo en los partes de planta.
+            #
+            # Se intentó cambiarlo al peso en planta con el argumento de que
+            # "A + B + C + basura = 100 % del peso en planta", pero esa identidad
+            # no se cumple con datos reales: en VER-000010, A+B+C+basura da 6.840
+            # lb contra 10.500 de planta. Falta todo el peso de cabeza y
+            # caparazón, que es justamente por lo que el rendimiento ronda el
+            # 65 % y no el 99 %. Confirmado además contra un parte real del
+            # equipo que da 67,22 %: eso sale exacto sobre el neto (7.079,74 /
+            # 10.532) y da 66,95 % sobre planta.
+            rec.yield_pct = (100.0 * total / rec.net_weight_lb) if rec.net_weight_lb else 0.0
+            # Los porcentajes por clase van sobre el total clasificado, no sobre
+            # el peso: en el parte real, un lote entero en clase A da "Rend.
+            # Clase A 100,00 %", que solo sale si el divisor es el clasificado.
+            rec.yield_class_a_pct = (100.0 * a / total) if total else 0.0
+            rec.yield_class_b_pct = (100.0 * b / total) if total else 0.0
+            rec.yield_class_c_pct = (100.0 * c / total) if total else 0.0
 
     @api.depends("larvae_qty_verified", "larvae_survival_rate",
                  "transaction_id.transaction_qty", "product_id.survival_rate")

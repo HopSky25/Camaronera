@@ -466,12 +466,10 @@ class ShrimpVerification(models.Model):
                 raise UserError(_(
                     "Solo se puede iniciar el trabajo de campo de una verificación "
                     "asignada a un técnico."))
-            # Solo quien va a campo puede marcar que empezó: así la hora de
-            # inicio es un dato real y no algo que firmó otro desde la oficina.
-            if rec.technician_partner_id and self.env.user.partner_id != rec.technician_partner_id:
-                raise UserError(_(
-                    "Solo %s, el técnico asignado, puede iniciar este trabajo de campo."
-                ) % rec.technician_partner_id.name)
+            # Quién puede iniciar (el técnico asignado o el administrador de la
+            # empresa) se valida en el controlador con el usuario real de la
+            # sesión: aquí la orden viaja en sudo y self.env.user sería el
+            # superusuario.
             rec.write({"state": "in_field", "field_start_date": fields.Datetime.now()})
             # Comprador y vendedor se enteran en el momento en que el técnico
             # pisa el sitio: es el dato que más preguntan por WhatsApp.
@@ -1289,26 +1287,38 @@ class ShrimpVerification(models.Model):
     # Avisos
     # ==================================================================
     def _notify_technician_assigned(self):
-        """Avisa al técnico de que tiene una inspección que hacer."""
+        """Al asignar, avisa por correo al TÉCNICO asignado y al ADMINISTRADOR
+        de la empresa (dueño de la cuenta)."""
         self.ensure_one()
         tec = self.technician_partner_id
-        if not tec or tec == self.verifier_partner_id:
+        if not tec:
             return
-        usuario = self.env["res.users"].sudo().search(
-            [("partner_id", "=", tec.id)], limit=1)
-        if usuario:
-            try:
-                self.activity_schedule(
-                    "mail.mail_activity_data_todo",
-                    user_id=usuario.id,
-                    summary=_("Verificar en campo: %s") % (self.product_id.display_name or ""),
-                    note=_("Compra %s. Cantidad: %s.") % (
-                        self.transaction_id.name, self.transaction_id.transaction_qty),
-                )
-            except Exception:
-                pass
-        self._send_template("shrimp_verification.mail_template_verification_assigned",
-                            tec.email)
+        admin = self.verifier_partner_id
+
+        # 1) Técnico asignado (si es distinto del admin): actividad + correo.
+        if tec != admin:
+            usuario = self.env["res.users"].sudo().search(
+                [("partner_id", "=", tec.id)], limit=1)
+            if usuario:
+                try:
+                    self.activity_schedule(
+                        "mail.mail_activity_data_todo",
+                        user_id=usuario.id,
+                        summary=_("Verificar en campo: %s") % (self.product_id.display_name or ""),
+                        note=_("Compra %s. Cantidad: %s.") % (
+                            self.transaction_id.name, self.transaction_id.transaction_qty),
+                    )
+                except Exception:
+                    pass
+            self._send_template("shrimp_verification.mail_template_verification_assigned",
+                                tec.email)
+
+        # 2) Administrador de la empresa: correo indicando a quién se asignó.
+        #    Se evita duplicar si el admin es el propio técnico y comparten correo.
+        if admin.email and admin.email != tec.email:
+            self._send_template(
+                "shrimp_verification.mail_template_verification_assigned_admin",
+                admin.email)
 
     def _notify_verifier_assigned(self):
         """Deja la orden en la bandeja del verificador: actividad + correo."""
@@ -1417,8 +1427,13 @@ class ShrimpVerification(models.Model):
         L.append("*Sobrp. %s  lbs  %s*" % (
             self._fmt(self.overweight_lb), self._fmt(factor_trunc, 2)))
 
-        if self.presentation:
-            L.append("*%s*" % ("cola directa" if self.presentation == "cola" else "entero"))
+        # Cuerpo o cola: lo declarado por el vendedor vs. lo verificado en campo.
+        pres_lbl = {"cola": "cola directa", "entero": "entero"}
+        enviado = pres_lbl.get(self.product_id.presentation)
+        recibido = pres_lbl.get(self.presentation)
+        if enviado or recibido:
+            L.append("*Cuerpo/cola: enviado %s / recibido %s*" % (
+                enviado or "—", recibido or "—"))
 
         labels = {"a": "*Clase A*", "b": "*Clase B*", "c": "*Clase C*"}
         for cls in ("a", "b", "c"):
@@ -1447,9 +1462,26 @@ class ShrimpVerification(models.Model):
             for c in self.count_ids:
                 L.append("Conteo. %s" % self._fmt(c.value, 0))
 
+        # Sabor: resultado y criterios de cata marcados como correctos.
+        res_lbl = dict(self._fields["taste_result"].selection).get(self.taste_result)
+        if res_lbl or self.taste_criteria_ok_ids:
+            L.append("")
+            if res_lbl:
+                L.append("*Sabor: %s*" % res_lbl)
+            if self.taste_criteria_ok_ids:
+                L.append("Cata: %s" % ", ".join(self.taste_criteria_ok_ids.mapped("name")))
+
         if self.incident_notes:
             L.append("")
             L.append("*Nota: %s*" % self.incident_notes.strip())
+
+        # Enlace al informe completo (pantalla de detalle del verificador).
+        site = self.env["website"].sudo()._shrimp_verifier_site()
+        base = (site.domain or "").rstrip("/") or (self.get_base_url() or "").rstrip("/")
+        if base and self.uuid_ref:
+            L.append("")
+            L.append("Informe completo: %s/verificador/verificacion/%s/detalle" % (
+                base, self.uuid_ref))
 
         return "\n".join(L)
 

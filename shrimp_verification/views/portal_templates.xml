@@ -126,6 +126,122 @@
   <!-- ================================================================
        FORMULARIO DE CAMPO
        ================================================================ -->
+  <!-- ============================================================
+       PASO 1: asignar el técnico de campo. El administrador de la
+       empresa elige quién irá a campo. Recién asignada, la orden pasa
+       al paso 2 (iniciar la verificación y registrar los valores).
+       ============================================================ -->
+  <template id="verifier_assign" name="Verificador - Asignar técnico">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page shrimp-page--full py-4 sf-fields">
+
+          <a href="/verificador/bandeja" class="s-back mb-3">
+            <i class="fa fa-arrow-left"></i>
+            <span>Volver a la bandeja</span>
+          </a>
+
+          <div class="sf-banner mb-4">
+            <div class="sf-banner-row">
+              <div class="sf-banner-txt">
+                <h1><t t-esc="v.name"/></h1>
+                <p>Asignación de técnico · <t t-esc="v.product_id.name"/></p>
+              </div>
+              <span class="sf-kicker" style="border:none;">
+                <i class="fa fa-user-plus"></i> Paso 1 de 2
+              </span>
+            </div>
+          </div>
+
+          <div class="mp-table-card mb-4">
+            <div class="card-body p-4">
+              <div class="mp-sec-head" style="justify-content:space-between;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                  <span class="mp-sec-ico"><i class="fa fa-file-text-o"></i></span>
+                  <h3 class="mp-sec-title">Resumen</h3>
+                </div>
+                <a t-attf-href="/verificador/verificacion/#{v.uuid_ref}/detalle" class="s-btn s-btn-ghost btn-sm">
+                  <i class="fa fa-expand me-1"/> Ver detalle completo
+                </a>
+              </div>
+              <div class="mp-spec-grid">
+                <div class="mp-spec" style="grid-column:1 / -1;">
+                  <span class="mp-spec-ico"><i class="fa fa-cube"></i></span>
+                  <div class="mp-spec-body"><div class="mp-spec-label">Producto</div><div class="mp-spec-value"><t t-esc="v.product_id.name"/></div></div>
+                </div>
+                <div class="mp-spec">
+                  <span class="mp-spec-ico"><i class="fa fa-user-o"></i></span>
+                  <div class="mp-spec-body"><div class="mp-spec-label">Vendedor</div><div class="mp-spec-value"><t t-esc="v.seller_partner_id.name"/></div></div>
+                </div>
+                <div class="mp-spec">
+                  <span class="mp-spec-ico"><i class="fa fa-shopping-cart"></i></span>
+                  <div class="mp-spec-body"><div class="mp-spec-label">Comprador</div><div class="mp-spec-value"><t t-esc="v.buyer_partner_id.name"/></div></div>
+                </div>
+                <div class="mp-spec">
+                  <span class="mp-spec-ico"><i class="fa fa-cubes"></i></span>
+                  <div class="mp-spec-body"><div class="mp-spec-label">Cantidad comprada</div><div class="mp-spec-value"><t t-esc="'%.2f' % (v.transaction_id.transaction_qty or 0)"/> lb</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <t t-if="error">
+            <div class="alert alert-danger"><t t-esc="message or 'No se pudo asignar.'"/></div>
+          </t>
+
+          <div class="mp-table-card">
+            <div class="card-body p-4">
+              <div class="mp-sec-head">
+                <span class="mp-sec-ico"><i class="fa fa-wrench"></i></span>
+                <h3 class="mp-sec-title">Asignar técnico de campo</h3>
+              </div>
+              <t t-if="es_admin">
+                <p class="text-muted" style="font-size:14px; margin-top:-6px;">
+                  Elige quién irá a campo. Al asignar, esa persona podrá iniciar la
+                  verificación y registrar los valores. También puedes atenderla tú mismo.
+                </p>
+                <form method="post" t-attf-action="/verificador/verificacion/#{v.uuid_ref}/asignar"
+                      class="row g-2 align-items-end">
+                  <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                  <div class="col-md-6">
+                    <label class="form-label">Técnico</label>
+                    <select name="technician_id" class="form-select" required="required">
+                      <option value="">— Elegir técnico —</option>
+                      <option t-att-value="v.verifier_partner_id.id"
+                              t-att-selected="v.technician_partner_id == v.verifier_partner_id or None">
+                        Yo mismo (<t t-esc="v.verifier_partner_id.name"/>)
+                      </option>
+                      <t t-foreach="tecnicos" t-as="t">
+                        <option t-att-value="t.id"
+                                t-att-selected="v.technician_partner_id == t or None">
+                          <t t-esc="t.name"/>
+                        </option>
+                      </t>
+                    </select>
+                  </div>
+                  <div class="col-md-4">
+                    <button class="s-btn s-btn-primary w-100" type="submit">
+                      <i class="fa fa-check me-1"/>
+                      <t t-if="v.technician_partner_id">Reasignar</t>
+                      <t t-else="">Asignar y continuar</t>
+                    </button>
+                  </div>
+                </form>
+              </t>
+              <t t-else="">
+                <div class="alert alert-info mb-0">
+                  Esta orden está pendiente de que el administrador de la empresa asigne
+                  un técnico de campo.
+                </div>
+              </t>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
   <template id="verifier_detail" name="Verificador - Informe de campo">
     <t t-call="website.layout">
       <div class="shrimp-bg">
@@ -150,9 +266,14 @@
 
           <div class="mp-table-card mb-4">
             <div class="card-body p-4">
-              <div class="mp-sec-head">
-                <span class="mp-sec-ico"><i class="fa fa-file-text-o"></i></span>
-                <h3 class="mp-sec-title">Resumen</h3>
+              <div class="mp-sec-head" style="justify-content:space-between;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                  <span class="mp-sec-ico"><i class="fa fa-file-text-o"></i></span>
+                  <h3 class="mp-sec-title">Resumen</h3>
+                </div>
+                <a t-attf-href="/verificador/verificacion/#{v.uuid_ref}/detalle" class="s-btn s-btn-ghost btn-sm">
+                  <i class="fa fa-expand me-1"/> Ver detalle completo
+                </a>
               </div>
               <div class="mp-spec-grid">
                 <div class="mp-spec" style="grid-column:1 / -1;">
@@ -195,78 +316,54 @@
             </div>
           </t>
 
-          <!-- Asignación de técnico: solo el admin de la empresa reparte -->
+          <!-- Técnico asignado (la asignación es el paso 1, en su pantalla). -->
           <t t-if="es_admin and not v.is_final">
-            <div class="sv-section">
-              <h3>Técnico de campo</h3>
-              <t t-if="v.technician_partner_id">
-                <p>
-                  Asignada a <strong t-esc="v.technician_partner_id.name"/>.
-                  Solo esa persona puede iniciar el trabajo de campo.
-                </p>
-              </t>
-              <t t-else="">
-                <p class="sv-muted">
-                  Sin asignar. Elige quién va a campo; también puedes atenderla tú.
-                </p>
-              </t>
-              <form method="post" t-attf-action="/verificador/verificacion/#{v.uuid_ref}/asignar"
-                    class="row g-2 align-items-end">
-                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                <div class="col-md-6">
-                  <select name="technician_id" class="form-select" required="required">
-                    <option value="">— Elegir técnico —</option>
-                    <option t-att-value="v.verifier_partner_id.id"
-                            t-att-selected="v.technician_partner_id == v.verifier_partner_id or None">
-                      Yo mismo (<t t-esc="v.verifier_partner_id.name"/>)
-                    </option>
-                    <t t-foreach="tecnicos" t-as="t">
-                      <option t-att-value="t.id"
-                              t-att-selected="v.technician_partner_id == t or None">
-                        <t t-esc="t.name"/>
-                      </option>
-                    </t>
-                  </select>
-                </div>
-                <div class="col-md-3">
-                  <button class="s-btn s-btn-primary w-100" type="submit">
-                    <t t-if="v.technician_partner_id">Reasignar</t>
-                    <t t-else="">Asignar</t>
-                  </button>
-                </div>
-              </form>
+            <div class="alert alert-light d-flex justify-content-between align-items-center flex-wrap gap-2"
+                 style="border:1px solid var(--shrimp-border);">
+              <span><i class="fa fa-wrench me-2"/>Técnico de campo:
+                <strong t-esc="v.technician_partner_id.name or 'sin asignar'"/></span>
+              <a t-attf-href="/verificador/verificacion/#{v.uuid_ref}/asignar-tecnico"
+                 class="s-btn s-btn-ghost btn-sm">
+                <i class="fa fa-exchange me-1"/> Reasignar
+              </a>
             </div>
           </t>
 
-          <!-- Iniciar trabajo de campo -->
+          <!-- Iniciar la verificación: la puede iniciar el técnico asignado o
+               el administrador de la empresa. -->
           <t t-if="v.state == 'assigned'">
             <t t-set="soy_el_tecnico" t-value="v.technician_partner_id == request.env.user.partner_id"/>
-            <form t-if="soy_el_tecnico" method="post"
+            <form t-if="soy_el_tecnico or es_admin" method="post"
                   t-att-action="'/verificador/verificacion/{}/iniciar'.format(v.uuid_ref)" class="mb-4">
               <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
               <button class="s-btn s-btn-primary" type="submit">
-                <i class="fa fa-play me-1"/> Iniciar trabajo de campo
+                <i class="fa fa-play me-1"/> Iniciar verificación
               </button>
             </form>
             <div t-else="" class="alert alert-info mb-4">
               Esperando a que <strong t-esc="v.technician_partner_id.name or 'el técnico asignado'"/>
-              inicie el trabajo en campo. Solo esa persona puede hacerlo.
+              o el administrador inicien la verificación.
             </div>
           </t>
 
-          <t t-if="not v.is_final">
+          <!-- Los campos del informe (y el veredicto) solo aparecen una vez
+               iniciada la verificación (estado 'in_field' o 'done'). -->
+          <t t-if="v.state in ('in_field', 'done')">
             <form method="post" enctype="multipart/form-data"
                   t-att-action="'/verificador/verificacion/{}/guardar'.format(v.uuid_ref)">
               <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
 
               <div class="sv-section">
                 <h3>Datos del parte</h3>
+                <p class="sv-muted small" style="margin-top:-8px;">
+                  El lote y la piscina vienen definidos por el vendedor en la publicación;
+                  el resto lo registra el técnico en campo.
+                </p>
                 <div class="row g-3">
                   <div class="col-md-4"><label>Lote</label>
-                    <input class="form-control" name="batch_code" t-att-value="v.batch_code or ''"/></div>
+                    <div class="form-control-plaintext"><strong t-esc="v.batch_code or '—'"/></div></div>
                   <div class="col-md-4"><label>Piscina</label>
-                    <input class="form-control" name="pond_label"
-                           t-att-value="v.pond_id.name or v.pond_label or ''"/></div>
+                    <div class="form-control-plaintext"><strong t-esc="v.pond_id.name or v.pond_label or '—'"/></div></div>
                   <div class="col-md-4"><label>Planta procesadora</label>
                     <input class="form-control" name="plant_name" t-att-value="v.plant_name or ''"/></div>
                   <div class="col-md-4"><label>Fecha de cosecha</label>
@@ -289,23 +386,61 @@
                     <input class="form-control" name="trash_lb" t-att-value="v.trash_lb or ''"/></div>
                 </div>
                 <div class="sv-calc mt-3">
-                  Sobrepeso <strong t-esc="'{:.2f} lb'.format(v.overweight_lb)"/> ·
-                  factor <strong t-esc="'{:.4f}'.format(v.overweight_factor)"/> ·
-                  peso neto <strong t-esc="'{:.2f} lb'.format(v.net_weight_lb)"/>
+                  Sobrepeso <strong id="svOverweight"><t t-esc="'{:.2f} lb'.format(v.overweight_lb)"/></strong> ·
+                  factor <strong id="svFactor"><t t-esc="'{:.4f}'.format(v.overweight_factor)"/></strong> ·
+                  peso neto <strong id="svNet"><t t-esc="'{:.2f} lb'.format(v.net_weight_lb)"/></strong>
                   <div class="sv-muted small mt-1">El factor es un ratio: 1,05 = 5 % de sobrepeso.</div>
                 </div>
+                <script>
+                  (function(){
+                    function val(name){
+                      var el = document.querySelector('[name="'+name+'"]');
+                      if(!el) return 0;
+                      var n = parseFloat((el.value||'').replace(',','.'));
+                      return isNaN(n) ? 0 : n;
+                    }
+                    function recompute(){
+                      var sent = val('weight_sent_lb'), plant = val('weight_plant_lb'), trash = val('trash_lb');
+                      var ow = plant - sent;
+                      var factor = sent ? plant / sent : 0;
+                      var net = Math.max(0, plant - trash);
+                      var o=document.getElementById('svOverweight'), f=document.getElementById('svFactor'), n=document.getElementById('svNet');
+                      if(o) o.textContent = ow.toFixed(2) + ' lb';
+                      if(f) f.textContent = factor.toFixed(4);
+                      if(n) n.textContent = net.toFixed(2) + ' lb';
+                    }
+                    ['weight_sent_lb','weight_plant_lb','trash_lb'].forEach(function(nm){
+                      var el = document.querySelector('[name="'+nm+'"]');
+                      if(el){ el.addEventListener('input', recompute); }
+                    });
+                  })();
+                </script>
               </div>
 
               <div class="sv-section" t-if="v.scope != 'larvae'">
                 <h3><span class="sv-num">2</span> Cuerpo o cola</h3>
-                <select class="form-select" name="presentation">
-                  <option value="">— Seleccionar —</option>
-                  <option value="entero" t-att-selected="v.presentation == 'entero' or None">Entero (cuerpo)</option>
-                  <option value="cola" t-att-selected="v.presentation == 'cola' or None">Cola</option>
-                </select>
-                <t t-if="v.product_id.presentation">
-                  <div class="sv-muted small mt-2">
-                    El vendedor publicó: <strong t-esc="v.product_id.presentation"/>
+                <t t-set="pres_labels" t-value="{'entero': 'Entero (cuerpo)', 'cola': 'Cola'}"/>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label>Declarado en la publicación</label>
+                    <div class="form-control-plaintext">
+                      <strong t-esc="pres_labels.get(v.product_id.presentation, '— No declarado —')"/>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <label>Verificado en campo</label>
+                    <select class="form-select" name="presentation">
+                      <option value="">— Seleccionar —</option>
+                      <option value="entero" t-att-selected="v.presentation == 'entero' or None">Entero (cuerpo)</option>
+                      <option value="cola" t-att-selected="v.presentation == 'cola' or None">Cola</option>
+                    </select>
+                  </div>
+                </div>
+                <t t-if="v.product_id.presentation and v.presentation and v.presentation != v.product_id.presentation">
+                  <div class="alert alert-warning mt-3 mb-0" style="font-size:13px;">
+                    <i class="fa fa-exclamation-triangle me-1"/>
+                    Lo verificado (<strong t-esc="pres_labels.get(v.presentation, v.presentation)"/>)
+                    no coincide con lo declarado (<strong t-esc="pres_labels.get(v.product_id.presentation, v.product_id.presentation)"/>).
                   </div>
                 </t>
               </div>
@@ -332,53 +467,81 @@
 
               <div class="sv-section" t-if="v.scope != 'larvae'">
                 <h3><span class="sv-num">4</span> Clasificación por talla</h3>
+                <p class="sv-muted small" style="margin-top:-8px;">
+                  Una fila por clase (A, B y C). Deja en blanco las que no apliquen.
+                </p>
+                <t t-set="la" t-value="v.line_ids.filtered(lambda l: l.quality_class == 'a')[:1]"/>
+                <t t-set="lb" t-value="v.line_ids.filtered(lambda l: l.quality_class == 'b')[:1]"/>
+                <t t-set="lc" t-value="v.line_ids.filtered(lambda l: l.quality_class == 'c')[:1]"/>
                 <table class="table sv-table" id="svLines">
                   <thead>
                     <tr><th class="w-25">Clase</th><th>Talla</th><th>Libras</th></tr>
                   </thead>
-                  <tbody>
-                    <t t-set="idx" t-value="0"/>
-                    <t t-foreach="v.line_ids" t-as="line">
-                      <tr>
-                        <td>
-                          <select t-attf-name="line_#{line_index}_class" class="form-select">
-                            <option value="a" t-att-selected="line.quality_class == 'a' or None">Clase A</option>
-                            <option value="b" t-att-selected="line.quality_class == 'b' or None">Clase B</option>
-                            <option value="c" t-att-selected="line.quality_class == 'c' or None">Clase C</option>
-                          </select>
-                        </td>
-                        <td><input class="form-control" t-attf-name="line_#{line_index}_size"
-                                   t-att-value="line.size_code"/></td>
-                        <td><input class="form-control" t-attf-name="line_#{line_index}_weight"
-                                   t-att-value="line.weight_lb"/></td>
-                      </tr>
-                    </t>
-                    <t t-foreach="range(10)" t-as="n">
-                      <tr>
-                        <td>
-                          <select t-attf-name="line_#{n + len(v.line_ids)}_class" class="form-select">
-                            <option value="a">Clase A</option>
-                            <option value="b">Clase B</option>
-                            <option value="c">Clase C</option>
-                          </select>
-                        </td>
-                        <td><input class="form-control" t-attf-name="line_#{n + len(v.line_ids)}_size"
-                                   placeholder="U15, 16, 21..."/></td>
-                        <td><input class="form-control" t-attf-name="line_#{n + len(v.line_ids)}_weight"
-                                   placeholder="0.00"/></td>
-                      </tr>
-                    </t>
+                  <tbody id="svLinesBody">
+                    <tr>
+                      <td><strong>Clase A</strong><input type="hidden" name="line_0_class" value="a"/></td>
+                      <td><input class="form-control" name="line_0_size" t-att-value="la.size_code if la else ''" placeholder="U15, 16, 21..."/></td>
+                      <td><input class="form-control" name="line_0_weight" t-att-value="la.weight_lb if la else ''" placeholder="0.00"/></td>
+                    </tr>
+                    <tr>
+                      <td><strong>Clase B</strong><input type="hidden" name="line_1_class" value="b"/></td>
+                      <td><input class="form-control" name="line_1_size" t-att-value="lb.size_code if lb else ''" placeholder="U15, 16, 21..."/></td>
+                      <td><input class="form-control" name="line_1_weight" t-att-value="lb.weight_lb if lb else ''" placeholder="0.00"/></td>
+                    </tr>
+                    <tr>
+                      <td><strong>Clase C</strong><input type="hidden" name="line_2_class" value="c"/></td>
+                      <td><input class="form-control" name="line_2_size" t-att-value="lc.size_code if lc else ''" placeholder="U15, 16, 21..."/></td>
+                      <td><input class="form-control" name="line_2_weight" t-att-value="lc.weight_lb if lc else ''" placeholder="0.00"/></td>
+                    </tr>
                   </tbody>
                 </table>
                 <div class="sv-calc">
-                  Total procesado <strong t-esc="'{:.2f} lb'.format(v.total_processed_lb)"/> ·
-                  Rendimiento <strong t-esc="'{:.2f} %'.format(v.yield_pct)"/> ·
-                  Clase A <strong t-esc="'{:.2f} %'.format(v.yield_class_a_pct)"/> ·
-                  Clase B <strong t-esc="'{:.2f} %'.format(v.yield_class_b_pct)"/>
+                  Total procesado <strong id="svTotal"><t t-esc="'{:.2f} lb'.format(v.total_processed_lb)"/></strong> ·
+                  Rendimiento <strong id="svYield"><t t-esc="'{:.2f} %'.format(v.yield_pct)"/></strong> ·
+                  Clase A <strong id="svClassA"><t t-esc="'{:.2f} %'.format(v.yield_class_a_pct)"/></strong> ·
+                  Clase B <strong id="svClassB"><t t-esc="'{:.2f} %'.format(v.yield_class_b_pct)"/></strong>
                   <div class="sv-muted small mt-1">
                     El rendimiento se calcula sobre el peso neto (planta menos basura).
                   </div>
+                  <div id="svBalance" class="small mt-2 sv-muted"></div>
                 </div>
+                <script>
+                  (function(){
+                    var body = document.getElementById('svLinesBody');
+                    if(!body) return;
+                    function fnum(name){ var el=document.querySelector('[name="'+name+'"]'); if(!el) return 0; var x=parseFloat((el.value||'').replace(',','.')); return isNaN(x)?0:x; }
+                    function setTxt(id,t){ var el=document.getElementById(id); if(el) el.textContent=t; }
+                    function recompute(){
+                      var a=0,b=0,c=0;
+                      Array.prototype.forEach.call(body.querySelectorAll('tr'), function(tr){
+                        var w=tr.querySelector('[name$="_weight"]'), cl=tr.querySelector('[name$="_class"]');
+                        var wv=w?parseFloat((w.value||'').replace(',','.')):0; if(isNaN(wv)) wv=0;
+                        var cv=cl?cl.value:'a';
+                        if(cv==='a') a+=wv; else if(cv==='b') b+=wv; else c+=wv;
+                      });
+                      var total=a+b+c;
+                      var plant=fnum('weight_plant_lb'), trash=fnum('trash_lb');
+                      var net=Math.max(0, plant-trash);
+                      setTxt('svTotal', total.toFixed(2)+' lb');
+                      setTxt('svYield', (net? total/net*100:0).toFixed(2)+' %');
+                      setTxt('svClassA', (total? a/total*100:0).toFixed(2)+' %');
+                      setTxt('svClassB', (total? b/total*100:0).toFixed(2)+' %');
+                      var suma=total+trash, diff=suma-plant;
+                      var ok=(plant&lt;=0)||(Math.abs(diff)&lt;0.01);
+                      var box=document.getElementById('svBalance');
+                      if(box){
+                        if(plant&lt;=0){ box.textContent=''; box.className='small mt-2 sv-muted'; }
+                        else if(ok){ box.textContent='✓ Cuadra: tallas + basura = '+suma.toFixed(2)+' lb = peso en planta.'; box.className='small mt-2 sv-ok'; }
+                        else { box.textContent='✗ No cuadra: tallas + basura = '+suma.toFixed(2)+' lb vs. peso en planta '+plant.toFixed(2)+' lb (dif. '+diff.toFixed(2)+' lb). No se puede guardar hasta que coincidan.'; box.className='small mt-2 sv-bad'; }
+                      }
+                      var btns=document.querySelectorAll('form[action$="/guardar"] button[type="submit"]');
+                      Array.prototype.forEach.call(btns, function(bt){ bt.disabled=!ok; });
+                    }
+                    Array.prototype.forEach.call(body.querySelectorAll('input'), function(el){ el.addEventListener('input', recompute); });
+                    ['weight_plant_lb','trash_lb'].forEach(function(nm){ var el=document.querySelector('[name="'+nm+'"]'); if(el) el.addEventListener('input', recompute); });
+                    recompute();
+                  })();
+                </script>
               </div>
 
               <div class="sv-section" t-if="v.scope != 'larvae'">
@@ -398,9 +561,8 @@
                     <div class="sv-switches">
                       <t t-foreach="taste_criteria" t-as="crit">
                         <label class="sv-switch">
-                          <input type="checkbox" name="taste_criteria" t-att-value="crit.id"
+                          <input type="checkbox" class="sv-switch-input" name="taste_criteria" t-att-value="crit.id"
                                  t-att-checked="crit in v.taste_criteria_ok_ids or None"/>
-                          <span class="sv-switch-track"><span class="sv-switch-thumb"></span></span>
                           <span class="sv-switch-label"><t t-esc="crit.name"/></span>
                         </label>
                       </t>
@@ -412,7 +574,7 @@
               </div>
 
               <div class="sv-section" t-if="v.scope != 'larvae'">
-                <h3>Gramajes y conteos</h3>
+                <h3><span class="sv-num">6</span> Gramajes y conteos</h3>
                 <div class="row g-3">
                   <div class="col-md-3"><label>Grs. camaronera</label>
                     <input class="form-control" name="grams_farm" t-att-value="v.grams_farm or ''"/></div>
@@ -481,23 +643,81 @@
               </div>
 
               <div class="sv-section">
-                <h3>Evidencia e incidencias</h3>
+                <h3><span class="sv-num">7</span> Evidencia e incidencias</h3>
                 <textarea class="form-control" name="incident_notes" rows="3"
                           placeholder="Rotura de cadena de frío, volcamiento, camarón rojo o con mal olor, demoras..."><t t-esc="v.incident_notes or ''"/></textarea>
                 <div class="row g-3 mt-1">
-                  <div class="col-md-4"><label>Latitud</label>
+                  <div class="col-md-6"><label>Latitud</label>
                     <input class="form-control" name="gps_latitude" t-att-value="v.gps_latitude or ''"/></div>
-                  <div class="col-md-4"><label>Longitud</label>
+                  <div class="col-md-6"><label>Longitud</label>
                     <input class="form-control" name="gps_longitude" t-att-value="v.gps_longitude or ''"/></div>
-                  <div class="col-md-4"><label>Fotos</label>
-                    <input type="file" class="form-control" name="photo_files" multiple="multiple"
-                           accept="image/*" capture="environment"/></div>
                 </div>
-                <t t-if="v.photo_ids">
-                  <div class="sv-muted small mt-2">
-                    <t t-esc="len(v.photo_ids)"/> foto(s) ya adjuntas.
-                  </div>
-                </t>
+
+                <label class="mt-3 d-block">Fotos</label>
+                <!-- Input real oculto; se agregan con el botón + y se acumulan.
+                     Las ya adjuntas salen a la derecha del +, en la misma galería. -->
+                <input type="file" name="photo_files" multiple="multiple" accept="image/*"
+                       capture="environment" id="svPhotoInput" class="d-none"/>
+                <div class="sv-photo-gallery" id="svPhotoGallery" t-att-data-ref="v.uuid_ref">
+                  <button type="button" class="sv-photo-add" id="svPhotoAdd" title="Agregar fotos">
+                    <i class="fa fa-plus"></i>
+                  </button>
+                  <t t-foreach="v.photo_ids" t-as="f">
+                    <div class="sv-photo-thumb" t-att-data-id="f.id">
+                      <a t-attf-href="/verificador/verificacion/#{v.uuid_ref}/foto/#{f.id}" target="_blank">
+                        <img t-attf-src="/verificador/verificacion/#{v.uuid_ref}/foto/#{f.id}" alt="Foto"/>
+                      </a>
+                      <button type="button" class="sv-photo-del" data-remove-attached="1" t-att-data-id="f.id" title="Eliminar">×</button>
+                    </div>
+                  </t>
+                </div>
+                <script>
+                  (function(){
+                    var input=document.getElementById('svPhotoInput');
+                    var gallery=document.getElementById('svPhotoGallery');
+                    var addBtn=document.getElementById('svPhotoAdd');
+                    if(!gallery) return;
+                    var ref=gallery.getAttribute('data-ref');
+                    var token=(document.querySelector('input[name="csrf_token"]')||{}).value||'';
+
+                    // Eliminar (inmediato) las fotos ya adjuntas.
+                    Array.prototype.forEach.call(gallery.querySelectorAll('[data-remove-attached]'), function(btn){
+                      btn.addEventListener('click', function(){
+                        if(!window.confirm('¿Eliminar esta foto?')) return;
+                        var id=btn.getAttribute('data-id');
+                        var fd=new FormData(); fd.append('csrf_token', token);
+                        fetch('/verificador/verificacion/'+ref+'/foto/'+id+'/eliminar', {method:'POST', body:fd})
+                          .then(function(r){ if(r.ok){ var t=btn.closest('.sv-photo-thumb'); if(t) t.remove(); }
+                                             else { window.alert('No se pudo eliminar la foto.'); } });
+                      });
+                    });
+
+                    // Agregar fotos nuevas (acumula y previsualiza sin tocar las adjuntas).
+                    if(input &amp;&amp; addBtn &amp;&amp; typeof DataTransfer!=='undefined'){
+                      var dt=new DataTransfer();
+                      addBtn.addEventListener('click', function(){ input.click(); });
+                      input.addEventListener('change', function(){
+                        Array.prototype.forEach.call(input.files, function(f){ if(/^image\//.test(f.type)) dt.items.add(f); });
+                        input.files=dt.files; renderNew();
+                      });
+                      function renderNew(){
+                        Array.prototype.forEach.call(gallery.querySelectorAll('.sv-photo-new'), function(nd){ nd.remove(); });
+                        Array.prototype.forEach.call(dt.files, function(f, i){
+                          var wrap=document.createElement('div'); wrap.className='sv-photo-thumb sv-photo-new';
+                          var img=document.createElement('img'); img.src=URL.createObjectURL(f); wrap.appendChild(img);
+                          var del=document.createElement('button'); del.type='button'; del.className='sv-photo-del'; del.textContent='×';
+                          del.addEventListener('click', function(){
+                            var ndt=new DataTransfer();
+                            Array.prototype.forEach.call(dt.files, function(ff,j){ if(j!==i) ndt.items.add(ff); });
+                            dt=ndt; input.files=dt.files; renderNew();
+                          });
+                          wrap.appendChild(del);
+                          gallery.appendChild(wrap);
+                        });
+                      }
+                    }
+                  })();
+                </script>
               </div>
 
               <div class="d-flex gap-2 mb-4">
@@ -704,8 +924,8 @@
                 <h3>Fotos de campo <span class="sv-muted">(<t t-esc="len(v.photo_ids)"/>)</span></h3>
                 <div class="sv-fotos">
                   <t t-foreach="v.photo_ids" t-as="f">
-                    <a t-attf-href="/marketplace/verificacion/#{v.uuid_ref}/foto/#{f.id}" target="_blank">
-                      <img t-attf-src="/marketplace/verificacion/#{v.uuid_ref}/foto/#{f.id}" alt="Foto de campo"/>
+                    <a t-attf-href="/verificador/verificacion/#{v.uuid_ref}/foto/#{f.id}" target="_blank">
+                      <img t-attf-src="/verificador/verificacion/#{v.uuid_ref}/foto/#{f.id}" alt="Foto de campo"/>
                     </a>
                   </t>
                 </div>

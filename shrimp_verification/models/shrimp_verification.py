@@ -1,6 +1,10 @@
+import logging
+
 from odoo import api, fields, models, _
 from odoo.exceptions import ValidationError, UserError
 from odoo.tools.float_utils import float_compare, float_is_zero
+
+_logger = logging.getLogger(__name__)
 
 
 class ShrimpVerification(models.Model):
@@ -319,7 +323,7 @@ class ShrimpVerification(models.Model):
             )
             rec.net_weight_lb = max(0.0, (rec.weight_plant_lb or 0.0) - (rec.trash_lb or 0.0))
 
-    @api.depends("line_ids.weight_lb", "line_ids.quality_class", "net_weight_lb")
+    @api.depends("line_ids.weight_lb", "line_ids.quality_class", "weight_plant_lb")
     def _compute_yields(self):
         for rec in self:
             def _sum(cls):
@@ -330,12 +334,13 @@ class ShrimpVerification(models.Model):
 
             rec.class_a_lb, rec.class_b_lb, rec.class_c_lb = a, b, c
             rec.total_processed_lb = total
-            # El rendimiento va sobre el peso NETO (planta menos basura), que es
-            # como lo calcula el equipo en los partes de planta.
-            rec.yield_pct = (100.0 * total / rec.net_weight_lb) if rec.net_weight_lb else 0.0
-            rec.yield_class_a_pct = (100.0 * a / total) if total else 0.0
-            rec.yield_class_b_pct = (100.0 * b / total) if total else 0.0
-            rec.yield_class_c_pct = (100.0 * c / total) if total else 0.0
+            # El rendimiento y los % por clase van sobre el PESO EN PLANTA:
+            # A + B + C + basura = 100 % del peso en planta.
+            base = rec.weight_plant_lb or 0.0
+            rec.yield_pct = (100.0 * total / base) if base else 0.0
+            rec.yield_class_a_pct = (100.0 * a / base) if base else 0.0
+            rec.yield_class_b_pct = (100.0 * b / base) if base else 0.0
+            rec.yield_class_c_pct = (100.0 * c / base) if base else 0.0
 
     @api.depends("larvae_qty_verified", "larvae_survival_rate",
                  "transaction_id.transaction_qty", "product_id.survival_rate")

@@ -1,4 +1,7 @@
+import base64
+
 from odoo import api, fields, models
+from odoo.tools import file_open
 
 
 class Website(models.Model):
@@ -112,3 +115,52 @@ class Website(models.Model):
             padre = crear(nombre, url, raiz.id, seq)
             for i, (hn, hu) in enumerate(hijos):
                 crear(hn, hu, padre.id, 10 + i * 10)
+
+    # ------------------------------------------------------------------
+    # Marca Trazul (logo y favicon)
+    # ------------------------------------------------------------------
+    # Los archivos viven en el módulo, no sueltos en el disco de un equipo:
+    # así viajan con el código y una instalación nueva arranca con la marca
+    # puesta en vez de con el "Your Logo" de Odoo.
+    _SHRIMP_LOGO = "shrimp_verification/static/src/img/logo.png"
+    _SHRIMP_FAVICON = "shrimp_verification/static/src/img/favicon.png"
+
+    @api.model
+    def _shrimp_ensure_brand(self):
+        """Pone el logo y el favicon de Trazul donde todavía esté el de Odoo.
+
+        NO DESTRUCTIVO: si el sitio o la compañía ya tienen una imagen propia
+        —porque el cliente subió la suya— no se toca. Solo se reemplaza la
+        que Odoo trae por defecto.
+        """
+        def _leer(ruta):
+            try:
+                with file_open(ruta, "rb") as f:
+                    return base64.b64encode(f.read())
+            except Exception:
+                return False
+
+        logo = _leer(self._SHRIMP_LOGO)
+        favicon = _leer(self._SHRIMP_FAVICON)
+        if not logo and not favicon:
+            return False
+
+        W = self.env["website"].sudo()
+        for sitio in W.search([]):
+            vals = {}
+            # El logo por defecto de Odoo es un archivo concreto: comparando
+            # contra él se distingue "nunca lo cambiaron" de "subieron el suyo".
+            # Un campo vacío cuenta igual que el de Odoo: tampoco es del cliente.
+            if logo and sitio.logo in (False, sitio._default_logo()):
+                vals["logo"] = logo
+            if favicon and sitio.favicon in (False, sitio._default_favicon()):
+                vals["favicon"] = favicon
+            if vals:
+                sitio.write(vals)
+
+        # La compañía lleva el logo a las facturas y a los informes PDF.
+        if logo:
+            for empresa in self.env["res.company"].sudo().search([]):
+                if empresa.uses_default_logo:
+                    empresa.logo = logo
+        return True

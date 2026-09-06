@@ -53,6 +53,7 @@ genera el parte en el mismo formato de texto que el equipo ya usa por WhatsApp.
         "views/shrimp_taste_criterion_views.xml",
         "views/shrimp_tech_role_views.xml",
         "data/site_config.xml",
+        "data/brand_config.xml",
     ],
     "assets": {
         "web.assets_frontend": [

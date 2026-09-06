@@ -100,6 +100,37 @@ class ShrimpPriceListPortal(http.Controller):
             "error": kw.get("error"),
         })
 
+    @http.route("/marketplace/listas-de-precios/comparar", type="http", auth="user",
+                website=True)
+    def price_list_compare(self, **kw):
+        """El comparador: qué paga cada empacadora por la misma talla.
+
+        Va antes que la ruta de detalle en el archivo por claridad, pero no por
+        necesidad: "comparar" no colisiona con un uuid.
+        """
+        L = request.env["shrimp.price.list"].sudo()
+        partner = self._partner()
+        combinaciones = L.combinaciones_disponibles(partner)
+        if not combinaciones:
+            return request.render("shrimp_packer.price_list_compare", {
+                "combinaciones": [], "sel": None, "datos": {}, "cantidad": 0.0})
+
+        elegida = kw.get("combo") or combinaciones[0]["clave"]
+        sel = next((c for c in combinaciones if c["clave"] == elegida), combinaciones[0])
+        try:
+            cantidad = float((kw.get("cantidad") or "0").replace(",", "."))
+        except ValueError:
+            cantidad = 0.0
+
+        datos = L.comparativa(partner, sel["presentation"], sel["channel"],
+                              sel["quality"], cantidad)
+        return request.render("shrimp_packer.price_list_compare", {
+            "combinaciones": combinaciones,
+            "sel": sel,
+            "datos": datos,
+            "cantidad": cantidad,
+        })
+
     @http.route("/marketplace/listas-de-precios/<ref>", type="http", auth="user",
                 website=True)
     def price_list_detail(self, ref, **kw):

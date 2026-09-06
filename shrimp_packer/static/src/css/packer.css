@@ -103,3 +103,44 @@
 .pk-estado--archived { background: #f4f0ea; color: #8a7355; }
 
 .pk-publicar { background: #f7fafb; border: 1px solid #e3eaed; border-radius: 10px; padding: 16px 20px; }
+
+/* ==================================================================
+   Comparador de precios entre empacadoras
+   ================================================================== */
+.pk-filtro {
+  display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;
+  background: #fff; border: 1px solid #e3eaed; border-radius: 10px; padding: 16px 18px;
+}
+.pk-filtro label { display: block; font-size: .82rem; font-weight: 600; color: #5A6B74; }
+.pk-filtro .form-control { margin-top: 3px; min-width: 200px; }
+.pk-cant { display: flex; align-items: center; gap: 8px; }
+.pk-cant .form-control { min-width: 130px; }
+.pk-cant span { color: #8b9ba3; font-weight: 600; }
+
+/* La tabla puede tener muchas empacadoras: scroll horizontal con la
+   columna de la talla fija, que es la referencia para leer la fila. */
+.pk-comp-wrap { overflow-x: auto; background: #fff; border: 1px solid #e3eaed; border-radius: 10px; }
+.pk-comp { width: 100%; border-collapse: collapse; font-size: .93rem; }
+.pk-comp th {
+  background: #f2f7f9; border-bottom: 2px solid #dfe8ec; padding: 10px 14px;
+  color: #123E5C; font-weight: 700; white-space: nowrap;
+}
+.pk-comp td { padding: 9px 14px; border-bottom: 1px solid #eef2f4; color: #243b45; white-space: nowrap; }
+.pk-comp tbody tr:hover { background: #fbfdfd; }
+.pk-comp-talla, .pk-comp .pk-talla {
+  position: sticky; left: 0; background: #fff; z-index: 1;
+  border-right: 1px solid #e3eaed;
+}
+.pk-comp thead .pk-comp-talla { background: #f2f7f9; }
+.pk-comp-emp { font-size: .92rem; }
+.pk-comp-ref { font-size: .74rem; font-weight: 400; color: #8b9ba3; }
+.pk-comp-total { font-size: .76rem; color: #8b9ba3; font-weight: 400; }
+
+/* El mejor precio de cada fila: es lo único que hay que ver de un vistazo */
+.pk-mejor { background: #eaf7f8; font-weight: 700; color: #0f5c66; }
+.pk-mejor .fa-check { color: #14A0B0; }
+.pk-mejor .pk-comp-total { color: #0f7c88; }
+.pk-comp-vent { background: #fbfdfd; }
+.pk-ventaja { color: #0f7c88; font-weight: 700; }
+
+.pk-nota { color: #5A6B74; font-size: .88rem; }

@@ -251,6 +251,93 @@ class ShrimpPriceList(models.Model):
             "uom": lineas[0].uom,
         }
 
+    @api.model
+    def combinaciones_disponibles(self, partner):
+        """Las columnas que existen entre todas las listas que ve el productor.
+
+        No se puede fijar un juego de columnas: cada empacadora cotiza lo suyo
+        —una abre el sobrante en A y B, otra tiene una sola columna— así que
+        las opciones del comparador salen de los datos.
+        """
+        listas = self.visibles_para(partner)
+        vistas, salida = set(), []
+        for linea in listas.mapped("line_ids").sorted(
+                key=lambda l: (l.presentation, l.channel or "", l.quality)):
+            clave = (linea.presentation, linea.channel or "", linea.quality)
+            if clave in vistas:
+                continue
+            vistas.add(clave)
+            pres = "Entero" if linea.presentation == "entero" else "Cola"
+            salida.append({
+                "clave": "%s|%s|%s" % clave,
+                "presentation": linea.presentation,
+                "channel": linea.channel or "",
+                "quality": linea.quality,
+                "etiqueta": "%s · %s" % (pres, linea.etiqueta_columna()),
+                "uom": linea.uom,
+            })
+        return salida
+
+    @api.model
+    def comparativa(self, partner, presentation, channel, quality, cantidad=0.0):
+        """Qué paga cada empacadora por la misma talla.
+
+        Es la cuenta que el camaronero hace hoy a mano con dos papeles sobre la
+        mesa. Devuelve las filas por talla con el precio de cada lista, cuál es
+        el mejor y cuánto se pierde eligiendo el segundo.
+        """
+        listas = self.visibles_para(partner)
+        if not listas:
+            return {}
+
+        lineas = listas.mapped("line_ids").filtered(
+            lambda l: l.presentation == presentation
+            and (l.channel or "") == (channel or "")
+            and l.quality == quality)
+        if not lineas:
+            return {}
+
+        # Solo entran las empacadoras que cotizan esta combinación: una columna
+        # entera vacía no aporta y estorba para leer.
+        listas_con_datos = lineas.mapped("price_list_id")
+        precios = {}
+        for linea in lineas:
+            precios.setdefault(linea.size_grade_id.id, {})[linea.price_list_id.id] = linea.price
+
+        filas = []
+        for talla in lineas.mapped("size_grade_id").sorted(key=lambda t: (t.sequence, t.name)):
+            porlista = precios.get(talla.id, {})
+            valores = sorted(porlista.values(), reverse=True)
+            mejor = valores[0] if valores else 0.0
+            segundo = valores[1] if len(valores) > 1 else None
+            ganadores = [lid for lid, p in porlista.items() if p == mejor]
+            filas.append({
+                "talla": talla,
+                "precios": porlista,
+                "mejor": mejor,
+                "ganadores": ganadores,
+                # La ventaja solo tiene sentido si hay con quién comparar y no
+                # hay empate: si empatan, elegir da igual.
+                "ventaja": (mejor - segundo) if (segundo is not None and mejor > segundo) else 0.0,
+                # Que solo una cotice no es un empate: no hay con quién comparar.
+                # Decirle "empate" al camaronero lo llevaría a creer que da igual.
+                "solo_uno": len(porlista) == 1,
+                "diferencia_total": ((mejor - segundo) * cantidad)
+                if (segundo is not None and cantidad) else 0.0,
+                "total_mejor": mejor * cantidad if cantidad else 0.0,
+            })
+
+        uoms = set(lineas.mapped("uom"))
+        return {
+            "listas": listas_con_datos.sorted(key=lambda l: l.issuer_partner_id.name or ""),
+            "filas": filas,
+            "uom": list(uoms)[0] if len(uoms) == 1 else "",
+            # Si dos empacadoras cotizan la misma talla en unidades distintas,
+            # compararlas de frente sería un error de 2,2 veces. Se avisa.
+            "uom_mixta": len(uoms) > 1,
+            "cantidad": cantidad,
+        }
+
     def texto_ventana(self):
         """La vigencia en una línea, como la escriben en las listas reales."""
         self.ensure_one()

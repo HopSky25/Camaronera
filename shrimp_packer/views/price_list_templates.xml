@@ -25,7 +25,14 @@
             <div class="pk-alert pk-alert--ko"><i class="fa fa-exclamation-triangle me-1"/><t t-esc="error"/></div>
           </t>
 
-          <h2 class="pk-h2">Dirigidas a ti</h2>
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h2 class="pk-h2 mb-0">Dirigidas a ti</h2>
+            <t t-if="vigentes">
+              <a class="s-btn s-btn-primary" href="/marketplace/listas-de-precios/comparar">
+                <i class="fa fa-balance-scale me-1"/> Comparar precios
+              </a>
+            </t>
+          </div>
           <t t-if="vigentes">
             <div class="pk-cards">
               <t t-foreach="vigentes" t-as="l">
@@ -502,6 +509,157 @@
             <p class="pk-muted mt-3">
               Guarda la cabecera y podrás cargar los precios por talla.
             </p>
+          </t>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+  <!-- ================================================================
+       COMPARADOR: qué paga cada empacadora por la misma talla.
+       Es la cuenta que el camaronero hace hoy a mano con dos papeles
+       sobre la mesa.
+       ================================================================ -->
+  <template id="price_list_compare" name="Comparar precios">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page shrimp-page--full py-4">
+          <a class="pk-volver" href="/marketplace/listas-de-precios">
+            <i class="fa fa-arrow-left me-1"/> Volver a las listas
+          </a>
+
+          <div class="sf-banner mb-4">
+            <div class="sf-banner-row">
+              <div class="sf-banner-txt">
+                <h1>Comparar precios</h1>
+                <p>Qué te paga cada empacadora por la misma talla, con las listas
+                   vigentes que te han mandado.</p>
+              </div>
+              <span class="sf-kicker"><i class="fa fa-balance-scale"></i> Comparador</span>
+            </div>
+          </div>
+
+          <t t-if="not combinaciones">
+            <div class="pk-vacio">
+              <i class="fa fa-balance-scale fa-2x mb-2"/>
+              <p class="mb-0">Todavía no hay listas vigentes dirigidas a ti.
+                 En cuanto una empacadora publique la suya, aparece aquí.</p>
+            </div>
+          </t>
+
+          <t t-if="combinaciones">
+            <form method="get" class="pk-filtro">
+              <label>Qué comparar
+                <select name="combo" class="form-control" onchange="this.form.submit()">
+                  <t t-foreach="combinaciones" t-as="c">
+                    <option t-att-value="c['clave']"
+                            t-att-selected="'selected' if sel and c['clave'] == sel['clave'] else None"
+                            t-esc="c['etiqueta']"/>
+                  </t>
+                </select>
+              </label>
+              <label>Cantidad a despachar
+                <div class="pk-cant">
+                  <input type="number" step="1" min="0" name="cantidad" class="form-control"
+                         t-att-value="'{:.0f}'.format(cantidad) if cantidad else ''"
+                         placeholder="0"/>
+                  <span t-esc="'Kg' if datos.get('uom') == 'kg' else 'Lb'"/>
+                </div>
+              </label>
+              <button type="submit" class="s-btn s-btn-primary">
+                <i class="fa fa-refresh me-1"/> Actualizar
+              </button>
+            </form>
+
+            <t t-if="datos.get('uom_mixta')">
+              <div class="pk-alert pk-alert--ko mt-3">
+                <i class="fa fa-exclamation-triangle me-1"/>
+                Ojo: hay empacadoras que cotizan esta talla en unidades distintas.
+                Compararlas de frente no es válido — revisa cada lista.
+              </div>
+            </t>
+
+            <t t-if="datos.get('filas')">
+              <div class="pk-comp-wrap mt-3">
+                <table class="pk-comp">
+                  <thead>
+                    <tr>
+                      <th class="pk-comp-talla">Talla</th>
+                      <t t-foreach="datos['listas']" t-as="l">
+                        <th class="text-end">
+                          <div class="pk-comp-emp" t-esc="l.issuer_partner_id.name"/>
+                          <div class="pk-comp-ref" t-esc="l.name"/>
+                        </th>
+                      </t>
+                      <th class="text-end pk-comp-vent">Ventaja</th>
+                      <t t-if="cantidad">
+                        <th class="text-end pk-comp-vent">Diferencia</th>
+                      </t>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <t t-foreach="datos['filas']" t-as="f">
+                      <tr>
+                        <td class="pk-talla" t-esc="f['talla'].name"/>
+                        <t t-foreach="datos['listas']" t-as="l">
+                          <t t-set="p" t-value="f['precios'].get(l.id)"/>
+                          <td t-attf-class="text-end#{' pk-mejor' if (p and l.id in f['ganadores']) else ''}">
+                            <t t-if="p">
+                              <t t-esc="'$ {:,.2f}'.format(p)"/>
+                              <t t-if="l.id in f['ganadores']">
+                                <i class="fa fa-check ms-1"/>
+                              </t>
+                              <t t-if="cantidad">
+                                <div class="pk-comp-total" t-esc="'$ {:,.0f}'.format(p * cantidad)"/>
+                              </t>
+                            </t>
+                            <t t-else=""><span class="pk-muted">—</span></t>
+                          </td>
+                        </t>
+                        <td class="text-end pk-comp-vent">
+                          <t t-if="f['ventaja']">
+                            <span class="pk-ventaja" t-esc="'+$ {:,.2f}'.format(f['ventaja'])"/>
+                          </t>
+                          <t t-elif="f['solo_uno']">
+                            <span class="pk-muted" title="Solo una empacadora cotiza esta talla">única</span>
+                          </t>
+                          <t t-else=""><span class="pk-muted">empate</span></t>
+                        </td>
+                        <t t-if="cantidad">
+                          <td class="text-end pk-comp-vent">
+                            <t t-if="f['diferencia_total']">
+                              <strong class="pk-ventaja" t-esc="'$ {:,.0f}'.format(f['diferencia_total'])"/>
+                            </t>
+                            <t t-else=""><span class="pk-muted">—</span></t>
+                          </td>
+                        </t>
+                      </tr>
+                    </t>
+                  </tbody>
+                </table>
+              </div>
+
+              <p class="pk-nota mt-3">
+                <i class="fa fa-info-circle me-1"/>
+                La marca señala quién paga más por cada talla.
+                <t t-if="cantidad">
+                  La columna «Diferencia» es lo que dejas de ganar si despachas
+                  al segundo en vez de al mejor, sobre
+                  <strong t-esc="'{:,.0f}'.format(cantidad)"/>
+                  <t t-esc="'Kg' if datos.get('uom') == 'kg' else 'Lb'"/>.
+                </t>
+                <t t-else="">
+                  Pon una cantidad arriba para ver la diferencia en dólares.
+                </t>
+                Las bonificaciones por tamaño y color van aparte, en cada lista.
+              </p>
+            </t>
+            <t t-else="">
+              <div class="pk-vacio mt-3">
+                <p class="mb-0">Ninguna de tus listas cotiza esa combinación.</p>
+              </div>
+            </t>
           </t>
 
         </div>

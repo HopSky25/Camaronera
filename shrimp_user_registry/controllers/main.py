@@ -283,17 +283,21 @@ class ShrimpRegistryController(http.Controller):
                     _save_files("sem_photo_files", "sem_photo_attachment_ids")
                     _save_files("sem_facility_files", "sem_facility_photo_attachment_ids")
 
+                # Hook post-registro: otros módulos crean lo suyo con la cuenta
+                # ya existente (p. ej. el verificador da de alta a su equipo).
+                self._post_registration(partner, user_type, post)
+
             return request.redirect("/web/login")
 
         except ValidationError as e:
             _logger.info("Validación fallida en /registro/submit: %s", e)
-            return request.render("shrimp_user_registry.registry_form", {
+            return request.render(self._registro_form_template(user_type), {
                 "error": e.args[0] if e.args else _("No se pudo completar el registro."),
                 "values": post,
             })
         except Exception:
             _logger.exception("Error inesperado en /registro/submit")
-            return request.render("shrimp_user_registry.registry_form", {
+            return request.render(self._registro_form_template(user_type), {
                 "error": _("Ocurrió un error inesperado al procesar el registro."),
                 "values": post,
             })
@@ -306,6 +310,17 @@ class ShrimpRegistryController(http.Controller):
         lanzar ValidationError si el rol tiene requisitos propios.
         """
         return {}
+
+    def _post_registration(self, partner, user_type, post):
+        """Gancho tras crear el partner y su usuario (dentro de la misma
+        transacción). Los módulos que amplían el registro crean aquí lo suyo.
+        Por defecto no hace nada."""
+        return
+
+    def _registro_form_template(self, user_type):
+        """Template al que se vuelve si el registro falla. Por defecto el
+        formulario genérico; los módulos con formulario propio lo sobrescriben."""
+        return "shrimp_user_registry.registry_form"
 
     @http.route("/registro/certificados", type="json", auth="public", website=True, csrf=False)
     def certificados_por_rol(self, role=None):

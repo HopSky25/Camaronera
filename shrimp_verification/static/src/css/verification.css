@@ -729,20 +729,24 @@ button.sv-eye { background: none; border: 0; padding: 0; cursor: pointer; }
 }
 
 /* Switches de criterios de cata (toggle) */
-.sv-switches{ display:flex; flex-wrap:wrap; gap:12px 22px; margin-top:8px; }
+.sv-switches{ display:flex; flex-wrap:wrap; gap:14px 26px; margin-top:8px; align-items:center; }
 .sv-switch{ display:inline-flex; align-items:center; gap:10px; cursor:pointer; user-select:none; margin:0; }
-.sv-switch input{ position:absolute; opacity:0; width:0; height:0; }
-.sv-switch-track{
-  position:relative; width:46px; height:26px; border-radius:999px; background:#cfd8df;
-  transition:background .18s ease; flex:0 0 auto;
+/* Toggle de un solo elemento: el propio checkbox es la pista (appearance:none)
+   y su ::before es el círculo. Evita el checkbox nativo y el patrón frágil de
+   input oculto + spans hermanos. */
+.sv-switch-input{
+  appearance:none; -webkit-appearance:none; -moz-appearance:none; margin:0;
+  flex:0 0 auto; position:relative; width:46px; height:26px; border-radius:999px;
+  background:#dfe6eb; border:1px solid #b9c4cc; cursor:pointer;
+  transition:background .18s ease, border-color .18s ease;
 }
-.sv-switch-thumb{
-  position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%;
-  background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.28); transition:transform .18s ease;
+.sv-switch-input::before{
+  content:""; position:absolute; top:2px; left:2px; width:20px; height:20px; border-radius:50%;
+  background:#fff; border:1px solid #9fabb4; transition:transform .18s ease;
 }
-.sv-switch input:checked + .sv-switch-track{ background:var(--vw-teal); }
-.sv-switch input:checked + .sv-switch-track .sv-switch-thumb{ transform:translateX(20px); }
-.sv-switch input:focus-visible + .sv-switch-track{ box-shadow:0 0 0 3px rgba(20,160,176,.28); }
+.sv-switch-input:checked{ background:var(--vw-teal); border-color:var(--vw-teal-dark); }
+.sv-switch-input:checked::before{ transform:translateX(20px); border-color:var(--vw-teal-dark); }
+.sv-switch-input:focus-visible{ box-shadow:0 0 0 3px rgba(20,160,176,.28); }
 .sv-switch-label{ font-size:14px; color:var(--vw-ink); font-weight:600; }
 
 /* ==================================================================
@@ -826,16 +830,6 @@ button.sv-eye { background: none; border: 0; padding: 0; cursor: pointer; }
 #wrapwrap .o_footer_copyright *{ color:#8fa8b3 !important; }
 #wrapwrap.o_shrimp_verifier .o_footer_copyright{ background:#092533 !important; }
 
-/* ==================================================================
-   Switches de cata: definición con BORDES (el diseño plano quitó las
-   sombras, que era lo que daba forma al track y al thumb; se reponen
-   con bordes para que se vean bien).
-   ================================================================== */
-.sv-switches{ gap:14px 26px; align-items:center; }
-.sv-switch-track{ border:1px solid #b9c4cc; background:#dfe6eb; }
-.sv-switch-thumb{ border:1px solid #9fabb4; }
-.sv-switch input:checked + .sv-switch-track{ background:var(--vw-teal); border-color:var(--vw-teal-dark); }
-.sv-switch input:checked + .sv-switch-track .sv-switch-thumb{ border-color:#0a5f68; }
 
 /* ==================================================================
    Modal de crear/editar técnico (reusa el overlay .sf-modal)
@@ -850,3 +844,18 @@ button.sv-eye { background: none; border: 0; padding: 0; cursor: pointer; }
 #techForm{ padding:22px; }
 .tech-modal-foot{ display:flex; justify-content:flex-end; gap:10px; margin-top:20px; }
 .btn-sm.s-btn{ padding:6px 12px; font-size:13px; }
+
+/* ==================================================================
+   Galería de fotos de evidencia: botón + para agregar y miniaturas
+   ================================================================== */
+.sv-photo-gallery{ display:flex; flex-wrap:wrap; gap:10px; margin-top:6px; align-items:center; }
+.sv-photo-thumb{ position:relative; width:110px; height:110px; border-radius:10px; overflow:hidden; border:1px solid var(--vw-line); }
+.sv-photo-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+.sv-photo-del{ position:absolute; top:4px; right:4px; width:22px; height:22px; border-radius:50%;
+  border:0; background:rgba(0,0,0,.55); color:#fff; cursor:pointer; font-size:15px; line-height:1;
+  display:flex; align-items:center; justify-content:center; padding:0; }
+.sv-photo-del:hover{ background:rgba(0,0,0,.75); }
+.sv-photo-add{ width:110px; height:110px; border-radius:10px; border:2px dashed #b9c4cc;
+  background:#f4f8fa; color:var(--vw-teal-dark); font-size:26px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; transition:border-color .15s ease, background .15s ease; }
+.sv-photo-add:hover{ border-color:var(--vw-teal); background:#eaf6f8; }

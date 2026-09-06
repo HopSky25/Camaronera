@@ -1,0 +1,217 @@
+<odoo>
+
+  <!-- ============================================================
+       Detalle COMPLETO de una verificación (solo lectura): consolida
+       todos los datos en una sola pantalla. Se llega con el botón
+       "Ver detalle completo" del resumen.
+       ============================================================ -->
+  <template id="verifier_full_detail" name="Verificador - Detalle completo">
+    <t t-call="website.layout">
+      <t t-set="pres_labels" t-value="{'entero': 'Entero (cuerpo)', 'cola': 'Cola'}"/>
+      <div class="shrimp-bg">
+        <div class="shrimp-page shrimp-page--full py-4">
+
+          <a t-attf-href="/verificador/verificacion/#{v.uuid_ref}" class="s-back mb-3">
+            <i class="fa fa-arrow-left"></i><span>Volver a la verificación</span>
+          </a>
+
+          <div class="sf-banner mb-4">
+            <div class="sf-banner-row">
+              <div class="sf-banner-txt">
+                <h1><t t-esc="v.name"/></h1>
+                <p>Detalle completo · <t t-esc="v.product_id.name"/></p>
+              </div>
+              <span t-attf-class="sf-kicker sv-badge--#{v.state}" style="border:none;">
+                <i class="fa fa-file-text-o"></i> <t t-esc="dict(v._fields['state'].selection).get(v.state)"/>
+              </span>
+            </div>
+          </div>
+
+          <!-- ===== Datos generales ===== -->
+          <div class="mp-table-card mb-4"><div class="card-body p-4">
+            <div class="mp-sec-head"><span class="mp-sec-ico"><i class="fa fa-info-circle"></i></span><h3 class="mp-sec-title">Datos generales</h3></div>
+            <div class="sv-datos">
+              <div><span>Producto</span><strong t-esc="v.product_id.name"/></div>
+              <div><span>Vendedor</span><strong t-esc="v.seller_partner_id.name"/></div>
+              <div><span>Comprador</span><strong t-esc="v.buyer_partner_id.name"/></div>
+              <div><span>Cantidad comprada</span><strong><t t-esc="'%.2f' % (v.transaction_id.transaction_qty or 0)"/> lb</strong></div>
+              <div><span>Verificador</span><strong t-esc="v.verifier_partner_id.name"/></div>
+              <div><span>Técnico de campo</span><strong t-esc="v.technician_partner_id.name or '—'"/></div>
+              <div><span>Fecha de asignación</span><strong t-esc="v.assigned_date or '—'"/></div>
+              <div><span>Inicio en campo</span><strong t-esc="v.field_start_date or '—'"/></div>
+            </div>
+          </div></div>
+
+          <!-- ===== Datos del parte ===== -->
+          <div class="mp-table-card mb-4"><div class="card-body p-4">
+            <div class="mp-sec-head"><span class="mp-sec-ico"><i class="fa fa-tag"></i></span><h3 class="mp-sec-title">Datos del parte</h3></div>
+            <div class="sv-datos">
+              <div><span>Lote</span><strong t-esc="v.batch_code or '—'"/></div>
+              <div><span>Piscina</span><strong t-esc="v.pond_id.name or v.pond_label or '—'"/></div>
+              <div><span>Planta procesadora</span><strong t-esc="v.plant_name or '—'"/></div>
+              <div><span>Fecha de cosecha</span><strong t-esc="v.harvest_date or '—'"/></div>
+              <div><span>Fecha de proceso</span><strong t-esc="v.process_date or '—'"/></div>
+            </div>
+          </div></div>
+
+          <t t-if="v.scope != 'larvae'">
+            <!-- ===== Análisis: Peso ===== -->
+            <div class="mp-table-card mb-4"><div class="card-body p-4">
+              <div class="mp-sec-head"><span class="mp-sec-ico"><i class="fa fa-balance-scale"></i></span><h3 class="mp-sec-title">1 · Peso</h3></div>
+              <div class="sv-datos">
+                <div><span>Peso enviado</span><strong><t t-esc="'%.2f' % v.weight_sent_lb"/> lb</strong></div>
+                <div><span>Peso en planta</span><strong><t t-esc="'%.2f' % v.weight_plant_lb"/> lb</strong></div>
+                <div><span>Basura</span><strong><t t-esc="'%.2f' % v.trash_lb"/> lb</strong></div>
+                <div><span>Sobrepeso</span><strong><t t-esc="'%.2f' % v.overweight_lb"/> lb</strong></div>
+                <div><span>Factor</span><strong t-esc="'%.4f' % v.overweight_factor"/></div>
+                <div><span>Peso neto</span><strong><t t-esc="'%.2f' % v.net_weight_lb"/> lb</strong></div>
+              </div>
+            </div></div>
+
+            <!-- ===== Análisis: Cuerpo o cola ===== -->
+            <div class="mp-table-card mb-4"><div class="card-body p-4">
+              <div class="mp-sec-head"><span class="mp-sec-ico"><i class="fa fa-cutlery"></i></span><h3 class="mp-sec-title">2 · Cuerpo o cola</h3></div>
+              <div class="sv-datos">
+                <div><span>Declarado</span><strong t-esc="pres_labels.get(v.product_id.presentation, '—')"/></div>
+                <div><span>Verificado</span><strong t-esc="pres_labels.get(v.presentation, '—')"/></div>
+              </div>
+            </div></div>
+
+            <!-- ===== Análisis: Metabisulfito ===== -->
+            <div class="mp-table-card mb-4"><div class="card-body p-4">
+              <div class="mp-sec-head"><span class="mp-sec-ico"><i class="fa fa-tint"></i></span><h3 class="mp-sec-title">3 · Metabisulfito</h3></div>
+              <div class="sv-datos">
+                <div><span>Medido</span><strong><t t-esc="'%.0f' % v.metabisulfite_ppm"/> ppm</strong></div>
+                <div><span>Límite admitido</span><strong><t t-esc="'%.0f' % v.metabisulfite_limit_ppm"/> ppm</strong></div>
+                <div><span>Resultado</span>
+                  <strong>
+                    <t t-if="v.metabisulfite_result == 'pass'"><span class="sv-ok">Conforme</span></t>
+                    <t t-elif="v.metabisulfite_result == 'fail'"><span class="sv-bad">No conforme</span></t>
+                    <t t-else="">—</t>
+                  </strong>
+                </div>
+              </div>
+              <t t-if="v.metabisulfite_notes">
+                <p class="sv-muted small mt-2 mb-0"><t t-esc="v.metabisulfite_notes"/></p>
+              </t>
+            </div></div>
+
+            <!-- ===== Análisis: Clasificación ===== -->
+            <div class="mp-table-card mb-4"><div class="card-body p-4">
+              <div class="mp-sec-head"><span class="mp-sec-ico"><i class="fa fa-sort-amount-desc"></i></span><h3 class="mp-sec-title">4 · Clasificación por talla</h3></div>
+              <t t-if="v.line_ids">
+                <table class="table sv-table mb-3">
+                  <thead><tr><th>Clase</th><th>Talla</th><th class="text-end">Libras</th></tr></thead>
+                  <tbody>
+                    <t t-foreach="v.line_ids" t-as="line">
+                      <tr>
+                        <td><t t-esc="dict(line._fields['quality_class'].selection).get(line.quality_class)"/></td>
+                        <td><t t-esc="line.size_code"/></td>
+                        <td class="text-end"><t t-esc="'%.2f' % line.weight_lb"/></td>
+                      </tr>
+                    </t>
+                  </tbody>
+                </table>
+              </t>
+              <div class="sv-datos">
+                <div><span>Total procesado</span><strong><t t-esc="'%.2f' % v.total_processed_lb"/> lb</strong></div>
+                <div><span>Rendimiento</span><strong><t t-esc="'%.2f' % v.yield_pct"/> %</strong></div>
+                <div><span>Clase A</span><strong><t t-esc="'%.2f' % v.yield_class_a_pct"/> %</strong></div>
+                <div><span>Clase B</span><strong><t t-esc="'%.2f' % v.yield_class_b_pct"/> %</strong></div>
+              </div>
+            </div></div>
+
+            <!-- ===== Análisis: Sabor ===== -->
+            <div class="mp-table-card mb-4"><div class="card-body p-4">
+              <div class="mp-sec-head"><span class="mp-sec-ico"><i class="fa fa-spoon"></i></span><h3 class="mp-sec-title">5 · Sabor</h3></div>
+              <div class="sv-datos">
+                <div><span>Resultado</span><strong t-esc="dict(v._fields['taste_result'].selection).get(v.taste_result) or '—'"/></div>
+              </div>
+              <t t-if="v.taste_criteria_ok_ids">
+                <div class="mt-2">
+                  <t t-foreach="v.taste_criteria_ok_ids" t-as="crit">
+                    <span class="sv-chip me-1"><i class="fa fa-check me-1"/><t t-esc="crit.name"/></span>
+                  </t>
+                </div>
+              </t>
+              <t t-if="v.taste_notes">
+                <p class="sv-muted small mt-2 mb-0"><t t-esc="v.taste_notes"/></p>
+              </t>
+            </div></div>
+
+            <!-- ===== Gramajes y conteos ===== -->
+            <div class="mp-table-card mb-4"><div class="card-body p-4">
+              <div class="mp-sec-head"><span class="mp-sec-ico"><i class="fa fa-calculator"></i></span><h3 class="mp-sec-title">6 · Gramajes y conteos</h3></div>
+              <div class="sv-datos">
+                <div><span>Grs. camaronera</span><strong t-esc="'%.2f' % v.grams_farm"/></div>
+                <div><span>Grs. planta 1</span><strong t-esc="'%.2f' % v.grams_plant_1"/></div>
+                <div><span>Grs. planta 2</span><strong t-esc="'%.2f' % v.grams_plant_2"/></div>
+                <div><span>Variación</span><strong t-esc="'%.2f' % v.grams_variation"/></div>
+                <t t-foreach="v.count_ids" t-as="cnt">
+                  <div><span>Conteo <t t-esc="cnt_index + 1"/></span><strong t-esc="cnt.value"/></div>
+                </t>
+              </div>
+            </div></div>
+          </t>
+
+          <!-- ===== Verificación de larva ===== -->
+          <t t-if="v.scope == 'larvae'">
+            <div class="mp-table-card mb-4"><div class="card-body p-4">
+              <div class="mp-sec-head"><span class="mp-sec-ico"><i class="fa fa-flask"></i></span><h3 class="mp-sec-title">Verificación de larva</h3></div>
+              <div class="sv-datos">
+                <div><span>Cantidad verificada</span><strong t-esc="'%.0f' % v.larvae_qty_verified"/></div>
+                <div><span>Supervivencia</span><strong><t t-esc="'%.2f' % v.larvae_survival_rate"/> %</strong></div>
+                <div><span>Talla promedio</span><strong><t t-esc="'%.2f' % v.larvae_avg_size_mg"/> mg</strong></div>
+              </div>
+              <t t-if="v.larvae_health_notes">
+                <p class="sv-muted small mt-2 mb-0"><t t-esc="v.larvae_health_notes"/></p>
+              </t>
+            </div></div>
+          </t>
+
+          <!-- ===== Incidencias y fotos ===== -->
+          <div class="mp-table-card mb-4" t-if="v.incident_notes or v.photo_ids"><div class="card-body p-4">
+            <div class="mp-sec-head"><span class="mp-sec-ico"><i class="fa fa-camera"></i></span><h3 class="mp-sec-title">Evidencia e incidencias</h3></div>
+            <t t-if="v.incident_notes">
+              <p><t t-esc="v.incident_notes"/></p>
+            </t>
+            <t t-if="v.photo_ids">
+              <div class="sv-fotos">
+                <t t-foreach="v.photo_ids" t-as="f">
+                  <a t-attf-href="/verificador/verificacion/#{v.uuid_ref}/foto/#{f.id}" target="_blank">
+                    <img t-attf-src="/verificador/verificacion/#{v.uuid_ref}/foto/#{f.id}" alt="Foto de campo"/>
+                  </a>
+                </t>
+              </div>
+            </t>
+          </div></div>
+
+          <!-- ===== Veredicto ===== -->
+          <t t-if="v.state in ('approved', 'approved_obs', 'rejected')">
+            <div class="mp-table-card mb-4"><div class="card-body p-4">
+              <div class="mp-sec-head"><span class="mp-sec-ico"><i class="fa fa-gavel"></i></span><h3 class="mp-sec-title">Veredicto</h3></div>
+              <p>
+                <strong>
+                  <t t-if="v.state == 'approved'">Aprobada</t>
+                  <t t-elif="v.state == 'approved_obs'">Aprobada con observaciones</t>
+                  <t t-else="">Rechazada</t>
+                </strong>
+              </p>
+              <t t-if="v.verdict_notes">
+                <p class="sv-muted mb-0"><t t-esc="v.verdict_notes"/></p>
+              </t>
+            </div></div>
+          </t>
+
+          <!-- ===== Parte para WhatsApp ===== -->
+          <div class="mp-table-card mb-4"><div class="card-body p-4">
+            <div class="mp-sec-head"><span class="mp-sec-ico"><i class="fa fa-whatsapp"></i></span><h3 class="mp-sec-title">Parte para WhatsApp</h3></div>
+            <div class="sv-whatsapp"><t t-esc="v.whatsapp_report()"/></div>
+          </div></div>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+</odoo>

@@ -1,0 +1,70 @@
+<odoo>
+
+  <!-- ================================================================
+       "Mejor precio hoy" en la tarjeta de cada lote.
+
+       Es el cruce entre la lista de precios y el producto, puesto donde la
+       camaronera está mirando su inventario y no en otra pantalla. Aparece
+       solo si el lote es camarón adulto y tiene lista vigente que lo cotice.
+       ================================================================ -->
+  <template id="productos_mejor_precio"
+            inherit_id="shrimp_marketplace.products_list"
+            name="Mis productos - mejor precio hoy">
+    <xpath expr="//div[hasclass('s-prod-actions')]" position="before">
+      <t t-set="pk" t-value="p.mejor_precio_hoy()"/>
+      <t t-if="pk.get('mejor')">
+        <t t-set="m" t-value="pk['mejor']"/>
+        <div class="pk-lote">
+          <div class="pk-lote-cab">
+            <i class="fa fa-line-chart me-1"/> Mejor precio hoy
+          </div>
+          <div class="pk-lote-cifra">
+            <strong t-esc="'$ {:,.2f}'.format(m['precio'])"/>
+            <span class="pk-lote-uom">/ <t t-esc="'Kg' if m['uom'] == 'kg' else 'Lb'"/></span>
+          </div>
+          <div class="pk-lote-quien">
+            <t t-esc="m['empacadora'].name"/>
+          </div>
+          <t t-if="m['total']">
+            <div class="pk-lote-total">
+              Tu lote completo: <strong t-esc="'$ {:,.0f}'.format(m['total'])"/>
+            </div>
+          </t>
+          <t t-if="pk.get('ventaja')">
+            <div class="pk-lote-ventaja">
+              <t t-esc="'+$ {:,.2f}'.format(pk['ventaja'])"/> sobre
+              <t t-esc="pk['segundo']['empacadora'].name"/>
+              <t t-if="pk.get('diferencia_total')">
+                · <strong t-esc="'$ {:,.0f}'.format(pk['diferencia_total'])"/> más
+                por el lote
+              </t>
+            </div>
+          </t>
+          <t t-elif="pk.get('empacadoras') == 1">
+            <div class="pk-lote-ventaja pk-muted">
+              Única empacadora que cotiza esta talla
+            </div>
+          </t>
+          <a class="pk-lote-link" href="/marketplace/listas-de-precios/comparar">
+            Comparar <i class="fa fa-chevron-right"/>
+          </a>
+        </div>
+      </t>
+      <t t-elif="pk.get('sin_precio')">
+        <!-- Tiene listas, pero ninguna cotiza esa talla y presentación.
+             Decirlo es útil: significa que ninguno de sus compradores está
+             comprando ese producto esta semana. -->
+        <div class="pk-lote pk-lote--sin">
+          <div class="pk-lote-cab"><i class="fa fa-info-circle me-1"/> Sin precio esta semana</div>
+          <div class="pk-lote-quien">
+            Ninguna de tus <t t-esc="pk['listas']"/> lista<t t-if="pk['listas'] != 1">s</t>
+            vigente<t t-if="pk['listas'] != 1">s</t> cotiza
+            <t t-esc="'entero' if p.presentation == 'entero' else 'cola'"/>
+            <t t-esc="p.size_grade_id.name"/>.
+          </div>
+        </div>
+      </t>
+    </xpath>
+  </template>
+
+</odoo>

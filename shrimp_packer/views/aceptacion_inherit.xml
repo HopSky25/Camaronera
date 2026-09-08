@@ -1,0 +1,96 @@
+<odoo>
+
+  <!-- ================================================================
+       En el panel de aceptación: el precio que la propia lista del
+       comprador paga por la talla realmente verificada.
+
+       Convierte la contraoferta en aritmética sobre un documento que la
+       empacadora firmó y el vendedor ya recibió, en vez de un número
+       escrito a mano.
+       ================================================================ -->
+  <template id="aceptacion_precio_de_lista"
+            inherit_id="shrimp_verification.verification_acceptance"
+            name="Aceptación - precio según la lista">
+    <!-- Se ancla al formulario de contraoferta y no a un label: es estable y
+         además hereda su condición —solo se muestra al comprador cuando el
+         producto no cumplió lo publicado, que es cuando la sugerencia aplica. -->
+    <xpath expr="//form[contains(@t-attf-action, 'contraoferta')]" position="before">
+      <t t-set="pk_sug" t-value="v.precio_sugerido_por_lista()"/>
+      <t t-if="pk_sug.get('aplicable')">
+        <div class="pk-sugerido">
+          <div class="pk-sugerido-cab">
+            <i class="fa fa-list-alt me-1"/> Según tu propia lista de precios
+          </div>
+          <p class="mb-2">
+            El verificador midió la talla
+            <strong t-esc="pk_sug['talla_verificada']"/><t t-if="pk_sug['talla_publicada'] and not pk_sug['misma_talla']">, y se publicó
+            <strong t-esc="pk_sug['talla_publicada']"/></t>.
+            En tu lista «<t t-esc="pk_sug['lista'].name"/>» la
+            <t t-esc="pk_sug['talla_verificada']"/> se paga
+            <strong t-esc="'$ {:,.2f}'.format(pk_sug['precio_lista'])"/>
+            por <t t-esc="'Kg' if pk_sug['uom_lista'] == 'kg' else 'Lb'"/>.
+          </p>
+          <div class="pk-sugerido-cifras">
+            <div>
+              <span>Pactado</span>
+              <s t-esc="'$ {:,.2f}'.format(pk_sug['precio_pactado'])"/>
+            </div>
+            <i class="fa fa-long-arrow-right"/>
+            <div>
+              <span>Según tu lista</span>
+              <strong t-esc="'$ {:,.2f}'.format(pk_sug['precio'])"/>
+            </div>
+            <div>
+              <span>Total</span>
+              <strong t-esc="'$ {:,.2f}'.format(pk_sug['total'])"/>
+            </div>
+          </div>
+          <!-- Los valores se resuelven en t-set y se pasan con t-att, no con
+               t-attf: la interpolación #{} de t-attf choca con las llaves de
+               format() y el compilador de QWeb no puede leer la expresión. -->
+          <t t-set="pk_precio_txt" t-value="'%.2f' % pk_sug['precio']"/>
+          <t t-set="pk_uom_txt" t-value="'Kg' if pk_sug['uom_lista'] == 'kg' else 'Lb'"/>
+          <t t-set="pk_motivo_txt"
+             t-value="'Talla verificada %s: tu lista «%s» la paga a %.2f por %s.' % (
+                 pk_sug['talla_verificada'], pk_sug['lista'].name,
+                 pk_sug['precio_lista'], pk_uom_txt)"/>
+          <button type="button" class="s-btn s-btn-ghost btn-sm mt-2 js-usar-sugerido"
+                  t-att-data-precio="pk_precio_txt"
+                  t-att-data-motivo="pk_motivo_txt">
+            <i class="fa fa-magic me-1"/> Usar este precio
+          </button>
+          <p class="pk-muted small mb-0 mt-2">
+            Es una propuesta fundamentada, no automática: el vendedor la acepta
+            o la rechaza igual que cualquier otra.
+          </p>
+        </div>
+
+        <script type="text/javascript">
+<![CDATA[
+(function(){
+  function init(){
+    var b = document.querySelector('.js-usar-sugerido');
+    if(!b) return;
+    b.addEventListener('click', function(){
+      var f = b.closest('.sv-accept') || document;
+      var precio = f.querySelector('input[name="precio"]');
+      var motivo = f.querySelector('form[action*="contraoferta"] input[name="reason"]');
+      if(precio){
+        precio.value = b.getAttribute('data-precio');
+        // Se rellena el formulario, no se envía: la contraoferta la manda el
+        // comprador cuando esté conforme, no de un clic accidental.
+        precio.focus();
+      }
+      if(motivo && !motivo.value){ motivo.value = b.getAttribute('data-motivo'); }
+    });
+  }
+  if(document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', init); }
+  else { init(); }
+})();
+]]>
+        </script>
+      </t>
+    </xpath>
+  </template>
+
+</odoo>

@@ -17,7 +17,7 @@ desarrollo que se hace en paralelo sobre ese módulo.
     "author": "Carlos Carballo",
     "license": "LGPL-3",
     "category": "Industries",
-    "depends": ["shrimp_marketplace", "shrimp_user_registry", "website"],
+    "depends": ["shrimp_marketplace", "shrimp_user_registry", "shrimp_verification", "website"],
     "data": [
         "security/ir.model.access.csv",
         "security/shrimp_packer_rules.xml",
@@ -29,6 +29,8 @@ desarrollo que se hace en paralelo sobre ese módulo.
         "views/packer_profile_templates.xml",
         "views/reportes_inherit.xml",
         "views/navbar_inherit.xml",
+        "views/productos_inherit.xml",
+        "views/aceptacion_inherit.xml",
         "views/menus.xml",
     ],
     "assets": {

@@ -22,6 +22,7 @@ desarrollo que se hace en paralelo sobre ese módulo.
         "security/ir.model.access.csv",
         "security/shrimp_packer_rules.xml",
         "data/size_grade_extra.xml",
+        "data/mail_template.xml",
         "views/shrimp_price_list_views.xml",
         "views/price_list_templates.xml",
         "views/res_partner_views.xml",
@@ -31,6 +32,8 @@ desarrollo que se hace en paralelo sobre ese módulo.
         "views/navbar_inherit.xml",
         "views/productos_inherit.xml",
         "views/aceptacion_inherit.xml",
+        "views/oferta_templates.xml",
+        "views/publicar_inherit.xml",
         "views/menus.xml",
     ],
     "assets": {

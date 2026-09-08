@@ -104,6 +104,64 @@ class ShrimpPriceListPortal(http.Controller):
         return lista
 
     # ==================================================================
+    # La oferta disponible de lo que compra la empacadora
+    # ==================================================================
+    @http.route("/marketplace/oferta", type="http", auth="user", website=True)
+    def packer_supply(self, **kw):
+        partner = self._partner()
+        if partner.shrimp_user_type != "empacadora":
+            raise Forbidden()
+        L = request.env["shrimp.price.list"].sudo()
+        lista = L.search([
+            ("issuer_partner_id", "=", partner.id),
+            ("state", "=", "published"),
+        ]).filtered("is_current")[:1]
+        return request.render("shrimp_packer.packer_supply", {
+            "lista": lista,
+            "filas": lista.oferta_disponible() if lista else [],
+        })
+
+    # ==================================================================
+    # Precio sugerido al publicar un lote
+    # ==================================================================
+    @http.route("/marketplace/precio-sugerido", type="jsonrpc", auth="user")
+    def suggested_price(self, presentation=None, size_grade_id=None, **kw):
+        """Qué le pagan hoy por esa talla, para proponerlo al publicar el lote.
+
+        Va por jsonrpc porque el formulario de publicación es de otro módulo:
+        así se enriquece sin tocar su plantilla más que con un bloque y un
+        script, que es lo que menos conflictos genera.
+        """
+        partner = self._partner()
+        try:
+            talla_id = int(size_grade_id or 0)
+        except (TypeError, ValueError):
+            return {}
+        if not presentation or not talla_id:
+            return {}
+
+        L = request.env["shrimp.price.list"].sudo()
+        listas = L.visibles_para(partner)
+        if not listas:
+            return {"sin_listas": True}
+
+        lineas = listas.mapped("line_ids").filtered(
+            lambda l: l.size_grade_id.id == talla_id
+            and l.presentation == presentation
+            and (presentation != "cola" or l.channel == "directa"))
+        if not lineas:
+            return {"sin_precio": True, "listas": len(listas)}
+
+        mejor = max(lineas, key=lambda l: l.price)
+        return {
+            "precio": round(mejor.price, 2),
+            "uom": mejor.uom,
+            "empacadora": mejor.price_list_id.issuer_partner_id.name or "",
+            "lista": mejor.price_list_id.name or "",
+            "cuantas": len({l.price_list_id.issuer_partner_id.id for l in lineas}),
+        }
+
+    # ==================================================================
     # Perfil público de la empacadora
     # ==================================================================
     # Es público a propósito: la camaronera quiere saber a quién le está

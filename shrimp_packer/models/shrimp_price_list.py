@@ -249,12 +249,113 @@ class ShrimpPriceList(models.Model):
                 ("id", "!=", rec.id),
                 ("recipient_ids", "in", rec.recipient_ids.ids),
             ])
-            anteriores.write({"state": "archived"})
             rec.state = "published"
+            # El aviso se calcula ANTES de archivar: después las anteriores
+            # siguen existiendo, pero es más claro pasarlas explícitas.
+            rec._avisar_cambios(anteriores)
+            anteriores.write({"state": "archived"})
             if anteriores:
                 rec.message_post(body=_(
                     "Publicada. Se archivaron %s lista(s) anterior(es).") % len(anteriores))
         return True
+
+    def _avisar_cambios(self, anteriores):
+        """Avisa a cada destinatario de los precios que le cambiaron.
+
+        Y solo de las tallas que ese productor tiene en stock: un correo con
+        sesenta renglones no lo lee nadie, pero "subió la 26/30 y tienes 20.000
+        lb de esa talla" sí se lee. Es el aviso que hace que alguien abra la
+        aplicación.
+        """
+        self.ensure_one()
+        if not anteriores:
+            return
+        Prod = self.env["shrimp.product"].sudo()
+
+        antes = {}
+        for l in anteriores.mapped("line_ids"):
+            if l.presentation == "cola" and l.channel != "directa":
+                continue
+            clave = (l.presentation, l.size_grade_id.id, l.quality)
+            if clave not in antes or l.price > antes[clave]:
+                antes[clave] = l.price
+
+        for destinatario in self.recipient_ids:
+            duenos = destinatario | destinatario.child_ids
+            lotes = Prod.search([
+                ("seller_partner_id", "in", duenos.ids),
+                ("verification_scope", "=", "adult"),
+                ("active", "=", True), ("available_qty", ">", 0),
+                ("size_grade_id", "!=", False),
+            ])
+            if not lotes:
+                continue
+
+            # Se agrupa por talla y presentación, no por lote: un productor
+            # puede tener tres lotes de 41/50 y el correo mostraría la misma
+            # talla tres veces. Lo que le interesa es su stock total.
+            por_talla = {}
+            for lote in lotes:
+                clave_lote = (lote.presentation, lote.size_grade_id.id)
+                por_talla.setdefault(clave_lote, {"talla": lote.size_grade_id,
+                                                  "lotes": lotes.browse()})
+                por_talla[clave_lote]["lotes"] |= lote
+
+            cambios = []
+            for (presentation, _tid), dato in por_talla.items():
+                lineas = self.line_ids.filtered(
+                    lambda l: l.size_grade_id == dato["talla"]
+                    and l.presentation == presentation
+                    and (presentation != "cola" or l.channel == "directa"))
+                if not lineas:
+                    continue
+                nueva = max(lineas, key=lambda l: l.price)
+                clave = (presentation, dato["talla"].id, nueva.quality)
+                previo = antes.get(clave)
+                if previo is None or abs(previo - nueva.price) < 0.005:
+                    continue
+                cantidad = sum(l.cantidad_en(nueva.uom) for l in dato["lotes"])
+                cambios.append({
+                    "talla": dato["talla"].name,
+                    "presentacion": "entero" if presentation == "entero" else "cola",
+                    "antes": previo,
+                    "ahora": nueva.price,
+                    "uom": "Kg" if nueva.uom == "kg" else "Lb",
+                    "cantidad": cantidad,
+                    "lotes": len(dato["lotes"]),
+                    "efecto": (nueva.price - previo) * cantidad,
+                })
+            if not cambios:
+                continue
+            cambios.sort(key=lambda c: -abs(c["efecto"]))
+            self._enviar_aviso_cambios(destinatario, cambios)
+
+    def _enviar_aviso_cambios(self, destinatario, cambios):
+        """Manda el correo del cambio de precios y deja constancia."""
+        self.ensure_one()
+        if not destinatario.email:
+            return
+        plantilla = self.env.ref(
+            "shrimp_packer.mail_template_precios_cambiaron", raise_if_not_found=False)
+        if not plantilla:
+            return
+        if not self.env["ir.mail_server"].sudo().search_count([]):
+            # Sin servidor SMTP intentar el envío deja la página colgada
+            # esperando el timeout por cada destinatario.
+            self.sudo()._message_log(body=_(
+                "No se avisó a %s del cambio de precios: no hay servidor de "
+                "correo saliente configurado.") % destinatario.name)
+            return
+        try:
+            plantilla.sudo().with_context(
+                destinatario=destinatario.name, cambios=cambios,
+            ).send_mail(self.id, force_send=True,
+                        email_values={"email_to": destinatario.email})
+            self.sudo()._message_log(body=_(
+                "Avisado a %(quien)s de %(n)s cambio(s) de precio en tallas que "
+                "tiene en stock.") % {"quien": destinatario.name, "n": len(cambios)})
+        except Exception:  # noqa: BLE001 - el correo no debe romper la publicación
+            pass
 
     def action_archive_list(self):
         self.write({"state": "archived"})
@@ -657,6 +758,72 @@ class ShrimpPriceList(models.Model):
             "podio": podio,
             "comparables": len([f for f in datos["filas"] if not f["solo_uno"]]),
         }
+
+    # ==================================================================
+    # La vuelta: qué oferta hay de lo que esta empacadora compra
+    # ==================================================================
+    # Publicar la lista solo le servía al proveedor para negociar contra ella.
+    # Esto le devuelve algo: al publicar ve, talla por talla, cuánto hay
+    # disponible entre sus propios proveedores. Deja de ser transparencia
+    # obligada y pasa a ser una herramienta de abastecimiento.
+    def oferta_disponible(self):
+        """Los lotes disponibles de las tallas que esta lista cotiza.
+
+        Solo entre los destinatarios de la lista: no expone el inventario de
+        camaroneras con las que esta empacadora no trabaja.
+        """
+        self.ensure_one()
+        if not self.recipient_ids:
+            return []
+
+        # Destinatarios y, si alguno es empresa madre, también sus fincas.
+        duenos = self.recipient_ids | self.recipient_ids.mapped("child_ids")
+        lotes = self.env["shrimp.product"].sudo().search([
+            ("seller_partner_id", "in", duenos.ids),
+            ("verification_scope", "=", "adult"),
+            ("active", "=", True),
+            ("state", "=", "published"),
+            ("available_qty", ">", 0),
+            ("size_grade_id", "!=", False),
+        ])
+        if not lotes:
+            return []
+
+        # Un renglón por talla y presentación, con el precio que ella paga.
+        por_talla = {}
+        for linea in self.line_ids:
+            if linea.presentation == "cola" and linea.channel != "directa":
+                continue
+            clave = (linea.presentation, linea.size_grade_id.id)
+            actual = por_talla.get(clave)
+            # Si cotiza varias calidades se muestra la mejor: es el techo de lo
+            # que pagaría por ese lote si sale clase A.
+            if not actual or linea.price > actual.price:
+                por_talla[clave] = linea
+
+        filas = []
+        for (presentation, talla_id), linea in por_talla.items():
+            propios = lotes.filtered(
+                lambda l: l.presentation == presentation
+                and l.size_grade_id.id == talla_id)
+            if not propios:
+                continue
+            # La cantidad se expresa en la unidad en que ella cotiza, para que
+            # el valor no salga de multiplicar libras por un precio en kilos.
+            cantidad = sum(l.cantidad_en(linea.uom) for l in propios)
+            filas.append({
+                "talla": linea.size_grade_id,
+                "presentation": presentation,
+                "precio": linea.price,
+                "uom": linea.uom,
+                "lotes": propios,
+                "cantidad": cantidad,
+                "valor": cantidad * linea.price,
+                "camaroneras": propios.mapped("seller_partner_id"),
+            })
+        filas.sort(key=lambda f: (f["presentation"], f["talla"].sequence,
+                                 f["talla"].name))
+        return filas
 
     def texto_ventana(self):
         """La vigencia en una línea, como la escriben en las listas reales."""

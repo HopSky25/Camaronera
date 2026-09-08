@@ -1,0 +1,118 @@
+<odoo>
+
+  <!-- ================================================================
+       LA OFERTA DISPONIBLE DE LO QUE COMPRA LA EMPACADORA
+       Es lo que le devuelve valor por publicar su lista.
+       ================================================================ -->
+  <template id="packer_supply" name="Oferta disponible">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page shrimp-page--full py-4">
+
+          <div class="sf-banner mb-4">
+            <div class="sf-banner-row">
+              <div class="sf-banner-txt">
+                <h1>Oferta disponible</h1>
+                <p>Qué hay en las tallas que compras, entre los productores a
+                   quienes les mandaste tu lista.</p>
+              </div>
+              <span class="sf-kicker"><i class="fa fa-cubes"></i> Abastecimiento</span>
+            </div>
+          </div>
+
+          <t t-if="not lista">
+            <div class="pk-vacio">
+              <i class="fa fa-list-alt fa-2x mb-2"/>
+              <p class="mb-1">Todavía no tienes una lista de precios vigente.</p>
+              <p class="pk-muted mb-0">
+                Publica tu lista y aquí verás lo que hay disponible en las
+                tallas que cotizas.
+              </p>
+              <a class="s-btn s-btn-primary mt-3" href="/marketplace/listas-de-precios/nueva">
+                <i class="fa fa-plus me-1"/> Publicar mi lista
+              </a>
+            </div>
+          </t>
+
+          <t t-elif="not filas">
+            <div class="pk-vacio">
+              <i class="fa fa-cubes fa-2x mb-2"/>
+              <p class="mb-0">Ahora mismo no hay lotes disponibles en las tallas
+                 de tu lista «<t t-esc="lista.name"/>».</p>
+            </div>
+          </t>
+
+          <t t-else="">
+            <t t-set="valor_total" t-value="sum(f['valor'] for f in filas)"/>
+            <div class="pk-oferta-kpis mb-3">
+              <div>
+                <span>Tallas con oferta</span>
+                <strong t-esc="len(filas)"/>
+              </div>
+              <div>
+                <span>Lotes disponibles</span>
+                <strong t-esc="sum(len(f['lotes']) for f in filas)"/>
+              </div>
+              <div>
+                <span>Valor a tus precios</span>
+                <strong t-esc="'$ {:,.0f}'.format(valor_total)"/>
+              </div>
+            </div>
+
+            <div class="pk-comp-wrap">
+              <table class="pk-comp">
+                <thead>
+                  <tr>
+                    <th class="pk-comp-talla">Talla</th>
+                    <th>Presentación</th>
+                    <th class="text-end">Tú pagas</th>
+                    <th class="text-end">Disponible</th>
+                    <th class="text-end">Valor</th>
+                    <th>Camaroneras</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <t t-foreach="filas" t-as="f">
+                    <tr>
+                      <td class="pk-talla" t-esc="f['talla'].name"/>
+                      <td t-esc="'Entero' if f['presentation'] == 'entero' else 'Cola'"/>
+                      <td class="text-end">
+                        <t t-esc="'$ {:,.2f}'.format(f['precio'])"/>
+                        <span class="pk-muted"> / <t t-esc="'Kg' if f['uom'] == 'kg' else 'Lb'"/></span>
+                      </td>
+                      <td class="text-end">
+                        <strong t-esc="'{:,.0f}'.format(f['cantidad'])"/>
+                        <span class="pk-muted"> <t t-esc="'Kg' if f['uom'] == 'kg' else 'Lb'"/></span>
+                        <div class="pk-comp-total">
+                          <t t-esc="len(f['lotes'])"/> lote<t t-if="len(f['lotes']) != 1">s</t>
+                        </div>
+                      </td>
+                      <td class="text-end pk-mejor" t-esc="'$ {:,.0f}'.format(f['valor'])"/>
+                      <td>
+                        <t t-foreach="f['camaroneras']" t-as="c">
+                          <a class="pk-oferta-cam"
+                             t-attf-href="/marketplace/vendedor/#{c.uuid_ref}"
+                             t-esc="c.name"/>
+                        </t>
+                      </td>
+                    </tr>
+                  </t>
+                </tbody>
+              </table>
+            </div>
+
+            <p class="pk-nota mt-3">
+              <i class="fa fa-info-circle me-1"/>
+              Las cantidades están en la unidad en que tú cotizas cada talla, ya
+              convertidas desde la del lote. El valor es a tu propio precio: es
+              lo que te costaría llevártelo todo. Solo se muestran los
+              productores a quienes va dirigida tu lista.
+            </p>
+          </t>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+</odoo>

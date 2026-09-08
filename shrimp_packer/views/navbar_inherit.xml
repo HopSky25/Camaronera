@@ -1,0 +1,40 @@
+<odoo>
+
+  <!-- ================================================================
+       "Listas de precios" dentro del desplegable Operaciones.
+
+       Antes era un menú suelto al final de la barra: estaba, pero nadie
+       lo encontraba. Va donde el usuario lo busca, junto al historial de
+       compras y los reportes.
+       ================================================================ -->
+  <template id="navbar_listas_de_precios"
+            inherit_id="shrimp_marketplace.submenu_mi_panel_dropdown"
+            name="Operaciones - listas de precios">
+    <!-- Al final del desplegable Operaciones, después de "Calendario de
+         entregas". Se ancla por el href, que es estable, y no por posición. -->
+    <xpath expr="//a[@href='/marketplace/calendar']/.." position="after">
+      <li>
+        <a role="menuitem" class="dropdown-item mp-menu-item"
+           href="/marketplace/listas-de-precios">
+          <span class="mp-menu-ico mp-mi-blue"><i class="fa fa-list-alt"/></span>
+          <span>Listas de precios</span>
+        </a>
+      </li>
+      <li>
+        <a role="menuitem" class="dropdown-item mp-menu-item"
+           href="/marketplace/listas-de-precios/comparar">
+          <span class="mp-menu-ico mp-mi-teal"><i class="fa fa-balance-scale"/></span>
+          <span>Comparar precios</span>
+        </a>
+      </li>
+      <li>
+        <a role="menuitem" class="dropdown-item mp-menu-item"
+           href="/marketplace/empacadoras">
+          <span class="mp-menu-ico mp-mi-amber"><i class="fa fa-industry"/></span>
+          <span>Empacadoras</span>
+        </a>
+      </li>
+    </xpath>
+  </template>
+
+</odoo>

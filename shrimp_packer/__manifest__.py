@@ -28,6 +28,7 @@ desarrollo que se hace en paralelo sobre ese módulo.
         "views/registry_form_packer.xml",
         "views/packer_profile_templates.xml",
         "views/reportes_inherit.xml",
+        "views/navbar_inherit.xml",
         "views/menus.xml",
     ],
     "assets": {

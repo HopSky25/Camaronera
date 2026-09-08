@@ -352,22 +352,42 @@
               </select>
             </label>
 
-            <div class="pk-grid mt-3">
+            <h3 class="pk-seccion">Forma de pago</h3>
+            <p class="pk-muted small mb-2">
+              Es lo que el productor compara entre compradores. Tal como sale en
+              las listas del sector: <em>«Anticipo del 50 %, a cancelar dentro de
+              5 días calendarios al inicio del proceso. Saldo pendiente: a
+              liquidar dentro de 14 días desde la recepción de la factura.»</em>
+              Todo es opcional: lo que dejes vacío no se muestra.
+            </p>
+            <div class="pk-grid">
               <label>Anticipo (%)
-                <input type="number" step="0.01" name="advance_pct" class="form-control"
-                       t-att-value="lista.advance_pct if lista else ''"/>
+                <input type="number" step="1" min="0" max="100" name="advance_pct"
+                       class="form-control" placeholder="50"
+                       t-att-value="'{:.0f}'.format(lista.advance_pct) if (lista and lista.advance_pct) else ''"/>
+                <span class="pk-ayuda">Qué parte pagas por adelantado. Si pagas
+                  todo de una vez, pon 100 y deja el saldo vacío.</span>
               </label>
               <label>Días para el anticipo
-                <input type="number" name="advance_days" class="form-control"
-                       t-att-value="lista.advance_days if lista else ''"/>
+                <input type="number" step="1" min="0" name="advance_days"
+                       class="form-control" placeholder="5"
+                       t-att-value="lista.advance_days or '' if lista else ''"/>
+                <span class="pk-ayuda">Días calendario desde que empieza el
+                  proceso para pagar ese anticipo.</span>
               </label>
               <label>Días para el saldo
-                <input type="number" name="balance_days" class="form-control"
-                       t-att-value="lista.balance_days if lista else ''"/>
+                <input type="number" step="1" min="0" name="balance_days"
+                       class="form-control" placeholder="14"
+                       t-att-value="lista.balance_days or '' if lista else ''"/>
+                <span class="pk-ayuda">Días calendario desde la recepción de la
+                  factura para pagar el resto.</span>
               </label>
               <label>Nota de pago
                 <input type="text" name="payment_notes" class="form-control"
+                       placeholder="Ej. El anticipo se cancela al inicio del proceso"
                        t-att-value="lista.payment_notes if lista else ''"/>
+                <span class="pk-ayuda">Cualquier condición que no entre arriba.
+                  Opcional.</span>
               </label>
             </div>
 

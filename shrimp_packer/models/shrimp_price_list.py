@@ -56,10 +56,24 @@ class ShrimpPriceList(models.Model):
 
     # Forma de pago en campos y no en un texto libre: es lo que el productor
     # compara entre compradores, y así se puede ordenar y filtrar.
-    advance_pct = fields.Float(string="Anticipo (%)", digits=(5, 2))
-    advance_days = fields.Integer(string="Días para el anticipo")
-    balance_days = fields.Integer(string="Días para el saldo")
-    payment_notes = fields.Char(string="Nota de pago")
+    advance_pct = fields.Float(
+        string="Anticipo (%)", digits=(5, 2),
+        help="Qué parte del valor se paga por adelantado. En la lista de "
+             "ECUAMARISCO es 50. Si pagas todo de una vez, pon 100 y deja "
+             "vacío «días para el saldo».")
+    advance_days = fields.Integer(
+        string="Días para el anticipo",
+        help="Días calendario para pagar el anticipo, contados desde que "
+             "empieza el proceso. En la lista de ECUAMARISCO son 5.")
+    balance_days = fields.Integer(
+        string="Días para el saldo",
+        help="Días calendario para pagar el resto, contados desde la "
+             "recepción de la factura. En la lista de ECUAMARISCO son 14. "
+             "No aplica si el anticipo es del 100 %.")
+    payment_notes = fields.Char(
+        string="Nota de pago",
+        help="Cualquier condición que no entre en los campos anteriores. "
+             "Es opcional.")
 
     # A quién va dirigida. Es lo que hace confidencial a la lista: en el sector
     # cada productor recibe su propio precio, y ver el del vecino sería un
@@ -171,6 +185,18 @@ class ShrimpPriceList(models.Model):
                 raise ValidationError(_(
                     "Esta lista es de camarón adulto, así que va dirigida a "
                     "camaroneras. No lo son: %s.") % ", ".join(ajenos.mapped("name")))
+
+    @api.constrains("advance_pct", "advance_days", "balance_days")
+    def _check_pago(self):
+        for rec in self:
+            if rec.advance_pct and not (0 < rec.advance_pct <= 100):
+                raise ValidationError(_(
+                    "El anticipo es un porcentaje: tiene que estar entre 1 y "
+                    "100. Pusiste %s.") % ("{:.0f}".format(rec.advance_pct)))
+            if rec.advance_days and rec.advance_days < 0:
+                raise ValidationError(_("Los días del anticipo no pueden ser negativos."))
+            if rec.balance_days and rec.balance_days < 0:
+                raise ValidationError(_("Los días del saldo no pueden ser negativos."))
 
     @api.constrains("dispatch_from", "dispatch_to", "open_ended")
     def _check_ventana(self):
@@ -602,12 +628,16 @@ class ShrimpPriceList(models.Model):
     def texto_pago(self):
         self.ensure_one()
         partes = []
+        total = self.advance_pct and self.advance_pct >= 100
         if self.advance_pct:
-            t = _("Anticipo del %s%%") % ("{:.0f}".format(self.advance_pct))
+            # Con el 100 % no es un "anticipo", es el pago completo: llamarlo
+            # anticipo y anunciar un saldo que no existe confunde al productor.
+            t = _("Pago del 100 % del valor") if total else (
+                _("Anticipo del %s%%") % ("{:.0f}".format(self.advance_pct)))
             if self.advance_days:
                 t += _(", a cancelar dentro de %s días calendarios") % self.advance_days
             partes.append(t)
-        if self.balance_days:
+        if self.balance_days and not total:
             partes.append(_(
                 "Saldo pendiente a liquidar dentro de %s días calendarios desde "
                 "la recepción de la factura") % self.balance_days)

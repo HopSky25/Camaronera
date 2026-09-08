@@ -35,12 +35,17 @@
     font-size: 11px; font-weight: 600; padding: 3px 10px;
     border-radius: 999px; background: #eef2f5; color: #5a6b74;
 }
+/* La bandeja tiene ocho estados y solo seis tenían color: 'Recibida' y
+   'Cancelada' caían al estilo base, así que la orden recién llegada —la
+   que hay que atender primero— se veía igual que una cerrada. */
+.sv-badge--received     { background: #eef1f4; color: #46545e; }
 .sv-badge--assigned     { background: #e6f6f8; color: #0d7c88; }
 .sv-badge--in_field     { background: #fdf1e0; color: #a86a10; }
 .sv-badge--done         { background: #e9f0fb; color: #2a5db0; }
 .sv-badge--approved,
 .sv-badge--approved_obs { background: #e6f6ec; color: #217a48; }
 .sv-badge--rejected     { background: #fdeaea; color: #b3261e; }
+.sv-badge--cancelled    { background: #f2f3f5; color: #6b7780; }
 
 .sv-chip {
     font-size: 11px; padding: 3px 10px; border-radius: 999px;
@@ -712,11 +717,13 @@ button.sv-eye { background: none; border: 0; padding: 0; cursor: pointer; }
   transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
 }
 .vw-order:hover{ transform:translateY(-2px); box-shadow:0 12px 28px rgba(15,58,77,.10); color:inherit; border-left-color:var(--vw-teal); }
+.vw-order--received{ border-left-color:#46545e; }
 .vw-order--assigned{ border-left-color:#0d7c88; }
 .vw-order--in_field{ border-left-color:#e69c24; }
 .vw-order--done{ border-left-color:#2a5db0; }
 .vw-order--approved, .vw-order--approved_obs{ border-left-color:#217a48; }
 .vw-order--rejected{ border-left-color:#b3261e; }
+.vw-order--cancelled{ border-left-color:#9aa4ac; opacity:.75; }
 .vw-order-main{ min-width:0; flex:1; }
 .vw-order-meta{ display:flex; flex-wrap:wrap; gap:6px 16px; margin-top:8px; font-size:13px; color:var(--vw-soft); }
 .vw-order-meta strong{ color:var(--vw-ink); font-weight:700; }

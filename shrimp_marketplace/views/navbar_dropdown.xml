@@ -11,6 +11,14 @@
     <!-- 2) Insertar los dropdowns -->
     <xpath expr="//li[1]" position="before">
 
+      <!-- El eslabón de quien mira: hay entradas que solo tienen sentido para
+           algunos roles, y ofrecerlas a todos dejaba enlaces que terminan en
+           "403: Prohibido". El usuario no lee eso como una regla de negocio,
+           lo lee como que la aplicación está rota. -->
+      <t t-set="shrimp_tipo"
+         t-value="request.env.user.partner_id.shrimp_user_type if request else False"/>
+      <t t-set="shrimp_vende" t-value="shrimp_tipo in ('semillero', 'laboratorio', 'camaronera')"/>
+
       <!-- ===== Menú: Productos ===== -->
       <li t-if="submenu.is_visible and submenu.name == 'Productos'"
           t-attf-class="#{item_class or ''} dropdown" role="presentation">
@@ -20,7 +28,7 @@
           <span t-field="submenu.name"/>
         </a>
         <ul t-attf-class="dropdown-menu mp-menu #{dropdown_menu_classes}" role="menu">
-          <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace/products/new"><span class="mp-menu-ico mp-mi-green"><i class="fa fa-plus-circle"/></span><span>Publicar producto</span></a></li>
+          <li t-if="shrimp_vende or not shrimp_tipo"><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace/products/new"><span class="mp-menu-ico mp-mi-green"><i class="fa fa-plus-circle"/></span><span>Publicar producto</span></a></li>
           <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace/products"><span class="mp-menu-ico mp-mi-blue"><i class="fa fa-cubes"/></span><span>Mis productos</span></a></li>
           <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace"><span class="mp-menu-ico mp-mi-teal"><i class="fa fa-shopping-bag"/></span><span>Marketplace</span></a></li>
           <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace/mis-lotes"><span class="mp-menu-ico mp-mi-blue"><i class="fa fa-flask"/></span><span>Mi inventario</span></a></li>
@@ -40,7 +48,7 @@
         <ul t-attf-class="dropdown-menu mp-menu #{dropdown_menu_classes}" role="menu">
           <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace/compras"><span class="mp-menu-ico mp-mi-blue"><i class="fa fa-shopping-cart"/></span><span>Historial de compras</span></a></li>
           <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace/ventas"><span class="mp-menu-ico mp-mi-green"><i class="fa fa-line-chart"/></span><span>Ventas realizadas</span></a></li>
-          <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace/precios"><span class="mp-menu-ico mp-mi-amber"><i class="fa fa-tags"/></span><span>Precios por cliente</span></a></li>
+          <li t-if="shrimp_vende or not shrimp_tipo"><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace/precios"><span class="mp-menu-ico mp-mi-amber"><i class="fa fa-tags"/></span><span>Precios por cliente</span></a></li>
           <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace/planificacion"><span class="mp-menu-ico mp-mi-teal"><i class="fa fa-tasks"/></span><span>Planificación</span></a></li>
           <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace/reportes"><span class="mp-menu-ico mp-mi-green"><i class="fa fa-bar-chart"/></span><span>Mis reportes</span></a></li>
           <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace/calendar"><span class="mp-menu-ico mp-mi-amber"><i class="fa fa-calendar"/></span><span>Calendario de entregas</span></a></li>

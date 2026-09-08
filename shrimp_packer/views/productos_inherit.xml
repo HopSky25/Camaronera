@@ -24,6 +24,11 @@
           </div>
           <div class="pk-lote-quien">
             <t t-esc="m['empacadora'].name"/>
+            <!-- La calidad, siempre. El precio más alto de la talla suele ser
+                 el de la mejor clase; si el lote sale clase B se cobra menos.
+                 Afirmar el precio sin decir a qué clase corresponde es
+                 prometer una cifra que el parte de planta va a desmentir. -->
+            <span class="pk-lote-cal"> · <t t-esc="m['calidad_txt']"/></span>
           </div>
           <t t-if="m['total']">
             <div class="pk-lote-total">
@@ -40,6 +45,12 @@
               </t>
             </div>
           </t>
+          <t t-elif="pk.get('empate')">
+            <div class="pk-lote-ventaja pk-muted">
+              Empate con <t t-esc="pk['segundo']['empacadora'].name"/>:
+              pagan lo mismo
+            </div>
+          </t>
           <t t-elif="pk.get('empacadoras') == 1">
             <div class="pk-lote-ventaja pk-muted">
               Única empacadora que cotiza esta talla
@@ -47,6 +58,23 @@
           </t>
           <a class="pk-lote-link" href="/marketplace/listas-de-precios/comparar">
             Comparar <i class="fa fa-chevron-right"/>
+          </a>
+        </div>
+      </t>
+      <t t-elif="pk.get('faltan')">
+        <!-- Sin talla y presentación no hay nada con que cruzar. El lote no
+             sale en ninguna comparación y antes no lo decía: la tarjeta se
+             quedaba muda y el dato faltante era invisible. -->
+        <div class="pk-lote pk-lote--sin">
+          <div class="pk-lote-cab">
+            <i class="fa fa-exclamation-triangle me-1"/> Te falta un dato
+          </div>
+          <div class="pk-lote-quien">
+            Indica <t t-esc="' y '.join(pk['faltan'])"/> para saber a cuánto
+            te lo pagan: las listas de las empacadoras cotizan por talla.
+          </div>
+          <a class="pk-lote-link" t-attf-href="/marketplace/product/#{p.uuid_ref}">
+            Completar el lote <i class="fa fa-chevron-right"/>
           </a>
         </div>
       </t>

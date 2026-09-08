@@ -74,13 +74,14 @@ class ShrimpUserCertificateLine(models.Model):
     def action_reset_pending(self):
         self.write({"status": "pending"})
 
-    _sql_constraints = [
-        (
-            "unique_partner_certificate_number",
-            "unique(partner_id, certificate_id, certificate_number)",
-            "Ya existe este certificado con el mismo número para este contacto."
-        ),
-    ]
+    # Odoo 19 ignora _sql_constraints EN SILENCIO —solo deja un
+    # WARNING en el arranque— y la restriccion no llega nunca a
+    # PostgreSQL. Se comprobo contra pg_constraint: ninguna de las
+    # unicidades declaradas asi existia en la base.
+    _unique_partner_certificate_number = models.Constraint(
+        "unique(partner_id, certificate_id, certificate_number)",
+        "Ya existe este certificado con el mismo número para este contacto.",
+    )
 
     @api.constrains("issue_date", "expiry_date")
     def _check_dates(self):

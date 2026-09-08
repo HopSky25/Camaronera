@@ -145,7 +145,7 @@
          no aporta nada. La tarjeta del paso 1 se OCULTA con CSS, no se elimina:
          el <select> tiene que seguir en el DOM porque el JS del registro lo usa
          para pintar el paso 3 y el POST necesita su valor. -->
-    <xpath expr="//div[@class='s-eyebrow'][normalize-space()='Paso 1']/ancestor::div[hasclass('card')][1]"
+    <xpath expr="//div[hasclass('s-eyebrow')][normalize-space()='Paso 1']/ancestor::div[hasclass('card')][1]"
            position="attributes">
       <attribute name="t-attf-style">
         #{'display:none;' if request.website.sudo().shrimp_is_verifier_site else ''}
@@ -154,12 +154,12 @@
 
     <!-- Con el paso 1 oculto, los siguientes se renumeran para que el usuario
          no vea una secuencia que empieza en 2. -->
-    <xpath expr="//div[@class='s-eyebrow'][normalize-space()='Paso 2']" position="replace">
+    <xpath expr="//div[hasclass('s-eyebrow')][normalize-space()='Paso 2']" position="replace">
       <div class="s-eyebrow">
         Paso <t t-esc="1 if request.website.sudo().shrimp_is_verifier_site else 2"/>
       </div>
     </xpath>
-    <xpath expr="//div[@class='s-eyebrow'][normalize-space()='Paso 3']" position="replace">
+    <xpath expr="//div[hasclass('s-eyebrow')][normalize-space()='Paso 3']" position="replace">
       <div class="s-eyebrow">
         Paso <t t-esc="2 if request.website.sudo().shrimp_is_verifier_site else 3"/>
       </div>

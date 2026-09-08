@@ -63,9 +63,20 @@ y portal público.
         "views/shrimp_api_key_views.xml",
         "views/shrimp_uom_views.xml",
         "views/shrimp_size_grade_views.xml",
+        "views/shrimp_review_views.xml",
 
-        # Datos de ejemplo realistas, divididos por modelo/relación. Usan
-        # <data noupdate="1">: se crean una sola vez y no se reprocesan en -u.
+    ],
+    # Datos de ejemplo realistas, divididos por modelo/relación. Usan
+    # <data noupdate="1">: se crean una sola vez y no se reprocesan en -u.
+    #
+    # Van en 'demo' y NO en 'data'. Estaban en 'data', que Odoo carga en TODA
+    # instalación aunque se pase --without-demo: 1.822 registros de ejemplo
+    # entrarían en producción. Lo peor no son los lotes de mentira, son las
+    # 67 reseñas: shrimp_rating_avg está almacenado y sale de ahí, así que la
+    # reputación pública de los vendedores —lo que un comprador mira para
+    # decidir— venía fabricada. En shrimp_user_registry ya estaba bien puesto,
+    # lo que confirma que aquí era un descuido.
+    "demo": [
         "demo/demo_01_attachments.xml",
         "demo/demo_02_partners.xml",
         "demo/demo_03_facilities.xml",
@@ -77,9 +88,7 @@ y portal público.
         "demo/demo_09_check_requests.xml",
         "demo/demo_10_transactions.xml",
         "demo/demo_11_evolution.xml",
-
     ],
-    'demo': [],
     "post_init_hook": "post_init_hook",
     "application": True,
     "license": "LGPL-3",

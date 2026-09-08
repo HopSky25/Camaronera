@@ -526,3 +526,43 @@ class ShrimpProduct(models.Model):
                 rec.write({"state": "sold"})
             elif rec.state == "sold" and float_compare(rec.available_qty, 0.0, precision_digits=6) == 1:
                 rec.write({"state": "published"})
+
+    # ------------------------------------------------------------------
+    # Quién puede comprar este lote
+    # ------------------------------------------------------------------
+    # La cadena tiene un orden: el semillero vende al laboratorio, el
+    # laboratorio a la camaronera. Los controladores ya lo hacían cumplir
+    # cortando con un 403, pero el catálogo pintaba "Comprar" en todo: de las
+    # veinte tarjetas de la primera página, quince acababan en "No tienes
+    # autorización". El usuario no lee eso como una regla de negocio, lo lee
+    # como que la aplicación está rota.
+    #
+    # La regla vive aquí, en el modelo, y la usan la plantilla y el guard del
+    # controlador. Dos copias de la misma regla se separan siempre.
+    _COMPRADOR_ESPERADO = {
+        "semillero": "laboratorio",
+        "laboratorio": "camaronera",
+    }
+
+    def motivo_no_comprable(self, partner):
+        """Cadena vacía si `partner` puede comprar este lote; si no, el porqué.
+
+        Devuelve texto y no un booleano a propósito: la tarjeta necesita
+        explicar por qué no se puede comprar, y "no puedes" sin razón es lo
+        que hace que alguien piense que hay un error.
+        """
+        self.ensure_one()
+        if not partner:
+            return _("Inicia sesión para comprar.")
+        if partner.id == self.seller_partner_id.id:
+            return _("Es tu propio lote.")
+        vendedor = self.seller_partner_id.shrimp_user_type
+        esperado = self._COMPRADOR_ESPERADO.get(vendedor)
+        if esperado and partner.shrimp_user_type != esperado:
+            etiquetas = dict(
+                partner._fields["shrimp_user_type"]._description_selection(self.env))
+            return _("Lo que vende un %(vende)s solo lo compra un %(compra)s.") % {
+                "vende": etiquetas.get(vendedor, vendedor or ""),
+                "compra": etiquetas.get(esperado, esperado),
+            }
+        return ""

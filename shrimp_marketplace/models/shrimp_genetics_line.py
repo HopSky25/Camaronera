@@ -19,7 +19,16 @@ class ShrimpGeneticsLine(models.Model):
     description = fields.Text(string="Descripción")
     active = fields.Boolean(default=True)
 
-    _sql_constraints = [
-        ("shrimp_genetics_line_name_unique", "unique(name)", "Ya existe una línea genética con ese nombre."),
-        ("shrimp_genetics_line_code_unique", "unique(code)", "Ya existe una línea genética con ese código."),
-    ]
+    # Odoo 19 ignora _sql_constraints EN SILENCIO —solo deja un
+    # WARNING en el arranque— y la restriccion no llega nunca a
+    # PostgreSQL. Se comprobo contra pg_constraint: ninguna de las
+    # unicidades declaradas asi existia en la base.
+    _shrimp_genetics_line_name_unique = models.Constraint(
+        "unique(name)",
+        "Ya existe una línea genética con ese nombre.",
+    )
+
+    _shrimp_genetics_line_code_unique = models.Constraint(
+        "unique(code)",
+        "Ya existe una línea genética con ese código.",
+    )

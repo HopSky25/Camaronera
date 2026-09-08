@@ -1,26 +1,109 @@
 <odoo>
-  <!-- El verificador ve las suyas; comprador y vendedor ven las de sus compras.
-       Nadie del portal ve verificaciones de operaciones ajenas. -->
+  <!-- ================================================================
+       Quién ve y quién ESCRIBE el informe de verificación.
+
+       Las tres partes tienen que poder leerlo: es el documento con el que se
+       cierra la compra. Pero escribirlo es trabajo del verificador y de nadie
+       más. Antes las reglas no distinguían permiso, así que el dominio de
+       lectura —que incluye a comprador y vendedor— también les concedía
+       escritura y borrado sobre las líneas y los conteos de campo. Es decir:
+       la parte a la que el informe perjudica podía editar o borrar la
+       clasificación por tallas y la evidencia primaria del dictamen que le
+       cuesta dinero. Es el peor agujero posible en un sistema cuyo valor es
+       precisamente que el informe sea creíble.
+
+       Los controladores del portal trabajan con sudo(), así que cerrar la
+       escritura aquí no le quita ninguna acción legítima a nadie: la
+       aceptación, la contraoferta y el rechazo siguen funcionando.
+       ================================================================ -->
+
+  <!-- === Cabecera de la verificación === -->
   <record id="rule_shrimp_verification_portal" model="ir.rule">
-    <field name="name">Shrimp Verification: propias</field>
+    <field name="name">Verificación: la leen las tres partes</field>
     <field name="model_id" ref="model_shrimp_verification"/>
     <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+    <field name="perm_read" eval="True"/>
+    <field name="perm_write" eval="False"/>
+    <field name="perm_create" eval="False"/>
+    <field name="perm_unlink" eval="False"/>
     <field name="domain_force">['|','|',
         ('verifier_partner_id','=',user.partner_id.id),
         ('buyer_partner_id','=',user.partner_id.id),
         ('seller_partner_id','=',user.partner_id.id)]</field>
   </record>
 
+  <record id="rule_shrimp_verification_portal_write" model="ir.rule">
+    <field name="name">Verificación: solo la escribe el verificador</field>
+    <field name="model_id" ref="model_shrimp_verification"/>
+    <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+    <field name="perm_read" eval="False"/>
+    <field name="perm_write" eval="True"/>
+    <field name="perm_create" eval="True"/>
+    <field name="perm_unlink" eval="True"/>
+    <field name="domain_force">[('verifier_partner_id','=',user.partner_id.id)]</field>
+  </record>
+
+  <!-- === Clasificación por tallas (líneas del informe) === -->
   <record id="rule_shrimp_verification_line_portal" model="ir.rule">
-    <field name="name">Shrimp Verification Line: propias</field>
+    <field name="name">Clasificación por tallas: la leen las tres partes</field>
     <field name="model_id" ref="model_shrimp_verification_line"/>
     <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+    <field name="perm_read" eval="True"/>
+    <field name="perm_write" eval="False"/>
+    <field name="perm_create" eval="False"/>
+    <field name="perm_unlink" eval="False"/>
     <field name="domain_force">['|','|',
         ('verification_id.verifier_partner_id','=',user.partner_id.id),
         ('verification_id.buyer_partner_id','=',user.partner_id.id),
         ('verification_id.seller_partner_id','=',user.partner_id.id)]</field>
   </record>
 
+  <record id="rule_shrimp_verification_line_portal_write" model="ir.rule">
+    <field name="name">Clasificación por tallas: solo la escribe el verificador</field>
+    <field name="model_id" ref="model_shrimp_verification_line"/>
+    <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+    <field name="perm_read" eval="False"/>
+    <field name="perm_write" eval="True"/>
+    <field name="perm_create" eval="True"/>
+    <field name="perm_unlink" eval="True"/>
+    <field name="domain_force">[('verification_id.verifier_partner_id','=',user.partner_id.id)]</field>
+  </record>
+
+  <!-- === Conteos de campo: la evidencia primaria === -->
+  <!-- Este modelo NO tenía ninguna regla de registro, y el portal tiene
+       lectura, escritura, creación y borrado sobre él. Sin regla, un dominio
+       vacío significa "todos los registros": cualquier usuario de portal
+       podía leer, alterar y borrar los conteos de CUALQUIER verificación,
+       incluidas las de terceros con las que no tiene ninguna relación. -->
+  <record id="rule_shrimp_verification_count_portal" model="ir.rule">
+    <field name="name">Conteos de campo: los leen las tres partes</field>
+    <field name="model_id" ref="model_shrimp_verification_count"/>
+    <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+    <field name="perm_read" eval="True"/>
+    <field name="perm_write" eval="False"/>
+    <field name="perm_create" eval="False"/>
+    <field name="perm_unlink" eval="False"/>
+    <field name="domain_force">['|','|',
+        ('verification_id.verifier_partner_id','=',user.partner_id.id),
+        ('verification_id.buyer_partner_id','=',user.partner_id.id),
+        ('verification_id.seller_partner_id','=',user.partner_id.id)]</field>
+  </record>
+
+  <record id="rule_shrimp_verification_count_portal_write" model="ir.rule">
+    <field name="name">Conteos de campo: solo los escribe el verificador</field>
+    <field name="model_id" ref="model_shrimp_verification_count"/>
+    <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+    <field name="perm_read" eval="False"/>
+    <field name="perm_write" eval="True"/>
+    <field name="perm_create" eval="True"/>
+    <field name="perm_unlink" eval="True"/>
+    <field name="domain_force">[('verification_id.verifier_partner_id','=',user.partner_id.id)]</field>
+  </record>
+
+  <!-- === Postura de cada parte === -->
+  <!-- Aquí sí escriben comprador y vendedor: es su propia decisión. El corte
+       de "ninguna parte decide por la otra" lo hace el controlador, que
+       resuelve la postura por rol antes de tocarla. -->
   <record id="rule_shrimp_verification_acceptance_portal" model="ir.rule">
     <field name="name">Aceptación de verificación: propias</field>
     <field name="model_id" ref="model_shrimp_verification_acceptance"/>

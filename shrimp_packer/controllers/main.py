@@ -93,6 +93,18 @@ class ShrimpPriceListPortal(http.Controller):
     def _partner(self):
         return request.env.user.partner_id
 
+    def _solo_empacadora(self):
+        """Corta el paso a quien no emite listas.
+
+        Una lista de precios la publica la empacadora y va dirigida a
+        camaroneras. El modelo ya lo impide al guardar (_check_partes), pero
+        sin este corte el editor completo se le abría a un semillero o a una
+        camaronera: 200, formulario entero, y el error solo al guardar. Una
+        pantalla que no lleva a ningun sitio es peor que no tenerla.
+        """
+        if self._partner().shrimp_user_type != "empacadora":
+            raise Forbidden()
+
     def _mi_lista(self, ref, editable=False):
         lista = request.env["shrimp.price.list"].sudo().resolve_ref(ref)
         if not lista:
@@ -317,6 +329,7 @@ class ShrimpPriceListPortal(http.Controller):
     @http.route("/marketplace/listas-de-precios/nueva", type="http", auth="user",
                 website=True)
     def price_list_new(self, **kw):
+        self._solo_empacadora()
         return request.render("shrimp_packer.price_list_form", {
             "lista": None,
             "tallas": request.env["shrimp.size.grade"].sudo().search(
@@ -329,6 +342,8 @@ class ShrimpPriceListPortal(http.Controller):
     def price_list_save(self, **post):
         L = request.env["shrimp.price.list"].sudo()
         ref = (post.get("ref") or "").strip()
+        if not ref:
+            self._solo_empacadora()
         lista = self._mi_lista(ref, editable=True) if ref else None
 
         def _f(clave, por_defecto=0.0):
@@ -406,12 +421,26 @@ class ShrimpPriceListPortal(http.Controller):
                 "/marketplace/listas-de-precios/%s/editar?error=%s"
                 % (ref, _("El precio no es un número válido.")))
 
+        # La unidad NO se toma del formulario: la fija la presentación. El
+        # entero se cotiza en $/Kg y la cola en $/Lb, y un renglón de entero
+        # guardado en libras produce un valor de lote con un 120 % de error
+        # —el factor kilo/libra— sin que nada avise. Era un desplegable más,
+        # y quien carga sesenta precios a mano lo iba a errar tarde o temprano.
+        Line_ = request.env["shrimp.price.list.line"]
+        unidad = Line_._UOM_POR_PRESENTACION.get(talla.presentation, "lb")
+        # Igual con la calidad: si llega una que esa presentación no tiene, se
+        # cae a la primera válida en vez de rechazar la carga entera.
+        permitidas = Line_._CALIDADES_POR_PRESENTACION.get(talla.presentation, ())
+        calidad = post.get("quality") or ""
+        if permitidas and calidad not in permitidas:
+            calidad = permitidas[0]
+
         vals = {
             "price_list_id": lista.id,
             "size_grade_id": talla.id,
             "channel": canal,
-            "quality": post.get("quality") or "a",
-            "uom": post.get("uom") or ("kg" if talla.presentation == "entero" else "lb"),
+            "quality": calidad or "a",
+            "uom": unidad,
             "price": precio,
         }
         # Si ya existe ese renglón se actualiza: es lo que espera quien está
@@ -422,6 +451,7 @@ class ShrimpPriceListPortal(http.Controller):
             ("channel", "=", canal),
             ("quality", "=", vals["quality"]),
         ], limit=1)
+
         try:
             existente.write({"price": precio, "uom": vals["uom"]}) if existente \
                 else Line.create(vals)

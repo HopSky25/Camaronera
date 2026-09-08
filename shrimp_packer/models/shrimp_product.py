@@ -7,6 +7,10 @@ from odoo.exceptions import ValidationError
 LB_POR_KG = 2.2046226218
 
 
+from odoo.addons.shrimp_marketplace.models.shrimp_product import (
+    ShrimpProduct as ShrimpProductBase)
+
+
 class ShrimpProduct(models.Model):
     _name = "shrimp.product"
     _inherit = "shrimp.product"
@@ -67,6 +71,16 @@ class ShrimpProduct(models.Model):
         return qty / LB_POR_KG if unidad == "kg" else qty * LB_POR_KG
 
     # ------------------------------------------------------------------
+    # Quién puede comprar este lote
+    # ------------------------------------------------------------------
+    # La última pata de la cadena: el camarón adulto solo lo compra una
+    # empacadora. El módulo base no la incluye porque el rol no existía allí.
+    # Se amplía el diccionario y no se reimplementa el método: la cadena tiene
+    # que estar descrita en un solo sitio o las dos copias se separan.
+    _COMPRADOR_ESPERADO = dict(
+        ShrimpProductBase._COMPRADOR_ESPERADO, camaronera="empacadora")
+
+    # ------------------------------------------------------------------
     # Cruce con las listas de precios
     # ------------------------------------------------------------------
     def mejor_precio_hoy(self):
@@ -82,9 +96,21 @@ class ShrimpProduct(models.Model):
         camaronero leería como firme cuando es una estimación.
         """
         self.ensure_one()
-        if self.verification_scope != "adult" or not self.size_grade_id \
-                or not self.presentation:
+        if self.verification_scope != "adult":
             return {}
+        # Si falta el dato con el que se cruza, hay que DECIRLO. Antes se
+        # devolvía un diccionario vacío y la tarjeta no pintaba nada: la
+        # camaronera no veía "Mejor precio hoy" ni un aviso, y no tenía forma
+        # de saber que le faltaba rellenar la talla. Entre dos camaroneras eran
+        # diez lotes callados, algunos llamados "Vannamei Entero 40/50" con el
+        # campo de talla vacío.
+        faltan = []
+        if not self.presentation:
+            faltan.append(_("si es entero o cola"))
+        if not self.size_grade_id:
+            faltan.append(_("la talla"))
+        if faltan:
+            return {"faltan": faltan}
 
         L = self.env["shrimp.price.list"].sudo()
         listas = L.visibles_para(self.seller_partner_id)
@@ -106,6 +132,7 @@ class ShrimpProduct(models.Model):
                 "precio": linea.price,
                 "uom": linea.uom,
                 "calidad": linea.quality,
+                "calidad_txt": linea.etiqueta_columna(),
                 "total": linea.price * self.cantidad_en(linea.uom),
             })
         if not candidatos:
@@ -117,10 +144,18 @@ class ShrimpProduct(models.Model):
         # A contra la B de la misma no dice nada sobre a quién despachar.
         segundo = next((c for c in candidatos
                         if c["empacadora"] != mejor["empacadora"]), None)
+        # Restar dos precios en unidades distintas da una cifra sin sentido con
+        # un factor de error de 2,2. Hoy no pasa —entero va en Kg y cola en Lb
+        # en toda la base, y ahora hay una restricción que lo garantiza— pero
+        # la resta no debe apoyarse en esa coincidencia.
+        comparables = bool(segundo) and segundo["uom"] == mejor["uom"]
         return {
             "mejor": mejor,
-            "segundo": segundo,
-            "ventaja": (mejor["precio"] - segundo["precio"]) if segundo else 0.0,
-            "diferencia_total": (mejor["total"] - segundo["total"]) if segundo else 0.0,
+            "segundo": segundo if comparables else None,
+            "ventaja": (mejor["precio"] - segundo["precio"]) if comparables else 0.0,
+            "diferencia_total": (mejor["total"] - segundo["total"]) if comparables else 0.0,
+            # Empate: hay otra empacadora que paga lo mismo. No es lo mismo que
+            # "eres el único que cotiza", y la tarjeta no lo distinguía.
+            "empate": comparables and mejor["precio"] == segundo["precio"],
             "empacadoras": len({c["empacadora"].id for c in candidatos}),
         }

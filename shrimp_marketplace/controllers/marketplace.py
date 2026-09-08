@@ -497,7 +497,7 @@ class ShrimpMarketplacePublicController(http.Controller):
     def marketplace_calendar(self, **kw):
         return request.render("shrimp_marketplace.marketplace_calendar", {})
 
-    @http.route("/marketplace/calendar/events", type="json", auth="public", website=True)
+    @http.route("/marketplace/calendar/events", type="jsonrpc", auth="public", website=True)
     def marketplace_calendar_events(self, **kw):
         domain = self._build_public_marketplace_domain()
         domain.append(("expected_delivery_date", "!=", False))

@@ -27,6 +27,9 @@ def _normalize_vat(value):
 
 
 class ResPartner(models.Model):
+    # _name explícito: al heredar de dos modelos Odoo no puede deducirlo y
+    # avisa en cada arranque. El otro res.partner del proyecto ya lo tenía.
+    _name = "res.partner"
     _inherit = ["res.partner", "shrimp.uuid.mixin"]
 
     shrimp_user_type = fields.Selection(
@@ -198,6 +201,7 @@ class ResPartner(models.Model):
         "farm_capacidad",
         "farm_area_ha",
     )
+
     def _check_required_fields_by_type(self):
         for rec in self:
             if rec.shrimp_user_type == "laboratorio":

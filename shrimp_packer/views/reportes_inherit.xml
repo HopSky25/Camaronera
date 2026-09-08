@@ -21,8 +21,13 @@
               <div class="pk-rep-eyebrow">Precios de compra</div>
               <h2 class="pk-rep-titulo">Quién te paga mejor</h2>
               <div class="pk-rep-sub">
-                <t t-esc="len(pk_resumen['listas'])"/> lista<t t-if="len(pk_resumen['listas']) != 1">s</t>
-                vigente<t t-if="len(pk_resumen['listas']) != 1">s</t> ·
+                <!-- Son las listas que cotizan ESTA combinación, no todas las
+                     vigentes: una empacadora puede tener lista viva y no
+                     comprar cola directa A. Decía "N listas vigentes" y el
+                     número no cuadraba con el índice de listas de precios. -->
+                <t t-esc="len(pk_resumen['listas'])"/>
+                <t t-if="len(pk_resumen['listas']) == 1">empacadora cotiza</t>
+                <t t-else="">empacadoras cotizan</t>
                 <t t-esc="pk_resumen['sel']['etiqueta']"/> ·
                 precios en <t t-esc="'Kg' if pk_resumen['uom'] == 'kg' else 'Lb'"/>
               </div>

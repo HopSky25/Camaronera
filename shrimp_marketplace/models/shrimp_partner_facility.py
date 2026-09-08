@@ -54,10 +54,11 @@ class ShrimpPartnerFacility(models.Model):
         for rec in self:
             rec.pond_count = len(rec.pond_ids)
 
-    _sql_constraints = [
-        (
-            "shrimp_partner_facility_partner_code_unique",
-            "unique(partner_id, code)",
-            "Ya existe una instalación con ese código para este partner."
-        ),
-    ]
+    # Odoo 19 ignora _sql_constraints EN SILENCIO —solo deja un
+    # WARNING en el arranque— y la restriccion no llega nunca a
+    # PostgreSQL. Se comprobo contra pg_constraint: ninguna de las
+    # unicidades declaradas asi existia en la base.
+    _shrimp_partner_facility_partner_code_unique = models.Constraint(
+        "unique(partner_id, code)",
+        "Ya existe una instalación con ese código para este partner.",
+    )

@@ -74,8 +74,11 @@ class ShrimpVerification(models.Model):
     # Qué se le pide a esta verificación depende del producto: al camarón
     # adulto los cinco análisis; a la larva, cantidad, supervivencia, tamaño y
     # estado sanitario (medir metabisulfito o sabor en un nauplio no tiene sentido).
+    # Sin selection propia: en un campo related Odoo la descarta con un aviso
+    # y usa la del campo original (shrimp.product.verification_scope), que
+    # tiene los mismos dos valores. Declararla aquí solo creaba una segunda
+    # copia que se puede desincronizar sin que nada lo detecte.
     scope = fields.Selection(
-        [("adult", "Camarón adulto"), ("larvae", "Larva")],
         string="Alcance",
         related="product_id.verification_scope",
         store=True,

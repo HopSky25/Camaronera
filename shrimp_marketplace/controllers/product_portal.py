@@ -16,12 +16,20 @@ class ShrimpProductPortalController(http.Controller):
         return request.env.user.has_group("base.group_user")
 
     def _check_can_manage_products(self):
-        # Semillero/Laboratorio publican lo suyo; los usuarios internos (admin)
-        # pueden publicar en nombre de cualquier vendedor.
+        # Cada eslabón publica lo suyo; los usuarios internos (admin) pueden
+        # publicar en nombre de cualquier vendedor.
+        #
+        # La camaronera faltaba, y es el eje del negocio: vende el camarón
+        # adulto a la empacadora. El menú "Publicar producto" se le ofrecía y
+        # daba 403, la portada prometía que "las camaroneras también pueden
+        # ofertar camarón", y de 91 transacciones solo UNA tenía una empacadora
+        # como parte. La pata principal de la cadena no tenía por dónde
+        # empezar.
         if self._is_internal():
             return True
         partner = self._get_current_partner()
-        return partner.shrimp_user_type in ("semillero", "laboratorio")
+        return partner.shrimp_user_type in ("semillero", "laboratorio",
+                                            "camaronera")
 
     def _seller_partner_options(self):
         return request.env["res.partner"].sudo().search(
@@ -648,7 +656,7 @@ class ShrimpProductPortalController(http.Controller):
             ("Cache-Control", "private, max-age=0"),
         ])
 
-    @http.route("/marketplace/certificados_producto", type="json", auth="user", website=True)
+    @http.route("/marketplace/certificados_producto", type="jsonrpc", auth="user", website=True)
     def marketplace_product_certs(self, **kw):
         certs = request.env["shrimp.certificate"].sudo().search([
             ("active", "=", True)

@@ -243,13 +243,25 @@ class ShrimpPriceList(models.Model):
             # Solo se archivan las que compiten con esta: mismo emisor y algún
             # destinatario en común. Una empacadora tiene varias listas vivas a
             # la vez, una por cliente, y archivarlas todas sería un desastre.
+            #
+            rec.state = "published"
+            # Y solo las que compiten en la MISMA ventana de tiempo. Una lista
+            # futura y la vigente no se estorban: conviven a propósito, porque
+            # la empacadora publica con días de antelación para que el
+            # productor planifique la cosecha.
+            #
+            # Sin esta distinción fallaba en las dos direcciones: publicar la de
+            # esta semana archivaba en silencio la de la semana que viene (que
+            # es lo que se vio en pantalla: "publiqué la 33 y no la veo"), y
+            # publicar una futura habría archivado la vigente, dejando al
+            # productor sin precios hasta que llegara la fecha de la nueva.
+            futura = rec.is_upcoming
             anteriores = self.search([
                 ("issuer_partner_id", "=", rec.issuer_partner_id.id),
                 ("state", "=", "published"),
                 ("id", "!=", rec.id),
                 ("recipient_ids", "in", rec.recipient_ids.ids),
-            ])
-            rec.state = "published"
+            ]).filtered(lambda l: l.is_upcoming == futura)
             # El aviso se calcula ANTES de archivar: después las anteriores
             # siguen existiendo, pero es más claro pasarlas explícitas.
             rec._avisar_cambios(anteriores)
@@ -921,6 +933,48 @@ class ShrimpPriceListLine(models.Model):
             if rec.presentation == "cola" and not rec.channel:
                 raise ValidationError(_(
                     "En cola hay que indicar si el precio es directa o sobrante."))
+
+    # La unidad no es cosmética: comparativa() y oferta_disponible() convierten
+    # la cantidad del lote con cantidad_en(linea.uom). Un renglón de entero
+    # guardado en libras no da un aviso, da una cifra falsa con un error del
+    # 120 % —el factor kilo/libra— presentada como precio firme.
+    #
+    # El _onchange de abajo ya pone los valores correctos, pero solo corre en el
+    # backend: el formulario del portal tiene tres desplegables independientes,
+    # así que la coherencia hay que exigirla en el modelo.
+    _UOM_POR_PRESENTACION = {"entero": "kg", "cola": "lb"}
+    # Las listas reales cotizan el entero como A-B junto y C aparte; la cola
+    # separa A de B. Pedir una calidad que la matriz no tiene deja un renglón
+    # que no cruza con nada y que la plantilla de Excel ni exporta.
+    _CALIDADES_POR_PRESENTACION = {"entero": ("ab", "c"), "cola": ("a", "b")}
+
+    @api.constrains("uom", "quality", "size_grade_id")
+    def _check_uom_y_calidad(self):
+        etiquetas = dict(self._fields["uom"]._description_selection(self.env))
+        calidades = dict(self._fields["quality"]._description_selection(self.env))
+        for rec in self:
+            esperada = rec._UOM_POR_PRESENTACION.get(rec.presentation)
+            if esperada and rec.uom != esperada:
+                raise ValidationError(_(
+                    "El %(pres)s se cotiza en %(buena)s, no en %(mala)s. Con la "
+                    "unidad equivocada el valor del lote sale con un error del "
+                    "120 %%, que es la diferencia entre un kilo y una libra."
+                ) % {
+                    "pres": rec.presentation or "",
+                    "buena": etiquetas.get(esperada, esperada),
+                    "mala": etiquetas.get(rec.uom, rec.uom or ""),
+                })
+            permitidas = rec._CALIDADES_POR_PRESENTACION.get(rec.presentation)
+            if permitidas and rec.quality not in permitidas:
+                raise ValidationError(_(
+                    "En %(pres)s la calidad solo puede ser %(ok)s. «%(mala)s» no "
+                    "existe en esa matriz, y un renglón así no se cruza con "
+                    "ningún lote."
+                ) % {
+                    "pres": rec.presentation or "",
+                    "ok": " o ".join(calidades.get(q, q) for q in permitidas),
+                    "mala": calidades.get(rec.quality, rec.quality or ""),
+                })
 
     @api.onchange("size_grade_id")
     def _onchange_size_grade(self):

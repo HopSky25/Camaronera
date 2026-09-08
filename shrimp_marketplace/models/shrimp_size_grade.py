@@ -15,10 +15,14 @@ class ShrimpSizeGrade(models.Model):
     sequence = fields.Integer(default=10)
     active = fields.Boolean(default=True)
 
-    _sql_constraints = [
-        ("shrimp_size_grade_uniq", "unique(presentation, name)",
-         "Ya existe esa talla para esa presentación."),
-    ]
+    # Odoo 19 ignora _sql_constraints EN SILENCIO —solo deja un
+    # WARNING en el arranque— y la restriccion no llega nunca a
+    # PostgreSQL. Se comprobo contra pg_constraint: ninguna de las
+    # unicidades declaradas asi existia en la base.
+    _shrimp_size_grade_uniq = models.Constraint(
+        "unique(presentation, name)",
+        "Ya existe esa talla para esa presentación.",
+    )
 
     @api.depends("name", "presentation")
     def _compute_display_name(self):

@@ -10,9 +10,15 @@ class ShrimpClientPricePortal(http.Controller):
     def _current_partner(self):
         return request.env.user.partner_id
 
+    # Quién vende y, por tanto, puede poner precio por cliente. La camaronera
+    # faltaba: vende el camarón adulto a las empacadoras. La empacadora no
+    # entra —es el final de la cadena, no revende— y por eso el ítem del menú
+    # se le oculta en vez de dejarle un enlace que devuelve 403.
+    _VENDEDORES = ("semillero", "laboratorio", "camaronera")
+
     def _is_seller(self):
         partner = self._current_partner()
-        return (partner.shrimp_user_type in ("semillero", "laboratorio")
+        return (partner.shrimp_user_type in self._VENDEDORES
                 or request.env.user.has_group("base.group_user"))
 
     def _seller_partner(self):
@@ -21,9 +27,24 @@ class ShrimpClientPricePortal(http.Controller):
         return self._current_partner()
 
     def _client_options(self, seller):
-        # Clientes potenciales: partners del marketplace, distintos del vendedor.
+        """Los clientes que este vendedor puede tener de verdad.
+
+        Antes devolvía todo el marketplace, así que a un semillero se le
+        ofrecían camaroneras y otros semilleros: se podía guardar un precio
+        para un cliente que jamás va a poder comprarle, porque la guarda de la
+        compra solo deja semillero→laboratorio. Un precio que no se puede usar
+        no es un dato, es una trampa.
+        """
+        Producto = request.env["shrimp.product"]
+        esperado = Producto._COMPRADOR_ESPERADO.get(seller.shrimp_user_type)
+        if esperado:
+            tipos = [esperado]
+        else:
+            # Usuario interno gestionando en nombre de otro: sin eslabón propio
+            # del que deducir el cliente, se ofrece todo el padrón.
+            tipos = ["semillero", "laboratorio", "camaronera", "empacadora"]
         return request.env["res.partner"].sudo().search([
-            ("shrimp_user_type", "in", ["semillero", "laboratorio", "camaronera"]),
+            ("shrimp_user_type", "in", tipos),
             ("id", "!=", seller.id),
         ], order="name asc")
 

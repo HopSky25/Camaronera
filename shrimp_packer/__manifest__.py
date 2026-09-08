@@ -30,6 +30,7 @@ desarrollo que se hace en paralelo sobre ese módulo.
         "views/packer_profile_templates.xml",
         "views/reportes_inherit.xml",
         "views/navbar_inherit.xml",
+        "views/mi_cuenta_inherit.xml",
         "views/productos_inherit.xml",
         "views/aceptacion_inherit.xml",
         "views/oferta_templates.xml",

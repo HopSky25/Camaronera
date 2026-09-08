@@ -5,6 +5,8 @@ from werkzeug.exceptions import NotFound, Forbidden
 from urllib.parse import quote
 
 from odoo.addons.shrimp_user_registry.controllers.main import ShrimpRegistryController
+from odoo.addons.shrimp_marketplace.controllers.account_portal import (
+    ShrimpAccountPortalController)
 from odoo.addons.shrimp_marketplace.controllers.transaction_portal import (
     ShrimpTransactionPortalController,
 )
@@ -584,3 +586,53 @@ class ShrimpPriceListPortal(http.Controller):
         lista = self._mi_lista(ref, editable=True)
         lista.action_archive_list()
         return request.redirect("/marketplace/listas-de-precios?mensaje=archivada")
+
+
+class ShrimpPackerAccount(ShrimpAccountPortalController):
+    """La empacadora edita su propio perfil público.
+
+    Su ficha —planta, capacidad, aprobación sanitaria, código de exportador,
+    BAP/ASC/HACCP y mercados— es lo primero que mira un productor antes de
+    decidir a quién le despacha, y se fijaba UNA sola vez en el alta. Después
+    solo se podía cambiar desde el backoffice, o sea llamando a soporte: una
+    certificación que caduca o una planta que amplía capacidad se quedaban
+    desactualizadas en la única pantalla que el cliente usa para elegir.
+
+    Se extiende el guardado del módulo base en vez de editarlo: los campos
+    emp_* son de este módulo, y el rol empacadora también.
+    """
+
+    def _guardar_extra(self, partner, post):
+        res = super()._guardar_extra(partner, post)
+        if partner.shrimp_user_type != "empacadora":
+            return res
+
+        def _f(v):
+            try:
+                return float((v or "0").replace(",", "."))
+            except (TypeError, ValueError, AttributeError):
+                return 0.0
+
+        res.update({
+            "emp_razon_social": post.get("emp_razon_social") or False,
+            "emp_representante": post.get("emp_representante") or False,
+            "emp_contacto_comercial": post.get("emp_contacto_comercial") or False,
+            "emp_telefono": post.get("emp_telefono") or False,
+            "emp_codigo_exportador": post.get("emp_codigo_exportador") or False,
+            "emp_planta_nombre": post.get("emp_planta_nombre") or False,
+            "emp_planta_ubicacion": post.get("emp_planta_ubicacion") or False,
+            "emp_capacidad_lb_dia": _f(post.get("emp_capacidad_lb_dia")),
+            "emp_aprobacion_sanitaria": post.get("emp_aprobacion_sanitaria") or False,
+            # Certificaciones: son booleanos, así que hay que escribir también
+            # el False cuando se desmarcan. Si solo se escribieran las marcadas
+            # no habría forma de retirar una certificación vencida.
+            "emp_cert_bap": bool(post.get("emp_cert_bap")),
+            "emp_cert_asc": bool(post.get("emp_cert_asc")),
+            "emp_cert_haccp": bool(post.get("emp_cert_haccp")),
+            "emp_cert_otras": post.get("emp_cert_otras") or False,
+            "emp_mercado_asia": bool(post.get("emp_mercado_asia")),
+            "emp_mercado_europa": bool(post.get("emp_mercado_europa")),
+            "emp_mercado_norteamerica": bool(post.get("emp_mercado_norteamerica")),
+            "emp_mercado_local": bool(post.get("emp_mercado_local")),
+        })
+        return res

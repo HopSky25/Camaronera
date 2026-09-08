@@ -28,6 +28,12 @@
                     <t t-if="error == 'duplicate'">
                         <div class="alert alert-danger" style="border-radius:14px;">No se pudo guardar: el correo ya está en uso por otra cuenta.</div>
                     </t>
+                    <!-- Cualquier otro motivo llega ya redactado desde el
+                         modelo ("La razón social es obligatoria"), que es más
+                         útil que un mensaje genérico. -->
+                    <t t-elif="error and error != 'email'">
+                        <div class="alert alert-danger" style="border-radius:14px;"><t t-esc="error"/></div>
+                    </t>
 
                     <form method="post" action="/marketplace/mi-cuenta/guardar">
                         <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>

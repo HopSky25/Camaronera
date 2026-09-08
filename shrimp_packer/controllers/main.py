@@ -151,11 +151,17 @@ class ShrimpPriceListPortal(http.Controller):
         L = request.env["shrimp.price.list"].sudo()
         # Solo las que le tocan: publicadas, vigentes y dirigidas a él o a su
         # empresa madre. Nunca las de otro productor.
-        vigentes = L.visibles_para(self._partner())
-        mias = L.search([("issuer_partner_id", "=", self._partner().id)])
+        partner = self._partner()
+        # En la consulta sí se muestran las próximas: la lista se reparte con
+        # días de antelación para que el productor planifique la cosecha.
+        recibidas = L.visibles_para(partner, incluir_futuras=True)
         return request.render("shrimp_packer.price_lists_page", {
-            "vigentes": vigentes,
-            "mias": mias,
+            "vigentes": recibidas.filtered("is_current"),
+            "proximas": recibidas.filtered("is_upcoming"),
+            # La sección de "las que publicas tú" solo tiene sentido para una
+            # empacadora: el modelo no deja que otro rol publique.
+            "es_empacadora": partner.shrimp_user_type == "empacadora",
+            "mias": L.search([("issuer_partner_id", "=", partner.id)]),
             "mensaje": kw.get("mensaje"),
             "error": kw.get("error"),
         })

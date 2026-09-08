@@ -51,11 +51,39 @@
           <t t-else="">
             <div class="pk-vacio">
               <i class="fa fa-inbox fa-2x mb-2"/>
-              <p class="mb-0">Todavía no hay ninguna lista dirigida a ti.
+              <p class="mb-0">Todavía no hay ninguna lista vigente dirigida a ti.
                  Las empacadoras publican la suya cada semana.</p>
             </div>
           </t>
 
+          <!-- Publicadas pero con el despacho aún por empezar. Se muestran
+               aparte para que no se confundan con las que rigen hoy, pero se
+               muestran: sirven para planificar la cosecha. -->
+          <t t-if="proximas">
+            <h2 class="pk-h2 mt-4">Próximas</h2>
+            <p class="pk-muted small mb-2">
+              Ya publicadas, pero su despacho todavía no empieza. No entran en
+              el comparador para no mezclarlas con los precios de esta semana.
+            </p>
+            <div class="pk-cards">
+              <t t-foreach="proximas" t-as="l">
+                <a class="pk-card pk-card--proxima"
+                   t-attf-href="/marketplace/listas-de-precios/#{l.uuid_ref}">
+                  <div class="pk-card-emisor"><t t-esc="l.issuer_partner_id.name"/></div>
+                  <div class="pk-card-nombre"><t t-esc="l.name"/></div>
+                  <div class="pk-card-meta"><t t-esc="l.texto_ventana()"/></div>
+                  <div class="pk-card-pie">
+                    <span><t t-esc="l.line_count"/> precios</span>
+                    <span class="pk-badge-proxima">Empieza pronto</span>
+                  </div>
+                </a>
+              </t>
+            </div>
+          </t>
+
+          <!-- Solo la empacadora publica listas. A una camaronera esta
+               sección le ofrecía un botón que el modelo iba a rechazar. -->
+          <t t-if="es_empacadora">
           <div class="d-flex justify-content-between align-items-center mt-5">
             <h2 class="pk-h2 mb-0">Las que publicas tú</h2>
             <a class="s-btn s-btn-primary" href="/marketplace/listas-de-precios/nueva">
@@ -111,6 +139,7 @@
           </t>
           <t t-else="">
             <p class="pk-muted mt-3">Todavía no publicas ninguna lista.</p>
+          </t>
           </t>
 
         </div>

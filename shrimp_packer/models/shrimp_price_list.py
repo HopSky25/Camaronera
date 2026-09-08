@@ -101,6 +101,9 @@ class ShrimpPriceList(models.Model):
     is_current = fields.Boolean(
         compute="_compute_is_current", search="_search_is_current",
         string="Vigente")
+    is_upcoming = fields.Boolean(
+        compute="_compute_is_current", string="Próxima",
+        help="Publicada, pero su ventana de despacho todavía no empieza.")
 
     @api.depends("line_ids", "recipient_ids")
     def _compute_counts(self):
@@ -125,27 +128,43 @@ class ShrimpPriceList(models.Model):
         return bool(set(partner.shrimp_grupo_ids()) & set(self.recipient_ids.ids))
 
     @api.model
-    def visibles_para(self, partner):
-        """Las listas publicadas y vigentes que le tocan a este partner."""
+    def visibles_para(self, partner, incluir_futuras=False):
+        """Las listas publicadas que le tocan a este partner.
+
+        Por defecto solo las vigentes: el comparador y el reporte no pueden
+        mezclar el precio de esta semana con el de la próxima, porque el
+        productor los leería como si compitieran entre sí.
+
+        Con incluir_futuras se añaden las que aún no arrancan, para la pantalla
+        de consulta, donde sí interesa verlas —marcadas como próximas— para
+        planificar la cosecha.
+        """
         if not partner:
             return self.browse()
-        return self.sudo().search([
+        listas = self.sudo().search([
             ("state", "=", "published"),
             ("recipient_ids", "in", partner.shrimp_grupo_ids()),
-        ]).filtered("is_current")
+        ])
+        if incluir_futuras:
+            return listas.filtered(lambda l: l.is_current or l.is_upcoming)
+        return listas.filtered("is_current")
 
     @api.depends("state", "dispatch_from", "dispatch_to", "open_ended")
     def _compute_is_current(self):
         hoy = fields.Date.context_today(self)
         for rec in self:
+            rec.is_current = rec.is_upcoming = False
             if rec.state != "published":
-                rec.is_current = False
                 continue
             if rec.dispatch_from and rec.dispatch_from > hoy:
-                rec.is_current = False
+                # Publicada pero todavía no arranca. No es vigente, pero
+                # esconderla sería un error: las listas se reparten con días de
+                # antelación justamente para que el productor planifique la
+                # cosecha. En las listas reales el encabezado dice "DESDE
+                # miércoles 5 de agosto", y se manda antes de esa fecha.
+                rec.is_upcoming = True
                 continue
             if not rec.open_ended and rec.dispatch_to and rec.dispatch_to < hoy:
-                rec.is_current = False
                 continue
             rec.is_current = True
 

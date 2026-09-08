@@ -177,9 +177,12 @@ class ShrimpPriceListPortal(http.Controller):
         L = request.env["shrimp.price.list"].sudo()
         partner = self._partner()
         combinaciones = L.combinaciones_disponibles(partner)
+        empacadoras = L.empacadoras_con_lista(partner)
         if not combinaciones:
             return request.render("shrimp_packer.price_list_compare", {
-                "combinaciones": [], "sel": None, "datos": {}, "cantidad": 0.0})
+                "combinaciones": [], "sel": None, "datos": {}, "cantidad": 0.0,
+                "empacadoras": empacadoras, "elegidas": [], "sin_seleccion": False,
+                "cotizan": set()})
 
         elegida = kw.get("combo") or combinaciones[0]["clave"]
         sel = next((c for c in combinaciones if c["clave"] == elegida), combinaciones[0])
@@ -188,13 +191,41 @@ class ShrimpPriceListPortal(http.Controller):
         except ValueError:
             cantidad = 0.0
 
+        # Empacadoras elegidas. Sin parámetro entran todas: es el estado
+        # natural al llegar a la pantalla, y comparar contra todas es lo que
+        # más sirve por defecto.
+        crudas = request.httprequest.args.getlist("emp")
+        if crudas:
+            elegidas = [int(x) for x in crudas
+                        if str(x).isdigit() and int(x) in empacadoras.ids]
+        else:
+            elegidas = empacadoras.ids if "filtrar" not in request.httprequest.args else []
+
+        # Desmarcarlas todas es una acción deliberada: mejor decirlo que
+        # mostrar la tabla completa como si el filtro no existiera.
+        if not elegidas:
+            return request.render("shrimp_packer.price_list_compare", {
+                "combinaciones": combinaciones, "sel": sel, "datos": {},
+                "cantidad": cantidad, "empacadoras": empacadoras,
+                "elegidas": [], "sin_seleccion": True, "cotizan": set()})
+
         datos = L.comparativa(partner, sel["presentation"], sel["channel"],
-                              sel["quality"], cantidad)
+                              sel["quality"], cantidad, emisores=elegidas)
+        # Cuáles de las empacadoras cotizan la combinación elegida. Sin esto,
+        # una que solo carga entero aparece marcada en el filtro y no le sale
+        # columna, y el usuario no sabe por qué.
+        cotizan = set(L.comparativa(
+            partner, sel["presentation"], sel["channel"], sel["quality"]
+        ).get("listas", L.browse()).mapped("issuer_partner_id").ids)
         return request.render("shrimp_packer.price_list_compare", {
+            "cotizan": cotizan,
             "combinaciones": combinaciones,
             "sel": sel,
             "datos": datos,
             "cantidad": cantidad,
+            "empacadoras": empacadoras,
+            "elegidas": elegidas,
+            "sin_seleccion": False,
         })
 
     @http.route("/marketplace/listas-de-precios/<ref>", type="http", auth="user",

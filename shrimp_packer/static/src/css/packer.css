@@ -284,3 +284,20 @@
   background: #fff4e5; color: #7a5310; border: 1px solid #f0dcb8;
   border-radius: 999px; padding: 2px 10px; font-size: .74rem; font-weight: 700;
 }
+
+/* El panel de filtros del comparador: envuelve los chips de empacadoras y
+   la fila de combinación/cantidad en una sola tarjeta, como el filtro del
+   marketplace. Los chips reutilizan .s-choice del marketplace. */
+.pk-filtro-panel {
+  background: #fff; border: 1px solid #e3eaed; border-radius: 10px;
+  padding: 16px 18px;
+}
+.pk-filtro-panel .s-filter-sec { margin-bottom: 14px; }
+.pk-filtro-panel .pk-filtro { border: 0; padding: 0; background: transparent; }
+
+/* Empacadora que no cotiza la combinación elegida: el chip se puede marcar
+   igual —cambiar de combinación la traerá— pero se distingue del resto. */
+.pk-choice--sin span { border-style: dashed; color: #a9b6bd; }
+.pk-choice--sin input:checked + span {
+  background: #eef2f4; border-color: #cfd9dd; color: #8b9ba3;
+}

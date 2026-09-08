@@ -350,7 +350,20 @@ class ShrimpPriceList(models.Model):
         return salida
 
     @api.model
-    def comparativa(self, partner, presentation, channel, quality, cantidad=0.0):
+    def empacadoras_con_lista(self, partner):
+        """Las empacadoras que hoy le tienen una lista vigente a este partner.
+
+        Sale de las listas y no del catálogo de empacadoras: en el filtro del
+        comparador solo tiene sentido ofrecer a quien realmente le mandó
+        precios. Ofrecer una empacadora sin lista sería una casilla que no
+        cambia nada.
+        """
+        listas = self.visibles_para(partner)
+        return listas.mapped("issuer_partner_id").sorted(key=lambda p: p.name or "")
+
+    @api.model
+    def comparativa(self, partner, presentation, channel, quality, cantidad=0.0,
+                    emisores=None):
         """Qué paga cada empacadora por la misma talla.
 
         Es la cuenta que el camaronero hace hoy a mano con dos papeles sobre la
@@ -358,6 +371,10 @@ class ShrimpPriceList(models.Model):
         el mejor y cuánto se pierde eligiendo el segundo.
         """
         listas = self.visibles_para(partner)
+        if emisores:
+            # Filtro del usuario: comparar solo contra las empacadoras que él
+            # eligió. Se aplica sobre lo que ya puede ver, nunca amplía.
+            listas = listas.filtered(lambda l: l.issuer_partner_id.id in emisores)
         if not listas:
             return {}
 

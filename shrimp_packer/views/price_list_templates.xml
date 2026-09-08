@@ -650,28 +650,68 @@
           </t>
 
           <t t-if="combinaciones">
-            <form method="get" class="pk-filtro">
-              <label>Qué comparar
-                <select name="combo" class="form-control" onchange="this.form.submit()">
-                  <t t-foreach="combinaciones" t-as="c">
-                    <option t-att-value="c['clave']"
-                            t-att-selected="'selected' if sel and c['clave'] == sel['clave'] else None"
-                            t-esc="c['etiqueta']"/>
-                  </t>
-                </select>
-              </label>
-              <label>Cantidad a despachar
-                <div class="pk-cant">
-                  <input type="number" step="1" min="0" name="cantidad" class="form-control"
-                         t-att-value="'{:.0f}'.format(cantidad) if cantidad else ''"
-                         placeholder="0"/>
-                  <span t-esc="'Kg' if datos.get('uom') == 'kg' else 'Lb'"/>
+            <form method="get" class="pk-filtro-panel">
+              <!-- Marca de que el filtro se envió: distingue "llegué a la
+                   pantalla" de "desmarqué todas las empacadoras". -->
+              <input type="hidden" name="filtrar" value="1"/>
+
+              <!-- Empacadoras a comparar. Se reutiliza el patrón de chips que
+                   ya usa el marketplace en sus filtros, para que no aparezca
+                   un control nuevo que el usuario tenga que aprender. -->
+              <t t-if="len(empacadoras) &gt; 1">
+                <div class="s-filter-sec">
+                  <div class="s-filter-sec-label">
+                    <i class="fa fa-industry"/> Empacadoras a comparar
+                  </div>
+                  <div class="s-choice-chips">
+                    <t t-foreach="empacadoras" t-as="e">
+                      <!-- Si no cotiza la combinación elegida se marca aparte:
+                           quedaba seleccionada y sin columna, sin explicación. -->
+                      <t t-set="cotiza" t-value="e.id in cotizan"/>
+                      <label t-attf-class="s-choice#{'' if cotiza else ' pk-choice--sin'}"
+                             t-attf-title="#{'' if cotiza else 'No cotiza esta combinación en su lista vigente'}">
+                        <input type="checkbox" name="emp" t-att-value="e.id"
+                               t-att-checked="'checked' if e.id in elegidas else None"/>
+                        <span>
+                          <t t-esc="e.name"/>
+                          <t t-if="not cotiza"> · no cotiza esto</t>
+                        </span>
+                      </label>
+                    </t>
+                  </div>
                 </div>
-              </label>
-              <button type="submit" class="s-btn s-btn-primary">
-                <i class="fa fa-refresh me-1"/> Actualizar
-              </button>
+              </t>
+
+              <div class="pk-filtro">
+                <label>Qué comparar
+                  <select name="combo" class="form-control">
+                    <t t-foreach="combinaciones" t-as="c">
+                      <option t-att-value="c['clave']"
+                              t-att-selected="'selected' if sel and c['clave'] == sel['clave'] else None"
+                              t-esc="c['etiqueta']"/>
+                    </t>
+                  </select>
+                </label>
+                <label>Cantidad a despachar
+                  <div class="pk-cant">
+                    <input type="number" step="1" min="0" name="cantidad" class="form-control"
+                           t-att-value="'{:.0f}'.format(cantidad) if cantidad else ''"
+                           placeholder="0"/>
+                    <span t-esc="'Kg' if datos.get('uom') == 'kg' else 'Lb'"/>
+                  </div>
+                </label>
+                <button type="submit" class="s-btn s-btn-primary">
+                  <i class="fa fa-refresh me-1"/> Actualizar
+                </button>
+              </div>
             </form>
+
+            <t t-if="sin_seleccion">
+              <div class="pk-vacio mt-3">
+                <i class="fa fa-industry fa-2x mb-2"/>
+                <p class="mb-0">Elige al menos una empacadora para comparar.</p>
+              </div>
+            </t>
 
             <t t-if="datos.get('uom_mixta')">
               <div class="pk-alert pk-alert--ko mt-3">
@@ -756,9 +796,10 @@
                 Las bonificaciones por tamaño y color van aparte, en cada lista.
               </p>
             </t>
-            <t t-else="">
+            <t t-elif="not sin_seleccion">
               <div class="pk-vacio mt-3">
-                <p class="mb-0">Ninguna de tus listas cotiza esa combinación.</p>
+                <p class="mb-0">Ninguna de las empacadoras elegidas cotiza esa
+                   combinación. Prueba con otra o marca más empacadoras.</p>
               </div>
             </t>
           </t>

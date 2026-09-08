@@ -666,17 +666,16 @@
                   </div>
                   <div class="s-choice-chips">
                     <t t-foreach="empacadoras" t-as="e">
-                      <!-- Si no cotiza la combinación elegida se marca aparte:
-                           quedaba seleccionada y sin columna, sin explicación. -->
+                      <!-- Ya no se marca "no cotiza": su columna sale igual, con un
+                           guion en las tallas que no compra. Etiquetar el chip y
+                           además esconder la columna era decir dos veces lo
+                           mismo, y desconcertaba más de lo que aclaraba. -->
                       <t t-set="cotiza" t-value="e.id in cotizan"/>
-                      <label t-attf-class="s-choice#{'' if cotiza else ' pk-choice--sin'}"
-                             t-attf-title="#{'' if cotiza else 'No cotiza esta combinación en su lista vigente'}">
+                      <label class="s-choice"
+                             t-attf-title="#{'' if cotiza else 'En su lista vigente no aparece esta combinación'}">
                         <input type="checkbox" name="emp" class="js-emp" t-att-value="e.id"
                                t-att-checked="'checked' if e.id in elegidas else None"/>
-                        <span>
-                          <t t-esc="e.name"/>
-                          <t t-if="not cotiza"> · no cotiza esto</t>
-                        </span>
+                        <span t-esc="e.name"/>
                       </label>
                     </t>
                   </div>
@@ -690,7 +689,7 @@
 
               <div class="pk-filtro">
                 <label>Qué comparar
-                  <select name="combo" class="form-control">
+                  <select name="combo" class="form-control js-refrescar">
                     <t t-foreach="combinaciones" t-as="c">
                       <option t-att-value="c['clave']"
                               t-att-selected="'selected' if sel and c['clave'] == sel['clave'] else None"
@@ -747,7 +746,18 @@
       });
       if(aviso){ aviso.style.display = lleno ? 'block' : 'none'; }
     }
-    cajas.forEach(function(c){ c.addEventListener('change', refrescar); });
+    cajas.forEach(function(c){
+      c.addEventListener('change', function(){
+        refrescar();
+        // La tabla se rearma sola: obligar a pulsar "Actualizar" después de
+        // cada clic sobra. El botón queda para la cantidad, que no debe
+        // recargar en cada tecla.
+        c.form.submit();
+      });
+    });
+    // El desplegable de la combinación también refresca solo.
+    var sel = document.querySelector('select.js-refrescar');
+    if(sel){ sel.addEventListener('change', function(){ sel.form.submit(); }); }
     refrescar();
   }
   if(document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', init); }
@@ -827,6 +837,8 @@
               <p class="pk-nota mt-3">
                 <i class="fa fa-info-circle me-1"/>
                 La marca señala quién paga más por cada talla.
+                Un guion (—) significa que esa empacadora no compra esa talla:
+                no entra en el cálculo del mejor precio.
                 <t t-if="cantidad">
                   La columna «Diferencia» es lo que dejas de ganar si despachas
                   al segundo en vez de al mejor, sobre

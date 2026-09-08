@@ -391,9 +391,12 @@ class ShrimpPriceList(models.Model):
         if not lineas:
             return {}
 
-        # Solo entran las empacadoras que cotizan esta combinación: una columna
-        # entera vacía no aporta y estorba para leer.
-        listas_con_datos = lineas.mapped("price_list_id")
+        # Si el usuario eligió empacadoras, todas las elegidas salen como
+        # columna, incluso las que no cotizan esta combinación. Ocultarlas
+        # desconcierta: se marcan en el filtro y desaparecen de la tabla sin
+        # explicación. Con la columna presente y un guion en las celdas queda
+        # claro que esa talla no la compran.
+        listas_con_datos = listas if emisores else lineas.mapped("price_list_id")
         precios = {}
         for linea in lineas:
             precios.setdefault(linea.size_grade_id.id, {})[linea.price_list_id.id] = linea.price

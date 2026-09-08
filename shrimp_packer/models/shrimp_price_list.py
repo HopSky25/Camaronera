@@ -349,6 +349,12 @@ class ShrimpPriceList(models.Model):
             })
         return salida
 
+    # Cuántas empacadoras se pueden cruzar de una vez en el comparador. Más de
+    # tres columnas de precios dejan de leerse de un barrido, que es lo único
+    # que esta pantalla tiene que lograr. Vive aquí para que el límite sea uno
+    # solo, y no uno en el servidor y otro en el navegador.
+    MAX_COMPARAR = 3
+
     @api.model
     def empacadoras_con_lista(self, partner):
         """Las empacadoras que hoy le tienen una lista vigente a este partner.

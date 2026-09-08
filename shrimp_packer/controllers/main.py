@@ -182,7 +182,7 @@ class ShrimpPriceListPortal(http.Controller):
             return request.render("shrimp_packer.price_list_compare", {
                 "combinaciones": [], "sel": None, "datos": {}, "cantidad": 0.0,
                 "empacadoras": empacadoras, "elegidas": [], "sin_seleccion": False,
-                "cotizan": set()})
+                "cotizan": set(), "tope": L.MAX_COMPARAR, "recortadas": False})
 
         elegida = kw.get("combo") or combinaciones[0]["clave"]
         sel = next((c for c in combinaciones if c["clave"] == elegida), combinaciones[0])
@@ -191,15 +191,30 @@ class ShrimpPriceListPortal(http.Controller):
         except ValueError:
             cantidad = 0.0
 
-        # Empacadoras elegidas. Sin parámetro entran todas: es el estado
-        # natural al llegar a la pantalla, y comparar contra todas es lo que
-        # más sirve por defecto.
+        # Cuáles cotizan la combinación elegida. Se calcula antes que nada
+        # porque de aquí sale también la selección por defecto.
+        cotizan = set(L.comparativa(
+            partner, sel["presentation"], sel["channel"], sel["quality"]
+        ).get("listas", L.browse()).mapped("issuer_partner_id").ids)
+
+        tope = L.MAX_COMPARAR
         crudas = request.httprequest.args.getlist("emp")
         if crudas:
             elegidas = [int(x) for x in crudas
                         if str(x).isdigit() and int(x) in empacadoras.ids]
+        elif "filtrar" in request.httprequest.args:
+            elegidas = []
         else:
-            elegidas = empacadoras.ids if "filtrar" not in request.httprequest.args else []
+            # Al llegar a la pantalla se marcan las primeras que sí cotizan la
+            # combinación: arrancar con columnas vacías no ayuda a nadie.
+            prefiere = [e.id for e in empacadoras if e.id in cotizan]
+            resto = [e.id for e in empacadoras if e.id not in cotizan]
+            elegidas = (prefiere + resto)[:tope]
+
+        # El tope se aplica en el servidor y no solo en el navegador: la
+        # selección viaja en la URL y se puede editar a mano.
+        recortadas = len(elegidas) > tope
+        elegidas = elegidas[:tope]
 
         # Desmarcarlas todas es una acción deliberada: mejor decirlo que
         # mostrar la tabla completa como si el filtro no existiera.
@@ -207,18 +222,15 @@ class ShrimpPriceListPortal(http.Controller):
             return request.render("shrimp_packer.price_list_compare", {
                 "combinaciones": combinaciones, "sel": sel, "datos": {},
                 "cantidad": cantidad, "empacadoras": empacadoras,
-                "elegidas": [], "sin_seleccion": True, "cotizan": set()})
+                "elegidas": [], "sin_seleccion": True, "cotizan": cotizan,
+                "tope": tope, "recortadas": False})
 
         datos = L.comparativa(partner, sel["presentation"], sel["channel"],
                               sel["quality"], cantidad, emisores=elegidas)
-        # Cuáles de las empacadoras cotizan la combinación elegida. Sin esto,
-        # una que solo carga entero aparece marcada en el filtro y no le sale
-        # columna, y el usuario no sabe por qué.
-        cotizan = set(L.comparativa(
-            partner, sel["presentation"], sel["channel"], sel["quality"]
-        ).get("listas", L.browse()).mapped("issuer_partner_id").ids)
         return request.render("shrimp_packer.price_list_compare", {
             "cotizan": cotizan,
+            "tope": tope,
+            "recortadas": recortadas,
             "combinaciones": combinaciones,
             "sel": sel,
             "datos": datos,

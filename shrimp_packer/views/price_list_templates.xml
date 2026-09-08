@@ -659,9 +659,10 @@
                    ya usa el marketplace en sus filtros, para que no aparezca
                    un control nuevo que el usuario tenga que aprender. -->
               <t t-if="len(empacadoras) &gt; 1">
-                <div class="s-filter-sec">
+                <div class="s-filter-sec" t-att-data-tope="tope">
                   <div class="s-filter-sec-label">
                     <i class="fa fa-industry"/> Empacadoras a comparar
+                    <span class="pk-tope">máximo <t t-esc="tope"/></span>
                   </div>
                   <div class="s-choice-chips">
                     <t t-foreach="empacadoras" t-as="e">
@@ -670,7 +671,7 @@
                       <t t-set="cotiza" t-value="e.id in cotizan"/>
                       <label t-attf-class="s-choice#{'' if cotiza else ' pk-choice--sin'}"
                              t-attf-title="#{'' if cotiza else 'No cotiza esta combinación en su lista vigente'}">
-                        <input type="checkbox" name="emp" t-att-value="e.id"
+                        <input type="checkbox" name="emp" class="js-emp" t-att-value="e.id"
                                t-att-checked="'checked' if e.id in elegidas else None"/>
                         <span>
                           <t t-esc="e.name"/>
@@ -678,6 +679,11 @@
                         </span>
                       </label>
                     </t>
+                  </div>
+                  <div id="pk_aviso_tope" class="pk-tope-aviso" style="display:none;">
+                    <i class="fa fa-info-circle me-1"/>
+                    Ya tienes <t t-esc="tope"/> seleccionadas. Desmarca una para
+                    cambiarla por otra.
                   </div>
                 </div>
               </t>
@@ -706,12 +712,49 @@
               </div>
             </form>
 
+            <t t-if="recortadas">
+              <div class="pk-alert pk-alert--ko mt-3">
+                <i class="fa fa-exclamation-triangle me-1"/>
+                Se comparan como máximo <t t-esc="tope"/> empacadoras a la vez.
+                Se tomaron las <t t-esc="tope"/> primeras de tu selección.
+              </div>
+            </t>
+
             <t t-if="sin_seleccion">
               <div class="pk-vacio mt-3">
                 <i class="fa fa-industry fa-2x mb-2"/>
                 <p class="mb-0">Elige al menos una empacadora para comparar.</p>
               </div>
             </t>
+
+            <script type="text/javascript">
+<![CDATA[
+(function(){
+  function init(){
+    var cajas = Array.prototype.slice.call(document.querySelectorAll('input.js-emp'));
+    if(!cajas.length) return;
+    var tope = parseInt(document.querySelector('[data-tope]') ?
+                        document.querySelector('[data-tope]').getAttribute('data-tope') : '3', 10);
+    var aviso = document.getElementById('pk_aviso_tope');
+    function refrescar(){
+      var marcadas = cajas.filter(function(c){ return c.checked; }).length;
+      var lleno = marcadas >= tope;
+      cajas.forEach(function(c){
+        // Solo se bloquean las que NO están marcadas: desmarcar siempre
+        // tiene que poder hacerse, o el usuario queda encerrado.
+        c.disabled = lleno && !c.checked;
+        c.closest('label').classList.toggle('pk-choice--bloq', c.disabled);
+      });
+      if(aviso){ aviso.style.display = lleno ? 'block' : 'none'; }
+    }
+    cajas.forEach(function(c){ c.addEventListener('change', refrescar); });
+    refrescar();
+  }
+  if(document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', init); }
+  else { init(); }
+})();
+]]>
+            </script>
 
             <t t-if="datos.get('uom_mixta')">
               <div class="pk-alert pk-alert--ko mt-3">

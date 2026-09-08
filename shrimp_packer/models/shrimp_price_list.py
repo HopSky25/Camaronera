@@ -548,6 +548,45 @@ class ShrimpPriceList(models.Model):
             self.env["shrimp.price.list.bonus"].sudo().create(bonos)
         return resumen, []
 
+    @api.model
+    def resumen_mejor_precio(self, partner):
+        """Resumen para el reporte de la camaronera: quién paga mejor cada talla.
+
+        Toma la combinación principal —la cola directa A, que es el producto que
+        más se mueve— y devuelve el ganador de cada talla. Es de solo consultar:
+        para cambiar de combinación o meter cantidades está el comparador.
+        """
+        combos = self.combinaciones_disponibles(partner)
+        if not combos:
+            return {}
+        sel = combos[0]
+        datos = self.comparativa(partner, sel["presentation"], sel["channel"],
+                                 sel["quality"])
+        if not datos.get("filas"):
+            return {}
+
+        # Cuántas tallas gana cada empacadora: dice de un vistazo con quién
+        # conviene trabajar en general, más allá de talla por talla.
+        marcador = {}
+        for fila in datos["filas"]:
+            if fila["solo_uno"]:
+                continue
+            for lid in fila["ganadores"]:
+                marcador[lid] = marcador.get(lid, 0) + 1
+        podio = sorted(
+            ({"lista": l, "gana": marcador.get(l.id, 0)} for l in datos["listas"]),
+            key=lambda d: -d["gana"])
+
+        return {
+            "sel": sel,
+            "combos": len(combos),
+            "listas": datos["listas"],
+            "filas": datos["filas"],
+            "uom": datos["uom"],
+            "podio": podio,
+            "comparables": len([f for f in datos["filas"] if not f["solo_uno"]]),
+        }
+
     def texto_ventana(self):
         """La vigencia en una línea, como la escriben en las listas reales."""
         self.ensure_one()

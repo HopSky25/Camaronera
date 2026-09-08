@@ -26,10 +26,20 @@ class ShrimpProduct(models.Model):
     # La constrains se declara sobre estos campos a propósito: así solo se
     # comprueba al crear el lote o al editarlos, y los lotes viejos siguen
     # operando —se compran, se verifican y se cierran— sin tropezar.
-    @api.constrains("verification_scope", "presentation", "size_grade_id", "uom_id")
+    # Se exige en ENGORDE, no en todo lo que tenga alcance "adulto".
+    # verification_scope vale "adult" para cualquier lote de una camaronera,
+    # y eso incluye los juveniles de 2 a 5 g, que no son mercadería de
+    # empacadora: se venden a otra finca para seguir engordando. Pedirles una
+    # talla comercial obligaría a inventarla —un camarón de 3 g daría 230
+    # piezas por libra, fuera de toda la matriz— y el comparador lo valoraría
+    # como si fuera camarón de mesa.
+    @api.constrains("verification_scope", "presentation", "size_grade_id",
+                    "uom_id", "stage_id")
     def _check_datos_para_cruce(self):
         for rec in self:
             if rec.verification_scope != "adult":
+                continue
+            if (rec.stage_id.code or "").strip().upper() != "ENGORDE":
                 continue
             if not rec.presentation:
                 raise ValidationError(_(
@@ -97,6 +107,13 @@ class ShrimpProduct(models.Model):
         """
         self.ensure_one()
         if self.verification_scope != "adult":
+            return {}
+        # Solo el ENGORDE se cruza con una lista de precios. Un juvenil de 2 a
+        # 5 g no es mercadería de empacadora: se vende a otra finca para seguir
+        # engordando. Sin este corte, un lote llamado "Juvenil 3,6 g" aparecía
+        # con "Mejor precio hoy $1,59/Lb · Directa A" y un total de $9.988,
+        # que es una cifra que nadie le va a pagar.
+        if (self.stage_id.code or "").strip().upper() != "ENGORDE":
             return {}
         # Si falta el dato con el que se cruza, hay que DECIRLO. Antes se
         # devolvía un diccionario vacío y la tarjeta no pintaba nada: la

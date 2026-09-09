@@ -1390,11 +1390,10 @@ function setActive(idx){
                                                     <div
                                                         class="d-flex gap-2 flex-wrap justify-content-center"
                                                         id="mp_thumbs">
-                                                        <t t-foreach="photos" t-as="img"
-                                                            t-foreach-index="i">
+                                                        <t t-foreach="photos" t-as="img">
                                                             <img t-att-src="img['url']"
                                                                 class="rounded-3 border mp-thumb"
-                                                                t-att-data-index="i"
+                                                                t-att-data-index="img_index"
                                                                 t-att-data-url="img['url']"
                                                                 alt="Miniatura" />
                                                         </t>
@@ -1960,10 +1959,11 @@ function setActive(idx){
                                     <!-- Miniaturas -->
                                     <t t-if="photos and len(photos) &gt; 1">
                                         <div class="d-flex gap-2 flex-wrap mt-2">
-                                            <t t-foreach="photos" t-as="img" t-foreach-index="i">
-                                                <t t-if="i &gt; 0">
+                                            <t t-foreach="photos" t-as="img">
+                                                <t t-if="img_index &gt; 0">
                                                     <img t-att-src="'/web/image/%s' % img.id"
                                                         class="rounded-3 border"
+                                                        t-attf-alt="Foto #{img_index + 1} del lote"
                                                         style="width:80px; height:80px; object-fit:cover; cursor:pointer;" />
                                                 </t>
                                             </t>

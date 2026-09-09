@@ -322,7 +322,7 @@ class ShrimpRegistryController(http.Controller):
         formulario genérico; los módulos con formulario propio lo sobrescriben."""
         return "shrimp_user_registry.registry_form"
 
-    @http.route("/registro/certificados", type="json", auth="public", website=True, csrf=False)
+    @http.route("/registro/certificados", type="jsonrpc", auth="public", website=True, csrf=False)
     def certificados_por_rol(self, role=None):
         domain = [("active", "=", True)]
         if role in ("semillero", "laboratorio", "camaronera"):

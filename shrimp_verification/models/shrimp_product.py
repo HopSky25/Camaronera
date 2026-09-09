@@ -47,6 +47,7 @@ class ShrimpProduct(models.Model):
         "seller_partner_id", "check_request_ids.qty", "check_request_ids.state",
         "transaction_ids.state", "transaction_ids.transaction_qty",
     )
+
     def _compute_available_qty(self):
         """Amplía el cálculo base descontando las compras pendientes de verificación.
 

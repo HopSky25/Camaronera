@@ -94,13 +94,14 @@ class ShrimpCertificate(models.Model):
         tracking=True,
     )
 
-    _sql_constraints = [
-        (
-            "shrimp_certificate_name_uniq",
-            "unique(name)",
-            "Ya existe un certificado con ese nombre."
-        ),
-    ]
+    # Odoo 19 ignora _sql_constraints EN SILENCIO —solo deja un
+    # WARNING en el arranque— y la restriccion no llega nunca a
+    # PostgreSQL. Se comprobo contra pg_constraint: ninguna de las
+    # unicidades declaradas asi existia en la base.
+    _shrimp_certificate_name_uniq = models.Constraint(
+        "unique(name)",
+        "Ya existe un certificado con ese nombre.",
+    )
 
     @api.constrains("duration_value")
     def _check_duration_value(self):

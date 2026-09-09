@@ -5,6 +5,7 @@ from odoo import http, fields, _
 from odoo.http import request
 from odoo.exceptions import ValidationError
 from werkzeug.exceptions import NotFound, Forbidden
+from urllib.parse import quote
 
 # Reutiliza la validación real de archivos (magic bytes) del módulo de registro
 from odoo.addons.shrimp_user_registry.controllers.main import _read_validated_file
@@ -76,35 +77,55 @@ class ShrimpAccountPortalController(http.Controller):
         if email:
             vals["email"] = email
 
+        vals.update(self._guardar_extra(partner, post))
+
+        try:
+            partner.sudo().write(vals)
+        except ValidationError as e:
+            # El motivo real, no "el correo ya está en uso". Antes cualquier
+            # error caía en el mismo mensaje: quien borraba su razón social
+            # —que es obligatoria— leía un aviso sobre correos duplicados y no
+            # tenía forma de saber qué campo arreglar.
+            return request.redirect(
+                "/marketplace/mi-cuenta?error=%s" % quote(
+                    e.args[0] if e.args else _("No se pudo guardar.")))
+        except Exception:
+            return request.redirect("/marketplace/mi-cuenta?error=duplicate")
+
+        return request.redirect("/marketplace/mi-cuenta?saved=1")
+
+    def _guardar_extra(self, partner, post):
+        """Los campos propios del eslabón de quien guarda.
+
+        Es un punto de extensión a propósito: cada rol tiene su bloque de
+        ficha y los módulos que añaden roles necesitan enganchar el suyo sin
+        editar esta cadena. La empacadora vive en shrimp_packer y sin esto no
+        tenía forma de guardar su perfil desde el portal.
+        """
+        def _f(v):
+            try:
+                return float(v or 0.0)
+            except (TypeError, ValueError):
+                return 0.0
+
         user_type = partner.shrimp_user_type
         if user_type == "laboratorio":
-            vals.update({
+            return {
                 "lab_razon_social": post.get("lab_razon_social") or False,
                 "lab_ubicacion": post.get("lab_ubicacion") or False,
                 "lab_global_gap": bool(post.get("lab_global_gap")),
                 "lab_social_ship_partner": bool(post.get("lab_social_ship_partner")),
-            })
-        elif user_type == "camaronera":
-            def _f(v):
-                try:
-                    return float(v or 0.0)
-                except (TypeError, ValueError):
-                    return 0.0
-            vals.update({
+            }
+        if user_type == "camaronera":
+            return {
                 "farm_razon_social": post.get("farm_razon_social") or False,
                 "farm_representante": post.get("farm_representante") or False,
                 "farm_telefono": post.get("farm_telefono") or False,
                 "farm_ubicacion": post.get("farm_ubicacion") or False,
                 "farm_capacidad": _f(post.get("farm_capacidad")),
                 "farm_area_ha": _f(post.get("farm_area_ha")),
-            })
-
-        try:
-            partner.sudo().write(vals)
-        except Exception:
-            return request.redirect("/marketplace/mi-cuenta?error=duplicate")
-
-        return request.redirect("/marketplace/mi-cuenta?saved=1")
+            }
+        return {}
 
     # ==================================================================
     # 2) MIS CERTIFICADOS

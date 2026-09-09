@@ -1,0 +1,84 @@
+<odoo>
+  <data noupdate="0">
+
+    <!-- Aviso de cambio de precios. Solo lista las tallas que ese productor
+         tiene en stock: un correo con sesenta renglones no lo lee nadie. -->
+    <record id="mail_template_precios_cambiaron" model="mail.template">
+      <field name="name">Precios: cambió lo que te pagan</field>
+      <field name="model_id" ref="shrimp_packer.model_shrimp_price_list"/>
+      <field name="subject">{{ object.issuer_partner_id.name }} cambió precios de tallas que tienes en stock</field>
+      <field name="email_from">{{ user.company_id.email_formatted or user.email_formatted or '' }}</field>
+      <field name="body_html" type="html">
+        <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#243b45;max-width:600px;">
+
+          <div style="border-bottom:3px solid #14A0B0;padding-bottom:10px;margin-bottom:18px;">
+            <span style="font-size:22px;font-weight:bold;color:#123E5C;">tr</span><span style="font-size:22px;font-weight:bold;color:#14A0B0;">azul</span>
+          </div>
+
+          <p>Hola <t t-out="ctx.get('destinatario') or ''"/>,</p>
+
+          <h2 style="color:#123E5C;font-size:18px;margin:14px 0 6px;">
+            <t t-out="object.issuer_partner_id.name or ''"/> publicó precios nuevos
+          </h2>
+          <p style="margin:0 0 16px;color:#3d5560;">
+            Estos son los cambios en tallas que tienes disponibles ahora mismo.
+            <t t-out="object.texto_ventana()"/>.
+          </p>
+
+          <table style="border-collapse:collapse;width:100%;margin-bottom:18px;">
+            <tr>
+              <th style="text-align:left;background:#f2f7f9;padding:7px 10px;border:1px solid #dfe8ec;font-size:12px;color:#123E5C;">Talla</th>
+              <th style="text-align:right;background:#f2f7f9;padding:7px 10px;border:1px solid #dfe8ec;font-size:12px;color:#123E5C;">Antes</th>
+              <th style="text-align:right;background:#f2f7f9;padding:7px 10px;border:1px solid #dfe8ec;font-size:12px;color:#123E5C;">Ahora</th>
+              <th style="text-align:right;background:#f2f7f9;padding:7px 10px;border:1px solid #dfe8ec;font-size:12px;color:#123E5C;">Tu stock</th>
+              <th style="text-align:right;background:#f2f7f9;padding:7px 10px;border:1px solid #dfe8ec;font-size:12px;color:#123E5C;">Efecto</th>
+            </tr>
+            <t t-foreach="ctx.get('cambios') or []" t-as="c">
+              <tr>
+                <td style="padding:7px 10px;border:1px solid #eef2f4;">
+                  <strong t-out="c['talla']"/>
+                  <span style="color:#8b9ba3;font-size:12px;"> <t t-out="c['presentacion']"/></span>
+                </td>
+                <td style="padding:7px 10px;border:1px solid #eef2f4;text-align:right;color:#8b9ba3;">
+                  <t t-out="'%.2f' % c['antes']"/>
+                </td>
+                <td style="padding:7px 10px;border:1px solid #eef2f4;text-align:right;font-weight:bold;color:#123E5C;">
+                  <t t-out="'%.2f' % c['ahora']"/>
+                  <span style="font-size:11px;color:#8b9ba3;"> / <t t-out="c['uom']"/></span>
+                </td>
+                <td style="padding:7px 10px;border:1px solid #eef2f4;text-align:right;">
+                  <t t-out="'{:,.0f}'.format(c['cantidad'])"/>
+                  <span style="font-size:11px;color:#8b9ba3;"> <t t-out="c['uom']"/></span>
+                  <div style="font-size:11px;color:#8b9ba3;">
+                    en <t t-out="c.get('lotes') or 1"/> lote<t t-if="(c.get('lotes') or 1) != 1">s</t>
+                  </div>
+                </td>
+                <td t-attf-style="padding:7px 10px;border:1px solid #eef2f4;text-align:right;font-weight:bold;color:#{'0f7c88' if c['efecto'] &gt;= 0 else 'b3261e'};">
+                  <t t-out="('+' if c['efecto'] &gt;= 0 else '') + '${:,.0f}'.format(c['efecto'])"/>
+                </td>
+              </tr>
+            </t>
+          </table>
+
+          <p style="color:#5A6B74;font-size:13px;">
+            La columna «Efecto» es lo que gana o pierde tu stock actual con el
+            precio nuevo. No es una venta: es a cuánto te lo pagarían hoy.
+          </p>
+
+          <p>
+            <a t-attf-href="{{ object.get_base_url() }}/marketplace/listas-de-precios/comparar"
+               style="background:#123E5C;color:#ffffff;padding:11px 20px;border-radius:6px;text-decoration:none;display:inline-block;">
+              Comparar con las demás empacadoras
+            </a>
+          </p>
+
+          <p style="color:#8b9ba3;font-size:12px;border-top:1px solid #e3eaed;padding-top:12px;margin-top:22px;">
+            Recibes este aviso porque esta lista va dirigida a ti y tienes stock
+            en las tallas que cambiaron.
+          </p>
+        </div>
+      </field>
+    </record>
+
+  </data>
+</odoo>

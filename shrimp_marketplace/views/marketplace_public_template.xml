@@ -119,7 +119,14 @@
                     </div>
                     <div class="s-prod-actions">
                         <a class="s-btn s-btn-ghost btn-sm" t-att-href="'/marketplace/product/%s' % p.uuid_ref">Ver</a>
-                        <a class="s-btn s-btn-primary btn-sm" t-att-href="'/marketplace/buy/%s' % p.uuid_ref">Comprar</a>
+                        <!-- "Comprar" solo si de verdad puede: la cadena tiene un orden y
+                             antes se pintaba el botón en todo el catálogo, así que la
+                             mayoría de las tarjetas terminaban en un 403. Al visitante
+                             sin sesión sí se le ofrece: le lleva al login, que es
+                             exactamente lo que queremos. -->
+                        <t t-set="veto" t-value="'' if request.env.user._is_public() else p.motivo_no_comprable(request.env.user.partner_id)"/>
+                        <a t-if="not veto" class="s-btn s-btn-primary btn-sm" t-att-href="'/marketplace/buy/%s' % p.uuid_ref">Comprar</a>
+                        <span t-else="" class="s-btn s-btn-ghost btn-sm disabled" t-att-title="veto">No disponible para ti</span>
                     </div>
                 </div>
             </div>
@@ -532,7 +539,8 @@
                                         <t t-foreach="product.photo_attachment_ids" t-as="img">
                                             <img t-attf-class="js-buy-thumb#{' is-active' if img_index == 0 else ''}"
                                                  t-att-data-src="'/marketplace/producto/%s/foto/%s' % (product.uuid_ref, img.id)"
-                                                 t-att-src="'/marketplace/producto/%s/foto/%s' % (product.uuid_ref, img.id)" />
+                                                 t-att-src="'/marketplace/producto/%s/foto/%s' % (product.uuid_ref, img.id)"
+                                                 t-attf-alt="Foto #{img_index + 1} de #{product.name}" />
                                         </t>
                                     </div>
                                 </t>

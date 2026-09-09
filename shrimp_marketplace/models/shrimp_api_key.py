@@ -33,9 +33,14 @@ class ShrimpApiKey(models.Model):
     last_used = fields.Datetime(string="Último uso", readonly=True)
     call_count = fields.Integer(string="Nº de llamadas", readonly=True, default=0)
 
-    _sql_constraints = [
-        ("key_unique", "unique(key)", "La clave de API debe ser única."),
-    ]
+    # Odoo 19 ignora _sql_constraints EN SILENCIO —solo deja un
+    # WARNING en el arranque— y la restriccion no llega nunca a
+    # PostgreSQL. Se comprobo contra pg_constraint: ninguna de las
+    # unicidades declaradas asi existia en la base.
+    _key_unique = models.Constraint(
+        "unique(key)",
+        "La clave de API debe ser única.",
+    )
 
     @api.model
     def _generate_key(self):

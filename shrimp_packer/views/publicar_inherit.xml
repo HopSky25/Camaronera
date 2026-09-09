@@ -1,0 +1,80 @@
+<odoo>
+
+  <!-- ================================================================
+       Al publicar un lote, proponerle el precio que le pagan hoy.
+
+       Se engancha con un bloque y un script sobre el formulario de
+       shrimp_marketplace, sin reescribir su plantilla: el precio se
+       consulta por jsonrpc al cambiar talla o presentación.
+       ================================================================ -->
+  <template id="publicar_precio_sugerido"
+            inherit_id="shrimp_marketplace.product_new_form"
+            name="Publicar lote - precio sugerido">
+    <xpath expr="//input[@name='price']" position="after">
+      <div id="pk_sugerencia" class="pk-sug-precio" style="display:none;">
+        <span class="pk-sug-txt"></span>
+        <button type="button" class="pk-sug-usar" style="display:none;">Usar</button>
+      </div>
+
+      <script type="text/javascript">
+<![CDATA[
+(function(){
+  function init(){
+    var pres  = document.querySelector('select[name="presentation"]');
+    var talla = document.querySelector('select[name="size_grade_id"]');
+    var precio = document.querySelector('input[name="price"]');
+    var caja  = document.getElementById('pk_sugerencia');
+    if(!pres || !talla || !precio || !caja) return;
+    var txt = caja.querySelector('.pk-sug-txt');
+    var usar = caja.querySelector('.pk-sug-usar');
+    var ultimo = null;
+
+    function mostrar(html, valor){
+      txt.innerHTML = html;
+      caja.style.display = 'block';
+      ultimo = valor;
+      usar.style.display = valor ? 'inline-block' : 'none';
+    }
+    function consultar(){
+      var p = pres.value, t = talla.value;
+      if(!p || !t){ caja.style.display = 'none'; return; }
+      fetch('/marketplace/precio-sugerido', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({jsonrpc:'2.0', method:'call',
+                              params:{presentation: p, size_grade_id: t}})
+      }).then(function(r){ return r.json(); }).then(function(d){
+        var r = (d && d.result) || {};
+        if(r.precio){
+          var u = r.uom === 'kg' ? 'Kg' : 'Lb';
+          var extra = r.cuantas > 1 ? (' · ' + r.cuantas + ' empacadoras cotizan esta talla') : '';
+          mostrar('<strong>' + r.empacadora + '</strong> te paga <strong>$' +
+                  r.precio.toFixed(2) + ' / ' + u + '</strong> por esta talla' + extra,
+                  r.precio);
+        } else if(r.sin_precio){
+          mostrar('Ninguna de tus ' + r.listas + ' lista(s) vigente(s) cotiza esta talla.', null);
+        } else if(r.sin_listas){
+          caja.style.display = 'none';
+        } else {
+          caja.style.display = 'none';
+        }
+      }).catch(function(){ caja.style.display = 'none'; });
+    }
+    // Se rellena solo si el campo está vacío: no se pisa un precio que el
+    // camaronero ya escribió a mano.
+    usar.addEventListener('click', function(){
+      if(ultimo){ precio.value = ultimo.toFixed(2); precio.focus(); }
+    });
+    pres.addEventListener('change', consultar);
+    talla.addEventListener('change', consultar);
+    consultar();
+  }
+  if(document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', init); }
+  else { init(); }
+})();
+]]>
+      </script>
+    </xpath>
+  </template>
+
+</odoo>

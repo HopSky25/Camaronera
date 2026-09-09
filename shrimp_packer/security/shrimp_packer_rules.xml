@@ -1,0 +1,107 @@
+<odoo>
+
+  <!-- ================================================================
+       Confidencialidad de las listas de precios.
+
+       Es lo más delicado del módulo: cada empacadora le pone precio distinto
+       a cada productor, y que se filtre la lista del vecino —o peor, la de una
+       competidora— es un problema comercial, no un fallo de pantalla. Por eso
+       va en reglas de registro sobre la base y no escondiendo botones.
+       ================================================================ -->
+
+  <!-- Lectura: la ve quien la emite, y quien está nombrado como destinatario.
+       Se incluye también el partner padre para cubrir los grupos con varias
+       razones sociales (una lista al grupo, la ven todas sus camaroneras). -->
+  <record id="rule_price_list_read_portal" model="ir.rule">
+    <field name="name">Listas de precios: emisor y destinatarios</field>
+    <field name="model_id" ref="model_shrimp_price_list"/>
+    <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+    <field name="perm_read" eval="True"/>
+    <field name="perm_write" eval="False"/>
+    <field name="perm_create" eval="False"/>
+    <field name="perm_unlink" eval="False"/>
+    <field name="domain_force">['|',
+        ('issuer_partner_id','=',user.partner_id.id),
+        '&amp;',
+        ('state','=','published'),
+        ('recipient_ids','in',
+            [user.partner_id.id] + ([user.partner_id.parent_id.id] if user.partner_id.parent_id else []))]</field>
+  </record>
+
+  <!-- Escritura: solo el emisor toca su lista. -->
+  <record id="rule_price_list_write_portal" model="ir.rule">
+    <field name="name">Listas de precios: solo el emisor edita</field>
+    <field name="model_id" ref="model_shrimp_price_list"/>
+    <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+    <field name="perm_read" eval="False"/>
+    <field name="perm_write" eval="True"/>
+    <field name="perm_create" eval="True"/>
+    <field name="perm_unlink" eval="True"/>
+    <field name="domain_force">[('issuer_partner_id','=',user.partner_id.id)]</field>
+  </record>
+
+  <!-- Los renglones y las bonificaciones heredan la misma regla: si no, se
+       podría leer el precio consultando la línea sin pasar por la cabecera.
+
+       Y como en la cabecera, el permiso se desglosa. La primera versión de
+       estas dos reglas no lo hacía, así que el dominio de lectura —que incluye
+       a los destinatarios— también les daba escritura y borrado: la camaronera
+       que recibe la lista podía cambiarle los precios a la empacadora que se
+       la mandó, o borrarle los renglones, sobre una lista ya publicada. La
+       cabecera estaba bien protegida desde el principio; el desglose por
+       permiso no se replicó a las líneas. -->
+  <record id="rule_price_list_line_portal" model="ir.rule">
+    <field name="name">Renglones: los lee el emisor y sus destinatarios</field>
+    <field name="model_id" ref="model_shrimp_price_list_line"/>
+    <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+    <field name="perm_read" eval="True"/>
+    <field name="perm_write" eval="False"/>
+    <field name="perm_create" eval="False"/>
+    <field name="perm_unlink" eval="False"/>
+    <field name="domain_force">['|',
+        ('price_list_id.issuer_partner_id','=',user.partner_id.id),
+        '&amp;',
+        ('price_list_id.state','=','published'),
+        ('price_list_id.recipient_ids','in',
+            [user.partner_id.id] + ([user.partner_id.parent_id.id] if user.partner_id.parent_id else []))]</field>
+  </record>
+
+  <record id="rule_price_list_line_portal_write" model="ir.rule">
+    <field name="name">Renglones: solo los escribe el emisor</field>
+    <field name="model_id" ref="model_shrimp_price_list_line"/>
+    <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+    <field name="perm_read" eval="False"/>
+    <field name="perm_write" eval="True"/>
+    <field name="perm_create" eval="True"/>
+    <field name="perm_unlink" eval="True"/>
+    <field name="domain_force">[('price_list_id.issuer_partner_id','=',user.partner_id.id)]</field>
+  </record>
+
+  <record id="rule_price_list_bonus_portal" model="ir.rule">
+    <field name="name">Bonificaciones: las lee el emisor y sus destinatarios</field>
+    <field name="model_id" ref="model_shrimp_price_list_bonus"/>
+    <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+    <field name="perm_read" eval="True"/>
+    <field name="perm_write" eval="False"/>
+    <field name="perm_create" eval="False"/>
+    <field name="perm_unlink" eval="False"/>
+    <field name="domain_force">['|',
+        ('price_list_id.issuer_partner_id','=',user.partner_id.id),
+        '&amp;',
+        ('price_list_id.state','=','published'),
+        ('price_list_id.recipient_ids','in',
+            [user.partner_id.id] + ([user.partner_id.parent_id.id] if user.partner_id.parent_id else []))]</field>
+  </record>
+
+  <record id="rule_price_list_bonus_portal_write" model="ir.rule">
+    <field name="name">Bonificaciones: solo las escribe el emisor</field>
+    <field name="model_id" ref="model_shrimp_price_list_bonus"/>
+    <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+    <field name="perm_read" eval="False"/>
+    <field name="perm_write" eval="True"/>
+    <field name="perm_create" eval="True"/>
+    <field name="perm_unlink" eval="True"/>
+    <field name="domain_force">[('price_list_id.issuer_partner_id','=',user.partner_id.id)]</field>
+  </record>
+
+</odoo>

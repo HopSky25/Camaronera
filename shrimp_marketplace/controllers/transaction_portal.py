@@ -9,6 +9,10 @@ from odoo.exceptions import ValidationError
 from odoo.tools import ustr
 from werkzeug.exceptions import NotFound, Forbidden
 
+# Nombres de mes en espanol para las graficas del portal.
+MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun",
+                "jul", "ago", "sep", "oct", "nov", "dic"]
+
 
 class ShrimpTransactionPortalController(http.Controller):
 
@@ -502,7 +506,9 @@ class ShrimpTransactionPortalController(http.Controller):
             month_keys.append(key)
             months.append({
                 "key": key,
-                "label": m.strftime("%b %y"),
+                # strftime("%b") depende del locale del proceso y sale en
+                # ingles ("Apr 26") dentro de una interfaz en espanol.
+                "label": "%s %02d" % (MESES_CORTOS[m.month - 1], m.year % 100),
                 "sales": 0.0,
                 "purchases": 0.0,
             })

@@ -1,0 +1,68 @@
+<odoo>
+
+  <!-- ================================================================
+       Entradas del mundo empacadora dentro del desplegable Operaciones.
+
+       Antes eran menús sueltos al final de la barra: estaban, pero nadie
+       los encontraba. Van donde el usuario los busca, junto al historial
+       de compras y los reportes.
+
+       Cada una se muestra SOLO al eslabón al que le sirve. Sin esto las
+       cuatro se ofrecían a todo el mundo, y para un semillero o un
+       laboratorio eran cuatro caminos muertos: "Oferta disponible" le
+       devolvía un 403, y las otras tres una página vacía para siempre
+       —"Todavía no hay ninguna lista dirigida a ti"— porque una lista de
+       precios va dirigida a camaroneras por definición. Un menú que no
+       lleva a ningún sitio no es un detalle: es una promesa incumplida
+       cada vez que se abre la barra.
+       ================================================================ -->
+  <template id="navbar_listas_de_precios"
+            inherit_id="shrimp_marketplace.submenu_mi_panel_dropdown"
+            name="Operaciones - listas de precios">
+    <!-- Al final del desplegable Operaciones, después de "Calendario de
+         entregas". Se ancla por el href, que es estable, y no por posición. -->
+    <xpath expr="//a[@href='/marketplace/calendar']/.." position="after">
+      <t t-set="shrimp_tipo"
+         t-value="request.env.user.partner_id.shrimp_user_type if request else False"/>
+
+      <!-- La camaronera las recibe; la empacadora las publica. -->
+      <li t-if="shrimp_tipo in ('camaronera', 'empacadora')">
+        <a role="menuitem" class="dropdown-item mp-menu-item"
+           href="/marketplace/listas-de-precios">
+          <span class="mp-menu-ico mp-mi-blue"><i class="fa fa-list-alt"/></span>
+          <span>Listas de precios</span>
+        </a>
+      </li>
+
+      <!-- Comparar quién paga mejor solo tiene sentido para quien vende
+           camarón adulto: la camaronera. -->
+      <li t-if="shrimp_tipo == 'camaronera'">
+        <a role="menuitem" class="dropdown-item mp-menu-item"
+           href="/marketplace/listas-de-precios/comparar">
+          <span class="mp-menu-ico mp-mi-teal"><i class="fa fa-balance-scale"/></span>
+          <span>Comparar precios</span>
+        </a>
+      </li>
+
+      <!-- Los lotes que hay a la venta cruzados con los precios propios:
+           es la pantalla de compra de la empacadora. -->
+      <li t-if="shrimp_tipo == 'empacadora'">
+        <a role="menuitem" class="dropdown-item mp-menu-item"
+           href="/marketplace/oferta">
+          <span class="mp-menu-ico mp-mi-green"><i class="fa fa-cubes"/></span>
+          <span>Oferta disponible</span>
+        </a>
+      </li>
+
+      <!-- El directorio: a quién le puede despachar la camaronera. -->
+      <li t-if="shrimp_tipo == 'camaronera'">
+        <a role="menuitem" class="dropdown-item mp-menu-item"
+           href="/marketplace/empacadoras">
+          <span class="mp-menu-ico mp-mi-amber"><i class="fa fa-industry"/></span>
+          <span>Empacadoras</span>
+        </a>
+      </li>
+    </xpath>
+  </template>
+
+</odoo>

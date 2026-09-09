@@ -1,0 +1,394 @@
+/* ==================================================================
+   Empacadora y listas de precios — paleta Trazul
+   ================================================================== */
+.pk-h1 { font-size: 1.6rem; font-weight: 800; color: #123E5C; margin: 0 0 18px; }
+.pk-h2 { font-size: 1.15rem; font-weight: 700; color: #123E5C; margin: 0 0 12px; }
+.pk-muted { color: #8b9ba3; }
+
+.pk-volver { display: inline-block; margin-bottom: 14px; color: #14A0B0; text-decoration: none; }
+.pk-volver:hover { color: #123E5C; }
+
+.pk-alert { border-radius: 8px; padding: 12px 14px; margin-bottom: 16px; font-size: .93rem; }
+.pk-alert--ok { background: #eaf7f8; border-left: 4px solid #14A0B0; color: #0f5c66; }
+.pk-alert--ko { background: #fdecea; border-left: 4px solid #b3261e; color: #8c1d18; }
+
+/* Tarjetas de las listas que me tocan */
+.pk-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.pk-card {
+  display: block; background: #fff; border: 1px solid #e3eaed;
+  border-top: 4px solid #14A0B0; border-radius: 10px; padding: 16px 18px;
+  text-decoration: none; color: #243b45;
+  box-shadow: 0 1px 3px rgba(18, 62, 92, .07);
+}
+.pk-card:hover { border-color: #cfe9ee; box-shadow: 0 6px 18px rgba(18, 62, 92, .12); color: #243b45; }
+.pk-card-emisor { font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; color: #14A0B0; font-weight: 700; }
+.pk-card-nombre { font-size: 1.1rem; font-weight: 700; color: #123E5C; margin: 2px 0 6px; }
+.pk-card-meta { font-size: .86rem; color: #5A6B74; }
+.pk-card-pie { display: flex; justify-content: space-between; margin-top: 12px; font-size: .84rem; color: #8b9ba3; }
+.pk-ver { color: #14A0B0; font-weight: 600; }
+
+.pk-vacio {
+  background: #f7fafb; border: 1px dashed #cfd9dd; border-radius: 10px;
+  padding: 28px; text-align: center; color: #8b9ba3;
+}
+
+/* El documento, como el papel que reparte la empacadora */
+.pk-doc {
+  background: #fff; border: 1px solid #e3eaed; border-radius: 12px;
+  padding: 26px 30px; box-shadow: 0 2px 10px rgba(18, 62, 92, .08);
+  max-width: 860px; margin: 0 auto;
+}
+.pk-doc-head {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  border-bottom: 3px solid #14A0B0; padding-bottom: 14px; margin-bottom: 14px;
+  flex-wrap: wrap; gap: 12px;
+}
+.pk-doc-emisor { font-size: 1.3rem; font-weight: 800; color: #123E5C; }
+.pk-doc-titulo { font-size: .78rem; text-transform: uppercase; letter-spacing: .12em; color: #8b9ba3; }
+.pk-doc-ref { font-weight: 700; color: #123E5C; }
+.pk-doc-fecha { font-size: .84rem; color: #8b9ba3; }
+.pk-doc-vigencia {
+  background: #f7fafb; border-radius: 8px; padding: 10px 14px;
+  color: #3d5560; font-size: .92rem; margin-bottom: 20px;
+}
+.pk-doc-para { display: block; color: #8b9ba3; font-size: .86rem; margin-top: 2px; }
+
+.pk-seccion {
+  font-size: .8rem; text-transform: uppercase; letter-spacing: .1em;
+  color: #123E5C; font-weight: 700; margin: 22px 0 8px;
+  border-bottom: 1px solid #e3eaed; padding-bottom: 5px;
+}
+
+/* Tabla de precios: se lee de un barrido vertical, como el papel */
+.pk-precios { width: 100%; border-collapse: collapse; font-size: .92rem; }
+.pk-precios th {
+  background: #f2f7f9; color: #123E5C; font-weight: 700;
+  border: 1px solid #dfe8ec; padding: 7px 10px; text-align: center; font-size: .82rem;
+}
+.pk-precios td { border: 1px solid #eef2f4; padding: 6px 10px; color: #243b45; }
+.pk-precios tbody tr:nth-child(even) { background: #fbfdfd; }
+.pk-talla { font-weight: 700; color: #123E5C; }
+.pk-precios--corta { max-width: 420px; }
+
+.pk-condiciones, .pk-pago {
+  margin-top: 20px; padding: 12px 16px; border-radius: 8px;
+  font-size: .9rem; color: #3d5560;
+}
+.pk-condiciones { background: #fff8ec; border-left: 4px solid #e69c24; }
+.pk-pago { background: #eaf7f8; border-left: 4px solid #14A0B0; }
+.pk-condiciones strong, .pk-pago strong { display: block; color: #123E5C; margin-bottom: 4px; }
+
+/* Formularios del editor */
+.pk-caja { background: #fff; border: 1px solid #e3eaed; border-radius: 10px; padding: 18px 20px; }
+.pk-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px 16px; }
+.pk-grid--3 { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.pk-grid--5 { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.pk-grid label, .pk-caja > label { display: block; font-size: .82rem; font-weight: 600; color: #5A6B74; }
+.pk-grid .form-control, .pk-caja .form-control { margin-top: 3px; }
+.pk-check { display: inline-flex; align-items: center; gap: 7px; font-weight: 500; color: #243b45; margin-top: 10px; }
+.pk-checks { display: flex; flex-wrap: wrap; gap: 18px; }
+
+.pk-tabla { width: 100%; border-collapse: collapse; font-size: .92rem; background: #fff; }
+.pk-tabla th {
+  text-align: left; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em;
+  color: #8b9ba3; font-weight: 600; border-bottom: 2px solid #e3eaed; padding: 8px 10px;
+}
+.pk-tabla td { padding: 8px 10px; border-bottom: 1px solid #eef2f4; color: #243b45; }
+.pk-borrar { background: none; border: 0; color: #b3261e; cursor: pointer; padding: 2px 6px; }
+.pk-borrar:hover { color: #8c1d18; }
+
+.pk-estado { display: inline-block; border-radius: 999px; padding: 3px 11px; font-size: .76rem; font-weight: 600; }
+.pk-estado--draft { background: #eef2f4; color: #5A6B74; }
+.pk-estado--published { background: #eaf7f8; color: #0f7c88; }
+.pk-estado--archived { background: #f4f0ea; color: #8a7355; }
+
+.pk-publicar { background: #f7fafb; border: 1px solid #e3eaed; border-radius: 10px; padding: 16px 20px; }
+
+/* ==================================================================
+   Comparador de precios entre empacadoras
+   ================================================================== */
+.pk-filtro {
+  display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;
+  background: #fff; border: 1px solid #e3eaed; border-radius: 10px; padding: 16px 18px;
+}
+.pk-filtro label { display: block; font-size: .82rem; font-weight: 600; color: #5A6B74; }
+.pk-filtro .form-control { margin-top: 3px; min-width: 200px; }
+.pk-cant { display: flex; align-items: center; gap: 8px; }
+.pk-cant .form-control { min-width: 130px; }
+.pk-cant span { color: #8b9ba3; font-weight: 600; }
+
+/* La tabla puede tener muchas empacadoras: scroll horizontal con la
+   columna de la talla fija, que es la referencia para leer la fila. */
+.pk-comp-wrap { overflow-x: auto; background: #fff; border: 1px solid #e3eaed; border-radius: 10px; }
+.pk-comp { width: 100%; border-collapse: collapse; font-size: .93rem; }
+.pk-comp th {
+  background: #f2f7f9; border-bottom: 2px solid #dfe8ec; padding: 10px 14px;
+  color: #123E5C; font-weight: 700; white-space: nowrap;
+}
+.pk-comp td { padding: 9px 14px; border-bottom: 1px solid #eef2f4; color: #243b45; white-space: nowrap; }
+.pk-comp tbody tr:hover { background: #fbfdfd; }
+.pk-comp-talla, .pk-comp .pk-talla {
+  position: sticky; left: 0; background: #fff; z-index: 1;
+  border-right: 1px solid #e3eaed;
+}
+.pk-comp thead .pk-comp-talla { background: #f2f7f9; }
+.pk-comp-emp { font-size: .92rem; }
+.pk-comp-ref { font-size: .74rem; font-weight: 400; color: #8b9ba3; }
+.pk-comp-total { font-size: .76rem; color: #8b9ba3; font-weight: 400; }
+
+/* El mejor precio de cada fila: es lo único que hay que ver de un vistazo */
+.pk-mejor { background: #eaf7f8; font-weight: 700; color: #0f5c66; }
+.pk-mejor .fa-check { color: #14A0B0; }
+.pk-mejor .pk-comp-total { color: #0f7c88; }
+.pk-comp-vent { background: #fbfdfd; }
+.pk-ventaja { color: #0f7c88; font-weight: 700; }
+
+.pk-nota { color: #5A6B74; font-size: .88rem; }
+
+/* ==================================================================
+   Directorio y ficha pública de la empacadora
+   ================================================================== */
+.pk-buscar { position: relative; max-width: 460px; }
+.pk-buscar .fa { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #8b9ba3; }
+.pk-buscar .form-control { padding-left: 34px; }
+
+.pk-card--emp { border-top-color: #123E5C; }
+.pk-sellos { display: flex; flex-wrap: wrap; gap: 6px; }
+.pk-sello {
+  display: inline-block; background: #123E5C; color: #fff;
+  border-radius: 4px; padding: 2px 8px; font-size: .72rem;
+  font-weight: 700; letter-spacing: .04em;
+}
+.pk-sello--claro { background: rgba(255, 255, 255, .18); border: 1px solid rgba(255, 255, 255, .35); }
+.pk-mercado {
+  display: inline-block; background: #eaf7f8; color: #0f5c66;
+  border: 1px solid #cfe9ee; border-radius: 999px;
+  padding: 4px 14px; font-size: .86rem; font-weight: 600;
+}
+
+.pk-perfil {
+  background: #fff; border: 1px solid #e3eaed; border-radius: 12px;
+  overflow: hidden; max-width: 820px; margin: 0 auto;
+  box-shadow: 0 2px 10px rgba(18, 62, 92, .08);
+}
+.pk-perfil-head {
+  background: linear-gradient(135deg, #0D2B3E 0%, #123E5C 55%, #17788F 100%);
+  color: #fff; padding: 26px 30px;
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 16px; flex-wrap: wrap;
+}
+.pk-perfil-kicker {
+  font-size: .72rem; text-transform: uppercase; letter-spacing: .12em;
+  color: rgba(255, 255, 255, .7);
+}
+.pk-perfil-nombre { font-size: 1.7rem; font-weight: 800; color: #fff; margin: 2px 0 0; }
+.pk-perfil-razon { color: rgba(255, 255, 255, .78); font-size: .92rem; }
+.pk-perfil .pk-seccion, .pk-perfil .pk-datos,
+.pk-perfil .pk-lista, .pk-perfil .pk-sellos,
+.pk-perfil > p, .pk-perfil .pk-nota { margin-left: 30px; margin-right: 30px; }
+.pk-perfil > .pk-seccion:last-of-type ~ * { margin-bottom: 26px; }
+
+/* El atajo a los precios: es lo que va a buscar el productor a continuación */
+.pk-atajo {
+  display: flex; justify-content: space-between; align-items: center; gap: 14px;
+  background: #eaf7f8; border-bottom: 1px solid #cfe9ee;
+  padding: 14px 30px; flex-wrap: wrap;
+}
+
+.pk-datos { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.pk-datos > div { background: #f7fafb; border: 1px solid #eef2f4; border-radius: 8px; padding: 10px 12px; }
+.pk-datos span {
+  display: block; font-size: .7rem; text-transform: uppercase;
+  letter-spacing: .06em; color: #8b9ba3;
+}
+.pk-datos strong { color: #123E5C; font-size: .98rem; }
+
+.pk-lista { list-style: none; padding: 0; }
+.pk-lista li { padding: 6px 0; border-bottom: 1px solid #f1f5f6; color: #243b45; }
+.pk-lista li:last-child { border-bottom: 0; }
+.pk-lista .fa-check-circle { color: #14A0B0; margin-right: 7px; }
+
+/* El marketplace fija el color de los títulos con `.shrimp-bg h1`, que tiene
+   más especificidad que una clase suelta: sin repetir el ancestro, el nombre
+   de la empacadora salía oscuro sobre la cabecera oscura. */
+.pk-perfil .pk-perfil-nombre { color: #fff; }
+.pk-perfil .pk-seccion,
+.pk-doc .pk-seccion { color: #123E5C; }
+.sf-banner .pk-h2, .pk-perfil h1 { margin-top: 0; }
+
+/* Carga por Excel */
+.pk-excel {
+  display: flex; justify-content: space-between; align-items: center; gap: 20px;
+  background: #f2f9f4; border: 1px solid #cfe6d6; border-left: 5px solid #217a48;
+  border-radius: 10px; padding: 16px 20px; flex-wrap: wrap;
+}
+.pk-excel-txt strong { color: #123E5C; display: block; margin-bottom: 3px; }
+.pk-excel-txt p { color: #4a6154; font-size: .89rem; max-width: 520px; }
+.pk-excel-txt .fa-file-excel-o { color: #217a48; }
+.pk-excel-acciones { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pk-subir { display: flex; align-items: center; gap: 8px; }
+.pk-subir .form-control { max-width: 240px; }
+.pk-acciones { display: flex; gap: 6px; justify-content: flex-end; align-items: center; }
+
+/* ==================================================================
+   Bloque de precios de compra dentro de "Mis reportes"
+   ================================================================== */
+.pk-rep {
+  background: #fff; border: 1px solid #e3eaed; border-radius: 12px;
+  padding: 20px 24px; box-shadow: 0 2px 10px rgba(18, 62, 92, .07);
+}
+.pk-rep-head {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 16px; flex-wrap: wrap; margin-bottom: 16px;
+}
+.pk-rep-eyebrow {
+  font-size: .72rem; text-transform: uppercase; letter-spacing: .12em; color: #14A0B0;
+  font-weight: 700;
+}
+.pk-rep .pk-rep-titulo { font-size: 1.35rem; font-weight: 800; color: #123E5C; margin: 2px 0 3px; }
+.pk-rep-sub { color: #5A6B74; font-size: .9rem; }
+
+/* Marcador: con quién conviene en general, antes del detalle por talla */
+.pk-rep-podio { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+.pk-rep-emp {
+  flex: 1 1 180px; background: #f7fafb; border: 1px solid #eef2f4;
+  border-radius: 10px; padding: 12px 14px;
+}
+.pk-rep-emp--lider { background: #eaf7f8; border-color: #cfe9ee; }
+.pk-rep-emp-nombre { font-weight: 700; color: #123E5C; font-size: .95rem; }
+.pk-rep-emp-gana { color: #5A6B74; font-size: .84rem; }
+.pk-rep-emp--lider .pk-rep-emp-gana strong { color: #0f7c88; font-size: 1.05rem; }
+
+.pk-rep-tabla-wrap { overflow-x: auto; }
+.pk-rep-tabla { width: 100%; border-collapse: collapse; font-size: .93rem; }
+.pk-rep-tabla th {
+  text-align: left; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em;
+  color: #8b9ba3; font-weight: 600; border-bottom: 2px solid #e3eaed; padding: 8px 10px;
+}
+.pk-rep-tabla td { padding: 8px 10px; border-bottom: 1px solid #eef2f4; color: #243b45; }
+.pk-rep-tabla tbody tr:last-child td { border-bottom: 0; }
+.pk-rep-precio { font-weight: 700; color: #0f5c66; }
+.pk-rep-ganador { font-weight: 600; color: #123E5C; }
+.pk-rep-nota { color: #5A6B74; font-size: .86rem; margin: 14px 0 0; }
+
+/* Texto de ayuda bajo cada campo del formulario. Sin esto hay que
+   adivinar qué va en cada cuadro, y el usuario acaba preguntando. */
+.pk-ayuda {
+  display: block; font-size: .76rem; font-weight: 400; line-height: 1.35;
+  color: #8b9ba3; margin-top: 4px;
+}
+
+/* Listas publicadas cuyo despacho aún no empieza */
+.pk-card--proxima { border-top-color: #e69c24; opacity: .92; }
+.pk-badge-proxima {
+  background: #fff4e5; color: #7a5310; border: 1px solid #f0dcb8;
+  border-radius: 999px; padding: 2px 10px; font-size: .74rem; font-weight: 700;
+}
+
+/* El panel de filtros del comparador: envuelve los chips de empacadoras y
+   la fila de combinación/cantidad en una sola tarjeta, como el filtro del
+   marketplace. Los chips reutilizan .s-choice del marketplace. */
+.pk-filtro-panel {
+  background: #fff; border: 1px solid #e3eaed; border-radius: 10px;
+  padding: 16px 18px;
+}
+.pk-filtro-panel .s-filter-sec { margin-bottom: 14px; }
+.pk-filtro-panel .pk-filtro { border: 0; padding: 0; background: transparent; }
+
+
+/* Tope de empacadoras a comparar */
+.pk-tope {
+  margin-left: 8px; background: #eef2f4; color: #5A6B74;
+  border-radius: 999px; padding: 1px 9px; font-size: .7rem;
+  font-weight: 700; text-transform: none; letter-spacing: 0;
+}
+.pk-tope-aviso {
+  margin-top: 9px; font-size: .82rem; color: #7a5310;
+  background: #fff8ec; border: 1px solid #f0dcb8;
+  border-radius: 8px; padding: 7px 11px;
+}
+/* Chip bloqueado por el tope: se distingue de "no cotiza", que es otra cosa */
+.pk-choice--bloq { cursor: not-allowed; }
+.pk-choice--bloq span { opacity: .45; }
+
+/* ==================================================================
+   "Mejor precio hoy" en la tarjeta del lote
+   ================================================================== */
+.pk-lote {
+  background: #eaf7f8; border: 1px solid #cfe9ee; border-radius: 10px;
+  padding: 10px 12px; margin: 10px 0;
+}
+.pk-lote--sin { background: #f7fafb; border-color: #eef2f4; }
+.pk-lote-cab {
+  font-size: .68rem; text-transform: uppercase; letter-spacing: .08em;
+  color: #0f7c88; font-weight: 700;
+}
+.pk-lote--sin .pk-lote-cab { color: #8b9ba3; }
+.pk-lote-cifra { line-height: 1.1; margin-top: 2px; }
+.pk-lote-cifra strong { font-size: 1.35rem; color: #0f5c66; }
+.pk-lote-uom { color: #5A6B74; font-size: .82rem; }
+.pk-lote-quien { font-size: .84rem; color: #3d5560; font-weight: 600; }
+.pk-lote--sin .pk-lote-quien { font-weight: 400; color: #8b9ba3; }
+.pk-lote-total { font-size: .82rem; color: #3d5560; margin-top: 3px; }
+.pk-lote-ventaja { font-size: .8rem; color: #0f7c88; margin-top: 3px; }
+.pk-lote-link {
+  display: inline-block; margin-top: 6px; font-size: .8rem;
+  color: #14A0B0; text-decoration: none; font-weight: 600;
+}
+.pk-lote-link:hover { color: #123E5C; }
+
+/* ==================================================================
+   Precio sugerido por la propia lista del comprador, en la aceptación
+   ================================================================== */
+.pk-sugerido {
+  background: #eaf7f8; border: 1px solid #cfe9ee; border-left: 5px solid #14A0B0;
+  border-radius: 10px; padding: 14px 18px; margin-bottom: 14px;
+}
+.pk-sugerido-cab {
+  font-size: .7rem; text-transform: uppercase; letter-spacing: .08em;
+  color: #0f7c88; font-weight: 700; margin-bottom: 5px;
+}
+.pk-sugerido p { color: #3d5560; font-size: .92rem; }
+.pk-sugerido-cifras { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.pk-sugerido-cifras > div { display: flex; flex-direction: column; }
+.pk-sugerido-cifras span {
+  font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; color: #8b9ba3;
+}
+.pk-sugerido-cifras strong { font-size: 1.25rem; color: #0f5c66; }
+.pk-sugerido-cifras s { font-size: 1.05rem; color: #8b9ba3; }
+
+/* Oferta disponible para la empacadora */
+.pk-oferta-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.pk-oferta-kpis > div {
+  background: #fff; border: 1px solid #e3eaed; border-top: 4px solid #14A0B0;
+  border-radius: 10px; padding: 14px 16px;
+}
+.pk-oferta-kpis span {
+  display: block; font-size: .7rem; text-transform: uppercase;
+  letter-spacing: .06em; color: #8b9ba3;
+}
+.pk-oferta-kpis strong { font-size: 1.5rem; color: #123E5C; }
+.pk-oferta-cam {
+  display: inline-block; background: #f7fafb; border: 1px solid #eef2f4;
+  border-radius: 999px; padding: 2px 10px; margin: 2px 3px 2px 0;
+  font-size: .8rem; color: #123E5C; text-decoration: none;
+}
+.pk-oferta-cam:hover { background: #eaf7f8; border-color: #cfe9ee; color: #0f5c66; }
+
+/* Sugerencia de precio al publicar un lote */
+.pk-sug-precio {
+  margin-top: 8px; background: #eaf7f8; border: 1px solid #cfe9ee;
+  border-radius: 10px; padding: 8px 12px; font-size: .84rem; color: #0f5c66;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.pk-sug-precio strong { color: #123E5C; }
+.pk-sug-usar {
+  background: #123E5C; color: #fff; border: 0; border-radius: 6px;
+  padding: 4px 12px; font-size: .8rem; font-weight: 600; cursor: pointer;
+  flex: 0 0 auto;
+}
+.pk-sug-usar:hover { background: #0D2B3E; }
+
+/* La clase de calidad junto al precio del cruce: es un matiz, no un titular,
+   pero tiene que estar legible. */
+.pk-lote-cal { color: #5A6B74; font-weight: 600; }

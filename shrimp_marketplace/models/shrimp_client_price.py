@@ -23,11 +23,14 @@ class ShrimpClientPrice(models.Model):
     price = fields.Float(string="Precio por libra", required=True)
     active = fields.Boolean(string="Activo", default=True)
 
-    _sql_constraints = [
-        ("uniq_client_product",
-         "unique(client_partner_id, product_id)",
-         "Ya existe un precio asignado para este cliente y producto."),
-    ]
+    # Odoo 19 ignora _sql_constraints EN SILENCIO —solo deja un
+    # WARNING en el arranque— y la restriccion no llega nunca a
+    # PostgreSQL. Se comprobo contra pg_constraint: ninguna de las
+    # unicidades declaradas asi existia en la base.
+    _uniq_client_product = models.Constraint(
+        "unique(client_partner_id, product_id)",
+        "Ya existe un precio asignado para este cliente y producto.",
+    )
 
     @api.constrains("price")
     def _check_price(self):

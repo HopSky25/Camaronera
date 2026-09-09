@@ -23,6 +23,11 @@ class ShrimpUom(models.Model):
              "unidad de medida. Solo visible/editable por el administrador del sistema.",
     )
 
-    _sql_constraints = [
-        ("shrimp_uom_code_unique", "unique(code)", "El código de la unidad de medida debe ser único."),
-    ]
+    # Odoo 19 ignora _sql_constraints EN SILENCIO —solo deja un
+    # WARNING en el arranque— y la restriccion no llega nunca a
+    # PostgreSQL. Se comprobo contra pg_constraint: ninguna de las
+    # unicidades declaradas asi existia en la base.
+    _shrimp_uom_code_unique = models.Constraint(
+        "unique(code)",
+        "El código de la unidad de medida debe ser único.",
+    )

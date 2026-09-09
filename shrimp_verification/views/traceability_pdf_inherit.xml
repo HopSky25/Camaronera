@@ -116,7 +116,7 @@
                 <th>Presentación y sabor</th>
                 <td>
                   <t t-esc="ver.presentation or '—'"/>
-                  <t t-if="ver.taste_result"> · sabor <t t-esc="ver.taste_result"/></t>
+                  <t t-if="ver.taste_result"> · sabor <t t-esc="ver.etiqueta('taste_result')"/></t>
                 </td>
               </tr>
             </tbody>
@@ -169,6 +169,7 @@
               <t t-foreach="fotos" t-as="f">
                 <div style="display:inline-block; width:31%; margin:1%; vertical-align:top; text-align:center;">
                   <img t-att-src="f['uri']"
+                       t-att-alt="f['name'] or 'Evidencia de campo'"
                        style="width:100%; height:120px; border:1px solid #d8e0e5;"/>
                   <div style="font-size:8px; color:#5a6b74; margin-top:2px;">
                     <t t-esc="f['name']"/>

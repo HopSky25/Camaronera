@@ -42,8 +42,11 @@ class ShrimpReview(models.Model):
             if rec.seller_partner_id == rec.reviewer_partner_id:
                 raise ValidationError(_("No puedes calificarte a ti mismo."))
 
-    _sql_constraints = [
-        # Una reseña por comprador y transacción (evita duplicados en la misma compra)
-        ("uniq_reviewer_tx", "unique(reviewer_partner_id, transaction_id)",
-         "Ya dejaste una reseña para esta transacción."),
-    ]
+    # Odoo 19 ignora _sql_constraints EN SILENCIO —solo deja un
+    # WARNING en el arranque— y la restriccion no llega nunca a
+    # PostgreSQL. Se comprobo contra pg_constraint: ninguna de las
+    # unicidades declaradas asi existia en la base.
+    _uniq_reviewer_tx = models.Constraint(
+        "unique(reviewer_partner_id, transaction_id)",
+        "Ya dejaste una reseña para esta transacción.",
+    )

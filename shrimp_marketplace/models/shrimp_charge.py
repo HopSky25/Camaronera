@@ -51,6 +51,21 @@ class ShrimpCharge(models.Model):
         vendida). Devuelve el cobro o False."""
         if not transaction:
             return False
+        # Una transacción, un cobro. Sin esta comprobación cada llamada creaba
+        # un cobro nuevo, confirmaba un pedido de venta y CONTABILIZABA una
+        # factura: TXN-000084 acabó con cinco facturas contabilizadas de $7,50
+        # por la misma venta. El guardia que ya había en _create_sale_documents
+        # evita refacturar el MISMO cobro, no un cobro nuevo del mismo hecho.
+        #
+        # Se llama desde dos sitios —al confirmar la compra y al cerrarse la
+        # verificación— y ninguno de los dos sabe si el otro ya pasó, así que la
+        # idempotencia tiene que estar aquí.
+        existente = self.sudo().search(
+            [("transaction_id", "=", transaction.id)], limit=1)
+        if existente:
+            # Se devuelve el cobro que ya había: quien llama espera un cobro,
+            # y devolver False haría pensar que no hay comisión.
+            return existente
         product = transaction.product_id
         # La tarifa vive en la tabla de Unidades de medida; cada unidad tiene su
         # propio valor (p. ej. la libra puede cobrar distinto que el millar).

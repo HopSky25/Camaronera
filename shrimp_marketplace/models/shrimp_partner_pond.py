@@ -127,13 +127,14 @@ class ShrimpPartnerPond(models.Model):
             if rec.max_stock_units < 0:
                 raise ValidationError(_("La capacidad máxima estimada no puede ser negativa."))
 
-    _sql_constraints = [
-        (
-            "shrimp_partner_pond_partner_code_unique",
-            "unique(partner_id, code)",
-            "Ya existe una piscina con ese código para este partner."
-        ),
-    ]
+    # Odoo 19 ignora _sql_constraints EN SILENCIO —solo deja un
+    # WARNING en el arranque— y la restriccion no llega nunca a
+    # PostgreSQL. Se comprobo contra pg_constraint: ninguna de las
+    # unicidades declaradas asi existia en la base.
+    _shrimp_partner_pond_partner_code_unique = models.Constraint(
+        "unique(partner_id, code)",
+        "Ya existe una piscina con ese código para este partner.",
+    )
 
     @api.depends("name", "code")
     def _compute_display_name(self):

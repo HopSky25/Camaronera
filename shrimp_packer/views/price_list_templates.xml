@@ -1,0 +1,914 @@
+<odoo>
+
+  <!-- ================================================================
+       LISTADO: las listas que me tocan + las que yo publico
+       ================================================================ -->
+  <template id="price_lists_page" name="Listas de precios">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page shrimp-page--full py-4">
+
+          <div class="sf-banner mb-4">
+            <div class="sf-banner-row">
+              <div class="sf-banner-txt">
+                <h1>Listas de precios</h1>
+                <p>Lo que te pagan las empacadoras esta semana, por talla.</p>
+              </div>
+              <span class="sf-kicker"><i class="fa fa-list-alt"></i> Precios</span>
+            </div>
+          </div>
+
+          <t t-if="mensaje">
+            <div class="pk-alert pk-alert--ok"><i class="fa fa-check-circle me-1"/>Guardado.</div>
+          </t>
+          <t t-if="error">
+            <div class="pk-alert pk-alert--ko"><i class="fa fa-exclamation-triangle me-1"/><t t-esc="error"/></div>
+          </t>
+
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h2 class="pk-h2 mb-0">Dirigidas a ti</h2>
+            <t t-if="vigentes">
+              <a class="s-btn s-btn-primary" href="/marketplace/listas-de-precios/comparar">
+                <i class="fa fa-balance-scale me-1"/> Comparar precios
+              </a>
+            </t>
+          </div>
+          <t t-if="vigentes">
+            <div class="pk-cards">
+              <t t-foreach="vigentes" t-as="l">
+                <a class="pk-card" t-attf-href="/marketplace/listas-de-precios/#{l.uuid_ref}">
+                  <div class="pk-card-emisor"><t t-esc="l.issuer_partner_id.name"/></div>
+                  <div class="pk-card-nombre"><t t-esc="l.name"/></div>
+                  <div class="pk-card-meta"><t t-esc="l.texto_ventana()"/></div>
+                  <div class="pk-card-pie">
+                    <span><t t-esc="l.line_count"/> precios</span>
+                    <span class="pk-ver">Ver <i class="fa fa-chevron-right"/></span>
+                  </div>
+                </a>
+              </t>
+            </div>
+          </t>
+          <t t-else="">
+            <div class="pk-vacio">
+              <i class="fa fa-inbox fa-2x mb-2"/>
+              <p class="mb-0">Todavía no hay ninguna lista vigente dirigida a ti.
+                 Las empacadoras publican la suya cada semana.</p>
+            </div>
+          </t>
+
+          <!-- Publicadas pero con el despacho aún por empezar. Se muestran
+               aparte para que no se confundan con las que rigen hoy, pero se
+               muestran: sirven para planificar la cosecha. -->
+          <t t-if="proximas">
+            <h2 class="pk-h2 mt-4">Próximas</h2>
+            <p class="pk-muted small mb-2">
+              Ya publicadas, pero su despacho todavía no empieza. No entran en
+              el comparador para no mezclarlas con los precios de esta semana.
+            </p>
+            <div class="pk-cards">
+              <t t-foreach="proximas" t-as="l">
+                <a class="pk-card pk-card--proxima"
+                   t-attf-href="/marketplace/listas-de-precios/#{l.uuid_ref}">
+                  <div class="pk-card-emisor"><t t-esc="l.issuer_partner_id.name"/></div>
+                  <div class="pk-card-nombre"><t t-esc="l.name"/></div>
+                  <div class="pk-card-meta"><t t-esc="l.texto_ventana()"/></div>
+                  <div class="pk-card-pie">
+                    <span><t t-esc="l.line_count"/> precios</span>
+                    <span class="pk-badge-proxima">Empieza pronto</span>
+                  </div>
+                </a>
+              </t>
+            </div>
+          </t>
+
+          <!-- Solo la empacadora publica listas. A una camaronera esta
+               sección le ofrecía un botón que el modelo iba a rechazar. -->
+          <t t-if="es_empacadora">
+          <div class="d-flex justify-content-between align-items-center mt-5">
+            <h2 class="pk-h2 mb-0">Las que publicas tú</h2>
+            <a class="s-btn s-btn-primary" href="/marketplace/listas-de-precios/nueva">
+              <i class="fa fa-plus me-1"/> Nueva lista
+            </a>
+          </div>
+          <t t-if="mias">
+            <table class="pk-tabla mt-3">
+              <thead>
+                <tr><th>Lista</th><th>Emitida</th><th>Vigencia</th><th>Dirigida a</th>
+                    <th class="text-end">Precios</th><th>Estado</th><th></th></tr>
+              </thead>
+              <tbody>
+                <t t-foreach="mias" t-as="l">
+                  <tr>
+                    <td><strong t-esc="l.name"/></td>
+                    <td t-esc="l.issue_date.strftime('%d/%m/%Y') if l.issue_date else '—'"/>
+                    <td t-esc="l.texto_ventana()"/>
+                    <td>
+                      <t t-if="l.recipient_ids">
+                        <t t-esc="', '.join(l.recipient_ids.mapped('name')[:2])"/>
+                        <t t-if="len(l.recipient_ids) &gt; 2"> +<t t-esc="len(l.recipient_ids) - 2"/></t>
+                      </t>
+                      <t t-else=""><span class="pk-muted">sin destinatarios</span></t>
+                    </td>
+                    <td class="text-end" t-esc="l.line_count"/>
+                    <td>
+                      <span t-attf-class="pk-estado pk-estado--#{l.state}">
+                        <t t-if="l.state == 'published' and l.is_current">Vigente</t>
+                        <t t-elif="l.state == 'published'">Publicada</t>
+                        <t t-elif="l.state == 'draft'">Borrador</t>
+                        <t t-else="">Archivada</t>
+                      </span>
+                    </td>
+                    <td class="text-end pk-acciones">
+                      <a class="s-btn s-btn-ghost btn-sm"
+                         t-attf-href="/marketplace/listas-de-precios/#{l.uuid_ref}/editar">Editar</a>
+                      <!-- Partir de la anterior es como se arma la siguiente
+                           semana: nadie escribe sesenta precios de cero. -->
+                      <form method="post" class="d-inline"
+                            t-attf-action="/marketplace/listas-de-precios/#{l.uuid_ref}/duplicar">
+                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                        <button type="submit" class="s-btn s-btn-ghost btn-sm"
+                                title="Crear la lista de la próxima semana partiendo de esta">
+                          <i class="fa fa-copy"/> Copiar
+                        </button>
+                      </form>
+                    </td>
+                  </tr>
+                </t>
+              </tbody>
+            </table>
+          </t>
+          <t t-else="">
+            <p class="pk-muted mt-3">Todavía no publicas ninguna lista.</p>
+          </t>
+          </t>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+  <!-- ================================================================
+       DETALLE: el documento, como el papel que reparten las empacadoras
+       ================================================================ -->
+  <template id="price_list_detail" name="Lista de precios">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page py-4">
+          <a class="pk-volver" href="/marketplace/listas-de-precios">
+            <i class="fa fa-arrow-left me-1"/> Volver a las listas
+          </a>
+
+          <div class="pk-doc">
+            <div class="pk-doc-head">
+              <div>
+                <a class="pk-doc-emisor"
+                   t-attf-href="/marketplace/empacadora/#{lista.issuer_partner_id.uuid_ref}"
+                   t-esc="lista.issuer_partner_id.name"/>
+                <div class="pk-doc-titulo">Lista de precios</div>
+              </div>
+              <div class="text-end">
+                <div class="pk-doc-ref" t-esc="lista.name"/>
+                <div class="pk-doc-fecha">
+                  Emitida el <t t-esc="lista.issue_date.strftime('%d/%m/%Y') if lista.issue_date else '—'"/>
+                </div>
+              </div>
+            </div>
+
+            <div class="pk-doc-vigencia">
+              <i class="fa fa-calendar me-1"/><t t-esc="lista.texto_ventana()"/>
+              <!-- El padrón de destinatarios SOLO lo ve quien emite la lista.
+                   Antes se imprimía entero a todo el que la recibía, así que
+                   cada camaronera aprendía la cartera completa de clientes de
+                   la empacadora —y de paso qué competidoras están en ella—.
+                   El formulario de emisión promete "solo ellas la verán", y
+                   eso se cumplía con los precios pero no con los nombres. -->
+              <t t-if="lista.recipient_ids and lista.issuer_partner_id == request.env.user.partner_id">
+                <span class="pk-doc-para">
+                  Para <t t-esc="', '.join(lista.recipient_ids.mapped('name'))"/>
+                </span>
+              </t>
+              <t t-elif="lista.recipient_ids">
+                <span class="pk-doc-para">Dirigida a ti</span>
+              </t>
+            </div>
+
+            <!-- ENTERO -->
+            <t t-if="entero">
+              <h3 class="pk-seccion">Entero</h3>
+              <table class="pk-precios">
+                <thead>
+                  <tr>
+                    <th rowspan="2">Talla</th>
+                    <th t-attf-colspan="#{len(entero['columnas'])}">
+                      Precio (<t t-esc="'Kg' if entero['uom'] == 'kg' else 'Lb'"/>)
+                    </th>
+                  </tr>
+                  <tr>
+                    <t t-foreach="entero['columnas']" t-as="col">
+                      <th class="text-end" t-esc="col[1]"/>
+                    </t>
+                  </tr>
+                </thead>
+                <tbody>
+                  <t t-foreach="entero['tallas']" t-as="talla">
+                    <tr>
+                      <td class="pk-talla" t-esc="talla.name"/>
+                      <t t-foreach="entero['columnas']" t-as="col">
+                        <t t-set="p" t-value="entero['precios'].get(talla.id, {}).get(col[0])"/>
+                        <td class="text-end">
+                          <t t-if="p"><t t-esc="'$ {:,.2f}'.format(p)"/></t>
+                          <t t-else=""><span class="pk-muted">—</span></t>
+                        </td>
+                      </t>
+                    </tr>
+                  </t>
+                </tbody>
+              </table>
+            </t>
+
+            <!-- COLA -->
+            <t t-if="cola">
+              <h3 class="pk-seccion">Cola</h3>
+              <table class="pk-precios">
+                <thead>
+                  <tr>
+                    <th rowspan="2">Talla</th>
+                    <th t-attf-colspan="#{len(cola['columnas'])}">
+                      Precio (<t t-esc="'Kg' if cola['uom'] == 'kg' else 'Lb'"/>)
+                    </th>
+                  </tr>
+                  <tr>
+                    <t t-foreach="cola['columnas']" t-as="col">
+                      <th class="text-end" t-esc="col[1]"/>
+                    </t>
+                  </tr>
+                </thead>
+                <tbody>
+                  <t t-foreach="cola['tallas']" t-as="talla">
+                    <tr>
+                      <td class="pk-talla" t-esc="talla.name"/>
+                      <t t-foreach="cola['columnas']" t-as="col">
+                        <t t-set="p" t-value="cola['precios'].get(talla.id, {}).get(col[0])"/>
+                        <td class="text-end">
+                          <t t-if="p"><t t-esc="'$ {:,.2f}'.format(p)"/></t>
+                          <t t-else=""><span class="pk-muted">—</span></t>
+                        </td>
+                      </t>
+                    </tr>
+                  </t>
+                </tbody>
+              </table>
+            </t>
+
+            <t t-if="not entero and not cola">
+              <p class="pk-muted">Esta lista todavía no tiene precios cargados.</p>
+            </t>
+
+            <!-- Bonificaciones -->
+            <t t-if="lista.bonus_ids">
+              <h3 class="pk-seccion">Bonificaciones</h3>
+              <table class="pk-precios pk-precios--corta">
+                <tbody>
+                  <t t-foreach="lista.bonus_ids" t-as="b">
+                    <tr>
+                      <td class="pk-talla" t-esc="b.name"/>
+                      <td class="text-end" t-esc="'$ {:,.2f}'.format(b.amount)"/>
+                      <td class="pk-muted" t-esc="b.note or ''"/>
+                    </tr>
+                  </t>
+                </tbody>
+              </table>
+            </t>
+
+            <t t-if="lista.quality_conditions">
+              <div class="pk-condiciones">
+                <strong>Condiciones de calidad</strong>
+                <p class="mb-0" t-esc="lista.quality_conditions"/>
+              </div>
+            </t>
+
+            <t t-set="pagos" t-value="lista.texto_pago()"/>
+            <t t-if="pagos">
+              <div class="pk-pago">
+                <strong>Forma de pago</strong>
+                <ul class="mb-0">
+                  <li t-foreach="pagos" t-as="linea" t-esc="linea"/>
+                </ul>
+              </div>
+            </t>
+
+            <t t-if="es_mia">
+              <div class="mt-4">
+                <a class="s-btn s-btn-ghost"
+                   t-attf-href="/marketplace/listas-de-precios/#{lista.uuid_ref}/editar">
+                  <i class="fa fa-pencil me-1"/> Editar esta lista
+                </a>
+              </div>
+            </t>
+          </div>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+  <!-- ================================================================
+       EDITOR: la empacadora arma su lista
+       ================================================================ -->
+  <template id="price_list_form" name="Editar lista de precios">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page py-4">
+          <a class="pk-volver" href="/marketplace/listas-de-precios">
+            <i class="fa fa-arrow-left me-1"/> Volver a las listas
+          </a>
+
+          <h1 class="pk-h1">
+            <t t-if="lista">Editar lista</t><t t-else="">Nueva lista de precios</t>
+          </h1>
+
+          <t t-if="error">
+            <div class="pk-alert pk-alert--ko"><i class="fa fa-exclamation-triangle me-1"/><t t-esc="error"/></div>
+          </t>
+          <t t-if="mensaje">
+            <div class="pk-alert pk-alert--ok">
+              <i class="fa fa-check-circle me-1"/>
+              <t t-if="mensaje == 'guardada'">Guardado.</t>
+              <t t-elif="mensaje == 'renglon'">Precio guardado.</t>
+              <t t-elif="mensaje == 'bono'">Bonificación agregada.</t>
+              <t t-else=""><t t-esc="mensaje"/></t>
+            </div>
+          </t>
+
+          <!-- Cabecera -->
+          <form method="post" action="/marketplace/listas-de-precios/guardar" class="pk-caja">
+            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+            <input type="hidden" name="ref" t-att-value="lista.uuid_ref if lista else ''"/>
+
+            <div class="pk-grid">
+              <label>Referencia
+                <input type="text" name="name" class="form-control" required="required"
+                       placeholder="Semana 32" t-att-value="lista.name if lista else ''"/>
+              </label>
+              <label>Fecha de emisión
+                <input type="date" name="issue_date" class="form-control"
+                       t-att-value="lista.issue_date if lista else ''"/>
+              </label>
+              <label>Despacho desde
+                <input type="date" name="dispatch_from" class="form-control"
+                       t-att-value="lista.dispatch_from if lista else ''"/>
+              </label>
+              <label>Despacho hasta
+                <input type="date" name="dispatch_to" class="form-control"
+                       t-att-value="lista.dispatch_to if lista else ''"/>
+              </label>
+            </div>
+            <label class="pk-check">
+              <input type="checkbox" name="open_ended" value="1"
+                     t-att-checked="'checked' if (not lista or lista.open_ended) else None"/>
+              Hasta segunda orden (rige sin fecha de fin)
+            </label>
+
+            <!-- Destinatarios: lo que hace confidencial a la lista -->
+            <label class="mt-3 d-block">A qué camaroneras va dirigida
+              <span class="pk-muted d-block small">
+                Solo ellas la verán. Si eliges la empresa madre de un grupo, la
+                ven también sus fincas. Son camaroneras porque esta lista es de
+                camarón adulto: el laboratorio y el semillero venden larvas y
+                nauplios, no tallas de entero y cola.
+              </span>
+              <t t-set="clientes"
+                 t-value="request.env['res.partner'].sudo().search([('shrimp_user_type','=','camaronera'),('id','!=',request.env.user.partner_id.id)], order='name')"/>
+              <select name="recipient_ids" class="form-control" multiple="multiple" size="6">
+                <t t-foreach="clientes" t-as="c">
+                  <option t-att-value="c.id"
+                          t-att-selected="'selected' if (lista and c in lista.recipient_ids) else None">
+                    <t t-esc="c.name"/>
+                    <t t-if="c.parent_id"> (de <t t-esc="c.parent_id.name"/>)</t>
+                  </option>
+                </t>
+              </select>
+            </label>
+
+            <h3 class="pk-seccion">Forma de pago</h3>
+            <p class="pk-muted small mb-2">
+              Es lo que el productor compara entre compradores. Tal como sale en
+              las listas del sector: <em>«Anticipo del 50 %, a cancelar dentro de
+              5 días calendarios al inicio del proceso. Saldo pendiente: a
+              liquidar dentro de 14 días desde la recepción de la factura.»</em>
+              Todo es opcional: lo que dejes vacío no se muestra.
+            </p>
+            <div class="pk-grid">
+              <label>Anticipo (%)
+                <input type="number" step="1" min="0" max="100" name="advance_pct"
+                       class="form-control" placeholder="50"
+                       t-att-value="'{:.0f}'.format(lista.advance_pct) if (lista and lista.advance_pct) else ''"/>
+                <span class="pk-ayuda">Qué parte pagas por adelantado. Si pagas
+                  todo de una vez, pon 100 y deja el saldo vacío.</span>
+              </label>
+              <label>Días para el anticipo
+                <input type="number" step="1" min="0" name="advance_days"
+                       class="form-control" placeholder="5"
+                       t-att-value="lista.advance_days or '' if lista else ''"/>
+                <span class="pk-ayuda">Días calendario desde que empieza el
+                  proceso para pagar ese anticipo.</span>
+              </label>
+              <label>Días para el saldo
+                <input type="number" step="1" min="0" name="balance_days"
+                       class="form-control" placeholder="14"
+                       t-att-value="lista.balance_days or '' if lista else ''"/>
+                <span class="pk-ayuda">Días calendario desde la recepción de la
+                  factura para pagar el resto.</span>
+              </label>
+              <label>Nota de pago
+                <input type="text" name="payment_notes" class="form-control"
+                       placeholder="Ej. El anticipo se cancela al inicio del proceso"
+                       t-att-value="lista.payment_notes if lista else ''"/>
+                <span class="pk-ayuda">Cualquier condición que no entre arriba.
+                  Opcional.</span>
+              </label>
+            </div>
+
+            <label class="mt-3 d-block">Condiciones de calidad
+              <textarea name="quality_conditions" class="form-control" rows="2"
+                        placeholder="No branquias sucias. Sin sabores, no picados, no hongos, no color amarillo, no color mezclado."><t t-esc="lista.quality_conditions if lista else ''"/></textarea>
+            </label>
+
+            <button type="submit" class="s-btn s-btn-primary mt-3">
+              <i class="fa fa-save me-1"/> Guardar cabecera
+            </button>
+          </form>
+
+          <t t-if="lista">
+            <!-- Carga por Excel: el camino de entrada de verdad. En el sector
+                 la lista se arma en Excel; teclear sesenta precios a mano es
+                 pedirle a la empacadora que no use el sistema. -->
+            <div class="pk-excel mt-4">
+              <div class="pk-excel-txt">
+                <strong><i class="fa fa-file-excel-o me-1"/> Cargar los precios desde Excel</strong>
+                <p class="mb-0">
+                  Descarga la plantilla —viene con todas las tallas y con los
+                  precios que ya tengas cargados—, cambia lo que haga falta y
+                  súbela. Deja en blanco lo que no compres.
+                </p>
+              </div>
+              <div class="pk-excel-acciones">
+                <a class="s-btn s-btn-ghost"
+                   t-attf-href="/marketplace/listas-de-precios/#{lista.uuid_ref}/plantilla">
+                  <i class="fa fa-download me-1"/> Descargar plantilla
+                </a>
+                <form method="post" enctype="multipart/form-data" class="pk-subir"
+                      t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/cargar">
+                  <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                  <input type="file" name="archivo" class="form-control"
+                         accept=".xlsx" required="required"/>
+                  <button type="submit" class="s-btn s-btn-primary">
+                    <i class="fa fa-upload me-1"/> Subir
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            <!-- Renglones -->
+            <h2 class="pk-h2 mt-4">Precios por talla</h2>
+            <p class="pk-muted small">
+              También puedes agregarlos o corregirlos uno a uno aquí abajo.
+            </p>
+            <form method="post" class="pk-caja"
+                  t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/renglon">
+              <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+              <div class="pk-grid pk-grid--5">
+                <label>Talla
+                  <select name="size_grade_id" id="pkTalla" class="form-control" required="required">
+                    <t t-foreach="tallas" t-as="t">
+                      <option t-att-value="t.id" t-att-data-pres="t.presentation">
+                        <t t-esc="'Entero' if t.presentation == 'entero' else 'Cola'"/> · <t t-esc="t.name"/>
+                      </option>
+                    </t>
+                  </select>
+                </label>
+                <label>Canal (solo cola)
+                  <select name="channel" id="pkCanal" class="form-control">
+                    <option value="">—</option>
+                    <option value="directa">Directa</option>
+                    <option value="sobrante">Sobrante</option>
+                  </select>
+                </label>
+                <label>Calidad
+                  <select name="quality" id="pkCalidad" class="form-control">
+                    <option value="ab" data-pres="entero">A - B</option>
+                    <option value="c" data-pres="entero">C</option>
+                    <option value="a" data-pres="cola">A</option>
+                    <option value="b" data-pres="cola">B</option>
+                  </select>
+                </label>
+                <!-- La unidad no se elige: la impone la presentación. El entero
+                     se cotiza en $/Kg y la cola en $/Lb, como en las listas
+                     reales. Se muestra para que quede claro en qué unidad se
+                     está escribiendo el precio. -->
+                <label>Unidad
+                  <input type="text" id="pkUnidad" class="form-control" readonly="readonly"
+                         value="$ / Kg" tabindex="-1"/>
+                </label>
+                <label>Precio
+                  <input type="number" step="0.01" min="0" name="price" class="form-control"
+                         required="required"/>
+                </label>
+              </div>
+              <button type="submit" class="s-btn mt-2">
+                <i class="fa fa-plus me-1"/> Agregar o actualizar
+              </button>
+              <script type="text/javascript">
+                // Acopla los tres campos a la presentación de la talla elegida.
+                // El servidor ya los corrige, pero corregir en silencio lo que
+                // el usuario acaba de escribir es peor que no dejarle escribirlo:
+                // aquí ve por qué cambia la unidad y qué calidades existen.
+                (function () {
+                    var talla = document.getElementById('pkTalla');
+                    if (!talla) { return; }
+                    var canal = document.getElementById('pkCanal');
+                    var calidad = document.getElementById('pkCalidad');
+                    var unidad = document.getElementById('pkUnidad');
+                    function acoplar() {
+                        var op = talla.options[talla.selectedIndex];
+                        var pres = op ? op.getAttribute('data-pres') : 'cola';
+                        var esEntero = pres === 'entero';
+                        unidad.value = esEntero ? '$ / Kg' : '$ / Lb';
+                        // El canal directa/sobrante solo existe en cola.
+                        canal.disabled = esEntero;
+                        if (esEntero) { canal.value = ''; }
+                        else if (!canal.value) { canal.value = 'directa'; }
+                        var primera = null;
+                        Array.prototype.forEach.call(calidad.options, function (o) {
+                            var vale = o.getAttribute('data-pres') === pres;
+                            o.hidden = !vale;
+                            o.disabled = !vale;
+                            if (vale &amp;&amp; !primera) { primera = o; }
+                        });
+                        var actual = calidad.options[calidad.selectedIndex];
+                        if (primera &amp;&amp; (!actual || actual.disabled)) {
+                            calidad.value = primera.value;
+                        }
+                    }
+                    talla.addEventListener('change', acoplar);
+                    acoplar();
+                })();
+              </script>
+            </form>
+
+            <t t-if="lista.line_ids">
+              <table class="pk-tabla mt-3">
+                <thead>
+                  <tr><th>Presentación</th><th>Talla</th><th>Canal</th><th>Calidad</th>
+                      <th class="text-end">Precio</th><th></th></tr>
+                </thead>
+                <tbody>
+                  <t t-foreach="lista.line_ids" t-as="l">
+                    <tr>
+                      <td t-esc="'Entero' if l.presentation == 'entero' else 'Cola'"/>
+                      <td><strong t-esc="l.size_grade_id.name"/></td>
+                      <td t-esc="dict(l._fields['channel']._description_selection(request.env)).get(l.channel, '—')"/>
+                      <td t-esc="dict(l._fields['quality']._description_selection(request.env)).get(l.quality, '')"/>
+                      <td class="text-end">
+                        <t t-esc="'$ {:,.2f}'.format(l.price)"/>
+                        <span class="pk-muted"> / <t t-esc="'Kg' if l.uom == 'kg' else 'Lb'"/></span>
+                      </td>
+                      <td class="text-end">
+                        <form method="post"
+                              t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/renglon/#{l.id}/borrar">
+                          <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                          <button type="submit" class="pk-borrar" title="Quitar">
+                            <i class="fa fa-times"/>
+                          </button>
+                        </form>
+                      </td>
+                    </tr>
+                  </t>
+                </tbody>
+              </table>
+            </t>
+
+            <!-- Bonificaciones -->
+            <h2 class="pk-h2 mt-4">Bonificaciones</h2>
+            <form method="post" class="pk-caja"
+                  t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/bonificacion">
+              <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+              <div class="pk-grid pk-grid--3">
+                <label>Concepto
+                  <input type="text" name="name" class="form-control" placeholder="SMALL" required="required"/>
+                </label>
+                <label>Importe
+                  <input type="number" step="0.01" name="amount" class="form-control"/>
+                </label>
+                <label>Detalle
+                  <input type="text" name="note" class="form-control"/>
+                </label>
+              </div>
+              <button type="submit" class="s-btn mt-2"><i class="fa fa-plus me-1"/> Agregar</button>
+            </form>
+
+            <t t-if="lista.bonus_ids">
+              <table class="pk-tabla mt-3">
+                <tbody>
+                  <t t-foreach="lista.bonus_ids" t-as="b">
+                    <tr>
+                      <td><strong t-esc="b.name"/></td>
+                      <td class="text-end" t-esc="'$ {:,.2f}'.format(b.amount)"/>
+                      <td class="pk-muted" t-esc="b.note or ''"/>
+                      <td class="text-end">
+                        <form method="post"
+                              t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/bonificacion/#{b.id}/borrar">
+                          <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                          <button type="submit" class="pk-borrar"><i class="fa fa-times"/></button>
+                        </form>
+                      </td>
+                    </tr>
+                  </t>
+                </tbody>
+              </table>
+            </t>
+
+            <!-- Publicar -->
+            <div class="pk-publicar mt-4">
+              <t t-if="lista.state != 'published'">
+                <form method="post"
+                      t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/publicar">
+                  <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                  <p class="pk-muted mb-2">
+                    Al publicarla, los destinatarios la ven de inmediato y se archiva
+                    la lista anterior que tuvieras vigente con ellos.
+                  </p>
+                  <button type="submit" class="s-btn s-btn-primary">
+                    <i class="fa fa-paper-plane me-1"/> Publicar
+                  </button>
+                </form>
+              </t>
+              <t t-else="">
+                <form method="post"
+                      t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/archivar">
+                  <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                  <p class="pk-muted mb-2">Esta lista está publicada.</p>
+                  <button type="submit" class="s-btn"><i class="fa fa-archive me-1"/> Archivar</button>
+                </form>
+              </t>
+            </div>
+          </t>
+          <t t-else="">
+            <p class="pk-muted mt-3">
+              Guarda la cabecera y podrás cargar los precios por talla.
+            </p>
+          </t>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+  <!-- ================================================================
+       COMPARADOR: qué paga cada empacadora por la misma talla.
+       Es la cuenta que el camaronero hace hoy a mano con dos papeles
+       sobre la mesa.
+       ================================================================ -->
+  <template id="price_list_compare" name="Comparar precios">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page shrimp-page--full py-4">
+          <a class="pk-volver" href="/marketplace/listas-de-precios">
+            <i class="fa fa-arrow-left me-1"/> Volver a las listas
+          </a>
+
+          <div class="sf-banner mb-4">
+            <div class="sf-banner-row">
+              <div class="sf-banner-txt">
+                <h1>Comparar precios</h1>
+                <p>Qué te paga cada empacadora por la misma talla, con las listas
+                   vigentes que te han mandado.</p>
+              </div>
+              <span class="sf-kicker"><i class="fa fa-balance-scale"></i> Comparador</span>
+            </div>
+          </div>
+
+          <t t-if="not combinaciones">
+            <div class="pk-vacio">
+              <i class="fa fa-balance-scale fa-2x mb-2"/>
+              <p class="mb-0">Todavía no hay listas vigentes dirigidas a ti.
+                 En cuanto una empacadora publique la suya, aparece aquí.</p>
+            </div>
+          </t>
+
+          <t t-if="combinaciones">
+            <form method="get" class="pk-filtro-panel">
+              <!-- Marca de que el filtro se envió: distingue "llegué a la
+                   pantalla" de "desmarqué todas las empacadoras". -->
+              <input type="hidden" name="filtrar" value="1"/>
+
+              <!-- Empacadoras a comparar. Se reutiliza el patrón de chips que
+                   ya usa el marketplace en sus filtros, para que no aparezca
+                   un control nuevo que el usuario tenga que aprender. -->
+              <t t-if="len(empacadoras) &gt; 1">
+                <div class="s-filter-sec" t-att-data-tope="tope">
+                  <div class="s-filter-sec-label">
+                    <i class="fa fa-industry"/> Empacadoras a comparar
+                    <span class="pk-tope">máximo <t t-esc="tope"/></span>
+                  </div>
+                  <div class="s-choice-chips">
+                    <t t-foreach="empacadoras" t-as="e">
+                      <!-- Ya no se marca "no cotiza": su columna sale igual, con un
+                           guion en las tallas que no compra. Etiquetar el chip y
+                           además esconder la columna era decir dos veces lo
+                           mismo, y desconcertaba más de lo que aclaraba. -->
+                      <t t-set="cotiza" t-value="e.id in cotizan"/>
+                      <label class="s-choice"
+                             t-attf-title="#{'' if cotiza else 'En su lista vigente no aparece esta combinación'}">
+                        <input type="checkbox" name="emp" class="js-emp" t-att-value="e.id"
+                               t-att-checked="'checked' if e.id in elegidas else None"/>
+                        <span t-esc="e.name"/>
+                      </label>
+                    </t>
+                  </div>
+                  <div id="pk_aviso_tope" class="pk-tope-aviso" style="display:none;">
+                    <i class="fa fa-info-circle me-1"/>
+                    Ya tienes <t t-esc="tope"/> seleccionadas. Desmarca una para
+                    cambiarla por otra.
+                  </div>
+                </div>
+              </t>
+
+              <div class="pk-filtro">
+                <label>Qué comparar
+                  <select name="combo" class="form-control js-refrescar">
+                    <t t-foreach="combinaciones" t-as="c">
+                      <option t-att-value="c['clave']"
+                              t-att-selected="'selected' if sel and c['clave'] == sel['clave'] else None"
+                              t-esc="c['etiqueta']"/>
+                    </t>
+                  </select>
+                </label>
+                <label>Cantidad a despachar
+                  <div class="pk-cant">
+                    <input type="number" step="1" min="0" name="cantidad" class="form-control"
+                           t-att-value="'{:.0f}'.format(cantidad) if cantidad else ''"
+                           placeholder="0"/>
+                    <span t-esc="'Kg' if datos.get('uom') == 'kg' else 'Lb'"/>
+                  </div>
+                </label>
+                <button type="submit" class="s-btn s-btn-primary">
+                  <i class="fa fa-refresh me-1"/> Actualizar
+                </button>
+              </div>
+            </form>
+
+            <t t-if="recortadas">
+              <div class="pk-alert pk-alert--ko mt-3">
+                <i class="fa fa-exclamation-triangle me-1"/>
+                Se comparan como máximo <t t-esc="tope"/> empacadoras a la vez.
+                Se tomaron las <t t-esc="tope"/> primeras de tu selección.
+              </div>
+            </t>
+
+            <t t-if="sin_seleccion">
+              <div class="pk-vacio mt-3">
+                <i class="fa fa-industry fa-2x mb-2"/>
+                <p class="mb-0">Elige al menos una empacadora para comparar.</p>
+              </div>
+            </t>
+
+            <script type="text/javascript">
+<![CDATA[
+(function(){
+  function init(){
+    var cajas = Array.prototype.slice.call(document.querySelectorAll('input.js-emp'));
+    if(!cajas.length) return;
+    var tope = parseInt(document.querySelector('[data-tope]') ?
+                        document.querySelector('[data-tope]').getAttribute('data-tope') : '3', 10);
+    var aviso = document.getElementById('pk_aviso_tope');
+    function refrescar(){
+      var marcadas = cajas.filter(function(c){ return c.checked; }).length;
+      var lleno = marcadas >= tope;
+      cajas.forEach(function(c){
+        // Solo se bloquean las que NO están marcadas: desmarcar siempre
+        // tiene que poder hacerse, o el usuario queda encerrado.
+        c.disabled = lleno && !c.checked;
+        c.closest('label').classList.toggle('pk-choice--bloq', c.disabled);
+      });
+      if(aviso){ aviso.style.display = lleno ? 'block' : 'none'; }
+    }
+    cajas.forEach(function(c){
+      c.addEventListener('change', function(){
+        refrescar();
+        // La tabla se rearma sola: obligar a pulsar "Actualizar" después de
+        // cada clic sobra. El botón queda para la cantidad, que no debe
+        // recargar en cada tecla.
+        c.form.submit();
+      });
+    });
+    // El desplegable de la combinación también refresca solo.
+    var sel = document.querySelector('select.js-refrescar');
+    if(sel){ sel.addEventListener('change', function(){ sel.form.submit(); }); }
+    refrescar();
+  }
+  if(document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', init); }
+  else { init(); }
+})();
+]]>
+            </script>
+
+            <t t-if="datos.get('uom_mixta')">
+              <div class="pk-alert pk-alert--ko mt-3">
+                <i class="fa fa-exclamation-triangle me-1"/>
+                Ojo: hay empacadoras que cotizan esta talla en unidades distintas.
+                Compararlas de frente no es válido — revisa cada lista.
+              </div>
+            </t>
+
+            <t t-if="datos.get('filas')">
+              <div class="pk-comp-wrap mt-3">
+                <table class="pk-comp">
+                  <thead>
+                    <tr>
+                      <th class="pk-comp-talla">Talla</th>
+                      <t t-foreach="datos['listas']" t-as="l">
+                        <th class="text-end">
+                          <div class="pk-comp-emp" t-esc="l.issuer_partner_id.name"/>
+                          <div class="pk-comp-ref" t-esc="l.name"/>
+                        </th>
+                      </t>
+                      <th class="text-end pk-comp-vent">Ventaja</th>
+                      <t t-if="cantidad">
+                        <th class="text-end pk-comp-vent">Diferencia</th>
+                      </t>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <t t-foreach="datos['filas']" t-as="f">
+                      <tr>
+                        <td class="pk-talla" t-esc="f['talla'].name"/>
+                        <t t-foreach="datos['listas']" t-as="l">
+                          <t t-set="p" t-value="f['precios'].get(l.id)"/>
+                          <td t-attf-class="text-end#{' pk-mejor' if (p and l.id in f['ganadores']) else ''}">
+                            <t t-if="p">
+                              <t t-esc="'$ {:,.2f}'.format(p)"/>
+                              <t t-if="l.id in f['ganadores']">
+                                <i class="fa fa-check ms-1"/>
+                              </t>
+                              <t t-if="cantidad">
+                                <div class="pk-comp-total" t-esc="'$ {:,.0f}'.format(p * cantidad)"/>
+                              </t>
+                            </t>
+                            <t t-else=""><span class="pk-muted">—</span></t>
+                          </td>
+                        </t>
+                        <td class="text-end pk-comp-vent">
+                          <t t-if="f['ventaja']">
+                            <span class="pk-ventaja" t-esc="'+$ {:,.2f}'.format(f['ventaja'])"/>
+                          </t>
+                          <t t-elif="f['solo_uno']">
+                            <span class="pk-muted" title="Solo una empacadora cotiza esta talla">única</span>
+                          </t>
+                          <t t-else=""><span class="pk-muted">empate</span></t>
+                        </td>
+                        <t t-if="cantidad">
+                          <td class="text-end pk-comp-vent">
+                            <t t-if="f['diferencia_total']">
+                              <strong class="pk-ventaja" t-esc="'$ {:,.0f}'.format(f['diferencia_total'])"/>
+                            </t>
+                            <t t-else=""><span class="pk-muted">—</span></t>
+                          </td>
+                        </t>
+                      </tr>
+                    </t>
+                  </tbody>
+                </table>
+              </div>
+
+              <p class="pk-nota mt-3">
+                <i class="fa fa-info-circle me-1"/>
+                La marca señala quién paga más por cada talla.
+                Un guion (—) significa que esa empacadora no compra esa talla:
+                no entra en el cálculo del mejor precio.
+                <t t-if="cantidad">
+                  La columna «Diferencia» es lo que dejas de ganar si despachas
+                  al segundo en vez de al mejor, sobre
+                  <strong t-esc="'{:,.0f}'.format(cantidad)"/>
+                  <t t-esc="'Kg' if datos.get('uom') == 'kg' else 'Lb'"/>.
+                </t>
+                <t t-else="">
+                  Pon una cantidad arriba para ver la diferencia en dólares.
+                </t>
+                Las bonificaciones por tamaño y color van aparte, en cada lista.
+              </p>
+            </t>
+            <t t-elif="not sin_seleccion">
+              <div class="pk-vacio mt-3">
+                <p class="mb-0">Ninguna de las empacadoras elegidas cotiza esa
+                   combinación. Prueba con otra o marca más empacadoras.</p>
+              </div>
+            </t>
+          </t>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+</odoo>

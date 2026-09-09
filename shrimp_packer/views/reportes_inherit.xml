@@ -1,0 +1,107 @@
+<odoo>
+
+  <!-- ================================================================
+       Bloque de precios de compra dentro de "Mis reportes".
+
+       Es donde la camaronera lo busca: junto a sus ventas y comisiones,
+       no escondido dentro de otra pantalla. De solo consultar — para
+       cambiar de combinación o meter cantidades está el comparador.
+       ================================================================ -->
+  <template id="reportes_precios_de_compra"
+            inherit_id="shrimp_marketplace.marketplace_my_reports"
+            name="Mis reportes - precios de compra">
+    <xpath expr="//div[hasclass('s-rep-head')]" position="after">
+      <t t-set="pk_resumen"
+         t-value="request.env['shrimp.price.list'].sudo().resumen_mejor_precio(request.env.user.partner_id)"/>
+      <t t-if="pk_resumen">
+        <div class="pk-rep mb-4">
+
+          <div class="pk-rep-head">
+            <div>
+              <div class="pk-rep-eyebrow">Precios de compra</div>
+              <h2 class="pk-rep-titulo">Quién te paga mejor</h2>
+              <div class="pk-rep-sub">
+                <!-- Son las listas que cotizan ESTA combinación, no todas las
+                     vigentes: una empacadora puede tener lista viva y no
+                     comprar cola directa A. Decía "N listas vigentes" y el
+                     número no cuadraba con el índice de listas de precios. -->
+                <t t-esc="len(pk_resumen['listas'])"/>
+                <t t-if="len(pk_resumen['listas']) == 1">empacadora cotiza</t>
+                <t t-else="">empacadoras cotizan</t>
+                <t t-esc="pk_resumen['sel']['etiqueta']"/> ·
+                precios en <t t-esc="'Kg' if pk_resumen['uom'] == 'kg' else 'Lb'"/>
+              </div>
+            </div>
+            <a class="s-btn s-btn-primary" href="/marketplace/listas-de-precios/comparar">
+              <i class="fa fa-balance-scale me-1"/> Comparar todo
+            </a>
+          </div>
+
+          <!-- Marcador: con quién conviene en general -->
+          <t t-if="pk_resumen['comparables']">
+            <div class="pk-rep-podio">
+              <t t-foreach="pk_resumen['podio']" t-as="d">
+                <div t-attf-class="pk-rep-emp#{' pk-rep-emp--lider' if d == pk_resumen['podio'][0] and d['gana'] else ''}">
+                  <div class="pk-rep-emp-nombre" t-esc="d['lista'].issuer_partner_id.name"/>
+                  <div class="pk-rep-emp-gana">
+                    <strong t-esc="d['gana']"/> de <t t-esc="pk_resumen['comparables']"/> tallas
+                  </div>
+                </div>
+              </t>
+            </div>
+          </t>
+
+          <!-- Talla por talla -->
+          <div class="pk-rep-tabla-wrap">
+            <table class="pk-rep-tabla">
+              <thead>
+                <tr>
+                  <th>Talla</th>
+                  <th class="text-end">Mejor precio</th>
+                  <th>Quién lo paga</th>
+                  <th class="text-end">Ventaja</th>
+                </tr>
+              </thead>
+              <tbody>
+                <t t-foreach="pk_resumen['filas']" t-as="f">
+                  <tr>
+                    <td class="pk-talla" t-esc="f['talla'].name"/>
+                    <td class="text-end pk-rep-precio" t-esc="'$ {:,.2f}'.format(f['mejor'])"/>
+                    <td class="pk-rep-ganador">
+                      <!-- En un empate ganan dos: hay que separarlas o los
+                           nombres salen pegados y se leen como uno solo. -->
+                      <t t-esc="', '.join(
+                          l.issuer_partner_id.name or ''
+                          for l in pk_resumen['listas'] if l.id in f['ganadores'])"/>
+                    </td>
+                    <td class="text-end">
+                      <t t-if="f['ventaja']">
+                        <span class="pk-ventaja" t-esc="'+$ {:,.2f}'.format(f['ventaja'])"/>
+                      </t>
+                      <t t-elif="f['solo_uno']"><span class="pk-muted">única</span></t>
+                      <t t-else=""><span class="pk-muted">empate</span></t>
+                    </td>
+                  </tr>
+                </t>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="pk-rep-nota">
+            <i class="fa fa-info-circle me-1"/>
+            <t t-if="pk_resumen['combos'] &gt; 1">
+              Se muestra <strong t-esc="pk_resumen['sel']['etiqueta']"/>.
+              Hay <t t-esc="pk_resumen['combos'] - 1"/> combinación<t t-if="pk_resumen['combos'] - 1 != 1">es</t>
+              más —entero, sobrante, calidad B— en el comparador.
+            </t>
+            <t t-else="">
+              Las bonificaciones por tamaño y color van aparte, en cada lista.
+            </t>
+          </p>
+
+        </div>
+      </t>
+    </xpath>
+  </template>
+
+</odoo>

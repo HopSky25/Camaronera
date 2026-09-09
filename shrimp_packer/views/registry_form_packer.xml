@@ -1,0 +1,127 @@
+<odoo>
+
+  <!-- ================================================================
+       REGISTRO DE LA EMPACADORA (/registro/empacadora)
+
+       Formulario propio y no un paso más del registro compartido: la
+       empacadora no publica productos ni maneja lotes. Lo que necesita
+       declarar es su planta, sus certificaciones y a qué mercados exporta,
+       que es lo que un productor mira antes de venderle.
+       ================================================================ -->
+  <template id="registry_form_packer" name="Registro - Empacadora">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page py-4 sf-fields">
+
+          <div class="sf-banner mb-4">
+            <div class="sf-banner-row">
+              <div class="sf-banner-txt">
+                <h1>Regístrate como empacadora</h1>
+                <p>Crea la cuenta de tu planta: certificaciones, mercados y capacidad.
+                   Desde aquí publicarás cada semana tu lista de precios a los
+                   productores con los que trabajas.</p>
+              </div>
+              <span class="sf-kicker"><i class="fa fa-industry"></i> Empacadora</span>
+            </div>
+          </div>
+
+          <t t-if="error">
+            <div class="pk-alert pk-alert--ko">
+              <i class="fa fa-exclamation-triangle me-1"/><t t-esc="error"/>
+            </div>
+          </t>
+
+          <form method="post" action="/registro/submit" class="pk-caja">
+            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+            <input type="hidden" name="shrimp_user_type" value="empacadora"/>
+
+            <h3 class="pk-seccion">La empresa</h3>
+            <div class="pk-grid">
+              <label>Nombre comercial *
+                <input type="text" name="name" class="form-control" required="required"
+                       placeholder="Ej. Aquagold"/>
+              </label>
+              <label>Razón social
+                <input type="text" name="emp_razon_social" class="form-control"
+                       placeholder="Ej. Aquagold S.A."/>
+              </label>
+              <label>RUC *
+                <input type="text" name="vat_or_id" class="form-control" required="required"/>
+              </label>
+              <label>Código de exportador
+                <input type="text" name="emp_codigo_exportador" class="form-control"/>
+              </label>
+              <label>Representante legal
+                <input type="text" name="emp_representante" class="form-control"/>
+              </label>
+              <label>Contacto comercial
+                <input type="text" name="emp_contacto_comercial" class="form-control"
+                       placeholder="Quien manda las listas de precios"/>
+              </label>
+              <label>Teléfono
+                <input type="text" name="emp_telefono" class="form-control"/>
+              </label>
+            </div>
+
+            <h3 class="pk-seccion">La planta</h3>
+            <div class="pk-grid">
+              <label>Nombre de la planta
+                <input type="text" name="emp_planta_nombre" class="form-control"/>
+              </label>
+              <label>Ubicación
+                <input type="text" name="emp_planta_ubicacion" class="form-control"
+                       placeholder="Dónde entrega el productor"/>
+              </label>
+              <label>Capacidad (lb/día)
+                <input type="number" step="1" min="0" name="emp_capacidad_lb_dia"
+                       class="form-control"/>
+              </label>
+              <label>N.º de aprobación sanitaria
+                <input type="text" name="emp_aprobacion_sanitaria" class="form-control"/>
+              </label>
+            </div>
+
+            <h3 class="pk-seccion">Certificaciones</h3>
+            <p class="pk-muted small">
+              Es lo que determina a qué mercados puede ir el camarón, y por tanto
+              cuánto vale. Los productores lo miran.
+            </p>
+            <div class="pk-checks">
+              <label class="pk-check"><input type="checkbox" name="emp_cert_bap" value="1"/> BAP</label>
+              <label class="pk-check"><input type="checkbox" name="emp_cert_asc" value="1"/> ASC</label>
+              <label class="pk-check"><input type="checkbox" name="emp_cert_haccp" value="1"/> HACCP</label>
+            </div>
+            <label class="d-block mt-2">Otras
+              <input type="text" name="emp_cert_otras" class="form-control"/>
+            </label>
+
+            <h3 class="pk-seccion">Mercados a los que exporta</h3>
+            <div class="pk-checks">
+              <label class="pk-check"><input type="checkbox" name="emp_mercado_asia" value="1"/> Asia</label>
+              <label class="pk-check"><input type="checkbox" name="emp_mercado_europa" value="1"/> Europa</label>
+              <label class="pk-check"><input type="checkbox" name="emp_mercado_norteamerica" value="1"/> Norteamérica</label>
+              <label class="pk-check"><input type="checkbox" name="emp_mercado_local" value="1"/> Local</label>
+            </div>
+
+            <h3 class="pk-seccion">Tu cuenta</h3>
+            <div class="pk-grid">
+              <label>Correo *
+                <input type="email" name="email" class="form-control" required="required"/>
+              </label>
+              <label>Contraseña *
+                <input type="password" name="password" class="form-control" required="required"
+                       minlength="8"/>
+              </label>
+            </div>
+
+            <button type="submit" class="s-btn s-btn-primary mt-3">
+              <i class="fa fa-check me-1"/> Crear mi cuenta
+            </button>
+          </form>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+</odoo>

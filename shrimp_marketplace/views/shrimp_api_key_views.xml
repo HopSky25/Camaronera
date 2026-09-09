@@ -65,7 +65,11 @@
         <field name="view_mode">list,form</field>
     </record>
 
+    <!-- Una clave de API es una credencial de autenticación: crearla o
+         borrarla es dar o quitar acceso al sistema. El menú estaba visible
+         para cualquier usuario interno, con permiso de creación y borrado. -->
     <menuitem id="menu_shrimp_api_key" name="Claves de API"
-              parent="menu_shrimp_config_root" action="action_shrimp_api_key" sequence="50"/>
+              parent="menu_shrimp_config_root" action="action_shrimp_api_key"
+              groups="base.group_system" sequence="50"/>
 
 </odoo>

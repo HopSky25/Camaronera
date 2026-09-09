@@ -20,10 +20,14 @@ class ShrimpUuidMixin(models.AbstractModel):
         help="Identificador público alfanumérico del registro (estilo UUID).",
     )
 
-    _sql_constraints = [
-        ("uuid_ref_unique", "unique(uuid_ref)",
-         "El código de referencia debe ser único."),
-    ]
+    # Odoo 19 ignora _sql_constraints EN SILENCIO —solo deja un
+    # WARNING en el arranque— y la restriccion no llega nunca a
+    # PostgreSQL. Se comprobo contra pg_constraint: ninguna de las
+    # unicidades declaradas asi existia en la base.
+    _uuid_ref_unique = models.Constraint(
+        "unique(uuid_ref)",
+        "El código de referencia debe ser único.",
+    )
 
     @api.model
     def _generate_uuid_ref(self):

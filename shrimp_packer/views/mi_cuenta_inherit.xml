@@ -1,0 +1,180 @@
+<odoo>
+
+  <!-- =================================================================
+       Perfil de la empacadora, editable por ella misma.
+
+       Su ficha pública es lo primero que mira un productor antes de decidir
+       a quién le despacha: qué certificaciones tiene, dónde está la planta,
+       cuánto procesa al día y a qué mercados exporta. Todo eso se fijaba una
+       sola vez en el alta y después solo se podía cambiar desde el
+       backoffice. Una certificación que caduca o una planta que amplía
+       capacidad se quedaban desactualizadas justo en la pantalla con la que
+       el cliente elige.
+       ================================================================= -->
+  <template id="mi_cuenta_empacadora"
+            inherit_id="shrimp_marketplace.my_account"
+            name="Mi cuenta - datos de la empacadora">
+    <xpath expr="//div[hasclass('d-flex') and hasclass('flex-wrap') and hasclass('gap-2')]"
+           position="before">
+      <t t-if="partner.shrimp_user_type == 'empacadora'">
+
+        <div class="mp-table-card mb-4">
+          <div class="card-body p-4">
+            <div class="mp-sec-head">
+              <span class="mp-sec-ico"><i class="fa fa-building-o"/></span>
+              <h3 class="mp-sec-title">Datos de la empacadora</h3>
+            </div>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label small text-muted">Razón social</label>
+                <input class="form-control" type="text" name="emp_razon_social"
+                       t-att-value="partner.emp_razon_social or ''"/>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small text-muted">Representante legal</label>
+                <input class="form-control" type="text" name="emp_representante"
+                       t-att-value="partner.emp_representante or ''"/>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small text-muted">Contacto comercial</label>
+                <input class="form-control" type="text" name="emp_contacto_comercial"
+                       t-att-value="partner.emp_contacto_comercial or ''"/>
+                <div class="form-text">Quien negocia y manda las listas de precios.</div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small text-muted">Teléfono</label>
+                <input class="form-control" type="text" name="emp_telefono"
+                       t-att-value="partner.emp_telefono or ''"/>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small text-muted">Código de exportador</label>
+                <input class="form-control" type="text" name="emp_codigo_exportador"
+                       t-att-value="partner.emp_codigo_exportador or ''"/>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small text-muted">N.º de aprobación sanitaria</label>
+                <input class="form-control" type="text" name="emp_aprobacion_sanitaria"
+                       t-att-value="partner.emp_aprobacion_sanitaria or ''"/>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mp-table-card mb-4">
+          <div class="card-body p-4">
+            <div class="mp-sec-head">
+              <span class="mp-sec-ico"><i class="fa fa-industry"/></span>
+              <h3 class="mp-sec-title">Planta de proceso</h3>
+            </div>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label small text-muted">Nombre de la planta</label>
+                <input class="form-control" type="text" name="emp_planta_nombre"
+                       t-att-value="partner.emp_planta_nombre or ''"/>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small text-muted">Ubicación</label>
+                <input class="form-control" type="text" name="emp_planta_ubicacion"
+                       t-att-value="partner.emp_planta_ubicacion or ''"/>
+                <div class="form-text">
+                  Dónde entrega el productor. Pesa tanto como el precio.
+                </div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small text-muted">Capacidad (lb/día)</label>
+                <input class="form-control" type="number" step="1" min="0"
+                       name="emp_capacidad_lb_dia"
+                       t-att-value="partner.emp_capacidad_lb_dia or ''"/>
+                <div class="form-text">
+                  Le dice al productor si puedes recibirle una cosecha grande de una vez.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mp-table-card mb-4">
+          <div class="card-body p-4">
+            <div class="mp-sec-head">
+              <span class="mp-sec-ico"><i class="fa fa-certificate"/></span>
+              <h3 class="mp-sec-title">Certificaciones y mercados</h3>
+            </div>
+            <p class="text-muted small mb-3">
+              Determinan a qué mercados puede ir el camarón y, por tanto, cuánto
+              vale. Es lo primero que mira un productor serio.
+            </p>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="empBap"
+                         name="emp_cert_bap" value="1"
+                         t-att-checked="'checked' if partner.emp_cert_bap else None"/>
+                  <label class="form-check-label" for="empBap">
+                    BAP (Best Aquaculture Practices)
+                  </label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="empAsc"
+                         name="emp_cert_asc" value="1"
+                         t-att-checked="'checked' if partner.emp_cert_asc else None"/>
+                  <label class="form-check-label" for="empAsc">ASC</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="empHaccp"
+                         name="emp_cert_haccp" value="1"
+                         t-att-checked="'checked' if partner.emp_cert_haccp else None"/>
+                  <label class="form-check-label" for="empHaccp">HACCP</label>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="empAsia"
+                         name="emp_mercado_asia" value="1"
+                         t-att-checked="'checked' if partner.emp_mercado_asia else None"/>
+                  <label class="form-check-label" for="empAsia">Exporta a Asia</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="empEuropa"
+                         name="emp_mercado_europa" value="1"
+                         t-att-checked="'checked' if partner.emp_mercado_europa else None"/>
+                  <label class="form-check-label" for="empEuropa">Exporta a Europa</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="empNorte"
+                         name="emp_mercado_norteamerica" value="1"
+                         t-att-checked="'checked' if partner.emp_mercado_norteamerica else None"/>
+                  <label class="form-check-label" for="empNorte">Exporta a Norteamérica</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="empLocal"
+                         name="emp_mercado_local" value="1"
+                         t-att-checked="'checked' if partner.emp_mercado_local else None"/>
+                  <label class="form-check-label" for="empLocal">Mercado local</label>
+                </div>
+              </div>
+              <div class="col-12">
+                <label class="form-label small text-muted">Otras certificaciones</label>
+                <input class="form-control" type="text" name="emp_cert_otras"
+                       t-att-value="partner.emp_cert_otras or ''"
+                       placeholder="Separadas por coma"/>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </t>
+    </xpath>
+
+    <!-- Enlace a su propia ficha pública, para verla como la ve el productor.
+         Sin esto la empacadora edita a ciegas: rellena campos sin saber cómo
+         quedan en la pantalla con la que el cliente decide. -->
+    <xpath expr="//a[@href='/marketplace/mis-certificados']" position="after">
+      <a t-if="partner.shrimp_user_type == 'empacadora'"
+         class="s-btn s-btn-ghost"
+         t-attf-href="/marketplace/empacadora/#{partner.uuid_ref}">
+        <i class="fa fa-eye me-1"/> Ver mi ficha pública
+      </a>
+    </xpath>
+  </template>
+
+</odoo>

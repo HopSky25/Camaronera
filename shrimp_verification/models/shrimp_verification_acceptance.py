@@ -39,7 +39,12 @@ class ShrimpVerificationAcceptance(models.Model):
             ("counter", "Contraoferta"),
             ("rejected", "Rechazada"),
         ],
-        string="Decisión", default="pending", required=True, index=True, tracking=True)
+        string="Decisión", default="pending", required=True, index=True)
+    # Sin tracking: este modelo no hereda mail.thread, así que Odoo
+    # descartaba el parámetro con un WARNING y la decisión NO quedaba en
+    # ningún chatter. Se creía auditada y no lo estaba. La huella real
+    # de quién decidió y cuándo son decided_at y el mensaje que se
+    # publica en la verificación, que sí es un mail.thread.
 
     reason = fields.Text(string="Motivo")
     decided_at = fields.Datetime(string="Fecha de la decisión", readonly=True)

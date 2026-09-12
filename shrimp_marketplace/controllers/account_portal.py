@@ -55,10 +55,18 @@ class ShrimpAccountPortalController(http.Controller):
     @http.route("/marketplace/mi-cuenta", type="http", auth="user", website=True)
     def my_account(self, **kw):
         partner = self._partner()
+        # Mi cuenta unifica los certificados: se cargan aquí para mostrarlos en
+        # la misma página (antes vivían en /marketplace/mis-certificados).
+        lines = request.env["shrimp.user.certificate.line"].sudo().search(
+            [("partner_id", "=", partner.id)], order="id desc")
         return request.render("shrimp_marketplace.my_account", {
             "partner": partner,
+            "lines": lines,
+            "certificates": self._available_certificates(partner),
+            "today": fields.Date.context_today(request.env.user),
             "saved": kw.get("saved"),
             "error": kw.get("error"),
+            "message": kw.get("message"),
         })
 
     @http.route("/marketplace/mi-cuenta/guardar", type="http", auth="user",
@@ -149,21 +157,8 @@ class ShrimpAccountPortalController(http.Controller):
 
     @http.route("/marketplace/mis-certificados", type="http", auth="user", website=True)
     def my_certificates(self, **kw):
-        partner = self._partner()
-        lines = request.env["shrimp.user.certificate.line"].sudo().search([
-            ("partner_id", "=", partner.id),
-        ], order="id desc")
-        today = fields.Date.context_today(request.env.user)
-
-        return request.render("shrimp_marketplace.my_certificates", {
-            "partner": partner,
-            "lines": lines,
-            "today": today,
-            "certificates": self._available_certificates(partner),
-            "saved": kw.get("saved"),
-            "error": kw.get("error"),
-            "message": kw.get("message"),
-        })
+        # Los certificados se unificaron dentro de "Mi cuenta".
+        return request.redirect("/marketplace/mi-cuenta")
 
     @http.route("/marketplace/mis-certificados/agregar", type="http", auth="user",
                 website=True, methods=["POST"], csrf=True)
@@ -172,17 +167,17 @@ class ShrimpAccountPortalController(http.Controller):
 
         cert = self._validated_certificate(partner, post.get("certificate_id"))
         if not cert:
-            return request.redirect("/marketplace/mis-certificados?error=cert")
+            return request.redirect("/marketplace/mi-cuenta?error=cert")
 
         file_obj = request.httprequest.files.get("file")
         if not file_obj:
-            return request.redirect("/marketplace/mis-certificados?error=file")
+            return request.redirect("/marketplace/mi-cuenta?error=file")
 
         try:
             att = self._create_private_attachment(
                 file_obj, partner, name_prefix=f"cert_{cert.id}_")
             if not att:
-                return request.redirect("/marketplace/mis-certificados?error=file")
+                return request.redirect("/marketplace/mi-cuenta?error=file")
 
             request.env["shrimp.user.certificate.line"].sudo().create({
                 "partner_id": partner.id,
@@ -195,9 +190,9 @@ class ShrimpAccountPortalController(http.Controller):
             })
         except ValidationError as e:
             return request.redirect(
-                "/marketplace/mis-certificados?error=validation&message=%s" % (e.args[0] if e.args else ""))
+                "/marketplace/mi-cuenta?error=validation&message=%s" % (e.args[0] if e.args else ""))
 
-        return request.redirect("/marketplace/mis-certificados?saved=1")
+        return request.redirect("/marketplace/mi-cuenta?saved=1")
 
     def _owned_cert_line(self, line_id):
         line = request.env["shrimp.user.certificate.line"].sudo().browse(int(line_id))
@@ -229,16 +224,16 @@ class ShrimpAccountPortalController(http.Controller):
             line.write(vals)
         except ValidationError as e:
             return request.redirect(
-                "/marketplace/mis-certificados?error=validation&message=%s" % (e.args[0] if e.args else ""))
+                "/marketplace/mi-cuenta?error=validation&message=%s" % (e.args[0] if e.args else ""))
 
-        return request.redirect("/marketplace/mis-certificados?saved=renew")
+        return request.redirect("/marketplace/mi-cuenta?saved=renew")
 
     @http.route("/marketplace/mis-certificados/<int:line_id>/eliminar", type="http",
                 auth="user", website=True, methods=["POST"], csrf=True)
     def my_certificate_delete(self, line_id, **post):
         line = self._owned_cert_line(line_id)
         line.unlink()
-        return request.redirect("/marketplace/mis-certificados?saved=delete")
+        return request.redirect("/marketplace/mi-cuenta?saved=delete")
 
     # ==================================================================
     # 3) MIS LOTES / INVENTARIO
@@ -537,6 +532,24 @@ class ShrimpAccountPortalController(http.Controller):
             "saved": kw.get("saved"),
             "error": kw.get("error"),
             "message": kw.get("message"),
+        })
+
+    @http.route("/marketplace/solicitudes/<int:cr_id>/detalle", type="http", auth="user",
+                website=True)
+    def check_request_detail(self, cr_id, **kw):
+        """Detalle completo de una solicitud de chequeo, visible para el
+        comprador y el vendedor que participan en ella."""
+        partner = self._partner()
+        cr = request.env["shrimp.check.request"].sudo().browse(cr_id)
+        if not cr.exists() or partner.id not in (
+                cr.seller_partner_id.id, cr.buyer_partner_id.id):
+            raise NotFound()
+        return request.render("shrimp_marketplace.check_request_detail", {
+            "partner": partner,
+            "cr": cr,
+            "is_seller": cr.seller_partner_id.id == partner.id,
+            "message": kw.get("message"),
+            "error": kw.get("error"),
         })
 
     def _owned_check_request(self, cr_id):

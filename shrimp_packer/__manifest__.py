@@ -23,6 +23,7 @@ desarrollo que se hace en paralelo sobre ese módulo.
         "security/shrimp_packer_rules.xml",
         "data/size_grade_extra.xml",
         "data/mail_template.xml",
+        "data/cron_auto_publish.xml",
         "views/shrimp_price_list_views.xml",
         "views/price_list_templates.xml",
         "views/res_partner_views.xml",

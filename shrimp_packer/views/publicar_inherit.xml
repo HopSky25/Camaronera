@@ -10,6 +10,56 @@
   <template id="publicar_precio_sugerido"
             inherit_id="shrimp_marketplace.product_new_form"
             name="Publicar lote - precio sugerido">
+    <!-- Selector de lista de precios: si se asigna, el precio se toma de ella
+         y se bloquea el campo. -->
+    <xpath expr="//input[@name='price']" position="before">
+      <t t-set="_pls" t-value="request.env['shrimp.price.list'].sudo().visibles_para(request.env.user.partner_id)"/>
+      <div class="mb-2" t-if="_pls">
+        <label class="form-label" style="font-weight:800; font-size:13px;">Lista de precios (opcional)</label>
+        <select class="form-select" name="price_list_id" id="pkPriceList">
+          <option value="">Sin lista (precio manual)</option>
+          <t t-foreach="_pls" t-as="pl">
+            <option t-att-value="pl.id"
+                    t-att-selected="'selected' if (is_edit and product.price_list_id.id == pl.id) else None">
+              <t t-esc="pl.name"/> — <t t-esc="pl.issuer_partner_id.name"/>
+            </option>
+          </t>
+        </select>
+        <div class="form-text">Si eliges una lista, el precio se toma de ella (según talla y presentación) y no se edita a mano.</div>
+      </div>
+      <script type="text/javascript">
+<![CDATA[
+(function(){
+  function init(){
+    var sel=document.getElementById('pkPriceList');
+    var precio=document.querySelector('input[name="price"]');
+    if(!sel||!precio) return;
+    var pres=document.querySelector('select[name="presentation"]');
+    var talla=document.querySelector('select[name="size_grade_id"]');
+    function fill(){
+      var pl=sel.value;
+      if(!pl){ precio.readOnly=false; precio.style.background=''; return; }
+      precio.readOnly=true; precio.style.background='#eef2f5';
+      var p=pres?pres.value:'', t=talla?talla.value:'';
+      if(!p||!t){ return; }
+      fetch('/marketplace/precio-de-lista',{method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({jsonrpc:'2.0',method:'call',
+          params:{price_list_id:pl,presentation:p,size_grade_id:t}})})
+        .then(function(r){return r.json();}).then(function(d){
+          var r=(d&&d.result)||{}; if(r.precio!=null){ precio.value=r.precio.toFixed(2); }
+        }).catch(function(){});
+    }
+    sel.addEventListener('change', fill);
+    if(pres) pres.addEventListener('change', fill);
+    if(talla) talla.addEventListener('change', fill);
+    fill();
+  }
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',init);}else{init();}
+})();
+]]>
+      </script>
+    </xpath>
     <xpath expr="//input[@name='price']" position="after">
       <div id="pk_sugerencia" class="pk-sug-precio" style="display:none;">
         <span class="pk-sug-txt"></span>

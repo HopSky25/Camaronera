@@ -1,5 +1,8 @@
+import logging
 from odoo import api, fields, models, _
 from odoo.exceptions import ValidationError
+
+_logger = logging.getLogger(__name__)
 
 
 class ShrimpPriceList(models.Model):
@@ -40,6 +43,15 @@ class ShrimpPriceList(models.Model):
     open_ended = fields.Boolean(
         string="Hasta segunda orden", default=True, tracking=True,
         help="Rige sin fecha de fin, hasta que se publique otra lista.")
+
+    # Publicación automática: la empacadora deja la lista lista en borrador y
+    # fija el día en que debe salir. Un cron la publica sola en esa fecha, así
+    # no depende de que alguien entre a darle "Publicar" a primera hora.
+    auto_publish = fields.Boolean(
+        string="Publicación automática", tracking=True,
+        help="Publica la lista sola en la fecha indicada, sin que tengas que entrar.")
+    auto_publish_date = fields.Date(
+        string="Fecha de publicación automática", tracking=True)
 
     state = fields.Selection(
         [("draft", "Borrador"), ("published", "Publicada"), ("archived", "Archivada")],
@@ -375,6 +387,53 @@ class ShrimpPriceList(models.Model):
 
     def action_back_to_draft(self):
         self.write({"state": "draft"})
+        return True
+
+    def _resync_productos_vinculados(self):
+        """Reaplica el precio a los lotes atados a estas listas (si la lista
+        cambió de renglones o de estado, el lote debe seguirla)."""
+        prods = self.env["shrimp.product"].sudo().search([("price_list_id", "in", self.ids)])
+        if prods:
+            prods._sync_precio_lista()
+
+    def write(self, vals):
+        res = super().write(vals)
+        if any(k in vals for k in ("line_ids", "state")):
+            self._resync_productos_vinculados()
+        return res
+
+    @api.constrains("auto_publish", "auto_publish_date")
+    def _check_auto_publish(self):
+        for rec in self:
+            if rec.auto_publish and not rec.auto_publish_date:
+                raise ValidationError(_(
+                    "Marcaste publicación automática pero no indicaste la fecha "
+                    "en que debe publicarse."))
+
+    @api.model
+    def _cron_auto_publish(self):
+        """Publica las listas programadas cuya fecha ya llegó.
+
+        Corre a diario. Cada lista se publica en su propia transacción para que
+        un error en una (p. ej. quedó sin precios) no impida las demás.
+        """
+        hoy = fields.Date.context_today(self)
+        pendientes = self.search([
+            ("state", "=", "draft"),
+            ("auto_publish", "=", True),
+            ("auto_publish_date", "!=", False),
+            ("auto_publish_date", "<=", hoy),
+        ])
+        for rec in pendientes:
+            try:
+                with self.env.cr.savepoint():
+                    rec.action_publish()
+                    # Se apaga la bandera: ya cumplió, y así no reintenta cada día.
+                    rec.auto_publish = False
+            except Exception:  # noqa: BLE001
+                _logger.exception(
+                    "Publicación automática fallida para la lista %s (id=%s)",
+                    rec.name, rec.id)
         return True
 
     def action_duplicate_for_next(self):

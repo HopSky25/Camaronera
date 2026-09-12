@@ -211,17 +211,10 @@ class ShrimpProduct(models.Model):
     )
 
     def price_for_partner(self, partner):
-        """Precio efectivo para un comprador: su precio asignado si existe,
-        si no, el precio de publicación."""
+        """Precio efectivo para un comprador. El precio por cliente se retiró:
+        siempre es el precio de publicación. Se conserva el método para no
+        romper a quienes lo llaman."""
         self.ensure_one()
-        if partner:
-            cp = self.env["shrimp.client.price"].sudo().search([
-                ("product_id", "=", self.id),
-                ("client_partner_id", "=", partner.id),
-                ("active", "=", True),
-            ], limit=1)
-            if cp:
-                return cp.price
         return self.price
 
     def has_purchases(self):

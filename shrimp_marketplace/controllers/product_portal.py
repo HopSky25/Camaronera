@@ -1,4 +1,5 @@
 import base64
+import re
 
 from odoo import http, fields, _
 from odoo.http import request
@@ -166,6 +167,18 @@ class ShrimpProductPortalController(http.Controller):
         if seller:
             domain.append(("seller_partner_id.name", "ilike", seller))
 
+        # Filtro por estado del producto. "archived" = dado de baja (active=False);
+        # el resto restringe a activos por estado.
+        pstate = (kw.get("pstate") or "").strip()
+        if pstate == "archived":
+            domain.append(("active", "=", False))
+        elif pstate == "published":
+            domain += [("active", "=", True), ("state", "=", "published")]
+        elif pstate == "draft":
+            domain += [("active", "=", True), ("state", "=", "draft")]
+        elif pstate == "sold":
+            domain.append(("state", "=", "sold"))
+
         if price_min_raw:
             try:
                 domain.append(("price", ">=", float(price_min_raw)))
@@ -208,6 +221,7 @@ class ShrimpProductPortalController(http.Controller):
                 "price_min": price_min_raw,
                 "price_max": price_max_raw,
                 "order": order,
+                "pstate": pstate,
             },
         })
 
@@ -321,6 +335,12 @@ class ShrimpProductPortalController(http.Controller):
             "active": True,
         }
 
+        # Lista de precios (solo si el módulo empacadora aporta el campo). Si se
+        # asigna, el modelo toma el precio de la lista.
+        if "price_list_id" in request.env["shrimp.product"]._fields:
+            _plid = post.get("price_list_id")
+            vals["price_list_id"] = int(_plid) if (_plid or "").isdigit() else False
+
         try:
             product = request.env["shrimp.product"].sudo().create(vals)
         except ValidationError as e:
@@ -362,6 +382,37 @@ class ShrimpProductPortalController(http.Controller):
         self._notify_product_event(product, "shrimp_marketplace.mail_template_shrimp_product_created")
 
         return request.redirect("/marketplace/products")
+
+    def _edit_product_certificates(self, product, post):
+        """Aplica cambios a líneas de certificado YA guardadas del producto.
+        Solo las propias del producto (las heredadas del usuario no se editan).
+        Campos: edit_cert_<id>_number/_issue_date/_expiry_date y opcional _file."""
+        Line = request.env["shrimp.product.certificate.line"].sudo()
+        ids = set()
+        for k in post.keys():
+            m = re.match(r"^edit_cert_(\d+)_(?:number|issue_date|expiry_date)$", k)
+            if m:
+                ids.add(int(m.group(1)))
+        for cid in ids:
+            line = Line.browse(cid)
+            if not line.exists() or line.product_id.id != product.id:
+                continue
+            if line.source_user_certificate_line_id:
+                continue  # heredado del usuario: no editable
+            vals = {
+                "number": post.get(f"edit_cert_{cid}_number") or False,
+                "issue_date": post.get(f"edit_cert_{cid}_issue_date") or False,
+                "expiry_date": post.get(f"edit_cert_{cid}_expiry_date") or False,
+            }
+            file_obj = request.httprequest.files.get(f"edit_cert_{cid}_file")
+            if file_obj and file_obj.filename:
+                att = self._create_attachment(
+                    file_obj, product, name_prefix=f"cert_{line.certificate_id.id}_")
+                if att:
+                    att.generate_access_token()
+                    vals["attachment_id"] = att.id
+                    product.write({"cert_attachment_ids": [(4, att.id)]})
+            line.write(vals)
 
     def _save_product_certificates(self, product, post):
         """Crea las líneas de certificado enviadas en el formulario de crear/editar.
@@ -537,6 +588,11 @@ class ShrimpProductPortalController(http.Controller):
             "available_to": post.get("available_to") or False,
         }
 
+        # Lista de precios (solo si el módulo empacadora aporta el campo).
+        if "price_list_id" in product._fields:
+            _plid = post.get("price_list_id")
+            vals["price_list_id"] = int(_plid) if (_plid or "").isdigit() else False
+
         # Si el producto ya tiene compras, los campos críticos quedan bloqueados:
         # se descartan del vals para conservar su valor actual (los inputs del
         # formulario también van deshabilitados).
@@ -562,8 +618,26 @@ class ShrimpProductPortalController(http.Controller):
             att_recs.generate_access_token()
             product.write({"photo_attachment_ids": [(4, aid) for aid in new_photo_ids]})
 
+        # Fotos existentes marcadas para eliminar (checkbox remove_photo_<id>).
+        remove_photo_ids = []
+        for key, val in post.items():
+            if key.startswith("remove_photo_") and str(val) in ("1", "true", "on"):
+                try:
+                    remove_photo_ids.append(int(key[len("remove_photo_"):]))
+                except ValueError:
+                    pass
+        if remove_photo_ids:
+            to_unlink = product.photo_attachment_ids.filtered(lambda a: a.id in remove_photo_ids)
+            if to_unlink:
+                product.write({"photo_attachment_ids": [(3, a.id) for a in to_unlink]})
+                to_unlink.sudo().unlink()
+
         # Eliminar los certificados del producto marcados con "Eliminar".
         self._remove_product_certificates(product, post)
+
+        # Editar certificados ya guardados del producto (solo los propios, no los
+        # heredados del usuario).
+        self._edit_product_certificates(product, post)
 
         # Guardar los certificados nuevos añadidos en la edición (mismo naming que en crear).
         self._save_product_certificates(product, post)
@@ -620,6 +694,29 @@ class ShrimpProductPortalController(http.Controller):
         product = self._get_owned_product(product_ref)
         product.write({"active": False, "state": "draft"})
         return request.redirect("/marketplace/products?baja=1")
+
+    @http.route("/marketplace/products/<product_ref>/eliminar", type="http", auth="user", website=True, methods=["POST"], csrf=True)
+    def marketplace_product_delete(self, product_ref, **post):
+        """Elimina definitivamente un producto SIN ventas. Si ya tiene compras
+        (hay movimiento y trazabilidad que conservar) no se borra: se archiva.
+        Si el borrado falla por dependencias, también cae a archivar."""
+        product = request.env["shrimp.product"].sudo().with_context(
+            active_test=False).resolve_ref(product_ref)
+        if not product:
+            raise NotFound()
+        partner = self._get_current_partner()
+        if product.seller_partner_id.id != partner.id and not self._is_internal():
+            raise Forbidden()
+        if product.has_purchases():
+            product.write({"active": False, "state": "draft"})
+            return request.redirect("/marketplace/products?baja=1")
+        try:
+            with request.env.cr.savepoint():
+                product.unlink()
+        except Exception:
+            product.write({"active": False, "state": "draft"})
+            return request.redirect("/marketplace/products?baja=1")
+        return request.redirect("/marketplace/products?eliminado=1")
 
     @http.route("/marketplace/products/<product_ref>/reactivar", type="http", auth="user", website=True, methods=["POST"], csrf=True)
     def marketplace_product_reactivate(self, product_ref, **post):

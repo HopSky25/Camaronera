@@ -81,6 +81,63 @@ class ShrimpProduct(models.Model):
         return qty / LB_POR_KG if unidad == "kg" else qty * LB_POR_KG
 
     # ------------------------------------------------------------------
+    # Precio tomado de una lista de precios (opcional)
+    # ------------------------------------------------------------------
+    # Si el lote se ata a una lista, su precio deja de escribirse a mano: se
+    # toma del renglón que cruza (misma talla y presentación) y se mantiene
+    # sincronizado. La lista cotiza el entero en $/Kg y la cola en $/Lb; el
+    # lote se mide en libras, así que el entero se convierte a $/Lb.
+    price_list_id = fields.Many2one(
+        "shrimp.price.list", string="Lista de precios", index=True,
+        help="Si la asignas, el precio del lote se toma de esta lista según su "
+             "talla y presentación, y queda fijo mientras esté asignada.")
+
+    def _precio_desde_lista(self):
+        """Precio unitario del lote (en libras) según la lista asignada, o None
+        si no aplica o no hay renglón que cruce."""
+        self.ensure_one()
+        pl = self.price_list_id
+        if not pl or not self.size_grade_id or not self.presentation:
+            return None
+        lineas = pl.line_ids.filtered(
+            lambda l: l.size_grade_id == self.size_grade_id
+            and l.presentation == self.presentation
+            and (self.presentation != "cola" or l.channel == "directa"))
+        if not lineas:
+            return None
+        linea = max(lineas, key=lambda l: l.price)
+        propia = self._clave_uom() or "lb"
+        if linea.uom == propia:
+            return linea.price
+        if propia == "lb" and linea.uom == "kg":
+            return linea.price / LB_POR_KG
+        if propia == "kg" and linea.uom == "lb":
+            return linea.price * LB_POR_KG
+        return linea.price
+
+    def _sync_precio_lista(self):
+        """Fija el precio del lote desde su lista, si tiene una asignada."""
+        for rec in self:
+            # Un lote ya vendido tiene el precio bloqueado por trazabilidad.
+            if rec.price_list_id and not rec.has_purchases():
+                precio = rec._precio_desde_lista()
+                if precio is not None and abs((rec.price or 0.0) - precio) > 1e-6:
+                    rec.with_context(_syncing_precio=True).write({"price": precio})
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        recs = super().create(vals_list)
+        recs._sync_precio_lista()
+        return recs
+
+    def write(self, vals):
+        res = super().write(vals)
+        if not self.env.context.get("_syncing_precio") and any(
+                k in vals for k in ("price_list_id", "size_grade_id", "presentation", "uom_id")):
+            self._sync_precio_lista()
+        return res
+
+    # ------------------------------------------------------------------
     # Quién puede comprar este lote
     # ------------------------------------------------------------------
     # La última pata de la cadena: el camarón adulto solo lo compra una

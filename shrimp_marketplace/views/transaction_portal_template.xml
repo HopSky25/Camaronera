@@ -299,8 +299,9 @@
                                                             </td>
 
                                                             <td class="text-end">
-                                                                <t
-                                                                    t-esc="tx.price_unit or (tx.product_id.price if tx.product_id else '—')" />
+                                                                <t t-set="pu" t-value="tx.price_unit or (tx.product_id.price if tx.product_id else 0.0)"/>
+                                                                <span class="fw-semibold">$<t t-esc="'%.2f' % (pu or 0.0)"/></span>
+                                                                <div class="text-muted small">/ <t t-esc="tx.product_id.uom_id.name or 'u'"/></div>
                                                             </td>
 
                                                             <t t-if="mode == 'sales'">
@@ -526,8 +527,8 @@
                                                                 <div class="text-muted small">
                                                                     Precio</div>
                                                                 <div class="fw-semibold">
-                                                                    <t
-                                                                        t-esc="tx.price_unit or (tx.product_id.price if tx.product_id else '—')" />
+                                                                    <t t-set="pu2" t-value="tx.price_unit or (tx.product_id.price if tx.product_id else 0.0)"/>
+                                                                    $<t t-esc="'%.2f' % (pu2 or 0.0)"/>
                                                                 </div>
                                                             </div>
 
@@ -555,19 +556,25 @@
                                                         </div>
                                                     </div>
 
-                                                    <div class="d-flex flex-column gap-2"
-                                                        style="min-width: 220px;">
+                                                    <!-- Acciones compactas en fila (antes eran una columna alta
+                                                         que agrandaba la tarjeta). -->
+                                                    <div class="d-flex flex-wrap gap-2 align-items-start justify-content-end"
+                                                        style="max-width: 340px;">
                                                         <a t-att-href="'/marketplace/thanks/%s' % tx.uuid_ref"
-                                                            class="s-btn s-btn-ghost">
-                                                            <i class="fa fa-file-text-o me-1"></i> Ver comprobante </a>
+                                                            class="s-btn s-btn-ghost btn-sm" title="Ver comprobante">
+                                                            <i class="fa fa-file-text-o me-1"></i> Comprobante </a>
 
                                                         <a t-att-href="'/marketplace/compras/%s/trazabilidad' % tx.uuid_ref"
-                                                            class="s-btn s-btn-ghost">
-                                                            <i class="fa fa-sitemap me-1"></i> Ver trazabilidad </a>
+                                                            class="s-btn s-btn-ghost btn-sm" title="Ver trazabilidad">
+                                                            <i class="fa fa-sitemap me-1"></i> Trazabilidad </a>
 
-                                                        <a t-att-href="'/marketplace/compras/%s/trazabilidad/pdf' % tx.uuid_ref"
-                                                            class="s-btn s-btn-primary">
+                                                        <a t-att-href="'/marketplace/compras/%s/trazabilidad/pdf?download=1' % tx.uuid_ref"
+                                                            class="s-btn s-btn-ghost btn-sm" title="Descargar trazabilidad">
                                                             <i class="fa fa-file-pdf-o me-1"></i> PDF </a>
+
+                                                        <a t-att-href="'/marketplace/compras/%s/factura/pdf?download=1' % tx.uuid_ref"
+                                                            class="s-btn s-btn-primary btn-sm" title="Descargar factura">
+                                                            <i class="fa fa-file-text me-1"></i> Factura </a>
 
                                                         <!-- Confirmar recepción: sube el inventario del comprador (borrador),
                                                              respetando la fecha de entrega -->
@@ -576,7 +583,7 @@
                                                             <t t-if="deliv &lt;= today">
                                                                 <form method="post" t-att-action="'/marketplace/compras/%s/recibir' % tx.uuid_ref">
                                                                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                                                    <button type="submit" class="s-btn s-btn-primary w-100"
+                                                                    <button type="submit" class="s-btn s-btn-primary btn-sm"
                                                                             onclick="return confirm('¿Confirmar la recepción? Se subirá el producto a tu inventario en estado borrador.');">
                                                                         <i class="fa fa-truck me-1"></i> Confirmar recepción
                                                                     </button>
@@ -586,15 +593,14 @@
                                                                 <div class="s-badge s-badge--teal" style="text-align:center;">
                                                                     <i class="fa fa-clock-o me-1"></i> Entrega: <t t-esc="deliv.strftime('%d/%m/%Y')"/>
                                                                 </div>
-                                                                <div class="text-muted small" style="text-align:center;">Podrás confirmar recepción a partir de esa fecha.</div>
                                                             </t>
                                                         </t>
 
                                                         <!-- Calificar vendedor (#4): solo si aún no lo ha calificado -->
                                                         <t t-if="tx.state in ('confirmed', 'done') and tx.id not in reviewed_tx_ids">
-                                                            <button type="button" class="s-btn s-btn-ghost"
+                                                            <button type="button" class="s-btn s-btn-ghost btn-sm"
                                                                     data-bs-toggle="modal" t-att-data-bs-target="'#rateModal%s' % tx.id">
-                                                                <i class="fa fa-star me-1"></i> Calificar vendedor
+                                                                <i class="fa fa-star me-1"></i> Calificar
                                                             </button>
                                                         </t>
                                                     </div>
@@ -684,11 +690,15 @@
                         <t t-call="shrimp_marketplace.s_back_button"><t t-set="back_fallback" t-value="'/my'"/></t>
                     </div>
 
-                    <!-- Encabezado -->
-                    <div class="s-rep-head mb-4">
-                        <div class="s-rep-eyebrow">Tu actividad</div>
-                        <h1 class="s-rep-title">Mis reportes</h1>
-                        <div class="s-rep-sub">Resumen de tus ventas, compras y comisiones del marketplace.</div>
+                    <!-- Encabezado con el banner del sistema de diseño -->
+                    <div class="sf-banner mb-4">
+                        <div class="sf-banner-row">
+                            <div class="sf-banner-txt">
+                                <h1>Mis reportes</h1>
+                                <p>Resumen de tus ventas, compras y comisiones del marketplace.</p>
+                            </div>
+                            <span class="sf-kicker"><i class="fa fa-bar-chart"></i> Tu actividad</span>
+                        </div>
                     </div>
 
                     <!-- KPIs -->

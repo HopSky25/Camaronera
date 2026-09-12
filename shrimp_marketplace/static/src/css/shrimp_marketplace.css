@@ -484,6 +484,13 @@
 .s-prod-actions .s-btn, .s-prod-actions .btn { flex: 1; padding: 7px 12px; font-size: var(--fs-sm); }
 .s-prod-actions .s-btn-ghost { flex: 0 0 auto; }   /* "Ver" compacto, "Comprar" ocupa el resto */
 
+/* Lista "Mis productos": Ver/Editar/Eliminar del MISMO tamaño. Cada acción
+   (enlace o form) ocupa una fracción igual y su botón llena el ancho. */
+.s-prod-actions--owner > a,
+.s-prod-actions--owner > form { flex: 1 1 0; display: flex; }
+.s-prod-actions--owner > a.s-btn-ghost { flex: 1 1 0; }   /* anula el "Ver" compacto solo aquí */
+.s-prod-actions--owner .s-btn { flex: 1; width: 100%; justify-content: center; white-space: nowrap; }
+
 /* Variante lista */
 .s-prod-card--row { flex-direction: row; }
 .s-prod-card--row .s-prod-imgwrap { width: 180px; min-width: 180px; aspect-ratio: auto; }
@@ -1199,6 +1206,17 @@ header#top #top_menu .show > .dropdown-toggle::after { transform: rotate(180deg)
 .sf .np-add-thumb { background: #eef1f4 !important; border: 1px solid var(--shrimp-border-strong) !important; color: var(--shrimp-brand) !important; }
 .sf .np-add-thumb i { color: var(--shrimp-brand); font-size: 18px; }
 .sf .np-add-thumb:hover { background: #e3e8ee !important; box-shadow: 0 8px 18px rgba(16,24,40,.08); }
+
+/* Fotos ya cargadas: misma fila que el "+", con botón eliminar (×). */
+.sf .np-exist { position: relative; width: 62px; height: 62px; flex: 0 0 auto; cursor: pointer; }
+.sf .np-exist img { width: 62px; height: 62px; object-fit: cover; border-radius: 12px; border: 1px solid var(--shrimp-border); display: block; }
+.sf .np-exist-del {
+    position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; border-radius: 50%;
+    border: 0; background: var(--shrimp-danger, #dc3545); color: #fff; font-size: 10px; line-height: 1;
+    display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;
+    box-shadow: 0 2px 6px rgba(0,0,0,.25);
+}
+.sf .np-exist-del:hover { filter: brightness(.92); }
 
 /* ==========================================================================
    MENÚ "Mi panel" (dropdown de la barra superior) — iconos + estilo tarjeta

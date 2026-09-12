@@ -113,6 +113,15 @@ class ShrimpMarketplacePublicController(http.Controller):
 
         products = product_model.search(domain, order="create_date desc")
 
+        # Solo lo que el usuario puede comprar: si tiene veto (por rol o por su
+        # posición en la cadena) el producto no aparece en el grid. Al público
+        # no se le filtra (no hay veto hasta iniciar sesión). El texto
+        # "No disponible" de la tarjeta queda como red de seguridad.
+        user = request.env.user
+        if products and not user._is_public():
+            partner = user.partner_id
+            products = products.filtered(lambda p: not p.motivo_no_comprable(partner))
+
         # ---- Ordenamiento / recomendaciones (#5) ----
         sort = (kw.get("sort") or "recommended").strip()
         if sort == "price_asc":
@@ -140,20 +149,8 @@ class ShrimpMarketplacePublicController(http.Controller):
         return products, filters, sort, best_price_id
 
     def _partner_price_map(self, products):
-        """Mapa {product_id: precio} con los precios asignados al comprador
-        logueado. Vacío para usuarios públicos o sin precios asignados."""
-        user = request.env.user
-        if not products or user._is_public():
-            return {}
-        partner = user.partner_id
-        if not partner:
-            return {}
-        cps = request.env["shrimp.client.price"].sudo().search([
-            ("client_partner_id", "=", partner.id),
-            ("product_id", "in", products.ids),
-            ("active", "=", True),
-        ])
-        return {cp.product_id.id: cp.price for cp in cps}
+        """El precio por cliente se retiró: ya no hay precios personalizados."""
+        return {}
 
     # Cuántas opciones muestra el botón "Top 10 mejores".
     BEST_LIMIT = 10

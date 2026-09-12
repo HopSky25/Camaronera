@@ -50,6 +50,19 @@
                                     </select>
                                 </div>
 
+                                <!-- Estado del producto -->
+                                <div class="s-filter-sec">
+                                    <div class="s-filter-sec-label"><i class="fa fa-flag"></i> Estado</div>
+                                    <t t-set="_ps" t-value="filters.get('pstate') or ''"/>
+                                    <select class="form-select" name="pstate">
+                                        <option value="" t-att-selected="not _ps">Todos</option>
+                                        <option value="published" t-att-selected="_ps == 'published'">Publicados</option>
+                                        <option value="draft" t-att-selected="_ps == 'draft'">Borradores</option>
+                                        <option value="sold" t-att-selected="_ps == 'sold'">Vendidos</option>
+                                        <option value="archived" t-att-selected="_ps == 'archived'">Archivados</option>
+                                    </select>
+                                </div>
+
                                 <!-- Rango de precio -->
                                 <div class="s-filter-sec">
                                     <div class="s-filter-sec-label"><i class="fa fa-tag"></i> Precio (por unidad)</div>
@@ -157,22 +170,55 @@
                                             <div class="s-prod-foot">
                                                 <div class="s-prod-price">$<t t-esc="'%.2f' % p.price" /><span class="s-unit"> / <t t-esc="uom_label" /></span></div>
                                             </div>
+                                            <t t-set="p_vendido" t-value="p.has_purchases()"/>
+                                            <!-- Orden: Publicar (icono+texto) · Ver (icono) · Editar (icono) · Eliminar/Archivar (icono) -->
                                             <div class="s-prod-actions">
                                                 <t t-if="p.active">
-                                                    <a class="s-btn s-btn-ghost btn-sm" t-att-href="'/marketplace/product/%s' % p.uuid_ref">Ver</a>
-                                                    <a class="s-btn s-btn-primary btn-sm" t-att-href="'/marketplace/products/%s/edit' % p.uuid_ref"><i class="fa fa-pencil me-1"></i> Editar</a>
-                                                    <form method="post" t-att-action="'/marketplace/products/%s/baja' % p.uuid_ref" style="display:inline;"
-                                                          onsubmit="return confirm('¿Dar de baja este producto? Saldrá del marketplace. Podrás reactivarlo después.');">
-                                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                                        <button type="submit" class="s-btn s-btn-danger btn-sm" title="Dar de baja"><i class="fa fa-ban"></i></button>
-                                                    </form>
+                                                    <!-- Publicar: solo borradores sin venta -->
+                                                    <t t-if="not p_vendido and p.state == 'draft'">
+                                                        <form method="post" t-att-action="'/marketplace/products/%s/publish' % p.uuid_ref" style="flex:1 1 auto;">
+                                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                            <button type="submit" class="s-btn s-btn-primary btn-sm w-100"><i class="fa fa-paper-plane me-1"></i> Publicar</button>
+                                                        </form>
+                                                    </t>
+                                                    <!-- Ver (solo icono) -->
+                                                    <a class="s-btn s-btn-ghost btn-sm" style="flex:0 0 auto;" title="Ver"
+                                                       t-att-href="'/marketplace/product/%s' % p.uuid_ref"><i class="fa fa-eye"></i></a>
+                                                    <t t-if="not p_vendido">
+                                                        <!-- Editar (solo icono) -->
+                                                        <a class="s-btn s-btn-ghost btn-sm" style="flex:0 0 auto;" title="Editar"
+                                                           t-att-href="'/marketplace/products/%s/edit' % p.uuid_ref"><i class="fa fa-pencil"></i></a>
+                                                        <!-- Eliminar (solo icono) -->
+                                                        <form method="post" style="flex:0 0 auto;" t-att-action="'/marketplace/products/%s/eliminar' % p.uuid_ref">
+                                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                            <button type="button" class="s-btn s-btn-danger btn-sm prod-del-btn" title="Eliminar"
+                                                                    data-modo="eliminar" t-att-data-nombre="p.name"><i class="fa fa-trash"></i></button>
+                                                        </form>
+                                                    </t>
+                                                    <t t-else="">
+                                                        <!-- Con venta: solo archivar (icono) -->
+                                                        <form method="post" style="flex:0 0 auto;" t-att-action="'/marketplace/products/%s/baja' % p.uuid_ref">
+                                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                            <button type="button" class="s-btn s-btn-ghost btn-sm prod-del-btn" title="Archivar"
+                                                                    data-modo="archivar" t-att-data-nombre="p.name"><i class="fa fa-archive"></i></button>
+                                                        </form>
+                                                    </t>
                                                 </t>
                                                 <t t-else="">
-                                                    <a class="s-btn s-btn-ghost btn-sm" t-att-href="'/marketplace/products/%s/edit' % p.uuid_ref">Editar</a>
-                                                    <form method="post" t-att-action="'/marketplace/products/%s/reactivar' % p.uuid_ref" style="display:inline; flex:1;">
+                                                    <!-- Archivado: Reactivar (texto) · Ver (icono) · Eliminar (icono) -->
+                                                    <form method="post" t-att-action="'/marketplace/products/%s/reactivar' % p.uuid_ref" style="flex:1 1 auto;">
                                                         <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                                         <button type="submit" class="s-btn s-btn-primary btn-sm w-100"><i class="fa fa-refresh me-1"></i> Reactivar</button>
                                                     </form>
+                                                    <a class="s-btn s-btn-ghost btn-sm" style="flex:0 0 auto;" title="Ver"
+                                                       t-att-href="'/marketplace/product/%s' % p.uuid_ref"><i class="fa fa-eye"></i></a>
+                                                    <t t-if="not p_vendido">
+                                                        <form method="post" style="flex:0 0 auto;" t-att-action="'/marketplace/products/%s/eliminar' % p.uuid_ref">
+                                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                            <button type="button" class="s-btn s-btn-danger btn-sm prod-del-btn" title="Eliminar"
+                                                                    data-modo="eliminar" t-att-data-nombre="p.name"><i class="fa fa-trash"></i></button>
+                                                        </form>
+                                                    </t>
                                                 </t>
                                             </div>
                                         </div>
@@ -194,7 +240,68 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Modal de confirmación (eliminar / archivar). Sin alert nativo. -->
+            <t t-call="shrimp_marketplace.product_confirm_modal"/>
         </t>
+    </template>
+
+    <!-- ================================================================
+         Modal reutilizable para confirmar eliminar/archivar un producto.
+         Los botones .prod-del-btn llevan data-modo (eliminar|archivar) y
+         data-nombre; al confirmar se envía el <form> que contiene al botón.
+         ================================================================ -->
+    <template id="product_confirm_modal" name="Confirmar acción de producto">
+        <div id="prodConfirmModal" class="sf-modal">
+            <div class="sf-modal-card">
+                <div class="sf-modal-ico"><i class="fa fa-exclamation-triangle"/></div>
+                <h3 class="sf-modal-title" id="prodConfirmTitle">Eliminar producto</h3>
+                <p class="sf-modal-msg" id="prodConfirmTxt"></p>
+                <div class="sf-modal-actions">
+                    <button type="button" class="s-btn s-btn-ghost" onclick="prodCloseConfirm()">Cancelar</button>
+                    <button type="button" class="s-btn s-btn-danger" id="prodConfirmOk" onclick="prodDoConfirm()">Eliminar</button>
+                </div>
+            </div>
+        </div>
+        <script type="text/javascript">
+            (function () {
+                var pend = null;
+                document.addEventListener('click', function (e) {
+                    var b = e.target.closest('.prod-del-btn');
+                    if (!b) { return; }
+                    pend = b.closest('form');
+                    var modo = b.getAttribute('data-modo') || 'eliminar';
+                    var nombre = b.getAttribute('data-nombre') || '';
+                    var t = document.getElementById('prodConfirmTitle');
+                    var x = document.getElementById('prodConfirmTxt');
+                    var ok = document.getElementById('prodConfirmOk');
+                    if (modo === 'archivar') {
+                        t.textContent = 'Archivar producto';
+                        x.innerHTML = 'Este producto ya tiene ventas, así que no se elimina: se archivará y saldrá del marketplace. Podrás reactivarlo después. «<strong></strong>»';
+                        ok.textContent = 'Archivar';
+                        ok.classList.remove('s-btn-danger'); ok.classList.add('s-btn-primary');
+                    } else {
+                        t.textContent = 'Eliminar producto';
+                        x.innerHTML = '¿Seguro que quieres eliminar «<strong></strong>»? Esta acción no se puede deshacer.';
+                        ok.textContent = 'Eliminar';
+                        ok.classList.remove('s-btn-primary'); ok.classList.add('s-btn-danger');
+                    }
+                    var s = x.querySelector('strong'); if (s) { s.textContent = nombre; }
+                    document.getElementById('prodConfirmModal').classList.add('open');
+                });
+                window.prodCloseConfirm = function () {
+                    document.getElementById('prodConfirmModal').classList.remove('open');
+                    pend = null;
+                };
+                window.prodDoConfirm = function () { if (pend) { pend.submit(); } };
+                document.getElementById('prodConfirmModal').addEventListener('click', function (e) {
+                    if (e.target === this) { window.prodCloseConfirm(); }
+                });
+                document.addEventListener('keydown', function (e) {
+                    if (e.key === 'Escape') { window.prodCloseConfirm(); }
+                });
+            })();
+        </script>
     </template>
 
     <template id="product_new_form" name="Nuevo Producto">
@@ -304,9 +411,21 @@
                                             </button>
                                         </div>
 
-                                        <!-- Thumbnails + Add -->
+                                        <!-- Thumbnails: fotos ya cargadas + nuevas + Add, todo en la misma fila -->
                                         <div class="mt-3 d-flex gap-2 flex-wrap align-items-center"
                                             id="np_thumbs">
+                                            <!-- Fotos ya cargadas (edición): misma fila, con eliminar. -->
+                                            <t t-if="is_edit">
+                                                <t t-foreach="product.photo_attachment_ids" t-as="ph">
+                                                    <div class="np-exist"
+                                                         t-att-data-full="'/marketplace/producto/%s/foto/%s' % (product.uuid_ref, ph.id)">
+                                                        <img t-att-src="'/marketplace/producto/%s/foto/%s' % (product.uuid_ref, ph.id)" alt="Foto"/>
+                                                        <button type="button" class="np-exist-del" title="Eliminar foto"><i class="fa fa-times"></i></button>
+                                                        <input type="checkbox" class="d-none" t-att-name="'remove_photo_%s' % ph.id" value="1"/>
+                                                    </div>
+                                                </t>
+                                            </t>
+
                                             <!-- Botón + -->
                                             <button type="button" id="np_add_btn"
                                                 class="np-add-thumb"
@@ -326,21 +445,8 @@
 
                                         <div class="text-muted mt-2" style="font-size:12px;">
                                             Formatos recomendados: JPG/PNG. Puedes agregar varias.
+                                            <t t-if="is_edit"> Las fotos ya cargadas salen a la izquierda del <b>+</b>; usa la <b>×</b> para quitarlas.</t>
                                         </div>
-
-                                        <!-- Fotos actuales (solo edición) -->
-                                        <t t-if="is_edit and product.photo_attachment_ids">
-                                            <hr class="my-3"/>
-                                            <div class="text-muted mb-2" style="font-size:12px; font-weight:700;">Fotos actuales</div>
-                                            <div class="d-flex gap-2 flex-wrap">
-                                                <t t-foreach="product.photo_attachment_ids" t-as="ph">
-                                                    <img t-att-src="'/marketplace/producto/%s/foto/%s' % (product.uuid_ref, ph.id)"
-                                                         alt="Foto actual"
-                                                         style="width:62px; height:62px; object-fit:cover; border-radius:12px; border:1px solid var(--shrimp-border);"/>
-                                                </t>
-                                            </div>
-                                            <div class="text-muted mt-2" style="font-size:11.5px;">Las nuevas fotos que agregues se sumarán a estas.</div>
-                                        </t>
 
                                     </div>
                                 </div>
@@ -724,84 +830,132 @@
                                             archivo.
                                         </div>
 
-                                        <div id="prodCertContainer">
+                                        <t t-set="attached_src" t-value="product.certificate_line_ids.mapped('source_user_certificate_line_id').ids if is_edit else []"/>
+                                        <div id="prodCertContainer" class="table-responsive">
+                                            <table class="table sv-table align-middle mb-0" id="prodCertTable">
+                                                <thead>
+                                                    <tr><th>Certificado</th><th>Entidad</th><th>N°</th><th>Emisión</th><th>Expira</th><th>Origen</th><th class="text-end">Acciones</th></tr>
+                                                </thead>
+                                                <tbody id="prodCertBody">
+                                                    <!-- Certificados ya adjuntos al producto (edición) -->
+                                                    <t t-if="is_edit">
+                                                        <t t-foreach="product.certificate_line_ids" t-as="pcl">
+                                                            <t t-set="es_user" t-value="bool(pcl.source_user_certificate_line_id)"/>
+                                                            <tr class="pcert-row" t-att-data-id="pcl.id"
+                                                                t-att-data-kind="'usuario' if es_user else 'producto'"
+                                                                t-att-data-cert="pcl.certificate_id.id"
+                                                                t-att-data-number="pcl.number or ''"
+                                                                t-att-data-issue="pcl.issue_date or ''"
+                                                                t-att-data-expiry="pcl.expiry_date or ''"
+                                                                t-att-data-fname="'edit_cert_%s_file' % pcl.id">
+                                                                <td class="pc-name"><t t-esc="pcl.certificate_id.name"/></td>
+                                                                <td class="pc-issuer"><t t-esc="pcl.issuer or '—'"/></td>
+                                                                <td class="pc-number"><t t-esc="pcl.number or '—'"/></td>
+                                                                <td class="pc-issue"><t t-esc="pcl.issue_date or '—'"/></td>
+                                                                <td class="pc-expiry"><t t-esc="pcl.expiry_date or '—'"/></td>
+                                                                <td><span t-attf-class="s-badge#{' s-badge--teal' if es_user else ''}"><t t-esc="'Usuario' if es_user else 'Producto'"/></span></td>
+                                                                <td class="text-end pcert-actions">
+                                                                    <input type="checkbox" t-att-name="'remove_cert_%s' % pcl.id" value="1" class="pcert-remove-flag d-none"/>
+                                                                    <t t-if="not es_user">
+                                                                        <input type="hidden" class="ei-number" t-att-name="'edit_cert_%s_number' % pcl.id" t-att-value="pcl.number or ''"/>
+                                                                        <input type="hidden" class="ei-issue" t-att-name="'edit_cert_%s_issue_date' % pcl.id" t-att-value="pcl.issue_date or ''"/>
+                                                                        <input type="hidden" class="ei-expiry" t-att-name="'edit_cert_%s_expiry_date' % pcl.id" t-att-value="pcl.expiry_date or ''"/>
+                                                                        <span class="ei-file-slot"></span>
+                                                                        <button type="button" class="s-btn s-btn-ghost btn-sm pcert-edit" title="Editar"><i class="fa fa-pencil"></i></button>
+                                                                    </t>
+                                                                    <t t-if="pcl.attachment_id">
+                                                                        <button type="button" class="s-btn s-btn-ghost btn-sm js-cert-view" title="Ver PDF" t-att-data-url="'/marketplace/product/%s/certificate/%s' % (product.uuid_ref, pcl.attachment_id.id)"><i class="fa fa-file-pdf-o"></i></button>
+                                                                    </t>
+                                                                    <button type="button" class="s-btn s-btn-danger btn-sm pcert-del" title="Eliminar"><i class="fa fa-trash"></i></button>
+                                                                </td>
+                                                            </tr>
+                                                        </t>
+                                                    </t>
 
-                                            <t t-set="cert_idx" t-value="0" />
-
-                                            <!-- Certificados ya adjuntos (solo edición, lectura) -->
-                                            <t t-if="is_edit">
-                                                <t t-foreach="product.certificate_line_ids" t-as="pcl">
-                                                    <div class="card border-0 shadow-sm mb-3 prod-cert-card"
-                                                        style="border-radius:16px; border:1px solid rgba(0,0,0,.06) !important;">
-                                                        <div class="card-body p-3">
-                                                            <input type="checkbox" t-att-name="'remove_cert_%s' % pcl.id" value="1" class="prod-cert-del-flag d-none"/>
-                                                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                                                <div style="font-weight:900;"><i class="fa fa-check-circle me-1" style="color:var(--shrimp-success);"></i> Certificado adjunto</div>
-                                                                <button type="button" class="s-btn s-btn-danger btn-sm prod-cert-del-btn">
-                                                                    <i class="fa fa-trash-o me-1"></i> Eliminar
-                                                                </button>
-                                                            </div>
-                                                            <div class="row g-2">
-                                                                <div class="col-md-5"><label class="form-label small text-muted mb-1">Certificado</label>
-                                                                    <input class="form-control form-control-sm" type="text" readonly="readonly" t-att-value="pcl.certificate_id.name"/></div>
-                                                                <div class="col-md-3"><label class="form-label small text-muted mb-1">Entidad</label>
-                                                                    <input class="form-control form-control-sm" type="text" readonly="readonly" t-att-value="pcl.issuer or ''"/></div>
-                                                                <div class="col-md-4"><label class="form-label small text-muted mb-1">N°</label>
-                                                                    <input class="form-control form-control-sm" type="text" readonly="readonly" t-att-value="pcl.number or ''"/></div>
-                                                                <div class="col-md-4"><label class="form-label small text-muted mb-1">Emisión</label>
-                                                                    <input class="form-control form-control-sm" type="text" readonly="readonly" t-att-value="pcl.issue_date or ''"/></div>
-                                                                <div class="col-md-4"><label class="form-label small text-muted mb-1">Expira</label>
-                                                                    <input class="form-control form-control-sm" type="text" readonly="readonly" t-att-value="pcl.expiry_date or ''"/></div>
-                                                                <div class="col-md-4"><label class="form-label small text-muted mb-1">Archivo</label>
-                                                                    <t t-if="pcl.attachment_id"><button type="button" class="s-btn s-btn-ghost btn-sm w-100 js-cert-view" t-att-data-url="'/marketplace/product/%s/certificate/%s' % (product.uuid_ref, pcl.attachment_id.id)">Ver certificado</button></t>
-                                                                    <t t-else=""><span class="text-muted">—</span></t></div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </t>
-                                            </t>
-
-                                            <t t-foreach="default_user_certificates" t-as="line">
-                                                <div class="mp-usercert">
-                                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                                        <div class="mp-usercert-title"><i class="fa fa-user-circle-o me-1"></i> Certificado del usuario</div>
-                                                        <div class="d-flex gap-2">
-                                                            <a class="s-btn s-btn-ghost btn-sm"
-                                                               t-att-href="'/marketplace/my-certificate/%s/file' % line.id" target="_blank">
-                                                                <i class="fa fa-download me-1"></i> Descargar
-                                                            </a>
-                                                            <button type="button" class="s-btn s-btn-danger btn-sm delBtn">
-                                                                <i class="fa fa-trash-o me-1"></i> Eliminar
-                                                            </button>
-                                                        </div>
-                                                    </div>
-
-                                                    <!-- El dato se envía por estos ocultos; lo visible es solo lectura -->
-                                                    <input type="hidden"
-                                                        t-att-name="'prod_cert_%s_source_user_cert_line_id' % cert_idx"
-                                                        t-att-value="line.id" />
-                                                    <input type="hidden"
-                                                        t-att-name="'prod_cert_%s_certificate_id' % cert_idx"
-                                                        t-att-value="line.certificate_id.id" />
-
-                                                    <div class="mp-usercert-grid">
-                                                        <div class="mp-uc-field"><span class="mp-uc-lbl">Certificado</span><span class="mp-uc-val"><t t-esc="line.certificate_id.name"/></span></div>
-                                                        <div class="mp-uc-field"><span class="mp-uc-lbl">Entidad</span><span class="mp-uc-val"><t t-esc="line.issuer or '—'"/></span></div>
-                                                        <div class="mp-uc-field"><span class="mp-uc-lbl">N°</span><span class="mp-uc-val"><t t-esc="line.certificate_number or '—'"/></span></div>
-                                                        <div class="mp-uc-field"><span class="mp-uc-lbl">Emisión</span><span class="mp-uc-val"><t t-esc="line.issue_date or '—'"/></span></div>
-                                                        <div class="mp-uc-field"><span class="mp-uc-lbl">Expira</span><span class="mp-uc-val"><t t-esc="line.expiry_date or '—'"/></span></div>
-                                                    </div>
-                                                </div>
-
-                                                <t t-set="cert_idx" t-value="cert_idx + 1" />
-                                            </t>
-
+                                                    <!-- Certificados heredados del usuario aún no adjuntos (no editables) -->
+                                                    <t t-set="cert_idx" t-value="0"/>
+                                                    <t t-foreach="default_user_certificates" t-as="line">
+                                                        <t t-if="line.id not in attached_src">
+                                                            <tr class="pcert-row" data-kind="usuario">
+                                                                <td class="pc-name"><t t-esc="line.certificate_id.name"/></td>
+                                                                <td class="pc-issuer"><t t-esc="line.issuer or '—'"/></td>
+                                                                <td class="pc-number"><t t-esc="line.certificate_number or '—'"/></td>
+                                                                <td class="pc-issue"><t t-esc="line.issue_date or '—'"/></td>
+                                                                <td class="pc-expiry"><t t-esc="line.expiry_date or '—'"/></td>
+                                                                <td><span class="s-badge s-badge--teal">Usuario</span></td>
+                                                                <td class="text-end pcert-actions">
+                                                                    <input type="hidden" t-att-name="'prod_cert_%s_source_user_cert_line_id' % cert_idx" t-att-value="line.id"/>
+                                                                    <input type="hidden" t-att-name="'prod_cert_%s_certificate_id' % cert_idx" t-att-value="line.certificate_id.id"/>
+                                                                    <button type="button" class="s-btn s-btn-ghost btn-sm js-cert-view" title="Ver PDF" t-att-data-url="'/marketplace/my-certificate/%s/file' % line.id"><i class="fa fa-file-pdf-o"></i></button>
+                                                                    <button type="button" class="s-btn s-btn-danger btn-sm pcert-del" title="Quitar"><i class="fa fa-trash"></i></button>
+                                                                </td>
+                                                            </tr>
+                                                            <t t-set="cert_idx" t-value="cert_idx + 1"/>
+                                                        </t>
+                                                    </t>
+                                                </tbody>
+                                            </table>
+                                            <div id="prodCertEmpty" class="s-empty text-muted small mt-2">Sin certificados. Usa «Agregar certificado» para añadir uno.</div>
                                         </div>
 
-                                        <small class="text-muted d-block mt-2"
-                                            style="font-size:12px;">
-                                            Puedes agregar varios certificados. El archivo es
-                                            requerido por cada fila.
+                                        <!-- Modal editor de certificado (agregar / editar). Vive dentro del
+                                             form para que el archivo se envíe con el resto. -->
+                                        <div id="certEditorModal" class="sf-modal">
+                                            <div class="sf-modal-card" style="max-width:560px; text-align:left;">
+                                                <h3 class="sf-modal-title mb-3" id="certEditorTitle">Agregar certificado</h3>
+                                                <div class="row g-3">
+                                                    <div class="col-12">
+                                                        <label class="form-label">Certificado</label>
+                                                        <select id="ce_cert" class="form-select"></select>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <label class="form-label">Entidad</label>
+                                                        <input id="ce_issuer" class="form-control" type="text" readonly="readonly"/>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <label class="form-label">N°</label>
+                                                        <input id="ce_number" class="form-control" type="text" placeholder="Opcional"/>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <label class="form-label">Emisión</label>
+                                                        <input id="ce_issue" class="form-control" type="date"/>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <label class="form-label">Expira</label>
+                                                        <input id="ce_expiry" class="form-control" type="date"/>
+                                                    </div>
+                                                    <div class="col-12">
+                                                        <label class="form-label">Archivo (PDF/imagen) <span id="ce_file_req" class="text-danger">*</span></label>
+                                                        <div id="ce_file_wrap">
+                                                            <input id="ce_file" class="form-control" type="file" accept="image/*,application/pdf"/>
+                                                        </div>
+                                                        <div id="ce_file_hint" class="form-text"></div>
+                                                    </div>
+                                                </div>
+                                                <div id="ce_err" class="text-danger small mt-2" style="display:none;"></div>
+                                                <div class="sf-modal-actions mt-3">
+                                                    <button type="button" class="s-btn s-btn-ghost" id="ce_cancel">Cancelar</button>
+                                                    <button type="button" class="s-btn s-btn-primary" id="ce_save"><i class="fa fa-check me-1"></i> Guardar</button>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Modal de confirmación para eliminar un certificado -->
+                                        <div id="certDelModal" class="sf-modal">
+                                            <div class="sf-modal-card">
+                                                <div class="sf-modal-ico"><i class="fa fa-exclamation-triangle"></i></div>
+                                                <h3 class="sf-modal-title">Eliminar certificado</h3>
+                                                <p class="sf-modal-msg">¿Seguro que quieres quitar este certificado del producto? Se aplicará al guardar.</p>
+                                                <div class="sf-modal-actions">
+                                                    <button type="button" class="s-btn s-btn-ghost" id="cd_cancel">Cancelar</button>
+                                                    <button type="button" class="s-btn s-btn-danger" id="cd_ok"><i class="fa fa-trash me-1"></i> Eliminar</button>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <small class="text-muted d-block mt-2" style="font-size:12px;">
+                                            Los certificados heredados del usuario no son editables. Puedes agregar
+                                            certificados propios del producto con «Agregar certificado».
                                         </small>
 
                                     </div>
@@ -1016,8 +1170,8 @@ function setActive(idx){
     });
   }
 
-  // ======= CERTIFICADOS (tu código intacto) =======
-  let prodCertIndex = 0;
+  // ======= CERTIFICADOS =======
+  let prodCertIndex = 5000;   // base alta: no choca con los índices de filas de usuario
   let prodCertCache = null;
 
   async function fetchProductCerts() {
@@ -1118,13 +1272,136 @@ function setActive(idx){
   }
 
   function initCerts() {
-    const btn = document.querySelector(".shrimpAddProdCert");
-    if (!btn) return;
+    var addBtn = document.querySelector(".shrimpAddProdCert");
+    var body = document.getElementById("prodCertBody");
+    var modal = document.getElementById("certEditorModal");
+    if (!modal || !body) { return; }
 
-    btn.addEventListener("click", () => addRow());
+    var certMode = "new";
+    var editingRow = null;
 
-    // inicia con 1 fila
-     // addRow();
+    function refreshEmpty(){
+      var e = document.getElementById("prodCertEmpty");
+      if(!e) return;
+      var any=false;
+      body.querySelectorAll(".pcert-row").forEach(function(r){ if(r.style.display!=="none") any=true; });
+      e.style.display = any ? "none" : "";
+    }
+    function recreateFile(){
+      var wrap=document.getElementById("ce_file_wrap");
+      wrap.innerHTML="";
+      var f=document.createElement("input");
+      f.type="file"; f.id="ce_file"; f.className="form-control"; f.accept="image/*,application/pdf";
+      wrap.appendChild(f);
+      return f;
+    }
+    async function openModal(mode,row){
+      certMode=mode; editingRow=row||null;
+      var sel=document.getElementById("ce_cert");
+      var issuer=document.getElementById("ce_issuer");
+      try{ sel.innerHTML=buildOptions(await fetchProductCerts()); }catch(e){ sel.innerHTML='<option value="">(error)</option>'; }
+      function syncIssuer(){ var o=sel.selectedOptions[0]; issuer.value=o?(o.getAttribute("data-issuer")||""):""; }
+      sel.onchange=syncIssuer;
+      recreateFile();
+      document.getElementById("ce_err").style.display="none";
+      var req=document.getElementById("ce_file_req");
+      var hint=document.getElementById("ce_file_hint");
+      if(mode==="edit" && row){
+        document.getElementById("certEditorTitle").textContent="Editar certificado";
+        sel.value=row.getAttribute("data-cert")||""; sel.disabled=true; syncIssuer();
+        document.getElementById("ce_number").value=row.getAttribute("data-number")||"";
+        document.getElementById("ce_issue").value=row.getAttribute("data-issue")||"";
+        document.getElementById("ce_expiry").value=row.getAttribute("data-expiry")||"";
+        req.style.display="none"; hint.textContent="Deja vacío para conservar el archivo actual.";
+      } else {
+        document.getElementById("certEditorTitle").textContent="Agregar certificado";
+        sel.disabled=false; sel.value=""; syncIssuer();
+        document.getElementById("ce_number").value="";
+        document.getElementById("ce_issue").value="";
+        document.getElementById("ce_expiry").value="";
+        req.style.display=""; hint.textContent="";
+      }
+      modal.classList.add("open");
+    }
+    function closeModal(){ modal.classList.remove("open"); editingRow=null; }
+    function save(){
+      var sel=document.getElementById("ce_cert");
+      var num=document.getElementById("ce_number").value;
+      var iss=document.getElementById("ce_issue").value;
+      var exp=document.getElementById("ce_expiry").value;
+      var fileInp=document.getElementById("ce_file");
+      var err=document.getElementById("ce_err");
+      function showErr(m){ err.textContent=m; err.style.display=""; }
+      var hasFile=fileInp && fileInp.files && fileInp.files.length;
+      if(certMode==="new"){
+        if(!sel.value){ showErr("Elige un certificado."); return; }
+        if(!hasFile){ showErr("Adjunta el archivo."); return; }
+        var idx=prodCertIndex++;
+        var fname="prod_cert_"+idx+"_file";
+        var certName=sel.selectedOptions[0].textContent;
+        var issuerV=sel.selectedOptions[0].getAttribute("data-issuer")||"";
+        var tr=document.createElement("tr");
+        tr.className="pcert-row"; tr.setAttribute("data-kind","nuevo");
+        tr.setAttribute("data-cert",sel.value);
+        tr.setAttribute("data-number",num); tr.setAttribute("data-issue",iss); tr.setAttribute("data-expiry",exp);
+        tr.setAttribute("data-fname",fname);
+        tr.innerHTML='<td class="pc-name"></td><td class="pc-issuer"></td><td class="pc-number"></td><td class="pc-issue"></td><td class="pc-expiry"></td><td><span class="s-badge">Nuevo</span></td><td class="text-end pcert-actions"><input type="hidden" name="prod_cert_'+idx+'_id"/><input type="hidden" class="ei-number" name="prod_cert_'+idx+'_number"/><input type="hidden" class="ei-issue" name="prod_cert_'+idx+'_issue_date"/><input type="hidden" class="ei-expiry" name="prod_cert_'+idx+'_expiry_date"/><span class="ei-file-slot"></span><button type="button" class="s-btn s-btn-ghost btn-sm pcert-edit" title="Editar"><i class="fa fa-pencil"></i></button><button type="button" class="s-btn s-btn-danger btn-sm pcert-del" title="Quitar"><i class="fa fa-trash"></i></button></td>';
+        tr.querySelector(".pc-name").textContent=certName;
+        tr.querySelector(".pc-issuer").textContent=issuerV||"—";
+        tr.querySelector(".pc-number").textContent=num||"—";
+        tr.querySelector(".pc-issue").textContent=iss||"—";
+        tr.querySelector(".pc-expiry").textContent=exp||"—";
+        tr.querySelector('input[name="prod_cert_'+idx+'_id"]').value=sel.value;
+        tr.querySelector(".ei-number").value=num;
+        tr.querySelector(".ei-issue").value=iss;
+        tr.querySelector(".ei-expiry").value=exp;
+        fileInp.name=fname; fileInp.id=""; fileInp.classList.add("d-none");
+        tr.querySelector(".ei-file-slot").appendChild(fileInp);
+        body.appendChild(tr);
+      } else if(editingRow){
+        var row=editingRow;
+        row.setAttribute("data-number",num); row.setAttribute("data-issue",iss); row.setAttribute("data-expiry",exp);
+        row.querySelector(".pc-number").textContent=num||"—";
+        row.querySelector(".pc-issue").textContent=iss||"—";
+        row.querySelector(".pc-expiry").textContent=exp||"—";
+        var a=row.querySelector(".ei-number"); if(a) a.value=num;
+        var b=row.querySelector(".ei-issue"); if(b) b.value=iss;
+        var c=row.querySelector(".ei-expiry"); if(c) c.value=exp;
+        if(hasFile){
+          var slot=row.querySelector(".ei-file-slot");
+          if(slot){ slot.innerHTML=""; fileInp.name=row.getAttribute("data-fname")||fileInp.name; fileInp.id=""; fileInp.classList.add("d-none"); slot.appendChild(fileInp); }
+        }
+      }
+      closeModal(); refreshEmpty();
+    }
+    // Borrado con confirmación por modal (no inmediato).
+    var delModal=document.getElementById("certDelModal");
+    var pendingDel=null;
+    function aplicarBorrado(row){
+      var flag=row.querySelector(".pcert-remove-flag");
+      if(flag){ flag.checked=true; row.style.display="none"; } else { row.remove(); }
+      refreshEmpty();
+    }
+    if(addBtn){ addBtn.addEventListener("click", function(){ openModal("new"); }); }
+    body.addEventListener("click", function(e){
+      var ed=e.target.closest(".pcert-edit");
+      if(ed){ openModal("edit", ed.closest(".pcert-row")); return; }
+      var del=e.target.closest(".pcert-del");
+      if(del){
+        pendingDel=del.closest(".pcert-row");
+        if(delModal){ delModal.classList.add("open"); } else { aplicarBorrado(pendingDel); }
+        return;
+      }
+    });
+    var cdOk=document.getElementById("cd_ok");
+    if(cdOk){ cdOk.addEventListener("click", function(){ if(pendingDel){ aplicarBorrado(pendingDel); } if(delModal){ delModal.classList.remove("open"); } pendingDel=null; }); }
+    var cdCancel=document.getElementById("cd_cancel");
+    if(cdCancel){ cdCancel.addEventListener("click", function(){ if(delModal){ delModal.classList.remove("open"); } pendingDel=null; }); }
+    if(delModal){ delModal.addEventListener("click", function(e){ if(e.target===delModal){ delModal.classList.remove("open"); pendingDel=null; } }); }
+    var cancel=document.getElementById("ce_cancel"); if(cancel){ cancel.addEventListener("click", closeModal); }
+    var saveBtn=document.getElementById("ce_save"); if(saveBtn){ saveBtn.addEventListener("click", save); }
+    modal.addEventListener("click", function(e){ if(e.target===modal){ closeModal(); } });
+    refreshEmpty();
   }
 
   function initPondFilter(){
@@ -1181,12 +1458,42 @@ function setActive(idx){
     apply();
   }
 
+  function initExistingPhotos(){
+    var wrap = document.getElementById("np_thumbs");
+    if(!wrap) return;
+    var mainImg = document.getElementById("np_main_img");
+    var ph = document.getElementById("np_main_placeholder");
+    function showMain(url){
+      if(mainImg){ mainImg.src = url; mainImg.style.display = "block"; }
+      if(ph){ ph.style.display = "none"; }
+    }
+    var exist = wrap.querySelectorAll(".np-exist");
+    // Al cargar, si no hay foto nueva en el visor, muestra la primera existente.
+    if(exist.length && mainImg && mainImg.style.display === "none"){
+      showMain(exist[0].getAttribute("data-full"));
+    }
+    wrap.addEventListener("click", function(e){
+      var del = e.target.closest(".np-exist-del");
+      if(del){
+        e.preventDefault();
+        var box = del.closest(".np-exist");
+        var cb = box.querySelector("input[type=checkbox]");
+        if(cb){ cb.checked = true; }
+        box.remove();
+        return;
+      }
+      var thumb = e.target.closest(".np-exist");
+      if(thumb){ showMain(thumb.getAttribute("data-full")); }
+    });
+  }
+
   function init(){
     initNewGallery();
     initCerts();
     initPondFilter();
     initProdCertDelete();
     initSizeFilter();
+    initExistingPhotos();
   }
 
   document.addEventListener("DOMContentLoaded", init);
@@ -1414,7 +1721,7 @@ function setActive(idx){
                                             <div class="s-badges mb-3">
                                                 <t t-if="product.species_id"><span class="s-badge s-badge--teal"><i class="fa fa-flask me-1"></i><t t-esc="product.species_id.name"/></span></t>
                                                 <t t-if="product.stage_id"><span class="s-badge"><t t-esc="product.stage_id.name"/></span></t>
-                                                <t t-if="product.genetics_line_id"><span class="s-badge"><i class="fa fa-dna me-1"></i><t t-esc="product.genetics_line_id.name"/></span></t>
+                                                <t t-if="product.genetics_line_id"><span class="s-badge"><i class="fa fa-code-fork me-1"></i><t t-esc="product.genetics_line_id.name"/></span></t>
                                                 <t t-if="product.location"><span class="s-badge"><i class="fa fa-map-marker me-1"></i><t t-esc="product.location"/></span></t>
                                             </div>
 
@@ -1476,6 +1783,14 @@ function setActive(idx){
                                                 </t>
                                             </div>
 
+                                            <!-- Comprar: CTA destacado, junto al precio (antes estaba al pie). -->
+                                            <t t-if="not is_owner and product.state == 'published' and product.available_qty &gt; 0">
+                                                <a class="s-btn s-btn-primary s-btn-block mb-3"
+                                                   t-att-href="'/marketplace/buy/%s' % product.uuid_ref">
+                                                    <i class="fa fa-shopping-cart me-1"></i> Comprar
+                                                </a>
+                                            </t>
+
                                             <!-- Especificaciones -->
                                             <div class="mp-sec-head">
                                                 <span class="mp-sec-ico"><i class="fa fa-list-ul"></i></span>
@@ -1490,14 +1805,14 @@ function setActive(idx){
                                                     </div>
                                                 </div>
                                                 <div class="mp-spec">
-                                                    <span class="mp-spec-ico"><i class="fa fa-layer-group"></i></span>
+                                                    <span class="mp-spec-ico"><i class="fa fa-tag"></i></span>
                                                     <div class="mp-spec-body">
                                                         <div class="mp-spec-label">Etapa</div>
                                                         <div class="mp-spec-value"><t t-esc="product.stage_id.name or '—'"/></div>
                                                     </div>
                                                 </div>
                                                 <div class="mp-spec">
-                                                    <span class="mp-spec-ico"><i class="fa fa-dna"></i></span>
+                                                    <span class="mp-spec-ico"><i class="fa fa-code-fork"></i></span>
                                                     <div class="mp-spec-body">
                                                         <div class="mp-spec-label">Línea genética / cepa</div>
                                                         <div class="mp-spec-value"><t t-esc="product.genetics_line_id.name or '—'"/></div>
@@ -1554,13 +1869,11 @@ function setActive(idx){
 
                                             <!-- Actions -->
                                             <div class="d-flex flex-wrap gap-2 mt-1 mp-detail-actions align-items-stretch">
-                                                <t t-if="not is_owner and product.state == 'published' and product.available_qty &gt; 0">
-                                                    <a class="s-btn s-btn-primary"
-                                                        t-att-href="'/marketplace/buy/%s' % product.uuid_ref">
-                                                        <i class="fa fa-shopping-cart me-1"></i> Comprar </a>
-                                                </t>
 
-                                                <t t-if="is_owner or is_internal">
+                                                <t t-set="p_vendido" t-value="product.has_purchases()"/>
+
+                                                <!-- Con venta no hay modificación (ya hay movimiento). -->
+                                                <t t-if="(is_owner or is_internal) and not p_vendido">
                                                     <a class="s-btn s-btn-ghost"
                                                         t-att-href="'/marketplace/products/%s/edit' % product.uuid_ref">
                                                         <i class="fa fa-pencil me-1"></i> Editar </a>
@@ -1578,7 +1891,39 @@ function setActive(idx){
                                                             Publicar </button>
                                                     </form>
                                                 </t>
+
+                                                <!-- Con venta: solo archivar (no se elimina). Sin venta: eliminar. -->
+                                                <t t-if="is_owner and product.active">
+                                                    <t t-if="p_vendido">
+                                                        <form method="post" class="d-inline"
+                                                              t-att-action="'/marketplace/products/%s/baja' % product.uuid_ref">
+                                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                            <button type="button" class="s-btn s-btn-ghost prod-del-btn"
+                                                                    data-modo="archivar" t-att-data-nombre="product.name">
+                                                                <i class="fa fa-archive me-1"></i> Archivar</button>
+                                                        </form>
+                                                    </t>
+                                                    <t t-else="">
+                                                        <form method="post" class="d-inline"
+                                                              t-att-action="'/marketplace/products/%s/eliminar' % product.uuid_ref">
+                                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                            <button type="button" class="s-btn s-btn-danger prod-del-btn"
+                                                                    data-modo="eliminar" t-att-data-nombre="product.name">
+                                                                <i class="fa fa-trash me-1"></i> Eliminar</button>
+                                                        </form>
+                                                    </t>
+                                                </t>
+                                                <t t-if="is_owner and not product.active">
+                                                    <form method="post" class="d-inline"
+                                                          t-att-action="'/marketplace/products/%s/reactivar' % product.uuid_ref">
+                                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                        <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-refresh me-1"></i> Reactivar</button>
+                                                    </form>
+                                                </t>
                                             </div>
+
+                                            <!-- Modal de confirmación (eliminar / archivar). -->
+                                            <t t-call="shrimp_marketplace.product_confirm_modal"/>
 
                                         </div>
                                     </div>

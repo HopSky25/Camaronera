@@ -19,7 +19,14 @@
           </div>
 
           <t t-if="mensaje">
-            <div class="pk-alert pk-alert--ok"><i class="fa fa-check-circle me-1"/>Guardado.</div>
+            <div class="pk-alert pk-alert--ok">
+              <i class="fa fa-check-circle me-1"/>
+              <t t-if="mensaje == 'publicada'">Lista publicada.</t>
+              <t t-elif="mensaje == 'despublicada'">Lista despublicada: volvió a borrador y ya no la ven los destinatarios.</t>
+              <t t-elif="mensaje == 'archivada'">Lista archivada.</t>
+              <t t-elif="mensaje == 'eliminada'">Lista eliminada.</t>
+              <t t-else="">Guardado.</t>
+            </div>
           </t>
           <t t-if="error">
             <div class="pk-alert pk-alert--ko"><i class="fa fa-exclamation-triangle me-1"/><t t-esc="error"/></div>
@@ -131,11 +138,70 @@
                           <i class="fa fa-copy"/> Copiar
                         </button>
                       </form>
+                      <!-- Despublicar: vuelve a borrador y deja de verla el
+                           destinatario. Solo aplica si está publicada. -->
+                      <t t-if="l.state == 'published'">
+                        <form method="post" class="d-inline"
+                              t-attf-action="/marketplace/listas-de-precios/#{l.uuid_ref}/despublicar">
+                          <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                          <button type="submit" class="s-btn s-btn-ghost btn-sm"
+                                  title="Quitarla de la vista de los destinatarios y volverla a borrador">
+                            <i class="fa fa-eye-slash"/> Despublicar
+                          </button>
+                        </form>
+                      </t>
+                      <!-- Eliminar: destructivo, confirma con modal (no alert). -->
+                      <form method="post" class="d-inline"
+                            t-attf-action="/marketplace/listas-de-precios/#{l.uuid_ref}/eliminar">
+                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                        <button type="button" class="s-btn s-btn-danger btn-sm pl-del-btn"
+                                t-att-data-nombre="l.name" title="Eliminar la lista">
+                          <i class="fa fa-trash"/> Eliminar
+                        </button>
+                      </form>
                     </td>
                   </tr>
                 </t>
               </tbody>
             </table>
+
+            <!-- Modal de confirmación para eliminar (compartido por todas las
+                 filas). Evita el alert nativo del navegador. -->
+            <div id="plDelModal" class="pl-modal" style="display:none;">
+              <div class="pl-modal-box">
+                <h4 class="pl-modal-title"><i class="fa fa-trash me-2"/>Eliminar lista</h4>
+                <p class="pl-modal-txt">
+                  ¿Seguro que quieres eliminar «<strong id="plDelName"></strong>»?
+                  Esta acción no se puede deshacer.
+                </p>
+                <div class="pl-modal-acts">
+                  <button type="button" class="s-btn s-btn-ghost" onclick="plCloseDel()">Cancelar</button>
+                  <button type="button" class="s-btn s-btn-danger" onclick="plDoDelete()">Eliminar</button>
+                </div>
+              </div>
+            </div>
+            <script type="text/javascript">
+              (function () {
+                  var pend = null;
+                  document.addEventListener('click', function (e) {
+                      var b = e.target.closest('.pl-del-btn');
+                      if (!b) { return; }
+                      pend = b.closest('form');
+                      document.getElementById('plDelName').textContent = b.getAttribute('data-nombre') || '';
+                      document.getElementById('plDelModal').style.display = 'flex';
+                  });
+                  window.plCloseDel = function () {
+                      document.getElementById('plDelModal').style.display = 'none';
+                      pend = null;
+                  };
+                  window.plDoDelete = function () {
+                      if (pend) { pend.submit(); }
+                  };
+                  document.getElementById('plDelModal').addEventListener('click', function (e) {
+                      if (e.target === this) { window.plCloseDel(); }
+                  });
+              })();
+            </script>
           </t>
           <t t-else="">
             <p class="pk-muted mt-3">Todavía no publicas ninguna lista.</p>
@@ -312,26 +378,84 @@
     </t>
   </template>
 
+  <!-- Una fila de la tabla de precios por talla. Se usa para las filas ya
+       guardadas (t-foreach sobre line_ids) y como plantilla que el JS clona
+       al "Agregar talla". Los inputs se asocian a plHeaderForm con form="",
+       así "Guardar borrador" los envía aunque estén fuera del <form>. -->
+  <template id="price_list_line_row" name="Fila de precio por talla">
+    <tr class="pl-linea">
+      <td style="width:130px;">
+        <select class="form-select form-select-sm pl-pres" name="linea_presentacion" form="plHeaderForm">
+          <option value="entero" t-att-selected="'selected' if (l and l.presentation == 'entero') else None">Entero</option>
+          <option value="cola" t-att-selected="'selected' if (l and l.presentation == 'cola') else None">Cola</option>
+        </select>
+      </td>
+      <td>
+        <select class="form-select form-select-sm pl-talla" name="linea_talla" form="plHeaderForm">
+          <t t-foreach="tallas" t-as="t">
+            <option t-att-value="t.id" t-att-data-pres="t.presentation"
+                    t-att-selected="'selected' if (l and l.size_grade_id.id == t.id) else None">
+              <t t-esc="t.name"/>
+            </option>
+          </t>
+        </select>
+      </td>
+      <td>
+        <select class="form-select form-select-sm pl-canal" name="linea_canal" form="plHeaderForm">
+          <option value="">—</option>
+          <option value="directa" t-att-selected="'selected' if (l and l.channel == 'directa') else None">Directa</option>
+          <option value="sobrante" t-att-selected="'selected' if (l and l.channel == 'sobrante') else None">Sobrante</option>
+        </select>
+      </td>
+      <td>
+        <select class="form-select form-select-sm pl-calidad" name="linea_calidad" form="plHeaderForm">
+          <option value="ab" data-pres="entero" t-att-selected="'selected' if (l and l.quality == 'ab') else None">A - B</option>
+          <option value="c" data-pres="entero" t-att-selected="'selected' if (l and l.quality == 'c') else None">C</option>
+          <option value="a" data-pres="cola" t-att-selected="'selected' if (l and l.quality == 'a') else None">A</option>
+          <option value="b" data-pres="cola" t-att-selected="'selected' if (l and l.quality == 'b') else None">B</option>
+        </select>
+      </td>
+      <td style="width:110px;">
+        <input type="text" class="form-control form-control-sm pl-unidad" readonly="readonly" tabindex="-1" value="$ / Kg"/>
+      </td>
+      <td style="width:130px;">
+        <input type="number" step="0.01" min="0" class="form-control form-control-sm text-end pl-precio"
+               name="linea_precio" form="plHeaderForm" placeholder="0.00"
+               t-att-value="('%.2f' % l.price) if l else ''"/>
+      </td>
+      <td class="text-end" style="width:44px;">
+        <button type="button" class="s-btn s-btn-ghost btn-sm pl-del-linea" title="Quitar"><i class="fa fa-times"/></button>
+      </td>
+    </tr>
+  </template>
+
   <!-- ================================================================
        EDITOR: la empacadora arma su lista
        ================================================================ -->
   <template id="price_list_form" name="Editar lista de precios">
     <t t-call="website.layout">
       <div class="shrimp-bg">
-        <div class="shrimp-page py-4">
-          <a class="pk-volver" href="/marketplace/listas-de-precios">
-            <i class="fa fa-arrow-left me-1"/> Volver a las listas
+        <div class="shrimp-page py-4 sf-fields" style="max-width:1100px;">
+
+          <a class="s-back mb-3" href="/marketplace/listas-de-precios">
+            <i class="fa fa-arrow-left"></i><span>Volver a las listas</span>
           </a>
 
-          <h1 class="pk-h1">
-            <t t-if="lista">Editar lista</t><t t-else="">Nueva lista de precios</t>
-          </h1>
+          <div class="sf-banner mb-4">
+            <div class="sf-banner-row">
+              <div class="sf-banner-txt">
+                <h1><t t-if="lista">Editar lista</t><t t-else="">Nueva lista de precios</t></h1>
+                <p>Los precios que pagas por talla y las condiciones de compra que ven las camaroneras.</p>
+              </div>
+              <span class="sf-kicker"><i class="fa fa-list-alt"></i> Lista de precios</span>
+            </div>
+          </div>
 
           <t t-if="error">
-            <div class="pk-alert pk-alert--ko"><i class="fa fa-exclamation-triangle me-1"/><t t-esc="error"/></div>
+            <div class="alert alert-danger"><i class="fa fa-exclamation-triangle me-1"/><t t-esc="error"/></div>
           </t>
           <t t-if="mensaje">
-            <div class="pk-alert pk-alert--ok">
+            <div class="alert alert-success">
               <i class="fa fa-check-circle me-1"/>
               <t t-if="mensaje == 'guardada'">Guardado.</t>
               <t t-elif="mensaje == 'renglon'">Precio guardado.</t>
@@ -340,323 +464,474 @@
             </div>
           </t>
 
-          <!-- Cabecera -->
-          <form method="post" action="/marketplace/listas-de-precios/guardar" class="pk-caja">
+          <!-- ===== Cabecera ===== -->
+          <form method="post" action="/marketplace/listas-de-precios/guardar" id="plHeaderForm">
             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
             <input type="hidden" name="ref" t-att-value="lista.uuid_ref if lista else ''"/>
 
-            <div class="pk-grid">
-              <label>Referencia
-                <input type="text" name="name" class="form-control" required="required"
-                       placeholder="Semana 32" t-att-value="lista.name if lista else ''"/>
-              </label>
-              <label>Fecha de emisión
-                <input type="date" name="issue_date" class="form-control"
-                       t-att-value="lista.issue_date if lista else ''"/>
-              </label>
-              <label>Despacho desde
-                <input type="date" name="dispatch_from" class="form-control"
-                       t-att-value="lista.dispatch_from if lista else ''"/>
-              </label>
-              <label>Despacho hasta
-                <input type="date" name="dispatch_to" class="form-control"
-                       t-att-value="lista.dispatch_to if lista else ''"/>
-              </label>
-            </div>
-            <label class="pk-check">
-              <input type="checkbox" name="open_ended" value="1"
-                     t-att-checked="'checked' if (not lista or lista.open_ended) else None"/>
-              Hasta segunda orden (rige sin fecha de fin)
-            </label>
+            <div class="mp-table-card mb-4"><div class="card-body p-4">
+              <div class="mp-sec-head">
+                <span class="mp-sec-ico"><i class="fa fa-file-text-o"></i></span>
+                <h3 class="mp-sec-title">Datos de la lista</h3>
+              </div>
+              <div class="row g-3">
+                <div class="col-md-3">
+                  <label class="form-label">Referencia <span class="text-danger">*</span></label>
+                  <input type="text" name="name" class="form-control" required="required"
+                         placeholder="Semana 32"
+                         t-att-value="'' if es_nueva else (lista.name if lista else '')"/>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label">Fecha de emisión</label>
+                  <input type="date" name="issue_date" class="form-control"
+                         t-att-value="'' if es_nueva else (lista.issue_date if lista else '')"/>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label">Despacho desde</label>
+                  <input type="date" name="dispatch_from" class="form-control" t-att-value="lista.dispatch_from if lista else ''"/>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label">Despacho hasta</label>
+                  <input type="date" name="dispatch_to" class="form-control" t-att-value="lista.dispatch_to if lista else ''"/>
+                </div>
+                <div class="col-12">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" value="1" id="open_ended" name="open_ended"
+                           t-att-checked="'checked' if (not lista or lista.open_ended) else None"/>
+                    <label class="form-check-label" for="open_ended">Hasta segunda orden (rige sin fecha de fin)</label>
+                  </div>
+                </div>
+                <div class="col-12">
+                  <div class="d-flex flex-wrap align-items-center gap-3">
+                    <div class="form-check mb-0">
+                      <input class="form-check-input" type="checkbox" value="1" id="auto_publish" name="auto_publish"
+                             t-att-checked="'checked' if (lista and lista.auto_publish) else None"
+                             onchange="plToggleAuto(this)"/>
+                      <label class="form-check-label" for="auto_publish">Publicación automática</label>
+                    </div>
+                    <div id="autoPubWrap" class="d-flex align-items-center gap-2"
+                         t-att-style="None if (lista and lista.auto_publish) else 'display:none;'">
+                      <label class="form-label mb-0" for="auto_publish_date">Fecha:</label>
+                      <input type="date" name="auto_publish_date" id="auto_publish_date" class="form-control"
+                             style="max-width:200px;"
+                             t-att-value="lista.auto_publish_date if (lista and lista.auto_publish_date) else ''"/>
+                    </div>
+                  </div>
+                  <div class="form-text mt-1">Se publica sola en la fecha indicada, sin que tengas que entrar.</div>
+                  <script type="text/javascript">
+                    function plToggleAuto(cb) {
+                        var w = document.getElementById('autoPubWrap');
+                        var d = document.getElementById('auto_publish_date');
+                        if (cb.checked) { w.style.display = 'flex'; if (d) { d.required = true; } }
+                        else { w.style.display = 'none'; if (d) { d.required = false; d.value = ''; } }
+                    }
+                  </script>
+                </div>
+                <div class="col-12">
+                  <label class="form-label">A qué camaroneras va dirigida</label>
+                  <div class="form-text mt-0 mb-2">
+                    Solo ellas la verán. Si eliges la empresa madre de un grupo, la ven también sus
+                    fincas. Son camaroneras porque esta lista es de camarón adulto.
+                  </div>
+                  <t t-set="clientes"
+                     t-value="request.env['res.partner'].sudo().search([('shrimp_user_type','=','camaronera'),('id','!=',request.env.user.partner_id.id)], order='name')"/>
+                  <t t-if="clientes">
+                    <div class="pl-recipients">
+                      <div class="pl-recip-search">
+                        <i class="fa fa-search"/>
+                        <input type="text" class="pl-recip-input" placeholder="Buscar camaronera…"
+                               autocomplete="off" oninput="plFiltrarRecip(this)"/>
+                      </div>
+                      <div class="pl-recip-list">
+                        <t t-foreach="clientes" t-as="c">
+                          <label class="pl-recip-row"
+                                 t-att-data-name="(c.name + ' ' + (c.parent_id.name or '')).lower()">
+                            <input type="checkbox" name="recipient_ids" t-att-value="c.id"
+                                   t-att-checked="'checked' if (lista and c in lista.recipient_ids) else None"/>
+                            <span class="pl-recip-box"><i class="fa fa-check"/></span>
+                            <span class="pl-recip-name">
+                              <t t-esc="c.name"/>
+                              <t t-if="c.parent_id"><small class="pl-recip-sub">de <t t-esc="c.parent_id.name"/></small></t>
+                            </span>
+                          </label>
+                        </t>
+                        <div class="pl-recip-empty" style="display:none;">Sin coincidencias.</div>
+                      </div>
+                    </div>
+                    <script type="text/javascript">
+                      function plFiltrarRecip(input) {
+                          var q = (input.value || '').trim().toLowerCase();
+                          var list = input.closest('.pl-recipients').querySelector('.pl-recip-list');
+                          var rows = list.querySelectorAll('.pl-recip-row');
+                          var visibles = 0;
+                          Array.prototype.forEach.call(rows, function (row) {
+                              var hit = row.getAttribute('data-name').indexOf(q) !== -1;
+                              row.style.display = hit ? '' : 'none';
+                              if (hit) { visibles++; }
+                          });
+                          var vacio = list.querySelector('.pl-recip-empty');
+                          if (vacio) { vacio.style.display = visibles ? 'none' : ''; }
+                      }
+                    </script>
+                  </t>
+                  <t t-else="">
+                    <div class="alert alert-info mb-0">Todavía no hay camaroneras registradas a las que dirigir la lista.</div>
+                  </t>
+                </div>
+              </div>
+            </div></div>
 
-            <!-- Destinatarios: lo que hace confidencial a la lista -->
-            <label class="mt-3 d-block">A qué camaroneras va dirigida
-              <span class="pk-muted d-block small">
-                Solo ellas la verán. Si eliges la empresa madre de un grupo, la
-                ven también sus fincas. Son camaroneras porque esta lista es de
-                camarón adulto: el laboratorio y el semillero venden larvas y
-                nauplios, no tallas de entero y cola.
-              </span>
-              <t t-set="clientes"
-                 t-value="request.env['res.partner'].sudo().search([('shrimp_user_type','=','camaronera'),('id','!=',request.env.user.partner_id.id)], order='name')"/>
-              <select name="recipient_ids" class="form-control" multiple="multiple" size="6">
-                <t t-foreach="clientes" t-as="c">
-                  <option t-att-value="c.id"
-                          t-att-selected="'selected' if (lista and c in lista.recipient_ids) else None">
-                    <t t-esc="c.name"/>
-                    <t t-if="c.parent_id"> (de <t t-esc="c.parent_id.name"/>)</t>
-                  </option>
-                </t>
-              </select>
-            </label>
+            <div class="mp-table-card mb-4"><div class="card-body p-4">
+              <div class="mp-sec-head">
+                <span class="mp-sec-ico"><i class="fa fa-money"></i></span>
+                <h3 class="mp-sec-title">Forma de pago</h3>
+              </div>
+              <p class="text-muted small" style="margin-top:-6px;">
+                Es lo que el productor compara entre compradores. Todo es opcional: lo que dejes vacío no se muestra.
+              </p>
+              <div class="row g-3">
+                <div class="col-md-3">
+                  <label class="form-label">Anticipo (%)</label>
+                  <input type="number" step="1" min="0" max="100" name="advance_pct" class="form-control" placeholder="50"
+                         t-att-value="'{:.0f}'.format(lista.advance_pct) if (lista and lista.advance_pct) else ''"/>
+                  <div class="form-text">Qué parte pagas por adelantado. Si pagas todo de una vez, pon 100 y deja el saldo vacío.</div>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label">Días para el anticipo</label>
+                  <input type="number" step="1" min="0" name="advance_days" class="form-control" placeholder="5"
+                         t-att-value="lista.advance_days or '' if lista else ''"/>
+                  <div class="form-text">Días calendario desde que empieza el proceso.</div>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label">Días para el saldo</label>
+                  <input type="number" step="1" min="0" name="balance_days" class="form-control" placeholder="14"
+                         t-att-value="lista.balance_days or '' if lista else ''"/>
+                  <div class="form-text">Días desde la recepción de la factura.</div>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label">Nota de pago</label>
+                  <input type="text" name="payment_notes" class="form-control"
+                         placeholder="Ej. El anticipo se cancela al inicio del proceso"
+                         t-att-value="lista.payment_notes if lista else ''"/>
+                  <div class="form-text">Cualquier condición que no entre arriba. Opcional.</div>
+                </div>
+                <div class="col-12">
+                  <label class="form-label">Condiciones de calidad</label>
+                  <textarea name="quality_conditions" class="form-control" rows="2"
+                            placeholder="No branquias sucias. Sin sabores, no picados, no hongos, no color amarillo, no color mezclado."><t t-esc="lista.quality_conditions if lista else ''"/></textarea>
+                </div>
+              </div>
+            </div></div>
 
-            <h3 class="pk-seccion">Forma de pago</h3>
-            <p class="pk-muted small mb-2">
-              Es lo que el productor compara entre compradores. Tal como sale en
-              las listas del sector: <em>«Anticipo del 50 %, a cancelar dentro de
-              5 días calendarios al inicio del proceso. Saldo pendiente: a
-              liquidar dentro de 14 días desde la recepción de la factura.»</em>
-              Todo es opcional: lo que dejes vacío no se muestra.
-            </p>
-            <div class="pk-grid">
-              <label>Anticipo (%)
-                <input type="number" step="1" min="0" max="100" name="advance_pct"
-                       class="form-control" placeholder="50"
-                       t-att-value="'{:.0f}'.format(lista.advance_pct) if (lista and lista.advance_pct) else ''"/>
-                <span class="pk-ayuda">Qué parte pagas por adelantado. Si pagas
-                  todo de una vez, pon 100 y deja el saldo vacío.</span>
-              </label>
-              <label>Días para el anticipo
-                <input type="number" step="1" min="0" name="advance_days"
-                       class="form-control" placeholder="5"
-                       t-att-value="lista.advance_days or '' if lista else ''"/>
-                <span class="pk-ayuda">Días calendario desde que empieza el
-                  proceso para pagar ese anticipo.</span>
-              </label>
-              <label>Días para el saldo
-                <input type="number" step="1" min="0" name="balance_days"
-                       class="form-control" placeholder="14"
-                       t-att-value="lista.balance_days or '' if lista else ''"/>
-                <span class="pk-ayuda">Días calendario desde la recepción de la
-                  factura para pagar el resto.</span>
-              </label>
-              <label>Nota de pago
-                <input type="text" name="payment_notes" class="form-control"
-                       placeholder="Ej. El anticipo se cancela al inicio del proceso"
-                       t-att-value="lista.payment_notes if lista else ''"/>
-                <span class="pk-ayuda">Cualquier condición que no entre arriba.
-                  Opcional.</span>
-              </label>
-            </div>
-
-            <label class="mt-3 d-block">Condiciones de calidad
-              <textarea name="quality_conditions" class="form-control" rows="2"
-                        placeholder="No branquias sucias. Sin sabores, no picados, no hongos, no color amarillo, no color mezclado."><t t-esc="lista.quality_conditions if lista else ''"/></textarea>
-            </label>
-
-            <button type="submit" class="s-btn s-btn-primary mt-3">
-              <i class="fa fa-save me-1"/> Guardar cabecera
-            </button>
           </form>
 
           <t t-if="lista">
-            <!-- Carga por Excel: el camino de entrada de verdad. En el sector
-                 la lista se arma en Excel; teclear sesenta precios a mano es
-                 pedirle a la empacadora que no use el sistema. -->
-            <div class="pk-excel mt-4">
-              <div class="pk-excel-txt">
-                <strong><i class="fa fa-file-excel-o me-1"/> Cargar los precios desde Excel</strong>
-                <p class="mb-0">
-                  Descarga la plantilla —viene con todas las tallas y con los
-                  precios que ya tengas cargados—, cambia lo que haga falta y
-                  súbela. Deja en blanco lo que no compres.
-                </p>
+            <!-- ===== Carga por Excel (segunda cabecera destacada) ===== -->
+            <div class="pl-excel mb-4">
+              <div class="pl-excel-head">
+                <span class="pl-excel-ico"><i class="fa fa-file-excel-o"/></span>
+                <div class="pl-excel-txt">
+                  <h3>La vía rápida: carga los precios desde Excel</h3>
+                  <p>Descarga la plantilla —viene con todas las tallas y los precios que ya
+                     tengas—, cambia lo que haga falta y súbela. Deja en blanco lo que no compres.</p>
+                </div>
               </div>
-              <div class="pk-excel-acciones">
-                <a class="s-btn s-btn-ghost"
+              <div class="pl-excel-actions">
+                <a class="pl-excel-btn pl-excel-btn--ghost"
                    t-attf-href="/marketplace/listas-de-precios/#{lista.uuid_ref}/plantilla">
                   <i class="fa fa-download me-1"/> Descargar plantilla
                 </a>
-                <form method="post" enctype="multipart/form-data" class="pk-subir"
+                <form method="post" enctype="multipart/form-data" class="pl-excel-upload"
                       t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/cargar">
                   <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                  <input type="file" name="archivo" class="form-control"
-                         accept=".xlsx" required="required"/>
-                  <button type="submit" class="s-btn s-btn-primary">
-                    <i class="fa fa-upload me-1"/> Subir
-                  </button>
+                  <input type="file" name="archivo" class="pl-excel-file" accept=".xlsx" required="required"/>
+                  <button type="submit" class="pl-excel-btn pl-excel-btn--solid"><i class="fa fa-upload me-1"/> Subir</button>
                 </form>
               </div>
             </div>
 
-            <!-- Renglones -->
-            <h2 class="pk-h2 mt-4">Precios por talla</h2>
-            <p class="pk-muted small">
-              También puedes agregarlos o corregirlos uno a uno aquí abajo.
-            </p>
-            <form method="post" class="pk-caja"
-                  t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/renglon">
-              <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-              <div class="pk-grid pk-grid--5">
-                <label>Talla
-                  <select name="size_grade_id" id="pkTalla" class="form-control" required="required">
-                    <t t-foreach="tallas" t-as="t">
-                      <option t-att-value="t.id" t-att-data-pres="t.presentation">
-                        <t t-esc="'Entero' if t.presentation == 'entero' else 'Cola'"/> · <t t-esc="t.name"/>
-                      </option>
-                    </t>
-                  </select>
-                </label>
-                <label>Canal (solo cola)
-                  <select name="channel" id="pkCanal" class="form-control">
-                    <option value="">—</option>
-                    <option value="directa">Directa</option>
-                    <option value="sobrante">Sobrante</option>
-                  </select>
-                </label>
-                <label>Calidad
-                  <select name="quality" id="pkCalidad" class="form-control">
-                    <option value="ab" data-pres="entero">A - B</option>
-                    <option value="c" data-pres="entero">C</option>
-                    <option value="a" data-pres="cola">A</option>
-                    <option value="b" data-pres="cola">B</option>
-                  </select>
-                </label>
-                <!-- La unidad no se elige: la impone la presentación. El entero
-                     se cotiza en $/Kg y la cola en $/Lb, como en las listas
-                     reales. Se muestra para que quede claro en qué unidad se
-                     está escribiendo el precio. -->
-                <label>Unidad
-                  <input type="text" id="pkUnidad" class="form-control" readonly="readonly"
-                         value="$ / Kg" tabindex="-1"/>
-                </label>
-                <label>Precio
-                  <input type="number" step="0.01" min="0" name="price" class="form-control"
-                         required="required"/>
-                </label>
+            <!-- ===== Precios por talla (tabla editable) ===== -->
+            <div class="mp-table-card mb-4"><div class="card-body p-4">
+              <div class="mp-sec-head">
+                <span class="mp-sec-ico"><i class="fa fa-tags"></i></span>
+                <h3 class="mp-sec-title">Precios por talla</h3>
               </div>
-              <button type="submit" class="s-btn mt-2">
-                <i class="fa fa-plus me-1"/> Agregar o actualizar
+              <p class="text-muted small" style="margin-top:-6px;">
+                Agrega una fila por talla y escribe su precio. Toda talla agregada debe tener un precio.
+                Se guarda con «Guardar borrador».
+              </p>
+
+              <!-- Marca que este envío trae la tabla de precios, para que el
+                   guardado gestione las líneas (y no las toque si no viene). -->
+              <input type="hidden" name="tiene_tabla_precios" value="1" form="plHeaderForm"/>
+
+              <div class="table-responsive">
+                <table class="table sv-table align-middle mb-0">
+                  <thead>
+                    <tr><th>Presentación</th><th>Talla</th><th>Canal</th><th>Calidad</th><th>Unidad</th>
+                        <th class="text-end">Precio</th><th></th></tr>
+                  </thead>
+                  <tbody id="plPreciosBody">
+                    <t t-foreach="lista.line_ids" t-as="l">
+                      <t t-call="shrimp_packer.price_list_line_row"/>
+                    </t>
+                  </tbody>
+                </table>
+              </div>
+              <div id="plSinLineas" class="s-empty text-muted small mt-2"
+                   t-att-style="'display:none;' if lista.line_ids else None">
+                Aún no agregaste ninguna talla.
+              </div>
+              <div id="plPrecioErr" class="text-danger small mt-2" style="display:none;">
+                <i class="fa fa-exclamation-triangle me-1"/> Toda talla agregada debe tener un precio.
+              </div>
+
+              <button type="button" class="s-btn s-btn-ghost btn-sm mt-3" id="plAddLinea">
+                <i class="fa fa-plus me-1"/> Agregar talla
               </button>
+
+              <!-- Plantilla de fila que clona el JS (inerte hasta clonarse). -->
+              <script type="text/html" id="plLineaTpl"><t t-call="shrimp_packer.price_list_line_row"><t t-set="l" t-value="False"/></t></script>
+
               <script type="text/javascript">
-                // Acopla los tres campos a la presentación de la talla elegida.
-                // El servidor ya los corrige, pero corregir en silencio lo que
-                // el usuario acaba de escribir es peor que no dejarle escribirlo:
-                // aquí ve por qué cambia la unidad y qué calidades existen.
                 (function () {
-                    var talla = document.getElementById('pkTalla');
-                    if (!talla) { return; }
-                    var canal = document.getElementById('pkCanal');
-                    var calidad = document.getElementById('pkCalidad');
-                    var unidad = document.getElementById('pkUnidad');
-                    function acoplar() {
-                        var op = talla.options[talla.selectedIndex];
-                        var pres = op ? op.getAttribute('data-pres') : 'cola';
+                    var body = document.getElementById('plPreciosBody');
+                    if (!body) { return; }
+                    var tpl = document.getElementById('plLineaTpl');
+                    var addBtn = document.getElementById('plAddLinea');
+                    var vacio = document.getElementById('plSinLineas');
+                    var errBox = document.getElementById('plPrecioErr');
+
+                    function acoplar(tr) {
+                        var presSel = tr.querySelector('.pl-pres');
+                        var talla = tr.querySelector('.pl-talla');
+                        if (!presSel || !talla) { return; }
+                        var canal = tr.querySelector('.pl-canal');
+                        var calidad = tr.querySelector('.pl-calidad');
+                        var unidad = tr.querySelector('.pl-unidad');
+                        var pres = presSel.value;
                         var esEntero = pres === 'entero';
                         unidad.value = esEntero ? '$ / Kg' : '$ / Lb';
-                        // El canal directa/sobrante solo existe en cola.
-                        canal.disabled = esEntero;
-                        if (esEntero) { canal.value = ''; }
-                        else if (!canal.value) { canal.value = 'directa'; }
-                        var primera = null;
+                        // La talla se filtra por la presentación elegida: solo se
+                        // ven (y se pueden elegir) las de esa presentación.
+                        var primeraTalla = null;
+                        Array.prototype.forEach.call(talla.options, function (o) {
+                            var vale = o.getAttribute('data-pres') === pres;
+                            o.hidden = !vale; o.disabled = !vale;
+                            if (vale &amp;&amp; !primeraTalla) { primeraTalla = o; }
+                        });
+                        var tActual = talla.options[talla.selectedIndex];
+                        if (primeraTalla &amp;&amp; (!tActual || tActual.disabled)) { talla.value = primeraTalla.value; }
+                        // Canal solo aplica a cola. Se deja siempre enviable (no
+                        // disabled) para no descuadrar las columnas del POST; en
+                        // entero se vacía y se bloquea visualmente.
+                        if (esEntero) {
+                            canal.value = ''; canal.classList.add('pl-off'); canal.setAttribute('tabindex', '-1');
+                        } else {
+                            canal.classList.remove('pl-off'); canal.removeAttribute('tabindex');
+                            if (!canal.value) { canal.value = 'directa'; }
+                        }
+                        // La calidad también depende de la presentación (entero:
+                        // A-B / C; cola: A / B).
+                        var primeraCal = null;
                         Array.prototype.forEach.call(calidad.options, function (o) {
                             var vale = o.getAttribute('data-pres') === pres;
-                            o.hidden = !vale;
-                            o.disabled = !vale;
-                            if (vale &amp;&amp; !primera) { primera = o; }
+                            o.hidden = !vale; o.disabled = !vale;
+                            if (vale &amp;&amp; !primeraCal) { primeraCal = o; }
                         });
-                        var actual = calidad.options[calidad.selectedIndex];
-                        if (primera &amp;&amp; (!actual || actual.disabled)) {
-                            calidad.value = primera.value;
-                        }
+                        var cActual = calidad.options[calidad.selectedIndex];
+                        if (primeraCal &amp;&amp; (!cActual || cActual.disabled)) { calidad.value = primeraCal.value; }
                     }
-                    talla.addEventListener('change', acoplar);
-                    acoplar();
+                    function refrescarVacio() {
+                        if (vacio) { vacio.style.display = body.querySelector('.pl-linea') ? 'none' : ''; }
+                    }
+
+                    Array.prototype.forEach.call(body.querySelectorAll('.pl-linea'), acoplar);
+                    refrescarVacio();
+
+                    body.addEventListener('change', function (e) {
+                        if (e.target.classList.contains('pl-pres')) { acoplar(e.target.closest('.pl-linea')); }
+                    });
+                    body.addEventListener('click', function (e) {
+                        var b = e.target.closest('.pl-del-linea');
+                        if (b) { b.closest('.pl-linea').remove(); refrescarVacio(); }
+                    });
+                    addBtn.addEventListener('click', function () {
+                        var wrap = document.createElement('tbody');
+                        wrap.innerHTML = tpl.innerHTML.trim();
+                        var tr = wrap.querySelector('.pl-linea');
+                        body.appendChild(tr);
+                        acoplar(tr);
+                        refrescarVacio();
+                        var t = tr.querySelector('.pl-talla'); if (t) { t.focus(); }
+                    });
+
+                    // Antes de guardar: toda fila debe tener precio.
+                    var form = document.getElementById('plHeaderForm');
+                    if (form) {
+                        form.addEventListener('submit', function (e) {
+                            var faltan = false;
+                            Array.prototype.forEach.call(body.querySelectorAll('.pl-precio'), function (p) {
+                                if (p.value === null || p.value.trim() === '') { faltan = true; p.classList.add('is-invalid'); }
+                                else { p.classList.remove('is-invalid'); }
+                            });
+                            if (faltan) {
+                                e.preventDefault();
+                                if (errBox) { errBox.style.display = ''; errBox.scrollIntoView({behavior: 'smooth', block: 'center'}); }
+                            } else if (errBox) { errBox.style.display = 'none'; }
+                        });
+                    }
                 })();
               </script>
-            </form>
+            </div></div>
 
-            <t t-if="lista.line_ids">
-              <table class="pk-tabla mt-3">
-                <thead>
-                  <tr><th>Presentación</th><th>Talla</th><th>Canal</th><th>Calidad</th>
-                      <th class="text-end">Precio</th><th></th></tr>
-                </thead>
-                <tbody>
-                  <t t-foreach="lista.line_ids" t-as="l">
-                    <tr>
-                      <td t-esc="'Entero' if l.presentation == 'entero' else 'Cola'"/>
-                      <td><strong t-esc="l.size_grade_id.name"/></td>
-                      <td t-esc="dict(l._fields['channel']._description_selection(request.env)).get(l.channel, '—')"/>
-                      <td t-esc="dict(l._fields['quality']._description_selection(request.env)).get(l.quality, '')"/>
-                      <td class="text-end">
-                        <t t-esc="'$ {:,.2f}'.format(l.price)"/>
-                        <span class="pk-muted"> / <t t-esc="'Kg' if l.uom == 'kg' else 'Lb'"/></span>
-                      </td>
-                      <td class="text-end">
-                        <form method="post"
-                              t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/renglon/#{l.id}/borrar">
-                          <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                          <button type="submit" class="pk-borrar" title="Quitar">
-                            <i class="fa fa-times"/>
-                          </button>
-                        </form>
-                      </td>
-                    </tr>
-                  </t>
-                </tbody>
-              </table>
-            </t>
-
-            <!-- Bonificaciones -->
-            <h2 class="pk-h2 mt-4">Bonificaciones</h2>
-            <form method="post" class="pk-caja"
-                  t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/bonificacion">
-              <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-              <div class="pk-grid pk-grid--3">
-                <label>Concepto
-                  <input type="text" name="name" class="form-control" placeholder="SMALL" required="required"/>
-                </label>
-                <label>Importe
-                  <input type="number" step="0.01" name="amount" class="form-control"/>
-                </label>
-                <label>Detalle
-                  <input type="text" name="note" class="form-control"/>
-                </label>
+            <!-- ===== Bonificaciones ===== -->
+            <div class="mp-table-card mb-4"><div class="card-body p-4">
+              <div class="mp-sec-head">
+                <span class="mp-sec-ico"><i class="fa fa-gift"></i></span>
+                <h3 class="mp-sec-title">Bonificaciones</h3>
               </div>
-              <button type="submit" class="s-btn mt-2"><i class="fa fa-plus me-1"/> Agregar</button>
-            </form>
+              <form method="post" t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/bonificacion">
+                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                <div class="row g-2 align-items-end">
+                  <div class="col-md-4">
+                    <label class="form-label">Concepto</label>
+                    <input type="text" name="name" class="form-control" placeholder="SMALL" required="required"/>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Importe</label>
+                    <input type="number" step="0.01" name="amount" class="form-control"/>
+                  </div>
+                  <div class="col-md-5">
+                    <label class="form-label">Detalle</label>
+                    <input type="text" name="note" class="form-control"/>
+                  </div>
+                </div>
+                <button type="submit" class="s-btn s-btn-ghost btn-sm mt-3"><i class="fa fa-plus me-1"/> Agregar</button>
+              </form>
 
-            <t t-if="lista.bonus_ids">
-              <table class="pk-tabla mt-3">
-                <tbody>
-                  <t t-foreach="lista.bonus_ids" t-as="b">
-                    <tr>
-                      <td><strong t-esc="b.name"/></td>
-                      <td class="text-end" t-esc="'$ {:,.2f}'.format(b.amount)"/>
-                      <td class="pk-muted" t-esc="b.note or ''"/>
-                      <td class="text-end">
-                        <form method="post"
-                              t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/bonificacion/#{b.id}/borrar">
-                          <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                          <button type="submit" class="pk-borrar"><i class="fa fa-times"/></button>
-                        </form>
-                      </td>
-                    </tr>
-                  </t>
-                </tbody>
-              </table>
-            </t>
+              <t t-if="lista.bonus_ids">
+                <div class="table-responsive mt-3">
+                  <table class="table sv-table align-middle mb-0">
+                    <tbody>
+                      <t t-foreach="lista.bonus_ids" t-as="b">
+                        <tr>
+                          <td><strong t-esc="b.name"/></td>
+                          <td class="text-end" t-esc="'$ {:,.2f}'.format(b.amount)"/>
+                          <td class="text-muted" t-esc="b.note or ''"/>
+                          <td class="text-end">
+                            <form method="post"
+                                  t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/bonificacion/#{b.id}/borrar">
+                              <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                              <button type="submit" class="s-btn s-btn-ghost btn-sm" title="Quitar"><i class="fa fa-times"/></button>
+                            </form>
+                          </td>
+                        </tr>
+                      </t>
+                    </tbody>
+                  </table>
+                </div>
+              </t>
+            </div></div>
 
-            <!-- Publicar -->
-            <div class="pk-publicar mt-4">
+            <!-- ===== Publicar ===== -->
+            <div class="mp-table-card mb-4"><div class="card-body p-4">
+              <div class="mp-sec-head">
+                <span class="mp-sec-ico"><i class="fa fa-paper-plane"></i></span>
+                <h3 class="mp-sec-title">Publicación</h3>
+              </div>
               <t t-if="lista.state != 'published'">
-                <form method="post"
-                      t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/publicar">
-                  <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                  <p class="pk-muted mb-2">
-                    Al publicarla, los destinatarios la ven de inmediato y se archiva
-                    la lista anterior que tuvieras vigente con ellos.
-                  </p>
-                  <button type="submit" class="s-btn s-btn-primary">
-                    <i class="fa fa-paper-plane me-1"/> Publicar
+                <p class="text-muted mb-3">
+                  Al publicarla, los destinatarios la ven de inmediato y se archiva la lista
+                  anterior que tuvieras vigente con ellos.
+                </p>
+                <div class="d-flex flex-wrap gap-2">
+                  <!-- Guardar borrador: envía la cabecera (form="plHeaderForm").
+                       Los precios y bonificaciones ya se guardan al agregarlos. -->
+                  <button type="submit" form="plHeaderForm" class="s-btn s-btn-ghost">
+                    <i class="fa fa-save me-1"/> Guardar borrador
                   </button>
-                </form>
+                  <form method="post" class="d-inline"
+                        t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/publicar">
+                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                    <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-paper-plane me-1"/> Publicar</button>
+                  </form>
+                  <form method="post" class="d-inline"
+                        t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/eliminar">
+                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                    <button type="button" class="s-btn s-btn-danger pl-del-btn"
+                            t-att-data-nombre="lista.name"><i class="fa fa-trash me-1"/> Eliminar</button>
+                  </form>
+                </div>
               </t>
               <t t-else="">
-                <form method="post"
-                      t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/archivar">
-                  <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                  <p class="pk-muted mb-2">Esta lista está publicada.</p>
-                  <button type="submit" class="s-btn"><i class="fa fa-archive me-1"/> Archivar</button>
-                </form>
+                <p class="text-muted mb-3"><i class="fa fa-check-circle sv-ok me-1"/> Esta lista está publicada.</p>
+                <div class="d-flex flex-wrap gap-2">
+                  <button type="submit" form="plHeaderForm" class="s-btn s-btn-ghost">
+                    <i class="fa fa-save me-1"/> Guardar borrador
+                  </button>
+                  <form method="post" class="d-inline"
+                        t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/despublicar">
+                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                    <button type="submit" class="s-btn s-btn-danger"
+                            title="Quitarla de la vista de los destinatarios y volverla a borrador">
+                      <i class="fa fa-eye-slash me-1"/> Despublicar
+                    </button>
+                  </form>
+                  <form method="post" class="d-inline"
+                        t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/archivar">
+                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                    <button type="submit" class="s-btn s-btn-ghost"><i class="fa fa-archive me-1"/> Archivar</button>
+                  </form>
+                  <form method="post" class="d-inline"
+                        t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/eliminar">
+                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                    <button type="button" class="s-btn s-btn-danger pl-del-btn"
+                            t-att-data-nombre="lista.name"><i class="fa fa-trash me-1"/> Eliminar</button>
+                  </form>
+                </div>
               </t>
+            </div></div>
+
+            <!-- Modal de confirmación para eliminar (sin alert nativo). -->
+            <div id="plDelModal" class="pl-modal" style="display:none;">
+              <div class="pl-modal-box">
+                <h4 class="pl-modal-title"><i class="fa fa-trash me-2"/>Eliminar lista</h4>
+                <p class="pl-modal-txt">
+                  ¿Seguro que quieres eliminar «<strong id="plDelName"></strong>»?
+                  Esta acción no se puede deshacer.
+                </p>
+                <div class="pl-modal-acts">
+                  <button type="button" class="s-btn s-btn-ghost" onclick="plCloseDel()">Cancelar</button>
+                  <button type="button" class="s-btn s-btn-danger" onclick="plDoDelete()">Eliminar</button>
+                </div>
+              </div>
             </div>
+            <script type="text/javascript">
+              (function () {
+                  var pend = null;
+                  document.addEventListener('click', function (e) {
+                      var b = e.target.closest('.pl-del-btn');
+                      if (!b) { return; }
+                      pend = b.closest('form');
+                      document.getElementById('plDelName').textContent = b.getAttribute('data-nombre') || '';
+                      document.getElementById('plDelModal').style.display = 'flex';
+                  });
+                  window.plCloseDel = function () {
+                      document.getElementById('plDelModal').style.display = 'none';
+                      pend = null;
+                  };
+                  window.plDoDelete = function () {
+                      if (pend) { pend.submit(); }
+                  };
+                  document.getElementById('plDelModal').addEventListener('click', function (e) {
+                      if (e.target === this) { window.plCloseDel(); }
+                  });
+              })();
+            </script>
           </t>
           <t t-else="">
-            <p class="pk-muted mt-3">
-              Guarda la cabecera y podrás cargar los precios por talla.
-            </p>
+            <div class="alert alert-info">Guarda la cabecera y podrás cargar los precios por talla.</div>
           </t>
 
         </div>

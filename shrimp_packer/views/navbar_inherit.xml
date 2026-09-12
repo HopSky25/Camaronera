@@ -25,22 +25,16 @@
       <t t-set="shrimp_tipo"
          t-value="request.env.user.partner_id.shrimp_user_type if request else False"/>
 
-      <!-- La camaronera las recibe; la empacadora las publica. -->
-      <li t-if="shrimp_tipo in ('camaronera', 'empacadora')">
+      <!-- Una sola opción "Lista de precios" que engloba el índice, el
+           detalle, la creación/edición y el comparador: todo se alcanza desde
+           esa pantalla (botones "Nueva lista", "Comparar precios", "Editar",
+           y las tarjetas llevan al detalle). La camaronera las recibe; la
+           empacadora las publica. -->
+      <li t-if="not shrimp_tipo or shrimp_tipo in ('camaronera', 'empacadora')">
         <a role="menuitem" class="dropdown-item mp-menu-item"
            href="/marketplace/listas-de-precios">
           <span class="mp-menu-ico mp-mi-blue"><i class="fa fa-list-alt"/></span>
-          <span>Listas de precios</span>
-        </a>
-      </li>
-
-      <!-- Comparar quién paga mejor solo tiene sentido para quien vende
-           camarón adulto: la camaronera. -->
-      <li t-if="shrimp_tipo == 'camaronera'">
-        <a role="menuitem" class="dropdown-item mp-menu-item"
-           href="/marketplace/listas-de-precios/comparar">
-          <span class="mp-menu-ico mp-mi-teal"><i class="fa fa-balance-scale"/></span>
-          <span>Comparar precios</span>
+          <span>Lista de precios</span>
         </a>
       </li>
 

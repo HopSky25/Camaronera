@@ -618,6 +618,35 @@ class ShrimpTransactionPortalController(http.Controller):
 
         return request.make_response(pdf_content, headers=pdfhttpheaders)
 
+    @http.route("/marketplace/compras/<tx_ref>/factura/pdf", type="http", auth="user", website=True)
+    def marketplace_purchase_invoice_pdf(self, tx_ref, **kw):
+        """Genera (si hace falta) y devuelve la factura de la compra en PDF."""
+        tx = request.env["shrimp.transaction"].sudo().resolve_ref(tx_ref)
+        if not tx:
+            raise NotFound()
+        partner = self._get_current_partner()
+        is_internal = request.env.user.has_group("base.group_user")
+        if not is_internal and partner.id not in (
+                tx.buyer_partner_id.id, tx.seller_partner_id.id):
+            raise Forbidden()
+        invoice = tx.sudo().action_generar_factura()
+        if not invoice:
+            raise NotFound()
+        report = request.env["ir.actions.report"].sudo()._get_report_from_name(
+            "account.account_invoices")
+        if not report:
+            raise NotFound()
+        pdf_content, _ = report.sudo()._render_qweb_pdf(
+            report.report_name, res_ids=[invoice.id])
+        safe = (tx.name or "factura").replace("/", "-").replace("\\", "-")
+        filename = f"Factura-{safe}.pdf"
+        disposition = "attachment" if kw.get("download") else "inline"
+        return request.make_response(pdf_content, headers=[
+            ("Content-Type", "application/pdf"),
+            ("Content-Length", str(len(pdf_content))),
+            ("Content-Disposition", f'{disposition}; filename="{filename}"'),
+        ])
+
     @http.route("/marketplace/ventas", type="http", auth="user", website=True)
     def marketplace_sales_history(self, **kw):
         return self._render_tx_list(

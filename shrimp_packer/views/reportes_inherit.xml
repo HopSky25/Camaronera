@@ -10,7 +10,7 @@
   <template id="reportes_precios_de_compra"
             inherit_id="shrimp_marketplace.marketplace_my_reports"
             name="Mis reportes - precios de compra">
-    <xpath expr="//div[hasclass('s-rep-head')]" position="after">
+    <xpath expr="//div[hasclass('sf-banner')]" position="after">
       <t t-set="pk_resumen"
          t-value="request.env['shrimp.price.list'].sudo().resumen_mejor_precio(request.env.user.partner_id)"/>
       <t t-if="pk_resumen">

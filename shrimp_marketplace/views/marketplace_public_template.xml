@@ -126,7 +126,7 @@
                              exactamente lo que queremos. -->
                         <t t-set="veto" t-value="'' if request.env.user._is_public() else p.motivo_no_comprable(request.env.user.partner_id)"/>
                         <a t-if="not veto" class="s-btn s-btn-primary btn-sm" t-att-href="'/marketplace/buy/%s' % p.uuid_ref">Comprar</a>
-                        <span t-else="" class="s-btn s-btn-ghost btn-sm disabled" t-att-title="veto">No disponible para ti</span>
+                        <span t-else="" class="s-btn s-btn-ghost btn-sm disabled" style="white-space:nowrap;" t-att-title="veto">No disponible</span>
                     </div>
                 </div>
             </div>
@@ -963,7 +963,7 @@
                                     </div>
                                     <div class="mp-spec-grid">
                                         <div class="mp-spec" style="grid-column:1 / -1;">
-                                            <span class="mp-spec-ico"><i class="fa fa-dna"></i></span>
+                                            <span class="mp-spec-ico"><i class="fa fa-code-fork"></i></span>
                                             <div class="mp-spec-body">
                                                 <div class="mp-spec-label">Línea genética / cepa</div>
                                                 <div class="mp-spec-value"><t t-esc="product.genetics_line_id.name if product.genetics_line_id else '—'" /></div>
@@ -1301,9 +1301,20 @@
                                         <div class="bt-lbl mb-1">Precio pagado</div>
                                         <div class="bt-amount">$<t t-esc="'%.2f' % (tx.amount_total or 0.0)"/></div>
                                     </div>
+                                    <a class="s-btn s-btn-primary s-btn-block mt-3"
+                                       t-att-href="'/marketplace/compras/%s/factura/pdf?download=1' % tx.uuid_ref">
+                                        <i class="fa fa-file-pdf-o me-1"></i> Descargar factura
+                                    </a>
                                 </div>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Barra de acciones: navegación clara tras la compra. -->
+                    <div class="d-flex flex-wrap justify-content-center gap-2 mt-4">
+                        <a class="s-btn s-btn-ghost" href="/marketplace/compras"><i class="fa fa-list me-1"></i> Mis compras</a>
+                        <a class="s-btn s-btn-ghost" t-att-href="'/marketplace/compras/%s/trazabilidad' % tx.uuid_ref"><i class="fa fa-sitemap me-1"></i> Ver trazabilidad</a>
+                        <a class="s-btn s-btn-ghost" href="/marketplace"><i class="fa fa-shopping-bag me-1"></i> Seguir comprando</a>
                     </div>
 
                     <!-- Calificar al vendedor / reseña ya enviada -->

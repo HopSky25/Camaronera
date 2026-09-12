@@ -392,3 +392,118 @@
 /* La clase de calidad junto al precio del cruce: es un matiz, no un titular,
    pero tiene que estar legible. */
 .pk-lote-cal { color: #5A6B74; font-weight: 600; }
+
+/* ================================================================
+   Selector de destinatarios de la lista de precios.
+
+   Antes era un <select multiple> nativo: funcional pero ajeno al
+   resto del formulario. Ahora es una lista vertical con check a la
+   izquierda y un buscador que aparece cuando hay muchas empresas.
+   Cada fila es un checkbox name="recipient_ids", así que el POST
+   llega idéntico: la forma cambia, la funcionalidad no.
+   ================================================================ */
+.pl-recipients {
+  border: 1px solid var(--shrimp-border, #d7e0e6);
+  border-radius: 12px; background: #fff; overflow: hidden;
+}
+.pl-recip-search {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px; border-bottom: 1px solid var(--shrimp-border, #d7e0e6);
+  background: #f2f5f8; color: var(--shrimp-ink-faint, #7b8a94);
+}
+.pl-recip-search .pl-recip-input {
+  flex: 1; border: 0; outline: none; background: transparent;
+  font-size: .92rem; color: var(--shrimp-ink, #123e5c);
+}
+.pl-recipients .pl-recip-list { display: block; max-height: 280px; overflow-y: auto; }
+.pl-recipients .pl-recip-row {
+  display: flex !important; width: 100%; align-items: center; gap: 12px;
+  padding: 10px 14px; margin: 0; cursor: pointer; float: none;
+  border-bottom: 1px solid #eef2f5; transition: background .12s ease;
+}
+.pl-recip-row:last-child { border-bottom: 0; }
+.pl-recip-row:hover { background: #f2f5f8; }
+.pl-recip-row input { position: absolute; opacity: 0; pointer-events: none; }
+/* La casilla de check a la izquierda: vacía por defecto, marca de
+   verificación con color de marca al seleccionar. */
+.pl-recip-box {
+  flex: 0 0 auto; width: 22px; height: 22px; border-radius: 6px;
+  border: 2px solid var(--shrimp-border-strong, #c4d0d8); background: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: all .15s ease;
+}
+.pl-recip-box .fa { font-size: .72rem; color: #fff; opacity: 0; transition: opacity .12s ease; }
+.pl-recip-row input:checked + .pl-recip-box {
+  background: var(--shrimp-brand, #123e5c); border-color: var(--shrimp-brand, #123e5c);
+}
+.pl-recip-row input:checked + .pl-recip-box .fa { opacity: 1; }
+.pl-recip-row input:focus-visible + .pl-recip-box { outline: 2px solid var(--shrimp-teal, #0e8ea0); outline-offset: 2px; }
+.pl-recip-name { font-weight: 600; color: var(--shrimp-ink, #123e5c); }
+.pl-recip-sub { display: block; font-weight: 500; opacity: .7; font-size: .78rem; }
+.pl-recip-empty { padding: 16px 14px; color: var(--shrimp-ink-faint, #7b8a94); font-size: .9rem; }
+
+/* ================================================================
+   Carga por Excel: segunda cabecera destacada.
+
+   No es una sección más del formulario: es el camino recomendado
+   para cargar precios de golpe. Por eso rompe con las mp-table-card
+   blancas y usa un fondo con acento verde (Excel) que la hace leer
+   como un bloque aparte, tipo banner de acción.
+   ================================================================ */
+.pl-excel {
+  display: flex; flex-direction: column; align-items: stretch;
+  gap: 18px; padding: 22px 24px; border-radius: 16px;
+  background: linear-gradient(120deg, #0f6f4a 0%, #148f5f 100%);
+  color: #fff;
+}
+.pl-excel-head { display: flex; align-items: center; gap: 16px; }
+.pl-excel-ico {
+  flex: 0 0 auto; width: 54px; height: 54px; border-radius: 14px;
+  background: rgba(255,255,255,.16); display: inline-flex;
+  align-items: center; justify-content: center; font-size: 1.6rem; color: #fff;
+}
+.pl-excel-txt h3 { margin: 0 0 4px; font-size: 1.12rem; font-weight: 800; color: #fff; }
+.pl-excel-txt p { margin: 0; font-size: .86rem; line-height: 1.35; color: rgba(255,255,255,.9); }
+.pl-excel-actions { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px; width: 100%; }
+.pl-excel-upload { display: flex; align-items: stretch; gap: 8px; flex: 2 1 320px; }
+.pl-excel-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 10px 18px; border-radius: 10px;
+  font-weight: 700; font-size: .9rem; text-decoration: none; border: 0; cursor: pointer;
+  white-space: nowrap; transition: all .15s ease;
+}
+.pl-excel-btn--ghost { background: rgba(255,255,255,.15); color: #fff; flex: 1 1 200px; }
+.pl-excel-btn--ghost:hover { background: rgba(255,255,255,.26); color: #fff; }
+.pl-excel-btn--solid { background: #fff; color: #0f6f4a; flex: 0 0 auto; }
+.pl-excel-btn--solid:hover { background: #eafaf2; }
+.pl-excel-file {
+  flex: 1 1 auto; min-width: 0; font-size: .82rem; color: #fff;
+  background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.35);
+  border-radius: 10px; padding: 7px 10px;
+}
+.pl-excel-file::file-selector-button {
+  border: 0; border-radius: 8px; padding: 5px 12px; margin-right: 10px;
+  background: rgba(255,255,255,.85); color: #0f6f4a; font-weight: 700; cursor: pointer;
+}
+@media (max-width: 767.98px) {
+  .pl-excel-actions { width: 100%; }
+  .pl-excel-upload { flex-wrap: wrap; }
+}
+
+/* Canal deshabilitado en filas de entero: sigue enviándose (para no
+   descuadrar el POST) pero se ve y se comporta como inactivo. */
+.pl-canal.pl-off { opacity: .5; pointer-events: none; background: #eef2f5; }
+
+/* Modal de confirmación de borrado de listas (sin alert nativo). */
+.pl-modal {
+  position: fixed; inset: 0; z-index: 1080;
+  background: rgba(13, 27, 38, .55);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.pl-modal-box {
+  background: #fff; border-radius: 16px; padding: 26px 28px;
+  max-width: 440px; width: 100%;
+}
+.pl-modal-title { margin: 0 0 10px; font-size: 1.15rem; font-weight: 800; color: var(--shrimp-ink, #123e5c); }
+.pl-modal-txt { margin: 0 0 20px; color: var(--shrimp-ink-soft, #4a5b66); line-height: 1.45; }
+.pl-modal-acts { display: flex; justify-content: flex-end; gap: 10px; }

@@ -1163,23 +1163,21 @@
       <t t-set="es_adulto" t-value="product.requires_verification"/>
       <t>
         <div t-attf-class="sv-buybox#{'' if es_adulto else ' sv-buybox--optional'}">
-          <div class="sv-buybox-head">
-            <i class="fa fa-shield me-1"/>
-            <t t-if="es_adulto">Esta compra requiere verificación en campo</t>
-            <t t-else="">¿Quieres verificar el lote antes de comprar?</t>
-          </div>
-          <p class="sv-muted small">
-            <t t-if="es_adulto">
+          <!-- El texto explicativo solo se muestra cuando la verificación es
+               obligatoria (adulto). En el caso opcional se omite: dejaba un
+               bloque de texto largo sobre un lote de larvas que el comprador
+               puede adquirir directo. -->
+          <t t-if="es_adulto">
+            <div class="sv-buybox-head">
+              <i class="fa fa-shield me-1"/>
+              Esta compra requiere verificación en campo
+            </div>
+            <p class="sv-muted small">
               El camarón adulto se inspecciona antes de cerrar la operación. Elige un
               verificador acreditado: revisará peso, cuerpo o cola, metabisulfito,
               clasificación y sabor.
-            </t>
-            <t t-else="">
-              Opcional. Un verificador acreditado irá a campo a comprobar cantidad,
-              supervivencia, tamaño y estado sanitario antes de que la compra se
-              concrete. Si prefieres, compra directo con el botón de arriba.
-            </t>
-          </p>
+            </p>
+          </t>
 
           <t t-if="verifiers">
             <form method="post"

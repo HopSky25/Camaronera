@@ -175,6 +175,34 @@ class ShrimpPriceListPortal(http.Controller):
             "cuantas": len({l.price_list_id.issuer_partner_id.id for l in lineas}),
         }
 
+    @http.route("/marketplace/precio-de-lista", type="jsonrpc", auth="user")
+    def list_price(self, price_list_id=None, presentation=None, size_grade_id=None, **kw):
+        """Precio de una lista concreta para una talla/presentación, ya
+        convertido a $/Lb (la unidad del lote). Para autocompletar al asignar
+        una lista al producto."""
+        from odoo.addons.shrimp_packer.models.shrimp_product import LB_POR_KG
+        try:
+            plid = int(price_list_id or 0)
+            talla_id = int(size_grade_id or 0)
+        except (TypeError, ValueError):
+            return {}
+        if not plid or not talla_id or not presentation:
+            return {}
+        pl = request.env["shrimp.price.list"].sudo().browse(plid)
+        if not pl.exists():
+            return {}
+        lineas = pl.line_ids.filtered(
+            lambda l: l.size_grade_id.id == talla_id
+            and l.presentation == presentation
+            and (presentation != "cola" or l.channel == "directa"))
+        if not lineas:
+            return {"sin_precio": True}
+        linea = max(lineas, key=lambda l: l.price)
+        precio = linea.price
+        if linea.uom == "kg":
+            precio = precio / LB_POR_KG
+        return {"precio": round(precio, 2), "uom": "lb"}
+
     # ==================================================================
     # Perfil público de la empacadora
     # ==================================================================
@@ -233,7 +261,12 @@ class ShrimpPriceListPortal(http.Controller):
             # La sección de "las que publicas tú" solo tiene sentido para una
             # empacadora: el modelo no deja que otro rol publique.
             "es_empacadora": partner.shrimp_user_type == "empacadora",
-            "mias": L.search([("issuer_partner_id", "=", partner.id)]),
+            # Oculta el borrador fantasma que deja un "Nueva" sin tocar nada:
+            # borrador con nombre por defecto, sin precios/bonos/destinatarios.
+            "mias": L.search([("issuer_partner_id", "=", partner.id)]).filtered(
+                lambda l: not (
+                    l.state == "draft" and l.name == _("Lista de precios")
+                    and not l.line_ids and not l.bonus_ids and not l.recipient_ids)),
             "mensaje": kw.get("mensaje"),
             "error": kw.get("error"),
         })
@@ -332,12 +365,34 @@ class ShrimpPriceListPortal(http.Controller):
                 website=True)
     def price_list_new(self, **kw):
         self._solo_empacadora()
-        return request.render("shrimp_packer.price_list_form", {
-            "lista": None,
-            "tallas": request.env["shrimp.size.grade"].sudo().search(
-                [("active", "=", True)], order="presentation, sequence, name"),
-            "error": kw.get("error"),
-        })
+        # Flujo único: en lugar de pedir primero "guardar cabecera" para recién
+        # habilitar precios/Excel/bonificaciones, creamos un borrador al vuelo y
+        # llevamos directo al formulario completo. Al dar "Nueva" se ve todo de
+        # una vez. El borrador no lo ven los destinatarios hasta publicar.
+        L = request.env["shrimp.price.list"].sudo()
+        partner = self._partner()
+        # Evita borradores fantasma: si dio "Nueva", no tocó nada y volvió
+        # atrás, reutilizamos ese mismo borrador vacío en lugar de crear otro
+        # cada vez. Vacío = borrador, con el nombre por defecto todavía, sin
+        # precios, sin bonificaciones y sin destinatarios.
+        predet = _("Lista de precios")
+        borrador = L.search([
+            ("issuer_partner_id", "=", partner.id),
+            ("state", "=", "draft"),
+            ("name", "=", predet),
+            ("line_ids", "=", False),
+            ("bonus_ids", "=", False),
+            ("recipient_ids", "=", False),
+        ], limit=1)
+        if not borrador:
+            borrador = L.create({
+                "name": predet,
+                "issuer_partner_id": partner.id,
+                "issue_date": fields.Date.context_today(request.env.user),
+                "open_ended": True,
+            })
+        return request.redirect(
+            "/marketplace/listas-de-precios/%s/editar" % borrador.uuid_ref)
 
     @http.route("/marketplace/listas-de-precios/guardar", type="http", auth="user",
                 website=True, methods=["POST"], csrf=True)
@@ -366,16 +421,78 @@ class ShrimpPriceListPortal(http.Controller):
             "dispatch_from": post.get("dispatch_from") or False,
             "dispatch_to": post.get("dispatch_to") or False,
             "open_ended": bool(post.get("open_ended")),
+            "auto_publish": bool(post.get("auto_publish")),
+            # La fecha solo se guarda si la publicación automática está activa;
+            # si no, se limpia para no dejar una programación colgada.
+            "auto_publish_date": (post.get("auto_publish_date") or False)
+                                 if post.get("auto_publish") else False,
             "quality_conditions": (post.get("quality_conditions") or "").strip() or False,
             "advance_pct": _f("advance_pct"),
             "advance_days": _i("advance_days"),
             "balance_days": _i("balance_days"),
             "payment_notes": (post.get("payment_notes") or "").strip() or False,
         }
+        # Destinatarios: se fija siempre (incluso vacío) para que desmarcar
+        # todas las camaroneras realmente las quite.
         destinatarios = [int(x) for x in request.httprequest.form.getlist("recipient_ids")
                          if str(x).isdigit()]
-        if destinatarios:
-            vals["recipient_ids"] = [(6, 0, destinatarios)]
+        vals["recipient_ids"] = [(6, 0, destinatarios)]
+
+        # Precios por talla: llegan como columnas paralelas (una entrada por
+        # fila de la tabla). Se guardan JUNTO con la cabecera —"Guardar
+        # borrador" persiste toda la lista— reemplazando las líneas actuales.
+        if post.get("tiene_tabla_precios"):
+            form = request.httprequest.form
+            SizeGrade = request.env["shrimp.size.grade"].sudo()
+            Line = request.env["shrimp.price.list.line"]
+            UOM = Line._UOM_POR_PRESENTACION
+            CAL = Line._CALIDADES_POR_PRESENTACION
+            tallas_in = form.getlist("linea_talla")
+            canales_in = form.getlist("linea_canal")
+            calid_in = form.getlist("linea_calidad")
+            precios_in = form.getlist("linea_precio")
+            orden, secuencia = {}, []
+            for i, tid in enumerate(tallas_in):
+                if not str(tid).isdigit():
+                    continue
+                talla = SizeGrade.browse(int(tid))
+                if not talla.exists():
+                    continue
+                precio_raw = (precios_in[i] if i < len(precios_in) else "").strip()
+                if precio_raw == "":
+                    destino = "/marketplace/listas-de-precios/%s/editar" % lista.uuid_ref \
+                        if lista else "/marketplace/listas-de-precios/nueva"
+                    return request.redirect("%s?error=%s" % (
+                        destino, quote(_("Toda talla agregada debe tener un precio."))))
+                try:
+                    precio = float(precio_raw.replace(",", "."))
+                except ValueError:
+                    destino = "/marketplace/listas-de-precios/%s/editar" % lista.uuid_ref \
+                        if lista else "/marketplace/listas-de-precios/nueva"
+                    return request.redirect("%s?error=%s" % (
+                        destino, quote(_("Hay un precio que no es un número válido."))))
+                pres = talla.presentation
+                canal = (canales_in[i] if i < len(canales_in) else "") or False
+                if pres == "entero":
+                    canal = False
+                elif not canal:
+                    canal = "directa"
+                cal = (calid_in[i] if i < len(calid_in) else "") or ""
+                permit = CAL.get(pres, ())
+                if permit and cal not in permit:
+                    cal = permit[0]
+                clave = (talla.id, canal, cal or "a")
+                if clave not in orden:
+                    secuencia.append(clave)
+                orden[clave] = {
+                    "size_grade_id": talla.id,
+                    "channel": canal,
+                    "quality": cal or "a",
+                    "uom": UOM.get(pres, "lb"),
+                    "price": precio,
+                }
+            vals["line_ids"] = [(5, 0, 0)] + [(0, 0, orden[c]) for c in secuencia]
+
         try:
             if lista:
                 lista.write(vals)
@@ -383,9 +500,9 @@ class ShrimpPriceListPortal(http.Controller):
                 vals["issuer_partner_id"] = self._partner().id
                 lista = L.create(vals)
         except (ValidationError, UserError) as e:
-            destino = "/marketplace/listas-de-precios/%s" % ref if ref \
+            destino = "/marketplace/listas-de-precios/%s/editar" % lista.uuid_ref if lista \
                 else "/marketplace/listas-de-precios/nueva"
-            return request.redirect("%s?error=%s" % (destino, (e.args[0] if e.args else "")))
+            return request.redirect("%s?error=%s" % (destino, quote(e.args[0] if e.args else "")))
 
         return request.redirect(
             "/marketplace/listas-de-precios/%s/editar?mensaje=guardada" % lista.uuid_ref)
@@ -394,8 +511,16 @@ class ShrimpPriceListPortal(http.Controller):
                 website=True)
     def price_list_edit(self, ref, **kw):
         lista = self._mi_lista(ref, editable=True)
+        # Borrador recién creado y sin tocar: mostramos Referencia y Fecha de
+        # emisión en blanco (aunque en BD lleven un valor por defecto válido,
+        # porque el modelo los exige). El guardado repone los defaults si el
+        # usuario los deja vacíos.
+        es_nueva = (lista.state == "draft" and lista.name == _("Lista de precios")
+                    and not lista.line_ids and not lista.bonus_ids
+                    and not lista.recipient_ids)
         return request.render("shrimp_packer.price_list_form", {
             "lista": lista,
+            "es_nueva": es_nueva,
             "tallas": request.env["shrimp.size.grade"].sudo().search(
                 [("active", "=", True)], order="presentation, sequence, name"),
             "mensaje": kw.get("mensaje"),
@@ -586,6 +711,22 @@ class ShrimpPriceListPortal(http.Controller):
         lista = self._mi_lista(ref, editable=True)
         lista.action_archive_list()
         return request.redirect("/marketplace/listas-de-precios?mensaje=archivada")
+
+    @http.route("/marketplace/listas-de-precios/<ref>/despublicar", type="http",
+                auth="user", website=True, methods=["POST"], csrf=True)
+    def price_list_unpublish(self, ref, **post):
+        """Quita la lista de la vista de los destinatarios devolviéndola a
+        borrador, para corregirla y volver a publicar."""
+        lista = self._mi_lista(ref, editable=True)
+        lista.action_back_to_draft()
+        return request.redirect("/marketplace/listas-de-precios?mensaje=despublicada")
+
+    @http.route("/marketplace/listas-de-precios/<ref>/eliminar", type="http",
+                auth="user", website=True, methods=["POST"], csrf=True)
+    def price_list_delete(self, ref, **post):
+        lista = self._mi_lista(ref, editable=True)
+        lista.unlink()
+        return request.redirect("/marketplace/listas-de-precios?mensaje=eliminada")
 
 
 class ShrimpPackerAccount(ShrimpAccountPortalController):

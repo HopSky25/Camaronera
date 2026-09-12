@@ -64,6 +64,64 @@ class ShrimpTransaction(models.Model):
     price_unit = fields.Float(string="Precio unitario", tracking=True)
     amount_total = fields.Float(string="Total pagado", tracking=True)
 
+    # Factura de la compra (account.move). Se genera bajo demanda al descargarla.
+    invoice_id = fields.Many2one("account.move", string="Factura", readonly=True, copy=False)
+
+    def _get_mkt_sale_product(self):
+        """Producto de servicio para facturar la compra del marketplace.
+        Se crea una sola vez (patrón idéntico al de la comisión)."""
+        prod = self.env.ref("shrimp_marketplace.product_marketplace_sale",
+                            raise_if_not_found=False)
+        if prod:
+            return prod
+        tmpl = self.env["product.template"].sudo().create({
+            "name": "Compra marketplace",
+            "type": "service",
+            "invoice_policy": "order",
+            "list_price": 0.0,
+            "sale_ok": True,
+            "purchase_ok": False,
+            "default_code": "COMPRA-MKT",
+        })
+        variant = tmpl.product_variant_id
+        self.env["ir.model.data"].sudo().create({
+            "name": "product_marketplace_sale",
+            "module": "shrimp_marketplace",
+            "model": "product.product",
+            "res_id": variant.id,
+            "noupdate": True,
+        })
+        return variant
+
+    def action_generar_factura(self):
+        """Genera (si no existe) la factura contabilizada de la compra. El
+        cliente es el COMPRADOR. Devuelve el account.move."""
+        self.ensure_one()
+        if self.invoice_id:
+            return self.invoice_id
+        if not self.buyer_partner_id:
+            return False
+        product = self._get_mkt_sale_product()
+        qty = self.sold_qty or self.transaction_qty or self.desired_qty or 1.0
+        Sale = self.env["sale.order"].sudo()
+        so = Sale.create({
+            "partner_id": self.buyer_partner_id.id,
+            "client_order_ref": self.name,
+            "order_line": [(0, 0, {
+                "product_id": product.id,
+                "name": self.product_id.display_name or self.name,
+                "product_uom_qty": qty,
+                "price_unit": self.price_unit or 0.0,
+                "tax_ids": [(6, 0, [])],
+            })],
+        })
+        so.action_confirm()
+        invoice = so._create_invoices()
+        if invoice:
+            invoice.action_post()
+            self.invoice_id = invoice.id
+        return invoice
+
     stock_move_ids = fields.One2many(
         "shrimp.stock.move",
         "transaction_id",

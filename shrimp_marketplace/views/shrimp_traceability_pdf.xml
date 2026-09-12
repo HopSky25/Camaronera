@@ -116,6 +116,31 @@
                             </table>
                         </div>
 
+                        <!-- Origen y lote del producto -->
+                        <t t-set="prod" t-value="doc.product_id"/>
+                        <t t-if="prod.origin_facility_id or prod.origin_pond_id or prod.batch_code or prod.production_date or prod.traceability_notes">
+                            <div class="st-card">
+                                <table>
+                                    <tr>
+                                        <td class="st-k">Instalación de origen</td>
+                                        <td class="st-v"><t t-esc="prod.origin_facility_id.name or '—'"/></td>
+                                        <td class="st-k">Piscina de origen</td>
+                                        <td class="st-v"><t t-esc="prod.origin_pond_id.name or '—'"/></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="st-k">Código de lote</td>
+                                        <td class="st-v"><t t-esc="prod.batch_code or '—'"/></td>
+                                        <td class="st-k">Fecha de producción</td>
+                                        <td class="st-v"><t t-esc="prod.production_date or '—'"/></td>
+                                    </tr>
+                                    <tr t-if="prod.traceability_notes">
+                                        <td class="st-k">Notas</td>
+                                        <td class="st-v" colspan="3"><t t-esc="prod.traceability_notes"/></td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </t>
+
                         <!-- Gráfico: cadena de custodia -->
                         <div class="st-sec">1. Cadena de custodia</div>
                         <div class="st-chain">

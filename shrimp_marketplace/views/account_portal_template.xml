@@ -6,14 +6,17 @@
     <template id="my_account" name="Marketplace - Mi cuenta">
         <t t-call="website.layout">
             <div class="shrimp-bg">
-                <div class="shrimp-page py-4" style="max-width:980px;">
+                <div class="shrimp-page py-4 sf-fields" style="max-width:980px;">
+
+                    <!-- Visor de certificado (modal PDF) -->
+                    <t t-call="shrimp_marketplace.cert_viewer"/>
 
                     <!-- Banner -->
                     <div class="sf-banner mb-4">
                         <div class="sf-banner-row">
                             <div class="sf-banner-txt">
                                 <h1>Mi cuenta</h1>
-                                <p>Actualiza tus datos de contacto y la información de tu empresa.</p>
+                                <p>Actualiza tus datos de contacto, tu empresa y tus certificados.</p>
                             </div>
                             <span class="sf-kicker"><i class="fa fa-user-o"></i> Perfil</span>
                         </div>
@@ -31,7 +34,16 @@
                     <!-- Cualquier otro motivo llega ya redactado desde el
                          modelo ("La razón social es obligatoria"), que es más
                          útil que un mensaje genérico. -->
-                    <t t-elif="error and error != 'email'">
+                    <t t-if="error == 'cert'">
+                        <div class="alert alert-danger" style="border-radius:14px;">El certificado seleccionado no es válido para tu tipo de usuario.</div>
+                    </t>
+                    <t t-elif="error == 'file'">
+                        <div class="alert alert-danger" style="border-radius:14px;">Debes adjuntar un archivo válido (PDF, JPG o PNG).</div>
+                    </t>
+                    <t t-elif="error == 'validation'">
+                        <div class="alert alert-danger" style="border-radius:14px;"><t t-esc="message or 'No se pudo completar la operación.'"/></div>
+                    </t>
+                    <t t-elif="error and error not in ('email', 'duplicate')">
                         <div class="alert alert-danger" style="border-radius:14px;"><t t-esc="error"/></div>
                     </t>
 
@@ -147,18 +159,190 @@
                             </div>
                         </t>
 
-                        <div class="d-flex flex-wrap gap-2">
+                        <div class="d-flex flex-wrap gap-2" id="mpAccountActions">
                             <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-check me-1"></i> Guardar cambios</button>
-                            <a class="s-btn s-btn-ghost" href="/marketplace/mis-certificados"><i class="fa fa-certificate me-1"></i> Mis certificados</a>
                         </div>
                     </form>
+
+                    <!-- ===== Certificados (unificados aquí) ===== -->
+                    <div class="mp-table-card mt-4">
+                        <div class="card-body p-4">
+                            <div class="mp-sec-head">
+                                <span class="mp-sec-ico"><i class="fa fa-certificate"></i></span>
+                                <h3 class="mp-sec-title">Mis certificados</h3>
+                                <button type="button" class="s-btn s-btn-primary btn-sm mp-sec-count uc-add-btn">
+                                    <i class="fa fa-plus me-1"></i> Agregar certificado
+                                </button>
+                            </div>
+
+                            <t t-if="not lines">
+                                <div class="s-empty text-muted small mt-1">Aún no has cargado certificados. Usa «Agregar certificado».</div>
+                            </t>
+                            <t t-if="lines">
+                                <div class="table-responsive">
+                                    <table class="table sv-table align-middle mb-0">
+                                        <thead>
+                                            <tr><th>Certificado</th><th>Número</th><th>Emisión</th><th>Expiración</th><th>Estado</th><th class="text-end">Acciones</th></tr>
+                                        </thead>
+                                        <tbody>
+                                            <t t-foreach="lines" t-as="line">
+                                                <tr>
+                                                    <td>
+                                                        <div class="fw-semibold"><t t-esc="line.certificate_id.name"/></div>
+                                                        <div class="text-muted small"><t t-esc="line.issuer or ''"/></div>
+                                                    </td>
+                                                    <td><t t-esc="line.certificate_number or '—'"/></td>
+                                                    <td><t t-esc="line.issue_date or '—'"/></td>
+                                                    <td>
+                                                        <t t-esc="line.expiry_date or '—'"/>
+                                                        <t t-if="line.expiry_date and line.expiry_date &lt; today">
+                                                            <span class="s-badge ms-1" style="background:rgba(220,53,69,.10); color:#dc3545;">Vencido</span>
+                                                        </t>
+                                                        <t t-elif="line.expiry_date and (line.expiry_date - today).days &lt;= 30">
+                                                            <span class="s-badge ms-1" style="background:#fdf1e0; color:#a86a10;">Por vencer</span>
+                                                        </t>
+                                                    </td>
+                                                    <td>
+                                                        <t t-if="line.status == 'approved'"><span class="s-badge s-badge--green">Aprobado</span></t>
+                                                        <t t-elif="line.status == 'rejected'"><span class="s-badge" style="background:rgba(220,53,69,.10); color:#dc3545;">Rechazado</span></t>
+                                                        <t t-else=""><span class="s-badge">Pendiente</span></t>
+                                                    </td>
+                                                    <td class="text-end">
+                                                        <button type="button" class="s-btn s-btn-ghost btn-sm uc-edit-btn" title="Editar / renovar"
+                                                                t-att-data-id="line.id"
+                                                                t-att-data-cert="line.certificate_id.id"
+                                                                t-att-data-certname="line.certificate_id.name"
+                                                                t-att-data-number="line.certificate_number or ''"
+                                                                t-att-data-issue="line.issue_date or ''"
+                                                                t-att-data-expiry="line.expiry_date or ''">
+                                                            <i class="fa fa-pencil"></i>
+                                                        </button>
+                                                        <button type="button" class="s-btn s-btn-ghost btn-sm js-cert-view" title="Ver PDF"
+                                                                t-att-data-url="'/marketplace/my-certificate/%s/file' % line.id">
+                                                            <i class="fa fa-file-pdf-o"></i>
+                                                        </button>
+                                                        <button type="button" class="s-btn s-btn-danger btn-sm uc-del-btn" title="Eliminar"
+                                                                t-att-data-id="line.id" t-att-data-name="line.certificate_id.name">
+                                                            <i class="fa fa-trash"></i>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            </t>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </t>
+                        </div>
+                    </div>
+
+                    <!-- Modal: agregar / editar (renovar) certificado -->
+                    <div id="ucModal" class="sf-modal">
+                        <div class="sf-modal-card" style="max-width:560px; text-align:left;">
+                            <h3 class="sf-modal-title mb-3" id="ucModalTitle">Agregar certificado</h3>
+                            <form method="post" id="ucForm" enctype="multipart/form-data" class="row g-3" action="/marketplace/mis-certificados/agregar">
+                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                <div class="col-12" id="ucCertSelectWrap">
+                                    <label class="form-label">Certificado <span class="text-danger">*</span></label>
+                                    <select class="form-select" name="certificate_id" id="ucCert">
+                                        <option value="">Selecciona…</option>
+                                        <t t-foreach="certificates" t-as="c">
+                                            <option t-att-value="c.id"><t t-esc="c.name"/></option>
+                                        </t>
+                                    </select>
+                                    <div class="form-text" id="ucCertFixed" style="display:none;"></div>
+                                </div>
+                                <div class="col-md-6"><label class="form-label">Número</label>
+                                    <input class="form-control" type="text" name="certificate_number" id="ucNumber"/></div>
+                                <div class="col-md-3"><label class="form-label">Emisión</label>
+                                    <input class="form-control" type="date" name="issue_date" id="ucIssue"/></div>
+                                <div class="col-md-3"><label class="form-label">Expira</label>
+                                    <input class="form-control" type="date" name="expiry_date" id="ucExpiry"/></div>
+                                <div class="col-12"><label class="form-label">Archivo (PDF/JPG/PNG) <span id="ucFileReq" class="text-danger">*</span></label>
+                                    <input class="form-control" type="file" name="file" id="ucFile" accept=".pdf,.jpg,.jpeg,.png"/>
+                                    <div class="form-text" id="ucFileHint"></div></div>
+                                <div class="col-12 d-flex justify-content-end gap-2">
+                                    <button type="button" class="s-btn s-btn-ghost" data-close-modal="ucModal">Cancelar</button>
+                                    <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-check me-1"></i> Guardar</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Modal: confirmar eliminación -->
+                    <div id="ucDelModal" class="sf-modal">
+                        <div class="sf-modal-card">
+                            <div class="sf-modal-ico"><i class="fa fa-exclamation-triangle"></i></div>
+                            <h3 class="sf-modal-title">Eliminar certificado</h3>
+                            <p class="sf-modal-msg">¿Seguro que quieres eliminar «<strong id="ucDelName"></strong>»? Esta acción no se puede deshacer.</p>
+                            <div class="sf-modal-actions">
+                                <button type="button" class="s-btn s-btn-ghost" data-close-modal="ucDelModal">Cancelar</button>
+                                <form method="post" id="ucDelForm" class="d-inline">
+                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                    <button type="submit" class="s-btn s-btn-danger"><i class="fa fa-trash me-1"></i> Eliminar</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <script type="text/javascript">
+                        (function () {
+                            function openM(id){ var m=document.getElementById(id); if(m) m.classList.add("open"); }
+                            function closeM(id){ var m=document.getElementById(id); if(m) m.classList.remove("open"); }
+                            document.querySelectorAll("[data-close-modal]").forEach(function(b){
+                                b.addEventListener("click", function(){ closeM(b.getAttribute("data-close-modal")); });
+                            });
+                            ["ucModal","ucDelModal"].forEach(function(id){
+                                var m=document.getElementById(id);
+                                if(m){ m.addEventListener("click", function(e){ if(e.target===m) closeM(id); }); }
+                            });
+                            var form=document.getElementById("ucForm");
+                            var addBtn=document.querySelector(".uc-add-btn");
+                            if(addBtn&amp;&amp;form){ addBtn.addEventListener("click", function(){
+                                document.getElementById("ucModalTitle").textContent="Agregar certificado";
+                                form.action="/marketplace/mis-certificados/agregar";
+                                document.getElementById("ucCertSelectWrap").style.display="";
+                                document.getElementById("ucCert").disabled=false;
+                                document.getElementById("ucCert").value="";
+                                document.getElementById("ucCertFixed").style.display="none";
+                                document.getElementById("ucNumber").value="";
+                                document.getElementById("ucIssue").value="";
+                                document.getElementById("ucExpiry").value="";
+                                document.getElementById("ucFile").value="";
+                                document.getElementById("ucFileReq").style.display="";
+                                document.getElementById("ucFileHint").textContent="";
+                                openM("ucModal");
+                            }); }
+                            document.querySelectorAll(".uc-edit-btn").forEach(function(b){ if(!form) return; b.addEventListener("click", function(){
+                                document.getElementById("ucModalTitle").textContent="Editar / renovar certificado";
+                                form.action="/marketplace/mis-certificados/"+b.getAttribute("data-id")+"/renovar";
+                                // El tipo de certificado no cambia al renovar: se muestra fijo.
+                                var sel=document.getElementById("ucCert");
+                                sel.value=b.getAttribute("data-cert")||""; sel.disabled=true;
+                                document.getElementById("ucCertFixed").textContent=b.getAttribute("data-certname")||"";
+                                document.getElementById("ucCertFixed").style.display="";
+                                document.getElementById("ucNumber").value=b.getAttribute("data-number")||"";
+                                document.getElementById("ucIssue").value=b.getAttribute("data-issue")||"";
+                                document.getElementById("ucExpiry").value=b.getAttribute("data-expiry")||"";
+                                document.getElementById("ucFile").value="";
+                                document.getElementById("ucFileReq").style.display="none";
+                                document.getElementById("ucFileHint").textContent="Deja vacío para conservar el archivo actual.";
+                                openM("ucModal");
+                            }); });
+                            var delForm=document.getElementById("ucDelForm");
+                            document.querySelectorAll(".uc-del-btn").forEach(function(b){ if(!delForm) return; b.addEventListener("click", function(){
+                                delForm.action="/marketplace/mis-certificados/"+b.getAttribute("data-id")+"/eliminar";
+                                document.getElementById("ucDelName").textContent=b.getAttribute("data-name")||"";
+                                openM("ucDelModal");
+                            }); });
+                        })();
+                    </script>
                 </div>
             </div>
         </t>
     </template>
 
     <!-- ============================================================ -->
-    <!-- 2) MIS CERTIFICADOS                                          -->
+    <!-- 2) MIS CERTIFICADOS (legacy, ahora redirige a Mi cuenta)     -->
     <!-- ============================================================ -->
     <template id="my_certificates" name="Marketplace - Mis certificados">
         <t t-call="website.layout">
@@ -450,9 +634,9 @@
                                     <div class="mp-sec-head" style="margin-bottom:12px;">
                                         <span class="mp-sec-ico"><i class="fa fa-building-o"></i></span>
                                         <h3 class="mp-sec-title">Instalaciones</h3>
-                                        <a class="s-btn s-btn-primary btn-sm mp-sec-count" href="/marketplace/mis-instalaciones?new=1" title="Nueva instalación">
+                                        <button type="button" class="s-btn s-btn-primary btn-sm mp-sec-count fac-new-btn" title="Nueva instalación">
                                             <i class="fa fa-plus me-1"></i> Nueva
-                                        </a>
+                                        </button>
                                     </div>
 
                                     <t t-if="facilities">
@@ -484,8 +668,8 @@
 
                         <!-- ===== DERECHA: crear / ver instalación ===== -->
                         <div class="sf-fac-main-col">
-                            <t t-if="is_new">
-                                <!-- FORMULARIO: nueva instalación -->
+                            <t t-if="False">
+                                <!-- FORMULARIO: nueva instalación (reemplazado por modal) -->
                                 <div class="mp-table-card">
                                     <div class="card-body p-4">
                                         <div class="mp-sec-head">
@@ -547,8 +731,8 @@
                                     </div>
                                 </div>
                             </t>
-                            <t t-elif="is_edit_fac and sel_facility">
-                                <!-- FORMULARIO: editar instalación -->
+                            <t t-elif="False">
+                                <!-- FORMULARIO: editar instalación (reemplazado por modal) -->
                                 <div class="mp-table-card">
                                     <div class="card-body p-4">
                                         <div class="mp-sec-head">
@@ -612,10 +796,15 @@
                                         <div class="mp-sec-head">
                                             <span class="mp-sec-ico"><i class="fa fa-building"></i></span>
                                             <h3 class="mp-sec-title"><t t-esc="sel_facility.name"/></h3>
-                                            <a class="s-btn s-btn-ghost btn-sm mp-sec-count"
-                                               t-att-href="'/marketplace/mis-instalaciones?facility=%s&amp;edit=1' % sel_facility.id">
+                                            <button type="button" class="s-btn s-btn-ghost btn-sm mp-sec-count fac-edit-btn"
+                                                    t-att-data-id="sel_facility.id"
+                                                    t-att-data-name="sel_facility.name"
+                                                    t-att-data-type="sel_facility.facility_type"
+                                                    t-att-data-city="sel_facility.city or ''"
+                                                    t-att-data-code="sel_facility.code or ''"
+                                                    t-att-data-address="sel_facility.address or ''">
                                                 <i class="fa fa-pencil me-1"></i> Editar
-                                            </a>
+                                            </button>
                                         </div>
                                         <div class="mp-spec-grid">
                                             <div class="mp-spec">
@@ -656,7 +845,9 @@
                                         <div class="mp-sec-head">
                                             <span class="mp-sec-ico"><i class="fa fa-tint"></i></span>
                                             <h3 class="mp-sec-title">Piscinas</h3>
-                                            <t t-if="sel_ponds"><span class="s-badge s-badge--teal mp-sec-count"><t t-esc="len(sel_ponds)"/></span></t>
+                                            <button type="button" class="s-btn s-btn-primary btn-sm mp-sec-count pond-new-btn" title="Nueva piscina">
+                                                <i class="fa fa-plus me-1"></i> Nueva piscina
+                                            </button>
                                         </div>
 
                                         <t t-if="sel_ponds">
@@ -682,10 +873,18 @@
                                                                 <td><t t-esc="round(p.area_m2, 1)"/> m²</td>
                                                                 <td><t t-esc="round(p.volume_m3, 1)"/> m³</td>
                                                                 <td class="text-end">
-                                                                    <a class="sf-fac-del" style="text-decoration:none;" title="Editar"
-                                                                        t-att-href="'/marketplace/mis-instalaciones?facility=%s&amp;edit_pond=%s' % (sel_facility.id, p.id)">
+                                                                    <button type="button" class="sf-fac-del pond-edit-btn" style="text-decoration:none;" title="Editar"
+                                                                        t-att-data-id="p.id"
+                                                                        t-att-data-name="p.name or ''"
+                                                                        t-att-data-type="p.pond_type or 'earth'"
+                                                                        t-att-data-mode="p.capacity_mode or 'dimensions'"
+                                                                        t-att-data-length="p.length_m or ''"
+                                                                        t-att-data-width="p.width_m or ''"
+                                                                        t-att-data-depth="p.depth_m or ''"
+                                                                        t-att-data-volume="p.manual_volume_m3 or ''"
+                                                                        t-att-data-location="p.location or ''">
                                                                         <i class="fa fa-pencil"></i>
-                                                                    </a>
+                                                                    </button>
                                                                     <button type="button" class="sf-fac-del sf-del-btn" title="Eliminar"
                                                                         t-att-data-url="'/marketplace/mis-instalaciones/pond/%s/eliminar' % p.id"
                                                                         data-msg="Se eliminará la piscina. Esta acción no se puede deshacer.">
@@ -702,9 +901,8 @@
                                             <div class="text-muted" style="font-size:13px; padding:4px 2px 12px;">Esta instalación aún no tiene piscinas.</div>
                                         </t>
 
-                                        <hr class="my-3"/>
-                                        <t t-if="edit_pond">
-                                            <!-- FORMULARIO: editar piscina -->
+                                        <t t-if="False">
+                                            <!-- FORMULARIO: editar piscina (reemplazado por modal) -->
                                             <div class="s-eyebrow mb-2"><i class="fa fa-pencil me-1"></i> Editar piscina: <t t-esc="edit_pond.name"/></div>
                                             <form method="post" t-att-action="'/marketplace/mis-instalaciones/pond/%s/actualizar' % edit_pond.id"
                                                 enctype="multipart/form-data" class="row g-2 mt-1 sf" id="sfPondForm">
@@ -764,7 +962,7 @@
                                                 </div>
                                             </form>
                                         </t>
-                                        <t t-else="">
+                                        <t t-elif="False">
                                         <details class="sf-add">
                                             <summary class="sf-add-toggle"><i class="fa fa-plus me-1"></i> Agregar piscina</summary>
                                             <form method="post" action="/marketplace/mis-instalaciones/pond/crear"
@@ -838,6 +1036,80 @@
                         </div>
                     </div>
 
+                    <!-- Modal: nueva / editar instalación -->
+                    <div id="facModal" class="sf-modal">
+                        <div class="sf-modal-card" style="max-width:560px; text-align:left;">
+                            <h3 class="sf-modal-title mb-3" id="facModalTitle">Nueva instalación</h3>
+                            <form method="post" id="facForm" class="row g-3 sf" action="/marketplace/mis-instalaciones/facility/crear">
+                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                <div class="col-md-6"><label class="form-label" style="font-weight:800;">Nombre <span class="text-danger">*</span></label>
+                                    <input class="form-control" name="name" id="facName" required="required"/></div>
+                                <div class="col-md-6"><label class="form-label" style="font-weight:800;">Tipo</label>
+                                    <select class="form-select" name="facility_type" id="facType">
+                                        <option value="farm">Granja</option><option value="hatchery">Hatchery</option>
+                                        <option value="laboratory">Laboratorio</option><option value="warehouse">Bodega</option>
+                                        <option value="office">Oficina</option><option value="other">Otro</option>
+                                    </select></div>
+                                <div class="col-md-6"><label class="form-label" style="font-weight:800;">Provincia / Ciudad</label>
+                                    <select class="form-select" name="city" id="facCity">
+                                        <option value="">Selecciona…</option>
+                                        <t t-foreach="provinces" t-as="prov"><option t-att-value="prov"><t t-esc="prov"/></option></t>
+                                    </select></div>
+                                <div class="col-md-6"><label class="form-label" style="font-weight:800;">Código</label>
+                                    <input class="form-control" name="code" id="facCode"/></div>
+                                <div class="col-12"><label class="form-label" style="font-weight:800;">Dirección</label>
+                                    <input class="form-control" name="address" id="facAddress"/></div>
+                                <div class="col-12 d-flex justify-content-end gap-2">
+                                    <button type="button" class="s-btn s-btn-ghost" data-close-modal="facModal">Cancelar</button>
+                                    <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-check me-1"></i> Guardar</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Modal: nueva / editar piscina -->
+                    <t t-if="sel_facility">
+                        <div id="pondModal" class="sf-modal">
+                            <div class="sf-modal-card" style="max-width:640px; text-align:left;">
+                                <h3 class="sf-modal-title mb-3" id="pondModalTitle">Nueva piscina</h3>
+                                <form method="post" id="pondForm" enctype="multipart/form-data" class="row g-2 sf" action="/marketplace/mis-instalaciones/pond/crear">
+                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                    <input type="hidden" name="redirect_facility" t-att-value="sel_facility.id"/>
+                                    <input type="hidden" name="facility_id" id="pondFacilityId" t-att-value="sel_facility.id"/>
+                                    <div class="col-md-6"><label class="form-label" style="font-weight:800;">Nombre <span class="text-danger">*</span></label>
+                                        <input class="form-control" name="name" id="pondName" required="required"/></div>
+                                    <div class="col-md-6"><label class="form-label" style="font-weight:800;">Tipo</label>
+                                        <select class="form-select" name="pond_type" id="pondType">
+                                            <option value="earth">Tierra</option><option value="geomembrane">Geomembrana</option>
+                                            <option value="tank">Tanque</option><option value="raceway">Canal</option><option value="other">Otro</option>
+                                        </select></div>
+                                    <div class="col-md-6"><label class="form-label" style="font-weight:800;">Capacidad</label>
+                                        <select class="form-select" name="capacity_mode" id="sfPondMode">
+                                            <option value="dimensions">Por dimensiones</option>
+                                            <option value="volume">Volumen directo</option>
+                                        </select></div>
+                                    <div class="col-md-6"></div>
+                                    <div class="col-md-4 sf-pond-dims"><label class="form-label" style="font-weight:800;">Largo (m)</label>
+                                        <input class="form-control" type="number" step="0.01" name="length_m" id="pondLen"/></div>
+                                    <div class="col-md-4 sf-pond-dims"><label class="form-label" style="font-weight:800;">Ancho (m)</label>
+                                        <input class="form-control" type="number" step="0.01" name="width_m" id="pondWid"/></div>
+                                    <div class="col-md-4 sf-pond-dims"><label class="form-label" style="font-weight:800;">Prof. (m)</label>
+                                        <input class="form-control" type="number" step="0.01" name="depth_m" id="pondDep"/></div>
+                                    <div class="col-md-6 sf-pond-vol" style="display:none;"><label class="form-label" style="font-weight:800;">Volumen (m³)</label>
+                                        <input class="form-control" type="number" step="0.01" name="manual_volume_m3" id="pondVol"/></div>
+                                    <div class="col-md-6"><label class="form-label" style="font-weight:800;">Ubicación</label>
+                                        <input class="form-control" name="location" id="pondLoc"/></div>
+                                    <div class="col-md-6"><label class="form-label" style="font-weight:800;">Foto <span id="pondImgHint" class="text-muted" style="font-weight:500;"></span></label>
+                                        <input class="form-control" type="file" name="image" accept="image/*"/></div>
+                                    <div class="col-12 d-flex justify-content-end gap-2">
+                                        <button type="button" class="s-btn s-btn-ghost" data-close-modal="pondModal">Cancelar</button>
+                                        <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-check me-1"></i> Guardar</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </t>
+
                     <!-- Formulario oculto + modal de confirmación de borrado -->
                     <form id="sfDelForm" method="post" style="display:none;">
                         <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
@@ -870,6 +1142,68 @@
       mode.addEventListener("change",applyMode);
       applyMode();
     }
+
+    // ---- Modales de instalación / piscina ----
+    function openM(id){ var m=document.getElementById(id); if(m) m.classList.add("open"); }
+    function closeM(id){ var m=document.getElementById(id); if(m) m.classList.remove("open"); }
+    document.querySelectorAll("[data-close-modal]").forEach(function(b){
+      b.addEventListener("click", function(){ closeM(b.getAttribute("data-close-modal")); });
+    });
+    ["facModal","pondModal"].forEach(function(id){
+      var m=document.getElementById(id);
+      if(m){ m.addEventListener("click", function(e){ if(e.target===m) closeM(id); }); }
+    });
+    var facForm=document.getElementById("facForm");
+    var facNew=document.querySelector(".fac-new-btn");
+    if(facNew&&facForm){ facNew.addEventListener("click", function(){
+      document.getElementById("facModalTitle").textContent="Nueva instalación";
+      facForm.action="/marketplace/mis-instalaciones/facility/crear";
+      document.getElementById("facName").value="";
+      document.getElementById("facType").value="farm";
+      document.getElementById("facCity").value="";
+      document.getElementById("facCode").value="";
+      document.getElementById("facAddress").value="";
+      openM("facModal");
+    }); }
+    var facEdit=document.querySelector(".fac-edit-btn");
+    if(facEdit&&facForm){ facEdit.addEventListener("click", function(){
+      document.getElementById("facModalTitle").textContent="Editar instalación";
+      facForm.action="/marketplace/mis-instalaciones/facility/"+facEdit.getAttribute("data-id")+"/actualizar";
+      document.getElementById("facName").value=facEdit.getAttribute("data-name")||"";
+      document.getElementById("facType").value=facEdit.getAttribute("data-type")||"farm";
+      document.getElementById("facCity").value=facEdit.getAttribute("data-city")||"";
+      document.getElementById("facCode").value=facEdit.getAttribute("data-code")||"";
+      document.getElementById("facAddress").value=facEdit.getAttribute("data-address")||"";
+      openM("facModal");
+    }); }
+    var pondForm=document.getElementById("pondForm");
+    function setPondMode(v){ var el=document.getElementById("sfPondMode"); if(el){ el.value=v; el.dispatchEvent(new Event("change")); } }
+    var pondNew=document.querySelector(".pond-new-btn");
+    if(pondNew&&pondForm){ pondNew.addEventListener("click", function(){
+      document.getElementById("pondModalTitle").textContent="Nueva piscina";
+      pondForm.action="/marketplace/mis-instalaciones/pond/crear";
+      document.getElementById("pondName").value="";
+      document.getElementById("pondType").value="earth";
+      ["pondLen","pondWid","pondDep","pondVol","pondLoc"].forEach(function(i){ var el=document.getElementById(i); if(el) el.value=""; });
+      var h=document.getElementById("pondImgHint"); if(h) h.textContent="(opcional)";
+      setPondMode("dimensions");
+      openM("pondModal");
+    }); }
+    document.querySelectorAll(".pond-edit-btn").forEach(function(b){ if(!pondForm) return; b.addEventListener("click", function(){
+      document.getElementById("pondModalTitle").textContent="Editar piscina";
+      pondForm.action="/marketplace/mis-instalaciones/pond/"+b.getAttribute("data-id")+"/actualizar";
+      document.getElementById("pondName").value=b.getAttribute("data-name")||"";
+      document.getElementById("pondType").value=b.getAttribute("data-type")||"earth";
+      document.getElementById("pondLen").value=b.getAttribute("data-length")||"";
+      document.getElementById("pondWid").value=b.getAttribute("data-width")||"";
+      document.getElementById("pondDep").value=b.getAttribute("data-depth")||"";
+      document.getElementById("pondVol").value=b.getAttribute("data-volume")||"";
+      document.getElementById("pondLoc").value=b.getAttribute("data-location")||"";
+      var h=document.getElementById("pondImgHint"); if(h) h.textContent="(deja vacío para conservar la actual)";
+      setPondMode(b.getAttribute("data-mode")||"dimensions");
+      openM("pondModal");
+    }); });
+
     var modal=document.getElementById("sfConfirm");
     var form=document.getElementById("sfDelForm");
     if(!modal||!form) return;
@@ -960,7 +1294,7 @@
                                             <tr>
                                                 <th>Referencia</th><th>Producto</th><th>Tu rol</th>
                                                 <th>Vendedor</th><th>Comprador</th>
-                                                <th>Cantidad</th><th>Estado</th>
+                                                <th>Cantidad</th><th>Estado</th><th class="text-end">Acción</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -983,6 +1317,11 @@
                                                         <t t-elif="r.state in ('requested', 'under_review')"><span class="s-badge" style="background:rgba(224,169,42,.14); color:#a97b12;"><t t-esc="state_label"/></span></t>
                                                         <t t-else=""><span class="s-badge"><t t-esc="state_label"/></span></t>
                                                     </td>
+                                                    <td class="text-end">
+                                                        <a class="s-btn s-btn-ghost btn-sm" t-att-href="'/marketplace/solicitudes/%s/detalle' % r.id">
+                                                            <i class="fa fa-eye me-1"></i> Ver Solicitud
+                                                        </a>
+                                                    </td>
                                                 </tr>
                                             </t>
                                         </tbody>
@@ -991,6 +1330,63 @@
                             </t>
                         </div>
                     </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <!-- Detalle completo de una solicitud de chequeo -->
+    <template id="check_request_detail" name="Detalle de solicitud de chequeo">
+        <t t-call="website.layout">
+            <div class="shrimp-bg">
+                <div class="shrimp-page py-4 sf-fields" style="max-width:1000px;">
+                    <a class="s-back mb-3" href="/marketplace/solicitudes"><i class="fa fa-arrow-left"></i><span>Volver a solicitudes</span></a>
+                    <div class="sf-banner mb-4"><div class="sf-banner-row">
+                        <div class="sf-banner-txt"><h1>Solicitud <t t-esc="cr.name"/></h1>
+                            <p>Detalle del chequeo solicitado.</p></div>
+                        <span class="sf-kicker"><i class="fa fa-search"></i> Chequeo</span>
+                    </div></div>
+
+                    <t t-if="message"><div class="alert alert-success"><t t-esc="message"/></div></t>
+                    <t t-if="error"><div class="alert alert-danger"><t t-esc="error"/></div></t>
+
+                    <div class="mp-table-card mb-4"><div class="card-body p-4">
+                        <div class="mp-sec-head"><span class="mp-sec-ico"><i class="fa fa-info-circle"></i></span><h3 class="mp-sec-title">Datos de la solicitud</h3></div>
+                        <div class="mp-spec-grid">
+                            <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-hashtag"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Referencia</div><div class="mp-spec-value"><t t-esc="cr.name"/></div></div></div>
+                            <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-flag"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Estado</div><div class="mp-spec-value"><t t-esc="dict(cr._fields['state'].selection).get(cr.state)"/></div></div></div>
+                            <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-cube"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Producto</div><div class="mp-spec-value"><a t-att-href="'/marketplace/product/%s' % cr.product_id.uuid_ref"><t t-esc="cr.product_id.name"/></a></div></div></div>
+                            <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-user-o"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Vendedor</div><div class="mp-spec-value"><t t-esc="cr.seller_partner_id.name"/></div></div></div>
+                            <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-user"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Comprador</div><div class="mp-spec-value"><t t-esc="cr.buyer_partner_id.name"/></div></div></div>
+                            <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-balance-scale"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Cantidad</div><div class="mp-spec-value"><t t-esc="cr.qty"/> <t t-esc="cr.uom_id.name or ''"/></div></div></div>
+                            <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-money"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Costo del chequeo</div><div class="mp-spec-value">$<t t-esc="'%.2f' % (cr.check_fee or 0.0)"/></div></div></div>
+                            <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-user-circle-o"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Encargado (revisó)</div><div class="mp-spec-value"><t t-esc="cr.reviewed_by.name or '—'"/></div></div></div>
+                            <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-calendar"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Fecha de revisión</div><div class="mp-spec-value"><t t-esc="cr.reviewed_date or '—'"/></div></div></div>
+                        </div>
+                        <t t-if="cr.note">
+                            <div class="mt-3"><div class="mp-spec-label">Notas</div><p class="mb-0"><t t-esc="cr.note"/></p></div>
+                        </t>
+                    </div></div>
+
+                    <t t-if="cr.transaction_id">
+                        <div class="mp-table-card mb-4"><div class="card-body p-4">
+                            <div class="mp-sec-head"><span class="mp-sec-ico"><i class="fa fa-exchange"></i></span><h3 class="mp-sec-title">Transacción generada</h3></div>
+                            <a class="s-btn s-btn-ghost" t-att-href="'/marketplace/thanks/%s' % cr.transaction_id.uuid_ref"><i class="fa fa-file-text-o me-1"></i> Ver comprobante</a>
+                        </div></div>
+                    </t>
+
+                    <t t-if="is_seller and cr.state in ('requested','under_review')">
+                        <div class="d-flex flex-wrap gap-2">
+                            <form method="post" class="d-inline" t-att-action="'/marketplace/solicitudes/%s/aprobar' % cr.id">
+                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-check me-1"></i> Aprobar</button>
+                            </form>
+                            <form method="post" class="d-inline" t-att-action="'/marketplace/solicitudes/%s/rechazar' % cr.id">
+                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                <button type="submit" class="s-btn s-btn-danger"><i class="fa fa-times me-1"></i> Rechazar</button>
+                            </form>
+                        </div>
+                    </t>
                 </div>
             </div>
         </t>
@@ -1037,9 +1433,53 @@
                                 <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-tag"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Etapa</div><div class="mp-spec-value"><t t-esc="tx.product_id.stage_id.name or '—'"/></div></div></div>
                                 <t t-if="tx.product_id.origin_facility_id"><div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-building"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Instalación de origen</div><div class="mp-spec-value"><t t-esc="tx.product_id.origin_facility_id.name"/></div></div></div></t>
                                 <t t-if="tx.product_id.origin_pond_id"><div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-tint"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Piscina de origen</div><div class="mp-spec-value"><t t-esc="tx.product_id.origin_pond_id.display_name"/></div></div></div></t>
+                                <t t-if="tx.product_id.batch_code"><div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-hashtag"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Código de lote</div><div class="mp-spec-value"><t t-esc="tx.product_id.batch_code"/></div></div></div></t>
+                                <t t-if="tx.product_id.production_date"><div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-calendar"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Fecha de producción</div><div class="mp-spec-value"><t t-esc="tx.product_id.production_date"/></div></div></div></t>
                             </div>
+                            <t t-if="tx.product_id.traceability_notes">
+                                <div class="mt-3"><div class="mp-spec-label">Notas de trazabilidad</div><p class="mb-0"><t t-esc="tx.product_id.traceability_notes"/></p></div>
+                            </t>
                         </div>
                     </div>
+
+                    <!-- Certificados del producto -->
+                    <t t-set="trz_certs" t-value="tx.product_id.certificate_line_ids"/>
+                    <t t-if="trz_certs">
+                        <div class="mp-table-card mb-4">
+                            <div class="card-body p-4">
+                                <div class="mp-sec-head">
+                                    <span class="mp-sec-ico"><i class="fa fa-certificate"></i></span>
+                                    <h3 class="mp-sec-title">Certificados del producto</h3>
+                                    <span class="s-badge mp-sec-count"><t t-esc="len(trz_certs)"/></span>
+                                </div>
+                                <div class="table-responsive">
+                                    <table class="table sv-table align-middle mb-0">
+                                        <thead><tr><th>Certificado</th><th>Entidad</th><th>N°</th><th>Emisión</th><th>Expira</th><th class="text-end">Ver</th></tr></thead>
+                                        <tbody>
+                                            <t t-foreach="trz_certs" t-as="pcl">
+                                                <tr>
+                                                    <td class="fw-semibold"><t t-esc="pcl.certificate_id.name"/></td>
+                                                    <td><t t-esc="pcl.issuer or '—'"/></td>
+                                                    <td><t t-esc="pcl.number or '—'"/></td>
+                                                    <td><t t-esc="pcl.issue_date or '—'"/></td>
+                                                    <td><t t-esc="pcl.expiry_date or '—'"/></td>
+                                                    <td class="text-end">
+                                                        <t t-if="pcl.attachment_id">
+                                                            <button type="button" class="s-btn s-btn-ghost btn-sm js-cert-view" title="Ver PDF"
+                                                                    t-att-data-url="'/marketplace/product/%s/certificate/%s' % (tx.product_id.uuid_ref, pcl.attachment_id.id)">
+                                                                <i class="fa fa-file-pdf-o"></i>
+                                                            </button>
+                                                        </t>
+                                                        <t t-else=""><span class="text-muted">—</span></t>
+                                                    </td>
+                                                </tr>
+                                            </t>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </t>
 
                     <!-- Evolución del producto -->
                     <div class="mp-table-card mb-4">

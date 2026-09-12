@@ -13,7 +13,7 @@ y portal público.
     'website': "https://www.yourcompany.com",
 
     'category': 'Sales/Marketplace',
-    'version': '1.3.1',
+    'version': '1.3.2',
 
     # any module necessary for this one to work correctly
     'depends': ["base", "website", "portal", "sale_management", "account", "shrimp_user_registry"],
@@ -48,6 +48,7 @@ y portal público.
 
         "views/components_template.xml",
         "views/website_menu.xml",
+        "data/menu_config.xml",
         "views/navbar_dropdown.xml",
         "views/landing_template.xml",
         "views/marketplace_public_template.xml",

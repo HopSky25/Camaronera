@@ -71,45 +71,13 @@ W._shrimp_build_verifier_menu(verif)
 # ---------------------------------------------------------------------------
 # Realinear los menús del sitio de la camaronera
 # ---------------------------------------------------------------------------
-# La barra superior del marketplace convierte tres menús —"Productos",
-# "Operaciones" y "Mi cuenta"— en desplegables, y los reconoce por el NOMBRE
-# literal del menú (shrimp_marketplace/views/navbar_dropdown.xml).
-#
-# Los website.menu de cada sitio son copias que Odoo saca al crearlo, así que
-# no siguen cambiando el registro del módulo. Cuando "Mi panel" se dividió en
-# los tres menús actuales, la copia del sitio 1 se quedó con el nombre viejo
-# apuntando a /my: el desplegable "Productos" dejó de coincidir y no se
-# renderizaba PARA NINGÚN ROL. Con él desaparecieron de la barra las seis
-# entradas que cuelgan de ahí —Publicar producto, Mis productos, Marketplace,
-# Mi inventario, Instalaciones y piscinas, Solicitudes de chequeo—, o sea
-# todo el trabajo del vendedor. Solo se llegaba escribiendo la URL.
-#
-# Se realinea cada copia con el registro del módulo por posición en la barra.
-MENU_CAMARONERA = {
-    "/marketplace": "Marketplace",
-    "/marketplace/products": "Productos",
-    "/marketplace/compras": "Operaciones",
-    "/marketplace/mi-cuenta": "Mi cuenta",
-}
-# El nombre viejo y la URL a la que quedó apuntando, para reconocer la copia
-# desalineada sin depender del id.
-RENOMBRADOS = {"Mi panel": ("/my", "/marketplace/products")}
-
-for sitio in W.search([]):
-    if sitio.shrimp_is_verifier_site:
-        continue
-    for menu in M.search([("website_id", "=", sitio.id), ("parent_id", "!=", False)]):
-        esperado = MENU_CAMARONERA.get(menu.url)
-        if esperado and menu.name != esperado:
-            print("  menú [%s] '%s' -> '%s'" % (sitio.id, menu.name, esperado))
-            menu.name = esperado
-            continue
-        arreglo = RENOMBRADOS.get(menu.name)
-        if arreglo and menu.url == arreglo[0]:
-            destino = arreglo[1]
-            print("  menú [%s] '%s' (%s) -> '%s' (%s)" % (
-                sitio.id, menu.name, menu.url, MENU_CAMARONERA[destino], destino))
-            menu.write({"name": MENU_CAMARONERA[destino], "url": destino})
+# La lógica vive en el módulo (shrimp_marketplace/models/website.py) y corre
+# sola en cada instalación y actualización vía data/menu_config.xml. Aquí
+# había una copia, y eso era el problema: el arreglo no viajaba con el código,
+# así que quien tomaba los cambios seguía sin ver el desplegable "Productos"
+# hasta que ejecutara este script a mano. Se deja solo la llamada.
+print("Menús del portal realineados:",
+      env["website"].sudo()._shrimp_alinear_menus_portal(), "corregidos")  # noqa: F821
 
 # ---------------------------------------------------------------------------
 # Sanear la personalizacion de tema del sitio

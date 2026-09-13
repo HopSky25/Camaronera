@@ -143,6 +143,9 @@ class ShrimpProductPortalController(http.Controller):
         Product = Product.with_context(active_test=False)
         domain = [
             ("seller_partner_id", "=", partner.id),
+            # Los eliminados (borrado lógico) quedan en histórico pero el usuario
+            # ya no los ve ni los puede reactivar.
+            ("state", "!=", "cancel"),
         ]
 
         if q:
@@ -697,9 +700,9 @@ class ShrimpProductPortalController(http.Controller):
 
     @http.route("/marketplace/products/<product_ref>/eliminar", type="http", auth="user", website=True, methods=["POST"], csrf=True)
     def marketplace_product_delete(self, product_ref, **post):
-        """Elimina definitivamente un producto SIN ventas. Si ya tiene compras
-        (hay movimiento y trazabilidad que conservar) no se borra: se archiva.
-        Si el borrado falla por dependencias, también cae a archivar."""
+        """Borrado lógico: el producto NO se elimina de la base de datos (se
+        conserva para histórico y trazabilidad), pero el usuario deja de verlo
+        y no puede reactivarlo. Se marca active=False + state='cancel'."""
         product = request.env["shrimp.product"].sudo().with_context(
             active_test=False).resolve_ref(product_ref)
         if not product:
@@ -707,15 +710,7 @@ class ShrimpProductPortalController(http.Controller):
         partner = self._get_current_partner()
         if product.seller_partner_id.id != partner.id and not self._is_internal():
             raise Forbidden()
-        if product.has_purchases():
-            product.write({"active": False, "state": "draft"})
-            return request.redirect("/marketplace/products?baja=1")
-        try:
-            with request.env.cr.savepoint():
-                product.unlink()
-        except Exception:
-            product.write({"active": False, "state": "draft"})
-            return request.redirect("/marketplace/products?baja=1")
+        product.write({"active": False, "state": "cancel"})
         return request.redirect("/marketplace/products?eliminado=1")
 
     @http.route("/marketplace/products/<product_ref>/reactivar", type="http", auth="user", website=True, methods=["POST"], csrf=True)

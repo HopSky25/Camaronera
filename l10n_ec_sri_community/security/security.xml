@@ -1,0 +1,22 @@
+<odoo>
+    <record id="rule_document_company" model="ir.rule">
+        <field name="name">SRI: empresas permitidas</field><field name="model_id" ref="model_ec_sri_document"/>
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_point_company" model="ir.rule">
+        <field name="name">SRI puntos: empresas permitidas</field><field name="model_id" ref="model_ec_sri_point"/>
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_retention_company" model="ir.rule">
+        <field name="name">SRI retenciones: empresas permitidas</field><field name="model_id" ref="model_ec_sri_retention_line"/>
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_event_company" model="ir.rule">
+        <field name="name">SRI historial: empresas permitidas</field><field name="model_id" ref="model_ec_sri_event"/>
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_report_company" model="ir.rule">
+        <field name="name">SRI reportes: empresas permitidas</field><field name="model_id" ref="model_ec_sri_report_wizard"/>
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+    </record>
+</odoo>

@@ -1,0 +1,63 @@
+<odoo>
+    <record id="document_sri_list" model="ir.ui.view">
+        <field name="name">ec.sri.document.list</field><field name="model">ec.sri.document</field>
+        <field name="arch" type="xml"><list decoration-success="state == 'authorized'" decoration-danger="state in ('rejected','error')" decoration-muted="state == 'cancelled'">
+            <field name="date"/><field name="name"/><field name="partner_id"/><field name="document_type"/><field name="environment"/><field name="state" widget="badge"/><field name="attempts" optional="hide"/><field name="next_attempt" optional="hide"/><field name="company_id" groups="base.group_multi_company"/>
+        </list></field>
+    </record>
+    <record id="document_sri_search" model="ir.ui.view">
+        <field name="name">ec.sri.document.search</field><field name="model">ec.sri.document</field>
+        <field name="arch" type="xml"><search><field name="name"/><field name="partner_id"/><field name="access_key"/>
+            <filter name="pending" string="Pendientes" domain="[('state','in',['queued','waiting'])]"/>
+            <filter name="errors" string="Requieren revisión" domain="[('state','in',['error','rejected'])]"/>
+            <filter name="authorized" string="Autorizados" domain="[('state','=','authorized')]"/>
+            <filter name="by_state" string="Estado" context="{'group_by':'state'}"/>
+            <filter name="by_type" string="Tipo" context="{'group_by':'document_type'}"/>
+        </search></field>
+    </record>
+    <record id="document_sri_form" model="ir.ui.view">
+        <field name="name">ec.sri.document.form</field><field name="model">ec.sri.document</field>
+        <field name="arch" type="xml"><form>
+            <header>
+                <button name="action_queue" type="object" string="Validar, firmar y encolar" class="oe_highlight" invisible="state != 'draft'"/>
+                <button name="action_consult" type="object" string="Consultar autorización" invisible="not was_sent or state in ('authorized','cancelled')"/>
+                <button name="action_resume" type="object" string="Reanudar" invisible="state != 'error'"/>
+                <button name="action_correct" type="object" string="Corregir" invisible="state != 'rejected'"/>
+                <button name="action_ride" type="object" string="RIDE PDF" invisible="state not in ('authorized','cancelled')"/>
+                <field name="state" widget="statusbar" statusbar_visible="draft,queued,waiting,authorized"/>
+            </header>
+            <sheet>
+                <div class="alert alert-info" invisible="environment != '1'">AMBIENTE DE PRUEBAS — SIN VALIDEZ TRIBUTARIA</div>
+                <h1><field name="name"/></h1>
+                <group><group>
+                    <field name="company_id" readonly="state != 'draft' or access_key"/>
+                    <field name="partner_id" readonly="state != 'draft' or access_key"/>
+                    <field name="document_type" readonly="state != 'draft' or access_key"/>
+                    <field name="date" readonly="state != 'draft' or access_key"/>
+                    <field name="point_id" domain="[('company_id','=',company_id),('document_type','=',document_type)]" readonly="state != 'draft' or access_key"/>
+                    <field name="mode" readonly="state != 'draft' or access_key"/>
+                </group><group>
+                    <field name="move_id" invisible="document_type == '06'" readonly="state != 'draft' or access_key"/>
+                    <field name="picking_id" invisible="document_type != '06'" readonly="state != 'draft' or access_key"/>
+                    <field name="reason" invisible="document_type not in ('04','05')" readonly="state != 'draft'"/>
+                    <field name="period" invisible="document_type != '07'" readonly="state != 'draft'"/>
+                    <field name="environment"/><field name="authorization_number"/><field name="authorization_date"/>
+                </group></group>
+                <group><field name="access_key"/><field name="last_message"/></group>
+                <notebook>
+                    <page string="XML externo" invisible="mode != 'xml'"><group><field name="import_filename" invisible="1"/><field name="import_xml" filename="import_filename" readonly="state != 'draft'"/></group><p>Importe un XML completo sin firma para casos avanzados. Se valida contra los XSD oficiales. El registro contable se vincula por separado.</p></page>
+                    <page string="Retenciones" invisible="document_type != '07' or mode != 'native'">
+                        <field name="retention_ids" readonly="state != 'draft'"><list editable="bottom"><field name="tax_type"/><field name="retention_code"/><field name="base"/><field name="rate"/><field name="amount"/><field name="account_id"/><field name="base_box" optional="hide"/><field name="tax_box" optional="hide"/></list></field>
+                        <group><field name="retention_journal_id" readonly="retention_move_id"/><field name="retention_move_id" readonly="1"/></group>
+                        <button name="action_post_retention" type="object" string="Contabilizar retención" invisible="state != 'authorized' or retention_move_id" groups="account.group_account_manager"/>
+                    </page>
+                    <page string="Archivos"><group><field name="xml_filename" invisible="1"/><field name="authorized_filename" invisible="1"/><field name="unsigned_xml" filename="xml_filename"/><field name="signed_xml" filename="xml_filename"/><field name="authorized_xml" filename="authorized_filename"/><field name="payload_hash"/></group></page>
+                    <page string="Historial"><field name="event_ids"><list create="0" edit="0" delete="0"><field name="create_date"/><field name="operation"/><field name="description"/><field name="raw_response"/></list></field></page>
+                    <page string="Anulación" groups="account.group_account_manager"><p>Primero anule en el portal del SRI. Esta acción registra la constancia; no solicita la anulación al SRI ni revierte asientos.</p><group><field name="cancellation_reason"/><field name="cancellation_date"/><field name="cancellation_evidence"/></group><button name="action_record_cancellation" type="object" string="Registrar anulación realizada en SRI" invisible="state != 'authorized'"/></page>
+                    <page string="Cola"><group><field name="attempts"/><field name="next_attempt"/><field name="was_sent"/></group></page>
+                </notebook>
+            </sheet><chatter/>
+        </form></field>
+    </record>
+    <record id="action_sri_documents" model="ir.actions.act_window"><field name="name">Comprobantes SRI</field><field name="res_model">ec.sri.document</field><field name="view_mode">list,form</field></record>
+</odoo>

@@ -1,0 +1,24 @@
+<odoo>
+    <record id="action_report_ride" model="ir.actions.report">
+        <field name="name">RIDE SRI</field><field name="model">ec.sri.document</field><field name="report_type">qweb-pdf</field>
+        <field name="report_name">l10n_ec_sri_community.report_ride</field><field name="report_file">l10n_ec_sri_community.report_ride</field>
+        <field name="print_report_name">'RIDE-%s' % object.access_key</field>
+    </record>
+    <template id="report_ride">
+        <t t-call="web.html_container"><t t-foreach="docs" t-as="o"><t t-set="r" t-value="o._ride_data()"/>
+            <t t-call="web.external_layout"><div class="page">
+                <h2 t-esc="o.name"/>
+                <h3 t-if="o.environment == '1'">PRUEBAS — SIN VALIDEZ TRIBUTARIA</h3>
+                <h3 t-if="o.state == 'cancelled'">ANULADO</h3>
+                <p><strong t-esc="r['issuer'].get('razonSocial')"/><br/>RUC: <span t-esc="r['issuer'].get('ruc')"/><br/><span t-esc="r['issuer'].get('dirMatriz')"/></p>
+                <p>Autorización: <span t-esc="o.authorization_number"/><br/>Fecha de autorización: <span t-esc="o.authorization_date"/><br/>Ambiente: <span t-esc="'PRODUCCIÓN' if o.environment == '2' else 'PRUEBAS'"/> · Emisión: NORMAL</p>
+                <div style="text-align:center"><img t-att-src="'/report/barcode/Code128/%s?width=700&amp;height=70' % o.access_key" style="width:100%;height:55px"/><div style="font-size:10px" t-esc="o.access_key"/></div>
+                <table class="table table-sm" style="font-size:10px"><tbody><t t-foreach="r['issuer'].items()" t-as="entry"><tr t-if="entry[0] in ('nombreComercial','agenteRetencion','contribuyenteRimpe')"><th t-esc="entry[0]"/><td t-esc="entry[1]"/></tr></t></tbody></table>
+                <t t-foreach="r['sections']" t-as="section"><h4 t-esc="section[0]"/><table class="table table-sm" style="font-size:10px;table-layout:fixed"><tbody>
+                    <tr t-foreach="section[1]" t-as="row"><th style="width:55%;overflow-wrap:anywhere" t-esc="row[0]"/><td style="overflow-wrap:anywhere" t-esc="row[1]"/></tr>
+                </tbody></table></t>
+                <p style="font-size:9px">Representación impresa del comprobante electrónico autorizado. Conserve el XML autorizado.</p>
+            </div></t>
+        </t></t>
+    </template>
+</odoo>

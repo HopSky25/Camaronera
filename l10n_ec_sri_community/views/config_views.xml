@@ -1,0 +1,52 @@
+<odoo>
+    <record id="company_sri_form" model="ir.ui.view">
+        <field name="name">res.company.sri.community</field><field name="model">res.company</field>
+        <field name="inherit_id" ref="base.view_company_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="SRI Community" groups="account.group_account_manager">
+                    <group><group>
+                        <field name="ec_sri_enabled"/><field name="ec_sri_environment"/>
+                        <field name="ec_sri_production_ready" invisible="ec_sri_environment != '2'"/>
+                        <field name="ec_sri_trade_name"/><field name="ec_sri_address"/>
+                        <field name="ec_sri_accounting"/><field name="ec_sri_regime"/>
+                    </group><group>
+                        <field name="ec_sri_special"/><field name="ec_sri_agent"/><field name="ec_sri_provider_ruc"/>
+                        <field name="ec_sri_large_taxpayer"/><field name="ec_sri_establishments"/>
+                        <field name="ec_sri_secret_name" groups="base.group_system"/>
+                    </group></group>
+                    <p>El certificado y su contraseña se configuran en variables de entorno del servidor. Los comprobantes de pruebas no tienen validez tributaria.</p>
+                </page>
+            </xpath>
+        </field>
+    </record>
+    <record id="partner_sri_form" model="ir.ui.view">
+        <field name="name">res.partner.sri.community</field><field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml"><xpath expr="//field[@name='vat']" position="after">
+            <field name="ec_sri_identification_type"/><field name="ec_sri_related"/>
+        </xpath></field>
+    </record>
+    <record id="tax_sri_form" model="ir.ui.view">
+        <field name="name">account.tax.sri.community</field><field name="model">account.tax</field>
+        <field name="inherit_id" ref="account.view_tax_form"/>
+        <field name="arch" type="xml"><xpath expr="//sheet" position="inside">
+            <group string="SRI Community"><group><field name="ec_sri_tax_code"/><field name="ec_sri_percentage_code"/><field name="ec_sri_ats_bucket"/></group>
+            <group><field name="ec_sri_form"/><field name="ec_sri_base_box"/><field name="ec_sri_tax_box"/></group></group>
+        </xpath></field>
+    </record>
+    <record id="product_sri_form" model="ir.ui.view">
+        <field name="name">product.template.sri.community</field><field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_only_form_view"/>
+        <field name="arch" type="xml"><xpath expr="//sheet" position="inside"><group string="SRI"><field name="ec_sri_auxiliary_code"/></group></xpath></field>
+    </record>
+    <record id="point_sri_list" model="ir.ui.view">
+        <field name="name">ec.sri.point.list</field><field name="model">ec.sri.point</field>
+        <field name="arch" type="xml"><list><field name="name"/><field name="company_id" groups="base.group_multi_company"/><field name="establishment"/><field name="emission"/><field name="document_type"/><field name="environment"/></list></field>
+    </record>
+    <record id="point_sri_form" model="ir.ui.view">
+        <field name="name">ec.sri.point.form</field><field name="model">ec.sri.point</field>
+        <field name="arch" type="xml"><form><sheet><group><field name="name"/><field name="company_id"/><field name="establishment"/><field name="emission"/><field name="document_type"/><field name="environment"/><field name="address"/><field name="sequence_id" readonly="1"/><field name="next_number"/><field name="active"/></group><p>Facturas y notas conservan la numeración de Odoo. La secuencia del punto se utiliza en retenciones y guías.</p></sheet></form></field>
+    </record>
+    <record id="action_sri_points" model="ir.actions.act_window"><field name="name">Puntos de emisión</field><field name="res_model">ec.sri.point</field><field name="view_mode">list,form</field></record>
+</odoo>

@@ -1,0 +1,13 @@
+<odoo>
+    <record id="sri_report_wizard_form" model="ir.ui.view">
+        <field name="name">ec.sri.report.wizard.form</field><field name="model">ec.sri.report.wizard</field>
+        <field name="arch" type="xml"><form string="Generar reporte Ecuador"><group><field name="company_id"/><field name="kind"/><field name="date_from"/><field name="date_to"/>
+            <field name="reviewed" invisible="kind != 'ats'"/></group>
+            <div class="alert alert-info" invisible="kind != 'ats'">ATS mensual para operaciones nacionales ordinarias en USD. Importaciones, exportaciones, reembolsos y regímenes sectoriales requieren completar el anexo con su información específica. El archivo no se presenta automáticamente al SRI.</div>
+            <div class="alert alert-info" invisible="kind not in ('103','104')">Auxiliar por casilleros configurados. Revise saldos, créditos y ajustes antes de declarar. No constituye el formulario presentado.</div>
+            <group invisible="not data"><field name="filename" invisible="1"/><field name="data" filename="filename"/></group>
+            <footer><button name="action_generate" type="object" string="Generar y descargar" class="oe_highlight"/><button string="Cerrar" special="cancel"/></footer>
+        </form></field>
+    </record>
+    <record id="action_sri_reports" model="ir.actions.act_window"><field name="name">Reportes Ecuador</field><field name="res_model">ec.sri.report.wizard</field><field name="view_mode">form</field><field name="target">new</field></record>
+</odoo>

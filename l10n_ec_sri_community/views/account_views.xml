@@ -1,0 +1,16 @@
+<odoo>
+    <record id="account_move_sri_form" model="ir.ui.view">
+        <field name="name">account.move.sri.community</field><field name="model">account.move</field><field name="inherit_id" ref="account.view_move_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button name="action_ec_sri_document" type="object" string="Comprobante SRI" invisible="state != 'posted' or move_type not in ('out_invoice','out_refund','in_invoice')"/>
+                <button name="action_ec_sri_retention" type="object" string="Crear retención SRI" invisible="state != 'posted' or move_type != 'in_invoice'"/>
+            </xpath>
+            <xpath expr="//notebook" position="inside"><page string="SRI Community" invisible="move_type == 'entry'">
+                <group><group><field name="ec_sri_supplier_authorization"/><field name="ec_sri_support_code"/><field name="ec_sri_reason"/><field name="ec_sri_ats_treatment"/><field name="ec_sri_ats_exclusion_reason" invisible="ec_sri_ats_treatment != 'electronic_exclusion'"/></group>
+                <group><field name="ec_sri_received_vat"/><field name="ec_sri_received_income"/><field name="ec_sri_plate"/></group></group>
+                <field name="ec_sri_document_ids" readonly="1"><list><field name="name"/><field name="document_type"/><field name="state"/><field name="environment"/></list></field>
+            </page></xpath>
+        </field>
+    </record>
+</odoo>

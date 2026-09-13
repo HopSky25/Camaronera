@@ -1,0 +1,9 @@
+<odoo>
+    <record id="stock_picking_sri_form" model="ir.ui.view">
+        <field name="name">stock.picking.sri.community</field><field name="model">stock.picking</field><field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside"><button name="action_ec_sri_guide" type="object" string="Guía SRI" groups="account.group_account_invoice" invisible="state not in ('assigned','done')"/></xpath>
+            <xpath expr="//notebook" position="inside"><page string="Transporte SRI"><group><group><field name="ec_sri_carrier_id"/><field name="ec_sri_plate"/><field name="ec_sri_departure"/><field name="ec_sri_destination"/></group><group><field name="ec_sri_start"/><field name="ec_sri_end"/><field name="ec_sri_route"/><field name="ec_sri_reason"/></group></group></page></xpath>
+        </field>
+    </record>
+</odoo>

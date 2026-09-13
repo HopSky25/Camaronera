@@ -205,13 +205,13 @@
                                                     </t>
                                                 </t>
                                                 <t t-else="">
-                                                    <!-- Archivado: Reactivar (texto) · Ver (icono) · Eliminar (icono) -->
-                                                    <form method="post" t-att-action="'/marketplace/products/%s/reactivar' % p.uuid_ref" style="flex:1 1 auto;">
-                                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                                        <button type="submit" class="s-btn s-btn-primary btn-sm w-100"><i class="fa fa-refresh me-1"></i> Reactivar</button>
-                                                    </form>
+                                                    <!-- Archivado: Ver · Reactivar · Eliminar (todos solo icono) -->
                                                     <a class="s-btn s-btn-ghost btn-sm" style="flex:0 0 auto;" title="Ver"
                                                        t-att-href="'/marketplace/product/%s' % p.uuid_ref"><i class="fa fa-eye"></i></a>
+                                                    <form method="post" style="flex:0 0 auto;" t-att-action="'/marketplace/products/%s/reactivar' % p.uuid_ref">
+                                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                        <button type="submit" class="s-btn s-btn-primary btn-sm" title="Reactivar"><i class="fa fa-refresh"></i></button>
+                                                    </form>
                                                     <t t-if="not p_vendido">
                                                         <form method="post" style="flex:0 0 auto;" t-att-action="'/marketplace/products/%s/eliminar' % p.uuid_ref">
                                                             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
@@ -282,7 +282,7 @@
                         ok.classList.remove('s-btn-danger'); ok.classList.add('s-btn-primary');
                     } else {
                         t.textContent = 'Eliminar producto';
-                        x.innerHTML = '¿Seguro que quieres eliminar «<strong></strong>»? Esta acción no se puede deshacer.';
+                        x.innerHTML = '¿Seguro que quieres eliminar «<strong></strong>»? Saldrá de tu lista y pasará al histórico; no volverás a verlo ni podrás reactivarlo.';
                         ok.textContent = 'Eliminar';
                         ok.classList.remove('s-btn-primary'); ok.classList.add('s-btn-danger');
                     }

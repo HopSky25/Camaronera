@@ -113,12 +113,33 @@
                                     <td class="st-k">Estado</td>
                                     <td class="st-v"><t t-esc="dict(doc._fields['state'].selection).get(doc.state) or '—'" /></td>
                                 </tr>
+                                <!-- El valor de la operación ya se le muestra al comprador en la
+                                     trazabilidad en línea; que falte aquí obligaba a acompañar el
+                                     certificado con la factura para probar de qué compra habla. -->
+                                <tr>
+                                    <td class="st-k">Valor de la operación</td>
+                                    <td class="st-v">
+                                        <t t-set="pu" t-value="doc.price_unit or (doc.product_id.price if doc.product_id else 0.0)"/>
+                                        <t t-esc="'{:,.2f}'.format(pu)"/> / <t t-esc="uom_label"/>
+                                        <t t-if="doc.amount_total">
+                                            · total <strong t-esc="'{:,.2f}'.format(doc.amount_total)"/>
+                                        </t>
+                                    </td>
+                                    <td class="st-k">Fecha de la operación</td>
+                                    <td class="st-v">
+                                        <t t-esc="doc.sold_date or (doc.create_date.strftime('%Y-%m-%d') if doc.create_date else '—')"/>
+                                    </td>
+                                </tr>
                             </table>
                         </div>
 
                         <!-- Origen y lote del producto -->
                         <t t-set="prod" t-value="doc.product_id"/>
-                        <t t-if="prod.origin_facility_id or prod.origin_pond_id or prod.batch_code or prod.production_date or prod.traceability_notes">
+                        <!-- La lista de precios vive en shrimp_packer, que NO es dependencia de
+                             este módulo: se comprueba el campo antes de tocarlo para que el
+                             certificado siga saliendo si la empacadora no está instalada. -->
+                        <t t-set="lista" t-value="prod.price_list_id if 'price_list_id' in prod._fields else None"/>
+                        <t t-if="prod.origin_facility_id or prod.origin_pond_id or prod.batch_code or prod.production_date or prod.traceability_notes or lista">
                             <div class="st-card">
                                 <table>
                                     <tr>
@@ -132,6 +153,17 @@
                                         <td class="st-v"><t t-esc="prod.batch_code or '—'"/></td>
                                         <td class="st-k">Fecha de producción</td>
                                         <td class="st-v"><t t-esc="prod.production_date or '—'"/></td>
+                                    </tr>
+                                    <!-- De dónde salió el precio publicado. Sin esto el comprador
+                                         no puede demostrar contra qué referencia de mercado compró. -->
+                                    <tr t-if="lista">
+                                        <td class="st-k">Lista de precios</td>
+                                        <td class="st-v"><t t-esc="lista.name or '—'"/></td>
+                                        <td class="st-k">Publicada por</td>
+                                        <td class="st-v">
+                                            <t t-esc="lista.issuer_partner_id.name or '—'"/>
+                                            <t t-if="lista.issue_date"> · <t t-esc="lista.issue_date"/></t>
+                                        </td>
                                     </tr>
                                     <tr t-if="prod.traceability_notes">
                                         <td class="st-k">Notas</td>

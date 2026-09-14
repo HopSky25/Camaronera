@@ -235,6 +235,30 @@ class ShrimpAccountPortalController(http.Controller):
         line.unlink()
         return request.redirect("/marketplace/mi-cuenta?saved=delete")
 
+    @http.route("/marketplace/mi-cuenta/certificado/<int:line_id>/archivo", type="http",
+                auth="user", website=True, sitemap=False)
+    def my_certificate_file(self, line_id, **kw):
+        """Entrega el certificado en línea para que el visor lo pinte dentro del
+        modal. La ruta compartida /marketplace/my-certificate/<id>/file fuerza
+        `Content-Disposition: attachment`, así que el iframe del visor acababa
+        descargando el PDF en vez de mostrarlo. Con `download=1` sí se descarga,
+        que es lo que pide el botón «Descargar» del propio visor.
+        """
+        line = self._owned_cert_line(line_id)
+        att = line.file_attachment_id
+        if not att or not att.datas:
+            raise NotFound()
+
+        content = base64.b64decode(att.datas)
+        filename = (att.name or "certificado").replace("/", "-").replace("\\", "-").replace('"', "")
+        disposition = "attachment" if kw.get("download") else "inline"
+        return request.make_response(content, headers=[
+            ("Content-Type", att.mimetype or "application/octet-stream"),
+            ("Content-Length", str(len(content))),
+            ("Content-Disposition", '{}; filename="{}"'.format(disposition, filename)),
+            ("Cache-Control", "private, max-age=0"),
+        ])
+
     # ==================================================================
     # 3) MIS LOTES / INVENTARIO
     # ==================================================================
@@ -276,15 +300,8 @@ class ShrimpAccountPortalController(http.Controller):
         sel_facility_id = sel_facility.id if sel_facility else False
         sel_ponds = ponds.filtered(lambda p: p.facility_id.id == sel_facility_id) if sel_facility_id else ponds.filtered(lambda p: not p.facility_id)
 
-        # Piscina en edición (si aplica)
-        try:
-            edit_pond_id = int(kw.get("edit_pond")) if kw.get("edit_pond") else False
-        except (TypeError, ValueError):
-            edit_pond_id = False
-        edit_pond = Pond.browse(edit_pond_id) if edit_pond_id else Pond
-        if edit_pond and (not edit_pond.exists() or edit_pond.partner_id.id != partner.id):
-            edit_pond = Pond
-
+        # Ya no hay "piscina en edición" por URL: crear y editar (instalación y
+        # piscina) ocurren en un modal que se rellena desde la propia tabla.
         return request.render("shrimp_marketplace.my_facilities", {
             "partner": partner,
             "facilities": facilities,
@@ -292,8 +309,6 @@ class ShrimpAccountPortalController(http.Controller):
             "sel_facility": sel_facility,
             "sel_ponds": sel_ponds,
             "is_new": bool(kw.get("new")),
-            "is_edit_fac": bool(kw.get("edit")),
-            "edit_pond": edit_pond,
             "lots": lots,
             "allocations": allocations,
             "saved": kw.get("saved"),
@@ -417,11 +432,10 @@ class ShrimpAccountPortalController(http.Controller):
         name = (post.get("name") or "").strip()
         rf = pond.facility_id.id or ""
         if not name:
-            return request.redirect("/marketplace/mis-instalaciones?facility=%s&edit_pond=%s&error=name" % (rf, pond_id))
+            return request.redirect("/marketplace/mis-instalaciones?facility=%s&error=name" % rf)
 
         vals = {
             "name": name,
-            "code": (post.get("code") or "").strip() or False,
             "pond_type": post.get("pond_type") or pond.pond_type,
             "capacity_mode": post.get("capacity_mode") or pond.capacity_mode,
             "length_m": _f(post.get("length_m")),
@@ -430,6 +444,10 @@ class ShrimpAccountPortalController(http.Controller):
             "manual_volume_m3": _f(post.get("manual_volume_m3")),
             "location": (post.get("location") or "").strip() or False,
         }
+        # El modal de edición no expone el código, y escribirlo a ciegas lo
+        # borraba en cada guardado: solo se toca si el formulario lo manda.
+        if "code" in post:
+            vals["code"] = (post.get("code") or "").strip() or False
         # Reemplazar imagen solo si se sube una nueva.
         img = request.httprequest.files.get("image")
         if img:
@@ -441,8 +459,8 @@ class ShrimpAccountPortalController(http.Controller):
             pond.write(vals)
         except ValidationError as e:
             return request.redirect(
-                "/marketplace/mis-instalaciones?facility=%s&edit_pond=%s&error=validation&message=%s"
-                % (rf, pond_id, e.args[0] if e.args else ""))
+                "/marketplace/mis-instalaciones?facility=%s&error=validation&message=%s"
+                % (rf, e.args[0] if e.args else ""))
         return request.redirect("/marketplace/mis-instalaciones?facility=%s&saved=pond" % rf)
 
     @http.route("/marketplace/mis-instalaciones/pond/<int:pond_id>/imagen", type="http",

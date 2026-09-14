@@ -883,7 +883,7 @@
                                     <!-- Quick facts -->
                                     <div class="mp-spec-grid mb-3">
                                         <div class="mp-spec">
-                                            <span class="mp-spec-ico"><i class="fa fa-tag"></i></span>
+                                            <span class="mp-spec-ico"><i class="fa fa-hourglass-half"></i></span>
                                             <div class="mp-spec-body">
                                                 <div class="mp-spec-label">Etapa</div>
                                                 <div class="mp-spec-value"><t t-esc="product.stage_id.name if product.stage_id else '—'" /></div>
@@ -963,7 +963,7 @@
                                     </div>
                                     <div class="mp-spec-grid">
                                         <div class="mp-spec" style="grid-column:1 / -1;">
-                                            <span class="mp-spec-ico"><i class="fa fa-code-fork"></i></span>
+                                            <span class="mp-spec-ico"><i class="fa fa-sitemap"></i></span>
                                             <div class="mp-spec-body">
                                                 <div class="mp-spec-label">Línea genética / cepa</div>
                                                 <div class="mp-spec-value"><t t-esc="product.genetics_line_id.name if product.genetics_line_id else '—'" /></div>
@@ -1201,7 +1201,10 @@
                             Tu operación ya quedó registrada en el marketplace.
                         </p>
                         <div class="s-badges mt-3" style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
-                            <span class="s-badge s-badge--green"><i class="fa fa-lock me-1"></i> Pago confirmado</span>
+                            <!-- El comprobante también se abre desde "Mis compras" para
+                                 operaciones que aún no se cobran: anunciar "pago confirmado"
+                                 ahí sería mentir sobre el estado de la compra. -->
+                            <span t-if="tx.state in ('confirmed', 'done')" class="s-badge s-badge--green"><i class="fa fa-lock me-1"></i> Pago confirmado</span>
                             <span class="s-badge s-badge--teal"><i class="fa fa-check-circle me-1"></i> <t t-esc="dict(tx._fields['state'].selection).get(tx.state)"/></span>
                             <span class="s-badge"><i class="fa fa-hashtag me-1"></i> <t t-esc="tx.name"/></span>
                         </div>
@@ -1216,7 +1219,16 @@
                                         <span class="mp-sec-ico"><i class="fa fa-file-text-o"></i></span>
                                         <h3 class="mp-sec-title">Resumen de la operación</h3>
                                     </div>
+                                    <!-- Qué se compró, primero y a ancho completo: era el dato
+                                         que el comprobante escondía en la tercera casilla. -->
                                     <div class="mp-spec-grid">
+                                        <div class="mp-spec" t-if="tx.product_id" style="grid-column:1 / -1;">
+                                            <span class="mp-spec-ico"><i class="fa fa-cube"></i></span>
+                                            <div class="mp-spec-body">
+                                                <div class="mp-spec-label">Producto</div>
+                                                <div class="mp-spec-value"><t t-esc="tx.product_id.name"/></div>
+                                            </div>
+                                        </div>
                                         <div class="mp-spec">
                                             <span class="mp-spec-ico"><i class="fa fa-user-o"></i></span>
                                             <div class="mp-spec-body">
@@ -1231,11 +1243,18 @@
                                                 <div class="mp-spec-value"><t t-esc="tx.buyer_partner_id.name"/></div>
                                             </div>
                                         </div>
-                                        <div class="mp-spec" t-if="tx.product_id" style="grid-column:1 / -1;">
-                                            <span class="mp-spec-ico"><i class="fa fa-cube"></i></span>
+                                        <div class="mp-spec" t-if="tx.sold_date or tx.desired_date">
+                                            <span class="mp-spec-ico"><i class="fa fa-calendar"></i></span>
                                             <div class="mp-spec-body">
-                                                <div class="mp-spec-label">Producto</div>
-                                                <div class="mp-spec-value"><t t-esc="tx.product_id.name"/></div>
+                                                <div class="mp-spec-label">Fecha</div>
+                                                <div class="mp-spec-value"><t t-esc="tx.sold_date or tx.desired_date"/></div>
+                                            </div>
+                                        </div>
+                                        <div class="mp-spec" t-if="tx.price_unit">
+                                            <span class="mp-spec-ico"><i class="fa fa-money"></i></span>
+                                            <div class="mp-spec-body">
+                                                <div class="mp-spec-label">Precio unitario</div>
+                                                <div class="mp-spec-value">$<t t-esc="'%.2f' % tx.price_unit"/></div>
                                             </div>
                                         </div>
                                         <div class="mp-spec" t-if="tx.transaction_type">
@@ -1266,34 +1285,23 @@
                                                 <div class="mp-spec-value"><t t-esc="tx.product_id.origin_pond_id.display_name"/></div>
                                             </div>
                                         </div>
-                                        <div class="mp-spec" t-if="tx.sold_date or tx.desired_date">
-                                            <span class="mp-spec-ico"><i class="fa fa-calendar"></i></span>
-                                            <div class="mp-spec-body">
-                                                <div class="mp-spec-label">Fecha</div>
-                                                <div class="mp-spec-value"><t t-esc="tx.sold_date or tx.desired_date"/></div>
-                                            </div>
-                                        </div>
-                                        <div class="mp-spec" t-if="tx.price_unit">
-                                            <span class="mp-spec-ico"><i class="fa fa-money"></i></span>
-                                            <div class="mp-spec-body">
-                                                <div class="mp-spec-label">Precio unitario</div>
-                                                <div class="mp-spec-value">$<t t-esc="'%.2f' % tx.price_unit"/></div>
-                                            </div>
-                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Total destacado -->
+                        <!-- Columna derecha: el importe y lo que se puede hacer con la
+                             compra. La barra de botones vivía suelta bajo la rejilla y
+                             dejaba esta columna a media altura; juntos leen como una
+                             sola unidad "esto pagué / esto puedo hacer ahora". -->
                         <div class="col-lg-5">
-                            <div class="mp-table-card h-100">
-                                <div class="card-body p-4 d-flex flex-column">
+                            <div class="mp-table-card mb-4">
+                                <div class="card-body p-4">
                                     <div class="mp-sec-head">
                                         <span class="mp-sec-ico"><i class="fa fa-shopping-cart"></i></span>
                                         <h3 class="mp-sec-title">Total</h3>
                                     </div>
-                                    <div class="bt-total flex-grow-1 d-flex flex-column justify-content-center">
+                                    <div class="bt-total">
                                         <div class="bt-lbl mb-1">Cantidad transaccionada</div>
                                         <div class="bt-big"><t t-esc="tx.sold_qty or tx.desired_qty or 0"/></div>
                                         <div class="bt-lbl mt-1"><t t-esc="tx.product_id.uom_id.name if tx.product_id else ''"/></div>
@@ -1301,20 +1309,38 @@
                                         <div class="bt-lbl mb-1">Precio pagado</div>
                                         <div class="bt-amount">$<t t-esc="'%.2f' % (tx.amount_total or 0.0)"/></div>
                                     </div>
-                                    <a class="s-btn s-btn-primary s-btn-block mt-3"
-                                       t-att-href="'/marketplace/compras/%s/factura/pdf?download=1' % tx.uuid_ref">
-                                        <i class="fa fa-file-pdf-o me-1"></i> Descargar factura
-                                    </a>
+                                    <!-- La factura se emite contra una compra cerrada: en una
+                                         operación pendiente o cancelada no hay nada que facturar
+                                         y el PDF se generaría al vuelo sin motivo. -->
+                                    <t t-if="tx.state in ('confirmed', 'done')">
+                                        <a class="s-btn s-btn-primary s-btn-block mt-3"
+                                           t-att-href="'/marketplace/compras/%s/factura/pdf?download=1' % tx.uuid_ref">
+                                            <i class="fa fa-file-pdf-o me-1"></i> Descargar factura
+                                        </a>
+                                    </t>
+                                    <t t-else="">
+                                        <div class="text-soft mt-3" style="font-size:var(--fs-sm);">
+                                            <i class="fa fa-info-circle me-1"></i>
+                                            La factura estará disponible cuando la compra quede confirmada.
+                                        </div>
+                                    </t>
+                                </div>
+                            </div>
+
+                            <div class="mp-table-card">
+                                <div class="card-body p-4">
+                                    <div class="mp-sec-head">
+                                        <span class="mp-sec-ico"><i class="fa fa-compass"></i></span>
+                                        <h3 class="mp-sec-title">¿Qué sigue?</h3>
+                                    </div>
+                                    <div class="d-flex flex-column gap-2">
+                                        <a class="s-btn s-btn-ghost s-btn-block" t-att-href="'/marketplace/compras/%s/trazabilidad' % tx.uuid_ref"><i class="fa fa-sitemap me-1"></i> Ver trazabilidad</a>
+                                        <a class="s-btn s-btn-ghost s-btn-block" href="/marketplace/compras"><i class="fa fa-list me-1"></i> Mis compras</a>
+                                        <a class="s-btn s-btn-ghost s-btn-block" href="/marketplace"><i class="fa fa-shopping-bag me-1"></i> Seguir comprando</a>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-
-                    <!-- Barra de acciones: navegación clara tras la compra. -->
-                    <div class="d-flex flex-wrap justify-content-center gap-2 mt-4">
-                        <a class="s-btn s-btn-ghost" href="/marketplace/compras"><i class="fa fa-list me-1"></i> Mis compras</a>
-                        <a class="s-btn s-btn-ghost" t-att-href="'/marketplace/compras/%s/trazabilidad' % tx.uuid_ref"><i class="fa fa-sitemap me-1"></i> Ver trazabilidad</a>
-                        <a class="s-btn s-btn-ghost" href="/marketplace"><i class="fa fa-shopping-bag me-1"></i> Seguir comprando</a>
                     </div>
 
                     <!-- Calificar al vendedor / reseña ya enviada -->

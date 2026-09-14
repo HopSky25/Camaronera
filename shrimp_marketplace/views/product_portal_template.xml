@@ -1200,77 +1200,6 @@ function setActive(idx){
     return out.join("");
   }
 
-  function rowHtml(idx, optionsHtml) {
-    return `
-      <div class="card border-0 mb-3 mp-cert-row">
-        <div class="card-body p-3">
-          <div class="d-flex justify-content-between align-items-center mb-3">
-            <div style="font-weight:800;"><i class="fa fa-certificate me-1" style="color:var(--shrimp-teal);"></i> Nuevo certificado</div>
-            <button type="button" class="s-btn s-btn-danger btn-sm delBtn"><i class="fa fa-trash-o me-1"></i> Eliminar</button>
-          </div>
-
-          <div class="row g-3">
-            <div class="col-md-5">
-              <label class="form-label" style="font-weight:800; font-size:13px;">Certificado</label>
-              <select class="form-select certSel" name="prod_cert_${idx}_id" required>
-                ${optionsHtml}
-              </select>
-            </div>
-
-            <div class="col-md-3">
-              <label class="form-label" style="font-weight:800; font-size:13px;">Entidad</label>
-              <input class="form-control issuer" type="text" readonly placeholder="Entidad"/>
-            </div>
-
-            <div class="col-md-4">
-              <label class="form-label" style="font-weight:800; font-size:13px;">N°</label>
-              <input class="form-control" name="prod_cert_${idx}_number" placeholder="Opcional"/>
-            </div>
-
-            <div class="col-md-4">
-              <label class="form-label" style="font-weight:800; font-size:13px;">Emisión</label>
-              <input class="form-control" type="date" name="prod_cert_${idx}_issue_date"/>
-            </div>
-
-            <div class="col-md-4">
-              <label class="form-label" style="font-weight:800; font-size:13px;">Expira</label>
-              <input class="form-control" type="date" name="prod_cert_${idx}_expiry_date"/>
-            </div>
-
-            <div class="col-md-4">
-              <label class="form-label" style="font-weight:800; font-size:13px;">Archivo <span class="text-danger">*</span></label>
-              <input class="form-control" type="file" name="prod_cert_${idx}_file" required accept="image/*,application/pdf"/>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  async function addRow() {
-    const container = document.getElementById("prodCertContainer");
-    if (!container) return;
-
-    const certs = await fetchProductCerts();
-    const idx = prodCertIndex++;
-
-    const wrapper = document.createElement("div");
-    wrapper.innerHTML = rowHtml(idx, buildOptions(certs));
-    const card = wrapper.firstElementChild;
-    // Los nuevos certificados se agregan al inicio de la lista.
-    container.insertBefore(card, container.firstChild);
-
-    const sel = card.querySelector(".certSel");
-    const issuerInp = card.querySelector(".issuer");
-
-    sel.addEventListener("change", () => {
-      const opt = sel.selectedOptions[0];
-      issuerInp.value = opt ? (opt.getAttribute("data-issuer") || "") : "";
-    });
-
-    card.querySelector(".delBtn").addEventListener("click", () => card.remove());
-  }
-
   function initCerts() {
     var addBtn = document.querySelector(".shrimpAddProdCert");
     var body = document.getElementById("prodCertBody");
@@ -1426,18 +1355,6 @@ function setActive(idx){
     apply();
   }
 
-  function initProdCertDelete(){
-    document.querySelectorAll(".prod-cert-del-btn").forEach(function(btn){
-      btn.addEventListener("click", function(){
-        var card = btn.closest(".prod-cert-card");
-        if(!card) return;
-        var flag = card.querySelector(".prod-cert-del-flag");
-        if(flag){ flag.checked = true; }
-        card.style.display = "none";
-      });
-    });
-  }
-
   function initSizeFilter(){
     var pres = document.getElementById("prodPresentation");
     var size = document.getElementById("prodSizeGrade");
@@ -1491,7 +1408,6 @@ function setActive(idx){
     initNewGallery();
     initCerts();
     initPondFilter();
-    initProdCertDelete();
     initSizeFilter();
     initExistingPhotos();
   }
@@ -1721,7 +1637,7 @@ function setActive(idx){
                                             <div class="s-badges mb-3">
                                                 <t t-if="product.species_id"><span class="s-badge s-badge--teal"><i class="fa fa-flask me-1"></i><t t-esc="product.species_id.name"/></span></t>
                                                 <t t-if="product.stage_id"><span class="s-badge"><t t-esc="product.stage_id.name"/></span></t>
-                                                <t t-if="product.genetics_line_id"><span class="s-badge"><i class="fa fa-code-fork me-1"></i><t t-esc="product.genetics_line_id.name"/></span></t>
+                                                <t t-if="product.genetics_line_id"><span class="s-badge"><i class="fa fa-sitemap me-1"></i><t t-esc="product.genetics_line_id.name"/></span></t>
                                                 <t t-if="product.location"><span class="s-badge"><i class="fa fa-map-marker me-1"></i><t t-esc="product.location"/></span></t>
                                             </div>
 
@@ -1783,12 +1699,21 @@ function setActive(idx){
                                                 </t>
                                             </div>
 
-                                            <!-- Comprar: CTA destacado, junto al precio (antes estaba al pie). -->
+                                            <!-- Comprar. Suelto entre dos secciones parecia parte del aviso
+                                                 de entrega que tiene encima; va pegado al bloque de precio
+                                                 porque precio, disponibilidad, entrega y accion son una sola
+                                                 decision.
+                                                 Y respeta el mismo veto de rol que la cuadricula del catalogo:
+                                                 antes se le ofrecia a cualquiera y a quien no puede comprarle
+                                                 a ese eslabon le terminaba en un 403. -->
                                             <t t-if="not is_owner and product.state == 'published' and product.available_qty &gt; 0">
-                                                <a class="s-btn s-btn-primary s-btn-block mb-3"
+                                                <t t-set="veto" t-value="'' if request.env.user._is_public() else product.motivo_no_comprable(request.env.user.partner_id)"/>
+                                                <a t-if="not veto" class="s-btn s-btn-primary s-btn-block mb-3"
                                                    t-att-href="'/marketplace/buy/%s' % product.uuid_ref">
                                                     <i class="fa fa-shopping-cart me-1"></i> Comprar
                                                 </a>
+                                                <span t-else="" class="s-btn s-btn-ghost s-btn-block disabled mb-3"
+                                                      t-att-title="veto">No disponible</span>
                                             </t>
 
                                             <!-- Especificaciones -->
@@ -1805,14 +1730,14 @@ function setActive(idx){
                                                     </div>
                                                 </div>
                                                 <div class="mp-spec">
-                                                    <span class="mp-spec-ico"><i class="fa fa-tag"></i></span>
+                                                    <span class="mp-spec-ico"><i class="fa fa-hourglass-half"></i></span>
                                                     <div class="mp-spec-body">
                                                         <div class="mp-spec-label">Etapa</div>
                                                         <div class="mp-spec-value"><t t-esc="product.stage_id.name or '—'"/></div>
                                                     </div>
                                                 </div>
                                                 <div class="mp-spec">
-                                                    <span class="mp-spec-ico"><i class="fa fa-code-fork"></i></span>
+                                                    <span class="mp-spec-ico"><i class="fa fa-sitemap"></i></span>
                                                     <div class="mp-spec-body">
                                                         <div class="mp-spec-label">Línea genética / cepa</div>
                                                         <div class="mp-spec-value"><t t-esc="product.genetics_line_id.name or '—'"/></div>

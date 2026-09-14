@@ -272,12 +272,28 @@ class ShrimpProduct(models.Model):
             "state",
         }
 
-        create_snapshot = bool(tracked_fields.intersection(vals.keys()))
+        # Se fotografía solo si algún campo rastreado CAMBIA de verdad.
+        #
+        # Antes bastaba con que el campo viniera en el guardado, aunque trajera
+        # el mismo valor. Cualquier "guardar" sin tocar nada dejaba otra fila, y
+        # un lote acabó con siete entradas idénticas de "Actualización
+        # automática del producto" que ocupan media página del certificado de
+        # trazabilidad: ruido en el documento que el comprador enseña.
+        #
+        # La comparación va ANTES del write, que es cuando todavía se puede
+        # saber qué cambió, y reutiliza el mismo _field_value_changed que usa la
+        # comprobación de campos bloqueados, para no tener dos criterios.
+        presentes = tracked_fields.intersection(vals.keys())
+        a_fotografiar = self.browse()
+        if presentes and not self.env.context.get("skip_evolution_snapshot"):
+            for rec in self:
+                if any(self._field_value_changed(rec, f, vals[f]) for f in presentes):
+                    a_fotografiar |= rec
 
         result = super().write(vals)
 
-        if create_snapshot and not self.env.context.get("skip_evolution_snapshot"):
-            for rec in self:
+        if a_fotografiar:
+            for rec in a_fotografiar:
                 self.env["shrimp.product.evolution"].create({
                     "product_id": rec.id,
                     "stage_id": rec.stage_id.id if rec.stage_id else False,

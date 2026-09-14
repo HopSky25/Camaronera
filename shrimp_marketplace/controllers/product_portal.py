@@ -741,10 +741,16 @@ class ShrimpProductPortalController(http.Controller):
         content = base64.b64decode(att.datas)
         filename = (att.name or "certificado").replace("/", "-").replace("\\", "-")
 
+        # En línea por defecto, y como adjunto solo si se pide con ?download=1.
+        # Antes mandaba siempre "attachment", así que el visor de PDF —que es
+        # un iframe apuntando a esta ruta— no mostraba nada: el navegador se
+        # bajaba el archivo. El icono decía "ver" y descargaba.
+        disposicion = "attachment" if kwargs.get("download") else "inline"
+
         return request.make_response(content, headers=[
             ("Content-Type", att.mimetype or "application/octet-stream"),
             ("Content-Length", str(len(content))),
-            ("Content-Disposition", f'attachment; filename="{filename}"'),
+            ("Content-Disposition", f'{disposicion}; filename="{filename}"'),
             ("Cache-Control", "private, max-age=0"),
         ])
 

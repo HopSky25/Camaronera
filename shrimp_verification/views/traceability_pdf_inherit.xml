@@ -10,6 +10,33 @@
       <t t-set="ver" t-value="doc.verification_id[:1]"/>
       <t t-if="ver">
         <div class="st-sec">8. Verificación en campo</div>
+
+        <!-- Lo primero que se lee: si lo entregado coincide con lo que el anuncio
+             prometía. Ese cotejo ya lo calcula el módulo para decidir quién paga
+             el honorario cuando el trato se cae; hasta ahora no salía del sistema
+             y era justo lo que el comprador necesita poder enseñar. -->
+        <!-- Solo con veredicto emitido: sobre una inspección a medias el cotejo
+             mediría pesos aún incompletos y daría un "coincide" que no significa
+             nada. El informe se imprime desde el backend en cualquier estado, así
+             que el resguardo tiene que vivir aquí y no en el controlador. -->
+        <t t-set="chequeo" t-value="ver.cumple_lo_publicado() if ver.state in ('approved', 'approved_obs', 'rejected') else None"/>
+        <t t-if="chequeo">
+          <!-- Los colores se resuelven en un t-set y no dentro del t-attf: una
+               condicional con almohadillas dentro de #{} es justo lo que rompe el
+               compilador de atributos de QWeb. -->
+          <t t-set="vcol" t-value="'#1f7a4d' if chequeo[0] else '#a4562a'"/>
+          <t t-set="vbg" t-value="'#eef7f1' if chequeo[0] else '#fdf3ec'"/>
+          <div t-attf-style="border:1px solid #{vcol}; border-left:5px solid #{vcol}; background:#{vbg}; border-radius:6px; padding:8px 12px; margin-bottom:10px;">
+            <div t-attf-style="font-size:12px; font-weight:bold; color:#{vcol};">
+              <t t-if="chequeo[0]">Lo verificado en campo coincide con lo publicado por el vendedor</t>
+              <t t-else="">Lo verificado en campo NO coincide en todo con lo publicado</t>
+            </div>
+            <div t-if="chequeo[1]" style="font-size:10px; color:#3d4a52; margin-top:3px;">
+              <t t-foreach="chequeo[1]" t-as="motivo"><t t-esc="motivo"/><t t-if="not motivo_last"> · </t></t>
+            </div>
+          </div>
+        </t>
+
         <table class="st-tbl">
           <tbody>
             <tr>
@@ -63,6 +90,27 @@
                 <t t-if="ver.plant_name"> · <t t-esc="ver.plant_name"/></t>
               </td>
             </tr>
+            <!-- El origen que constató el verificador, que no tiene por qué ser el
+                 que el vendedor declaró en el anuncio: por eso va aparte. -->
+            <tr t-if="ver.pond_id or ver.pond_label or ver.facility_id">
+              <th>Origen constatado</th>
+              <td>
+                <t t-if="ver.facility_id"><t t-esc="ver.facility_id.name"/></t>
+                <t t-if="ver.pond_id or ver.pond_label">
+                  · piscina <t t-esc="ver.pond_id.name or ver.pond_label"/>
+                </t>
+              </td>
+            </tr>
+            <!-- Fechas de cosecha y de proceso: es lo que fija la frescura del
+                 producto y lo que primero pregunta cualquier cliente del comprador. -->
+            <tr t-if="ver.harvest_date or ver.process_date">
+              <th>Cosecha y proceso</th>
+              <td>
+                <t t-if="ver.harvest_date">cosechado <t t-esc="ver.harvest_date"/></t>
+                <t t-if="ver.harvest_date and ver.process_date"> · </t>
+                <t t-if="ver.process_date">procesado <t t-esc="ver.process_date"/></t>
+              </td>
+            </tr>
           </tbody>
         </table>
 
@@ -72,6 +120,7 @@
             <thead>
               <tr>
                 <th class="st-r">Enviado</th><th class="st-r">En planta</th>
+                <th class="st-r">Sobrepeso</th>
                 <th class="st-r">Basura</th><th class="st-r">Neto</th>
                 <th class="st-r">Procesado</th><th class="st-r">Rendimiento</th>
               </tr>
@@ -80,13 +129,49 @@
               <tr>
                 <td class="st-r"><t t-esc="'{:.2f}'.format(ver.weight_sent_lb)"/></td>
                 <td class="st-r"><t t-esc="'{:.2f}'.format(ver.weight_plant_lb)"/></td>
+                <!-- El sobrepeso lo calcula el sistema y decide si el lote llegó
+                     completo; sin él, "enviado" y "en planta" no se explican solos. -->
+                <td class="st-r">
+                  <t t-esc="'{:.2f}'.format(ver.overweight_lb)"/>
+                  <t t-if="ver.overweight_factor"><br/><span style="font-size:8px;color:#5a6b74;">×<t t-esc="'{:.4f}'.format(ver.overweight_factor)"/></span></t>
+                </td>
                 <td class="st-r"><t t-esc="'{:.2f}'.format(ver.trash_lb)"/></td>
                 <td class="st-r"><t t-esc="'{:.2f}'.format(ver.net_weight_lb)"/></td>
                 <td class="st-r"><t t-esc="'{:.2f}'.format(ver.total_processed_lb)"/></td>
-                <td class="st-r"><t t-esc="'{:.2f} %'.format(ver.yield_pct)"/></td>
+                <td class="st-r"><strong t-esc="'{:.2f} %'.format(ver.yield_pct)"/></td>
               </tr>
             </tbody>
           </table>
+
+          <!-- Resumen por clase: es el número que fija el valor del lote. Estaba
+               sólo en el detalle por talla, obligando al comprador a sumar a mano
+               siete renglones para saber cuánta Clase A compró. -->
+          <table class="st-tbl">
+            <thead>
+              <tr>
+                <th>Resumen por clase</th>
+                <th class="st-r">Clase A</th><th class="st-r">Clase B</th>
+                <th class="st-r">Clase C</th><th class="st-r">Total procesado</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th>Libras</th>
+                <td class="st-r"><t t-esc="'{:.2f}'.format(ver.class_a_lb)"/></td>
+                <td class="st-r"><t t-esc="'{:.2f}'.format(ver.class_b_lb)"/></td>
+                <td class="st-r"><t t-esc="'{:.2f}'.format(ver.class_c_lb)"/></td>
+                <td class="st-r"><strong t-esc="'{:.2f}'.format(ver.total_processed_lb)"/></td>
+              </tr>
+              <tr>
+                <th>% sobre peso neto</th>
+                <td class="st-r"><strong t-esc="'{:.2f} %'.format(ver.yield_class_a_pct)"/></td>
+                <td class="st-r"><t t-esc="'{:.2f} %'.format(ver.yield_class_b_pct)"/></td>
+                <td class="st-r"><t t-esc="'{:.2f} %'.format(ver.yield_class_c_pct)"/></td>
+                <td class="st-r"><strong t-esc="'{:.2f} %'.format(ver.yield_pct)"/></td>
+              </tr>
+            </tbody>
+          </table>
+
           <table class="st-tbl" t-if="ver.line_ids">
             <thead>
               <tr><th>Clase</th><th>Talla</th><th class="st-r">Libras</th><th class="st-r">% del total</th></tr>
@@ -100,16 +185,55 @@
                   <td class="st-r"><t t-esc="'{:.2f}'.format(ln.percent_of_total)"/></td>
                 </tr>
               </t>
+              <tr>
+                <th colspan="2">Total procesado</th>
+                <th class="st-r"><t t-esc="'{:.2f}'.format(ver.total_processed_lb)"/></th>
+                <th class="st-r">100,00</th>
+              </tr>
             </tbody>
           </table>
+
+          <!-- Gramaje y conteos: el quinto análisis del parte de planta. No salía
+               en ningún documento, y es lo que delata si el camarón perdió peso
+               entre la camaronera y la planta. -->
+          <table class="st-tbl" t-if="ver.grams_farm or ver.grams_plant_1 or ver.count_ids">
+            <tbody>
+              <tr t-if="ver.grams_farm or ver.grams_plant_1">
+                <th style="width:28%;">Gramaje (g)</th>
+                <td>
+                  camaronera <strong t-esc="'{:.2f}'.format(ver.grams_farm)"/>
+                  · planta 1 <t t-esc="'{:.2f}'.format(ver.grams_plant_1)"/>
+                  <t t-if="ver.grams_plant_2"> · planta 2 <t t-esc="'{:.2f}'.format(ver.grams_plant_2)"/></t>
+                  <t t-if="ver.grams_variation"> · variación <strong t-esc="'{:.2f}'.format(ver.grams_variation)"/> g</t>
+                </td>
+              </tr>
+              <tr t-if="ver.count_ids">
+                <th>Conteos (camarones/lb)</th>
+                <td>
+                  <t t-foreach="ver.count_ids" t-as="cnt">
+                    <t t-esc="'{:.2f}'.format(cnt.value)"/>
+                    <t t-if="cnt.note"> (<t t-esc="cnt.note"/>)</t>
+                    <t t-if="not cnt_last"> · </t>
+                  </t>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
           <table class="st-tbl">
             <tbody>
               <tr>
                 <th style="width:28%;">Metabisulfito</th>
                 <td>
-                  <t t-esc="'{:.2f}'.format(ver.metabisulfite_ppm)"/> ppm
+                  <strong t-esc="'{:.2f}'.format(ver.metabisulfite_ppm)"/> ppm
+                  <!-- Sin el límite, "conforme" es una palabra que el comprador
+                       tiene que creerse; con él, cualquiera puede comprobarlo. -->
+                  <t t-if="ver.metabisulfite_limit_ppm">
+                    sobre un límite de <t t-esc="'{:.2f}'.format(ver.metabisulfite_limit_ppm)"/> ppm
+                  </t>
                   <t t-if="ver.metabisulfite_result == 'pass'"> · conforme</t>
                   <t t-if="ver.metabisulfite_result == 'fail'"> · NO CONFORME</t>
+                  <t t-if="ver.metabisulfite_notes"><br/><span style="font-size:9px;color:#5a6b74;"><t t-esc="ver.metabisulfite_notes"/></span></t>
                 </td>
               </tr>
               <tr>
@@ -117,6 +241,17 @@
                 <td>
                   <t t-esc="ver.presentation or '—'"/>
                   <t t-if="ver.taste_result"> · sabor <t t-esc="ver.etiqueta('taste_result')"/></t>
+                  <t t-if="ver.taste_notes"><br/><span style="font-size:9px;color:#5a6b74;"><t t-esc="ver.taste_notes"/></span></t>
+                </td>
+              </tr>
+              <!-- Qué se cató exactamente. "Sabor: bueno" sin la lista de criterios
+                   no distingue una cata seria de una casilla marcada. -->
+              <tr t-if="ver.taste_criteria_ok_ids">
+                <th>Criterios de cata conformes</th>
+                <td>
+                  <t t-foreach="ver.taste_criteria_ok_ids" t-as="crit">
+                    <t t-esc="crit.name"/><t t-if="not crit_last"> · </t>
+                  </t>
                 </td>
               </tr>
             </tbody>
@@ -129,7 +264,8 @@
             <thead>
               <tr>
                 <th class="st-r">Cantidad verificada</th><th class="st-r">Desvío</th>
-                <th class="st-r">Supervivencia</th><th class="st-r">Tamaño (mg)</th>
+                <th class="st-r">Supervivencia</th><th class="st-r">Desvío superv.</th>
+                <th class="st-r">Tamaño (mg)</th>
                 <th>Estado sanitario</th>
               </tr>
             </thead>
@@ -138,8 +274,19 @@
                 <td class="st-r"><t t-esc="'{:.2f}'.format(ver.larvae_qty_verified)"/></td>
                 <td class="st-r"><t t-esc="'{:.2f} %'.format(ver.larvae_qty_diff_pct)"/></td>
                 <td class="st-r"><t t-esc="'{:.2f} %'.format(ver.larvae_survival_rate)"/></td>
+                <!-- Contra la supervivencia publicada: es el dato que decide si el
+                     lote cumplió, y hasta ahora sólo se veía en el portal. -->
+                <td class="st-r"><t t-esc="'{:.2f} pp'.format(ver.larvae_survival_diff)"/></td>
                 <td class="st-r"><t t-esc="'{:.3f}'.format(ver.larvae_avg_size_mg)"/></td>
-                <td><t t-esc="ver.larvae_health_status or '—'"/></td>
+                <td><t t-esc="ver.etiqueta('larvae_health_status')"/></td>
+              </tr>
+            </tbody>
+          </table>
+          <table class="st-tbl" t-if="ver.larvae_health_notes">
+            <tbody>
+              <tr>
+                <th style="width:28%;">Observaciones sanitarias</th>
+                <td><t t-esc="ver.larvae_health_notes"/></td>
               </tr>
             </tbody>
           </table>
@@ -158,13 +305,88 @@
           </tbody>
         </table>
 
+        <!-- Cuándo se hizo cada cosa y dónde. Es lo que convierte el informe en
+             prueba: sin las marcas de tiempo y el punto GPS, nada acredita que el
+             técnico estuvo en el sitio ni cuánto tardó en dictaminar. -->
+        <table class="st-tbl" t-if="ver.assigned_date or ver.field_start_date or ver.gps_latitude or ver.gps_longitude">
+          <tbody>
+            <tr>
+              <th style="width:28%;">Cronología de la inspección</th>
+              <td>
+                <t t-if="ver.assigned_date">asignada <t t-esc="ver.assigned_date"/></t>
+                <t t-if="ver.field_start_date"> · en campo <t t-esc="ver.field_start_date"/></t>
+                <t t-if="ver.verified_date"> · veredicto <t t-esc="ver.verified_date"/></t>
+              </td>
+            </tr>
+            <tr t-if="ver.gps_latitude or ver.gps_longitude">
+              <th>Punto de la inspección</th>
+              <td>
+                <t t-esc="'{:.7f}'.format(ver.gps_latitude)"/>,
+                <t t-esc="'{:.7f}'.format(ver.gps_longitude)"/>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- La ronda de aceptación es la firma de las dos partes sobre el informe.
+             Un certificado que no la recoge deja abierto si el vendedor discutió
+             el resultado, que es lo primero que preguntará quien lo reciba. -->
+        <t t-if="ver.acceptance_state != 'na'">
+          <div class="st-sec">9. Aceptación de las partes</div>
+          <table class="st-tbl">
+            <tbody>
+              <tr>
+                <th style="width:28%;">Estado de la ronda</th>
+                <td>
+                  <strong t-esc="ver.etiqueta('acceptance_state')"/>
+                  <t t-if="ver.acceptance_state == 'waiting' and ver.acceptance_deadline">
+                    · plazo hasta <t t-esc="ver.acceptance_deadline"/>
+                  </t>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <table class="st-tbl" t-if="ver.acceptance_ids">
+            <thead>
+              <tr>
+                <th>Parte</th><th>Quien decide</th><th>Decisión</th>
+                <th>Fecha</th><th>Motivo o contraoferta</th>
+              </tr>
+            </thead>
+            <tbody>
+              <t t-foreach="ver.acceptance_ids" t-as="post">
+                <tr>
+                  <td><t t-esc="dict(post._fields['role'].selection).get(post.role)"/></td>
+                  <td><t t-esc="post.partner_id.name or '—'"/></td>
+                  <td>
+                    <strong t-esc="dict(post._fields['decision'].selection).get(post.decision)"/>
+                    <t t-if="post.auto"> (por vencimiento del plazo)</t>
+                  </td>
+                  <td><t t-esc="post.decided_at or '—'"/></td>
+                  <td>
+                    <t t-if="post.counter_price">
+                      <t t-esc="'{:,.2f}'.format(post.counter_price)"/> / unidad
+                      <t t-if="post.counter_total"> · total <t t-esc="'{:,.2f}'.format(post.counter_total)"/></t>
+                    </t>
+                    <t t-if="post.reason"><t t-if="post.counter_price"> · </t><t t-esc="post.reason"/></t>
+                    <t t-if="not post.counter_price and not post.reason">—</t>
+                  </td>
+                </tr>
+              </t>
+            </tbody>
+          </table>
+        </t>
+
         <!-- Evidencia fotográfica embebida: da peso probatorio al certificado.
              Maquetada con inline-block y no con una tabla agrupada, porque las
              comprensiones de listas dentro de QWeb rompen el render. -->
         <t t-if="ver.photo_ids">
           <t t-set="fotos" t-value="ver.photo_data_uris()"/>
           <t t-if="fotos">
-            <div class="st-sec" style="margin-top:10px;">9. Evidencia fotográfica de campo</div>
+            <div class="st-sec" style="margin-top:10px;">
+              <t t-if="ver.acceptance_state != 'na'">10.</t><t t-else="">9.</t>
+              Evidencia fotográfica de campo
+            </div>
             <div style="width:100%;">
               <t t-foreach="fotos" t-as="f">
                 <div style="display:inline-block; width:31%; margin:1%; vertical-align:top; text-align:center;">

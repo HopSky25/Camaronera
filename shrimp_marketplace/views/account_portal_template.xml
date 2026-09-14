@@ -1,7 +1,7 @@
 <odoo>
 
     <!-- ============================================================ -->
-    <!-- 1) MI PERFIL / MIS DATOS                                     -->
+    <!-- 1) MI PERFIL / MIS DATOS / MIS CERTIFICADOS                  -->
     <!-- ============================================================ -->
     <template id="my_account" name="Marketplace - Mi cuenta">
         <t t-call="website.layout">
@@ -217,8 +217,10 @@
                                                                 t-att-data-expiry="line.expiry_date or ''">
                                                             <i class="fa fa-pencil"></i>
                                                         </button>
+                                                        <!-- Ruta propia: sirve el PDF en línea para que el visor lo
+                                                             muestre. La compartida fuerza descarga y el iframe queda vacío. -->
                                                         <button type="button" class="s-btn s-btn-ghost btn-sm js-cert-view" title="Ver PDF"
-                                                                t-att-data-url="'/marketplace/my-certificate/%s/file' % line.id">
+                                                                t-att-data-url="'/marketplace/mi-cuenta/certificado/%s/archivo' % line.id">
                                                             <i class="fa fa-file-pdf-o"></i>
                                                         </button>
                                                         <button type="button" class="s-btn s-btn-danger btn-sm uc-del-btn" title="Eliminar"
@@ -342,181 +344,7 @@
     </template>
 
     <!-- ============================================================ -->
-    <!-- 2) MIS CERTIFICADOS (legacy, ahora redirige a Mi cuenta)     -->
-    <!-- ============================================================ -->
-    <template id="my_certificates" name="Marketplace - Mis certificados">
-        <t t-call="website.layout">
-            <div class="shrimp-bg">
-                <div class="shrimp-page shrimp-page--full py-4 sf-fields">
-
-                    <div class="mb-3">
-                        <t t-call="shrimp_marketplace.s_back_button"><t t-set="back_fallback" t-value="'/marketplace/mi-cuenta'"/></t>
-                    </div>
-
-                    <div class="sf-banner mb-4">
-                        <div class="sf-banner-row">
-                            <div class="sf-banner-txt">
-                                <h1>Mis certificados</h1>
-                                <p>Carga y renueva los certificados que respaldan tus productos y tu perfil.</p>
-                            </div>
-                            <span class="sf-kicker"><i class="fa fa-certificate"></i> Certificados</span>
-                        </div>
-                    </div>
-
-                    <t t-if="saved">
-                        <div class="alert alert-success">Operación realizada correctamente.</div>
-                    </t>
-                    <t t-if="error">
-                        <div class="alert alert-danger">
-                            <t t-if="error == 'cert'">El certificado seleccionado no es válido para tu tipo de usuario.</t>
-                            <t t-elif="error == 'file'">Debes adjuntar un archivo válido (PDF, JPG o PNG).</t>
-                            <t t-else=""><t t-esc="message or 'No se pudo completar la operación.'"/></t>
-                        </div>
-                    </t>
-
-                    <!-- Lista -->
-                    <div class="mp-table-card mb-4">
-                        <div class="card-body p-4">
-                            <div class="mp-sec-head">
-                                <span class="mp-sec-ico"><i class="fa fa-list"></i></span>
-                                <h3 class="mp-sec-title">Mis certificados cargados</h3>
-                            </div>
-                            <t t-if="not lines">
-                                <div class="text-muted">Aún no has cargado certificados.</div>
-                            </t>
-                            <t t-if="lines">
-                                <div class="table-responsive">
-                                    <table class="table align-middle">
-                                        <thead>
-                                            <tr class="text-muted small">
-                                                <th>Certificado</th>
-                                                <th>Número</th>
-                                                <th>Emisión</th>
-                                                <th>Expiración</th>
-                                                <th>Estado</th>
-                                                <th class="text-end">Acciones</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <t t-foreach="lines" t-as="line">
-                                                <tr>
-                                                    <td>
-                                                        <div class="fw-semibold"><t t-esc="line.certificate_id.name"/></div>
-                                                        <div class="text-muted small"><t t-esc="line.issuer or ''"/></div>
-                                                    </td>
-                                                    <td><t t-esc="line.certificate_number or '—'"/></td>
-                                                    <td><t t-esc="line.issue_date or '—'"/></td>
-                                                    <td>
-                                                        <t t-esc="line.expiry_date or '—'"/>
-                                                        <t t-if="line.expiry_date and line.expiry_date &lt; today">
-                                                            <span class="s-badge ms-1" style="background:rgba(220,53,69,.10); color:#dc3545;">Vencido</span>
-                                                        </t>
-                                                        <t t-elif="line.expiry_date and (line.expiry_date - today).days &lt;= 30">
-                                                            <span class="s-badge ms-1" style="background:#fdf1e0; color:#a86a10;">Por vencer</span>
-                                                        </t>
-                                                    </td>
-                                                    <td>
-                                                        <t t-if="line.status == 'approved'"><span class="s-badge s-badge--green">Aprobado</span></t>
-                                                        <t t-elif="line.status == 'rejected'"><span class="s-badge" style="background:rgba(220,53,69,.10); color:#dc3545;">Rechazado</span></t>
-                                                        <t t-else=""><span class="s-badge">Pendiente</span></t>
-                                                    </td>
-                                                    <td class="text-end">
-                                                        <a class="s-btn s-btn-ghost btn-sm"
-                                                            t-att-href="'/marketplace/my-certificate/%s/file' % line.id"><i class="fa fa-eye me-1"></i>Ver</a>
-                                                        <button type="button" class="s-btn s-btn-ghost btn-sm"
-                                                            data-bs-toggle="collapse"
-                                                            t-att-data-bs-target="'#renew_%s' % line.id"><i class="fa fa-refresh me-1"></i>Renovar</button>
-                                                        <form method="post" class="d-inline"
-                                                            t-att-action="'/marketplace/mis-certificados/%s/eliminar' % line.id"
-                                                            onsubmit="return confirm('¿Eliminar este certificado?');">
-                                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                                            <button type="submit" class="s-btn s-btn-danger btn-sm"><i class="fa fa-trash"></i></button>
-                                                        </form>
-                                                    </td>
-                                                </tr>
-                                                <tr class="collapse" t-att-id="'renew_%s' % line.id">
-                                                    <td colspan="6">
-                                                        <form method="post" enctype="multipart/form-data"
-                                                            t-att-action="'/marketplace/mis-certificados/%s/renovar' % line.id"
-                                                            class="row g-2 align-items-end p-2">
-                                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                                            <div class="col-md-3">
-                                                                <label class="form-label small text-muted">Nuevo archivo</label>
-                                                                <input class="form-control form-control-sm" type="file" name="file" accept=".pdf,.jpg,.jpeg,.png"/>
-                                                            </div>
-                                                            <div class="col-md-3">
-                                                                <label class="form-label small text-muted">Número</label>
-                                                                <input class="form-control form-control-sm" type="text" name="certificate_number" t-att-value="line.certificate_number or ''"/>
-                                                            </div>
-                                                            <div class="col-md-2">
-                                                                <label class="form-label small text-muted">Emisión</label>
-                                                                <input class="form-control form-control-sm" type="date" name="issue_date" t-att-value="line.issue_date or ''"/>
-                                                            </div>
-                                                            <div class="col-md-2">
-                                                                <label class="form-label small text-muted">Expiración</label>
-                                                                <input class="form-control form-control-sm" type="date" name="expiry_date" t-att-value="line.expiry_date or ''"/>
-                                                            </div>
-                                                            <div class="col-md-2">
-                                                                <button type="submit" class="s-btn s-btn-primary btn-sm w-100">Guardar</button>
-                                                            </div>
-                                                        </form>
-                                                    </td>
-                                                </tr>
-                                            </t>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </t>
-                        </div>
-                    </div>
-
-                    <!-- Añadir nuevo -->
-                    <div class="mp-table-card">
-                        <div class="card-body p-4">
-                            <div class="mp-sec-head">
-                                <span class="mp-sec-ico"><i class="fa fa-plus"></i></span>
-                                <h3 class="mp-sec-title">Añadir certificado</h3>
-                            </div>
-                            <form method="post" action="/marketplace/mis-certificados/agregar" enctype="multipart/form-data" class="row g-3">
-                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                <div class="col-md-4">
-                                    <label class="form-label small text-muted">Certificado</label>
-                                    <select class="form-select" name="certificate_id" required="required">
-                                        <option value="">Selecciona…</option>
-                                        <t t-foreach="certificates" t-as="c">
-                                            <option t-att-value="c.id"><t t-esc="c.name"/></option>
-                                        </t>
-                                    </select>
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label small text-muted">Número</label>
-                                    <input class="form-control" type="text" name="certificate_number"/>
-                                </div>
-                                <div class="col-md-2">
-                                    <label class="form-label small text-muted">Emisión</label>
-                                    <input class="form-control" type="date" name="issue_date"/>
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label small text-muted">Expiración</label>
-                                    <input class="form-control" type="date" name="expiry_date"/>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label small text-muted">Archivo (PDF/JPG/PNG)</label>
-                                    <input class="form-control" type="file" name="file" accept=".pdf,.jpg,.jpeg,.png" required="required"/>
-                                </div>
-                                <div class="col-md-6 d-flex align-items-end">
-                                    <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-plus me-1"></i>Añadir certificado</button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </t>
-    </template>
-
-    <!-- ============================================================ -->
-    <!-- 3) MIS LOTES / INVENTARIO                                    -->
+    <!-- 2) MIS LOTES / INVENTARIO                                    -->
     <!-- ============================================================ -->
     <template id="my_lots" name="Marketplace - Mis lotes">
         <t t-call="website.layout">
@@ -591,7 +419,7 @@
     </template>
 
     <!-- ============================================================ -->
-    <!-- 4) INSTALACIONES Y PISCINAS + ASIGNACIÓN                     -->
+    <!-- 3) INSTALACIONES Y PISCINAS + ASIGNACIÓN                     -->
     <!-- ============================================================ -->
     <template id="my_facilities" name="Marketplace - Instalaciones">
         <t t-call="website.layout">
@@ -668,128 +496,7 @@
 
                         <!-- ===== DERECHA: crear / ver instalación ===== -->
                         <div class="sf-fac-main-col">
-                            <t t-if="False">
-                                <!-- FORMULARIO: nueva instalación (reemplazado por modal) -->
-                                <div class="mp-table-card">
-                                    <div class="card-body p-4">
-                                        <div class="mp-sec-head">
-                                            <span class="mp-sec-ico"><i class="fa fa-plus"></i></span>
-                                            <h3 class="mp-sec-title">Nueva instalación</h3>
-                                        </div>
-                                        <form method="post" action="/marketplace/mis-instalaciones/facility/crear" class="row g-3 sf">
-                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                            <div class="col-md-6">
-                                                <label class="form-label" style="font-weight:800;">Nombre <span class="text-danger">*</span></label>
-                                                <input class="form-control" name="name" placeholder="Ej: Camaronera Norte" required="required"/>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label class="form-label" style="font-weight:800;">Tipo</label>
-                                                <select class="form-select" name="facility_type">
-                                                    <option value="farm">Granja</option>
-                                                    <option value="hatchery">Hatchery</option>
-                                                    <option value="laboratory">Laboratorio</option>
-                                                    <option value="warehouse">Bodega</option>
-                                                    <option value="office">Oficina</option>
-                                                    <option value="other">Otro</option>
-                                                </select>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label class="form-label" style="font-weight:800;">Ciudad / Provincia</label>
-                                                <div class="sf-combo">
-                                                    <input type="hidden" name="city"/>
-                                                    <button type="button" class="sf-combo-control">
-                                                        <span class="sf-combo-value is-placeholder">Selecciona provincia…</span>
-                                                        <i class="fa fa-chevron-down sf-combo-caret"/>
-                                                    </button>
-                                                    <div class="sf-combo-panel">
-                                                        <div class="sf-combo-search-wrap">
-                                                            <i class="fa fa-search"/>
-                                                            <input type="text" class="sf-combo-search" placeholder="Buscar provincia…" autocomplete="off"/>
-                                                        </div>
-                                                        <ul class="sf-combo-list" role="listbox">
-                                                            <t t-foreach="provinces" t-as="prov">
-                                                                <li class="sf-combo-opt" t-att-data-value="prov" role="option"><t t-esc="prov"/></li>
-                                                            </t>
-                                                        </ul>
-                                                        <div class="sf-combo-empty" style="display:none;">Sin coincidencias</div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label class="form-label" style="font-weight:800;">Código <span class="text-muted" style="font-weight:500;">(opcional)</span></label>
-                                                <input class="form-control" name="code" placeholder="Ej: INST-001"/>
-                                            </div>
-                                            <div class="col-12">
-                                                <label class="form-label" style="font-weight:800;">Dirección <span class="text-muted" style="font-weight:500;">(opcional)</span></label>
-                                                <input class="form-control" name="address" placeholder="Referencia / dirección"/>
-                                            </div>
-                                            <div class="col-12 d-flex gap-2">
-                                                <a class="s-btn s-btn-ghost" href="/marketplace/mis-instalaciones">Cancelar</a>
-                                                <button class="s-btn s-btn-primary"><i class="fa fa-check me-1"></i> Crear instalación</button>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </div>
-                            </t>
-                            <t t-elif="False">
-                                <!-- FORMULARIO: editar instalación (reemplazado por modal) -->
-                                <div class="mp-table-card">
-                                    <div class="card-body p-4">
-                                        <div class="mp-sec-head">
-                                            <span class="mp-sec-ico"><i class="fa fa-pencil"></i></span>
-                                            <h3 class="mp-sec-title">Editar instalación</h3>
-                                        </div>
-                                        <form method="post" t-att-action="'/marketplace/mis-instalaciones/facility/%s/actualizar' % sel_facility.id" class="row g-3 sf">
-                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                            <div class="col-md-6">
-                                                <label class="form-label" style="font-weight:800;">Nombre <span class="text-danger">*</span></label>
-                                                <input class="form-control" name="name" t-att-value="sel_facility.name" required="required"/>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label class="form-label" style="font-weight:800;">Tipo</label>
-                                                <select class="form-select" name="facility_type">
-                                                    <option value="farm" t-att-selected="sel_facility.facility_type=='farm'">Granja</option>
-                                                    <option value="hatchery" t-att-selected="sel_facility.facility_type=='hatchery'">Hatchery</option>
-                                                    <option value="laboratory" t-att-selected="sel_facility.facility_type=='laboratory'">Laboratorio</option>
-                                                    <option value="warehouse" t-att-selected="sel_facility.facility_type=='warehouse'">Bodega</option>
-                                                    <option value="office" t-att-selected="sel_facility.facility_type=='office'">Oficina</option>
-                                                    <option value="other" t-att-selected="sel_facility.facility_type=='other'">Otro</option>
-                                                </select>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label class="form-label" style="font-weight:800;">Ciudad / Provincia</label>
-                                                <div class="sf-combo">
-                                                    <input type="hidden" name="city" t-att-value="sel_facility.city or ''"/>
-                                                    <button type="button" class="sf-combo-control">
-                                                        <span t-attf-class="sf-combo-value #{'' if sel_facility.city else 'is-placeholder'}"><t t-esc="sel_facility.city or 'Selecciona provincia…'"/></span>
-                                                        <i class="fa fa-chevron-down sf-combo-caret"/>
-                                                    </button>
-                                                    <div class="sf-combo-panel">
-                                                        <div class="sf-combo-search-wrap"><i class="fa fa-search"/><input type="text" class="sf-combo-search" placeholder="Buscar provincia…" autocomplete="off"/></div>
-                                                        <ul class="sf-combo-list" role="listbox">
-                                                            <t t-foreach="provinces" t-as="prov"><li class="sf-combo-opt" t-att-data-value="prov" role="option"><t t-esc="prov"/></li></t>
-                                                        </ul>
-                                                        <div class="sf-combo-empty" style="display:none;">Sin coincidencias</div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label class="form-label" style="font-weight:800;">Código</label>
-                                                <input class="form-control" name="code" t-att-value="sel_facility.code or ''"/>
-                                            </div>
-                                            <div class="col-12">
-                                                <label class="form-label" style="font-weight:800;">Dirección</label>
-                                                <input class="form-control" name="address" t-att-value="sel_facility.address or ''"/>
-                                            </div>
-                                            <div class="col-12 d-flex gap-2">
-                                                <a class="s-btn s-btn-ghost" t-att-href="'/marketplace/mis-instalaciones?facility=%s' % sel_facility.id">Cancelar</a>
-                                                <button class="s-btn s-btn-primary"><i class="fa fa-check me-1"></i> Guardar cambios</button>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </div>
-                            </t>
-                            <t t-elif="sel_facility">
+                            <t t-if="sel_facility">
                                 <!-- Datos de la instalación -->
                                 <div class="mp-table-card mb-3">
                                     <div class="card-body p-4">
@@ -899,125 +606,6 @@
                                         </t>
                                         <t t-else="">
                                             <div class="text-muted" style="font-size:13px; padding:4px 2px 12px;">Esta instalación aún no tiene piscinas.</div>
-                                        </t>
-
-                                        <t t-if="False">
-                                            <!-- FORMULARIO: editar piscina (reemplazado por modal) -->
-                                            <div class="s-eyebrow mb-2"><i class="fa fa-pencil me-1"></i> Editar piscina: <t t-esc="edit_pond.name"/></div>
-                                            <form method="post" t-att-action="'/marketplace/mis-instalaciones/pond/%s/actualizar' % edit_pond.id"
-                                                enctype="multipart/form-data" class="row g-2 mt-1 sf" id="sfPondForm">
-                                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                                <input type="hidden" name="redirect_facility" t-att-value="sel_facility.id"/>
-                                                <div class="col-md-6">
-                                                    <label class="form-label" style="font-weight:800;">Nombre <span class="text-danger">*</span></label>
-                                                    <input class="form-control" name="name" t-att-value="edit_pond.name" required="required"/>
-                                                </div>
-                                                <div class="col-md-6">
-                                                    <label class="form-label" style="font-weight:800;">Tipo</label>
-                                                    <select class="form-select" name="pond_type">
-                                                        <option value="earth" t-att-selected="edit_pond.pond_type=='earth'">Tierra</option>
-                                                        <option value="geomembrane" t-att-selected="edit_pond.pond_type=='geomembrane'">Geomembrana</option>
-                                                        <option value="tank" t-att-selected="edit_pond.pond_type=='tank'">Tanque</option>
-                                                        <option value="raceway" t-att-selected="edit_pond.pond_type=='raceway'">Canal</option>
-                                                        <option value="other" t-att-selected="edit_pond.pond_type=='other'">Otro</option>
-                                                    </select>
-                                                </div>
-                                                <div class="col-md-6">
-                                                    <label class="form-label" style="font-weight:800;">Capacidad</label>
-                                                    <select class="form-select" name="capacity_mode" id="sfPondMode">
-                                                        <option value="dimensions" t-att-selected="edit_pond.capacity_mode=='dimensions'">Por dimensiones</option>
-                                                        <option value="volume" t-att-selected="edit_pond.capacity_mode=='volume'">Volumen directo</option>
-                                                    </select>
-                                                </div>
-                                                <div class="col-md-6"></div>
-                                                <div class="col-md-4 sf-pond-dims">
-                                                    <label class="form-label" style="font-weight:800;">Largo (m)</label>
-                                                    <input class="form-control" type="number" step="0.01" name="length_m" t-att-value="edit_pond.length_m or ''"/>
-                                                </div>
-                                                <div class="col-md-4 sf-pond-dims">
-                                                    <label class="form-label" style="font-weight:800;">Ancho (m)</label>
-                                                    <input class="form-control" type="number" step="0.01" name="width_m" t-att-value="edit_pond.width_m or ''"/>
-                                                </div>
-                                                <div class="col-md-4 sf-pond-dims">
-                                                    <label class="form-label" style="font-weight:800;">Prof. (m)</label>
-                                                    <input class="form-control" type="number" step="0.01" name="depth_m" t-att-value="edit_pond.depth_m or ''"/>
-                                                </div>
-                                                <div class="col-md-6 sf-pond-vol" style="display:none;">
-                                                    <label class="form-label" style="font-weight:800;">Volumen (m³)</label>
-                                                    <input class="form-control" type="number" step="0.01" name="manual_volume_m3" t-att-value="edit_pond.manual_volume_m3 or ''"/>
-                                                </div>
-                                                <div class="col-md-6">
-                                                    <label class="form-label" style="font-weight:800;">Foto de la piscina</label>
-                                                    <div class="d-flex align-items-center gap-2">
-                                                        <t t-if="edit_pond.image">
-                                                            <img t-att-src="'/marketplace/mis-instalaciones/pond/%s/imagen' % edit_pond.id" class="sf-pond-thumb" alt="Foto"/>
-                                                        </t>
-                                                        <input class="form-control" type="file" name="image" accept="image/*"/>
-                                                    </div>
-                                                    <div class="text-muted" style="font-size:12px; margin-top:4px;">Deja vacío para conservar la foto actual.</div>
-                                                </div>
-                                                <div class="col-12 d-flex gap-2">
-                                                    <a class="s-btn s-btn-ghost" t-att-href="'/marketplace/mis-instalaciones?facility=%s' % sel_facility.id">Cancelar</a>
-                                                    <button class="s-btn s-btn-primary"><i class="fa fa-check me-1"></i> Guardar cambios</button>
-                                                </div>
-                                            </form>
-                                        </t>
-                                        <t t-elif="False">
-                                        <details class="sf-add">
-                                            <summary class="sf-add-toggle"><i class="fa fa-plus me-1"></i> Agregar piscina</summary>
-                                            <form method="post" action="/marketplace/mis-instalaciones/pond/crear"
-                                                enctype="multipart/form-data" class="row g-2 mt-2 sf" id="sfPondForm">
-                                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                                <input type="hidden" name="redirect_facility" t-att-value="sel_facility.id"/>
-                                                <!-- Usa la instalación actualmente seleccionada -->
-                                                <input type="hidden" name="facility_id" t-att-value="sel_facility.id"/>
-                                                <div class="col-md-6">
-                                                    <label class="form-label" style="font-weight:800;">Nombre <span class="text-danger">*</span></label>
-                                                    <input class="form-control" name="name" placeholder="Ej: Piscina 1" required="required"/>
-                                                </div>
-                                                <div class="col-md-6">
-                                                    <label class="form-label" style="font-weight:800;">Tipo</label>
-                                                    <select class="form-select" name="pond_type">
-                                                        <option value="earth">Tierra</option>
-                                                        <option value="geomembrane">Geomembrana</option>
-                                                        <option value="tank">Tanque</option>
-                                                        <option value="raceway">Canal</option>
-                                                        <option value="other">Otro</option>
-                                                    </select>
-                                                </div>
-                                                <div class="col-md-6">
-                                                    <label class="form-label" style="font-weight:800;">Capacidad</label>
-                                                    <select class="form-select" name="capacity_mode" id="sfPondMode">
-                                                        <option value="dimensions">Por dimensiones</option>
-                                                        <option value="volume">Volumen directo</option>
-                                                    </select>
-                                                </div>
-                                                <div class="col-md-6"></div>
-                                                <!-- Dimensiones -->
-                                                <div class="col-md-4 sf-pond-dims">
-                                                    <label class="form-label" style="font-weight:800;">Largo (m)</label>
-                                                    <input class="form-control" type="number" step="0.01" name="length_m" placeholder="0.00"/>
-                                                </div>
-                                                <div class="col-md-4 sf-pond-dims">
-                                                    <label class="form-label" style="font-weight:800;">Ancho (m)</label>
-                                                    <input class="form-control" type="number" step="0.01" name="width_m" placeholder="0.00"/>
-                                                </div>
-                                                <div class="col-md-4 sf-pond-dims">
-                                                    <label class="form-label" style="font-weight:800;">Prof. (m)</label>
-                                                    <input class="form-control" type="number" step="0.01" name="depth_m" placeholder="0.00"/>
-                                                </div>
-                                                <!-- Volumen directo -->
-                                                <div class="col-md-6 sf-pond-vol" style="display:none;">
-                                                    <label class="form-label" style="font-weight:800;">Volumen (m³)</label>
-                                                    <input class="form-control" type="number" step="0.01" name="manual_volume_m3" placeholder="0.00"/>
-                                                </div>
-                                                <div class="col-md-6">
-                                                    <label class="form-label" style="font-weight:800;">Foto de la piscina <span class="text-muted" style="font-weight:500;">(opcional)</span></label>
-                                                    <input class="form-control" type="file" name="image" accept="image/*"/>
-                                                </div>
-                                                <div class="col-12"><button class="s-btn s-btn-primary"><i class="fa fa-check me-1"></i> Añadir piscina</button></div>
-                                            </form>
-                                        </details>
                                         </t>
                                     </div>
                                 </div>
@@ -1231,7 +819,7 @@
     </template>
 
     <!-- ============================================================ -->
-    <!-- 5) SOLICITUDES DE CHEQUEO (VENDEDOR)                         -->
+    <!-- 4) SOLICITUDES DE CHEQUEO (VENDEDOR)                         -->
     <!-- ============================================================ -->
     <template id="my_check_requests" name="Marketplace - Solicitudes">
         <t t-call="website.layout">
@@ -1319,7 +907,7 @@
                                                     </td>
                                                     <td class="text-end">
                                                         <a class="s-btn s-btn-ghost btn-sm" t-att-href="'/marketplace/solicitudes/%s/detalle' % r.id">
-                                                            <i class="fa fa-eye me-1"></i> Ver Solicitud
+                                                            <i class="fa fa-eye me-1"></i> Ver solicitud
                                                         </a>
                                                     </td>
                                                 </tr>
@@ -1354,14 +942,35 @@
                         <div class="mp-sec-head"><span class="mp-sec-ico"><i class="fa fa-info-circle"></i></span><h3 class="mp-sec-title">Datos de la solicitud</h3></div>
                         <div class="mp-spec-grid">
                             <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-hashtag"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Referencia</div><div class="mp-spec-value"><t t-esc="cr.name"/></div></div></div>
-                            <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-flag"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Estado</div><div class="mp-spec-value"><t t-esc="dict(cr._fields['state'].selection).get(cr.state)"/></div></div></div>
+                            <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-flag"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Estado</div><div class="mp-spec-value">
+                                <!-- Mismo código de color que el listado: el estado se lee igual en los dos sitios. -->
+                                <t t-set="state_label" t-value="dict(cr._fields['state'].selection).get(cr.state)"/>
+                                <t t-if="cr.state == 'approved'"><span class="s-badge s-badge--green"><t t-esc="state_label"/></span></t>
+                                <t t-elif="cr.state == 'rejected'"><span class="s-badge" style="background:rgba(220,53,69,.10); color:#dc3545;"><t t-esc="state_label"/></span></t>
+                                <t t-elif="cr.state in ('requested', 'under_review')"><span class="s-badge" style="background:rgba(224,169,42,.14); color:#a97b12;"><t t-esc="state_label"/></span></t>
+                                <t t-else=""><span class="s-badge"><t t-esc="state_label"/></span></t>
+                            </div></div></div>
+                            <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-clock-o"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Fecha de solicitud</div><div class="mp-spec-value"><t t-esc="cr.create_date or '—'"/></div></div></div>
                             <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-cube"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Producto</div><div class="mp-spec-value"><a t-att-href="'/marketplace/product/%s' % cr.product_id.uuid_ref"><t t-esc="cr.product_id.name"/></a></div></div></div>
                             <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-user-o"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Vendedor</div><div class="mp-spec-value"><t t-esc="cr.seller_partner_id.name"/></div></div></div>
                             <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-user"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Comprador</div><div class="mp-spec-value"><t t-esc="cr.buyer_partner_id.name"/></div></div></div>
                             <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-balance-scale"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Cantidad</div><div class="mp-spec-value"><t t-esc="cr.qty"/> <t t-esc="cr.uom_id.name or ''"/></div></div></div>
-                            <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-money"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Costo del chequeo</div><div class="mp-spec-value">$<t t-esc="'%.2f' % (cr.check_fee or 0.0)"/></div></div></div>
-                            <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-user-circle-o"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Encargado (revisó)</div><div class="mp-spec-value"><t t-esc="cr.reviewed_by.name or '—'"/></div></div></div>
+                            <!-- Formato % prohibido en QWeb (rompe el render): str.format(). -->
+                            <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-money"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Costo del chequeo <span class="text-muted">(lo paga el comprador)</span></div><div class="mp-spec-value"><t t-esc="'{} {:,.2f}'.format(cr.currency_id.symbol or '$', cr.check_fee or 0.0)"/></div></div></div>
+                            <!-- Quién se encarga: hasta que alguien la revise, el responsable
+                                 es el vendedor, que es quien aprueba o rechaza. -->
+                            <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-user-circle-o"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Encargado</div><div class="mp-spec-value">
+                                <t t-if="cr.reviewed_by"><t t-esc="cr.reviewed_by.name"/></t>
+                                <t t-else=""><t t-esc="cr.seller_partner_id.name"/> <span class="text-muted">(pendiente de revisar)</span></t>
+                            </div></div></div>
                             <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-calendar"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Fecha de revisión</div><div class="mp-spec-value"><t t-esc="cr.reviewed_date or '—'"/></div></div></div>
+                            <t t-if="cr.source_lot_id">
+                                <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-flask"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Lote origen</div><div class="mp-spec-value"><t t-esc="cr.source_lot_id.display_name"/></div></div></div>
+                            </t>
+                            <t t-if="cr.result_product_id">
+                                <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-cubes"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Producto generado</div><div class="mp-spec-value"><a t-att-href="'/marketplace/product/%s' % cr.result_product_id.uuid_ref"><t t-esc="cr.result_product_id.name"/></a></div></div></div>
+                            </t>
+                            <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-barcode"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Código de seguimiento</div><div class="mp-spec-value"><t t-esc="cr.uuid_ref or '—'"/></div></div></div>
                         </div>
                         <t t-if="cr.note">
                             <div class="mt-3"><div class="mp-spec-label">Notas</div><p class="mb-0"><t t-esc="cr.note"/></p></div>
@@ -1372,6 +981,27 @@
                         <div class="mp-table-card mb-4"><div class="card-body p-4">
                             <div class="mp-sec-head"><span class="mp-sec-ico"><i class="fa fa-exchange"></i></span><h3 class="mp-sec-title">Transacción generada</h3></div>
                             <a class="s-btn s-btn-ghost" t-att-href="'/marketplace/thanks/%s' % cr.transaction_id.uuid_ref"><i class="fa fa-file-text-o me-1"></i> Ver comprobante</a>
+                        </div></div>
+                    </t>
+
+                    <!-- El chequeo se le factura al comprador, así que sus documentos
+                         de cobro solo se le enseñan a él y no a la contraparte. -->
+                    <t t-if="not is_seller and (cr.sale_order_id or cr.invoice_id)">
+                        <div class="mp-table-card mb-4"><div class="card-body p-4">
+                            <div class="mp-sec-head"><span class="mp-sec-ico"><i class="fa fa-file-text-o"></i></span><h3 class="mp-sec-title">Cobro del chequeo</h3></div>
+                            <div class="mp-spec-grid">
+                                <t t-if="cr.sale_order_id">
+                                    <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-shopping-cart"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Pedido de venta</div><div class="mp-spec-value"><t t-esc="cr.sale_order_id.name"/></div></div></div>
+                                </t>
+                                <t t-if="cr.invoice_id">
+                                    <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-file-o"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Factura</div><div class="mp-spec-value"><t t-esc="cr.invoice_id.name"/></div></div></div>
+                                    <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-check-square-o"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Estado de la factura</div><div class="mp-spec-value">
+                                        <t t-if="cr.invoice_state == 'posted'"><span class="s-badge s-badge--green">Publicada</span></t>
+                                        <t t-elif="cr.invoice_state == 'cancel'"><span class="s-badge" style="background:rgba(220,53,69,.10); color:#dc3545;">Cancelada</span></t>
+                                        <t t-else=""><span class="s-badge">Borrador</span></t>
+                                    </div></div></div>
+                                </t>
+                            </div>
                         </div></div>
                     </t>
 
@@ -1393,7 +1023,7 @@
     </template>
 
     <!-- ============================================================ -->
-    <!-- 6) TRAZABILIDAD ON-SCREEN                                    -->
+    <!-- 5) TRAZABILIDAD ON-SCREEN                                    -->
     <!-- ============================================================ -->
     <template id="traceability_screen" name="Marketplace - Trazabilidad">
         <t t-call="website.layout">

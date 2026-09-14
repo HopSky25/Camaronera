@@ -1,8 +1,22 @@
 <odoo>
+  <!-- Sin <data noupdate="1"> a propósito. El patrón habitual en Odoo es
+       marcar las secuencias como noupdate para no pisar el contador que lleva
+       la base; aquí interesa lo contrario: padding/prefix son parte del diseño
+       del identificador y deben poder corregirse con un -u. El contador vive en
+       number_next/la secuencia de Postgres, no en estos campos, así que
+       reprocesar el registro no reinicia la numeración.
+
+       Aun así, una base que ya haya emitido referencias conserva los nombres
+       viejos (TXN-000111 con 6 dígitos): eso lo reescribe
+       migrations/1.3.3/post-migrate.py. -->
   <record id="seq_shrimp_transaction" model="ir.sequence">
     <field name="name">Shrimp Transaction</field>
     <field name="code">shrimp.transaction</field>
     <field name="prefix">TXN-</field>
+    <!-- 10 dígitos: el marketplace factura por lote y una camaronera grande
+         mueve varios miles de transacciones al año; con 6 el identificador se
+         agota (999.999) y a partir de ahí la secuencia desborda el padding y
+         deja de ordenar alfabéticamente. -->
     <field name="padding">10</field>
   </record>
 

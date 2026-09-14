@@ -20,21 +20,64 @@
                         </div>
                     </div>
 
-                    <!-- Barra de filtros (botón desplegable) -->
+                    <!-- Filtros. Se mantienen ARRIBA de la tabla y no en una barra
+                         lateral a propósito: esta pantalla es una tabla de 9-10 columnas
+                         y el ancho es lo que la hace legible; un sidebar le quitaría ~300px.
+                         Lo que se mejora es el manejo, no el sitio. -->
+                    <t t-set="f_activos" t-value="[v for v in [filters.get('q'), filters.get('tx_state'), filters.get('stage'), filters.get('location'), filters.get('date_from'), filters.get('date_to'), filters.get('delivery_from'), filters.get('delivery_to')] if v]"/>
+                    <t t-set="etapas_por_id" t-value="dict([(str(o.id), o.name) for o in stage_options])"/>
+                    <!-- (clave, etiqueta, valor legible). La clave es la del querystring:
+                         es lo que permite construir el enlace que quita ESE filtro. -->
+                    <t t-set="chips" t-value="[
+                        ('q', 'Buscar', filters.get('q')),
+                        ('tx_state', 'Estado', dict(state_options).get(filters.get('tx_state') or '', '') or filters.get('tx_state')),
+                        ('stage', 'Etapa', etapas_por_id.get(filters.get('stage') or '', '') or filters.get('stage')),
+                        ('location', 'Ubicación', filters.get('location')),
+                        ('date_from', 'Compra desde', filters.get('date_from')),
+                        ('date_to', 'Compra hasta', filters.get('date_to')),
+                        ('delivery_from', 'Entrega desde', filters.get('delivery_from')),
+                        ('delivery_to', 'Entrega hasta', filters.get('delivery_to')),
+                    ]"/>
+
                     <div class="s-filterbar mb-3">
                         <button class="s-filter-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#txFilters1" aria-expanded="false" aria-controls="txFilters1">
-                            <i class="fa fa-sliders me-2"></i> Filtros <i class="fa fa-chevron-down ms-2 s-filter-caret"></i>
+                            <i class="fa fa-sliders me-2"></i> Filtros
+                            <!-- Con el panel plegado no había forma de saber si la lista
+                                 estaba filtrada; el contador lo dice sin desplegarlo. -->
+                            <t t-if="f_activos"><span class="s-filter-count"><t t-esc="len(f_activos)"/></span></t>
+                            <i class="fa fa-chevron-down ms-2 s-filter-caret"></i>
                         </button>
-                        <a class="s-filter-clear" t-att-href="base_url">Limpiar filtros</a>
+                        <t t-if="f_activos">
+                            <a class="s-filter-clear" t-att-href="base_url">Limpiar filtros</a>
+                        </t>
                     </div>
 
+                    <!-- Filtros aplicados: cada uno se quita por separado. Antes solo
+                         existía "Limpiar", que obliga a rehacer los demás. -->
+                    <t t-if="f_activos">
+                        <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+                            <t t-foreach="chips" t-as="chip">
+                                <t t-if="chip[2]">
+                                    <span class="s-badge s-badge--teal">
+                                        <t t-esc="chip[1]"/>: <t t-esc="chip[2]"/>
+                                        <a t-att-href="base_url + '?' + '&amp;'.join(k + '=' + quote_plus(v) for k, v in filters.items() if v and k != chip[0])"
+                                           class="ms-2" style="color:inherit; text-decoration:none;"
+                                           t-att-title="'Quitar el filtro ' + chip[1]">
+                                            <i class="fa fa-times"></i>
+                                        </a>
+                                    </span>
+                                </t>
+                            </t>
+                        </div>
+                    </t>
+
                     <!-- Panel colapsable de filtros -->
-                    <div t-att-class="'collapse mb-4' + (' show' if (filters.get('q') or filters.get('tx_state') or filters.get('stage') or filters.get('location') or filters.get('date_from') or filters.get('date_to') or filters.get('delivery_from') or filters.get('delivery_to')) else '')" id="txFilters1">
+                    <div t-att-class="'collapse mb-4' + (' show' if f_activos else '')" id="txFilters1">
                         <div class="card s-filters-card">
                             <div class="card-body p-4">
                                 <form method="get" t-att-action="base_url" class="row g-3 align-items-end">
 
-                                    <div class="col-sm-6 col-lg-3">
+                                    <div class="col-sm-6 col-lg-4">
                                         <label class="form-label small text-muted mb-1">Buscar</label>
                                         <div class="input-group">
                                             <span class="input-group-text">
@@ -53,10 +96,16 @@
                                         <select class="form-select" name="tx_state">
                                             <option value="">Todos</option>
                                             <t t-foreach="state_options" t-as="opt">
-                                                <option t-att-value="opt[0]"
-                                                    t-att-selected="filters.get('tx_state') == opt[0] and 'selected' or None">
-                                                    <t t-esc="opt[1]" />
-                                                </option>
+                                                <!-- Planificación solo lista confirmadas y completadas
+                                                     (lo impone el dominio del controlador). Ofrecer
+                                                     "Borrador" o "Cancelada" era ofrecer un filtro que
+                                                     siempre devuelve cero resultados. -->
+                                                <t t-if="mode != 'planning' or opt[0] in ('confirmed', 'done')">
+                                                    <option t-att-value="opt[0]"
+                                                        t-att-selected="filters.get('tx_state') == opt[0] and 'selected' or None">
+                                                        <t t-esc="opt[1]" />
+                                                    </option>
+                                                </t>
                                             </t>
                                         </select>
                                     </div>
@@ -74,7 +123,7 @@
                                         </select>
                                     </div>
 
-                                    <div class="col-sm-6 col-lg-3">
+                                    <div class="col-sm-6 col-lg-4">
                                         <label class="form-label small text-muted mb-1">Ubicación</label>
                                         <input class="form-control"
                                             type="text"
@@ -83,8 +132,10 @@
                                             t-att-value="filters.get('location') or ''" />
                                     </div>
 
+                                    <!-- "Desde/Hasta" a secas, pegado a "Entrega desde/hasta",
+                                         no decía sobre qué fecha filtraba. -->
                                     <div class="col-sm-6 col-lg-2">
-                                        <label class="form-label small text-muted mb-1">Desde</label>
+                                        <label class="form-label small text-muted mb-1">Compra desde</label>
                                         <input class="form-control"
                                             type="date"
                                             name="date_from"
@@ -92,7 +143,7 @@
                                     </div>
 
                                     <div class="col-sm-6 col-lg-2">
-                                        <label class="form-label small text-muted mb-1">Hasta</label>
+                                        <label class="form-label small text-muted mb-1">Compra hasta</label>
                                         <input class="form-control"
                                             type="date"
                                             name="date_to"
@@ -116,7 +167,7 @@
                                         </div>
                                     </t>
 
-                                    <div class="col-sm-6 col-lg-2">
+                                    <div class="col-sm-6 col-lg-3">
                                         <label class="form-label small text-muted mb-1">Orden</label>
                                         <select class="form-select" name="order">
                                             <option value=""
@@ -148,6 +199,28 @@
                                             </option>
                                         </select>
                                     </div>
+
+                                    <!-- Atajos de entrega: lo que de verdad se consulta aquí es
+                                         "qué me llega pronto" y "qué debía haber llegado ya", y
+                                         eso obligaba a teclear dos fechas a mano cada vez. -->
+                                    <t t-if="mode == 'planning'">
+                                        <t t-set="hoy" t-value="datetime.date.today()"/>
+                                        <div class="col-12 d-flex flex-wrap gap-2 align-items-center">
+                                            <span class="text-muted small">Atajos de entrega:</span>
+                                            <a class="s-btn s-btn-ghost btn-sm"
+                                               t-att-href="base_url + '?delivery_from=' + hoy.isoformat() + '&amp;delivery_to=' + (hoy + datetime.timedelta(days=7)).isoformat()">
+                                                <i class="fa fa-calendar-o me-1"></i> Próximos 7 días
+                                            </a>
+                                            <a class="s-btn s-btn-ghost btn-sm"
+                                               t-att-href="base_url + '?delivery_from=' + hoy.isoformat() + '&amp;delivery_to=' + (hoy + datetime.timedelta(days=30)).isoformat()">
+                                                <i class="fa fa-calendar me-1"></i> Próximos 30 días
+                                            </a>
+                                            <a class="s-btn s-btn-ghost btn-sm"
+                                               t-att-href="base_url + '?delivery_to=' + (hoy - datetime.timedelta(days=1)).isoformat() + '&amp;order=delivery_asc'">
+                                                <i class="fa fa-exclamation-triangle me-1"></i> Entregas atrasadas
+                                            </a>
+                                        </div>
+                                    </t>
 
                                     <div class="col-12 d-flex gap-2">
                                         <button class="s-btn s-btn-primary" type="submit"><i class="fa fa-search me-1"></i> Aplicar filtros</button>
@@ -300,7 +373,14 @@
 
                                                             <td class="text-end">
                                                                 <t t-set="pu" t-value="tx.price_unit or (tx.product_id.price if tx.product_id else 0.0)"/>
-                                                                <span class="fw-semibold">$<t t-esc="'%.2f' % (pu or 0.0)"/></span>
+                                                                <!-- El importe salía de un "$" escrito a mano pegado a un
+                                                                     '%.2f': no es el signo de la moneda, es un carácter
+                                                                     suelto que ni sale del registro ni respeta su posición
+                                                                     ni sus decimales, y desaparece en cuanto el número se
+                                                                     formatea de otra forma. El widget monetary lo toma de
+                                                                     la moneda de la compañía, igual que "Mis reportes". -->
+                                                                <span class="fw-semibold" t-esc="pu or 0.0"
+                                                                      t-options="{'widget': 'monetary', 'display_currency': request.env.company.currency_id}"/>
                                                                 <div class="text-muted small">/ <t t-esc="tx.product_id.uom_id.name or 'u'"/></div>
                                                             </td>
 
@@ -477,7 +557,11 @@
                             <t t-if="transactions">
                                 <div class="vstack gap-3">
                                     <t t-foreach="transactions" t-as="tx">
-                                        <div class="mp-table-card">
+                                        <!-- overflow visible en línea: .mp-table-card lleva overflow:hidden en
+                                             el CSS y recortaría el menú de acciones. Solo se relaja en estas
+                                             tarjetas; la franja degradada del ::before vive dentro del borde
+                                             (top/bottom 22px), así que no depende de ese recorte. -->
+                                        <div class="mp-table-card" style="overflow:visible;">
                                             <div class="card-body p-4">
 
                                                 <div class="d-flex flex-wrap justify-content-between gap-3">
@@ -528,7 +612,10 @@
                                                                     Precio</div>
                                                                 <div class="fw-semibold">
                                                                     <t t-set="pu2" t-value="tx.price_unit or (tx.product_id.price if tx.product_id else 0.0)"/>
-                                                                    $<t t-esc="'%.2f' % (pu2 or 0.0)"/>
+                                                                    <!-- Mismo caso que la tabla de transacciones: el signo
+                                                                         venía escrito a mano, no de la moneda. -->
+                                                                    <span t-esc="pu2 or 0.0"
+                                                                          t-options="{'widget': 'monetary', 'display_currency': request.env.company.currency_id}"/>
                                                                 </div>
                                                             </div>
 
@@ -556,32 +643,28 @@
                                                         </div>
                                                     </div>
 
-                                                    <!-- Acciones compactas en fila (antes eran una columna alta
-                                                         que agrandaba la tarjeta). -->
-                                                    <div class="d-flex flex-wrap gap-2 align-items-start justify-content-end"
+                                                    <!-- Acciones agrupadas en un solo menú.
+
+                                                         Eran 4 enlaces + calificar sueltos en una columna de 340px:
+                                                         no cabían en una línea, se repartían en tres filas y la
+                                                         altura de la fila de botones era la que mandaba sobre el alto
+                                                         de la tarjeta, no los datos de la compra. Se eligió el menú
+                                                         (y no botones solo-icono) porque cuatro iconos de documento
+                                                         —comprobante, trazabilidad, PDF de trazabilidad, factura— no
+                                                         se distinguen entre sí sin leer el tooltip.
+
+                                                         Fuera del menú queda únicamente lo que no es "abrir un
+                                                         documento": confirmar la recepción, que es una decisión con
+                                                         efecto en el inventario, o el aviso de cuándo podrá tomarse. -->
+                                                    <div class="d-flex flex-wrap gap-2 align-items-center justify-content-end"
                                                         style="max-width: 340px;">
-                                                        <a t-att-href="'/marketplace/thanks/%s' % tx.uuid_ref"
-                                                            class="s-btn s-btn-ghost btn-sm" title="Ver comprobante">
-                                                            <i class="fa fa-file-text-o me-1"></i> Comprobante </a>
-
-                                                        <a t-att-href="'/marketplace/compras/%s/trazabilidad' % tx.uuid_ref"
-                                                            class="s-btn s-btn-ghost btn-sm" title="Ver trazabilidad">
-                                                            <i class="fa fa-sitemap me-1"></i> Trazabilidad </a>
-
-                                                        <a t-att-href="'/marketplace/compras/%s/trazabilidad/pdf?download=1' % tx.uuid_ref"
-                                                            class="s-btn s-btn-ghost btn-sm" title="Descargar trazabilidad">
-                                                            <i class="fa fa-file-pdf-o me-1"></i> PDF </a>
-
-                                                        <a t-att-href="'/marketplace/compras/%s/factura/pdf?download=1' % tx.uuid_ref"
-                                                            class="s-btn s-btn-primary btn-sm" title="Descargar factura">
-                                                            <i class="fa fa-file-text me-1"></i> Factura </a>
 
                                                         <!-- Confirmar recepción: sube el inventario del comprador (borrador),
                                                              respetando la fecha de entrega -->
                                                         <t t-if="tx.state == 'confirmed'">
                                                             <t t-set="deliv" t-value="tx._delivery_date()"/>
                                                             <t t-if="deliv &lt;= today">
-                                                                <form method="post" t-att-action="'/marketplace/compras/%s/recibir' % tx.uuid_ref">
+                                                                <form method="post" t-att-action="'/marketplace/compras/%s/recibir' % tx.uuid_ref" class="m-0">
                                                                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                                                     <button type="submit" class="s-btn s-btn-primary btn-sm"
                                                                             onclick="return confirm('¿Confirmar la recepción? Se subirá el producto a tu inventario en estado borrador.');">
@@ -596,13 +679,51 @@
                                                             </t>
                                                         </t>
 
-                                                        <!-- Calificar vendedor (#4): solo si aún no lo ha calificado -->
-                                                        <t t-if="tx.state in ('confirmed', 'done') and tx.id not in reviewed_tx_ids">
-                                                            <button type="button" class="s-btn s-btn-ghost btn-sm"
-                                                                    data-bs-toggle="modal" t-att-data-bs-target="'#rateModal%s' % tx.id">
-                                                                <i class="fa fa-star me-1"></i> Calificar
+                                                        <div class="dropdown">
+                                                            <button class="s-btn s-btn-ghost btn-sm dropdown-toggle" type="button"
+                                                                    data-bs-toggle="dropdown" aria-expanded="false"
+                                                                    t-att-aria-label="'Acciones de la compra ' + (tx.name or '')">
+                                                                <i class="fa fa-ellipsis-h me-1"></i> Acciones
                                                             </button>
-                                                        </t>
+                                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                                <li>
+                                                                    <a class="dropdown-item"
+                                                                       t-att-href="'/marketplace/compras/%s/factura/pdf?download=1' % tx.uuid_ref">
+                                                                        <i class="fa fa-file-text me-2"></i> Descargar factura
+                                                                    </a>
+                                                                </li>
+                                                                <li>
+                                                                    <a class="dropdown-item"
+                                                                       t-att-href="'/marketplace/thanks/%s' % tx.uuid_ref">
+                                                                        <i class="fa fa-file-text-o me-2"></i> Ver comprobante
+                                                                    </a>
+                                                                </li>
+                                                                <li><hr class="dropdown-divider"/></li>
+                                                                <li>
+                                                                    <a class="dropdown-item"
+                                                                       t-att-href="'/marketplace/compras/%s/trazabilidad' % tx.uuid_ref">
+                                                                        <i class="fa fa-sitemap me-2"></i> Ver trazabilidad
+                                                                    </a>
+                                                                </li>
+                                                                <li>
+                                                                    <a class="dropdown-item"
+                                                                       t-att-href="'/marketplace/compras/%s/trazabilidad/pdf?download=1' % tx.uuid_ref">
+                                                                        <i class="fa fa-file-pdf-o me-2"></i> Trazabilidad en PDF
+                                                                    </a>
+                                                                </li>
+
+                                                                <!-- Calificar vendedor (#4): solo si aún no lo ha calificado -->
+                                                                <t t-if="tx.state in ('confirmed', 'done') and tx.id not in reviewed_tx_ids">
+                                                                    <li><hr class="dropdown-divider"/></li>
+                                                                    <li>
+                                                                        <button type="button" class="dropdown-item"
+                                                                                data-bs-toggle="modal" t-att-data-bs-target="'#rateModal%s' % tx.id">
+                                                                            <i class="fa fa-star me-2"></i> Calificar vendedor
+                                                                        </button>
+                                                                    </li>
+                                                                </t>
+                                                            </ul>
+                                                        </div>
                                                     </div>
                                                 </div>
 
@@ -684,7 +805,13 @@
     <template id="marketplace_my_reports" name="Marketplace - Mis reportes">
         <t t-call="website.layout">
             <div class="shrimp-bg">
-                <div class="shrimp-page py-4">
+                <!-- Mismo ancho que compras / ventas / planificación. El banner ya
+                     era el .sf-banner del sistema de diseño, pero esta página era la
+                     única del bloque que se quedaba en el ancho estrecho: la cabecera
+                     salía más angosta que la de la pantalla anterior y por eso se leía
+                     como "de otro diseño". La clase sf-banner NO se toca: de ella
+                     cuelga el xpath de shrimp_packer/views/reportes_inherit.xml. -->
+                <div class="shrimp-page shrimp-page--full py-4">
 
                     <div class="mb-3">
                         <t t-call="shrimp_marketplace.s_back_button"><t t-set="back_fallback" t-value="'/my'"/></t>

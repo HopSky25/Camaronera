@@ -55,6 +55,28 @@ class ShrimpTransaction(models.Model):
 
     desired_qty = fields.Float(string="Cantidad deseada")
     desired_date = fields.Date(string="Fecha")
+
+    # La fecha de entrega que de verdad manda, almacenada para poder filtrar y
+    # ordenar por ella.
+    #
+    # Antes el portal filtraba y ordenaba por product_id.expected_delivery_date
+    # mientras action_receive exigía _delivery_date(), que da prioridad a
+    # desired_date. Y no es un matiz: 97 de las 98 transacciones tienen
+    # desired_date, y no siempre coincide con la del producto —TXN-000078 pide
+    # el 15/05 y el producto dice 22/12—. Resultado: la columna "Entrega"
+    # mostraba una fecha y el filtro respondía por otra.
+    delivery_date = fields.Date(
+        string="Entrega", compute="_compute_delivery_date", store=True,
+        index=True,
+        help="La fecha comprometida con el comprador si existe; si no, la "
+             "prevista del lote.")
+
+    @api.depends("desired_date", "product_id.expected_delivery_date")
+    def _compute_delivery_date(self):
+        for rec in self:
+            rec.delivery_date = (rec.desired_date
+                                 or rec.product_id.expected_delivery_date
+                                 or False)
     code = fields.Char(string="Código")
 
     transaction_qty = fields.Float(string="Cantidad operativa", required=True, tracking=True)
@@ -140,13 +162,26 @@ class ShrimpTransaction(models.Model):
         ondelete="set null",
     )
 
+    # Mismo padding que data/sequence.xml. Solo se usa para el respaldo de
+    # abajo; la referencia buena la emite ir.sequence.
+    _REF_PREFIJO = "TXN-"
+    _REF_PADDING = 10
+
     @api.model_create_multi
     def create(self, vals_list):
         seq = self.env["ir.sequence"]
 
         for vals in vals_list:
             if vals.get("name", _("Nuevo")) == _("Nuevo"):
-                vals["name"] = seq.next_by_code("shrimp.transaction") or _("TXN-000000")
+                # El respaldo iba traducido y con 6 dígitos: una referencia no se
+                # traduce (cambiaría según el idioma de quien crea el registro) y
+                # con 6 no cuadra con lo que emite la secuencia, así que el único
+                # caso en que se ve —secuencia ausente— dejaba un identificador
+                # con otro formato que los filtros del portal no encuentran.
+                vals["name"] = (
+                    seq.next_by_code("shrimp.transaction")
+                    or self._REF_PREFIJO + "0" * self._REF_PADDING
+                )
 
         return super().create(vals_list)
 
@@ -375,9 +410,9 @@ class ShrimpTransaction(models.Model):
     def _delivery_date(self):
         """Fecha de entrega a respetar para la recepción."""
         self.ensure_one()
-        return (self.desired_date
-                or self.product_id.expected_delivery_date
-                or fields.Date.context_today(self))
+        # El campo almacenado puede estar vacío si no hay ninguna de las dos
+        # fechas; para la recepción hace falta una, así que se cae a hoy.
+        return self.delivery_date or fields.Date.context_today(self)
 
     def action_receive(self):
         """El comprador confirma la recepción: se sube su inventario y (si aplica)

@@ -96,10 +96,10 @@ class ShrimpTransactionPortalController(http.Controller):
             domain += [("create_date", "<=", f"{date_to} 23:59:59")]
 
         if delivery_from:
-            domain += [("product_id.expected_delivery_date", ">=", delivery_from)]
+            domain += [("delivery_date", ">=", delivery_from)]
 
         if delivery_to:
-            domain += [("product_id.expected_delivery_date", "<=", delivery_to)]
+            domain += [("delivery_date", "<=", delivery_to)]
 
         return domain
 
@@ -108,8 +108,8 @@ class ShrimpTransactionPortalController(http.Controller):
         order_map = {
             "recent": "create_date desc",
             "oldest": "create_date asc",
-            "delivery_asc": "product_id.expected_delivery_date asc, create_date desc",
-            "delivery_desc": "product_id.expected_delivery_date desc, create_date desc",
+            "delivery_asc": "delivery_date asc, create_date desc",
+            "delivery_desc": "delivery_date desc, create_date desc",
             "qty_desc": "transaction_qty desc, create_date desc",
             "price_desc": "product_id.price desc, create_date desc",
             "price_asc": "product_id.price asc, create_date desc",
@@ -632,11 +632,17 @@ class ShrimpTransactionPortalController(http.Controller):
         invoice = tx.sudo().action_generar_factura()
         if not invoice:
             raise NotFound()
-        report = request.env["ir.actions.report"].sudo()._get_report_from_name(
-            "account.account_invoices")
+        # _get_report_from_name busca por report_name, no por XML id: con
+        # "account.account_invoices" (que es el XML id, cuyo report_name real es
+        # account.report_invoice_with_payments) devolvía vacío y la descarga
+        # contestaba 404. Se resuelve por ref y se cae al informe sin pagos si
+        # la contabilidad no trae el primero.
+        report = request.env.ref("account.account_invoices", raise_if_not_found=False)
+        report = report.sudo() if report else request.env["ir.actions.report"].sudo()._get_report_from_name(
+            "account.report_invoice")
         if not report:
             raise NotFound()
-        pdf_content, _ = report.sudo()._render_qweb_pdf(
+        pdf_content, _ = report._render_qweb_pdf(
             report.report_name, res_ids=[invoice.id])
         safe = (tx.name or "factura").replace("/", "-").replace("\\", "-")
         filename = f"Factura-{safe}.pdf"

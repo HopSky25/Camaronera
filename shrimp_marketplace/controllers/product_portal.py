@@ -42,8 +42,12 @@ class ShrimpProductPortalController(http.Controller):
         - Interno/admin: el vendedor elegido en el formulario (debe ser semillero/lab).
         Devuelve el partner vendedor o False si no es válido.
         """
+        # La camaronera también vende lo suyo (el camarón de engorde a la
+        # empacadora). _check_can_manage_products ya la dejaba entrar al
+        # formulario, pero aquí seguía sin resolverse como vendedora: el POST
+        # de creación terminaba en ?error=seller y el lote no se creaba nunca.
         partner = self._get_current_partner()
-        if partner.shrimp_user_type in ("semillero", "laboratorio"):
+        if partner.shrimp_user_type in ("semillero", "laboratorio", "camaronera"):
             return partner
         if self._is_internal():
             try:
@@ -51,11 +55,50 @@ class ShrimpProductPortalController(http.Controller):
             except (TypeError, ValueError):
                 return False
             seller = request.env["res.partner"].sudo().browse(seller_id)
-            if seller.exists() and seller.shrimp_user_type in ("semillero", "laboratorio"):
+            if seller.exists() and seller.shrimp_user_type in (
+                    "semillero", "laboratorio", "camaronera"):
                 return seller
         return False
 
+    @staticmethod
+    def _exige_talla_comercial(product):
+        """True solo en camarón de engorde, el único con talla comercial.
+
+        Mismo criterio que usa shrimp_packer para decidir si un lote se cruza
+        con las listas de precios: se mira el código del estadío, no el alcance
+        de verificación. "adult" incluye al juvenil de una camaronera, que
+        tampoco tiene talla de empacadora.
+        """
+        return (product.stage_id.code or "").strip().upper() == "ENGORDE"
+
+    # La unidad depende del eslabón, no del catálogo: el nauplio y la larva se
+    # venden por millares y el camarón adulto por libras. Marcar siempre
+    # "Libras" obligaba al semillero a corregirlo en cada publicación, y si se
+    # le pasaba, el precio quedaba leído como $/lb de larva.
+    _UOM_POR_ROL = {
+        "semillero": "millar",
+        "laboratorio": "millar",
+        "camaronera": "libra",
+    }
+
+    def _default_uom(self, seller=None, uom_options=None):
+        """Unidad marcada por defecto según quién publica.
+
+        Si el catálogo no tiene esa unidad (se renombró o se archivó) se cae a
+        la primera disponible en vez de dejar el formulario sin selección.
+        """
+        if uom_options is None:
+            uom_options = request.env["shrimp.uom"].sudo().search(
+                [("active", "=", True)], order="sequence, name")
+        partner = seller or self._get_current_partner()
+        codigo = self._UOM_POR_ROL.get(partner.shrimp_user_type, "libra")
+        uom = uom_options.filtered(
+            lambda u: (u.code or "").strip().lower() == codigo)
+        return (uom[:1] or uom_options[:1])
+
     def _get_product_form_options(self):
+        uom_options = request.env["shrimp.uom"].sudo().search(
+            [("active", "=", True)], order="sequence, name")
         return {
             "species_options": request.env["shrimp.species"].sudo().search(
                 [("active", "=", True)], order="name asc"),
@@ -63,8 +106,8 @@ class ShrimpProductPortalController(http.Controller):
                 [("active", "=", True)], order="sequence asc, name asc"),
             "genetics_options": request.env["shrimp.genetics.line"].sudo().search(
                 [("active", "=", True)], order="name asc"),
-            "uom_options": request.env["shrimp.uom"].sudo().search(
-                [("active", "=", True)], order="sequence, name"),
+            "uom_options": uom_options,
+            "default_uom_id": self._default_uom(uom_options=uom_options).id or False,
             "size_grade_options": request.env["shrimp.size.grade"].sudo().search(
                 [("active", "=", True)], order="presentation, sequence, name"),
             "facility_options": request.env["shrimp.partner.facility"].sudo().search(
@@ -290,8 +333,9 @@ class ShrimpProductPortalController(http.Controller):
         health_status = (post.get("health_status") or "").strip()
         uom_id = int(post.get("uom_id")) if post.get("uom_id") else False
         if not uom_id:
-            libra = request.env.ref("shrimp_marketplace.uom_libra", raise_if_not_found=False)
-            uom_id = libra.id if libra else False
+            # Sin unidad en el POST se toma la del eslabón del vendedor (millar
+            # en semillero/laboratorio, libra en camaronera), no libras fijas.
+            uom_id = self._default_uom(seller=seller).id or False
         location = (post.get("location") or "").strip()
 
         initial_qty = _to_float(post.get("initial_qty") or post.get("available_qty"))
@@ -681,8 +725,14 @@ class ShrimpProductPortalController(http.Controller):
         if product.available_qty <= 0:
             return request.redirect(f"/marketplace/product/{product.uuid_ref}?error=no_stock")
 
-        # Presentación y talla son obligatorias para publicar.
-        if not product.presentation or not product.size_grade_id:
+        # Presentación y talla solo se exigen en camarón de talla comercial.
+        # Un nauplio o una post-larva no son "entero/cola" ni tienen talla de
+        # la matriz comercial (30/40, 41/50…): pedírselas dejaba al semillero y
+        # al laboratorio sin poder publicar nada desde el formulario. Las
+        # larvas que hay publicadas entraron por datos de demo, saltándose esta
+        # ruta, y por eso el bloqueo pasó desapercibido.
+        if self._exige_talla_comercial(product) and (
+                not product.presentation or not product.size_grade_id):
             return request.redirect(f"/marketplace/product/{product.uuid_ref}?error=size_required")
 
         product.write({"state": "published", "published_date": fields.Datetime.now()})

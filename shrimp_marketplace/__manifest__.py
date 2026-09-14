@@ -64,6 +64,11 @@ y portal público.
         "views/shrimp_uom_views.xml",
         "views/shrimp_size_grade_views.xml",
         "views/shrimp_review_views.xml",
+        "views/shrimp_product_evolution_views.xml",
+
+        # Va el ÚLTIMO a propósito: sobrescribe los grupos de menús que crean
+        # los archivos anteriores (reportes, tallas, certificados de usuario).
+        "views/shrimp_menu_groups.xml",
 
     ],
     # Datos de ejemplo realistas, divididos por modelo/relación. Usan

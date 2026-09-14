@@ -1,0 +1,110 @@
+<odoo>
+
+  <!-- =================================================================
+       Evolución del producto: administración desde el backoffice.
+
+       936 registros sin lista, sin formulario, sin acción y sin menú, y
+       tampoco editables dentro del formulario de producto. La única forma de
+       corregir una fila mal cargada era SQL directo contra la base.
+
+       Y no es un histórico decorativo: de aquí sale lo que el comprador ve
+       en la ficha pública del producto (marketplace.py lo lee para pintar la
+       evolución) y es la trazabilidad con la que se sostiene que un lote
+       creció como se dice. Un dato de supervivencia mal tecleado se publica
+       igual y no había manera de arreglarlo desde la interfaz.
+       ================================================================= -->
+
+  <record id="view_shrimp_product_evolution_list" model="ir.ui.view">
+    <field name="name">shrimp.product.evolution.list</field>
+    <field name="model">shrimp.product.evolution</field>
+    <field name="arch" type="xml">
+      <list string="Evolución del producto">
+        <field name="date" string="Fecha"/>
+        <field name="product_id" string="Producto"/>
+        <field name="stage_id"/>
+        <field name="avg_size_mg"/>
+        <field name="survival_rate"/>
+        <field name="available_qty"/>
+        <field name="user_id" string="Registrado por" optional="show"/>
+        <field name="health_status" optional="hide"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_shrimp_product_evolution_form" model="ir.ui.view">
+    <field name="name">shrimp.product.evolution.form</field>
+    <field name="model">shrimp.product.evolution</field>
+    <field name="arch" type="xml">
+      <form string="Evolución del producto">
+        <sheet>
+          <group>
+            <group>
+              <field name="product_id"/>
+              <field name="date"/>
+              <field name="stage_id"/>
+            </group>
+            <group>
+              <field name="avg_size_mg"/>
+              <field name="survival_rate"/>
+              <field name="available_qty"/>
+              <field name="user_id"/>
+            </group>
+          </group>
+          <group string="Estado sanitario / Observaciones">
+            <field name="health_status" nolabel="1"/>
+          </group>
+          <group string="Nota">
+            <field name="note" nolabel="1"/>
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_shrimp_product_evolution_search" model="ir.ui.view">
+    <field name="name">shrimp.product.evolution.search</field>
+    <field name="model">shrimp.product.evolution</field>
+    <field name="arch" type="xml">
+      <search string="Evolución del producto">
+        <field name="product_id"/>
+        <field name="stage_id"/>
+        <field name="health_status"/>
+        <filter name="ultimo_mes" string="Último mes"
+                domain="[('date','&gt;=', (context_today() - relativedelta(months=1)).strftime('%Y-%m-%d'))]"/>
+        <!-- Una supervivencia por encima de 100 o negativa es un dato imposible:
+             se cargó mal y está publicándose igual. -->
+        <filter name="supervivencia_imposible" string="Supervivencia fuera de rango"
+                domain="['|',('survival_rate','&lt;',0),('survival_rate','&gt;',100)]"/>
+        <filter name="sin_estadio" string="Sin estadío"
+                domain="[('stage_id','=',False)]"/>
+        <filter name="con_observacion" string="Con observación sanitaria"
+                domain="[('health_status','!=',False)]"/>
+        <separator/>
+        <filter name="g_producto" string="Producto"
+                context="{'group_by': 'product_id'}"/>
+        <filter name="g_estadio" string="Estadío"
+                context="{'group_by': 'stage_id'}"/>
+        <filter name="g_fecha" string="Fecha"
+                context="{'group_by': 'date:month'}"/>
+      </search>
+    </field>
+  </record>
+
+  <record id="action_shrimp_product_evolution" model="ir.actions.act_window">
+    <field name="name">Evolución del producto</field>
+    <field name="res_model">shrimp.product.evolution</field>
+    <field name="view_mode">list,form</field>
+    <field name="search_view_id" ref="view_shrimp_product_evolution_search"/>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">Todavía no hay registros de evolución.</p>
+      <p>Cada fila es una medición del lote en el tiempo. Es lo que el comprador
+         ve en la ficha pública del producto, así que un dato mal cargado se
+         publica: desde aquí se corrige.</p>
+    </field>
+  </record>
+
+  <menuitem id="menu_shrimp_product_evolution" name="Evolución del producto"
+            parent="menu_shrimp_catalog_root" action="action_shrimp_product_evolution"
+            groups="base.group_system" sequence="30"/>
+
+</odoo>

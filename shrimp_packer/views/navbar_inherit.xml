@@ -56,6 +56,30 @@
           <span>Empacadoras</span>
         </a>
       </li>
+
+      <!-- El rendimiento verificado de sus proveedores. Va aquí, junto a la
+           oferta disponible, porque son las dos mitades de la misma decisión:
+           qué hay para comprar y a quién conviene comprárselo. -->
+      <li t-if="shrimp_tipo == 'empacadora'">
+        <a role="menuitem" class="dropdown-item mp-menu-item"
+           href="/marketplace/proveedores">
+          <span class="mp-menu-ico mp-mi-amber"><i class="fa fa-trophy"/></span>
+          <span>Rendimiento de proveedores</span>
+        </a>
+      </li>
+
+      <!-- El simulador de cosecha. Es la decisión semanal de la camaronera
+           —cosechar o esperar— y va junto a las empacadoras y a las listas
+           porque se resuelve con lo mismo: quién paga qué por cada talla.
+           Misma condición de rol que las demás entradas: a una empacadora no
+           le sirve, porque no tiene lotes que cosechar. -->
+      <li t-if="shrimp_tipo == 'camaronera'">
+        <a role="menuitem" class="dropdown-item mp-menu-item"
+           href="/marketplace/simulador">
+          <span class="mp-menu-ico mp-mi-blue"><i class="fa fa-line-chart"/></span>
+          <span>Simulador de cosecha</span>
+        </a>
+      </li>
     </xpath>
   </template>
 

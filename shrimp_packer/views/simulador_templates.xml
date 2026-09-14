@@ -1,0 +1,449 @@
+<odoo>
+
+  <!-- ================================================================
+       SIMULADOR DE COSECHA
+
+       Responde "¿cosecho ahora o espero?" cruzando dos datos que el sistema
+       ya tenía sueltos: el historial de pesajes del lote y lo que paga cada
+       empacadora por cada talla.
+
+       Toda la pantalla está construida alrededor de una distinción: lo MEDIDO
+       (los pesajes del propio lote, los precios de las listas vigentes) va sin
+       adorno; lo PROYECTADO va marcado. El camaronero lee una proyección como
+       una promesa, y una promesa que no se cumple cuesta más que no haberla
+       hecho.
+       ================================================================ -->
+  <template id="harvest_simulator" name="Simulador de cosecha">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page shrimp-page--full py-4">
+
+          <a class="pk-volver" href="/marketplace/products">
+            <i class="fa fa-arrow-left me-1"/> Volver a mis lotes
+          </a>
+
+          <div class="sf-banner mb-4">
+            <div class="sf-banner-row">
+              <div class="sf-banner-txt">
+                <h1>Simulador de cosecha</h1>
+                <p>¿Cosechas ahora o esperas? Lo que crece tu lote, contra lo
+                   que pagan las empacadoras por cada talla.</p>
+              </div>
+              <span class="sf-kicker"><i class="fa fa-line-chart"></i> Simulador</span>
+            </div>
+          </div>
+
+          <t t-if="not lotes">
+            <div class="pk-vacio">
+              <i class="fa fa-line-chart fa-2x mb-2"/>
+              <p class="mb-0">No tienes lotes de engorde con talla asignada.
+                 El simulador trabaja sobre camarón de engorde: es el que se
+                 vende por talla a una empacadora.</p>
+            </div>
+          </t>
+
+          <t t-if="lotes">
+            <form method="get" action="/marketplace/simulador" class="pk-filtro-panel">
+              <div class="pk-filtro">
+                <label>Lote a simular
+                  <select name="lote" class="form-control js-sim-refrescar">
+                    <t t-foreach="lotes" t-as="l">
+                      <option t-att-value="l.uuid_ref"
+                              t-att-selected="'selected' if l == lote else None"
+                              t-esc="l.name"/>
+                    </t>
+                  </select>
+                </label>
+                <!-- La cantidad futura es el supuesto más discutible de todo
+                     el cálculo, así que se saca a un control a la vista en vez
+                     de enterrarlo en una nota al pie. -->
+                <label>Cantidad a cosechar
+                  <select name="cantidad" class="form-control js-sim-refrescar">
+                    <option value="constante"
+                            t-att-selected="'selected' if modo != 'biomasa' else None">
+                      Las mismas libras de hoy
+                    </option>
+                    <option value="biomasa"
+                            t-att-selected="'selected' if modo == 'biomasa' else None">
+                      Proyectar biomasa y mortalidad
+                    </option>
+                  </select>
+                </label>
+                <button type="submit" class="s-btn s-btn-primary">
+                  <i class="fa fa-refresh me-1"/> Actualizar
+                </button>
+              </div>
+            </form>
+
+            <t t-if="not sim.get('ok')">
+              <div class="pk-vacio mt-3">
+                <i class="fa fa-info-circle fa-2x mb-2"/>
+                <p class="mb-0" t-esc="sim.get('motivo')"/>
+              </div>
+            </t>
+
+            <t t-if="sim.get('ok')">
+              <t t-set="ritmo" t-value="sim['ritmo']"/>
+
+              <!-- ======================================================
+                   Punto de partida: lo que hoy es un hecho
+                   ====================================================== -->
+              <div class="sim-hoy mt-3">
+                <div class="sim-hoy-dato">
+                  <span>Peso promedio hoy</span>
+                  <strong t-esc="'{:.1f} g'.format(sim['peso_hoy_g'])"/>
+                  <em t-esc="'{:.0f} piezas por {}'.format(sim['piezas_hoy'], 'libra de cola' if lote.presentation == 'cola' else 'kilo')"/>
+                </div>
+                <div class="sim-hoy-dato">
+                  <span>Talla declarada</span>
+                  <strong t-esc="lote.size_grade_id.name"/>
+                  <em t-esc="'Entero' if lote.presentation == 'entero' else 'Cola'"/>
+                  <!-- Que el peso dé otra talla no es un error de nadie: la
+                       conversión depende del rendimiento y del muestreo, y un
+                       peldaño de diferencia cabe dentro de esa holgura. Pero
+                       callarlo sería esconder que el lote quizá ya vale más de
+                       lo que dice su ficha. -->
+                  <t t-if="sim.get('discrepa')">
+                    <span class="sim-tag sim-tag--est">
+                      por peso daría <t t-esc="sim['talla_por_peso'].name"/>
+                    </span>
+                  </t>
+                </div>
+                <div class="sim-hoy-dato">
+                  <span>Cantidad disponible</span>
+                  <strong t-esc="'{:,.0f} Lb'.format(sim['cantidad_hoy'])"/>
+                  <em>la que está publicada</em>
+                </div>
+                <div class="sim-hoy-dato">
+                  <span>Ritmo de crecimiento</span>
+                  <strong t-esc="'{:.2f} g/día'.format(ritmo['g_dia'])"/>
+                  <!-- La marca que separa el dato del supuesto. Es lo primero
+                       que tiene que ver el que mira la pantalla. -->
+                  <t t-if="ritmo['medido']">
+                    <span class="sim-tag sim-tag--med">
+                      <i class="fa fa-balance-scale me-1"/> Medido en tu lote
+                    </span>
+                  </t>
+                  <t t-else="">
+                    <span class="sim-tag sim-tag--est">
+                      <i class="fa fa-question-circle me-1"/> Estimación del sector
+                    </span>
+                  </t>
+                </div>
+              </div>
+
+              <!-- De dónde sale el ritmo, con nombre y apellido: cuántos
+                   pesajes, de qué fechas. Sin esto el número es un oráculo. -->
+              <t t-if="ritmo['medido']">
+                <p class="sim-origen">
+                  <i class="fa fa-check-circle me-1"/>
+                  Calculado sobre <strong t-esc="ritmo['n']"/> pesajes tuyos,
+                  del <t t-esc="ritmo['desde_txt']"/> al <t t-esc="ritmo['hasta_txt']"/>
+                  (<t t-esc="ritmo['dias']"/> días). No es un promedio del sector:
+                  es este lote.
+                </p>
+                <t t-if="ritmo['fuera_de_rango']">
+                  <div class="sim-aviso">
+                    <i class="fa fa-exclamation-triangle me-1"/>
+                    El ritmo que sale de tus pesajes
+                    (<t t-esc="'{:.2f}'.format(ritmo['g_dia'])"/> g/día) está muy
+                    por encima de lo que sostiene un engorde comercial: son más de
+                    3 g por semana. Se usa igual, porque es tu medición y no la
+                    nuestra, pero conviene revisar los muestreos antes de decidir
+                    sobre esta proyección: si el ritmo real es la mitad, el salto
+                    de talla llega al doble de días.
+                  </div>
+                </t>
+                <t t-if="sim['dias_sin_pesar'] and sim['dias_sin_pesar'] &gt; 14">
+                  <div class="sim-aviso">
+                    <i class="fa fa-clock-o me-1"/>
+                    El último pesaje es del <t t-esc="ritmo['hasta_txt']"/>, hace
+                    <t t-esc="sim['dias_sin_pesar']"/> días. La proyección arranca
+                    de ese peso, así que si el lote siguió creciendo va corta:
+                    un pesaje nuevo la corrige entera.
+                  </div>
+                </t>
+              </t>
+              <t t-else="">
+                <div class="sim-aviso sim-aviso--fuerte">
+                  <i class="fa fa-exclamation-triangle me-1"/>
+                  <strong>Esto es una estimación, no una medición.</strong>
+                  No se puede calcular el crecimiento real de este lote porque
+                  <t t-esc="ritmo.get('motivo')"/>. Se usa
+                  <t t-esc="'{:.2f}'.format(ritmo['g_dia'])"/> g/día, una
+                  referencia del sector para camarón blanco de engorde (el rango
+                  típico va de 0,15 a 0,25 g/día según densidad y temperatura).
+                  Con dos pesajes separados por al menos una semana, esta
+                  pantalla pasa a trabajar con el dato de tu lote.
+                </div>
+              </t>
+
+              <!-- ======================================================
+                   El salto de talla: la única razón por la que esperar paga
+                   ====================================================== -->
+              <t t-if="sim.get('salto')">
+                <t t-set="s" t-value="sim['salto']"/>
+                <div class="sim-salto">
+                  <div class="sim-salto-ico"><i class="fa fa-level-up"/></div>
+                  <div class="sim-salto-txt">
+                    <div class="sim-salto-cab">Próximo salto de talla</div>
+                    <div class="sim-salto-frase">
+                      De <strong t-esc="lote.size_grade_id.name"/>
+                      a <strong t-esc="s['talla'].name"/>
+                      <t t-if="s['dias'] == 1">mañana</t>
+                      <t t-else="">en <strong t-esc="s['dias']"/> días</t>
+                      (<t t-esc="s['fecha_txt']"/>), al llegar a
+                      <t t-esc="'{:.1f} g'.format(s['peso_g'])"/>.
+                    </div>
+                    <t t-if="s.get('delta')">
+                      <div class="sim-salto-cifra">
+                        <t t-esc="'{:+,.0f}'.format(s['delta'])"/> USD sobre lo que
+                        vale hoy, si se cumple la proyección.
+                      </div>
+                    </t>
+                    <t t-elif="s.get('total') is None">
+                      <div class="sim-salto-cifra pk-muted">
+                        Ninguna de tus listas vigentes cotiza todavía esa talla.
+                      </div>
+                    </t>
+                  </div>
+                </div>
+              </t>
+              <t t-else="">
+                <div class="sim-salto sim-salto--no">
+                  <div class="sim-salto-ico"><i class="fa fa-minus"/></div>
+                  <div class="sim-salto-txt">
+                    <div class="sim-salto-cab">Sin salto de talla a la vista</div>
+                    <div class="sim-salto-frase">
+                      Con este ritmo, el lote no cambia de talla en los próximos
+                      meses. Esperar no le sube el precio por libra: lo que suba
+                      será por biomasa, y eso cuesta alimento.
+                    </div>
+                  </div>
+                </div>
+              </t>
+
+              <!-- ======================================================
+                   La tabla
+                   ====================================================== -->
+              <h2 class="pk-h2 mt-4">Qué pasa si esperas</h2>
+              <div class="pk-comp-wrap">
+                <table class="pk-comp sim-tabla">
+                  <thead>
+                    <tr>
+                      <th>Momento</th>
+                      <th>Peso medio</th>
+                      <th>Talla</th>
+                      <th>Mejor precio</th>
+                      <th>Empacadora</th>
+                      <th class="text-end">Valor del lote</th>
+                      <th class="text-end">Frente a hoy</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <t t-foreach="sim['filas']" t-as="f">
+                      <tr t-att-class="'sim-fila-hoy' if f['dias'] == 0 else ('sim-fila-salto' if f['salto'] else '')">
+                        <td>
+                          <strong t-esc="f['etiqueta']"/>
+                          <div class="pk-comp-ref" t-esc="f['fecha_txt']"/>
+                        </td>
+                        <td>
+                          <t t-esc="'{:.1f} g'.format(f['peso_g'])"/>
+                          <t t-if="f['dias']">
+                            <div class="pk-comp-ref">proyectado</div>
+                          </t>
+                          <t t-else="">
+                            <div class="pk-comp-ref">medido</div>
+                          </t>
+                        </td>
+                        <td>
+                          <span class="pk-talla" t-esc="f['talla'].name"/>
+                          <t t-if="f['salto']">
+                            <span class="sim-badge-salto">
+                              <i class="fa fa-level-up me-1"/> Sube de talla
+                            </span>
+                          </t>
+                          <t t-if="f['tope']">
+                            <div class="pk-comp-ref">tope de la matriz de tallas</div>
+                          </t>
+                        </td>
+                        <td>
+                          <t t-if="f['precio']">
+                            <strong t-esc="'$ {:,.2f}'.format(f['precio'])"/>
+                            <span class="pk-comp-total">
+                              / <t t-esc="'Kg' if f['uom'] == 'kg' else 'Lb'"/>
+                            </span>
+                          </t>
+                          <t t-else=""><span class="pk-muted">—</span></t>
+                        </td>
+                        <td>
+                          <t t-if="f['empacadora']">
+                            <div class="pk-comp-emp" t-esc="f['empacadora'].name"/>
+                            <div class="pk-comp-ref" t-esc="f['calidad']"/>
+                          </t>
+                          <t t-else="">
+                            <span class="pk-muted">nadie cotiza esta talla</span>
+                          </t>
+                        </td>
+                        <td class="text-end">
+                          <t t-if="f['total']">
+                            <strong t-esc="'$ {:,.0f}'.format(f['total'])"/>
+                            <t t-if="modo == 'biomasa'">
+                              <div class="pk-comp-ref" t-esc="'{:,.0f} Lb'.format(f['cantidad'])"/>
+                            </t>
+                          </t>
+                          <t t-else=""><span class="pk-muted">—</span></t>
+                        </td>
+                        <td class="text-end">
+                          <t t-if="f['dias'] == 0"><span class="pk-muted">referencia</span></t>
+                          <t t-elif="f['delta'] is not None and abs(f['delta']) &lt; 1">
+                            <span class="pk-muted">sin cambio</span>
+                          </t>
+                          <t t-elif="f['delta'] is not None">
+                            <span t-att-class="'sim-delta sim-delta--sube' if f['delta'] &gt; 0 else 'sim-delta'"
+                                  t-esc="'{:+,.0f}'.format(f['delta'])"/>
+                          </t>
+                          <t t-else=""><span class="pk-muted">—</span></t>
+                        </td>
+                      </tr>
+                    </t>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- ======================================================
+                   Qué NO entra en el cálculo. Va debajo de la tabla y no en
+                   una ayuda escondida: son los cuatro supuestos que pueden
+                   dar la vuelta a la decisión, y el que mira la tabla tiene
+                   derecho a conocerlos antes de vaciar una piscina.
+                   ====================================================== -->
+              <div class="sim-supuestos">
+                <div class="sim-supuestos-cab">
+                  <i class="fa fa-info-circle me-1"/> Lo que este cálculo NO incluye
+                </div>
+                <ul class="pk-lista">
+                  <li>
+                    <strong>El precio de mañana.</strong> Las cifras usan las
+                    listas <em>vigentes hoy</em>, aplicadas a la talla futura. La
+                    empacadora publicará otra lista antes de que llegues al día
+                    <t t-esc="sim['filas'][-1]['dias']"/>.
+                  </li>
+                  <li>
+                    <strong>El alimento.</strong> Esperar cuesta balanceado todos
+                    los días, y ese costo no está restado en ninguna columna.
+                  </li>
+                  <t t-if="modo == 'biomasa'">
+                    <li>
+                      <strong>Cantidad proyectada.</strong> Las libras de cada
+                      fila crecen con el peso medido del lote
+                      <t t-if="sim['superv']['medido']">
+                        y bajan con su mortalidad medida
+                        (<t t-esc="'{:.2f}'.format(-sim['superv']['pts_dia'])"/>
+                        puntos de supervivencia al día, sobre
+                        <t t-esc="'{:.1f} %'.format(sim['superv']['pct_hoy'])"/> hoy).
+                      </t>
+                      <t t-else="">
+                        pero <strong>sin descontar mortalidad</strong>: este lote no
+                        tiene histórico de supervivencia del que medirla, y
+                        inventarla sería peor que no ponerla. Las libras salen
+                        optimistas.
+                      </t>
+                    </li>
+                  </t>
+                  <t t-else="">
+                    <li>
+                      <strong>La biomasa ni la mortalidad.</strong> Estás viendo
+                      las mismas libras de hoy en todas las filas, así que la
+                      tabla se queda <em>corta</em> —el animal engorda y el lote
+                      pesa más— y a la vez <em>larga</em> —siempre muere camarón—.
+                      Los dos errores van en sentido contrario. Cambia el
+                      selector a «Proyectar biomasa y mortalidad» para verlo con
+                      las libras proyectadas.
+                    </li>
+                  </t>
+                  <li>
+                    <strong>Cómo se calcula la talla futura.</strong> La talla de
+                    hoy es la que tú declaraste en el lote. Las siguientes salen
+                    de contar cuántas fronteras de talla cruza el peso proyectado
+                    <t t-if="lote.presentation == 'cola'">
+                      (en cola se cuenta piezas por libra de cola, aplicando el
+                      rendimiento del 65 % sobre el animal entero)
+                    </t>
+                    <t t-else="">
+                      (en entero se cuenta piezas por kilo)
+                    </t>. El día del salto es aproximado: depende de un pesaje.
+                  </li>
+                  <t t-if="lote.presentation == 'cola'">
+                    <li>
+                      <strong>El rendimiento de cola.</strong> Se aplica un 65 %
+                      sobre el animal entero, que es el promedio del sector y el
+                      mismo que usa el parte de planta. Un punto de rendimiento
+                      arriba o abajo puede mover la talla un peldaño: por eso la
+                      talla de hoy es la que tú declaraste y no la que sale de
+                      la cuenta.
+                    </li>
+                  </t>
+                </ul>
+              </div>
+
+              <div class="mt-3">
+                <a class="s-btn s-btn-ghost"
+                   t-attf-href="/marketplace/product/#{lote.uuid_ref}">
+                  <i class="fa fa-eye me-1"/> Ver el lote
+                </a>
+                <a class="s-btn s-btn-ghost ms-2" href="/marketplace/listas-de-precios/comparar">
+                  <i class="fa fa-balance-scale me-1"/> Comparar empacadoras
+                </a>
+              </div>
+            </t>
+
+            <script type="text/javascript">
+<![CDATA[
+(function(){
+  function init(){
+    // Cambiar de lote o de supuesto recarga sola: obligar a pulsar
+    // "Actualizar" después de cada elección sobra, y el botón se queda para
+    // el que navegue con teclado.
+    var sels = document.querySelectorAll('select.js-sim-refrescar');
+    Array.prototype.forEach.call(sels, function(s){
+      s.addEventListener('change', function(){ s.form.submit(); });
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else { init(); }
+})();
+]]>
+            </script>
+          </t>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+  <!-- ================================================================
+       Atajo desde la tarjeta del lote.
+
+       El simulador sirve justo cuando el camaronero está mirando el lote y
+       dudando, así que la entrada tiene que estar ahí y no solo en el menú.
+       Se añade desde un fichero propio para no tocar productos_inherit.xml.
+       ================================================================ -->
+  <template id="productos_simulador_link"
+            inherit_id="shrimp_marketplace.products_list"
+            name="Mis productos - simular cosecha">
+    <xpath expr="//div[hasclass('s-prod-actions')]" position="inside">
+      <!-- Solo donde significa algo: engorde con talla, que es lo que se
+           vende por talla a una empacadora. En un juvenil el botón llevaría a
+           una pantalla que solo sabe decir que no aplica. -->
+      <t t-if="p.verification_scope == 'adult' and (p.stage_id.code or '').strip().upper() == 'ENGORDE' and p.size_grade_id">
+        <a class="s-btn s-btn-ghost btn-sm" style="flex:0 0 auto;"
+           title="Simular cosecha: ¿cosecho ahora o espero?"
+           t-attf-href="/marketplace/simulador/#{p.uuid_ref}">
+          <i class="fa fa-line-chart"></i>
+        </a>
+      </t>
+    </xpath>
+  </template>
+
+</odoo>

@@ -569,12 +569,15 @@
                                             <div class="col-md-4">
                                                 <label class="form-label" style="font-weight:800;">
                                                     Etapa</label>
-                                                <select class="form-select" name="stage_id"
+                                                <select class="form-select" name="stage_id" id="prodStage"
                                                     t-att-disabled="purchase_locked or None"
                                                     style="border-radius:14px; padding:12px 12px;">
                                                     <option value="">Seleccione…</option>
                                                     <t t-foreach="stage_options" t-as="st">
-                                                        <option t-att-value="st.id" t-att-selected="st.id == product.stage_id.id">
+                                                        <!-- El código del estadío viaja al DOM porque presentación y talla
+                                                             solo se exigen en ENGORDE; el resto del formulario lo lee. -->
+                                                        <option t-att-value="st.id" t-att-data-code="st.code"
+                                                                t-att-selected="st.id == product.stage_id.id">
                                                             <t t-esc="st.name" />
                                                         </option>
                                                     </t>
@@ -732,7 +735,7 @@
 
                                         <div class="row g-3">
                                             <div class="col-md-4">
-                                                <label class="form-label" style="font-weight:800;">Presentación <span class="text-danger">*</span></label>
+                                                <label class="form-label" style="font-weight:800;">Presentación <span class="text-danger s-req-engorde">*</span></label>
                                                 <select class="form-select" name="presentation" id="prodPresentation"
                                                         t-att-disabled="purchase_locked or None"
                                                         style="border-radius:14px; padding:12px 12px;">
@@ -742,7 +745,7 @@
                                                 </select>
                                             </div>
                                             <div class="col-md-4">
-                                                <label class="form-label" style="font-weight:800;">Talla <span class="text-danger">*</span></label>
+                                                <label class="form-label" style="font-weight:800;">Talla <span class="text-danger s-req-engorde">*</span></label>
                                                 <select class="form-select" name="size_grade_id" id="prodSizeGrade"
                                                         t-att-disabled="purchase_locked or None"
                                                         style="border-radius:14px; padding:12px 12px;">
@@ -759,9 +762,13 @@
                                                 <select class="form-select" name="uom_id"
                                                     t-att-disabled="uom_locked or None"
                                                     style="border-radius:14px; padding:12px 12px;">
+                                                    <!-- En alta, la unidad marcada la decide el controlador según el
+                                                         eslabón del vendedor (millar en semillero/laboratorio, libra en
+                                                         camaronera): antes venía "Libras" fija y el semillero publicaba
+                                                         millares de larvas con precio leído como $/lb. -->
                                                     <t t-foreach="uom_options" t-as="u">
                                                         <option t-att-value="u.id"
-                                                            t-att-selected="(u.id == product.uom_id.id) if product else (u.code == 'libra')">
+                                                            t-att-selected="(u.id == product.uom_id.id) if product else (u.id == default_uom_id)">
                                                             <t t-esc="u.name"/></option>
                                                     </t>
                                                 </select>
@@ -1375,6 +1382,26 @@ function setActive(idx){
     apply();
   }
 
+  // El asterisco de Presentación y Talla mentía al semillero: esos dos campos
+  // solo se exigen para publicar camarón de engorde, que es el único con talla
+  // comercial. Se muestra según el estadío elegido, con el mismo criterio que
+  // aplica el servidor al publicar.
+  function initRequiredByStage(){
+    var stage = document.getElementById("prodStage");
+    var marks = document.querySelectorAll(".s-req-engorde");
+    if(!stage || !marks.length) return;
+    function apply(){
+      var opt = stage.options[stage.selectedIndex];
+      var code = (opt && opt.getAttribute("data-code") || "").trim().toUpperCase();
+      var req = code === "ENGORDE";
+      Array.prototype.forEach.call(marks, function(m){
+        m.style.display = req ? "" : "none";
+      });
+    }
+    stage.addEventListener("change", apply);
+    apply();
+  }
+
   function initExistingPhotos(){
     var wrap = document.getElementById("np_thumbs");
     if(!wrap) return;
@@ -1409,6 +1436,7 @@ function setActive(idx){
     initCerts();
     initPondFilter();
     initSizeFilter();
+    initRequiredByStage();
     initExistingPhotos();
   }
 
@@ -1523,7 +1551,7 @@ function setActive(idx){
                         </t>
                         <t t-if="request.params.get('error') == 'size_required'">
                             <div class="alert alert-warning py-2 px-3 mb-0" style="border-radius:14px;">
-                                <i class="fa fa-exclamation-triangle me-1"></i> Debes indicar la <strong>presentación</strong> y la <strong>talla</strong> antes de publicar. Edita el producto para completarlas.
+                                <i class="fa fa-exclamation-triangle me-1"></i> El camarón de engorde necesita <strong>presentación</strong> y <strong>talla</strong> antes de publicarse: es lo que se cruza con las listas de precios. Edita el producto para completarlas.
                             </div>
                         </t>
                     </div>

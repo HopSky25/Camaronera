@@ -1138,24 +1138,37 @@
        ================================================================ -->
   <template id="buy_product_verification" inherit_id="shrimp_marketplace.buy_product"
             name="Compra - selector de verificador">
-    <!-- Cuando el producto requiere verificación, la compra directa y el
-         chequeo antiguo se ocultan: el único camino es con verificador. -->
+    <!-- Cuando el producto requiere verificación se oculta la compra directa:
+         el único camino es con verificador. El chequeo antiguo no se oculta,
+         se retira del todo unas líneas más abajo. -->
     <xpath expr="//form[@id='buyForm']" position="attributes">
       <attribute name="t-if">not product.requires_verification</attribute>
     </xpath>
-    <!-- El chequeo antiguo queda sustituido por la verificación con un tercero
-         acreditado. OJO: se oculta con CSS, NO con t-if. El script que calcula el
-         total hace `if (!btnBuy || !btnCheck) return;` y btn_check vive dentro de
-         este formulario: si se elimina del DOM, el cálculo del total y el relleno
-         de la cantidad dejan de funcionar en toda la página. -->
-    <xpath expr="//form[@id='checkForm']" position="attributes">
-      <attribute name="style">display:none;</attribute>
-    </xpath>
-    <xpath expr="//form[@id='checkForm']/following-sibling::div[1]" position="attributes">
-      <attribute name="style">display:none;</attribute>
-    </xpath>
-    <xpath expr="//div[@id='chkModal']" position="attributes">
-      <attribute name="style">display:none;</attribute>
+    <!-- "Solicitar chequeo" queda RETIRADO, no escondido. Antes se tapaba con
+         display:none, y eso deja lo peor de las dos opciones: el <form> seguía
+         en la página con su action a /request-check, su modal, su tarifa y su
+         botón; cualquiera con las herramientas del navegador podía dispararlo,
+         y el HTML seguía prometiendo una función que ya no existe. La
+         sustituyó la verificación en campo con un tercero acreditado.
+
+         Se quitan del DOM el formulario, su texto de apoyo y el modal de cobro.
+         El orden de los xpath importa: el texto de apoyo se localiza como
+         hermano del formulario, así que hay que sacarlo ANTES de que el
+         formulario desaparezca o la expresión ya no resuelve y la vista revienta
+         al instalarse.
+
+         Queda un marcador vacío con id="btn_check". No es un resto del botón:
+         es lo único que el script de cálculo del total de shrimp_marketplace
+         —que no es nuestro— necesita para no abortar, porque arranca con
+         `if (!qtyInput || ... || !btnBuy || !btnCheck) return;`. Sin él, en los
+         lotes de larvas (los que sí se compran directo) dejaría de calcularse
+         el total y de rellenarse qty_hidden_buy, y la compra fallaría pidiendo
+         "una cantidad válida". El otro script, el del modal de chequeo, sí se
+         desactiva solo: exige checkForm y chkModal, y ambos ya no están. -->
+    <xpath expr="//form[@id='checkForm']/following-sibling::div[1]" position="replace"/>
+    <xpath expr="//div[@id='chkModal']" position="replace"/>
+    <xpath expr="//form[@id='checkForm']" position="replace">
+      <span id="btn_check" class="d-none" aria-hidden="true"/>
     </xpath>
 
     <xpath expr="//form[@id='buyForm']" position="before">
@@ -1875,6 +1888,33 @@
           })();
         </script>
       </t>
+    </xpath>
+  </template>
+
+  <!-- ================================================================
+       SOLICITUDES DE CHEQUEO: HISTÓRICO CONSULTABLE
+       ================================================================
+       Retirado el formulario de "Solicitar chequeo", esta pantalla ya no
+       recibe registros nuevos. Ni la ruta ni las solicitudes existentes se
+       tocan —hay chequeos históricos que el vendedor todavía puede aprobar o
+       rechazar—, pero la página tiene que decirlo, o el cliente se pasa la
+       demo buscando el botón que la creaba.
+  -->
+  <template id="my_check_requests_historico"
+            inherit_id="shrimp_marketplace.my_check_requests"
+            name="Solicitudes de chequeo - histórico">
+    <xpath expr="//div[hasclass('sf-banner-txt')]/p" position="replace">
+      <p>Histórico de los chequeos solicitados antes de la verificación en campo.</p>
+    </xpath>
+    <xpath expr="//div[hasclass('sf-banner')]" position="after">
+      <div class="alert alert-info" style="border-radius:14px;">
+        <i class="fa fa-info-circle me-1"/>
+        <strong>Esta pantalla es solo histórico.</strong>
+        El chequeo por encargo se reemplazó por la <strong>verificación en campo</strong>:
+        ahora se elige un verificador acreditado al comprar el lote, y el resultado
+        se sigue desde <a href="/marketplace/compras">Mis compras</a>. Aquí ya no se
+        crean solicitudes nuevas; las que ves abajo siguen siendo gestionables.
+      </div>
     </xpath>
   </template>
 

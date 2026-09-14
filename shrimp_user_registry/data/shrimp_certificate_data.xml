@@ -197,5 +197,121 @@
             <field name="active">1</field>
         </record>
 
+        <!-- ============================================================
+             SEMILLERO (laboratorio de larvas / hatchery)
+             ============================================================
+             El desplegable de "Añadir certificado" filtra por
+             role in (tipo_usuario, 'all'); sin registros con role
+             "semillero" el semillero no podía acreditar absolutamente nada
+             y la demo terminaba colgándole papeles de otros roles.
+
+             Los emisores se dejan con el nombre institucional genérico y
+             correcto (Agrocalidad, Subsecretaría de Acuicultura, Global
+             Seafood Alliance, laboratorio acreditado): NO se inventan
+             números de resolución ni de acuerdo ministerial, que son
+             propios de cada empresa y se capturan en la línea del usuario.
+        -->
+
+        <record id="shrimp_certificate_registro_larvas" model="shrimp.certificate">
+            <field name="sequence">150</field>
+            <field name="name">Registro de centro de producción de larvas</field>
+            <field name="issuer">Agrocalidad</field>
+            <field name="role">semillero</field>
+            <field name="certificate_type">biosecurity</field>
+            <field name="code">AGRO-LARVAS</field>
+            <field name="description">Registro sanitario del laboratorio de larvas como centro de producción acuícola ante Agrocalidad.</field>
+            <field name="expires_required">1</field>
+            <field name="duration_value">2</field>
+            <field name="duration_period">years</field>
+            <field name="active">1</field>
+        </record>
+
+        <record id="shrimp_certificate_acuerdo_acuicultura" model="shrimp.certificate">
+            <field name="sequence">155</field>
+            <field name="name">Autorización de funcionamiento acuícola</field>
+            <field name="issuer">Subsecretaría de Acuicultura</field>
+            <field name="role">semillero</field>
+            <field name="certificate_type">other</field>
+            <field name="code">AUT-ACUICOLA</field>
+            <field name="description">Acuerdo o autorización que habilita la operación del laboratorio de larvas.</field>
+            <field name="expires_required">0</field>
+            <field name="duration_value">0</field>
+            <field name="duration_period">years</field>
+            <field name="active">1</field>
+        </record>
+
+        <record id="shrimp_certificate_spf" model="shrimp.certificate">
+            <field name="sequence">160</field>
+            <field name="name">Libre de Patógenos Específicos (SPF)</field>
+            <field name="issuer">Laboratorio de diagnóstico acreditado</field>
+            <field name="role">semillero</field>
+            <field name="certificate_type">biosecurity</field>
+            <field name="code">SPF</field>
+            <field name="description">Declaración del estado sanitario del plantel reproductor y de la larva como libre de patógenos específicos.</field>
+            <field name="expires_required">1</field>
+            <field name="duration_value">1</field>
+            <field name="duration_period">years</field>
+            <field name="active">1</field>
+        </record>
+
+        <!-- Los PCR no "vencen": son el resultado de una corrida sobre un
+             lote concreto, igual que los análisis microbiológicos de más
+             arriba. Por eso expires_required = 0 y duración 0. -->
+        <record id="shrimp_certificate_pcr_wssv" model="shrimp.certificate">
+            <field name="sequence">170</field>
+            <field name="name">Análisis PCR de WSSV</field>
+            <field name="issuer">Laboratorio de diagnóstico acreditado</field>
+            <field name="role">semillero</field>
+            <field name="certificate_type">biosecurity</field>
+            <field name="code">PCR-WSSV</field>
+            <field name="description">Resultado de PCR para el virus del síndrome de la mancha blanca sobre el lote de larvas.</field>
+            <field name="expires_required">0</field>
+            <field name="duration_value">0</field>
+            <field name="duration_period">days</field>
+            <field name="active">1</field>
+        </record>
+
+        <record id="shrimp_certificate_pcr_ahpnd" model="shrimp.certificate">
+            <field name="sequence">180</field>
+            <field name="name">Análisis PCR de AHPND</field>
+            <field name="issuer">Laboratorio de diagnóstico acreditado</field>
+            <field name="role">semillero</field>
+            <field name="certificate_type">biosecurity</field>
+            <field name="code">PCR-AHPND</field>
+            <field name="description">Resultado de PCR para la necrosis hepatopancreática aguda (AHPND/EMS) sobre el lote de larvas.</field>
+            <field name="expires_required">0</field>
+            <field name="duration_value">0</field>
+            <field name="duration_period">days</field>
+            <field name="active">1</field>
+        </record>
+
+        <record id="shrimp_certificate_bap_hatchery" model="shrimp.certificate">
+            <field name="sequence">190</field>
+            <field name="name">BAP Hatchery</field>
+            <field name="issuer">Global Seafood Alliance</field>
+            <field name="role">semillero</field>
+            <field name="certificate_type">quality</field>
+            <field name="code">BAP-HATCHERY</field>
+            <field name="description">Best Aquaculture Practices en su estándar para laboratorios de larvas y plantel reproductor.</field>
+            <field name="expires_required">1</field>
+            <field name="duration_value">1</field>
+            <field name="duration_period">years</field>
+            <field name="active">1</field>
+        </record>
+
+        <record id="shrimp_certificate_movilizacion_larvas" model="shrimp.certificate">
+            <field name="sequence">200</field>
+            <field name="name">Certificado sanitario de movilización de larvas</field>
+            <field name="issuer">Agrocalidad</field>
+            <field name="role">semillero</field>
+            <field name="certificate_type">biosecurity</field>
+            <field name="code">MOV-LARVAS</field>
+            <field name="description">Documento que ampara el traslado de un despacho de larvas hacia la camaronera de destino.</field>
+            <field name="expires_required">0</field>
+            <field name="duration_value">0</field>
+            <field name="duration_period">days</field>
+            <field name="active">1</field>
+        </record>
+
     </data>
 </odoo>

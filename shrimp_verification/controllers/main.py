@@ -536,11 +536,23 @@ class ShrimpVerificationPortal(http.Controller):
             return request.redirect(f"/verificador/verificacion/{rec.uuid_ref}?error=1&message=Veredicto no válido")
 
         try:
-            if rec.state == "in_field":
-                rec.action_mark_done()
-            rec._close(actions[verdict], notes=notes)
-            if verdict == "reject":
-                rec.transaction_id.action_cancel_for_verification()
+            # Los tres pasos van dentro de un savepoint porque son uno solo: o
+            # la verificación queda dictaminada, o se queda como estaba.
+            #
+            # Sin esto, un dictamen que _close rechaza —por ejemplo un "rechazar"
+            # sin escribir el motivo— dejaba el registro en "done" de todas
+            # formas, porque action_mark_done ya había escrito y el except no
+            # revertía nada. El técnico veía un estado que no había alcanzado.
+            #
+            # Se mantiene el orden original a propósito: action_mark_done exige
+            # el informe completo, y esa comprobación tiene que seguir corriendo
+            # antes de rechazar.
+            with request.env.cr.savepoint():
+                if rec.state == "in_field":
+                    rec.action_mark_done()
+                rec._close(actions[verdict], notes=notes)
+                if verdict == "reject":
+                    rec.transaction_id.action_cancel_for_verification()
         except UserError as e:
             return request.redirect(
                 f"/verificador/verificacion/{rec.uuid_ref}?error=1&message={e.args[0]}")

@@ -131,8 +131,16 @@ class ShrimpProduct(models.Model):
 
     published_date = fields.Datetime(string="Fecha de publicación", readonly=True, copy=False)
 
+    # La camaronera también vende: el camarón de engorde a la empacadora, que
+    # es la última pata de la cadena. Faltaba aquí, y el hueco solo se notaba al
+    # crear: el permiso para publicar y la resolución del vendedor ya se habían
+    # ampliado, pero este campo seguía admitiendo dos valores, así que el alta
+    # moría con "Wrong value for seller_role: 'camaronera'".
+    #
+    # La empacadora NO entra: compra y exporta, no publica en el marketplace.
     seller_role = fields.Selection(
-        [("semillero", "Semillero"), ("laboratorio", "Laboratorio")],
+        [("semillero", "Semillero"), ("laboratorio", "Laboratorio"),
+         ("camaronera", "Camaronera")],
         string="Rol del vendedor",
         required=True,
         default="semillero",

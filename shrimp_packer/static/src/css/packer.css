@@ -507,3 +507,154 @@
 .pl-modal-title { margin: 0 0 10px; font-size: 1.15rem; font-weight: 800; color: var(--shrimp-ink, #123e5c); }
 .pl-modal-txt { margin: 0 0 20px; color: var(--shrimp-ink-soft, #4a5b66); line-height: 1.45; }
 .pl-modal-acts { display: flex; justify-content: flex-end; gap: 10px; }
+
+/* ==================================================================
+   Rendimiento de proveedores
+
+   El tamaño de la muestra manda sobre la estética: la fila de un
+   proveedor con un lote se atenúa y lleva marca, para que nadie lea
+   su promedio con la misma confianza que el de uno con historial.
+   ================================================================== */
+.pk-prov-lider {
+  background: linear-gradient(135deg, #0f5c66, #14A0B0);
+  color: #fff; border-radius: 12px; padding: 18px 22px;
+}
+.pk-prov-lider .pk-rep-eyebrow { color: rgba(255, 255, 255, .78); }
+.pk-prov-lider-nombre { font-size: 1.5rem; font-weight: 800; margin: 2px 0 8px; }
+.pk-prov-lider-cifras { display: flex; flex-wrap: wrap; gap: 10px 26px; font-size: .9rem; }
+.pk-prov-lider-cifras strong { font-size: 1.25rem; }
+
+.pk-prov-aviso {
+  background: #fff8e6; border: 1px solid #f3e0ab; border-left: 4px solid #d9a300;
+  border-radius: 10px; padding: 12px 16px; color: #6b5200; font-size: .9rem;
+}
+
+.pk-prov-orden { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: .85rem; }
+.pk-prov-chip {
+  display: inline-block; border: 1px solid #e3eaed; border-radius: 999px;
+  padding: 3px 12px; color: #5A6B74; text-decoration: none; background: #fff;
+}
+.pk-prov-chip:hover { border-color: #cfe9ee; color: #0f5c66; }
+.pk-prov-chip--on { background: #123E5C; border-color: #123E5C; color: #fff; }
+.pk-prov-chip--on:hover { color: #fff; }
+
+.pk-prov-tabla { background: #fff; }
+.pk-prov-tabla td { vertical-align: top; }
+.pk-prov-pos { font-weight: 800; color: #8b9ba3; }
+.pk-prov-nombre { text-decoration: none; }
+.pk-prov-nombre:hover { color: #0f7c88; }
+.pk-prov-sub { font-size: .78rem; color: #8b9ba3; }
+.pk-prov-n { font-size: .72rem; color: #8b9ba3; }
+.pk-prov-n--mal { color: #b3261e; }
+.pk-prov-score {
+  display: inline-block; background: #123E5C; color: #fff; font-weight: 800;
+  border-radius: 8px; padding: 3px 11px; font-size: .95rem;
+}
+.pk-prov-btn { padding: 4px 12px; font-size: .8rem; white-space: nowrap; }
+
+/* La marca de muestra corta: se ve antes que el número al que acompaña. */
+.pk-prov-flag {
+  display: inline-block; background: #fff3cd; color: #7a5b00;
+  border: 1px solid #f0dca0; border-radius: 999px;
+  padding: 1px 9px; font-size: .7rem; font-weight: 700; margin-top: 3px;
+}
+.pk-prov--corto { background: #fcfcfa; }
+.pk-prov--corto .pk-prov-score { background: #8b9ba3; }
+
+.pk-prov-ok { color: #0f7c88; font-weight: 600; }
+.pk-prov-ko { color: #b3261e; font-weight: 600; }
+
+.pk-prov-det {
+  background: #fff; border: 1px solid #e3eaed; border-radius: 10px;
+  padding: 10px 16px; margin-bottom: 10px;
+}
+.pk-prov-det > summary { cursor: pointer; color: #123E5C; padding: 4px 0; }
+.pk-prov-det[open] > summary { border-bottom: 1px solid #eef2f4; margin-bottom: 8px; }
+.pk-prov-det .pk-tabla { font-size: .85rem; }
+.pk-prov-det { overflow-x: auto; }
+
+/* ==================================================================
+   Simulador de cosecha
+   Misma paleta y mismos gestos que el resto del módulo: la pantalla
+   tiene que parecer parte del sistema, no un anexo.
+   ================================================================== */
+.sim-hoy {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px; margin-bottom: 14px;
+}
+.sim-hoy-dato {
+  background: #fff; border: 1px solid #e3eaed; border-radius: 10px;
+  padding: 12px 14px;
+}
+.sim-hoy-dato > span {
+  display: block; font-size: .72rem; text-transform: uppercase;
+  letter-spacing: .07em; color: #8b9ba3; font-weight: 700;
+}
+.sim-hoy-dato > strong { display: block; font-size: 1.4rem; color: #123E5C; line-height: 1.25; }
+.sim-hoy-dato > em { font-style: normal; font-size: .82rem; color: #5A6B74; }
+
+/* La marca medido/estimado. Dos colores distintos y con icono: el que
+   mira la pantalla de lejos tiene que poder distinguirlos sin leer. */
+.sim-tag {
+  display: inline-block; margin-top: 4px; border-radius: 999px;
+  padding: 2px 10px; font-size: .74rem; font-weight: 700;
+}
+.sim-tag--med { background: #eaf7f8; color: #0f7c88; }
+.sim-tag--est { background: #fff3e0; color: #9a6412; }
+
+.sim-origen { color: #5A6B74; font-size: .88rem; margin: 0 0 14px; }
+.sim-origen .fa-check-circle { color: #14A0B0; }
+
+/* El salto de talla: es la respuesta corta a la pregunta de la pantalla,
+   así que va en bloque propio y por encima de la tabla. */
+.sim-salto {
+  display: flex; gap: 14px; align-items: flex-start;
+  background: linear-gradient(135deg, #123E5C 0%, #14A0B0 100%);
+  border-radius: 12px; padding: 16px 20px; color: #fff; margin-bottom: 4px;
+}
+.sim-salto--no { background: #f7fafb; border: 1px solid #e3eaed; color: #3d5560; }
+.sim-salto-ico {
+  flex: 0 0 auto; width: 40px; height: 40px; border-radius: 50%;
+  background: rgba(255, 255, 255, .18); display: flex;
+  align-items: center; justify-content: center; font-size: 1.1rem;
+}
+.sim-salto--no .sim-salto-ico { background: #eef2f4; color: #8b9ba3; }
+.sim-salto-cab {
+  font-size: .72rem; text-transform: uppercase; letter-spacing: .1em;
+  opacity: .85; font-weight: 700;
+}
+.sim-salto-frase { font-size: 1.05rem; line-height: 1.4; margin-top: 2px; }
+.sim-salto-cifra { font-size: .9rem; margin-top: 4px; opacity: .92; }
+.sim-salto--no .sim-salto-frase { font-size: .95rem; }
+
+.sim-tabla td { white-space: normal; }
+.sim-fila-hoy { background: #f7fafb; }
+.sim-fila-hoy td { font-weight: 600; }
+.sim-fila-salto { background: #eaf7f8; }
+.sim-badge-salto {
+  display: inline-block; margin-left: 6px; border-radius: 999px;
+  background: #14A0B0; color: #fff; padding: 1px 9px;
+  font-size: .7rem; font-weight: 700; white-space: nowrap;
+}
+.sim-delta { font-weight: 700; color: #8b9ba3; }
+.sim-delta--sube { color: #0f7c88; }
+
+.sim-supuestos {
+  margin-top: 18px; background: #fff8ec; border-left: 4px solid #e69c24;
+  border-radius: 8px; padding: 14px 18px;
+}
+.sim-supuestos-cab { font-weight: 700; color: #8a5a12; margin-bottom: 6px; }
+.sim-supuestos .pk-lista { margin: 0; }
+.sim-supuestos .pk-lista li { border-bottom-color: #f2e6d2; font-size: .89rem; }
+.sim-supuestos .pk-lista li strong { color: #123E5C; }
+
+/* Avisos sobre la CALIDAD DEL DATO, no sobre errores. Van en ámbar y no en
+   rojo a propósito: el rojo del sistema significa "esto está roto o no se
+   puede hacer", y aquí no hay nada roto, hay un supuesto que el usuario
+   tiene que conocer antes de fiarse de la tabla. */
+.sim-aviso {
+  background: #fff8ec; border-left: 4px solid #e69c24; border-radius: 8px;
+  padding: 12px 14px; margin-bottom: 14px; font-size: .9rem; color: #7a5510;
+}
+.sim-aviso--fuerte { border-left-width: 6px; background: #fff3e0; color: #8a4b0a; }
+.sim-aviso strong { color: #6b4408; }

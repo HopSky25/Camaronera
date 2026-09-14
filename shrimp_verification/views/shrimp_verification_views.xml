@@ -219,8 +219,13 @@
             </page>
 
             <page string="Veredicto">
+              <!-- Los botones de cabecera guardan el registro antes de correr,
+                   así que basta con escribir aquí la conclusión y pulsar. Sin
+                   texto, "Aprobar con observaciones" y "Rechazar" se niegan a
+                   cerrar: el motivo se exige en el servidor, no solo aquí. -->
               <group>
-                <field name="verdict_notes"/>
+                <field name="verdict_notes"
+                       placeholder="Obligatorio para aprobar con observaciones o rechazar: explica qué se encontró y por qué se decide así."/>
                 <field name="assigned_date"/>
                 <field name="field_start_date"/>
                 <field name="verified_date"/>
@@ -309,5 +314,121 @@
          solo desde /registro y subir sus certificados de acreditación.</p>
     </field>
   </record>
+
+  <!-- =================================================================
+       Reseñas del verificador: administración desde el backoffice.
+
+       El modelo no tenía lista, ni formulario, ni acción, ni menú, y tampoco
+       se editaba dentro de otro formulario: la única vía era SQL directo.
+
+       Y de aquí sale el ranking de verificadores. La nota que el comprador le
+       pone a la inspección es lo que decide a quién se le asigna la siguiente,
+       o sea que una reseña falsa o duplicada reparte trabajo y honorarios.
+       Sin pantalla no se podía retirar ninguna.
+
+       Va aquí y no en un archivo propio porque el menú cuelga de
+       shrimp_marketplace (módulo del que depende éste): views/menus.xml de
+       shrimp_verification se carga DESPUÉS que este archivo, así que
+       menu_shrimp_verification_root todavía no existe en este punto.
+       ================================================================= -->
+
+  <record id="view_shrimp_verifier_review_list" model="ir.ui.view">
+    <field name="name">shrimp.verifier.review.list</field>
+    <field name="model">shrimp.verifier.review</field>
+    <field name="arch" type="xml">
+      <list string="Reseñas del verificador">
+        <field name="create_date" string="Fecha"/>
+        <field name="verifier_partner_id" string="Empresa verificadora"/>
+        <field name="technician_partner_id" string="Técnico"/>
+        <field name="reviewer_partner_id" string="Comprador"/>
+        <field name="verification_id" string="Verificación"/>
+        <field name="rating"/>
+        <field name="punctuality" optional="show"/>
+        <field name="thoroughness" optional="show"/>
+        <field name="communication" optional="show"/>
+        <field name="comment" optional="hide"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_shrimp_verifier_review_form" model="ir.ui.view">
+    <field name="name">shrimp.verifier.review.form</field>
+    <field name="model">shrimp.verifier.review</field>
+    <field name="arch" type="xml">
+      <form string="Reseña del verificador">
+        <sheet>
+          <group>
+            <group>
+              <field name="verification_id"/>
+              <field name="verifier_partner_id"/>
+              <field name="technician_partner_id"/>
+              <field name="reviewer_partner_id"/>
+            </group>
+            <group>
+              <field name="rating"/>
+              <field name="punctuality"/>
+              <field name="thoroughness"/>
+              <field name="communication"/>
+              <field name="create_date" readonly="1"/>
+            </group>
+          </group>
+          <group string="Comentario">
+            <field name="comment" nolabel="1"/>
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_shrimp_verifier_review_search" model="ir.ui.view">
+    <field name="name">shrimp.verifier.review.search</field>
+    <field name="model">shrimp.verifier.review</field>
+    <field name="arch" type="xml">
+      <search string="Reseñas del verificador">
+        <field name="verifier_partner_id"/>
+        <field name="technician_partner_id"/>
+        <field name="reviewer_partner_id"/>
+        <field name="verification_id"/>
+        <field name="comment"/>
+        <!-- Una nota baja es la que hay que mirar: es la que baja al
+             verificador en el ranking y le quita asignaciones. -->
+        <filter name="negativas" string="1 o 2 estrellas"
+                domain="[('rating','&lt;=',2)]"/>
+        <filter name="excelentes" string="5 estrellas"
+                domain="[('rating','=',5)]"/>
+        <!-- Cinco estrellas sin una línea de texto y sin desglosar ningún
+             aspecto es el patrón de una reseña inflada. -->
+        <filter name="sin_comentario" string="Sin comentario"
+                domain="[('comment','=',False)]"/>
+        <separator/>
+        <filter name="g_verificadora" string="Empresa verificadora"
+                context="{'group_by': 'verifier_partner_id'}"/>
+        <filter name="g_tecnico" string="Técnico"
+                context="{'group_by': 'technician_partner_id'}"/>
+        <filter name="g_rating" string="Calificación"
+                context="{'group_by': 'rating'}"/>
+        <filter name="g_fecha" string="Fecha"
+                context="{'group_by': 'create_date:month'}"/>
+      </search>
+    </field>
+  </record>
+
+  <record id="action_shrimp_verifier_review" model="ir.actions.act_window">
+    <field name="name">Reseñas del verificador</field>
+    <field name="res_model">shrimp.verifier.review</field>
+    <field name="view_mode">list,form</field>
+    <field name="search_view_id" ref="view_shrimp_verifier_review_search"/>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">Todavía no hay reseñas de verificadores.</p>
+      <p>El comprador califica aquí el trabajo de inspección. Estas notas
+         ordenan el ranking de verificadores, así que desde esta pantalla se
+         retira una reseña falsa o duplicada.</p>
+    </field>
+  </record>
+
+  <menuitem id="menu_shrimp_verifier_review" name="Reseñas del verificador"
+            parent="shrimp_marketplace.menu_shrimp_partners_root"
+            action="action_shrimp_verifier_review"
+            groups="base.group_system" sequence="70"/>
 
 </odoo>

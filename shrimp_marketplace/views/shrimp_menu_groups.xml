@@ -1,0 +1,44 @@
+<odoo>
+
+  <!-- =================================================================
+       Grupos para menús que se declaran en otros archivos del módulo.
+
+       El resto de menús lleva su groups= en el propio <menuitem>. Estos seis
+       no: viven en shrimp_reports.xml, shrimp_size_grade_views.xml y
+       shrimp_user_cert_approval_views.xml, y se les pone el grupo aquí por
+       escritura directa sobre ir.ui.menu para no tocar esos archivos.
+
+       Este archivo debe cargarse EL ÚLTIMO de la lista 'data': sobrescribe
+       registros que los otros archivos crean antes.
+       ================================================================= -->
+
+  <!-- Tallas es catálogo de cotización: la talla es el eje con el que se
+       cruzan las listas de precios de compra. Quien la edita mueve el precio
+       al que se liquida una cosecha, así que va con el resto del catálogo. -->
+  <record id="menu_shrimp_size_grade" model="ir.ui.menu">
+    <field name="group_ids" eval="[(6, 0, [ref('base.group_system')])]"/>
+  </record>
+
+  <!-- Reportes agregados de todo el marketplace: ventas, comisiones cobradas y
+       movimientos de TODOS los socios a la vez. Es la foto comercial del
+       negocio, no el trabajo diario de nadie. -->
+  <record id="menu_shrimp_reports_root" model="ir.ui.menu">
+    <field name="group_ids" eval="[(6, 0, [ref('base.group_system')])]"/>
+  </record>
+  <record id="menu_report_sales" model="ir.ui.menu">
+    <field name="group_ids" eval="[(6, 0, [ref('base.group_system')])]"/>
+  </record>
+  <record id="menu_report_commissions" model="ir.ui.menu">
+    <field name="group_ids" eval="[(6, 0, [ref('base.group_system')])]"/>
+  </record>
+  <record id="menu_report_moves" model="ir.ui.menu">
+    <field name="group_ids" eval="[(6, 0, [ref('base.group_system')])]"/>
+  </record>
+
+  <!-- Aprobar certificados es cola de trabajo operativa, como las solicitudes
+       de chequeo: se queda en usuario interno, coherente con su menú padre. -->
+  <record id="menu_shrimp_cert_approval" model="ir.ui.menu">
+    <field name="group_ids" eval="[(6, 0, [ref('base.group_user')])]"/>
+  </record>
+
+</odoo>

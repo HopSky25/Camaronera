@@ -1,0 +1,335 @@
+<odoo>
+
+  <!-- ================================================================
+       RENDIMIENTO REAL DE LOS PROVEEDORES
+
+       La empacadora decide a quién le compra mirando el precio que ella
+       misma publicó. Pero lo que le cuesta el camarón no es el precio:
+       es el precio dividido por lo que rinde. Ese dato ya está medido,
+       lote a lote, en el parte de planta de cada verificación.
+
+       Esta pantalla no inventa nada: junta lo verificado y lo ordena.
+       Y cuando la muestra es de un lote lo dice en la cara, porque un
+       promedio de uno no es un promedio.
+       ================================================================ -->
+  <template id="packer_suppliers" name="Rendimiento de proveedores">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page shrimp-page--full py-4">
+
+          <div class="sf-banner mb-4">
+            <div class="sf-banner-row">
+              <div class="sf-banner-txt">
+                <h1>A quién le compras mejor</h1>
+                <p>Rendimiento real de cada proveedor, medido en tu planta por
+                   el verificador. No es su promesa: es su parte de planta.</p>
+              </div>
+              <span class="sf-kicker"><i class="fa fa-trophy"></i> Proveedores</span>
+            </div>
+          </div>
+
+          <t t-if="not r['filas']">
+            <div class="pk-vacio">
+              <i class="fa fa-flask fa-2x mb-2"/>
+              <p class="mb-1">Todavía no tienes ningún lote con veredicto de verificación.</p>
+              <p class="pk-muted mb-0">
+                <t t-if="r['en_curso']">
+                  Hay <t t-esc="r['en_curso']"/> verificación<t t-if="r['en_curso'] != 1">es</t>
+                  en curso. En cuanto el verificador emita el veredicto, este
+                  ranking se arma solo.
+                </t>
+                <t t-else="">
+                  Cada compra que mandes a verificar deja aquí el rendimiento
+                  del proveedor, para siempre.
+                </t>
+              </p>
+              <a class="s-btn s-btn-primary mt-3" href="/marketplace/oferta">
+                <i class="fa fa-cubes me-1"/> Ver la oferta disponible
+              </a>
+            </div>
+          </t>
+
+          <t t-else="">
+
+            <!-- Lo que sostiene todo lo de abajo. Si la base es de tres lotes
+                 el comprador tiene derecho a saberlo antes de leer la tabla. -->
+            <div class="pk-oferta-kpis mb-3">
+              <div>
+                <span>Proveedores verificados</span>
+                <strong t-esc="r['proveedores']"/>
+              </div>
+              <div>
+                <span>Lotes con veredicto</span>
+                <strong t-esc="r['lotes']"/>
+              </div>
+              <div>
+                <span>Libras verificadas</span>
+                <strong t-esc="'{:,.0f}'.format(r['lb'])"/>
+              </div>
+              <div>
+                <span>No eran lo publicado</span>
+                <strong t-esc="r['incumplidos']"/>
+              </div>
+            </div>
+
+            <!-- El titular: con quién conviene. Solo se corona a alguien con
+                 muestra suficiente; si nadie la tiene, se dice así de claro
+                 en vez de nombrar a un ganador de un solo lote. -->
+            <t t-set="lider" t-value="r['filas'][0] if r['filas'][0]['suficiente'] else False"/>
+            <div class="pk-prov-lider mb-3" t-if="lider">
+              <div class="pk-rep-eyebrow">Mejor rendimiento verificado</div>
+              <div class="pk-prov-lider-nombre" t-esc="lider['proveedor'].name"/>
+              <div class="pk-prov-lider-cifras">
+                <span>
+                  <strong t-esc="'{:.1f}'.format(lider['rendimiento'])"/> %
+                  de rendimiento
+                </span>
+                <span>
+                  <strong t-esc="'{:.0f}'.format(lider['clase_a'] or 0.0)"/> %
+                  clase A
+                </span>
+                <span>
+                  <strong t-esc="lider['lotes'] - lider['incumplidos']"/>
+                  de <t t-esc="lider['lotes']"/> lotes fueron lo publicado
+                </span>
+              </div>
+            </div>
+            <div class="pk-prov-aviso mb-3" t-if="not lider">
+              <i class="fa fa-exclamation-triangle me-1"/>
+              Ningún proveedor llega todavía a <t t-esc="r['umbral']"/> lotes
+              verificados, así que aquí no se corona a nadie. Lo que sigue son
+              los datos que hay, con la muestra de cada uno a la vista.
+            </div>
+
+            <!-- Reordenar es parte de decidir: al que exporta entero le pesa
+                 la clase A, al que procesa le pesa el rendimiento. -->
+            <div class="pk-prov-orden mb-2">
+              <span class="pk-muted me-2">Ordenar por</span>
+              <t t-set="ordenes" t-value="[
+                    ('puntaje', 'Conveniencia'),
+                    ('rendimiento', 'Rendimiento'),
+                    ('clase_a', 'Clase A'),
+                    ('cumplimiento', 'Cumplimiento'),
+                    ('metabisulfito', 'Metabisulfito'),
+                    ('lotes', 'Lotes')]"/>
+              <t t-foreach="ordenes" t-as="o">
+                <a t-attf-href="/marketplace/proveedores?orden=#{o[0]}"
+                   t-attf-class="pk-prov-chip#{' pk-prov-chip--on' if r['orden'] == o[0] else ''}"
+                   t-esc="o[1]"/>
+              </t>
+            </div>
+
+            <div class="pk-rep-tabla-wrap">
+              <table class="pk-rep-tabla pk-prov-tabla">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Proveedor</th>
+                    <th class="text-end">Rendimiento</th>
+                    <th class="text-end">Clase A</th>
+                    <th class="text-end">Fue lo publicado</th>
+                    <th class="text-end">Metabisulfito</th>
+                    <th class="text-end">Basura</th>
+                    <th class="text-end">Conveniencia</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <t t-foreach="r['filas']" t-as="f">
+                    <tr t-attf-class="#{'pk-prov--corto' if not f['suficiente'] else ''}">
+                      <td class="pk-prov-pos" t-esc="f_index + 1"/>
+
+                      <td>
+                        <a class="pk-rep-ganador pk-prov-nombre"
+                           t-attf-href="/marketplace/vendedor/#{f['proveedor'].uuid_ref}"
+                           t-esc="f['proveedor'].name"/>
+                        <div class="pk-prov-sub">
+                          <t t-esc="f['lotes']"/> lote<t t-if="f['lotes'] != 1">s</t>
+                          · <t t-esc="'{:,.0f}'.format(f['lb_verificadas'])"/> lb
+                          <t t-if="f['ultima']">
+                            · último <t t-esc="f['ultima'].strftime('%d/%m/%Y')"/>
+                          </t>
+                        </div>
+                        <span class="pk-prov-flag" t-if="not f['suficiente']">
+                          <i class="fa fa-exclamation-circle me-1"/>muestra insuficiente
+                        </span>
+                      </td>
+
+                      <!-- Cada promedio con el número de lotes que lo sostiene
+                           PEGADO al número. Separarlos es lo que convierte una
+                           media de un lote en una verdad aparente. -->
+                      <td class="text-end">
+                        <t t-if="f['rendimiento'] is not None">
+                          <strong class="pk-rep-precio"
+                                  t-esc="'{:.1f}'.format(f['rendimiento'])"/> %
+                          <div class="pk-prov-n">
+                            n=<t t-esc="f['rendimiento_n']"/>
+                            <t t-if="f['rendimiento_n'] &gt; 1 and f['rendimiento_max'] - f['rendimiento_min'] &gt; 0.05">
+                              · <t t-esc="'{:.1f}'.format(f['rendimiento_min'])"/>–<t
+                                 t-esc="'{:.1f}'.format(f['rendimiento_max'])"/>
+                            </t>
+                          </div>
+                        </t>
+                        <span t-else="" class="pk-muted">sin dato</span>
+                      </td>
+
+                      <td class="text-end">
+                        <t t-if="f['clase_a'] is not None">
+                          <t t-esc="'{:.1f}'.format(f['clase_a'])"/> %
+                          <div class="pk-prov-n">n=<t t-esc="f['clase_a_n']"/></div>
+                        </t>
+                        <span t-else="" class="pk-muted">sin dato</span>
+                      </td>
+
+                      <td class="text-end">
+                        <strong t-esc="f['lotes'] - f['incumplidos']"/>
+                        de <t t-esc="f['lotes']"/>
+                        <div class="pk-prov-n pk-prov-n--mal" t-if="f['incumplidos']">
+                          <t t-esc="f['incumplidos']"/> no coincidió<t t-if="f['incumplidos'] != 1">eron</t>
+                        </div>
+                      </td>
+
+                      <td class="text-end">
+                        <t t-if="f['metabisulfito'] is not None">
+                          <t t-esc="'{:.0f}'.format(f['metabisulfito'])"/> ppm
+                          <div class="pk-prov-n">n=<t t-esc="f['metabisulfito_n']"/></div>
+                        </t>
+                        <span t-else="" class="pk-muted">sin dato</span>
+                        <div class="pk-prov-n pk-prov-n--mal" t-if="f['metabisulfito_fail']">
+                          <t t-esc="f['metabisulfito_fail']"/> fuera de límite
+                        </div>
+                      </td>
+
+                      <td class="text-end">
+                        <t t-if="f['basura'] is not None">
+                          <t t-esc="'{:.1f}'.format(f['basura'])"/> %
+                          <div class="pk-prov-n">n=<t t-esc="f['basura_n']"/></div>
+                        </t>
+                        <span t-else="" class="pk-muted">—</span>
+                      </td>
+
+                      <td class="text-end">
+                        <t t-if="f['puntaje'] is not None">
+                          <span class="pk-prov-score"
+                                t-esc="'{:.0f}'.format(f['puntaje'])"/>
+                        </t>
+                        <span t-else="" class="pk-muted">—</span>
+                      </td>
+
+                      <td class="text-end">
+                        <a t-if="f['ofertas']" class="s-btn s-btn-primary pk-prov-btn"
+                           t-attf-href="/marketplace/vendedor/#{f['proveedor'].uuid_ref}">
+                          <t t-esc="f['ofertas']"/> lote<t t-if="f['ofertas'] != 1">s</t> a la venta
+                        </a>
+                        <span t-else="" class="pk-muted">sin oferta</span>
+                      </td>
+                    </tr>
+                  </t>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- El lote a lote. Es obligatorio, no decorativo: con muestras de
+                 uno o dos el promedio no aporta nada que no aporte el propio
+                 lote, y aquí el comprador ve QUÉ pasó y no solo cuánto. -->
+            <h2 class="pk-seccion mt-4">Lote a lote</h2>
+            <t t-foreach="r['filas']" t-as="f">
+              <details class="pk-prov-det">
+                <summary>
+                  <strong t-esc="f['proveedor'].name"/>
+                  <span class="pk-muted">
+                    — <t t-esc="f['lotes']"/> lote<t t-if="f['lotes'] != 1">s</t>
+                    verificado<t t-if="f['lotes'] != 1">s</t>
+                  </span>
+                  <span class="pk-prov-flag" t-if="not f['suficiente']">muestra insuficiente</span>
+                </summary>
+                <table class="pk-tabla">
+                  <thead>
+                    <tr>
+                      <th>Verificación</th>
+                      <th>Fecha</th>
+                      <th class="text-end">Enviadas</th>
+                      <th class="text-end">En planta</th>
+                      <th class="text-end">Basura</th>
+                      <th class="text-end">Rendimiento</th>
+                      <th class="text-end">Clase A</th>
+                      <th class="text-end">Metabisulfito</th>
+                      <th>Sabor</th>
+                      <th>Coincidió con lo publicado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <t t-foreach="f['detalles']" t-as="d">
+                      <tr>
+                        <td>
+                          <strong t-esc="d['ref']"/>
+                          <span class="pk-estado pk-estado--draft"
+                                t-if="d['estado'] == 'rejected'">rechazada</span>
+                        </td>
+                        <td t-esc="d['fecha'].strftime('%d/%m/%Y') if d['fecha'] else '—'"/>
+                        <td class="text-end" t-esc="'{:,.0f}'.format(d['lb_enviadas']) if d['lb_enviadas'] else '—'"/>
+                        <td class="text-end" t-esc="'{:,.0f}'.format(d['lb_planta']) if d['lb_planta'] else '—'"/>
+                        <td class="text-end" t-esc="'{:,.0f}'.format(d['basura_lb']) if d['basura_lb'] else '—'"/>
+                        <td class="text-end">
+                          <t t-if="d['rendimiento']">
+                            <t t-esc="'{:.2f}'.format(d['rendimiento'])"/> %
+                          </t>
+                          <t t-else="">—</t>
+                        </td>
+                        <td class="text-end">
+                          <t t-if="d['clase_a']">
+                            <t t-esc="'{:.2f}'.format(d['clase_a'])"/> %
+                          </t>
+                          <t t-else="">—</t>
+                        </td>
+                        <td class="text-end">
+                          <t t-if="d['metabisulfito']">
+                            <t t-esc="'{:.0f}'.format(d['metabisulfito'])"/> ppm
+                            <span class="pk-prov-n pk-prov-n--mal"
+                                  t-if="d['metabisulfito_res'] == 'fail'">fuera de límite</span>
+                          </t>
+                          <t t-else="">—</t>
+                        </td>
+                        <td t-esc="d['sabor_txt']"/>
+                        <td>
+                          <t t-if="d['cumple']">
+                            <span class="pk-prov-ok"><i class="fa fa-check me-1"/>Sí</span>
+                          </t>
+                          <t t-else="">
+                            <span class="pk-prov-ko"><i class="fa fa-times me-1"/>No</span>
+                            <div class="pk-prov-n pk-prov-n--mal" t-esc="'; '.join(d['motivos'])"/>
+                          </t>
+                        </td>
+                      </tr>
+                    </t>
+                  </tbody>
+                </table>
+              </details>
+            </t>
+
+            <!-- Cómo se calcula, a la vista. Un ranking que no enseña su
+                 fórmula es una opinión con tipografía de dato. -->
+            <p class="pk-rep-nota mt-3">
+              <i class="fa fa-info-circle me-1"/>
+              <strong>Conveniencia</strong> = <t t-esc="r['pesos']['rendimiento']"/> %
+              rendimiento + <t t-esc="r['pesos']['clase_a']"/> % clase A +
+              <t t-esc="r['pesos']['cumplimiento']"/> % lotes que fueron lo publicado.
+              Los promedios son por lote —no por libra— porque lo que se compra
+              es un lote y lo que interesa es cómo va a salir el próximo.
+              Un proveedor con menos de <strong><t t-esc="r['umbral']"/> lotes</strong>
+              verificados queda marcado y nunca encabeza la tabla: con una o dos
+              mediciones no se distingue un mal día de un mal proveedor.
+              <t t-if="r['en_curso']">
+                Hay <t t-esc="r['en_curso']"/> verificación<t t-if="r['en_curso'] != 1">es</t>
+                en curso todavía sin veredicto; cuando cierren, esto se mueve.
+              </t>
+            </p>
+
+          </t>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+</odoo>

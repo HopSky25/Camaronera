@@ -729,6 +729,25 @@ class ShrimpPriceListPortal(http.Controller):
         return request.redirect("/marketplace/listas-de-precios?mensaje=eliminada")
 
 
+    # ==================================================================
+    # A quién le compro: el rendimiento real de cada proveedor
+    # ==================================================================
+    @http.route("/marketplace/proveedores", type="http", auth="user", website=True)
+    def packer_suppliers(self, orden=None, **kw):
+        """Lo verificado en planta, ordenado por conveniencia de compra.
+
+        Solo para la empacadora, y no por celo: la tabla cruza el parte de
+        planta de SUS compras con el nombre de sus proveedores. Para cualquier
+        otro eslabón sería, o una página vacía, o el historial de calidad de un
+        tercero que no le corresponde leer.
+        """
+        self._solo_empacadora()
+        return request.render("shrimp_packer.packer_suppliers", {
+            "r": request.env["shrimp.proveedor.ranking"].sudo().ranking(
+                self._partner(), orden=orden or "puntaje"),
+        })
+
+
 class ShrimpPackerAccount(ShrimpAccountPortalController):
     """La empacadora edita su propio perfil público.
 
@@ -777,3 +796,79 @@ class ShrimpPackerAccount(ShrimpAccountPortalController):
             "emp_mercado_local": bool(post.get("emp_mercado_local")),
         })
         return res
+
+
+class ShrimpHarvestSimulator(http.Controller):
+    """Simulador de cosecha: ¿cosecho ahora o espero?
+
+    La pregunta que se hace un camaronero cada semana. El sistema ya tenía las
+    dos mitades de la respuesta —cuánto crece su lote y cuánto paga cada
+    empacadora por cada talla— y no las cruzaba.
+
+    Va en un controlador propio y no dentro de ShrimpPriceListPortal porque el
+    corte de acceso es el contrario: aquella pantalla es de la empacadora que
+    publica listas, y esta es de la camaronera que las recibe.
+    """
+
+    def _partner(self):
+        return request.env.user.partner_id
+
+    def _solo_camaronera(self):
+        """Corta el paso a quien no cosecha.
+
+        El simulador proyecta el crecimiento de un lote propio contra las
+        listas que uno recibe. Para una empacadora sería una pantalla sin
+        lotes, y para un laboratorio o un semillero un camino muerto: su
+        producto no se vende por talla comercial. Es el mismo criterio que
+        _solo_empacadora() aplicado al otro extremo de la cadena.
+        """
+        if self._partner().shrimp_user_type != "camaronera":
+            raise Forbidden()
+
+    def _lotes_simulables(self, partner):
+        """Los lotes suyos que se pueden simular.
+
+        Solo engorde con talla: es el único camarón que se vende por talla a
+        una empacadora, y la talla es el peldaño desde el que se cuenta el
+        salto. Un juvenil de 3 g no tiene talla comercial y ofrecerlo en el
+        desplegable sería ofrecer una pantalla que solo sabe decir que no.
+        """
+        return request.env["shrimp.product"].sudo().search([
+            ("seller_partner_id", "=", partner.id),
+            ("state", "in", ("draft", "published")),
+            ("verification_scope", "=", "adult"),
+            ("stage_id.code", "=", "ENGORDE"),
+            ("size_grade_id", "!=", False),
+        ], order="name")
+
+    @http.route(["/marketplace/simulador", "/marketplace/simulador/<ref>"],
+                type="http", auth="user", website=True)
+    def harvest_simulator(self, ref=None, **kw):
+        self._solo_camaronera()
+        partner = self._partner()
+        lotes = self._lotes_simulables(partner)
+
+        lote = lotes[:1]
+        token = ref or kw.get("lote")
+        if token:
+            elegido = request.env["shrimp.product"].sudo().resolve_ref(token)
+            if not elegido:
+                raise NotFound()
+            # El lote ajeno no se simula ni se insinúa: 403, no una pantalla
+            # vacía. El peso medio y la cantidad de un lote son información
+            # comercial de su dueño.
+            if elegido.seller_partner_id != partner:
+                raise Forbidden()
+            lote = elegido
+
+        # Por defecto se cosechan las mismas libras de hoy. Es el supuesto
+        # conservador y el que no exige creerse ninguna proyección de biomasa;
+        # el otro modo está a un clic y la pantalla explica qué cambia.
+        modo = "biomasa" if kw.get("cantidad") == "biomasa" else "constante"
+
+        return request.render("shrimp_packer.harvest_simulator", {
+            "lotes": lotes,
+            "lote": lote,
+            "modo": modo,
+            "sim": lote.simulador_cosecha(modo) if lote else {},
+        })

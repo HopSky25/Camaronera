@@ -37,6 +37,8 @@ desarrollo que se hace en paralelo sobre ese módulo.
         "views/oferta_templates.xml",
         "views/publicar_inherit.xml",
         "views/menus.xml",
+        "views/simulador_templates.xml",
+        "views/proveedores_templates.xml",
     ],
     "assets": {
         "web.assets_frontend": [

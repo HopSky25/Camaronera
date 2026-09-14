@@ -2,23 +2,29 @@
   <menuitem id="menu_shrimp_verification_root"
             name="Verificación"
             web_icon="shrimp_verification,static/description/icon.png"
+            groups="base.group_user"
             sequence="26"/>
 
   <menuitem id="menu_shrimp_verification_all"
             name="Verificaciones"
             parent="menu_shrimp_verification_root"
             action="action_shrimp_verification"
+            groups="base.group_user"
             sequence="10"/>
 
   <menuitem id="menu_shrimp_verifiers"
             name="Verificadores"
             parent="menu_shrimp_verification_root"
             action="action_shrimp_verifiers"
+            groups="base.group_user"
             sequence="20"/>
 
+  <!-- Acreditar es dar o quitar el permiso de inspeccionar: no es trabajo
+       operativo, decide quién puede emitir un dictamen vinculante. -->
   <menuitem id="menu_shrimp_verifier_accreditation"
             name="Acreditaciones por aprobar"
             parent="menu_shrimp_verification_root"
             action="action_verifier_accreditation"
+            groups="base.group_system"
             sequence="30"/>
 </odoo>

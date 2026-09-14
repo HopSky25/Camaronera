@@ -549,12 +549,38 @@ class ShrimpVerification(models.Model):
             missing = self._missing_report_fields()
             if missing:
                 raise UserError(_("Faltan datos del informe: %s.") % ", ".join(missing))
+        # El texto puede llegar de dos sitios: del formulario del portal, que ya
+        # trae su propio textarea, o del backoffice, cuyos botones de cabecera no
+        # piden nada pero guardan el registro antes de ejecutarse. Por eso, si no
+        # viene por parámetro, se toma lo que el verificador ya escribió en el
+        # campo del informe: así el backoffice no necesita un asistente aparte.
+        texto = (notes or self.verdict_notes or "").strip()
+
+        # Un dictamen con observaciones o un rechazo sin motivo escrito es lo que
+        # la parte perjudicada va a discutir: el informe cancela una compra y
+        # carga el honorario a alguien, y no queda constancia de por qué. En
+        # estos dos casos el texto es obligatorio.
+        if state in ("approved_obs", "rejected") and not texto:
+            raise UserError(_(
+                "Escribe la conclusión del verificador antes de cerrar: "
+                "un dictamen con observaciones o un rechazo tiene que decir "
+                "por qué, porque es lo que se le opone a la parte afectada."))
+
+        # En una aprobación limpia no hay nada que justificar: el motivo es que
+        # el informe salió conforme, y sus datos ya se validaron arriba en
+        # _missing_report_fields(). Aun así no se deja vacío, porque el portal y
+        # el PDF de trazabilidad ocultan el bloque del veredicto cuando no hay
+        # texto y el comprador se queda sin ver ninguna conclusión.
+        if state == "approved" and not texto:
+            texto = _("Aprobado sin observaciones: el informe de campo cumple "
+                      "con lo declarado en la publicación.")
+
         vals = {
             "state": state,
             "verified_date": fields.Datetime.now(),
         }
-        if notes:
-            vals["verdict_notes"] = notes
+        if texto:
+            vals["verdict_notes"] = texto
         self.write(vals)
         # Al verificador se le liquida con el veredicto emitido, aprobado o
         # rechazado: retribuye la inspección, no su resultado.

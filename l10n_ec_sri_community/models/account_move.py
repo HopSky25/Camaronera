@@ -17,6 +17,13 @@ class AccountMove(models.Model):
         string='Tratamiento ATS',help='Clasificación explícita del responsable contable según la ficha ATS; no se deduce solo por tener clave de acceso.')
     ec_sri_ats_exclusion_reason=fields.Char('Sustento de exclusión ATS')
 
+    def _ec_sri_rimpe_retention_code(self,partner=None):
+        """Código de retención de renta según el régimen RIMPE del contribuyente:
+        332B (Negocio Popular, 0%) / 343A (Emprendedor, 1%). Devuelve False si
+        no es RIMPE."""
+        partner=(partner or self.partner_id).commercial_partner_id
+        return {'popular_business':'332B','entrepreneur':'343A'}.get(partner.ec_sri_rimpe_type,False)
+
     def _ec_sri_number_parts(self):
         self.ensure_one()
         value=self.l10n_latam_document_number or self.name or ''

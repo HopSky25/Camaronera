@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Cantones -->
+    <record id="view_sri_canton_list" model="ir.ui.view">
+        <field name="name">ec.sri.canton.list</field>
+        <field name="model">ec.sri.canton</field>
+        <field name="arch" type="xml">
+            <list string="Cantones" create="false" edit="false" delete="false">
+                <field name="code"/>
+                <field name="name"/>
+                <field name="province_id"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_sri_canton_search" model="ir.ui.view">
+        <field name="name">ec.sri.canton.search</field>
+        <field name="model">ec.sri.canton</field>
+        <field name="arch" type="xml">
+            <search string="Cantones">
+                <field name="code"/>
+                <field name="name"/>
+                <field name="province_id"/>
+                <filter name="group_prov" string="Provincia" context="{'group_by': 'province_id'}"/>
+            </search>
+        </field>
+    </record>
+    <record id="action_sri_canton" model="ir.actions.act_window">
+        <field name="name">Cantones</field>
+        <field name="res_model">ec.sri.canton</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_sri_canton_search"/>
+    </record>
+
+    <!-- Tipos de contribuyente -->
+    <record id="view_sri_contributor_type_list" model="ir.ui.view">
+        <field name="name">ec.sri.contributor.type.list</field>
+        <field name="model">ec.sri.contributor.type</field>
+        <field name="arch" type="xml">
+            <list string="Tipos de contribuyente" create="false" edit="false" delete="false">
+                <field name="code"/>
+                <field name="name"/>
+                <field name="obligado_contabilidad"/>
+                <field name="special_contributor"/>
+                <field name="retention_agent"/>
+                <field name="rimpe"/>
+            </list>
+        </field>
+    </record>
+    <record id="action_sri_contributor_type" model="ir.actions.act_window">
+        <field name="name">Tipos de contribuyente</field>
+        <field name="res_model">ec.sri.contributor.type</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <!-- Códigos de sustento -->
+    <record id="view_sri_tax_support_list" model="ir.ui.view">
+        <field name="name">ec.sri.tax.support.list</field>
+        <field name="model">ec.sri.tax.support</field>
+        <field name="arch" type="xml">
+            <list string="Códigos de sustento" create="false" edit="false" delete="false">
+                <field name="code"/>
+                <field name="name"/>
+            </list>
+        </field>
+    </record>
+    <record id="action_sri_tax_support" model="ir.actions.act_window">
+        <field name="name">Códigos de sustento</field>
+        <field name="res_model">ec.sri.tax.support</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <!-- Códigos de retención -->
+    <record id="view_sri_withholding_tax_list" model="ir.ui.view">
+        <field name="name">ec.sri.withholding.tax.list</field>
+        <field name="model">ec.sri.withholding.tax</field>
+        <field name="arch" type="xml">
+            <list string="Códigos de retención" create="false" edit="false" delete="false">
+                <field name="code"/>
+                <field name="name"/>
+                <field name="type"/>
+                <field name="percentage"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_sri_withholding_tax_search" model="ir.ui.view">
+        <field name="name">ec.sri.withholding.tax.search</field>
+        <field name="model">ec.sri.withholding.tax</field>
+        <field name="arch" type="xml">
+            <search string="Códigos de retención">
+                <field name="code"/>
+                <field name="name"/>
+                <filter name="group_type" string="Tipo" context="{'group_by': 'type'}"/>
+            </search>
+        </field>
+    </record>
+    <record id="action_sri_withholding_tax" model="ir.actions.act_window">
+        <field name="name">Códigos de retención</field>
+        <field name="res_model">ec.sri.withholding.tax</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_sri_withholding_tax_search"/>
+    </record>
+</odoo>

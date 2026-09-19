@@ -185,6 +185,13 @@ class SriDocument(models.Model):
                           payload_hash=hashlib.sha256(signed).hexdigest(),company_snapshot=company,source_snapshot=json.loads(json.dumps(source,default=str)),
                           state='queued',attempts=0,next_attempt=fields.Datetime.now(),last_message=False))
             rec._event('prepared','XML validado y firmado. En cola de envío.')
+        # Transmisión inmediata (Resolución NAC-DGERCGC25-00000017): en lugar
+        # de esperar el ciclo de 1 minuto, se dispara el cron para que envíe al
+        # SRI en segundos tras confirmar la transacción. Se mantiene todo el
+        # blindaje de _cron_process (bloqueo por fila, consulta antes de
+        # reenviar y backoff), y si el envío falla el documento queda en cola.
+        if self.filtered(lambda r: r.state == 'queued'):
+            self.env.ref('l10n_ec_sri_community.ir_cron_sri_queue').sudo()._trigger()
         return True
 
     def _apply_authorization(self,result):
@@ -366,6 +373,7 @@ class RetentionLine(models.Model):
     document_id=fields.Many2one('ec.sri.document',required=True,ondelete='cascade',check_company=True)
     company_id=fields.Many2one(related='document_id.company_id',store=True)
     tax_type=fields.Selection([('1','Renta'),('2','IVA'),('6','ISD')],required=True,default='1')
+    withholding_tax_id=fields.Many2one('ec.sri.withholding.tax',string='Código SRI (catálogo)',help='Elige un código del catálogo para llenar tipo, código y porcentaje.')
     retention_code=fields.Char('Código retención SRI',required=True)
     base=fields.Float('Base',digits=(16,2),required=True)
     rate=fields.Float('Porcentaje',digits=(16,2),required=True)
@@ -376,6 +384,13 @@ class RetentionLine(models.Model):
     @api.depends('base','rate')
     def _compute_amount(self):
         for rec in self: rec.amount=float(xml_utils.money(rec.base*rec.rate/100))
+    @api.onchange('withholding_tax_id')
+    def _onchange_withholding_tax(self):
+        if self.withholding_tax_id:
+            wt=self.withholding_tax_id
+            self.tax_type={'renta':'1','iva':'2','isd':'6'}.get(wt.type,self.tax_type)
+            self.retention_code=wt.code
+            self.rate=wt.percentage
     @api.constrains('base','rate')
     def _check_amounts(self):
         for rec in self:

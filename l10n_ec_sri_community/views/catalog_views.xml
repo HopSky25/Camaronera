@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_sri_catalog_search" model="ir.ui.view">
+        <field name="name">ec.sri.catalog.search</field>
+        <field name="model">ec.sri.catalog</field>
+        <field name="arch" type="xml">
+            <search string="Catálogo SRI">
+                <field name="code"/>
+                <field name="name"/>
+                <field name="value"/>
+                <filter name="group_table" string="Tabla" context="{'group_by': 'table_code'}"/>
+            </search>
+        </field>
+    </record>
+    <record id="view_sri_catalog_list" model="ir.ui.view">
+        <field name="name">ec.sri.catalog.list</field>
+        <field name="model">ec.sri.catalog</field>
+        <field name="arch" type="xml">
+            <list string="Catálogo SRI" create="false" edit="false" delete="false">
+                <field name="code"/>
+                <field name="name"/>
+                <field name="value"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_sri_catalog_form" model="ir.ui.view">
+        <field name="name">ec.sri.catalog.form</field>
+        <field name="model">ec.sri.catalog</field>
+        <field name="arch" type="xml">
+            <form string="Catálogo SRI" create="false" edit="false" delete="false">
+                <sheet>
+                    <group>
+                        <field name="table_code"/>
+                        <field name="code"/>
+                        <field name="name"/>
+                        <field name="value"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="action_sri_cat_emision" model="ir.actions.act_window">
+        <field name="name">Tipos de emisión</field>
+        <field name="res_model">ec.sri.catalog</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('table_code','=','emision')]</field>
+        <field name="context">{'default_table_code': 'emision'}</field>
+        <field name="search_view_id" ref="view_sri_catalog_search"/>
+    </record>
+    <record id="action_sri_cat_impuesto" model="ir.actions.act_window">
+        <field name="name">Códigos de impuesto</field>
+        <field name="res_model">ec.sri.catalog</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('table_code','=','impuesto')]</field>
+        <field name="context">{'default_table_code': 'impuesto'}</field>
+        <field name="search_view_id" ref="view_sri_catalog_search"/>
+    </record>
+    <record id="action_sri_cat_iva" model="ir.actions.act_window">
+        <field name="name">Tarifas de IVA</field>
+        <field name="res_model">ec.sri.catalog</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('table_code','=','iva')]</field>
+        <field name="context">{'default_table_code': 'iva'}</field>
+        <field name="search_view_id" ref="view_sri_catalog_search"/>
+    </record>
+    <record id="action_sri_cat_ice" model="ir.actions.act_window">
+        <field name="name">Tarifas de ICE</field>
+        <field name="res_model">ec.sri.catalog</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('table_code','=','ice')]</field>
+        <field name="context">{'default_table_code': 'ice'}</field>
+        <field name="search_view_id" ref="view_sri_catalog_search"/>
+    </record>
+    <record id="action_sri_cat_impuesto_retener" model="ir.actions.act_window">
+        <field name="name">Impuesto a retener</field>
+        <field name="res_model">ec.sri.catalog</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('table_code','=','impuesto_retener')]</field>
+        <field name="context">{'default_table_code': 'impuesto_retener'}</field>
+        <field name="search_view_id" ref="view_sri_catalog_search"/>
+    </record>
+    <record id="action_sri_cat_ret_iva" model="ir.actions.act_window">
+        <field name="name">Retención de IVA</field>
+        <field name="res_model">ec.sri.catalog</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('table_code','=','ret_iva')]</field>
+        <field name="context">{'default_table_code': 'ret_iva'}</field>
+        <field name="search_view_id" ref="view_sri_catalog_search"/>
+    </record>
+    <record id="action_sri_cat_pais" model="ir.actions.act_window">
+        <field name="name">Países</field>
+        <field name="res_model">ec.sri.catalog</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('table_code','=','pais')]</field>
+        <field name="context">{'default_table_code': 'pais'}</field>
+        <field name="search_view_id" ref="view_sri_catalog_search"/>
+    </record>
+    <record id="action_sri_cat_reembolso" model="ir.actions.act_window">
+        <field name="name">Tipo prov. reembolso</field>
+        <field name="res_model">ec.sri.catalog</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('table_code','=','reembolso')]</field>
+        <field name="context">{'default_table_code': 'reembolso'}</field>
+        <field name="search_view_id" ref="view_sri_catalog_search"/>
+    </record>
+
+    <!-- ==== Accesos a las tablas NATIVAS de Odoo (sin duplicar) ==== -->
+    <record id="action_sri_native_doctype" model="ir.actions.act_window">
+        <field name="name">Comprobantes (tipos de documento)</field>
+        <field name="res_model">l10n_latam.document.type</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('country_id.code','=','EC')]</field>
+    </record>
+    <record id="action_sri_native_payment" model="ir.actions.act_window">
+        <field name="name">Formas de pago</field>
+        <field name="res_model">l10n_ec.sri.payment</field>
+        <field name="view_mode">list,form</field>
+    </record>
+    <record id="action_sri_native_idtype" model="ir.actions.act_window">
+        <field name="name">Tipos de identificación</field>
+        <field name="res_model">l10n_latam.identification.type</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">['|',('country_id.code','=','EC'),('country_id','=',False)]</field>
+    </record>
+    <record id="action_sri_native_state" model="ir.actions.act_window">
+        <field name="name">Provincias</field>
+        <field name="res_model">res.country.state</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('country_id.code','=','EC')]</field>
+    </record>
+</odoo>

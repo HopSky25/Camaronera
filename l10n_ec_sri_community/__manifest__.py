@@ -9,8 +9,14 @@
     'external_dependencies': {'python': ['lxml', 'cryptography', 'requests']},
     'data': [
         'security/security.xml', 'security/ir.model.access.csv',
-        'data/cron.xml', 'views/config_views.xml', 'views/document_views.xml',
+        'data/cron.xml', 'data/sri_catalog_data.xml',
+        'data/ec.sri.canton.csv',
+        'data/sri_fiscal_catalog_data.xml', 'data/sri_withholding_tax_data.xml',
+        'views/config_views.xml', 'views/document_views.xml',
         'views/account_views.xml', 'views/stock_views.xml',
+        'views/catalog_views.xml', 'views/geo_catalog_views.xml',
+        'views/transport_master_views.xml',
+        'views/res_config_settings_views.xml',
         'wizard/report_views.xml', 'report/ride.xml', 'views/menus.xml',
     ],
     # Al instalar anota el código del catálogo del SRI en los IVA que se

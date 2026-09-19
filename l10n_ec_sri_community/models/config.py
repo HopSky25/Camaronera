@@ -61,6 +61,10 @@ class Partner(models.Model):
     _inherit='res.partner'
     ec_sri_identification_type=fields.Selection(IDENT_TYPES,string='Identificación SRI')
     ec_sri_related=fields.Boolean('Parte relacionada')
+    ec_sri_rimpe_type=fields.Selection([('popular_business','RIMPE - Negocio Popular'),('entrepreneur','RIMPE - Emprendedor')],
+        string='Régimen RIMPE',help='Clasificación RIMPE del contribuyente (Art. 97). Determina el código de retención de renta aplicable.')
+    ec_sri_rimpe_start_date=fields.Date('RIMPE desde')
+    ec_sri_rimpe_end_date=fields.Date('RIMPE hasta')
 
     def _ec_sri_partner_data(self):
         self.ensure_one()

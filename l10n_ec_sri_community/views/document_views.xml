@@ -47,7 +47,7 @@
                 <notebook>
                     <page string="XML externo" invisible="mode != 'xml'"><group><field name="import_filename" invisible="1"/><field name="import_xml" filename="import_filename" readonly="state != 'draft'"/></group><p>Importe un XML completo sin firma para casos avanzados. Se valida contra los XSD oficiales. El registro contable se vincula por separado.</p></page>
                     <page string="Retenciones" invisible="document_type != '07' or mode != 'native'">
-                        <field name="retention_ids" readonly="state != 'draft'"><list editable="bottom"><field name="tax_type"/><field name="retention_code"/><field name="base"/><field name="rate"/><field name="amount"/><field name="account_id"/><field name="base_box" optional="hide"/><field name="tax_box" optional="hide"/></list></field>
+                        <field name="retention_ids" readonly="state != 'draft'"><list editable="bottom"><field name="withholding_tax_id"/><field name="tax_type"/><field name="retention_code"/><field name="base"/><field name="rate"/><field name="amount"/><field name="account_id"/><field name="base_box" optional="hide"/><field name="tax_box" optional="hide"/></list></field>
                         <group><field name="retention_journal_id" readonly="retention_move_id"/><field name="retention_move_id" readonly="1"/></group>
                         <button name="action_post_retention" type="object" string="Contabilizar retención" invisible="state != 'authorized' or retention_move_id" groups="account.group_account_manager"/>
                     </page>

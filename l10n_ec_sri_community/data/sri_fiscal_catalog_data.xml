@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+<!-- Tipos de contribuyente y códigos de sustento (portados de la suite) -->
+<record id="sustento_01" model="ec.sri.tax.support">
+        <field name="code">01</field>
+        <field name="name">Crédito Tributario para declaración de IVA</field>
+    </record>
+<record id="sustento_02" model="ec.sri.tax.support">
+        <field name="code">02</field>
+        <field name="name">Costo o Gasto para declaración de IR</field>
+    </record>
+<record id="sustento_03" model="ec.sri.tax.support">
+        <field name="code">03</field>
+        <field name="name">Activo Fijo - Crédito Tributario para declaración de IVA</field>
+    </record>
+<record id="sustento_04" model="ec.sri.tax.support">
+        <field name="code">04</field>
+        <field name="name">Activo Fijo - Costo o Gasto para declaración de IR</field>
+    </record>
+<record id="sustento_05" model="ec.sri.tax.support">
+        <field name="code">05</field>
+        <field name="name">Liquidación Gastos de Viaje, Hospedaje y Alimentación</field>
+    </record>
+<record id="sustento_06" model="ec.sri.tax.support">
+        <field name="code">06</field>
+        <field name="name">Inventario - Crédito Tributario para declaración de IVA</field>
+    </record>
+<record id="sustento_07" model="ec.sri.tax.support">
+        <field name="code">07</field>
+        <field name="name">Inventario - Costo o Gasto para declaración de IR</field>
+    </record>
+<record id="sustento_08" model="ec.sri.tax.support">
+        <field name="code">08</field>
+        <field name="name">Valor pagado para solicitar Reembolso de Gastos</field>
+    </record>
+<record id="sustento_09" model="ec.sri.tax.support">
+        <field name="code">09</field>
+        <field name="name">Reembolso por Siniestros</field>
+    </record>
+<record id="sustento_10" model="ec.sri.tax.support">
+        <field name="code">10</field>
+        <field name="name">Distribución de Dividendos, Beneficios o Utilidades</field>
+    </record>
+<record id="sustento_00" model="ec.sri.tax.support">
+        <field name="code">00</field>
+        <field name="name">Casos Especiales cuyo sustento no aplica a las opciones anteriores</field>
+    </record>
+<record id="contrib_persona_natural" model="ec.sri.contributor.type">
+        <field name="code">01</field>
+        <field name="name">Persona Natural</field>
+        <field name="obligado_contabilidad" eval="False"/>
+    </record>
+<record id="contrib_persona_natural_obligado" model="ec.sri.contributor.type">
+        <field name="code">02</field>
+        <field name="name">Persona Natural Obligada a Llevar Contabilidad</field>
+        <field name="obligado_contabilidad" eval="True"/>
+    </record>
+<record id="contrib_sociedad" model="ec.sri.contributor.type">
+        <field name="code">03</field>
+        <field name="name">Sociedad</field>
+        <field name="obligado_contabilidad" eval="True"/>
+    </record>
+<record id="contrib_especial" model="ec.sri.contributor.type">
+        <field name="code">04</field>
+        <field name="name">Contribuyente Especial</field>
+        <field name="obligado_contabilidad" eval="True"/>
+        <field name="special_contributor" eval="True"/>
+    </record>
+<record id="contrib_rise" model="ec.sri.contributor.type">
+        <field name="code">05</field>
+        <field name="name">RISE (Régimen Simplificado)</field>
+        <field name="obligado_contabilidad" eval="False"/>
+    </record>
+<record id="contrib_rimpe_emprendedor" model="ec.sri.contributor.type">
+        <field name="code">06</field>
+        <field name="name">RIMPE Emprendedor</field>
+        <field name="obligado_contabilidad" eval="False"/>
+        <field name="rimpe" eval="True"/>
+    </record>
+<record id="contrib_rimpe_negocio" model="ec.sri.contributor.type">
+        <field name="code">07</field>
+        <field name="name">RIMPE Negocio Popular</field>
+        <field name="obligado_contabilidad" eval="False"/>
+        <field name="rimpe" eval="True"/>
+    </record>
+<record id="contrib_sector_publico" model="ec.sri.contributor.type">
+        <field name="code">08</field>
+        <field name="name">Sector Público</field>
+        <field name="obligado_contabilidad" eval="True"/>
+        <field name="retention_agent" eval="True"/>
+    </record>
+</odoo>

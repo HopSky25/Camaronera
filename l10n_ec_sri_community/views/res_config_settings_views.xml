@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_sri" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.sri</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app data-string="Ecuador SRI" string="Ecuador SRI" name="l10n_ec_sri_community"
+                     logo="/l10n_ec_sri_community/static/description/icon.png"
+                     groups="account.group_account_manager">
+                    <block title="Facturación electrónica SRI" name="sri_general">
+                        <setting string="Compañía" help="La configuración y el certificado de firma son POR compañía. Elige cuál estás configurando.">
+                            <field name="company_id" options="{'no_create': True}"/>
+                        </setting>
+                        <setting id="sri_enabled_setting" string="Habilitar SRI Community"
+                                 help="Activa la emisión de comprobantes electrónicos para la compañía.">
+                            <field name="ec_sri_enabled"/>
+                        </setting>
+                        <setting string="Ambiente SRI" help="Pruebas para homologación, Producción para comprobantes reales."
+                                 invisible="not ec_sri_enabled">
+                            <field name="ec_sri_environment"/>
+                        </setting>
+                        <setting string="Régimen tributario" help="Régimen del contribuyente ante el SRI."
+                                 invisible="not ec_sri_enabled">
+                            <field name="ec_sri_regime"/>
+                        </setting>
+                        <setting string="Obligado a llevar contabilidad"
+                                 invisible="not ec_sri_enabled">
+                            <field name="ec_sri_accounting"/>
+                        </setting>
+                        <setting string="Pruebas de homologación completadas"
+                                 help="Requerido antes de emitir en ambiente de Producción."
+                                 invisible="not ec_sri_enabled">
+                            <field name="ec_sri_production_ready"/>
+                        </setting>
+                    </block>
+                    <block title="Datos del contribuyente" name="sri_taxpayer" invisible="not ec_sri_enabled">
+                        <setting string="Nombre comercial">
+                            <field name="ec_sri_trade_name"/>
+                        </setting>
+                        <setting string="Dirección matriz SRI">
+                            <field name="ec_sri_address"/>
+                        </setting>
+                        <setting string="Establecimientos registrados en RUC">
+                            <field name="ec_sri_establishments"/>
+                        </setting>
+                        <setting string="Número contribuyente especial">
+                            <field name="ec_sri_special"/>
+                        </setting>
+                        <setting string="Resolución agente de retención">
+                            <field name="ec_sri_agent"/>
+                        </setting>
+                        <setting string="Resolución gran contribuyente">
+                            <field name="ec_sri_large_taxpayer"/>
+                        </setting>
+                        <setting string="RUC proveedor del sistema"
+                                 help="OBLIGATORIO (Anexo 26, Resolución NAC-DGERCGC26-00000027) si usa un sistema de facturación de terceros: se envía como campoAdicional 'RUC Proveedor' en el XML.">
+                            <field name="ec_sri_provider_ruc"/>
+                        </setting>
+                    </block>
+                    <block title="Certificado de firma" name="sri_certificate" invisible="not ec_sri_enabled"
+                           groups="base.group_system">
+                        <setting string="Prefijo de variables del certificado"
+                                 help="Ej. EC_SRI_EMPRESA1. El servidor debe definir EC_SRI_EMPRESA1_P12_PATH y EC_SRI_EMPRESA1_P12_PASSWORD.">
+                            <field name="ec_sri_secret_name"/>
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="action_sri_config_settings" model="ir.actions.act_window">
+        <field name="name">Configuración SRI</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="context">{'module': 'l10n_ec_sri_community', 'bin_size': False}</field>
+    </record>
+</odoo>

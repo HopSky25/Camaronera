@@ -1,6 +1,50 @@
 <odoo>
-    <menuitem id="menu_sri_root" name="Ecuador SRI" sequence="40" groups="account.group_account_invoice"/>
+    <menuitem id="menu_sri_root" name="Ecuador SRI" sequence="40" groups="account.group_account_invoice"
+              web_icon="l10n_ec_sri_community,static/description/icon.png"/>
+
+    <!-- Configuración (abre Ajustes en la sección SRI: ambiente, empresa, firma, proveedor) -->
+    <menuitem id="menu_sri_config" name="Configuración" parent="menu_sri_root"
+              action="action_sri_config_settings" sequence="5" groups="account.group_account_manager"/>
+
     <menuitem id="menu_sri_documents" name="Comprobantes" parent="menu_sri_root" action="action_sri_documents" sequence="10"/>
     <menuitem id="menu_sri_reports" name="Reportes" parent="menu_sri_root" action="action_sri_reports" sequence="20" groups="account.group_account_manager"/>
-    <menuitem id="menu_sri_points" name="Puntos de emisión" parent="menu_sri_root" action="action_sri_points" sequence="30" groups="account.group_account_manager"/>
+    <!-- Establecimientos (sucursales/POS) + Puntos de emisión, agrupados -->
+    <menuitem id="menu_sri_locations" name="Establecimientos" parent="menu_sri_root" sequence="30" groups="account.group_account_manager"/>
+    <menuitem id="menu_sri_points" name="Puntos de emisión" parent="menu_sri_locations" action="action_sri_points" sequence="20" groups="account.group_account_manager"/>
+
+    <!-- Transporte -->
+    <menuitem id="menu_sri_transport" name="Transporte" parent="menu_sri_root" sequence="35" groups="account.group_account_manager"/>
+    <menuitem id="menu_sri_drivers" name="Transportistas" parent="menu_sri_transport" action="action_sri_driver" sequence="10"/>
+    <menuitem id="menu_sri_vehicles" name="Vehículos" parent="menu_sri_transport" action="action_sri_vehicle" sequence="20"/>
+
+    <!-- Catálogos SRI (clasificados por grupos) -->
+    <menuitem id="menu_sri_catalogs" name="Catálogos SRI" parent="menu_sri_root" sequence="40"/>
+
+    <!-- Grupo: Impuestos -->
+    <menuitem id="menu_sri_grp_taxes" name="Impuestos" parent="menu_sri_catalogs" sequence="10"/>
+    <menuitem id="menu_sri_cat_impuesto" name="Códigos de impuesto" parent="menu_sri_grp_taxes" action="action_sri_cat_impuesto" sequence="10"/>
+    <menuitem id="menu_sri_cat_iva" name="Tarifas de IVA" parent="menu_sri_grp_taxes" action="action_sri_cat_iva" sequence="20"/>
+    <menuitem id="menu_sri_cat_ice" name="Tarifas de ICE" parent="menu_sri_grp_taxes" action="action_sri_cat_ice" sequence="30"/>
+    <menuitem id="menu_sri_cat_impuesto_retener" name="Impuesto a retener" parent="menu_sri_grp_taxes" action="action_sri_cat_impuesto_retener" sequence="40"/>
+    <menuitem id="menu_sri_cat_ret_iva" name="Retención de IVA" parent="menu_sri_grp_taxes" action="action_sri_cat_ret_iva" sequence="50"/>
+    <menuitem id="menu_sri_cat_withholding" name="Códigos de retención" parent="menu_sri_grp_taxes" action="action_sri_withholding_tax" sequence="60"/>
+
+    <!-- Grupo: Documentos y pagos (usan tablas NATIVAS) -->
+    <menuitem id="menu_sri_grp_docs" name="Documentos y pagos" parent="menu_sri_catalogs" sequence="20"/>
+    <menuitem id="menu_sri_cat_doctype" name="Comprobantes (nativo)" parent="menu_sri_grp_docs" action="action_sri_native_doctype" sequence="10"/>
+    <menuitem id="menu_sri_cat_payment" name="Formas de pago (nativo)" parent="menu_sri_grp_docs" action="action_sri_native_payment" sequence="20"/>
+    <menuitem id="menu_sri_cat_emision" name="Tipos de emisión" parent="menu_sri_grp_docs" action="action_sri_cat_emision" sequence="30"/>
+    <menuitem id="menu_sri_cat_reembolso" name="Tipo prov. reembolso" parent="menu_sri_grp_docs" action="action_sri_cat_reembolso" sequence="40"/>
+
+    <!-- Grupo: Territorial -->
+    <menuitem id="menu_sri_grp_geo" name="Territorial" parent="menu_sri_catalogs" sequence="30"/>
+    <menuitem id="menu_sri_cat_province" name="Provincias (nativo)" parent="menu_sri_grp_geo" action="action_sri_native_state" sequence="10"/>
+    <menuitem id="menu_sri_cat_canton" name="Cantones" parent="menu_sri_grp_geo" action="action_sri_canton" sequence="20"/>
+    <menuitem id="menu_sri_cat_pais" name="Países" parent="menu_sri_grp_geo" action="action_sri_cat_pais" sequence="30"/>
+
+    <!-- Grupo: Contribuyentes -->
+    <menuitem id="menu_sri_grp_contrib" name="Contribuyentes" parent="menu_sri_catalogs" sequence="40"/>
+    <menuitem id="menu_sri_cat_contributor" name="Tipos de contribuyente" parent="menu_sri_grp_contrib" action="action_sri_contributor_type" sequence="10"/>
+    <menuitem id="menu_sri_cat_idtype" name="Identificación (nativo)" parent="menu_sri_grp_contrib" action="action_sri_native_idtype" sequence="20"/>
+    <menuitem id="menu_sri_cat_support" name="Códigos de sustento" parent="menu_sri_grp_contrib" action="action_sri_tax_support" sequence="30"/>
 </odoo>

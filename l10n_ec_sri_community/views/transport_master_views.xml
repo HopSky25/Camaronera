@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Transportistas -->
+    <record id="view_sri_driver_list" model="ir.ui.view">
+        <field name="name">ec.sri.driver.list</field>
+        <field name="model">ec.sri.driver</field>
+        <field name="arch" type="xml">
+            <list string="Transportistas">
+                <field name="name"/>
+                <field name="identification_type"/>
+                <field name="identification_number"/>
+                <field name="license_number"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_sri_driver_form" model="ir.ui.view">
+        <field name="name">ec.sri.driver.form</field>
+        <field name="model">ec.sri.driver</field>
+        <field name="arch" type="xml">
+            <form string="Transportista">
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="identification_type"/>
+                        <field name="identification_number"/>
+                        <field name="license_number"/>
+                        <field name="active"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="action_sri_driver" model="ir.actions.act_window">
+        <field name="name">Transportistas</field>
+        <field name="res_model">ec.sri.driver</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <!-- Vehículos -->
+    <record id="view_sri_vehicle_list" model="ir.ui.view">
+        <field name="name">ec.sri.vehicle.list</field>
+        <field name="model">ec.sri.vehicle</field>
+        <field name="arch" type="xml">
+            <list string="Vehículos">
+                <field name="name"/>
+                <field name="license_plate"/>
+                <field name="brand"/>
+                <field name="model_year"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_sri_vehicle_form" model="ir.ui.view">
+        <field name="name">ec.sri.vehicle.form</field>
+        <field name="model">ec.sri.vehicle</field>
+        <field name="arch" type="xml">
+            <form string="Vehículo">
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="license_plate"/>
+                        <field name="brand"/>
+                        <field name="model_year"/>
+                        <field name="active"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="action_sri_vehicle" model="ir.actions.act_window">
+        <field name="name">Vehículos</field>
+        <field name="res_model">ec.sri.vehicle</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

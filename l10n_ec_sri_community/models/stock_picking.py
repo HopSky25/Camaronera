@@ -4,6 +4,8 @@ from odoo.exceptions import UserError
 class Picking(models.Model):
     _inherit='stock.picking'
     ec_sri_carrier_id=fields.Many2one('res.partner',string='Transportista SRI',check_company=True)
+    ec_sri_driver_id=fields.Many2one('ec.sri.driver',string='Transportista (maestro)',help='Fuente estructurada del transportista; si se define, tiene prioridad sobre el contacto transportista.')
+    ec_sri_vehicle_id=fields.Many2one('ec.sri.vehicle',string='Vehículo',help='Si se define, su placa tiene prioridad sobre el campo Placa.')
     ec_sri_plate=fields.Char('Placa')
     ec_sri_departure=fields.Char('Dirección partida')
     ec_sri_destination=fields.Char('Dirección destino')
@@ -27,8 +29,17 @@ class Picking(models.Model):
     def _ec_sri_delivery_data(self,document):
         self.ensure_one()
         if self.state not in ('assigned','done'): raise UserError(_('La transferencia debe estar preparada o realizada.'))
-        if not all([self.ec_sri_carrier_id,self.ec_sri_plate,self.ec_sri_departure,self.ec_sri_destination,self.ec_sri_start,self.ec_sri_end,self.ec_sri_reason]):
-            raise UserError(_('Complete los datos de transporte en la transferencia.'))
+        # Transportista: prioriza el maestro estructurado; si no, el contacto.
+        if self.ec_sri_driver_id:
+            d=self.ec_sri_driver_id
+            carrier=dict(name=d.name,type=d.identification_type,vat=d.identification_number)
+        elif self.ec_sri_carrier_id:
+            carrier=self.ec_sri_carrier_id._ec_sri_partner_data()
+        else:
+            carrier=None
+        plate=self.ec_sri_vehicle_id.license_plate if self.ec_sri_vehicle_id else self.ec_sri_plate
+        if not all([carrier,plate,self.ec_sri_departure,self.ec_sri_destination,self.ec_sri_start,self.ec_sri_end,self.ec_sri_reason]):
+            raise UserError(_('Complete los datos de transporte en la transferencia (transportista, placa, direcciones, fechas y motivo).'))
         if self.ec_sri_end<self.ec_sri_start or document.date!=self.ec_sri_start:
             raise UserError(_('Revise las fechas del transporte y emisión.'))
         p=self.partner_id._ec_sri_partner_data()
@@ -38,6 +49,6 @@ class Picking(models.Model):
             if quantity:
                 lines.append(dict(code=move.product_id.default_code or str(move.product_id.id),description=move.product_id.display_name,quantity=quantity))
         return dict(address=document.point_id.address,departure=self.ec_sri_departure,
-            carrier=self.ec_sri_carrier_id._ec_sri_partner_data(),plate=self.ec_sri_plate,
+            carrier=carrier,plate=plate,
             start=self.ec_sri_start.strftime('%d/%m/%Y'),end=self.ec_sri_end.strftime('%d/%m/%Y'),
             recipients=[dict(vat=p['vat'],name=p['name'],address=self.ec_sri_destination,reason=self.ec_sri_reason,route=self.ec_sri_route,lines=lines)])

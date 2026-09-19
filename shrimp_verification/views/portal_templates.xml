@@ -355,15 +355,36 @@
 
               <div class="sv-section">
                 <h3>Datos del parte</h3>
-                <p class="sv-muted small" style="margin-top:-8px;">
-                  El lote y la piscina vienen definidos por el vendedor en la publicación;
-                  el resto lo registra el técnico en campo.
-                </p>
+
+                <div class="sv-muted small" style="margin-top:-6px; margin-bottom:6px;">
+                  <strong>Qué se está verificando</strong>
+                </div>
                 <div class="row g-3">
-                  <div class="col-md-4"><label>Lote</label>
+                  <div class="col-md-4"><label>Lote del vendedor</label>
                     <div class="form-control-plaintext"><strong t-esc="v.batch_code or '—'"/></div></div>
+                  <div class="col-md-4"><label>Producto</label>
+                    <div class="form-control-plaintext"><strong t-esc="v.product_id.name or '—'"/></div></div>
+                  <div class="col-md-4"><label>Operación</label>
+                    <div class="form-control-plaintext"><strong t-esc="v.transaction_id.name or '—'"/></div></div>
+                </div>
+
+                <div class="sv-muted small" style="margin-top:12px; margin-bottom:6px;">
+                  <strong>Origen declarado por el vendedor</strong> — viene de la
+                  publicación del lote. El técnico no lo comprueba en sitio.
+                </div>
+                <div class="row g-3">
+                  <div class="col-md-4"><label>Camaronera</label>
+                    <div class="form-control-plaintext"><strong t-esc="v.seller_partner_id.name or '—'"/></div></div>
+                  <div class="col-md-4"><label>Instalación / sector</label>
+                    <div class="form-control-plaintext"><strong t-esc="v.facility_id.name or '—'"/></div></div>
                   <div class="col-md-4"><label>Piscina</label>
                     <div class="form-control-plaintext"><strong t-esc="v.pond_id.name or v.pond_label or '—'"/></div></div>
+                </div>
+
+                <div class="sv-muted small" style="margin-top:12px; margin-bottom:6px;">
+                  <strong>Dónde y cuándo se verifica</strong> — esto lo registra el técnico.
+                </div>
+                <div class="row g-3">
                   <div class="col-md-4"><label>Planta procesadora</label>
                     <input class="form-control" name="plant_name" t-att-value="v.plant_name or ''"/></div>
                   <div class="col-md-4"><label>Fecha de cosecha</label>

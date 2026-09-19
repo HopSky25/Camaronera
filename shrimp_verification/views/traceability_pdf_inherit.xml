@@ -93,16 +93,29 @@
             <!-- El origen que constató el verificador, que no tiene por qué ser el
                  que el vendedor declaró en el anuncio: por eso va aparte. -->
             <tr t-if="ver.pond_id or ver.pond_label or ver.facility_id">
-              <th>Origen constatado</th>
+              <th>Origen declarado</th>
               <td>
                 <t t-if="ver.facility_id"><t t-esc="ver.facility_id.name"/></t>
                 <t t-if="ver.pond_id or ver.pond_label">
                   · piscina <t t-esc="ver.pond_id.name or ver.pond_label"/>
                 </t>
+                <div style="font-size:8px; color:#5a6b74; margin-top:2px;">
+                  Declarado por el vendedor en la publicación del lote.
+                </div>
               </td>
             </tr>
             <!-- Fechas de cosecha y de proceso: es lo que fija la frescura del
                  producto y lo que primero pregunta cualquier cliente del comprador. -->
+            <tr t-if="ver.plant_name">
+              <th>Verificado en</th>
+              <td>
+                <t t-esc="ver.plant_name"/>
+                <div style="font-size:8px; color:#5a6b74; margin-top:2px;">
+                  Los pesos, la clasificación por tallas, el metabisulfito y la cata
+                  se miden sobre el producto recibido en planta.
+                </div>
+              </td>
+            </tr>
             <tr t-if="ver.harvest_date or ver.process_date">
               <th>Cosecha y proceso</th>
               <td>

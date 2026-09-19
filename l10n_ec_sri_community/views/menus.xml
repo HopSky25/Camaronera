@@ -2,10 +2,6 @@
     <menuitem id="menu_sri_root" name="Ecuador SRI" sequence="40" groups="account.group_account_invoice"
               web_icon="l10n_ec_sri_community,static/description/icon.png"/>
 
-    <!-- Configuración (abre Ajustes en la sección SRI: ambiente, empresa, firma, proveedor) -->
-    <menuitem id="menu_sri_config" name="Configuración" parent="menu_sri_root"
-              action="action_sri_config_settings" sequence="5" groups="account.group_account_manager"/>
-
     <menuitem id="menu_sri_documents" name="Comprobantes" parent="menu_sri_root" action="action_sri_documents" sequence="10"/>
     <menuitem id="menu_sri_reports" name="Reportes" parent="menu_sri_root" action="action_sri_reports" sequence="20" groups="account.group_account_manager"/>
     <!-- Establecimientos (sucursales/POS) + Puntos de emisión, agrupados -->
@@ -17,8 +13,12 @@
     <menuitem id="menu_sri_drivers" name="Transportistas" parent="menu_sri_transport" action="action_sri_driver" sequence="10"/>
     <menuitem id="menu_sri_vehicles" name="Vehículos" parent="menu_sri_transport" action="action_sri_vehicle" sequence="20"/>
 
-    <!-- Catálogos SRI (clasificados por grupos) -->
-    <menuitem id="menu_sri_catalogs" name="Catálogos SRI" parent="menu_sri_root" sequence="40"/>
+    <!-- Configuración: va AL FINAL y contiene Ajustes + todos los catálogos -->
+    <menuitem id="menu_sri_catalogs" name="Configuración" parent="menu_sri_root" sequence="90"/>
+
+    <!-- Acceso a Ajustes (sección SRI: ambiente, empresa, firma, proveedor) -->
+    <menuitem id="menu_sri_config" name="Ajustes" parent="menu_sri_catalogs"
+              action="action_sri_config_settings" sequence="5" groups="account.group_account_manager"/>
 
     <!-- Grupo: Impuestos -->
     <menuitem id="menu_sri_grp_taxes" name="Impuestos" parent="menu_sri_catalogs" sequence="10"/>

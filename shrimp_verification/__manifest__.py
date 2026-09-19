@@ -55,6 +55,18 @@ genera el parte en el mismo formato de texto que el equipo ya usa por WhatsApp.
         "data/site_config.xml",
         "data/brand_config.xml",
     ],
+    # Van en 'demo' y no en 'data': son escenarios de ejemplo (empresas
+    # verificadoras, sus técnicos, 80 verificaciones con sus aceptaciones y
+    # calificaciones) y no deben entrar nunca en una base de producción.
+    "demo": [
+        "demo/demo_01_verifier_partners.xml",
+        "demo/demo_02_verifier_technicians.xml",
+        "demo/demo_03_verifier_accreditations.xml",
+        "demo/demo_04_verifications_adult.xml",
+        "demo/demo_05_verifications_larvae.xml",
+        "demo/demo_06_acceptances.xml",
+        "demo/demo_07_verifier_reviews.xml",
+    ],
     "assets": {
         "web.assets_frontend": [
             "shrimp_verification/static/src/css/verification.css",

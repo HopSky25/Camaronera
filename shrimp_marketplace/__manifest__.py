@@ -49,6 +49,7 @@ y portal público.
         "views/components_template.xml",
         "views/website_menu.xml",
         "data/menu_config.xml",
+        "data/brand_config.xml",
         "views/navbar_dropdown.xml",
         "views/landing_template.xml",
         "views/marketplace_public_template.xml",

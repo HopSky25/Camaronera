@@ -2,6 +2,7 @@ import base64
 
 from odoo import api, fields, models
 from odoo.tools import file_open
+from odoo.tools.image import image_process
 
 
 class Website(models.Model):
@@ -122,16 +123,24 @@ class Website(models.Model):
     # Los archivos viven en el módulo, no sueltos en el disco de un equipo:
     # así viajan con el código y una instalación nueva arranca con la marca
     # puesta en vez de con el "Your Logo" de Odoo.
-    _SHRIMP_LOGO = "shrimp_verification/static/src/img/logo.png"
-    _SHRIMP_FAVICON = "shrimp_verification/static/src/img/favicon.png"
+    #   icon.png         icono del módulo en Aplicaciones (lo coge Odoo solo)
+    #   logo.png         el de la barra de título del sitio
+    #   icon_circle.png  el favicon de la pestaña del navegador
+    #   favicon.png      la marca sin fondo (no la usa Odoo directamente)
+    #
+    # Este hook se ocupa SOLO del sitio de verificadores. Antes recorría todos
+    # los sitios, de modo que la marca del marketplace dependía de tener
+    # instalado este módulo; ahora cada plataforma lleva la suya.
+    _SHRIMP_LOGO = "shrimp_verification/static/description/logo.png"
+    _SHRIMP_FAVICON = "shrimp_verification/static/description/icon_circle.png"
 
     @api.model
     def _shrimp_ensure_brand(self):
-        """Pone el logo y el favicon de Trazul donde todavía esté el de Odoo.
+        """Sincroniza logo y favicon del sitio de verificadores.
 
-        NO DESTRUCTIVO: si el sitio o la compañía ya tienen una imagen propia
-        —porque el cliente subió la suya— no se toca. Solo se reemplaza la
-        que Odoo trae por defecto.
+        Los ficheros del módulo son la fuente de la verdad: al actualizar, el
+        sitio se resincroniza con ellos. Es idempotente, solo escribe cuando
+        hay diferencia.
         """
         def _leer(ruta):
             try:
@@ -145,22 +154,26 @@ class Website(models.Model):
         if not logo and not favicon:
             return False
 
-        W = self.env["website"].sudo()
-        for sitio in W.search([]):
+        # website._handle_favicon() recorta a un ICO de 256x256 al escribir:
+        # hay que comparar contra ese resultado y no contra el PNG de partida,
+        # o se reescribiría en cada actualización.
+        favicon_final = False
+        if favicon:
+            try:
+                favicon_final = base64.b64encode(image_process(
+                    base64.b64decode(favicon), size=(256, 256),
+                    crop="center", output_format="ICO"))
+            except Exception:
+                favicon_final = False
+
+        cambiados = 0
+        for sitio in self._shrimp_verifier_site():
             vals = {}
-            # El logo por defecto de Odoo es un archivo concreto: comparando
-            # contra él se distingue "nunca lo cambiaron" de "subieron el suyo".
-            # Un campo vacío cuenta igual que el de Odoo: tampoco es del cliente.
-            if logo and sitio.logo in (False, sitio._default_logo()):
+            if logo and sitio.logo != logo:
                 vals["logo"] = logo
-            if favicon and sitio.favicon in (False, sitio._default_favicon()):
+            if favicon_final and sitio.favicon != favicon_final:
                 vals["favicon"] = favicon
             if vals:
                 sitio.write(vals)
-
-        # La compañía lleva el logo a las facturas y a los informes PDF.
-        if logo:
-            for empresa in self.env["res.company"].sudo().search([]):
-                if empresa.uses_default_logo:
-                    empresa.logo = logo
-        return True
+                cambiados += 1
+        return cambiados

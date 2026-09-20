@@ -1,0 +1,232 @@
+/* =========================================================================
+   Web Theme Launcher — Modo oscuro para el Punto de Venta
+   El POS se sirve en un bundle aparte, con sus propias clases de superficie
+   (.pos-topheader, .leftpane, .rightpane, bg-view, bg-100, bg-secondary),
+   por eso necesita reglas propias. Las variables se redefinen aquí porque el
+   CSS del backend no se carga en este bundle.
+   ========================================================================= */
+
+:root {
+  --wtl-primary: #123e5c;
+}
+.wtl-dark {
+  --wtl-bg: #1b1f27;
+  --wtl-surface: #232833;
+  --wtl-surface-2: #2b3140;
+  --wtl-text: #dfe3ea;
+  --wtl-border: #3a414f;
+}
+
+/* Fondo general del POS. La regla inline `body { background:#222 }` del <head>
+   se respeta pero la cubrimos para unificar con el tema. */
+.wtl-dark body.pos,
+.wtl-dark .pos {
+  background-color: var(--wtl-bg) !important;
+  color: var(--wtl-text) !important;
+}
+
+/* Barra superior y panel izquierdo (bg-view) → superficie de tarjeta. */
+.wtl-dark .pos-topheader,
+.wtl-dark .pos .leftpane,
+.wtl-dark .pos .bg-view {
+  background-color: var(--wtl-surface) !important;
+  border-color: var(--wtl-border) !important;
+  color: var(--wtl-text) !important;
+}
+
+/* Zona de contenido central (bg-100) → fondo base. */
+.wtl-dark .pos-content,
+.wtl-dark .pos .bg-100 {
+  background-color: var(--wtl-bg) !important;
+  color: var(--wtl-text) !important;
+}
+
+/* Panel derecho de productos (bg-secondary) → fondo base (el más oscuro) para
+   que las tarjetas de producto y las categorías resalten encima. */
+.wtl-dark .pos .rightpane,
+.wtl-dark .pos .bg-secondary {
+  background-color: var(--wtl-bg) !important;
+  color: var(--wtl-text) !important;
+}
+
+/* Las categorías conservan su color nativo (o_colorlist_item_color_*): no se
+   les aplica modo oscuro. */
+
+/* Tarjetas de producto (ZAPATO 28, 29…): solo se oscurece el fondo para que se
+   diferencien del panel; NO se tocan los bordes, así la barra de color nativa
+   de abajo (border-bottom con o_colorlist_item_color_transparent_*) se conserva. */
+.wtl-dark .pos .product,
+.wtl-dark .pos .product.btn-light {
+  background-color: var(--wtl-surface-2) !important;
+  color: var(--wtl-text) !important;
+}
+.wtl-dark .pos .product:hover {
+  background-color: color-mix(in srgb, var(--wtl-surface-2) 82%, white) !important;
+}
+.wtl-dark .pos .product .product-name {
+  color: var(--wtl-text) !important;
+}
+
+/* Línea seleccionada del pedido (izquierda): usa la variable propia del POS
+   (--orderline-selected). Por defecto es un color claro que hace ilegible el
+   texto en oscuro; se sustituye por un resaltado con el color del tema. */
+.wtl-dark .pos {
+  --orderline-selected: #2b3140;
+}
+.wtl-dark .pos .orderline.selected {
+  background-color: var(--wtl-surface-2) !important;
+  color: var(--wtl-text) !important;
+  border-left: 3px solid var(--wtl-primary) !important;
+}
+.wtl-dark .pos .orderline.selected * {
+  color: var(--wtl-text) !important;
+}
+/* Hover del pedido: por defecto es un gris claro ($o-gray-200) que deja el
+   texto ilegible en oscuro; se sustituye por una superficie oscura. */
+.wtl-dark .pos .orderline:hover {
+  background-color: var(--wtl-surface) !important;
+  color: var(--wtl-text) !important;
+}
+.wtl-dark .pos .orderline:hover * {
+  color: var(--wtl-text) !important;
+}
+
+/* Botones claros / secundarios del POS. Se excluyen las categorías
+   (.category-button), las tarjetas de producto (.product) y el teclado numérico
+   (.numpad-button) para que conserven su aspecto nativo. */
+.wtl-dark .pos .btn-light:not(.category-button):not(.product):not(.numpad-button),
+.wtl-dark .pos .btn-secondary:not(.category-button):not(.product):not(.numpad-button) {
+  background-color: var(--wtl-surface-2) !important;
+  border-color: var(--wtl-border) !important;
+  color: var(--wtl-text) !important;
+}
+.wtl-dark .pos .btn-light:not(.category-button):not(.product):not(.numpad-button):hover,
+.wtl-dark .pos .btn-secondary:not(.category-button):not(.product):not(.numpad-button):hover {
+  background-color: color-mix(in srgb, var(--wtl-surface-2) 80%, white) !important;
+}
+/* Botón/pestaña activa (Registrar, orden seleccionada) → color de tema. */
+.wtl-dark .pos .btn-light.active,
+.wtl-dark .pos .btn-secondary.active {
+  background-color: var(--wtl-primary) !important;
+  border-color: var(--wtl-primary) !important;
+  color: #fff !important;
+}
+/* Botón primario (Cargar muestra, Pagar…). */
+.wtl-dark .pos .btn-primary {
+  background-color: var(--wtl-primary) !important;
+  border-color: var(--wtl-primary) !important;
+  color: #fff !important;
+}
+
+/* Teclado numérico: solo se oscurecen los botones SIN color (números 1-9, 0).
+   Los botones de color (+10/+20/+50, borrar, coma, +/-…) llevan la clase
+   o_colorlist_item_numpad_color_* y se dejan 100% nativos. */
+.wtl-dark .pos .numpad-button:not([class*="o_colorlist_item_numpad_color"]) {
+  --bg: var(--wtl-surface-2);
+  --btn-bg: var(--wtl-surface-2);
+  --border-color: var(--wtl-border);
+  --hover-bg: var(--wtl-surface);
+  background-color: var(--wtl-surface-2) !important;
+  color: var(--wtl-text) !important;
+}
+.wtl-dark .pos .numpad-button:not([class*="o_colorlist_item_numpad_color"])::after {
+  border-color: var(--wtl-border) !important;
+}
+.wtl-dark .pos .numpad-button:not([class*="o_colorlist_item_numpad_color"]):hover:not(.active) {
+  background-color: var(--wtl-surface) !important;
+}
+
+/* Campos de entrada (buscador de productos, etc.). */
+.wtl-dark .pos .form-control,
+.wtl-dark .pos .input-container,
+.wtl-dark .pos .o_input,
+.wtl-dark .pos input {
+  background-color: var(--wtl-surface) !important;
+  color: var(--wtl-text) !important;
+  border-color: var(--wtl-border) !important;
+}
+.wtl-dark .pos .form-control::placeholder,
+.wtl-dark .pos .o_input::placeholder,
+.wtl-dark .pos input::placeholder {
+  color: color-mix(in srgb, var(--wtl-text) 55%, transparent) !important;
+}
+
+/* Separadores y bordes. */
+.wtl-dark .pos .border-bottom,
+.wtl-dark .pos .border-end,
+.wtl-dark .pos .navbar-separator {
+  border-color: var(--wtl-border) !important;
+}
+
+/* Texto "sin contenido" (¿Todavía no hay productos?). */
+.wtl-dark .pos .o_view_nocontent,
+.wtl-dark .pos .o_nocontent_help,
+.wtl-dark .pos .o_view_nocontent_smiling_face,
+.wtl-dark .pos .o_view_nocontent p {
+  color: var(--wtl-text) !important;
+}
+
+/* Menú desplegable y modales del POS. */
+.wtl-dark .pos .dropdown-menu,
+.wtl-dark .pos .modal-content,
+.wtl-dark .pos .popup {
+  background-color: var(--wtl-surface) !important;
+  color: var(--wtl-text) !important;
+  border-color: var(--wtl-border) !important;
+}
+.wtl-dark .pos .dropdown-item {
+  color: var(--wtl-text) !important;
+}
+.wtl-dark .pos .dropdown-item:hover {
+  background-color: var(--wtl-surface-2) !important;
+}
+
+/* =========================================================================
+   Formularios de backend renderizados dentro de un modal del POS
+   (p. ej. "Crear producto" desde el menú superior). Estos diálogos se montan
+   en .o-main-components-container (FUERA de .pos), por eso se anclan a
+   .wtl-dark directamente y no a .pos. El CSS del backend no está en este
+   bundle, así que hay que redefinir estas reglas aquí.
+   ========================================================================= */
+.wtl-dark .modal-content {
+  background-color: var(--wtl-surface) !important;
+  color: var(--wtl-text) !important;
+  border-color: var(--wtl-border) !important;
+}
+.wtl-dark .modal-header,
+.wtl-dark .modal-footer {
+  background-color: var(--wtl-surface) !important;
+  border-color: var(--wtl-border) !important;
+}
+/* La hoja del formulario y sus contenedores (evita el fondo blanco). */
+.wtl-dark .modal .o_form_view,
+.wtl-dark .modal .o_form_sheet_bg,
+.wtl-dark .modal .o_form_sheet,
+.wtl-dark .modal .o_content,
+.wtl-dark .modal-body.o_act_window {
+  background-color: var(--wtl-surface) !important;
+  color: var(--wtl-text) !important;
+}
+/* Etiquetas y textos. */
+.wtl-dark .modal .o_form_label,
+.wtl-dark .modal .modal-title,
+.wtl-dark .modal .text-900,
+.wtl-dark .modal .o_form_view label {
+  color: var(--wtl-text) !important;
+}
+/* Campos de entrada del formulario → fondo base para contrastar con la hoja. */
+.wtl-dark .modal .o_input,
+.wtl-dark .modal .o_field_widget input,
+.wtl-dark .modal .o_field_many2many_tags,
+.wtl-dark .modal .o-autocomplete--input {
+  background-color: var(--wtl-bg) !important;
+  color: var(--wtl-text) !important;
+  border-color: var(--wtl-border) !important;
+}
+.wtl-dark .modal .o_input::placeholder {
+  color: color-mix(in srgb, var(--wtl-text) 55%, transparent) !important;
+}
+/* Botón cerrar (X) del modal. */
+.wtl-dark .modal .btn-close {
+  filter: invert(1) grayscale(1) brightness(1.6);
+}

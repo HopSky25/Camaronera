@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form" model="ir.ui.view">
+        <field name="name">res.config.settings.form.web.theme.launcher</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app string="Tema" name="web_theme_launcher"
+                     logo="/web_theme_launcher/static/description/icon.png">
+                    <block title="Tema del backend" name="wtl_theme_block">
+                        <setting string="Color principal"
+                                 help="Color corporativo aplicado a la barra superior y a los botones y acentos del backend. Formato hexadecimal (#RRGGBB).">
+                            <div class="content-group">
+                                <div class="row mt16">
+                                    <label for="wtl_primary_color" class="col-lg-4 o_light_label"/>
+                                    <field name="wtl_primary_color" placeholder="#123e5c"/>
+                                </div>
+                            </div>
+                        </setting>
+                    </block>
+                    <block title="Aplicación instalable (PWA)" name="wtl_pwa_block">
+                        <setting string="Nombre del aplicativo"
+                                 help="Nombre con el que se instala la aplicación. Si se deja vacío se usa el nombre de la empresa.">
+                            <div class="content-group">
+                                <div class="row mt16">
+                                    <label for="wtl_pwa_name" class="col-lg-4 o_light_label"/>
+                                    <field name="wtl_pwa_name" placeholder="Nombre de la empresa"/>
+                                </div>
+                            </div>
+                        </setting>
+                        <setting string="Icono del aplicativo"
+                                 help="Icono con el que se instala la aplicación. Idealmente PNG cuadrado (p. ej. 512x512). Si se deja vacío se usa el logo de la empresa.">
+                            <div class="content-group">
+                                <div class="row mt16">
+                                    <field name="wtl_pwa_icon" widget="image"
+                                           class="oe_avatar"
+                                           options="{'size': [90, 90]}"/>
+                                </div>
+                            </div>
+                        </setting>
+                        <setting string="Color de la barra del aplicativo"
+                                 help="Color de la barra/tema de la aplicación instalable.">
+                            <div class="content-group">
+                                <div class="row mt16">
+                                    <field name="wtl_pwa_use_primary_color"/>
+                                    <label for="wtl_pwa_use_primary_color"
+                                           string="Usar color principal del módulo"
+                                           class="o_light_label ms-2"/>
+                                </div>
+                                <div class="row mt16"
+                                     invisible="wtl_pwa_use_primary_color">
+                                    <label for="wtl_pwa_bar_color" class="col-lg-4 o_light_label"/>
+                                    <field name="wtl_pwa_bar_color" placeholder="#714B67"/>
+                                </div>
+                            </div>
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+</odoo>

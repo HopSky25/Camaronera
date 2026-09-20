@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Toggle en las preferencias del propio usuario -->
+    <record id="view_users_form_simple_modif_wtl" model="ir.ui.view">
+        <field name="name">res.users.preferences.wtl.dark.mode</field>
+        <field name="model">res.users</field>
+        <field name="inherit_id" ref="base.view_users_form_simple_modif"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='tz']" position="after">
+                <field name="wtl_dark_mode"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Toggle también en el formulario completo de usuario (Ajustes/Usuarios) -->
+    <record id="view_users_form_wtl" model="ir.ui.view">
+        <field name="name">res.users.form.wtl.dark.mode</field>
+        <field name="model">res.users</field>
+        <field name="inherit_id" ref="base.view_users_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='tz']" position="after">
+                <field name="wtl_dark_mode"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

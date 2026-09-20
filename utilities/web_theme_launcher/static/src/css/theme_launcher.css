@@ -1,0 +1,1058 @@
+/* =========================================================================
+   Web Theme Launcher
+   - Lanzador de apps a pantalla completa (Ctrl+K)
+   - Color primario configurable aplicado a navbar + botones + acentos
+   - Modo oscuro por usuario
+   ========================================================================= */
+
+:root {
+  --wtl-primary: #123e5c;
+}
+
+/* ===================== Lanzador de apps ===================== */
+.wtl_app_overlay {
+  position: fixed;
+  inset: 0;
+  /* Muy por encima del panel de control y la barra de migas del formulario,
+     que si no "se montan" sobre el overlay. */
+  z-index: 100000;
+  background: rgba(17, 24, 39, 0.55);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 80px 16px 24px 16px;
+}
+
+.wtl_app_panel {
+  width: min(980px, 100%);
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.wtl_app_panel_header {
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.wtl_app_search {
+  flex: 1;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #fafafa;
+}
+
+.wtl_app_search input {
+  width: 100%;
+  border: 0;
+  outline: none;
+  background: transparent;
+}
+
+.wtl_app_grid {
+  padding: 16px;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 1024px) {
+  .wtl_app_grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .wtl_app_grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.wtl_app_tile {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #fff;
+  border-radius: 14px;
+  padding: 12px;
+  text-align: center;
+  cursor: pointer;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+  user-select: none;
+}
+
+.wtl_app_tile:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.10);
+}
+
+.wtl_app_icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  margin: 0 auto 10px auto;
+  padding: 5px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f3f4f6;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.wtl_app_icon img { width: 100%; height: 100%; object-fit: cover; }
+
+.wtl_app_name {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.2;
+}
+
+.wtl_app_hint { font-size: 12px; color: #6b7280; }
+
+/* ===================== Botones del systray ===================== */
+.wtl_systray_btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  color: #fff;
+}
+.o_main_navbar .wtl_systray_item,
+.o_main_navbar .wtl_dark_toggle { cursor: pointer; }
+.o_main_navbar .wtl_systray_item:hover .wtl_systray_btn,
+.o_main_navbar .wtl_dark_toggle:hover .wtl_systray_btn {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* ===================== Barra superior en color de empresa ===================== */
+.o_main_navbar {
+  --NavBar-entry-backgroundColor: var(--wtl-primary);
+  --NavBar-entry-backgroundColor--hover: color-mix(in srgb, var(--wtl-primary) 82%, white);
+  --NavBar-entry-backgroundColor--focus: color-mix(in srgb, var(--wtl-primary) 82%, white);
+  --NavBar-entry-backgroundColor--active: color-mix(in srgb, var(--wtl-primary) 78%, black);
+  background-color: var(--wtl-primary) !important;
+  background-image: none !important;
+  position: relative;
+  padding-left: 92px !important;
+}
+
+/* Oculta el grid de apps nativo (lo sustituye nuestro launcher) */
+.o_main_navbar .o_navbar_apps_menu { display: none !important; }
+
+/* Coloca el lanzador y el toggle al extremo izquierdo del navbar */
+.o_main_navbar .wtl_systray_root {
+  display: flex !important;
+  position: absolute !important;
+  left: 0;
+  top: 0;
+  height: 100%;
+  align-items: center;
+  padding-left: 8px;
+  gap: 2px;
+  z-index: 1010;
+}
+
+/* ===================== Color primario en botones y acentos ===================== */
+.btn-primary,
+.btn-primary:focus,
+.o_control_panel .btn-primary {
+  background-color: var(--wtl-primary) !important;
+  border-color: var(--wtl-primary) !important;
+}
+.btn-primary:hover {
+  background-color: color-mix(in srgb, var(--wtl-primary) 85%, black) !important;
+  border-color: color-mix(in srgb, var(--wtl-primary) 85%, black) !important;
+}
+
+/* Botón "Agregar" de kanban (o-kanban-button-new): es un botón tipo enlace,
+   NO debe llevar fondo primario (si no, texto primario sobre fondo primario =
+   invisible). Solo color de texto legible. */
+.o-kanban-button-new {
+  background-color: transparent !important;
+  color: var(--wtl-primary) !important;
+}
+/* Botón "Nuevo" del panel de control (btn-primary.o-kanban-button-new en las
+   vistas kanban/lista): siempre azul relleno con texto blanco, en ambos modos.
+   Va más específico que la regla .o-kanban-button-new de arriba para ganarle. */
+.o_control_panel_main_buttons .o-kanban-button-new,
+.o_control_panel .o-kanban-button-new {
+  background-color: var(--wtl-primary) !important;
+  border-color: var(--wtl-primary) !important;
+  color: #fff !important;
+}
+/* Botón "Agregar" con el gris oscuro. Más específico que la regla
+   .o_kanban_record (que si no le gana y lo deja del color del card). */
+.wtl-dark .o_kanban_renderer .o-kanban-button-new,
+.wtl-dark .o_field_x2many .o-kanban-button-new {
+  background-color: var(--wtl-surface-2) !important;
+  color: var(--wtl-text) !important;
+}
+/* Separación entre los botones flotantes (stat buttons). */
+.o-form-buttonbox {
+  gap: 5px !important;
+}
+/* Botones flotantes (stat buttons: Ventas, Facturado, Compras, Sitio web):
+   mismo gris oscuro que el botón "Agregar". Los iconos de estado (rojo, etc.)
+   conservan su color propio. */
+.wtl-dark .oe_stat_button {
+  background-color: var(--wtl-surface-2) !important;
+  color: var(--wtl-text) !important;
+  border-color: var(--wtl-border) !important;
+}
+.wtl-dark .oe_stat_button .o_stat_text,
+.wtl-dark .oe_stat_button .o_stat_value,
+.wtl-dark .oe_stat_button .o_field_widget {
+  color: var(--wtl-text) !important;
+}
+/* El icono del stat button (Ventas, Facturado, Compras, Empleado…) toma el
+   color del tema para resaltar sobre la superficie oscura. */
+.wtl-dark .oe_stat_button .o_button_icon {
+  color: color-mix(in srgb, var(--wtl-primary) 55%, white) !important;
+}
+/* El área del x2many/kanban embebido hereda el gris del card (transparente).
+   El fondo oscuro real está en el propio nodo .o_field_x2many.o_kanban_view. */
+.wtl-dark .o_field_x2many.o_kanban_view,
+.wtl-dark .o_field_one2many .o_kanban_view,
+.wtl-dark .o_field_x2many .o_kanban_renderer,
+.wtl-dark .o_field_widget .o_kanban_renderer {
+  background-color: transparent !important;
+}
+
+/* Esquinas redondas en los botones (respetando los btn-group para que las
+   uniones internas queden rectas). */
+.btn {
+  border-radius: 8px !important;
+}
+.btn-group > .btn:not(:first-child) {
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+}
+.btn-group > .btn:not(:last-child) {
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+.btn-link,
+.btn-link:hover,
+a.o_form_uri,
+.text-primary,
+.o_notebook_headers .nav-link.active {
+  color: var(--wtl-primary) !important;
+}
+.btn-outline-primary {
+  color: var(--wtl-primary) !important;
+  border-color: var(--wtl-primary) !important;
+}
+/* Selección/activos: switches, checkboxes, radios, pestañas */
+.form-check-input:checked {
+  background-color: var(--wtl-primary) !important;
+  border-color: var(--wtl-primary) !important;
+}
+.o_notebook_headers .nav-link.active {
+  border-bottom-color: var(--wtl-primary) !important;
+}
+.o_searchview .o_searchview_facet .o_searchview_facet_label {
+  background-color: var(--wtl-primary) !important;
+}
+.badge.text-bg-primary,
+.bg-primary { background-color: var(--wtl-primary) !important; }
+.o_statusbar_status .o_arrow_button.btn-primary {
+  background-color: var(--wtl-primary) !important;
+}
+
+/* ===================== Modo oscuro (por usuario) ===================== */
+.wtl-dark {
+  --wtl-bg: #1b1f27;
+  --wtl-surface: #232833;
+  --wtl-surface-2: #2b3140;
+  --wtl-text: #dfe3ea;
+  --wtl-border: #3a414f;
+}
+.wtl-dark .o_web_client,
+.wtl-dark .o_action_manager,
+.wtl-dark .o_content,
+.wtl-dark .o_list_renderer,
+.wtl-dark .o_form_view {
+  background-color: var(--wtl-bg) !important;
+  color: var(--wtl-text);
+}
+.wtl-dark .o_control_panel,
+.wtl-dark .o_form_sheet_bg,
+.wtl-dark .o_kanban_view {
+  background-color: var(--wtl-bg) !important;
+}
+.wtl-dark .o_form_sheet,
+.wtl-dark .o_kanban_record,
+.wtl-dark .modal-content,
+.wtl-dark .modal-body,
+.wtl-dark .modal-header,
+.wtl-dark .modal-footer,
+.wtl-dark .o_dialog .modal-content,
+.wtl-dark .dropdown-menu,
+.wtl-dark .o_list_table {
+  background-color: var(--wtl-surface) !important;
+  color: var(--wtl-text) !important;
+  border-color: var(--wtl-border) !important;
+}
+.wtl-dark .modal-body,
+.wtl-dark .modal-body h1,
+.wtl-dark .modal-body h2,
+.wtl-dark .modal-body h3,
+.wtl-dark .modal-body label,
+.wtl-dark .modal-title {
+  color: var(--wtl-text) !important;
+}
+.wtl-dark .o_list_table thead th,
+.wtl-dark .table > :not(caption) > * > * {
+  background-color: var(--wtl-surface-2) !important;
+  color: var(--wtl-text) !important;
+  border-color: var(--wtl-border) !important;
+}
+.wtl-dark .o_list_table tbody tr:hover td {
+  background-color: var(--wtl-surface-2) !important;
+}
+.wtl-dark input,
+.wtl-dark textarea,
+.wtl-dark select,
+.wtl-dark .o_input,
+.wtl-dark .o_field_widget input {
+  background-color: transparent !important;
+  color: var(--wtl-text) !important;
+  border-color: var(--wtl-border) !important;
+}
+.wtl-dark .o_form_label,
+.wtl-dark label,
+.wtl-dark .text-muted,
+.wtl-dark .o_list_table td {
+  color: var(--wtl-text) !important;
+}
+/* Notebook: barra de pestañas y contenido de cada página */
+.wtl-dark .o_notebook,
+.wtl-dark .o_notebook .tab-content,
+.wtl-dark .o_notebook .tab-pane,
+.wtl-dark .o_notebook_headers {
+  background-color: var(--wtl-surface) !important;
+  color: var(--wtl-text) !important;
+  border-color: var(--wtl-border) !important;
+}
+/* Contenido dentro de las páginas del notebook (tablas x2many, grupos, etc.) */
+.wtl-dark .o_notebook .tab-pane .o_field_widget,
+.wtl-dark .o_notebook .tab-pane .o_x2m_control_panel,
+.wtl-dark .o_notebook .tab-pane .o_group,
+.wtl-dark .o_notebook .tab-pane .o_list_renderer,
+.wtl-dark .o_notebook .tab-pane .table {
+  background-color: transparent !important;
+  color: var(--wtl-text) !important;
+  border-color: var(--wtl-border) !important;
+}
+.wtl-dark .o_notebook_headers .nav-item .nav-link {
+  color: var(--wtl-text) !important;
+}
+.wtl-dark .o_notebook_headers .nav-item .nav-link.active {
+  color: #ffffff !important;
+  background-color: transparent !important;
+}
+/* Botones secundarios/claros: oscurecerlos en modo oscuro */
+.wtl-dark .btn-secondary,
+.wtl-dark .btn-light,
+.wtl-dark .btn.o-dropdown,
+.wtl-dark .o_searchview {
+  background-color: var(--wtl-surface-2) !important;
+  color: var(--wtl-text) !important;
+  border-color: var(--wtl-border) !important;
+}
+.wtl-dark .btn-secondary:hover,
+.wtl-dark .btn-light:hover {
+  background-color: var(--wtl-surface) !important;
+  color: var(--wtl-text) !important;
+}
+.wtl-dark .wtl_app_panel { background: var(--wtl-surface); }
+.wtl-dark .wtl_app_tile { background: var(--wtl-surface-2); border-color: var(--wtl-border); }
+.wtl-dark .wtl_app_icon { background: var(--wtl-surface); border-color: var(--wtl-border); }
+.wtl-dark .wtl_app_name { color: var(--wtl-text); }
+.wtl-dark .wtl_app_search { background: var(--wtl-surface-2); border-color: var(--wtl-border); }
+.wtl-dark .wtl_app_search input { color: var(--wtl-text); }
+
+/* --- Vista kanban --- */
+.wtl-dark .o_kanban_renderer,
+.wtl-dark .o_kanban_view,
+.wtl-dark .o_kanban_group,
+.wtl-dark .o_kanban_header {
+  background-color: var(--wtl-bg) !important;
+  color: var(--wtl-text);
+}
+.wtl-dark .o_kanban_record,
+.wtl-dark .o_kanban_record .oe_kanban_card,
+.wtl-dark .o_kanban_record .o_kanban_record_body,
+.wtl-dark .oe_kanban_global_click {
+  background-color: var(--wtl-surface) !important;
+  color: var(--wtl-text) !important;
+  border-color: var(--wtl-border) !important;
+}
+.wtl-dark .o_kanban_record a,
+.wtl-dark .o_kanban_record .o_primary,
+.wtl-dark .o_kanban_record strong,
+.wtl-dark .o_kanban_group .o_column_title,
+.wtl-dark .o_kanban_header_title {
+  color: var(--wtl-text) !important;
+}
+.wtl-dark .o_kanban_group.o_column_folded {
+  background-color: var(--wtl-surface-2) !important;
+  color: var(--wtl-text) !important;
+}
+/* Kanban agrupado: cabecera de columna y contador */
+.wtl-dark .o_kanban_counter_progress,
+.wtl-dark .o_column_quick_create,
+.wtl-dark .o_kanban_quick_create {
+  background-color: var(--wtl-surface) !important;
+  color: var(--wtl-text) !important;
+}
+
+/* --- Panel de búsqueda / filtros / agrupación (barra lateral izquierda) --- */
+.wtl-dark .o_search_panel,
+.wtl-dark .o_search_panel.bg-view,
+.wtl-dark .o_search_panel_section,
+.wtl-dark .o_search_panel_category,
+.wtl-dark .o_search_panel_filter {
+  background-color: var(--wtl-bg) !important;
+  color: var(--wtl-text) !important;
+  border-color: var(--wtl-border) !important;
+}
+/* Panel izquierdo del módulo Tableros (nombres de tablero) legibles.
+   El tablero en sí es un canvas de Odoo Spreadsheet y no se puede tematizar. */
+.wtl-dark .o_spreadsheet_dashboard_search_panel .o_dashboard_name,
+.wtl-dark .o_spreadsheet_dashboard_search_panel .o_search_panel_category_value,
+.wtl-dark .o_spreadsheet_dashboard_search_panel .o_search_panel_section_header {
+  color: var(--wtl-text) !important;
+}
+
+/* Texto de "sin registros" (nocontent) legible en oscuro. */
+.wtl-dark .o_view_nocontent,
+.wtl-dark .o_nocontent_help,
+.wtl-dark .o_view_nocontent_smiling_face,
+.wtl-dark .o_nocontent_help p,
+.wtl-dark .o_nocontent_help a {
+  color: var(--wtl-text) !important;
+}
+
+/* Ítem activo del panel (trae text-black) legible en oscuro. */
+.wtl-dark .o_search_panel .list-group-item.active,
+.wtl-dark .o_search_panel .text-black {
+  color: var(--wtl-text) !important;
+}
+.wtl-dark .o_search_panel_section_header,
+.wtl-dark .o_search_panel_label,
+.wtl-dark .o_search_panel_label_title,
+.wtl-dark .o_search_panel_field header,
+.wtl-dark .o_search_panel_category_value,
+.wtl-dark .o_search_panel_filter_value,
+.wtl-dark .o_search_panel_counter {
+  color: var(--wtl-text) !important;
+}
+/* Los valores son list-group-item de Bootstrap con fondo blanco */
+.wtl-dark .o_search_panel .list-group,
+.wtl-dark .o_search_panel .list-group-item,
+.wtl-dark .o_search_panel .list-group-item-action {
+  background-color: var(--wtl-bg) !important;
+  color: var(--wtl-text) !important;
+  border-color: var(--wtl-border) !important;
+}
+.wtl-dark .o_search_panel .list-group-item:hover,
+.wtl-dark .o_search_panel .list-group-item-action:hover,
+.wtl-dark .o_search_panel .list-group-item.active,
+.wtl-dark .o_search_panel .list-group-item-action.active {
+  background-color: var(--wtl-surface-2) !important;
+  color: var(--wtl-text) !important;
+}
+/* --- Vista de Ajustes (res.config.settings) --- */
+.wtl-dark .o_form_view.o_settings_container,
+.wtl-dark .o_setting_container,
+.wtl-dark .settings,
+.wtl-dark .o_settings_container {
+  background-color: var(--wtl-bg) !important;
+  color: var(--wtl-text) !important;
+}
+.wtl-dark .settings_tab,
+.wtl-dark .o_setting_search {
+  background-color: var(--wtl-surface) !important;
+  color: var(--wtl-text) !important;
+  border-color: var(--wtl-border) !important;
+}
+.wtl-dark .settings_tab .selected,
+.wtl-dark .settings_tab .tab:hover,
+.wtl-dark .settings_tab .app_name {
+  color: var(--wtl-text) !important;
+}
+.wtl-dark .settings_tab .selected {
+  background-color: var(--wtl-surface-2) !important;
+}
+.wtl-dark .app_settings_block,
+.wtl-dark .o_setting_box,
+.wtl-dark .o_settings_container .o_setting_box {
+  background-color: transparent !important;
+  color: var(--wtl-text) !important;
+}
+.wtl-dark .o_setting_box label,
+.wtl-dark .o_setting_box .text-muted,
+.wtl-dark .o_setting_right_pane,
+.wtl-dark .o_setting_left_pane {
+  color: var(--wtl-text) !important;
+}
+/* Franja del título de cada sección (usa la variable --settings__title-bg) */
+.wtl-dark .settings { --settings__title-bg: var(--wtl-surface-2); }
+.wtl-dark .settings > .app_settings_block h2,
+.wtl-dark .app_settings_block h2 {
+  background-color: var(--wtl-surface-2) !important;
+  color: var(--wtl-text) !important;
+}
+.wtl-dark .settingSearchHeader {
+  background-color: var(--wtl-surface-2) !important;
+  color: var(--wtl-text) !important;
+}
+.wtl-dark .o_setting_box .o_form_label { color: var(--wtl-text) !important; }
+
+/* Menús desplegables de Filtros/Agrupar por del buscador superior */
+.wtl-dark .o_search_options .dropdown-menu,
+.wtl-dark .o_filter_menu,
+.wtl-dark .o_group_by_menu,
+.wtl-dark .o_favorite_menu,
+.wtl-dark .o_menu_item {
+  background-color: var(--wtl-surface) !important;
+  color: var(--wtl-text) !important;
+  border-color: var(--wtl-border) !important;
+}
+.wtl-dark .o_menu_item:hover,
+.wtl-dark .dropdown-item:hover {
+  background-color: var(--wtl-surface-2) !important;
+  color: var(--wtl-text) !important;
+}
+
+/* --- Conversaciones (Discuss) --- */
+.wtl-dark .o-mail-Discuss,
+.wtl-dark .o-mail-Discuss-content,
+.wtl-dark .o-mail-Discuss-threadName,
+.wtl-dark .o-mail-Message,
+.wtl-dark .o-mail-DiscussContent {
+  background-color: var(--wtl-bg) !important;
+  color: var(--wtl-text) !important;
+}
+/* Los mensajes, el hilo y sus hijos usan .bg-inherit en Odoo 19: heredan el
+   fondo del contenedor raíz. Si no se fija, quedan casi negros. Se fijan los
+   contenedores de Discuss y del chatter con la superficie oscura. */
+.wtl-dark .o-mail-DiscussContent,
+.wtl-dark .o-mail-DiscussContent-core,
+.wtl-dark .o-mail-DiscussContent-main,
+.wtl-dark .o-mail-DiscussContent-panelContainer,
+.wtl-dark .o-mail-Discuss-inspector,
+.wtl-dark .o-mail-Thread {
+  background-color: var(--wtl-surface) !important;
+  color: var(--wtl-text) !important;
+}
+.wtl-dark .o-mail-DiscussSidebar,
+.wtl-dark .o-mail-discussSidebarBgColor,
+.wtl-dark .o-mail-DiscussSidebarCategory,
+.wtl-dark .o-mail-DiscussSidebarChannel {
+  background-color: var(--wtl-surface) !important;
+  color: var(--wtl-text) !important;
+  border-color: var(--wtl-border) !important;
+}
+.wtl-dark .o-mail-DiscussSidebarChannel:hover,
+.wtl-dark .o-mail-DiscussSidebarChannel.o-active,
+.wtl-dark .o-mail-DiscussSidebar-item.o-active,
+.wtl-dark .o-mail-Mailbox.o-active,
+.wtl-dark .o-mail-DiscussSidebar-item:hover {
+  background-color: var(--wtl-surface-2) !important;
+  color: var(--wtl-text) !important;
+}
+/* Cabecera de Discuss y su botón "Marcar todo como leído" */
+.wtl-dark .o-mail-Discuss-header,
+.wtl-dark .o-mail-Discuss-threadName {
+  background-color: var(--wtl-surface) !important;
+  color: var(--wtl-text) !important;
+}
+.wtl-dark .o-mail-DiscussSidebar-item,
+.wtl-dark .o-mail-DiscussSidebarCategory-title,
+.wtl-dark .o-mail-DiscussSidebarChannel span,
+.wtl-dark .o-mail-Message-body,
+.wtl-dark .o-mail-Message-author,
+.wtl-dark .o-mail-Thread *,
+.wtl-dark .o-mail-NotificationItem span {
+  color: var(--wtl-text) !important;
+}
+/* Burbujas de mensajes y separadores */
+.wtl-dark .o-mail-Message.o-selfAuthored .o-mail-Message-bubble,
+.wtl-dark .o-mail-Message-bubble {
+  background-color: var(--wtl-surface-2) !important;
+  color: var(--wtl-text) !important;
+}
+/* El mensaje no debe cambiar de gris al pasar el cursor: se mantiene igual al
+   panel (un solo tono). */
+.wtl-dark .o-mail-Message:hover {
+  background-color: transparent !important;
+}
+/* La fila del mensaje y todos sus contenedores estructurales quedan
+   transparentes para heredar el gris del panel (un solo tono). Las burbujas
+   de chat reales (.o-mail-Message-bubble) NO se tocan: conservan su tono. */
+.wtl-dark .o-mail-Message,
+.wtl-dark .o-mail-Message-core,
+.wtl-dark .o-mail-Message-sidebar,
+.wtl-dark .o-mail-Message-content,
+.wtl-dark .o-mail-Message-contentContainer,
+.wtl-dark .o-mail-Message-textContent,
+.wtl-dark .o-mail-Message-body,
+.wtl-dark .o-note {
+  background-color: transparent !important;
+}
+
+/* Botones del chatter (Enviar mensaje, Registrar una nota, Actividad): mismo
+   gris oscuro del tema en vez del azul/secundario por defecto. Se sube la
+   especificidad (btn + ancestro) para ganarle a .btn-primary. */
+.wtl-dark .o-mail-Chatter-topbar .o-mail-Chatter-sendMessage.btn,
+.wtl-dark .o-mail-Chatter-topbar .o-mail-Chatter-logNote.btn,
+.wtl-dark .o-mail-Chatter-topbar .o-mail-Chatter-activity.btn,
+.wtl-dark .o-mail-Chatter-sendMessage.btn-primary {
+  background-color: var(--wtl-surface-2) !important;
+  color: var(--wtl-text) !important;
+  border-color: var(--wtl-border) !important;
+}
+/* Redactor de mensajes */
+.wtl-dark .o-mail-Composer,
+.wtl-dark .o-mail-Composer-input,
+.wtl-dark .o-mail-Composer-coreMain {
+  background-color: var(--wtl-surface-2) !important;
+  color: var(--wtl-text) !important;
+  border-color: var(--wtl-border) !important;
+}
+/* Menú de mensajería (campana) y ventanas de chat flotantes */
+.wtl-dark .o-mail-MessagingMenu,
+.wtl-dark .o-mail-NotificationItem,
+.wtl-dark .o-mail-ChatWindow,
+.wtl-dark .o-mail-ChatHub {
+  background-color: var(--wtl-surface) !important;
+  color: var(--wtl-text) !important;
+  border-color: var(--wtl-border) !important;
+}
+.wtl-dark .o-mail-NotificationItem:hover {
+  background-color: var(--wtl-surface-2) !important;
+}
+
+/* --- Vista de calendario (FullCalendar) --- */
+.wtl-dark .o_calendar_renderer,
+.wtl-dark .o_calendar_widget,
+.wtl-dark .o_calendar_container,
+.wtl-dark .o_calendar_view {
+  /* Variables propias de FullCalendar */
+  --fc-page-bg-color: var(--wtl-bg);
+  --fc-neutral-bg-color: var(--wtl-surface);
+  --fc-border-color: var(--wtl-border);
+  --fc-today-bg-color: var(--wtl-surface-2);
+  --fc-now-indicator-color: var(--wtl-primary);
+  background-color: var(--wtl-bg) !important;
+  color: var(--wtl-text) !important;
+}
+.wtl-dark .fc,
+.wtl-dark .fc-scrollgrid,
+.wtl-dark .fc-daygrid-body,
+.wtl-dark .fc-timegrid-body,
+.wtl-dark .fc-col-header-cell,
+.wtl-dark .fc-daygrid-day,
+.wtl-dark .fc-timegrid-slot {
+  background-color: var(--wtl-bg) !important;
+  color: var(--wtl-text) !important;
+  border-color: var(--wtl-border) !important;
+}
+.wtl-dark .fc-col-header-cell-cushion,
+.wtl-dark .fc-daygrid-day-number,
+.wtl-dark .fc-timegrid-axis-cushion,
+.wtl-dark .fc-timegrid-slot-label-cushion,
+.wtl-dark .fc-list-day-text,
+.wtl-dark .fc-list-event-title {
+  color: var(--wtl-text) !important;
+}
+.wtl-dark .fc-day-today {
+  background-color: var(--wtl-surface-2) !important;
+}
+.wtl-dark .fc-list,
+.wtl-dark .fc-list-table td,
+.wtl-dark .fc-list-day-cushion {
+  background-color: var(--wtl-surface) !important;
+  color: var(--wtl-text) !important;
+  border-color: var(--wtl-border) !important;
+}
+/* Barra lateral del calendario (mini-calendario y filtros) */
+.wtl-dark .o_calendar_sidebar,
+.wtl-dark .o_calendar_sidebar_container,
+.wtl-dark .o_calendar_filter,
+.wtl-dark .o_calendar_filter_items {
+  background-color: var(--wtl-surface) !important;
+  color: var(--wtl-text) !important;
+  border-color: var(--wtl-border) !important;
+}
+.wtl-dark .o_calendar_filter_item,
+.wtl-dark .o_calendar_filter_item .o_cw_filter_label {
+  color: var(--wtl-text) !important;
+}
+
+/* --- Tableros / Dashboards --- */
+/* Dashboard de RRHH (OpenHRMS) */
+.wtl-dark .oh_dashboards,
+.wtl-dark .o_hr_dashboard,
+.wtl-dark .manager_dashboard_main_responsive {
+  background-color: var(--wtl-bg) !important;
+  color: var(--wtl-text) !important;
+}
+.wtl-dark .oh_card,
+.wtl-dark .oh_dashboards .card,
+.wtl-dark .o_hr_dashboard .card {
+  background-color: var(--wtl-surface) !important;
+  color: var(--wtl-text) !important;
+  border-color: var(--wtl-border) !important;
+}
+.wtl-dark .oh_card .card-header,
+.wtl-dark .oh_card .card-body,
+.wtl-dark .oh_card h1,
+.wtl-dark .oh_card h2,
+.wtl-dark .oh_card h3,
+.wtl-dark .oh_card span,
+.wtl-dark .oh_card a,
+.wtl-dark .oh_card p,
+.wtl-dark .oh_card td,
+.wtl-dark .oh_card th,
+.wtl-dark .oh_card label {
+  color: var(--wtl-text) !important;
+}
+/* Textos con clases de color claro/oscuro dentro del dashboard */
+.wtl-dark .oh_dashboards .text-dark,
+.wtl-dark .oh_dashboards .text-color,
+.wtl-dark .oh_dashboards .text-muted,
+.wtl-dark .o_hr_dashboard .text-dark,
+.wtl-dark .o_hr_dashboard .text-color {
+  color: var(--wtl-text) !important;
+}
+/* Superficies internas: sidebar de perfil, tablas, secciones con fondo claro */
+.wtl-dark .oh_dashboards .employee_profile_sidebar,
+.wtl-dark .oh_dashboards .oh-media,
+.wtl-dark .oh_dashboards table,
+.wtl-dark .oh_dashboards .table,
+.wtl-dark .oh_dashboards thead,
+.wtl-dark .oh_dashboards tbody tr,
+.wtl-dark .oh_card .card-header,
+.wtl-dark .oh_card .card-footer {
+  background-color: var(--wtl-surface) !important;
+  color: var(--wtl-text) !important;
+  border-color: var(--wtl-border) !important;
+}
+/* Filas con fondo gris claro (#f9fafb) dentro del dashboard */
+.wtl-dark .oh_dashboards [style*="background"],
+.wtl-dark .oh_card > div {
+  background-color: transparent !important;
+}
+/* Dashboards nativos (spreadsheet) y kanban-dashboard genérico */
+.wtl-dark .o_dashboards,
+.wtl-dark .o_dashboard_view,
+.wtl-dark .oe_dashboard,
+.wtl-dark .o-spreadsheet,
+.wtl-dark .o_spreadsheet_dashboard,
+.wtl-dark .o_dashboard_name {
+  background-color: var(--wtl-bg) !important;
+  color: var(--wtl-text) !important;
+}
+.wtl-dark .o_dashboards .card,
+.wtl-dark .oe_dashboard .card,
+.wtl-dark .o_dashboard_view .card {
+  background-color: var(--wtl-surface) !important;
+  color: var(--wtl-text) !important;
+  border-color: var(--wtl-border) !important;
+}
+/* Tarjetas y contenedores genéricos (cubre dashboards de otras apps) */
+.wtl-dark .o_content .card,
+.wtl-dark .o_content .card-body,
+.wtl-dark .o_content .card-header {
+  background-color: var(--wtl-surface) !important;
+  color: var(--wtl-text) !important;
+  border-color: var(--wtl-border) !important;
+}
+
+/* =========================================================================
+   COBERTURA GENÉRICA (independiente del módulo)
+   Ataca los patrones de fondo/superficie claros comunes de Bootstrap y Odoo,
+   para que el modo oscuro funcione en cualquier vista sin perseguir módulos.
+   ========================================================================= */
+.wtl-dark .bg-white,
+.wtl-dark .o_field_widget .table,
+.wtl-dark .o_x2m_control_panel,
+.wtl-dark .o_list_view,
+.wtl-dark .o_group,
+.wtl-dark .card,
+.wtl-dark .card-body,
+.wtl-dark .card-header,
+.wtl-dark .card-footer,
+.wtl-dark .accordion,
+.wtl-dark .accordion-item,
+.wtl-dark .accordion-button,
+.wtl-dark .list-group-item,
+.wtl-dark .popover,
+.wtl-dark .popover-body,
+.wtl-dark .offcanvas,
+.wtl-dark .o_popover {
+  background-color: var(--wtl-surface) !important;
+  color: var(--wtl-text) !important;
+  border-color: var(--wtl-border) !important;
+}
+.wtl-dark .bg-light,
+.wtl-dark .bg-200,
+.wtl-dark .bg-view,
+.wtl-dark table thead th {
+  background-color: var(--wtl-surface-2) !important;
+  color: var(--wtl-text) !important;
+  border-color: var(--wtl-border) !important;
+}
+/* Los grupos de campos del formulario NO deben tener un gris propio: heredan
+   el del card para dejar un solo tono de fondo. */
+.wtl-dark .o_inner_group,
+.wtl-dark .o_group {
+  background-color: transparent !important;
+}
+/* Texto: forzar claros los grises/negros de Bootstrap dentro del backend */
+.wtl-dark .text-dark,
+.wtl-dark .text-black,
+.wtl-dark .text-900,
+.wtl-dark .text-800,
+.wtl-dark .text-700,
+.wtl-dark .text-muted,
+.wtl-dark .o_form_view .text-muted {
+  color: var(--wtl-text) !important;
+}
+/* Bordes claros genéricos */
+.wtl-dark .border,
+.wtl-dark .border-top,
+.wtl-dark .border-bottom,
+.wtl-dark .border-start,
+.wtl-dark .border-end {
+  border-color: var(--wtl-border) !important;
+}
+
+/* =========================================================================
+   AJUSTES: chatter del formulario, notebook y lanzador
+   ========================================================================= */
+
+/* --- Chatter embebido en la vista formulario (mensajes/notas/actividad) ---
+   Su barra superior y contenedores salían en blanco. */
+.wtl-dark .o-mail-Chatter,
+.wtl-dark .o-mail-ChatterContainer,
+.wtl-dark .o-mail-Chatter-content,
+.wtl-dark .o-mail-Chatter-topbar,
+.wtl-dark .o-mail-Chatter-top,
+.wtl-dark .o-mail-Chatter-sendMessage,
+.wtl-dark .o-mail-Chatter-logNote,
+.wtl-dark .o-mail-Chatter-activity {
+  background-color: var(--wtl-surface) !important;
+  color: var(--wtl-text) !important;
+  border-color: var(--wtl-border) !important;
+}
+/* Redactor de mensajes dentro del chatter/discuss */
+.wtl-dark .o-mail-Composer-bg,
+.wtl-dark .o-mail-Composer-coreHeader,
+.wtl-dark .o-mail-Composer-inputContainer {
+  background-color: var(--wtl-surface-2) !important;
+  color: var(--wtl-text) !important;
+  border-color: var(--wtl-border) !important;
+}
+
+/* --- Notebook ---
+   El fondo BLANCO real no está en .o_notebook_headers sino en `.o_notebook .nav`
+   (Odoo: background-color: $o-view-background-color). Hay que ganarle con igual
+   o mayor especificidad; por eso se apunta a `.o_notebook .nav`. */
+.wtl-dark .o_notebook .nav,
+.wtl-dark .o_notebook .nav-tabs,
+.wtl-dark .o_notebook_headers .nav {
+  background-color: var(--wtl-surface) !important;
+  border-bottom-color: var(--wtl-border) !important;
+}
+/* La pestaña activa: Bootstrap le pone fondo del body (blanco) y borde inferior
+   blanco; se fuerza a la superficie oscura para fundirla con el contenido. */
+.wtl-dark .o_notebook .nav-tabs .nav-link.active,
+.wtl-dark .o_notebook_headers .nav-link.active {
+  color: #ffffff !important;
+  background-color: var(--wtl-surface) !important;
+  border-color: var(--wtl-border) var(--wtl-border) var(--wtl-surface) !important;
+}
+.wtl-dark .o_notebook .nav-link {
+  color: var(--wtl-text) !important;
+}
+
+/* --- Statusbar del formulario (p. ej. botón "Bloquear" en DMS) ---
+   Usa el fondo base (el más oscuro, el mismo de abajo del formulario). */
+.wtl-dark .o_form_statusbar {
+  background-color: var(--wtl-bg) !important;
+  color: var(--wtl-text) !important;
+  border-color: var(--wtl-border) !important;
+}
+.wtl-dark .o_statusbar_status,
+.wtl-dark .o_statusbar_buttons,
+.wtl-dark .o_form_status_indicator {
+  background-color: transparent !important;
+  color: var(--wtl-text) !important;
+}
+
+/* --- Cabecera del hilo en Conversaciones (barra con el nombre del canal) --- */
+.wtl-dark .o-mail-DiscussContent-header,
+.wtl-dark .o-mail-DiscussContent-headerActions,
+.wtl-dark .o-mail-DiscussContent-headerActionsGroup {
+  background-color: var(--wtl-surface) !important;
+  color: var(--wtl-text) !important;
+  border-color: var(--wtl-border) !important;
+}
+
+/* --- Menús desplegables (Configuración, acciones, etc.) ---
+   El fondo ya quedaba oscuro, pero Bootstrap pinta el TEXTO de .dropdown-item
+   en color oscuro -> quedaba invisible sobre fondo oscuro. Se fuerza claro.
+   Clases reales del DOM: .o_popover.o-dropdown--menu.dropdown-menu con items
+   .o-dropdown-item.dropdown-item.o-navigable. */
+.wtl-dark .dropdown-menu,
+.wtl-dark .o-dropdown--menu,
+.wtl-dark .o_popover.popover {
+  background-color: var(--wtl-surface) !important;
+  border-color: var(--wtl-border) !important;
+}
+.wtl-dark .dropdown-item,
+.wtl-dark .o-dropdown-item,
+.wtl-dark .o-dropdown-item.o-navigable {
+  color: var(--wtl-text) !important;
+  background-color: transparent !important;
+}
+.wtl-dark .dropdown-item:hover,
+.wtl-dark .dropdown-item:focus,
+.wtl-dark .dropdown-item.focus,
+.wtl-dark .o-dropdown-item:hover,
+.wtl-dark .o-dropdown-item:focus,
+.wtl-dark .o-dropdown-item.focus,
+.wtl-dark .o-dropdown-item[aria-selected="true"] {
+  background-color: var(--wtl-surface-2) !important;
+  color: var(--wtl-text) !important;
+}
+/* Menú de gestión de una tarjeta kanban (Ver/Reportes/Editar): sus enlaces son
+   .oe_kanban_action, no .dropdown-item, así que hay que darles texto claro. */
+.wtl-dark .o-dropdown--kanban-record-menu a,
+.wtl-dark .o-dropdown--kanban-record-menu .oe_kanban_action,
+.wtl-dark .o-dropdown--kanban-record-menu .o_kanban_card_manage_title,
+.wtl-dark .o_kanban_card_manage_title span {
+  color: var(--wtl-text) !important;
+}
+.wtl-dark .o-dropdown--kanban-record-menu a:hover {
+  background-color: var(--wtl-surface-2) !important;
+  color: var(--wtl-text) !important;
+}
+
+/* --- Conversaciones: redactor, listas emergentes y barra "escribiendo" --- */
+.wtl-dark .o-mail-Composer-input,
+.wtl-dark .o-mail-Composer-fake,
+.wtl-dark .o-mail-NavigableList.bg-view {
+  background-color: var(--wtl-surface-2) !important;
+  color: var(--wtl-text) !important;
+  border-color: var(--wtl-border) !important;
+}
+.wtl-dark .bg-100 {
+  background-color: var(--wtl-surface) !important;
+}
+
+/* --- Diálogo de error: caja de detalles técnicos --- */
+.wtl-dark .o_error_detail,
+.wtl-dark .o_error_dialog .bg-100,
+.wtl-dark .o_error_dialog pre,
+.wtl-dark .o_error_dialog code {
+  background-color: var(--wtl-surface-2) !important;
+  color: var(--wtl-text) !important;
+  border-color: var(--wtl-border) !important;
+}
+
+/* --- Diálogos con vista de formulario anidada (p. ej. "Desinstalar módulo"):
+   el cuerpo del modal trae un o_form_view/o_act_window de fondo blanco. --- */
+.wtl-dark .o_dialog .o_form_view,
+.wtl-dark .o_dialog .o_form_renderer,
+.wtl-dark .o_dialog .o_form_nosheet,
+.wtl-dark .modal-body.o_act_window,
+.wtl-dark .o_dialog .o_content {
+  background-color: var(--wtl-surface) !important;
+  color: var(--wtl-text) !important;
+}
+.wtl-dark .o_dialog h3,
+.wtl-dark .o_dialog .o_form_view label {
+  color: var(--wtl-text) !important;
+}
+
+/* --- Notificaciones (toasts arriba a la derecha) --- */
+.wtl-dark .o_notification {
+  background-color: var(--wtl-surface) !important;
+  color: var(--wtl-text) !important;
+}
+.wtl-dark .o_notification .border,
+.wtl-dark .o_notification_body,
+.wtl-dark .o_notification_content {
+  border-color: var(--wtl-border) !important;
+  color: var(--wtl-text) !important;
+}
+
+/* --- Breadcrumb (título del control panel): texto claro --- */
+.wtl-dark .o_breadcrumb,
+.wtl-dark .o_breadcrumb a,
+.wtl-dark .breadcrumb-item,
+.wtl-dark .breadcrumb-item a,
+.wtl-dark .o_back_button a,
+.wtl-dark .o_last_breadcrumb_item,
+.wtl-dark .o_control_panel .o_breadcrumb .fw-bold {
+  color: var(--wtl-text) !important;
+}
+/* El <ol class="breadcrumb"> trae un fondo CLARO compilado desde SCSS
+   ($breadcrumb-bg = color del control panel en claro). Ese es el recuadro
+   claro detrás del enlace "atrás" del breadcrumb. Se hace transparente. */
+.wtl-dark .breadcrumb {
+  background-color: transparent !important;
+}
+
+/* Botones de icono del control panel (guardar, cancelar, acciones/engranaje):
+   sin fondo gris, solo el icono. */
+.wtl-dark .o_form_button_save,
+.wtl-dark .o_form_button_cancel,
+.wtl-dark .o_cp_action_menus .btn,
+.wtl-dark .o_control_panel_breadcrumbs_actions .btn {
+  background-color: transparent !important;
+  border-color: transparent !important;
+  color: var(--wtl-text) !important;
+}
+
+/* Botón "Nuevo" en oscuro: azul relleno, texto blanco. Cubre tanto el de
+   formulario (btn-outline-primary) como el de las vistas kanban/lista
+   (o-kanban-button-new.btn-primary en el control panel). */
+.wtl-dark .o_form_button_create,
+.wtl-dark .o_control_panel .btn-outline-primary,
+.wtl-dark .o_control_panel_main_buttons .o-kanban-button-new,
+.wtl-dark .o_control_panel .o-kanban-button-new {
+  background-color: var(--wtl-primary) !important;
+  border-color: var(--wtl-primary) !important;
+  color: #fff !important;
+}
+
+/* --- Lanzador de apps: cabecera y buscador siempre oscuros --- */
+.wtl-dark .wtl_app_panel_header {
+  background-color: var(--wtl-surface) !important;
+  border-bottom-color: var(--wtl-border) !important;
+}
+.wtl-dark .wtl_app_search {
+  background-color: var(--wtl-surface-2) !important;
+  border-color: var(--wtl-border) !important;
+}
+.wtl-dark .wtl_app_search input {
+  background-color: transparent !important;
+  color: var(--wtl-text) !important;
+}
+.wtl-dark .wtl_app_search input::placeholder,
+.wtl-dark .wtl_app_hint {
+  color: #9aa3b2 !important;
+}

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+  <!-- Agrega la opción "Modo Oscuro" con un interruptor al menú superior
+       derecho del POS (el desplegable de la hamburguesa). -->
+  <t t-name="web_theme_launcher.PosNavbarDark"
+     t-inherit="point_of_sale.Navbar"
+     t-inherit-mode="extension">
+    <xpath expr="//div[hasclass('pos-burger-menu-items')]" position="inside">
+      <DropdownItem onSelected="() => this.toggleDarkMode()">
+        <div class="d-flex align-items-center justify-content-between w-100 gap-3">
+          <span>Modo Oscuro</span>
+          <span class="form-check form-switch m-0 pe-none">
+            <input type="checkbox" class="form-check-input" t-att-checked="wtlDark.on"/>
+          </span>
+        </div>
+      </DropdownItem>
+    </xpath>
+  </t>
+
+</templates>

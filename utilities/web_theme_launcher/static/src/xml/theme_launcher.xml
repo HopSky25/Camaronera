@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+  <t t-name="web_theme_launcher.SystrayLauncher">
+    <div class="wtl_systray_root" style="display: contents;">
+
+      <!-- Botón lanzador de apps -->
+      <div class="o_systray_item wtl_systray_item"
+           title="Aplicaciones (Ctrl+K)"
+           t-on-click="toggle">
+        <span class="wtl_systray_btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect x="2"  y="2"  width="6" height="6" rx="2" fill="#ffffff"/>
+            <rect x="9"  y="2"  width="6" height="6" rx="2" fill="#ffffff"/>
+            <rect x="16" y="2"  width="6" height="6" rx="2" fill="#ffffff"/>
+            <rect x="2"  y="9"  width="6" height="6" rx="2" fill="#ffffff"/>
+            <rect x="9"  y="9"  width="6" height="6" rx="2" fill="#ffcf6b"/>
+            <rect x="16" y="9"  width="6" height="6" rx="2" fill="#ffffff"/>
+            <rect x="2"  y="16" width="6" height="6" rx="2" fill="#ffffff"/>
+            <rect x="9"  y="16" width="6" height="6" rx="2" fill="#ffffff"/>
+            <rect x="16" y="16" width="6" height="6" rx="2" fill="#ffffff"/>
+          </svg>
+        </span>
+      </div>
+
+      <!-- Botón de modo oscuro -->
+      <div class="o_systray_item wtl_dark_toggle"
+           t-att-title="state.dark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'"
+           t-on-click="toggleDark">
+        <span class="wtl_systray_btn">
+          <i t-att-class="state.dark ? 'fa fa-sun-o' : 'fa fa-moon-o'" aria-hidden="true"/>
+        </span>
+      </div>
+
+      <!-- Overlay del lanzador. Se monta en &lt;body&gt; con un Portal para que
+           no quede atrapado en el stacking context del navbar (si no, la barra
+           de estado del formulario se pinta encima). -->
+      <t t-if="state.open" t-portal="'body'">
+        <div class="wtl_app_overlay" t-on-click="onOverlayClick">
+          <div class="wtl_app_panel" t-on-click.stop="">
+            <div class="wtl_app_panel_header">
+              <div class="wtl_app_search">
+                <i class="fa fa-search" aria-hidden="true"></i>
+                <input type="text" placeholder="Buscar apps…" t-model="state.query" t-ref="searchInput"/>
+              </div>
+              <div class="wtl_app_hint">ESC para cerrar · Ctrl+K</div>
+            </div>
+
+            <div class="wtl_app_grid">
+              <t t-foreach="filteredApps" t-as="app" t-key="app.id">
+                <div class="wtl_app_tile" t-on-click="() => this.openApp(app)">
+                  <div class="wtl_app_icon">
+                    <t t-set="iconUrl" t-value="getIconUrl(app)"/>
+                    <t t-if="iconUrl">
+                      <img t-att-src="iconUrl" t-att-alt="app.name"/>
+                    </t>
+                    <t t-else="">
+                      <i class="fa fa-th-large" aria-hidden="true"></i>
+                    </t>
+                  </div>
+                  <div class="wtl_app_name" t-esc="app.name"/>
+                </div>
+              </t>
+            </div>
+          </div>
+        </div>
+      </t>
+
+    </div>
+  </t>
+
+</templates>

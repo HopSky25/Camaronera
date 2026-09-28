@@ -5,3 +5,4 @@ from . import shrimp_copack_tariff
 from . import shrimp_copack_offer
 from . import shrimp_copack_order
 from . import shrimp_copack_acceptance
+from . import shrimp_transaction

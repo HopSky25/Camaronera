@@ -1,0 +1,120 @@
+<odoo>
+
+  <template id="report_traceability_copacking"
+            inherit_id="shrimp_marketplace.report_shrimp_full_traceability"
+            name="Certificado de trazabilidad - servicio de empaque">
+
+    <!-- Cuando un lote se empaca fuera, la cadena se corta justo donde mas
+         importa: el comprador final no puede saber en que planta habilitada se
+         empaco lo que compra. Aqui se cierra ese hueco.
+
+         Va despues de la verificacion porque es el ultimo eslabon fisico: el
+         camaron ya se cosecho, se verifico y por fin se empaco. -->
+    <xpath expr="//div[hasclass('st-foot')]" position="before">
+      <t t-set="empaques" t-value="doc.copack_order_ids"/>
+      <t t-if="empaques">
+        <div class="st-sec">10. Servicio de empaque</div>
+
+        <t t-foreach="empaques" t-as="emp">
+          <!-- Los colores se resuelven en un t-set y no dentro del t-attf: una
+               condicional con almohadillas dentro de #{} es justo lo que rompe
+               el compilador de atributos de QWeb. -->
+          <t t-set="ecol" t-value="'#1f7a4d' if emp.cuadra else '#a4562a'"/>
+          <t t-set="ebg" t-value="'#eef7f1' if emp.cuadra else '#fdf3ec'"/>
+          <div t-attf-style="border:1px solid #{ecol}; border-left:5px solid #{ecol}; background:#{ebg}; border-radius:6px; padding:8px 12px; margin-bottom:10px;">
+            <div t-attf-style="font-size:12px; font-weight:bold; color:#{ecol};">
+              <t t-if="emp.cuadra">Las libras entregadas cuadran con las recibidas</t>
+              <t t-else="">Hay diferencia entre lo recibido y lo entregado</t>
+            </div>
+            <div style="font-size:10px; color:#3d4a52; margin-top:3px;">
+              Recibidas <t t-esc="round(emp.received_lb, 2)"/> lb ·
+              empacadas <t t-esc="round(emp.packed_lb, 2)"/> lb ·
+              diferencia <t t-esc="round(emp.difference_lb, 2)"/> lb
+              (<t t-esc="round(emp.difference_pct, 2)"/> %, tolerancia
+              <t t-esc="emp.tolerance_pct"/> %)
+            </div>
+          </div>
+
+          <table class="st-tbl">
+            <tr>
+              <td class="st-k">Planta que empacó</td>
+              <td class="st-v"><t t-esc="emp.copacker_partner_id.name"/></td>
+              <td class="st-k">Dueño del camarón</td>
+              <td class="st-v"><t t-esc="emp.client_partner_id.name"/></td>
+            </tr>
+            <tr>
+              <!-- Este es el dato que da valor de exportacion al certificado:
+                   sin codigo de establecimiento habilitado, el producto no
+                   sale del pais por mucha trazabilidad que lleve detras. -->
+              <td class="st-k">Código de establecimiento</td>
+              <td class="st-v">
+                <t t-if="emp.copacker_partner_id.pack_codigo_establecimiento">
+                  <b><t t-esc="emp.copacker_partner_id.pack_codigo_establecimiento"/></b>
+                  <t t-if="emp.copacker_partner_id.pack_habilitacion_hasta">
+                    · habilitado hasta
+                    <t t-esc="emp.copacker_partner_id.pack_habilitacion_hasta"/>
+                  </t>
+                </t>
+                <t t-else="">no registrado</t>
+              </td>
+              <td class="st-k">Ubicación de la planta</td>
+              <td class="st-v"><t t-esc="emp.copacker_partner_id.pack_ubicacion or '—'"/></td>
+            </tr>
+            <tr>
+              <td class="st-k">Recepción en planta</td>
+              <td class="st-v"><t t-esc="emp.received_date or '—'"/></td>
+              <td class="st-k">Entrega</td>
+              <td class="st-v"><t t-esc="emp.packed_date or '—'"/></td>
+            </tr>
+            <tr>
+              <td class="st-k">Presentación empacada</td>
+              <td class="st-v"><t t-esc="emp.packed_presentation or '—'"/></td>
+              <td class="st-k">Cajas / masters</td>
+              <td class="st-v"><t t-esc="emp.boxes or '—'"/></td>
+            </tr>
+            <tr>
+              <!-- En este servicio los insumos SIEMPRE los pone el cliente.
+                   Dejarlo impreso evita que años despues alguien discuta de
+                   quien era el empaque. -->
+              <td class="st-k">Insumos</td>
+              <td class="st-v">
+                Los aporta el dueño del camarón<t t-if="emp.supplies_received">, recibidos completos</t>
+                <t t-if="emp.supplies_issue"> · <t t-esc="emp.supplies_issue"/></t>
+              </td>
+              <td class="st-k">Acta</td>
+              <td class="st-v">
+                <t t-if="emp.acceptance_state == 'closed'">firmada por las dos partes</t>
+                <t t-elif="emp.acceptance_state == 'disputed'">en disputa</t>
+                <t t-elif="emp.acceptance_state == 'open'">pendiente de firma</t>
+                <t t-else="">—</t>
+              </td>
+            </tr>
+          </table>
+
+          <t t-if="emp.acceptance_state == 'closed'">
+            <table class="st-tbl">
+              <tr>
+                <t t-foreach="emp.acceptance_ids.sorted('role')" t-as="f">
+                  <td class="st-k">
+                    <t t-esc="dict(f._fields['role'].selection).get(f.role)"/>
+                  </td>
+                  <td class="st-v">
+                    <t t-esc="f.partner_id.name"/>
+                    <t t-if="f.decided_at"> · <t t-esc="f.decided_at"/></t>
+                  </td>
+                </t>
+              </tr>
+            </table>
+          </t>
+        </t>
+
+        <div class="st-empty" style="margin-top:4px;">
+          El servicio de empaque no transfiere la propiedad del camarón: el lote
+          siguió siendo del dueño en todo momento y la planta solo prestó el servicio.
+        </div>
+      </t>
+    </xpath>
+
+  </template>
+
+</odoo>

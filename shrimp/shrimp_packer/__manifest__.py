@@ -40,6 +40,10 @@ desarrollo que se hace en paralelo sobre ese módulo.
         "views/simulador_templates.xml",
         "views/proveedores_templates.xml",
     ],
+    "demo": [
+        "demo/demo_01_partners.xml",
+        "demo/demo_02_price_lists.xml",
+    ],
     "assets": {
         "web.assets_frontend": [
             "shrimp_packer/static/src/css/packer.css",

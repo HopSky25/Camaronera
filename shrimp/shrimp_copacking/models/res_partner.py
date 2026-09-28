@@ -46,6 +46,45 @@ class ResPartner(models.Model):
             rec.pack_habilitacion_vigente = bool(
                 rec.pack_habilitacion_hasta and rec.pack_habilitacion_hasta >= hoy)
 
+    # --- Tarifa referencial, PUBLICA ---
+    # El cliente necesita saber por donde van los precios ANTES de pedir: nadie
+    # contrata a ciegas y luego pregunta. Pero la tarifa real no puede ser
+    # publica, porque el maquilador cobra distinto a quien le manda un
+    # contenedor al ano que a quien le manda cinco al mes, y porque la verian
+    # sus competidores.
+    #
+    # Por eso hay dos niveles: este "desde" sale en el directorio y sirve para
+    # preseleccionar; la tarifa firme va dirigida y confidencial, en
+    # shrimp.copack.tariff.
+    pack_desde_entero = fields.Monetary(
+        string="Desde, entero ($/lb)", currency_field="pack_currency_id")
+    pack_desde_cola = fields.Monetary(
+        string="Desde, cola ($/lb)", currency_field="pack_currency_id")
+    pack_desde_valor_agregado = fields.Monetary(
+        string="Desde, valor agregado ($/lb)", currency_field="pack_currency_id")
+    pack_currency_id = fields.Many2one(
+        "res.currency", string="Moneda de la tarifa",
+        default=lambda self: self.env.company.currency_id)
+    pack_tarifa_nota = fields.Char(
+        string="Aclaración de la tarifa",
+        help="Ej: «precios referenciales, la tarifa firme depende del volumen».")
+    pack_lote_minimo_lb = fields.Float(
+        string="Lote mínimo (lb)", digits=(16, 2),
+        help="Por debajo de esto la planta no toma el trabajo.")
+
+    pack_en_directorio = fields.Boolean(
+        string="Aparecer en el directorio", default=True,
+        help="Si se apaga, la planta deja de salir a quien busca servicio de empaque.")
+
+    @api.constrains("pack_desde_entero", "pack_desde_cola",
+                    "pack_desde_valor_agregado", "pack_lote_minimo_lb")
+    def _check_tarifas_referenciales(self):
+        for rec in self:
+            for campo in ("pack_desde_entero", "pack_desde_cola",
+                          "pack_desde_valor_agregado", "pack_lote_minimo_lb"):
+                if (rec[campo] or 0.0) < 0:
+                    raise ValidationError(_("Las tarifas y el lote mínimo no pueden ser negativos."))
+
     @api.constrains("shrimp_user_type", "pack_razon_social", "pack_ubicacion")
     def _check_datos_maquilador(self):
         for rec in self:

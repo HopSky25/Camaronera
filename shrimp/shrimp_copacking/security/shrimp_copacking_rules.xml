@@ -2,6 +2,26 @@
 <odoo>
     <data noupdate="1">
 
+
+        <!-- === DIRECTORIO ===
+             Odoo solo deja a un usuario de portal ver contactos ligados a sus
+             propios registros, asi que sin esto el directorio sale vacio y la
+             camaronera no puede ni elegir a quien pedirle.
+             Se abre lo minimo: maquiladores, y solo los que activaron la
+             casilla de aparecer. Un directorio es publico por definicion; lo
+             que no se abre son las tarifas, que viven en otro modelo con sus
+             propias reglas. -->
+        <record id="rule_copack_directorio" model="ir.rule">
+            <field name="name">Directorio: maquiladores que quieren aparecer</field>
+            <field name="model_id" ref="base.model_res_partner"/>
+            <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="False"/>
+            <field name="perm_create" eval="False"/>
+            <field name="perm_unlink" eval="False"/>
+            <field name="domain_force">[('shrimp_user_type', '=', 'maquilador'), ('pack_en_directorio', '=', True)]</field>
+        </record>
+
         <!-- === SOLICITUDES ===
              El cliente ve las suyas. El maquilador ve las publicadas, que es
              justo lo que tiene que poder ver para ofertar: si no viera las
@@ -21,7 +41,32 @@
             <field name="name">Solicitudes de empaque: bandeja del maquilador</field>
             <field name="model_id" ref="model_shrimp_copack_request"/>
             <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
-            <field name="domain_force">[('state', '=', 'published')] if user.partner_id.shrimp_user_type == 'maquilador' else [(0, '=', 1)]</field>
+            <field name="domain_force">['&amp;', ('state', '=', 'published'), '|', ('is_open', '=', True), ('copacker_partner_id', '=', user.partner_id.id)] if user.partner_id.shrimp_user_type == 'maquilador' else [(0, '=', 1)]</field>
+        </record>
+
+
+        <!-- === TARIFAS ===
+             Mismo criterio que las listas de precios: cada cliente ve solo la
+             que le dirigieron, nunca la del vecino. -->
+        <record id="rule_copack_tariff_emisor" model="ir.rule">
+            <field name="name">Tarifas de empaque: las que publica el maquilador</field>
+            <field name="model_id" ref="model_shrimp_copack_tariff"/>
+            <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+            <field name="domain_force">[('copacker_partner_id', '=', user.partner_id.id)]</field>
+        </record>
+
+        <record id="rule_copack_tariff_destinatario" model="ir.rule">
+            <field name="name">Tarifas de empaque: las dirigidas al cliente</field>
+            <field name="model_id" ref="model_shrimp_copack_tariff"/>
+            <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+            <field name="domain_force">['&amp;', ('state', '=', 'published'), ('recipient_ids', 'in', user.partner_id.shrimp_grupo_ids())]</field>
+        </record>
+
+        <record id="rule_copack_tariff_line" model="ir.rule">
+            <field name="name">Renglones: siguen a su tarifa</field>
+            <field name="model_id" ref="model_shrimp_copack_tariff_line"/>
+            <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+            <field name="domain_force">['|', ('tariff_id.copacker_partner_id', '=', user.partner_id.id), '&amp;', ('tariff_id.state', '=', 'published'), ('tariff_id.recipient_ids', 'in', user.partner_id.shrimp_grupo_ids())]</field>
         </record>
 
         <!-- === OFERTAS ===

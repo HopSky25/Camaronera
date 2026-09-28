@@ -33,6 +33,17 @@ class ShrimpCopackRequest(models.Model):
         "shrimp.product", string="Lote", ondelete="set null", index=True,
         help="Si se indica, el empaque queda enlazado a la trazabilidad del lote.")
 
+    # Dirigida o abierta. El cliente normalmente entra al directorio, ve quien
+    # empaca y desde cuanto, y le pide a uno en concreto: asi es como se
+    # contrata un servicio. Dejarla abierta sigue siendo util cuando quiere
+    # varios presupuestos, pero no puede ser el unico camino, porque obligaria
+    # a publicar a ciegas y esperar para enterarse de los precios.
+    copacker_partner_id = fields.Many2one(
+        "res.partner", string="Dirigida a", ondelete="set null", index=True,
+        help="Si se deja vacío, la solicitud va a la bandeja de todos los maquiladores.")
+    is_open = fields.Boolean(
+        string="Abierta a todos", compute="_compute_is_open", store=True)
+
     quantity_lb = fields.Float(
         string="Libras a empacar", required=True, digits=(16, 2), tracking=True)
     size_grade_id = fields.Many2one(
@@ -70,6 +81,20 @@ class ShrimpCopackRequest(models.Model):
     def _compute_offer_count(self):
         for rec in self:
             rec.offer_count = len(rec.offer_ids)
+
+    @api.depends("copacker_partner_id")
+    def _compute_is_open(self):
+        for rec in self:
+            rec.is_open = not rec.copacker_partner_id
+
+    @api.constrains("copacker_partner_id")
+    def _check_dirigida(self):
+        for rec in self:
+            if (rec.copacker_partner_id
+                    and rec.copacker_partner_id.shrimp_user_type != "maquilador"):
+                raise ValidationError(_(
+                    "Una solicitud de empaque se dirige a un maquilador. «%s» no lo es.")
+                    % (rec.copacker_partner_id.name or ""))
 
     @api.model_create_multi
     def create(self, vals_list):

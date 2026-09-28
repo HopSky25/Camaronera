@@ -24,7 +24,8 @@ sitio y sus propias bandejas.
     "author": "Carlos Carballo",
     "license": "LGPL-3",
     "category": "Industries",
-    "depends": ["shrimp_marketplace", "shrimp_user_registry", "shrimp_packer", "website"],
+    "depends": ["shrimp_marketplace", "shrimp_user_registry", "shrimp_packer",
+                "shrimp_verification", "website"],
     "data": [
         "data/sequences.xml",
         "security/ir.model.access.csv",
@@ -32,6 +33,9 @@ sitio y sus propias bandejas.
         "views/copack_client_templates.xml",
         "views/copack_request_templates.xml",
         "views/copack_order_templates.xml",
+        "views/copacker_templates.xml",
+        "views/copacker_tariff_templates.xml",
+        "data/site_config.xml",
     ],
     "installable": True,
 }

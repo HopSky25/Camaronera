@@ -1,0 +1,297 @@
+<odoo>
+
+  <!-- ================================================================
+       BANDEJA: lo que hay pidiendo planta
+       ================================================================ -->
+  <template id="copacker_inbox" name="Bandeja del maquilador">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page shrimp-page--full py-4">
+
+          <div class="sf-banner mb-4">
+            <div class="sf-banner-row">
+              <div class="sf-banner-txt">
+                <h1>Mi bandeja</h1>
+                <p>Camarón que busca planta. Las abiertas y las que te dirigieron a ti.</p>
+              </div>
+              <span class="sf-kicker"><i class="fa fa-inbox"></i> Empaque</span>
+            </div>
+          </div>
+
+          <t t-if="not maq.pack_en_directorio">
+            <div class="alert alert-warning">
+              <b>No apareces en el directorio.</b> Los clientes no te encuentran cuando
+              buscan quién empaca. Se activa en
+              <a href="/maquilador/perfil">Perfil y capacidad</a>.
+            </div>
+          </t>
+
+          <t t-if="not solicitudes">
+            <div class="alert alert-light border">
+              Ahora mismo no hay solicitudes abiertas. Cuando alguien publique una la
+              verás aquí.
+            </div>
+          </t>
+          <t t-else="">
+            <table class="table table-hover bg-white align-middle">
+              <thead>
+                <tr>
+                  <th>Referencia</th><th>Cliente</th><th class="text-end">Libras</th>
+                  <th>Presentación</th><th>Ventana</th><th>Tipo</th><th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <t t-foreach="solicitudes" t-as="s">
+                  <tr>
+                    <td><a t-attf-href="/maquilador/solicitud/#{s.uuid_ref}"><t t-esc="s.name"/></a></td>
+                    <td><t t-esc="s.client_partner_id.name"/></td>
+                    <td class="text-end fw-bold"><t t-esc="int(s.quantity_lb)"/></td>
+                    <td><t t-esc="dict(s._fields['presentation'].selection).get(s.presentation)"/></td>
+                    <td class="small"><t t-esc="s.needed_from"/> a <t t-esc="s.needed_to"/></td>
+                    <td>
+                      <t t-if="s.is_open"><span class="badge text-bg-secondary">Abierta</span></t>
+                      <t t-else=""><span class="badge text-bg-info">Dirigida a ti</span></t>
+                    </td>
+                    <td class="text-end">
+                      <t t-if="s.id in ya_ofertadas">
+                        <span class="badge text-bg-success">Ya ofertaste</span>
+                      </t>
+                      <t t-else="">
+                        <a t-attf-href="/maquilador/solicitud/#{s.uuid_ref}"
+                           class="btn btn-sm btn-primary">Ofertar</a>
+                      </t>
+                    </td>
+                  </tr>
+                </t>
+              </tbody>
+            </table>
+            <p class="text-muted small">
+              Tu capacidad declarada es de
+              <t t-esc="int(maq.pack_capacidad_lb_semana)"/> lb por semana. Ofertar por
+              encima de lo que puedes cumplir es la forma más rápida de perder un cliente.
+            </p>
+          </t>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+  <!-- ================================================================
+       SOLICITUD Y FORMULARIO DE OFERTA
+       ================================================================ -->
+  <template id="copacker_request" name="Solicitud recibida">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page py-4">
+
+          <a href="/maquilador/bandeja" class="btn btn-sm btn-link mb-2">&#8592; Mi bandeja</a>
+          <h2 class="mb-1"><t t-esc="sol.name"/></h2>
+          <p class="text-muted">
+            <t t-esc="sol.client_partner_id.name"/> ·
+            <t t-esc="int(sol.quantity_lb)"/> lb ·
+            <t t-esc="dict(sol._fields['presentation'].selection).get(sol.presentation)"/> ·
+            del <t t-esc="sol.needed_from"/> al <t t-esc="sol.needed_to"/>
+          </p>
+
+          <t t-if="mensaje"><div class="alert alert-success">Oferta enviada.</div></t>
+          <t t-if="error"><div class="alert alert-danger"><t t-esc="error"/></div></t>
+
+          <t t-if="sol.supplies_notes">
+            <div class="card mb-3">
+              <div class="card-body">
+                <h6 class="text-uppercase text-muted small mb-2">Insumos que lleva el cliente</h6>
+                <p class="mb-0"><t t-esc="sol.supplies_notes"/></p>
+              </div>
+            </div>
+          </t>
+          <t t-if="sol.notes">
+            <div class="card mb-3">
+              <div class="card-body">
+                <h6 class="text-uppercase text-muted small mb-2">Observaciones</h6>
+                <p class="mb-0"><t t-esc="sol.notes"/></p>
+              </div>
+            </div>
+          </t>
+
+          <div class="card">
+            <div class="card-body">
+              <h5 class="mb-3">
+                <t t-if="mi_oferta">Tu oferta</t><t t-else="">Ofertar</t>
+              </h5>
+              <form method="post" t-attf-action="/maquilador/solicitud/#{sol.uuid_ref}/ofertar">
+                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <label class="form-label">Tarifa por libra *</label>
+                    <input type="number" step="0.001" min="0.001" name="rate_per_lb"
+                           class="form-control" required="required"
+                           t-att-value="mi_oferta.rate_per_lb if mi_oferta else ''"/>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Libras que puedes tomar *</label>
+                    <input type="number" step="1" min="1" name="capacity_lb"
+                           class="form-control" required="required"
+                           t-att-value="int(mi_oferta.capacity_lb) if mi_oferta else int(sol.quantity_lb)"/>
+                    <div class="form-text">Puede ser menos de lo pedido; el cliente decide.</div>
+                  </div>
+                  <div class="col-md-2">
+                    <label class="form-label">Desde *</label>
+                    <input type="date" name="available_from" class="form-control" required="required"
+                           t-att-value="mi_oferta.available_from if mi_oferta else sol.needed_from"/>
+                  </div>
+                  <div class="col-md-2">
+                    <label class="form-label">Hasta *</label>
+                    <input type="date" name="available_to" class="form-control" required="required"
+                           t-att-value="mi_oferta.available_to if mi_oferta else sol.needed_to"/>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Condiciones</label>
+                    <textarea name="notes" class="form-control" rows="2"
+                              placeholder="Horario de recepción, paletizado, etc."><t t-esc="mi_oferta.notes if mi_oferta else ''"/></textarea>
+                  </div>
+                </div>
+                <button type="submit" class="btn btn-primary mt-3">
+                  <t t-if="mi_oferta">Actualizar oferta</t><t t-else="">Enviar oferta</t>
+                </button>
+              </form>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+  <!-- ================================================================
+       ORDENES DEL MAQUILADOR
+       ================================================================ -->
+  <template id="copacker_orders" name="Órdenes del maquilador">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page shrimp-page--full py-4">
+
+          <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <h2 class="mb-0">Órdenes en curso</h2>
+            <div class="btn-group">
+              <a href="/maquilador/ordenes" t-att-class="'btn btn-sm ' + ('btn-primary' if not filtro else 'btn-outline-primary')">Todas</a>
+              <a href="/maquilador/ordenes?f=firmar" t-att-class="'btn btn-sm ' + ('btn-primary' if filtro == 'firmar' else 'btn-outline-primary')">Actas por firmar</a>
+              <a href="/maquilador/ordenes?f=cerradas" t-att-class="'btn btn-sm ' + ('btn-primary' if filtro == 'cerradas' else 'btn-outline-primary')">Cerradas</a>
+            </div>
+          </div>
+
+          <t t-if="error"><div class="alert alert-danger"><t t-esc="error"/></div></t>
+
+          <t t-if="not ordenes">
+            <div class="alert alert-light border">No hay órdenes con ese filtro.</div>
+          </t>
+          <t t-else="">
+            <table class="table bg-white align-middle">
+              <thead>
+                <tr>
+                  <th>Referencia</th><th>Cliente</th><th class="text-end">Acordadas</th>
+                  <th class="text-end">Recibidas</th><th class="text-end">Empacadas</th>
+                  <th>Estado</th><th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <t t-foreach="ordenes" t-as="o">
+                  <tr>
+                    <td><a t-attf-href="/marketplace/empaque/orden/#{o.uuid_ref}"><t t-esc="o.name"/></a></td>
+                    <td><t t-esc="o.client_partner_id.name"/></td>
+                    <td class="text-end"><t t-esc="int(o.agreed_qty_lb)"/></td>
+                    <td class="text-end"><t t-esc="int(o.received_lb)"/></td>
+                    <td class="text-end"><t t-esc="int(o.packed_lb)"/></td>
+                    <td>
+                      <span class="badge text-bg-secondary">
+                        <t t-esc="dict(o._fields['state'].selection).get(o.state)"/>
+                      </span>
+                    </td>
+                    <td class="text-end">
+                      <a t-attf-href="/marketplace/empaque/orden/#{o.uuid_ref}"
+                         class="btn btn-sm btn-outline-primary">
+                        <t t-if="o.state == 'confirmed'">Registrar recepción</t>
+                        <t t-elif="o.state == 'received'">Registrar empaque</t>
+                        <t t-elif="o.acceptance_state == 'open'">Firmar acta</t>
+                        <t t-else="">Ver</t>
+                      </a>
+                    </td>
+                  </tr>
+                </t>
+              </tbody>
+            </table>
+          </t>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+  <!-- ================================================================
+       LIQUIDACIONES
+       ================================================================ -->
+  <template id="copacker_settlements" name="Liquidaciones">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page shrimp-page--full py-4">
+
+          <h2 class="mb-3">Liquidaciones</h2>
+
+          <div class="row g-3 mb-4">
+            <div class="col-md-4">
+              <div class="card text-center"><div class="card-body">
+                <div class="text-muted small">Libras empacadas</div>
+                <div class="fs-3 fw-bold"><t t-esc="int(total_libras)"/></div>
+              </div></div>
+            </div>
+            <div class="col-md-4">
+              <div class="card text-center"><div class="card-body">
+                <div class="text-muted small">Facturado por el servicio</div>
+                <div class="fs-3 fw-bold">$ <t t-esc="round(total_servicio, 2)"/></div>
+              </div></div>
+            </div>
+            <div class="col-md-4">
+              <div class="card text-center"><div class="card-body">
+                <div class="text-muted small">Comisión Trazul</div>
+                <div class="fs-3 fw-bold text-muted">$ <t t-esc="round(total_comision, 2)"/></div>
+              </div></div>
+            </div>
+          </div>
+
+          <t t-if="not ordenes">
+            <div class="alert alert-light border">Todavía no hay trabajos empacados.</div>
+          </t>
+          <t t-else="">
+            <table class="table bg-white">
+              <thead>
+                <tr>
+                  <th>Orden</th><th>Cliente</th><th>Entrega</th>
+                  <th class="text-end">Libras</th><th class="text-end">$ / lb</th>
+                  <th class="text-end">Servicio</th><th class="text-end">Comisión</th>
+                </tr>
+              </thead>
+              <tbody>
+                <t t-foreach="ordenes" t-as="o">
+                  <tr>
+                    <td><a t-attf-href="/marketplace/empaque/orden/#{o.uuid_ref}"><t t-esc="o.name"/></a></td>
+                    <td><t t-esc="o.client_partner_id.name"/></td>
+                    <td class="small"><t t-esc="o.packed_date or '—'"/></td>
+                    <td class="text-end"><t t-esc="int(o.packed_lb)"/></td>
+                    <td class="text-end">$ <t t-esc="round(o.rate_per_lb, 3)"/></td>
+                    <td class="text-end fw-bold">$ <t t-esc="round(o.service_amount, 2)"/></td>
+                    <td class="text-end text-muted">$ <t t-esc="round(o.platform_amount, 2)"/></td>
+                  </tr>
+                </t>
+              </tbody>
+            </table>
+            <p class="text-muted small">
+              La comisión se calcula sobre las libras del acta, no sobre las declaradas.
+            </p>
+          </t>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+</odoo>

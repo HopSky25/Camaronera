@@ -1,0 +1,350 @@
+<odoo>
+
+  <!-- ================================================================
+       MIS TARIFAS
+       ================================================================ -->
+  <template id="copacker_tariffs" name="Mis tarifas">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page shrimp-page--full py-4">
+
+          <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <div>
+              <h2 class="mb-1">Mis tarifas</h2>
+              <p class="text-muted mb-0">
+                Cada tarifa va dirigida a los clientes que elijas. Nadie ve la del vecino.
+              </p>
+            </div>
+            <form method="post" action="/maquilador/tarifa/nueva" class="d-flex gap-2">
+              <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+              <input type="text" name="name" class="form-control" placeholder="Nombre de la tarifa"/>
+              <button type="submit" class="btn btn-primary text-nowrap">Nueva</button>
+            </form>
+          </div>
+
+          <t t-if="mensaje"><div class="alert alert-success">Guardada.</div></t>
+
+          <t t-if="not tarifas">
+            <div class="alert alert-light border">
+              Todavía no tienes tarifas. Los clientes solo ven tus precios de referencia
+              del directorio hasta que les dirijas una.
+            </div>
+          </t>
+          <t t-else="">
+            <table class="table table-hover bg-white align-middle">
+              <thead>
+                <tr>
+                  <th>Nombre</th><th>Vigencia</th><th class="text-end">Renglones</th>
+                  <th class="text-end">Destinatarios</th><th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                <t t-foreach="tarifas" t-as="t">
+                  <tr>
+                    <td><a t-attf-href="/maquilador/tarifa/#{t.uuid_ref}"><t t-esc="t.name"/></a></td>
+                    <td class="small">
+                      desde <t t-esc="t.valid_from"/>
+                      <t t-if="t.open_ended"> · sin fin</t>
+                      <t t-elif="t.valid_to"> hasta <t t-esc="t.valid_to"/></t>
+                    </td>
+                    <td class="text-end"><t t-esc="t.line_count"/></td>
+                    <td class="text-end"><t t-esc="t.recipient_count"/></td>
+                    <td>
+                      <t t-if="t.is_current"><span class="badge text-bg-success">Vigente</span></t>
+                      <t t-elif="t.state == 'draft'"><span class="badge text-bg-secondary">Borrador</span></t>
+                      <t t-else=""><span class="badge text-bg-light text-dark">
+                        <t t-esc="dict(t._fields['state'].selection).get(t.state)"/></span></t>
+                    </td>
+                  </tr>
+                </t>
+              </tbody>
+            </table>
+          </t>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+  <!-- ================================================================
+       EDITOR DE TARIFA
+       ================================================================ -->
+  <template id="copacker_tariff_form" name="Tarifa de empaque">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page py-4">
+
+          <a href="/maquilador/tarifas" class="btn btn-sm btn-link mb-2">&#8592; Mis tarifas</a>
+          <t t-if="mensaje"><div class="alert alert-success">Guardada.</div></t>
+          <t t-if="error"><div class="alert alert-danger"><t t-esc="error"/></div></t>
+
+          <form method="post" t-attf-action="/maquilador/tarifa/#{t.uuid_ref}/guardar">
+            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+
+            <div class="card mb-3">
+              <div class="card-body">
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label">Nombre</label>
+                    <input type="text" name="name" class="form-control" t-att-value="t.name"/>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Lote mínimo (lb)</label>
+                    <input type="number" step="1" min="0" name="min_lot_lb"
+                           class="form-control" t-att-value="int(t.min_lot_lb)"/>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Vigente hasta</label>
+                    <input type="date" name="valid_to" class="form-control" t-att-value="t.valid_to or ''"/>
+                    <div class="form-check mt-1">
+                      <input type="checkbox" name="open_ended" class="form-check-input"
+                             t-att-checked="'checked' if t.open_ended else None"/>
+                      <label class="form-check-label small">Sin fecha de fin</label>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Forma de pago</label>
+                    <input type="text" name="payment_notes" class="form-control"
+                           t-att-value="t.payment_notes or ''"/>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Condiciones del servicio</label>
+                    <textarea name="conditions" class="form-control" rows="2"><t t-esc="t.conditions or ''"/></textarea>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- RENGLONES. Columnas paralelas y reemplazo en bloque: editar en
+                 sitio con formularios planos es mas fragil. -->
+            <div class="card mb-3">
+              <div class="card-body">
+                <h6 class="text-uppercase text-muted small mb-1">Renglones</h6>
+                <p class="text-muted small">
+                  El tramo «desde» es lo que hace útil la tarifa: a más volumen, menos
+                  precio. Deja un renglón desde 0 y añade otro desde el volumen en que
+                  bajas.
+                </p>
+                <table class="table table-sm align-middle">
+                  <thead>
+                    <tr>
+                      <th style="width:22%">Presentación</th>
+                      <th style="width:38%">Formato de empaque</th>
+                      <th style="width:20%">Desde (lb)</th>
+                      <th style="width:20%">$ / lb</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <t t-set="filas" t-value="list(t.line_ids.sorted(lambda l: (l.presentation, l.from_lb)))"/>
+                    <t t-foreach="filas + [None, None, None]" t-as="l">
+                      <tr>
+                        <td>
+                          <select name="l_presentation" class="form-select form-select-sm">
+                            <option value="entero" t-att-selected="'selected' if l and l.presentation == 'entero' else None">Entero</option>
+                            <option value="cola" t-att-selected="'selected' if l and l.presentation == 'cola' else None">Cola</option>
+                            <option value="valor_agregado" t-att-selected="'selected' if l and l.presentation == 'valor_agregado' else None">Valor agregado</option>
+                          </select>
+                        </td>
+                        <td>
+                          <input type="text" name="l_format" class="form-control form-control-sm"
+                                 placeholder="master 5 lb" t-att-value="l.pack_format if l else ''"/>
+                        </td>
+                        <td>
+                          <input type="number" step="1" min="0" name="l_from"
+                                 class="form-control form-control-sm"
+                                 t-att-value="int(l.from_lb) if l else 0"/>
+                        </td>
+                        <td>
+                          <input type="number" step="0.001" min="0" name="l_rate"
+                                 class="form-control form-control-sm"
+                                 t-att-value="l.rate_per_lb if l else ''"/>
+                        </td>
+                      </tr>
+                    </t>
+                  </tbody>
+                </table>
+                <p class="text-muted small mb-0">
+                  Los renglones sin formato o sin precio se descartan al guardar.
+                </p>
+              </div>
+            </div>
+
+            <div class="card mb-3">
+              <div class="card-body">
+                <h6 class="text-uppercase text-muted small mb-1">Dirigida a</h6>
+                <p class="text-muted small">
+                  Solo estos clientes la verán. Ninguno ve lo que le cobras a otro.
+                </p>
+                <div class="row g-2" style="max-height:260px; overflow:auto">
+                  <t t-foreach="clientes" t-as="c">
+                    <div class="col-md-6">
+                      <div class="form-check">
+                        <input type="checkbox" name="recipient_ids" class="form-check-input"
+                               t-att-value="c.id"
+                               t-att-checked="'checked' if c in t.recipient_ids else None"/>
+                        <label class="form-check-label">
+                          <t t-esc="c.name"/>
+                          <span class="text-muted small">
+                            (<t t-esc="dict(c._fields['shrimp_user_type'].selection).get(c.shrimp_user_type)"/>)
+                          </span>
+                        </label>
+                      </div>
+                    </div>
+                  </t>
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-outline-primary">Guardar borrador</button>
+            <button type="submit" name="publicar" value="1" class="btn btn-primary">
+              Guardar y publicar
+            </button>
+          </form>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+  <!-- ================================================================
+       PERFIL Y CAPACIDAD
+       ================================================================ -->
+  <template id="copacker_profile" name="Perfil de la planta">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page py-4">
+
+          <h2 class="mb-1">Mi planta</h2>
+          <p class="text-muted">Esto es lo que ven los clientes cuando buscan quién empaca.</p>
+
+          <t t-if="mensaje"><div class="alert alert-success">Guardado.</div></t>
+          <t t-if="error"><div class="alert alert-danger"><t t-esc="error"/></div></t>
+
+          <form method="post" action="/maquilador/perfil/guardar">
+            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+
+            <div class="card mb-3">
+              <div class="card-body">
+                <h6 class="text-uppercase text-muted small mb-3">Identificación</h6>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label">Razón social *</label>
+                    <input type="text" name="pack_razon_social" class="form-control"
+                           required="required" t-att-value="maq.pack_razon_social or ''"/>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Representante legal</label>
+                    <input type="text" name="pack_representante" class="form-control"
+                           t-att-value="maq.pack_representante or ''"/>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Ubicación de la planta *</label>
+                    <input type="text" name="pack_ubicacion" class="form-control"
+                           required="required" t-att-value="maq.pack_ubicacion or ''"/>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Teléfono</label>
+                    <input type="text" name="pack_telefono" class="form-control"
+                           t-att-value="maq.pack_telefono or ''"/>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card mb-3">
+              <div class="card-body">
+                <h6 class="text-uppercase text-muted small mb-1">Habilitación</h6>
+                <p class="text-muted small">
+                  El código de establecimiento sale impreso en el certificado de
+                  trazabilidad del lote. Es lo que permite que el camarón que empacas
+                  se pueda exportar, y lo que tu cliente necesita demostrar.
+                </p>
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <label class="form-label">Código de establecimiento</label>
+                    <input type="text" name="pack_codigo_establecimiento" class="form-control"
+                           t-att-value="maq.pack_codigo_establecimiento or ''"/>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Vigente desde</label>
+                    <input type="date" name="pack_habilitacion_desde" class="form-control"
+                           t-att-value="maq.pack_habilitacion_desde or ''"/>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Vigente hasta</label>
+                    <input type="date" name="pack_habilitacion_hasta" class="form-control"
+                           t-att-value="maq.pack_habilitacion_hasta or ''"/>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card mb-3">
+              <div class="card-body">
+                <h6 class="text-uppercase text-muted small mb-1">Capacidad y tarifas de referencia</h6>
+                <p class="text-muted small">
+                  Estos precios son públicos: aparecen en el directorio para que el
+                  cliente pueda preseleccionar. La tarifa firme se la mandas dirigida y
+                  no la ve nadie más.
+                </p>
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <label class="form-label">Capacidad (lb/semana)</label>
+                    <input type="number" step="1" min="0" name="pack_capacidad_lb_semana"
+                           class="form-control" t-att-value="int(maq.pack_capacidad_lb_semana)"/>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Lote mínimo (lb)</label>
+                    <input type="number" step="1" min="0" name="pack_lote_minimo_lb"
+                           class="form-control" t-att-value="int(maq.pack_lote_minimo_lb)"/>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Presentaciones que manejas</label>
+                    <input type="text" name="pack_presentaciones" class="form-control"
+                           t-att-value="maq.pack_presentaciones or ''"/>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Entero, desde ($/lb)</label>
+                    <input type="number" step="0.001" min="0" name="pack_desde_entero"
+                           class="form-control" t-att-value="maq.pack_desde_entero or ''"/>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Cola, desde ($/lb)</label>
+                    <input type="number" step="0.001" min="0" name="pack_desde_cola"
+                           class="form-control" t-att-value="maq.pack_desde_cola or ''"/>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Valor agregado, desde ($/lb)</label>
+                    <input type="number" step="0.001" min="0" name="pack_desde_valor_agregado"
+                           class="form-control" t-att-value="maq.pack_desde_valor_agregado or ''"/>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Aclaración de la tarifa</label>
+                    <input type="text" name="pack_tarifa_nota" class="form-control"
+                           placeholder="Precios referenciales; la tarifa firme depende del volumen."
+                           t-att-value="maq.pack_tarifa_nota or ''"/>
+                  </div>
+                  <div class="col-12">
+                    <div class="form-check">
+                      <input type="checkbox" name="pack_en_directorio" class="form-check-input"
+                             t-att-checked="'checked' if maq.pack_en_directorio else None"/>
+                      <label class="form-check-label">
+                        <b>Aparecer en el directorio.</b>
+                        Si lo apagas dejas de salir a quien busca planta, y solo podrás
+                        trabajar con quien ya te conoce.
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Guardar</button>
+          </form>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+</odoo>

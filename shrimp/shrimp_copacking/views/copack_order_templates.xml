@@ -202,6 +202,76 @@
             </div>
           </div>
 
+
+          <!-- Acciones del maquilador. Van en la misma pantalla que ve el
+               cliente a proposito: las dos partes miran los mismos numeros, y
+               eso evita la mitad de las discusiones. -->
+          <t t-if="rol == 'copacker' and orden.state == 'confirmed'">
+            <div class="card mt-3 border-primary">
+              <div class="card-body">
+                <h6 class="text-uppercase text-muted small mb-3">Registrar la recepción</h6>
+                <form method="post" t-attf-action="/maquilador/orden/#{orden.uuid_ref}/recepcion">
+                  <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                  <div class="row g-3">
+                    <div class="col-md-4">
+                      <label class="form-label">Libras recibidas *</label>
+                      <input type="number" step="0.01" min="0.01" name="received_lb"
+                             class="form-control" required="required"
+                             t-att-value="int(orden.agreed_qty_lb)"/>
+                    </div>
+                    <div class="col-md-8">
+                      <label class="form-label">Insumos</label>
+                      <div class="form-check">
+                        <input type="checkbox" name="supplies_received" class="form-check-input"
+                               checked="checked"/>
+                        <label class="form-check-label">Llegaron completos</label>
+                      </div>
+                      <input type="text" name="supplies_issue" class="form-control mt-2"
+                             placeholder="Si faltó algo, dilo aquí"/>
+                    </div>
+                  </div>
+                  <button type="submit" class="btn btn-primary mt-3">Registrar recepción</button>
+                </form>
+              </div>
+            </div>
+          </t>
+
+          <t t-if="rol == 'copacker' and orden.state == 'received'">
+            <div class="card mt-3 border-primary">
+              <div class="card-body">
+                <h6 class="text-uppercase text-muted small mb-3">Registrar el empaque</h6>
+                <form method="post" t-attf-action="/maquilador/orden/#{orden.uuid_ref}/empaque">
+                  <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                  <div class="row g-3">
+                    <div class="col-md-3">
+                      <label class="form-label">Libras empacadas *</label>
+                      <input type="number" step="0.01" min="0.01" name="packed_lb"
+                             class="form-control" required="required"/>
+                    </div>
+                    <div class="col-md-3">
+                      <label class="form-label">Cajas / masters</label>
+                      <input type="number" step="1" min="0" name="boxes" class="form-control"/>
+                    </div>
+                    <div class="col-md-3">
+                      <label class="form-label">Presentación empacada</label>
+                      <input type="text" name="packed_presentation" class="form-control"/>
+                    </div>
+                    <div class="col-md-3">
+                      <label class="form-label">Tolerancia (%)</label>
+                      <input type="number" step="0.1" min="0" name="tolerance_pct"
+                             class="form-control" t-att-value="orden.tolerance_pct"/>
+                    </div>
+                  </div>
+                  <p class="text-muted small mt-2 mb-0">
+                    Al registrar el empaque se abre el acta y las dos partes tienen que
+                    firmarla. No se puede entregar más de lo que entró.
+                  </p>
+                  <button type="submit" class="btn btn-primary mt-2">Registrar empaque</button>
+                </form>
+              </div>
+            </div>
+          </t>
+
           <!-- ACTA -->
           <t t-if="orden.acceptance_state != 'na'">
             <div class="card mt-3">

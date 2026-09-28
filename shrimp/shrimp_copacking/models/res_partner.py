@@ -46,6 +46,18 @@ class ResPartner(models.Model):
             rec.pack_habilitacion_vigente = bool(
                 rec.pack_habilitacion_hasta and rec.pack_habilitacion_hasta >= hoy)
 
+
+    # Referencias hacia atras. No son cosmeticas: sin ellas la regla de acceso
+    # no puede expresar "dejame leer al contacto de mi contraparte", y el
+    # maquilador recibia un 403 al pintar el nombre del cliente en su lista de
+    # ordenes.
+    copack_request_ids = fields.One2many(
+        "shrimp.copack.request", "client_partner_id", string="Solicitudes de empaque")
+    copack_order_client_ids = fields.One2many(
+        "shrimp.copack.order", "client_partner_id", string="Empaques contratados")
+    copack_order_copacker_ids = fields.One2many(
+        "shrimp.copack.order", "copacker_partner_id", string="Empaques realizados")
+
     # --- Tarifa referencial, PUBLICA ---
     # El cliente necesita saber por donde van los precios ANTES de pedir: nadie
     # contrata a ciegas y luego pregunta. Pero la tarifa real no puede ser

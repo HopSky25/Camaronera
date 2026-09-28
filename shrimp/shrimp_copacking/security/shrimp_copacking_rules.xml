@@ -22,6 +22,31 @@
             <field name="domain_force">[('shrimp_user_type', '=', 'maquilador'), ('pack_en_directorio', '=', True)]</field>
         </record>
 
+
+        <!-- Leer al contacto de la contraparte. La regla nativa de Odoo solo
+             deja a un usuario de portal ver los contactos ligados a SUS
+             registros, asi que el maquilador recibia un 403 nada mas pintar el
+             nombre del cliente en su lista de ordenes.
+             Se abre lo justo: quien publico una solicitud que yo puedo ver, y
+             con quien tengo una orden. Ni un contacto mas. -->
+        <record id="rule_copack_contrapartes" model="ir.rule">
+            <field name="name">Empaque: contactos de mi contraparte</field>
+            <field name="model_id" ref="base.model_res_partner"/>
+            <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="False"/>
+            <field name="perm_create" eval="False"/>
+            <field name="perm_unlink" eval="False"/>
+            <field name="domain_force">
+                ['|', '|',
+                 '&amp;', ('copack_request_ids.state', '=', 'published'),
+                          '|', ('copack_request_ids.is_open', '=', True),
+                               ('copack_request_ids.copacker_partner_id', '=', user.partner_id.id),
+                 ('copack_order_client_ids.copacker_partner_id', '=', user.partner_id.id),
+                 ('copack_order_copacker_ids.client_partner_id', '=', user.partner_id.id)]
+            </field>
+        </record>
+
         <!-- === SOLICITUDES ===
              El cliente ve las suyas. El maquilador ve las publicadas, que es
              justo lo que tiene que poder ver para ofertar: si no viera las

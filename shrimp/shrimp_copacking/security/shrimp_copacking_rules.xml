@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!-- === SOLICITUDES ===
+             El cliente ve las suyas. El maquilador ve las publicadas, que es
+             justo lo que tiene que poder ver para ofertar: si no viera las
+             ajenas no habria bandeja. -->
+        <record id="rule_copack_request_cliente" model="ir.rule">
+            <field name="name">Solicitudes de empaque: las propias del cliente</field>
+            <field name="model_id" ref="model_shrimp_copack_request"/>
+            <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+            <field name="domain_force">[('client_partner_id', '=', user.partner_id.id)]</field>
+        </record>
+
+        <!-- Las reglas del mismo grupo se suman con O, asi que esta AMPLIA la
+             anterior: el maquilador ve ademas las publicadas de cualquiera, que
+             es lo que le llena la bandeja. Quien no es maquilador cae en el
+             dominio falso y no ve nada ajeno. -->
+        <record id="rule_copack_request_bandeja" model="ir.rule">
+            <field name="name">Solicitudes de empaque: bandeja del maquilador</field>
+            <field name="model_id" ref="model_shrimp_copack_request"/>
+            <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+            <field name="domain_force">[('state', '=', 'published')] if user.partner_id.shrimp_user_type == 'maquilador' else [(0, '=', 1)]</field>
+        </record>
+
+        <!-- === OFERTAS ===
+             El maquilador ve las suyas; el cliente ve las que recibio. -->
+        <record id="rule_copack_offer_partes" model="ir.rule">
+            <field name="name">Ofertas de empaque: solo las partes</field>
+            <field name="model_id" ref="model_shrimp_copack_offer"/>
+            <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+            <field name="domain_force">
+                ['|',
+                 ('copacker_partner_id', '=', user.partner_id.id),
+                 ('request_id.client_partner_id', '=', user.partner_id.id)]
+            </field>
+        </record>
+
+        <!-- === ORDENES === -->
+        <record id="rule_copack_order_partes" model="ir.rule">
+            <field name="name">Órdenes de empaque: solo las partes</field>
+            <field name="model_id" ref="model_shrimp_copack_order"/>
+            <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+            <field name="domain_force">
+                ['|',
+                 ('client_partner_id', '=', user.partner_id.id),
+                 ('copacker_partner_id', '=', user.partner_id.id)]
+            </field>
+        </record>
+
+        <!-- === FIRMAS DEL ACTA === -->
+        <record id="rule_copack_acceptance_partes" model="ir.rule">
+            <field name="name">Firmas del acta: solo las partes</field>
+            <field name="model_id" ref="model_shrimp_copack_acceptance"/>
+            <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+            <field name="domain_force">
+                ['|',
+                 ('order_id.client_partner_id', '=', user.partner_id.id),
+                 ('order_id.copacker_partner_id', '=', user.partner_id.id)]
+            </field>
+        </record>
+
+    </data>
+</odoo>

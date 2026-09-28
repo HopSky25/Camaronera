@@ -36,6 +36,8 @@ sitio y sus propias bandejas.
         "views/copacker_templates.xml",
         "views/copacker_tariff_templates.xml",
         "views/traceability_pdf_inherit.xml",
+        "views/navbar_inherit.xml",
+        "views/menus.xml",
         "data/site_config.xml",
     ],
     "installable": True,

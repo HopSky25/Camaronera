@@ -1,0 +1,40 @@
+<odoo>
+
+  <!-- Menús del backoffice. El portal es para los clientes; esto es para
+       quien administra la plataforma y necesita ver qué está pasando. -->
+
+  <record id="action_copack_request" model="ir.actions.act_window">
+    <field name="name">Solicitudes de empaque</field>
+    <field name="res_model">shrimp.copack.request</field>
+    <field name="view_mode">list,form</field>
+  </record>
+
+  <record id="action_copack_order" model="ir.actions.act_window">
+    <field name="name">Órdenes de empaque</field>
+    <field name="res_model">shrimp.copack.order</field>
+    <field name="view_mode">list,form</field>
+  </record>
+
+  <record id="action_copack_tariff" model="ir.actions.act_window">
+    <field name="name">Tarifas de empaque</field>
+    <field name="res_model">shrimp.copack.tariff</field>
+    <field name="view_mode">list,form</field>
+  </record>
+
+  <menuitem id="menu_copack_root" name="Servicio de empaque"
+            parent="shrimp_marketplace.menu_shrimp_root"
+            groups="base.group_user" sequence="48"/>
+
+  <!-- Las órdenes van primero: es lo que se consulta a diario. Las
+       solicitudes y las tarifas son de consulta ocasional. -->
+  <menuitem id="menu_copack_order" name="Órdenes"
+            parent="menu_copack_root" action="action_copack_order"
+            groups="base.group_user" sequence="10"/>
+  <menuitem id="menu_copack_request" name="Solicitudes"
+            parent="menu_copack_root" action="action_copack_request"
+            groups="base.group_user" sequence="20"/>
+  <menuitem id="menu_copack_tariff" name="Tarifas"
+            parent="menu_copack_root" action="action_copack_tariff"
+            groups="base.group_user" sequence="30"/>
+
+</odoo>

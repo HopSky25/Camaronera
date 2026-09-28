@@ -43,6 +43,7 @@ desarrollo que se hace en paralelo sobre ese módulo.
     "demo": [
         "demo/demo_01_partners.xml",
         "demo/demo_02_price_lists.xml",
+        "demo/demo_03_listas_semana.xml",
     ],
     "assets": {
         "web.assets_frontend": [

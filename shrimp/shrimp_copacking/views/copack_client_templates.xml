@@ -1,0 +1,227 @@
+<odoo>
+
+  <!-- ================================================================
+       DIRECTORIO: quien empaca, donde y desde cuanto.
+       Es la primera pantalla a proposito: nadie contrata un servicio sin
+       saber antes quien lo presta y por donde van los precios.
+       ================================================================ -->
+  <template id="copack_directory" name="Servicio de empaque">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page shrimp-page--full py-4">
+
+          <div class="sf-banner mb-4">
+            <div class="sf-banner-row">
+              <div class="sf-banner-txt">
+                <h1>Servicio de empaque</h1>
+                <p>Plantas que empacan camarón ajeno. Tú llevas el producto y los insumos.</p>
+              </div>
+              <span class="sf-kicker"><i class="fa fa-cube"></i> Empaque</span>
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <form method="get" action="/marketplace/empaque" class="d-flex gap-2">
+              <input type="text" name="q" t-att-value="q or ''" class="form-control"
+                     placeholder="Buscar por nombre o ubicación…" style="max-width:320px"/>
+              <button type="submit" class="btn btn-outline-secondary">Buscar</button>
+            </form>
+            <div class="d-flex gap-2">
+              <a href="/marketplace/empaque/solicitudes" class="btn btn-outline-primary">Mis solicitudes</a>
+              <a href="/marketplace/empaque/ordenes" class="btn btn-outline-primary">Mis órdenes</a>
+            </div>
+          </div>
+
+          <t t-if="not maquiladores">
+            <div class="alert alert-light border">
+              Todavía no hay plantas publicadas en el directorio.
+            </div>
+          </t>
+
+          <div class="row g-3">
+            <t t-foreach="maquiladores" t-as="m">
+              <div class="col-12 col-lg-6">
+                <div class="card h-100">
+                  <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                      <h5 class="card-title mb-1"><t t-esc="m.name"/></h5>
+                      <t t-if="m.pack_habilitacion_hasta and m.pack_habilitacion_hasta &gt;= hoy">
+                        <span class="badge text-bg-success">Habilitación vigente</span>
+                      </t>
+                      <t t-elif="m.pack_codigo_establecimiento">
+                        <span class="badge text-bg-warning">Habilitación por confirmar</span>
+                      </t>
+                    </div>
+                    <p class="text-muted mb-2">
+                      <i class="fa fa-map-marker"></i> <t t-esc="m.pack_ubicacion or 'Ubicación no indicada'"/>
+                      <t t-if="m.pack_codigo_establecimiento">
+                        &#160;·&#160; Establecimiento <b><t t-esc="m.pack_codigo_establecimiento"/></b>
+                      </t>
+                    </p>
+
+                    <div class="row g-2 small">
+                      <t t-if="m.pack_desde_entero">
+                        <div class="col-4">
+                          <div class="text-muted">Entero desde</div>
+                          <div class="fw-bold">$ <t t-esc="round(m.pack_desde_entero, 2)"/> / lb</div>
+                        </div>
+                      </t>
+                      <t t-if="m.pack_desde_cola">
+                        <div class="col-4">
+                          <div class="text-muted">Cola desde</div>
+                          <div class="fw-bold">$ <t t-esc="round(m.pack_desde_cola, 2)"/> / lb</div>
+                        </div>
+                      </t>
+                      <t t-if="m.pack_desde_valor_agregado">
+                        <div class="col-4">
+                          <div class="text-muted">Valor agregado desde</div>
+                          <div class="fw-bold">$ <t t-esc="round(m.pack_desde_valor_agregado, 2)"/> / lb</div>
+                        </div>
+                      </t>
+                    </div>
+
+                    <div class="row g-2 small mt-1">
+                      <t t-if="m.pack_capacidad_lb_semana">
+                        <div class="col-6">
+                          <div class="text-muted">Capacidad</div>
+                          <div><t t-esc="int(m.pack_capacidad_lb_semana)"/> lb / semana</div>
+                        </div>
+                      </t>
+                      <t t-if="m.pack_lote_minimo_lb">
+                        <div class="col-6">
+                          <div class="text-muted">Lote mínimo</div>
+                          <div><t t-esc="int(m.pack_lote_minimo_lb)"/> lb</div>
+                        </div>
+                      </t>
+                    </div>
+
+                    <t t-if="m.pack_tarifa_nota">
+                      <p class="text-muted small fst-italic mt-2 mb-0"><t t-esc="m.pack_tarifa_nota"/></p>
+                    </t>
+                  </div>
+                  <div class="card-footer bg-transparent d-flex gap-2">
+                    <a t-attf-href="/marketplace/empaque/planta/#{m.id}"
+                       class="btn btn-sm btn-outline-secondary">Ver planta</a>
+                    <a t-attf-href="/marketplace/empaque/solicitar?a=#{m.id}"
+                       class="btn btn-sm btn-primary">Pedirle servicio</a>
+                  </div>
+                </div>
+              </div>
+            </t>
+          </div>
+
+          <p class="text-muted small mt-4 mb-0">
+            Las tarifas de arriba son referenciales. La firme depende del volumen y te la
+            manda la planta dirigida solo a ti.
+          </p>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+  <!-- ================================================================
+       FICHA DE LA PLANTA
+       ================================================================ -->
+  <template id="copack_plant" name="Planta de empaque">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page py-4">
+
+          <a href="/marketplace/empaque" class="btn btn-sm btn-link mb-2">&#8592; Volver al directorio</a>
+          <h2 class="mb-1"><t t-esc="maq.name"/></h2>
+          <p class="text-muted">
+            <t t-esc="maq.pack_ubicacion or ''"/>
+            <t t-if="maq.pack_codigo_establecimiento">
+              &#160;·&#160; Establecimiento <b><t t-esc="maq.pack_codigo_establecimiento"/></b>
+            </t>
+          </p>
+
+          <div class="card mb-3">
+            <div class="card-body">
+              <h6 class="text-uppercase text-muted small mb-3">Datos de la planta</h6>
+              <dl class="row mb-0">
+                <dt class="col-sm-4">Razón social</dt>
+                <dd class="col-sm-8"><t t-esc="maq.pack_razon_social or '—'"/></dd>
+                <dt class="col-sm-4">Representante</dt>
+                <dd class="col-sm-8"><t t-esc="maq.pack_representante or '—'"/></dd>
+                <dt class="col-sm-4">Presentaciones</dt>
+                <dd class="col-sm-8"><t t-esc="maq.pack_presentaciones or '—'"/></dd>
+                <dt class="col-sm-4">Capacidad</dt>
+                <dd class="col-sm-8">
+                  <t t-if="maq.pack_capacidad_lb_semana"><t t-esc="int(maq.pack_capacidad_lb_semana)"/> lb / semana</t>
+                  <t t-else="">—</t>
+                </dd>
+                <dt class="col-sm-4">Habilitación</dt>
+                <dd class="col-sm-8">
+                  <t t-if="maq.pack_habilitacion_hasta">
+                    hasta <t t-esc="maq.pack_habilitacion_hasta"/>
+                    <t t-if="maq.pack_habilitacion_hasta &gt;= hoy">
+                      <span class="badge text-bg-success ms-1">vigente</span>
+                    </t>
+                    <t t-else="">
+                      <span class="badge text-bg-danger ms-1">vencida</span>
+                    </t>
+                  </t>
+                  <t t-else="">no registrada</t>
+                </dd>
+              </dl>
+            </div>
+          </div>
+
+          <!-- La tarifa firme solo aparece si esta planta me la dirigio: la
+               regla de acceso ya filtra, aqui solo se decide que mensaje dar. -->
+          <t t-if="tarifas">
+            <t t-foreach="tarifas" t-as="t">
+              <div class="card mb-3">
+                <div class="card-body">
+                  <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h6 class="mb-0"><t t-esc="t.name"/></h6>
+                    <span class="badge text-bg-primary">Tarifa dirigida a ti</span>
+                  </div>
+                  <t t-if="t.min_lot_lb">
+                    <p class="small text-muted mb-2">Lote mínimo: <t t-esc="int(t.min_lot_lb)"/> lb</p>
+                  </t>
+                  <table class="table table-sm mb-2">
+                    <thead>
+                      <tr>
+                        <th>Presentación</th><th>Formato</th>
+                        <th class="text-end">Desde (lb)</th><th class="text-end">$ / lb</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <t t-foreach="t.line_ids.sorted(lambda l: (l.presentation, l.from_lb))" t-as="l">
+                        <tr>
+                          <td><t t-esc="dict(l._fields['presentation'].selection).get(l.presentation)"/></td>
+                          <td><t t-esc="l.pack_format"/></td>
+                          <td class="text-end"><t t-esc="int(l.from_lb)"/></td>
+                          <td class="text-end fw-bold">$ <t t-esc="round(l.rate_per_lb, 3)"/></td>
+                        </tr>
+                      </t>
+                    </tbody>
+                  </table>
+                  <t t-if="t.conditions">
+                    <p class="small text-muted mb-0"><t t-esc="t.conditions"/></p>
+                  </t>
+                </div>
+              </div>
+            </t>
+          </t>
+          <t t-else="">
+            <div class="alert alert-light border">
+              Esta planta todavía no te ha dirigido una tarifa. Los precios de referencia
+              del directorio te sirven para hacerte una idea; pídele el servicio y te
+              responderá con su tarifa firme para tu volumen.
+            </div>
+          </t>
+
+          <a t-attf-href="/marketplace/empaque/solicitar?a=#{maq.id}" class="btn btn-primary">
+            Pedirle servicio
+          </a>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+</odoo>

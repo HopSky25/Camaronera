@@ -29,6 +29,9 @@ sitio y sus propias bandejas.
         "data/sequences.xml",
         "security/ir.model.access.csv",
         "security/shrimp_copacking_rules.xml",
+        "views/copack_client_templates.xml",
+        "views/copack_request_templates.xml",
+        "views/copack_order_templates.xml",
     ],
     "installable": True,
 }

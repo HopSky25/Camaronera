@@ -1,0 +1,267 @@
+<odoo>
+
+  <!-- ================================================================
+       LISTA DE ORDENES. Sirve a las dos partes: la regla de acceso ya
+       devuelve solo las propias, asi que la plantilla no filtra nada.
+       ================================================================ -->
+  <template id="copack_orders" name="Órdenes de empaque">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page shrimp-page--full py-4">
+
+          <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <h2 class="mb-0">Órdenes de empaque</h2>
+            <t t-if="not soy_maquilador">
+              <a href="/marketplace/empaque" class="btn btn-outline-secondary">Directorio</a>
+            </t>
+          </div>
+
+          <t t-if="mensaje"><div class="alert alert-success">Listo.</div></t>
+
+          <t t-if="not ordenes">
+            <div class="alert alert-light border">Todavía no hay órdenes de empaque.</div>
+          </t>
+          <t t-else="">
+            <table class="table table-hover bg-white align-middle">
+              <thead>
+                <tr>
+                  <th>Referencia</th>
+                  <th><t t-if="soy_maquilador">Cliente</t><t t-else="">Planta</t></th>
+                  <th class="text-end">Acordadas</th>
+                  <th class="text-end">Recibidas</th>
+                  <th class="text-end">Empacadas</th>
+                  <th class="text-end">Diferencia</th>
+                  <th>Estado</th><th>Acta</th>
+                </tr>
+              </thead>
+              <tbody>
+                <t t-foreach="ordenes" t-as="o">
+                  <tr>
+                    <td>
+                      <a t-attf-href="/marketplace/empaque/orden/#{o.uuid_ref}"><t t-esc="o.name"/></a>
+                    </td>
+                    <td>
+                      <t t-if="soy_maquilador"><t t-esc="o.client_partner_id.name"/></t>
+                      <t t-else=""><t t-esc="o.copacker_partner_id.name"/></t>
+                    </td>
+                    <td class="text-end"><t t-esc="int(o.agreed_qty_lb)"/></td>
+                    <td class="text-end"><t t-esc="int(o.received_lb)"/></td>
+                    <td class="text-end"><t t-esc="int(o.packed_lb)"/></td>
+                    <td class="text-end">
+                      <t t-if="o.packed_lb">
+                        <span t-att-class="'text-success' if o.cuadra else 'text-danger fw-bold'">
+                          <t t-esc="round(o.difference_lb, 2)"/> lb
+                        </span>
+                      </t>
+                      <t t-else="">—</t>
+                    </td>
+                    <td>
+                      <span class="badge text-bg-secondary">
+                        <t t-esc="dict(o._fields['state'].selection).get(o.state)"/>
+                      </span>
+                    </td>
+                    <td>
+                      <t t-if="o.acceptance_state == 'open'">
+                        <span class="badge text-bg-warning">A la firma</span>
+                      </t>
+                      <t t-elif="o.acceptance_state == 'closed'">
+                        <span class="badge text-bg-success">Firmada</span>
+                      </t>
+                      <t t-elif="o.acceptance_state == 'disputed'">
+                        <span class="badge text-bg-danger">En disputa</span>
+                      </t>
+                      <t t-else=""><span class="text-muted small">—</span></t>
+                    </td>
+                  </tr>
+                </t>
+              </tbody>
+            </table>
+          </t>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+  <!-- ================================================================
+       DETALLE DE LA ORDEN Y FIRMA DEL ACTA
+       ================================================================ -->
+  <template id="copack_order_detail" name="Orden de empaque">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page py-4">
+
+          <a href="/marketplace/empaque/ordenes" class="btn btn-sm btn-link mb-2">&#8592; Órdenes</a>
+          <div class="d-flex justify-content-between align-items-start flex-wrap">
+            <div>
+              <h2 class="mb-1"><t t-esc="orden.name"/></h2>
+              <p class="text-muted mb-0">
+                <t t-esc="orden.client_partner_id.name"/>
+                &#160;&#8594;&#160;
+                <t t-esc="orden.copacker_partner_id.name"/>
+                <t t-if="orden.copacker_partner_id.pack_codigo_establecimiento">
+                  &#160;·&#160; Establecimiento <b><t t-esc="orden.copacker_partner_id.pack_codigo_establecimiento"/></b>
+                </t>
+              </p>
+            </div>
+            <span class="badge text-bg-secondary fs-6">
+              <t t-esc="dict(orden._fields['state'].selection).get(orden.state)"/>
+            </span>
+          </div>
+
+          <t t-if="mensaje"><div class="alert alert-success mt-3">Listo.</div></t>
+          <t t-if="error"><div class="alert alert-danger mt-3"><t t-esc="error"/></div></t>
+
+          <!-- EL CUADRE: es lo que la gente viene a mirar, asi que va arriba -->
+          <div class="card my-3">
+            <div class="card-body">
+              <h6 class="text-uppercase text-muted small mb-3">El cuadre</h6>
+              <div class="row text-center">
+                <div class="col-4">
+                  <div class="text-muted small">Recibidas</div>
+                  <div class="fs-4 fw-bold"><t t-esc="int(orden.received_lb)"/></div>
+                  <div class="text-muted small">lb</div>
+                </div>
+                <div class="col-4">
+                  <div class="text-muted small">Empacadas</div>
+                  <div class="fs-4 fw-bold"><t t-esc="int(orden.packed_lb)"/></div>
+                  <div class="text-muted small">lb</div>
+                </div>
+                <div class="col-4">
+                  <div class="text-muted small">Diferencia</div>
+                  <div t-att-class="'fs-4 fw-bold ' + ('text-success' if orden.cuadra else 'text-danger')">
+                    <t t-esc="round(orden.difference_lb, 2)"/>
+                  </div>
+                  <div class="text-muted small">
+                    <t t-esc="round(orden.difference_pct, 2)"/> % · tolerancia <t t-esc="orden.tolerance_pct"/> %
+                  </div>
+                </div>
+              </div>
+              <t t-if="orden.packed_lb">
+                <div class="mt-3">
+                  <t t-if="orden.cuadra">
+                    <div class="alert alert-success mb-0 py-2">
+                      Cuadra: la diferencia está dentro de la tolerancia pactada.
+                    </div>
+                  </t>
+                  <t t-else="">
+                    <div class="alert alert-danger mb-0 py-2">
+                      No cuadra: la diferencia se pasa de la tolerancia. Antes de firmar,
+                      aclárenlo entre las partes.
+                    </div>
+                  </t>
+                </div>
+              </t>
+            </div>
+          </div>
+
+          <div class="row g-3">
+            <div class="col-md-6">
+              <div class="card h-100">
+                <div class="card-body">
+                  <h6 class="text-uppercase text-muted small mb-3">El trabajo</h6>
+                  <dl class="row mb-0 small">
+                    <dt class="col-6">Libras acordadas</dt>
+                    <dd class="col-6 text-end"><t t-esc="int(orden.agreed_qty_lb)"/></dd>
+                    <dt class="col-6">Tarifa</dt>
+                    <dd class="col-6 text-end">$ <t t-esc="round(orden.rate_per_lb, 3)"/> / lb</dd>
+                    <dt class="col-6">Cajas / masters</dt>
+                    <dd class="col-6 text-end"><t t-esc="orden.boxes or '—'"/></dd>
+                    <dt class="col-6">Presentación empacada</dt>
+                    <dd class="col-6 text-end"><t t-esc="orden.packed_presentation or '—'"/></dd>
+                    <dt class="col-6">Recepción</dt>
+                    <dd class="col-6 text-end"><t t-esc="orden.received_date or '—'"/></dd>
+                    <dt class="col-6">Entrega</dt>
+                    <dd class="col-6 text-end"><t t-esc="orden.packed_date or '—'"/></dd>
+                    <dt class="col-6 border-top pt-2">A cobrar por el empaque</dt>
+                    <dd class="col-6 text-end border-top pt-2 fw-bold">
+                      $ <t t-esc="round(orden.service_amount, 2)"/>
+                    </dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <div class="card h-100">
+                <div class="card-body">
+                  <h6 class="text-uppercase text-muted small mb-3">Insumos</h6>
+                  <p class="small"><t t-esc="orden.supplies_notes or 'No se detallaron.'"/></p>
+                  <t t-if="orden.supplies_received">
+                    <span class="badge text-bg-success">Recibidos completos</span>
+                  </t>
+                  <t t-elif="orden.supplies_issue">
+                    <span class="badge text-bg-danger">Incompletos</span>
+                    <p class="small text-danger mt-2 mb-0"><t t-esc="orden.supplies_issue"/></p>
+                  </t>
+                  <t t-else="">
+                    <span class="badge text-bg-secondary">Sin confirmar</span>
+                  </t>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ACTA -->
+          <t t-if="orden.acceptance_state != 'na'">
+            <div class="card mt-3">
+              <div class="card-body">
+                <h6 class="text-uppercase text-muted small mb-3">Acta de empaque</h6>
+
+                <t t-foreach="orden.sudo().acceptance_ids.sorted('role')" t-as="f">
+                  <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+                    <div>
+                      <b><t t-esc="f.partner_id.name"/></b>
+                      <span class="text-muted small">
+                        (<t t-esc="dict(f._fields['role'].selection).get(f.role)"/>)
+                      </span>
+                      <t t-if="f.reason">
+                        <div class="small text-danger"><t t-esc="f.reason"/></div>
+                      </t>
+                    </div>
+                    <div class="text-end">
+                      <t t-if="f.decision == 'accepted'">
+                        <span class="badge text-bg-success">Conforme</span>
+                      </t>
+                      <t t-elif="f.decision == 'rejected'">
+                        <span class="badge text-bg-danger">No conforme</span>
+                      </t>
+                      <t t-else=""><span class="badge text-bg-warning">Pendiente</span></t>
+                      <t t-if="f.decided_at">
+                        <div class="small text-muted"><t t-esc="f.decided_at"/></div>
+                      </t>
+                    </div>
+                  </div>
+                </t>
+
+                <t t-if="mi_firma and mi_firma.decision == 'pending'">
+                  <form method="post" t-attf-action="/marketplace/empaque/orden/#{orden.uuid_ref}/firmar"
+                        class="mt-3">
+                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                    <div class="mb-2">
+                      <label class="form-label small">
+                        Si no estás conforme, di por qué. Es lo que abre la discusión con la otra parte.
+                      </label>
+                      <textarea name="motivo" class="form-control" rows="2"></textarea>
+                    </div>
+                    <button type="submit" name="decision" value="accepted" class="btn btn-success">
+                      Estoy conforme
+                    </button>
+                    <button type="submit" name="decision" value="rejected" class="btn btn-outline-danger">
+                      No estoy conforme
+                    </button>
+                  </form>
+                </t>
+                <t t-elif="mi_firma">
+                  <p class="text-muted small mt-3 mb-0">Ya firmaste. No se puede cambiar.</p>
+                </t>
+              </div>
+            </div>
+          </t>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+</odoo>

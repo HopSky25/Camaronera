@@ -2,6 +2,8 @@ import logging
 from odoo import api, fields, models, _
 from odoo.exceptions import ValidationError
 
+from .res_partner import TASA_DESCUENTO_DEFECTO
+
 _logger = logging.getLogger(__name__)
 
 
@@ -541,12 +543,22 @@ class ShrimpPriceList(models.Model):
 
     @api.model
     def comparativa(self, partner, presentation, channel, quality, cantidad=0.0,
-                    emisores=None):
+                    emisores=None, fecha=False):
         """Qué paga cada empacadora por la misma talla.
 
         Es la cuenta que el camaronero hace hoy a mano con dos papeles sobre la
         mesa. Devuelve las filas por talla con el precio de cada lista, cuál es
         el mejor y cuánto se pierde eligiendo el segundo.
+
+        Y lo que el papel no dice: cuándo paga cada una y si recibe el día que
+        él va a cosechar. El precio por libra más alto no es necesariamente el
+        que más dinero deja en caja —el anticipo y los plazos están en la
+        lista y hasta ahora nadie los miraba al comparar— y la mejor tarifa no
+        vale nada si esa planta no recibe ese día. Con `fecha` se responde lo
+        segundo; sin ella no se responde, que es distinto de responder "sí".
+
+        Todo lo añadido convive con las claves de siempre: las pantallas que
+        ya existen siguen leyendo precios, mejor, ganadores y ventaja.
         """
         listas = self.visibles_para(partner)
         if emisores:
@@ -569,17 +581,55 @@ class ShrimpPriceList(models.Model):
         # explicación. Con la columna presente y un guion en las celdas queda
         # claro que esa talla no la compran.
         listas_con_datos = listas if emisores else lineas.mapped("price_list_id")
+
+        # El costo del dinero del productor que mira la pantalla. Es SU dato:
+        # descontar un cobro a 21 días solo significa algo contra lo que a él
+        # le cuesta esperar. Si no lo ha fijado se usa un supuesto y se avisa.
+        tasa, tasa_supuesta = (partner.sudo().tasa_descuento() if partner
+                               else (TASA_DESCUENTO_DEFECTO, True))
+        fecha = fields.Date.to_date(fecha) if fecha else False
+        pagos = {}
+        for l in listas_con_datos:
+            dias, declarado = l.dias_de_cobro()
+            pagos[l.id] = {
+                "dias": dias,
+                "declarado": declarado,
+                "factor": l.factor_valor_presente(tasa),
+                "ventana": l.texto_ventana(),
+                "recibe": l.recibe_el(fecha),
+            }
+
         precios = {}
         for linea in lineas:
             precios.setdefault(linea.size_grade_id.id, {})[linea.price_list_id.id] = linea.price
 
         filas = []
+        cambian = 0
         for talla in lineas.mapped("size_grade_id").sorted(key=lambda t: (t.sequence, t.name)):
             porlista = precios.get(talla.id, {})
             valores = sorted(porlista.values(), reverse=True)
             mejor = valores[0] if valores else 0.0
             segundo = valores[1] if len(valores) > 1 else None
             ganadores = [lid for lid, p in porlista.items() if p == mejor]
+
+            # Lo mismo, pero en caja: cada precio traído a hoy con la forma de
+            # pago de SU lista.
+            efectivos = {lid: p * pagos[lid]["factor"]
+                         for lid, p in porlista.items() if lid in pagos}
+            mejor_ef = max(efectivos.values()) if efectivos else 0.0
+            ganadores_ef = [lid for lid, p in efectivos.items() if p == mejor_ef]
+            # El ganador cambia cuando ninguno de los que gana en el papel
+            # gana en caja. Solo se afirma si TODAS las implicadas declaran
+            # cuándo pagan: a la que deja el pago en blanco se le aplica
+            # factor 1 —como si pagara de contado— y coronarla por eso sería
+            # premiar el campo vacío.
+            declaran = all(pagos[lid]["declarado"]
+                           for lid in set(ganadores) | set(ganadores_ef)
+                           if lid in pagos)
+            cambia = bool(efectivos) and declaran and not (
+                set(ganadores) & set(ganadores_ef))
+            if cambia:
+                cambian += 1
             filas.append({
                 "talla": talla,
                 "precios": porlista,
@@ -594,6 +644,12 @@ class ShrimpPriceList(models.Model):
                 "diferencia_total": ((mejor - segundo) * cantidad)
                 if (segundo is not None and cantidad) else 0.0,
                 "total_mejor": mejor * cantidad if cantidad else 0.0,
+                # ---- Lo mismo, en caja
+                "efectivos": efectivos,
+                "mejor_efectivo": mejor_ef,
+                "ganadores_efectivo": ganadores_ef,
+                "cambia_ganador": cambia,
+                "total_mejor_efectivo": mejor_ef * cantidad if cantidad else 0.0,
             })
 
         uoms = set(lineas.mapped("uom"))
@@ -605,6 +661,16 @@ class ShrimpPriceList(models.Model):
             # compararlas de frente sería un error de 2,2 veces. Se avisa.
             "uom_mixta": len(uoms) > 1,
             "cantidad": cantidad,
+            # ---- Añadidos: cuándo paga cada una y si recibe ese día
+            "tasa": tasa,
+            # La pantalla tiene que poder decir "esta tasa la supusimos
+            # nosotros". Un número que parece exacto y descansa en una
+            # suposición escondida es peor que no dar el número.
+            "tasa_supuesta": tasa_supuesta,
+            "pagos": pagos,
+            "fecha": fecha,
+            "fecha_txt": fecha.strftime("%d/%m/%Y") if fecha else "",
+            "cambian": cambian,
         }
 
     # ==================================================================
@@ -927,6 +993,107 @@ class ShrimpPriceList(models.Model):
         if self.payment_notes:
             partes.append(self.payment_notes)
         return partes
+
+    # ==================================================================
+    # Lo que el precio NO dice: cuándo se cobra
+    # ==================================================================
+    # La lista ya traía la forma de pago en campos —anticipo, días del
+    # anticipo, días del saldo— y nadie la usaba para comparar. Comparar dos
+    # listas por el precio por libra es comparar el papel, no la caja: 3,20
+    # con el 60 % a 2 días puede ser mejor que 3,28 a 21 días para quien tiene
+    # que sembrar la corrida siguiente. Aquí vive esa cuenta, en el modelo que
+    # conoce la forma de pago, para que la tarjeta del lote y el comparador no
+    # acaben con dos versiones distintas de la misma fórmula.
+
+    def _tramos_de_pago(self):
+        """[(parte del valor, días hasta cobrarla)] o [] si no lo declara.
+
+        El anticipo del 100 % no tiene saldo: la propia ayuda del campo dice
+        que entonces «días para el saldo» no aplica, y sumarle un segundo
+        tramo inventaría un cobro que no existe.
+        """
+        self.ensure_one()
+        pct = min(max(self.advance_pct or 0.0, 0.0), 100.0)
+        dias_ant = max(self.advance_days or 0, 0)
+        dias_saldo = max(self.balance_days or 0, 0)
+        # Sin anticipo y sin plazo de saldo no hay NADA declarado. No es lo
+        # mismo que "paga de contado": una lista con la forma de pago en
+        # blanco no puede ganar la comparación en caja por omitir el dato.
+        if pct <= 0 and dias_saldo <= 0:
+            return []
+        if pct >= 100:
+            return [(1.0, dias_ant)]
+        parte = pct / 100.0
+        if parte <= 0:
+            return [(1.0, dias_saldo)]
+        return [(parte, dias_ant), (1.0 - parte, dias_saldo)]
+
+    def dias_de_cobro(self):
+        """(días promedio hasta cobrar, si la lista declara su forma de pago).
+
+        Es el promedio PONDERADO por el peso de cada tramo: cobrar el 60 % a
+        2 días y el 40 % a 21 son 9,6 días de espera media, no 11,5. Este
+        número es para explicar, no para descontar: el descuento se aplica
+        tramo a tramo, que no es lo mismo.
+        """
+        self.ensure_one()
+        tramos = self._tramos_de_pago()
+        if not tramos:
+            return 0.0, False
+        return sum(parte * dias for parte, dias in tramos), True
+
+    def factor_valor_presente(self, tasa_anual):
+        """Cuánto vale hoy cada dólar de esta lista, entre 0 y 1.
+
+        Valor presente de los dos cobros por separado, con capitalización
+        anual y días reales sobre 365:
+
+            factor = Σ parte / (1 + tasa) ** (días / 365)
+
+        Se descuenta TRAMO A TRAMO y no sobre los días promedio a propósito:
+        descontar el promedio es una aproximación que siempre se equivoca en
+        la misma dirección, y aquí el anticipo grande y cercano es justo lo
+        que se quiere ver valer.
+
+        Se usa la tasa efectiva anual y no una regla de tres lineal porque es
+        como se cotiza el crédito en el país: una tasa del 12 % anual no son
+        12/365 por día, y la diferencia se nota cuando los plazos se alargan.
+
+        Si la lista no declara su forma de pago devuelve 1.0: no se puede
+        descontar lo que no se sabe, y suponer contado la premiaría.
+        """
+        self.ensure_one()
+        tramos = self._tramos_de_pago()
+        if not tramos:
+            return 1.0
+        i = max(tasa_anual or 0.0, 0.0) / 100.0
+        if not i:
+            return 1.0
+        return sum(parte / ((1.0 + i) ** (dias / 365.0)) for parte, dias in tramos)
+
+    def recibe_el(self, fecha):
+        """¿Esta lista puede recibir camarón ese día?
+
+        La mejor tarifa no sirve de nada si la planta no recibe el día que la
+        camaronera cosecha. Se mira la ventana de despacho de la lista con el
+        mismo criterio que is_current, pero contra la fecha del lote y no
+        contra hoy. Sin fecha no se responde: devuelve None, y la pantalla
+        dice que falta el dato en vez de dar por buena una suposición.
+        """
+        self.ensure_one()
+        if not fecha:
+            return None
+        # La fecha puede llegar como texto desde una vista o una API: si se
+        # compara un str con un date el render revienta, y una pantalla en
+        # blanco es peor que un dato ausente.
+        fecha = fields.Date.to_date(fecha)
+        if not fecha:
+            return None
+        if self.dispatch_from and fecha < self.dispatch_from:
+            return False
+        if not self.open_ended and self.dispatch_to and fecha > self.dispatch_to:
+            return False
+        return True
 
 
 class ShrimpPriceListLine(models.Model):

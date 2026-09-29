@@ -735,3 +735,51 @@
   font-size: .78rem; color: #5A6B74;
 }
 .pk-aval-mio a { color: #0f7c88; font-weight: 600; }
+
+/* ==================================================================
+   Lo que el precio no dice: cuándo se cobra y si reciben ese día
+
+   El precio por libra ya se veía; estas clases visten las dos cosas que
+   faltaban para decidir de verdad. El aviso —"el que más paga no es el
+   que mejor paga en caja"— se pinta en ámbar y no en rojo: no es un
+   error del sistema, es una decisión que ella tiene que tomar.
+   ================================================================== */
+.pk-lote-caja {
+  font-size: .8rem; color: #3d5560; margin-top: 3px;
+  border-top: 1px dashed #cfe9ee; padding-top: 4px;
+}
+.pk-lote-caja strong { color: #0f5c66; }
+.pk-lote-aviso {
+  margin-top: 6px; font-size: .8rem; line-height: 1.35;
+  background: #fff8ec; border: 1px solid #f0dcb8; border-left: 4px solid #e0a53c;
+  border-radius: 8px; padding: 7px 10px; color: #7a5310;
+}
+.pk-lote-aviso strong { color: #5f3f08; }
+/* Hay algo que mirar pero no se puede afirmar: el mismo aviso, en gris. */
+.pk-lote-aviso--flojo {
+  background: #f7fafb; border-color: #e3eaed; border-left-color: #b6c3ca;
+  color: #5A6B74;
+}
+.pk-lote-fecha { font-size: .78rem; color: #3d5560; margin-top: 4px; }
+.pk-lote-supuesto {
+  margin-top: 6px; font-size: .72rem; color: #8b9ba3; line-height: 1.3;
+}
+.pk-lote-supuesto a { color: #14A0B0; text-decoration: underline; }
+
+/* El comparador: forma de pago en la cabecera, precio en caja en la celda */
+.pk-comp-pago { font-size: .72rem; font-weight: 400; color: #5A6B74; }
+.pk-comp-recibe { font-size: .72rem; font-weight: 600; }
+.pk-comp-recibe--si { color: #0f7c88; }
+.pk-comp-recibe--no { color: #b3261e; }
+.pk-comp-efectivo { font-size: .76rem; color: #5A6B74; font-weight: 600; }
+/* Quien deja más dinero en caja. Se marca con un borde y no con fondo para
+   que no compita con el resaltado del mejor precio nominal: son dos
+   respuestas distintas a la misma pregunta y las dos tienen que verse. */
+.pk-mejor-caja { box-shadow: inset 0 0 0 2px #e0a53c; }
+.pk-mejor-caja .fa-star { color: #e0a53c; }
+.pk-mejor-caja .pk-comp-efectivo { color: #7a5310; }
+.pk-comp-cambia .pk-talla { color: #7a5310; }
+.pk-comp-flag { margin-left: 6px; color: #e0a53c; }
+.pk-alert--ojo {
+  background: #fff8ec; border-left: 4px solid #e0a53c; color: #7a5310;
+}

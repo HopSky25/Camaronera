@@ -1,4 +1,21 @@
 from odoo import api, fields, models, _
+from odoo.exceptions import ValidationError
+
+# Costo anual del dinero que se supone cuando la camaronera no ha dicho el
+# suyo. La referencia es la tasa activa efectiva del Banco Central del Ecuador
+# para el segmento productivo —que ronda el 10-11 % anual— redondeada hacia
+# arriba: el productor rara vez se financia al precio del mejor cliente
+# corporativo, y el anticipo del comisionista, que es su financiación real
+# cuando el banco no llega, cuesta bastante más. Es un punto de partida
+# conservador, no una verdad: por eso hay una casilla en el perfil y por eso
+# la pantalla marca esta cifra como supuesto mientras no la cambie.
+TASA_DESCUENTO_DEFECTO = 12.0
+
+# Tope de credibilidad. No es un límite de negocio sino un cazador de errores
+# de tecleo: la confusión clásica es escribir la tasa MENSUAL en la casilla
+# anual, y un 12 % mensual metido aquí como 12 anual pasaría inadvertido,
+# mientras que un 150 se cuestiona.
+TASA_DESCUENTO_MAX = 100.0
 
 
 class ResPartner(models.Model):
@@ -114,3 +131,63 @@ class ResPartner(models.Model):
         help="Muestra tu rendimiento medio y tu clase A en la ficha de los "
              "lotes que publicas, para que el comprador lo vea antes de "
              "preguntarte. El detalle lote a lote nunca se publica.")
+
+    # ------------------------------------------------------------------
+    # El costo del dinero de la camaronera
+    # ------------------------------------------------------------------
+    # Comparar dos listas solo por el precio por libra es comparar mal: una
+    # empacadora que paga 3,20 con 60 % de anticipo a 2 días puede convenir
+    # más que otra que paga 3,28 a 21 días, si hay que sembrar la próxima
+    # corrida. Para traer esos pagos a valor de hoy hace falta una tasa, y esa
+    # tasa NO es un dato del sistema: es lo que a ELLA le cuesta el dinero
+    # —su crédito bancario, el anticipo del comisionista o la siembra que deja
+    # de hacer—. Por eso se le pregunta y no se calcula.
+    #
+    # Cero significa "no la ha fijado": entonces se usa el supuesto de
+    # TASA_DESCUENTO_DEFECTO y la pantalla lo dice con todas sus letras. Un
+    # número que parece exacto y descansa en una suposición escondida es peor
+    # que no dar el número.
+    farm_tasa_descuento_anual = fields.Float(
+        string="Costo anual de tu dinero (%)", digits=(5, 2),
+        help="A qué tasa anual te cuesta el dinero: el interés de tu crédito, "
+             "o lo que dejas de ganar por cobrar tarde. Sirve para comparar "
+             "listas con formas de pago distintas —quién paga más en el papel "
+             "no siempre es quien más te deja en caja—. Si la dejas en blanco "
+             "se usa un supuesto del sector y la pantalla te lo avisa.")
+
+    @api.constrains("farm_tasa_descuento_anual")
+    def _check_farm_tasa_descuento(self):
+        for rec in self:
+            tasa = rec.farm_tasa_descuento_anual or 0.0
+            if tasa < 0:
+                raise ValidationError(_(
+                    "El costo de tu dinero no puede ser negativo."))
+            if tasa > TASA_DESCUENTO_MAX:
+                raise ValidationError(_(
+                    "Una tasa anual del %(tasa)s %% no es creíble ni para el "
+                    "crédito de campo. Revisa el dato: se escribe en por "
+                    "ciento anual, no mensual (12 %% anual, no 12 %% al mes).",
+                    tasa="{:.2f}".format(tasa)))
+
+    @api.model
+    def tasa_descuento_supuesta(self):
+        """El supuesto del sector, para que la pantalla pueda nombrarlo.
+
+        Existe para que la plantilla no tenga que repetir el número: si
+        mañana cambia la referencia del Banco Central, cambia en un sitio.
+        """
+        return TASA_DESCUENTO_DEFECTO
+
+    def tasa_descuento(self):
+        """(tasa anual en %, si es un supuesto nuestro) de este productor.
+
+        Se devuelve también de dónde sale la cifra porque la pantalla tiene
+        que poder distinguir "tu tasa" de "la que supusimos por ti". Quien no
+        la ha fijado merece ver el aviso; quien la fijó no merece que le
+        pongan un aviso encima de su propio dato.
+        """
+        self.ensure_one()
+        tasa = self.farm_tasa_descuento_anual or 0.0
+        if tasa > 0:
+            return tasa, False
+        return TASA_DESCUENTO_DEFECTO, True

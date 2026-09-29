@@ -35,6 +35,27 @@
               Tu lote completo: <strong t-esc="'$ {:,.0f}'.format(m['total'])"/>
             </div>
           </t>
+
+          <!-- ============================================================
+               Cuándo se cobra. El precio del papel no es lo que llega a
+               caja: la lista ya traía el anticipo y los plazos y nadie los
+               miraba al comparar.
+               ============================================================ -->
+          <t t-if="m['pago_declarado']">
+            <div class="pk-lote-caja">
+              Cobras a <strong t-esc="'{:.0f}'.format(m['dias_cobro'])"/>
+              día<t t-if="round(m['dias_cobro']) != 1">s</t> de media ·
+              en caja hoy
+              <strong t-esc="'$ {:,.2f}'.format(m['precio_efectivo'])"/>
+              <span class="pk-lote-uom">/ <t t-esc="'Kg' if m['uom'] == 'kg' else 'Lb'"/></span>
+            </div>
+          </t>
+          <t t-else="">
+            <div class="pk-lote-caja pk-muted">
+              Esta lista no dice cuándo paga, así que no se puede calcular lo
+              que te llega a caja.
+            </div>
+          </t>
           <t t-if="pk.get('ventaja')">
             <div class="pk-lote-ventaja">
               <t t-esc="'+$ {:,.2f}'.format(pk['ventaja'])"/> sobre
@@ -56,6 +77,86 @@
               Única empacadora que cotiza esta talla
             </div>
           </t>
+          <!-- ============================================================
+               EL AVISO. Es el valor de toda la tarjeta: el que más paga no
+               es el que mejor paga en caja. Se afirma solo cuando las dos
+               listas dicen cuándo pagan.
+               ============================================================ -->
+          <t t-if="pk.get('cambia_ganador')">
+            <t t-set="me" t-value="pk['mejor_efectivo']"/>
+            <div class="pk-lote-aviso">
+              <i class="fa fa-exclamation-triangle me-1"/>
+              <strong>Quien más paga no es quien mejor te paga.</strong>
+              <t t-esc="me['empacadora'].name"/> paga
+              <t t-esc="'$ {:,.2f}'.format(me['precio'])"/><t t-if="me['precio'] &lt; m['precio']">, menos en el papel,</t><t t-else="">, lo mismo en el papel,</t>
+              pero cobras a <t t-esc="'{:.0f}'.format(me['dias_cobro'])"/> días
+              en vez de <t t-esc="'{:.0f}'.format(m['dias_cobro'])"/>:
+              en caja son
+              <strong t-esc="'$ {:,.2f}'.format(me['precio_efectivo'])"/>
+              <t t-if="pk.get('diferencia_total_efectiva')">
+                ·
+                <strong t-esc="'+$ {:,.0f}'.format(pk['diferencia_total_efectiva'])"/>
+                por el lote
+              </t>
+            </div>
+          </t>
+          <t t-elif="pk.get('efectivo_incierto')">
+            <div class="pk-lote-aviso pk-lote-aviso--flojo">
+              <i class="fa fa-question-circle me-1"/>
+              Otra empacadora podría dejarte más en caja, pero alguna de las
+              dos listas no dice cuándo paga. Pregúntaselo antes de decidir.
+            </div>
+          </t>
+
+          <!-- ============================================================
+               Y si no recibe el día que ella cosecha, el precio da igual.
+               ============================================================ -->
+          <t t-if="pk.get('alerta_fecha')">
+            <div class="pk-lote-aviso">
+              <i class="fa fa-calendar-times-o me-1"/>
+              <strong><t t-esc="m['empacadora'].name"/> no recibe el
+              <t t-esc="pk['fecha_prevista_txt']"/></strong>, que es tu fecha
+              prevista: <t t-esc="m['ventana_txt']"/>.
+              <t t-if="pk.get('mejor_en_fecha')">
+                <t t-set="mf" t-value="pk['mejor_en_fecha']"/>
+                El mejor precio entre las que sí reciben ese día es
+                <strong t-esc="'$ {:,.2f}'.format(mf['precio'])"/>
+                de <t t-esc="mf['empacadora'].name"/>.
+              </t>
+              <t t-else="">
+                Ninguna de tus listas vigentes recibe ese día.
+              </t>
+            </div>
+          </t>
+          <t t-elif="pk.get('sin_fecha_prevista')">
+            <div class="pk-lote-fecha pk-muted">
+              <i class="fa fa-calendar-o me-1"/>
+              Sin fecha prevista de cosecha no podemos decirte si esta planta
+              recibe ese día.
+            </div>
+          </t>
+          <t t-else="">
+            <div class="pk-lote-fecha">
+              <i class="fa fa-calendar-check-o me-1"/>
+              Recibe en tu fecha prevista (<t t-esc="pk['fecha_prevista_txt']"/>).
+            </div>
+          </t>
+
+          <!-- El supuesto, a la vista. Un número que parece exacto y
+               descansa en una suposición escondida es peor que no darlo. -->
+          <div class="pk-lote-supuesto">
+            <t t-if="pk.get('tasa_supuesta')">
+              Calculado suponiendo que tu dinero te cuesta
+              <t t-esc="'{:.0f}'.format(pk['tasa'])"/> % al año.
+              <a href="/marketplace/mi-cuenta">¿No es tu caso? Cámbialo</a>
+            </t>
+            <t t-else="">
+              Calculado con tu costo de dinero:
+              <t t-esc="'{:.0f}'.format(pk['tasa'])"/> % al año.
+              <a href="/marketplace/mi-cuenta">Cambiar</a>
+            </t>
+          </div>
+
           <a class="pk-lote-link" href="/marketplace/listas-de-precios/comparar">
             Comparar <i class="fa fa-chevron-right"/>
           </a>

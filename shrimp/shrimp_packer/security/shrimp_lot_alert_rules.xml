@@ -1,0 +1,41 @@
+<odoo>
+
+  <!-- ================================================================
+       Historial de avisos de lotes.
+
+       Cada fila dice "a esta empacadora se le avisó de este lote a este
+       precio". El precio es el de su lista, que es confidencial: si una
+       empacadora pudiera leer las filas de otra vería a cuánto compra la
+       competencia, que es exactamente lo que las reglas de la lista de precios
+       evitan. Así que la regla es la misma que allí, cada uno ve lo suyo.
+       ================================================================ -->
+  <record id="rule_lot_alert_read_portal" model="ir.rule">
+    <field name="name">Avisos de lotes: cada empacadora ve los suyos</field>
+    <field name="model_id" ref="model_shrimp_lot_alert"/>
+    <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+    <!-- Los cuatro permisos se declaran uno a uno. Una ir.rule que los calla
+         vale para las cuatro operaciones, y este dominio como regla de
+         escritura dejaría a la empacadora borrar su propio historial de
+         avisos, que es el rastro con el que se mide si el canal sirve. -->
+    <field name="perm_read" eval="True"/>
+    <field name="perm_write" eval="False"/>
+    <field name="perm_create" eval="False"/>
+    <field name="perm_unlink" eval="False"/>
+    <field name="domain_force">[('packer_partner_id','=',user.partner_id.id)]</field>
+  </record>
+
+  <!-- El historial no se escribe desde el portal: lo escribe el cron en sudo.
+       La regla existe para que, si alguna vez se le da permiso de escritura al
+       grupo portal por error, el dominio siga siendo imposible. -->
+  <record id="rule_lot_alert_write_portal" model="ir.rule">
+    <field name="name">Avisos de lotes: el portal no los escribe</field>
+    <field name="model_id" ref="model_shrimp_lot_alert"/>
+    <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+    <field name="perm_read" eval="False"/>
+    <field name="perm_write" eval="True"/>
+    <field name="perm_create" eval="True"/>
+    <field name="perm_unlink" eval="True"/>
+    <field name="domain_force">[(0,'=',1)]</field>
+  </record>
+
+</odoo>

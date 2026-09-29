@@ -287,7 +287,8 @@ class ShrimpPriceListPortal(http.Controller):
             return request.render("shrimp_packer.price_list_compare", {
                 "combinaciones": [], "sel": None, "datos": {}, "cantidad": 0.0,
                 "empacadoras": empacadoras, "elegidas": [], "sin_seleccion": False,
-                "cotizan": set(), "tope": L.MAX_COMPARAR, "recortadas": False})
+                "cotizan": set(), "tope": L.MAX_COMPARAR, "recortadas": False,
+                "fecha": ""})
 
         elegida = kw.get("combo") or combinaciones[0]["clave"]
         sel = next((c for c in combinaciones if c["clave"] == elegida), combinaciones[0])
@@ -295,6 +296,16 @@ class ShrimpPriceListPortal(http.Controller):
             cantidad = float((kw.get("cantidad") or "0").replace(",", "."))
         except ValueError:
             cantidad = 0.0
+
+        # El día que piensa cosechar. Es opcional y si no la pone no se supone
+        # ninguna: la pantalla dirá que sin fecha no puede decirle quién
+        # recibe, que es distinto de decirle que todas reciben. Una fecha mal
+        # escrita se descarta en vez de reventar la pantalla.
+        fecha = (kw.get("fecha") or "").strip()
+        try:
+            fecha = fields.Date.to_date(fecha) if fecha else False
+        except (ValueError, TypeError):
+            fecha = False
 
         # Cuáles cotizan la combinación elegida. Se calcula antes que nada
         # porque de aquí sale también la selección por defecto.
@@ -328,11 +339,16 @@ class ShrimpPriceListPortal(http.Controller):
                 "combinaciones": combinaciones, "sel": sel, "datos": {},
                 "cantidad": cantidad, "empacadoras": empacadoras,
                 "elegidas": [], "sin_seleccion": True, "cotizan": cotizan,
-                "tope": tope, "recortadas": False})
+                "tope": tope, "recortadas": False,
+                "fecha": fecha.isoformat() if fecha else ""})
 
         datos = L.comparativa(partner, sel["presentation"], sel["channel"],
-                              sel["quality"], cantidad, emisores=elegidas)
+                              sel["quality"], cantidad, emisores=elegidas,
+                              fecha=fecha)
         return request.render("shrimp_packer.price_list_compare", {
+            # Se devuelve tal como viaja en la URL para que el <input type=date>
+            # la conserve al refrescar el filtro.
+            "fecha": fecha.isoformat() if fecha else "",
             "cotizan": cotizan,
             "tope": tope,
             "recortadas": recortadas,
@@ -760,18 +776,36 @@ class ShrimpPackerAccount(ShrimpAccountPortalController):
 
     Se extiende el guardado del módulo base en vez de editarlo: los campos
     emp_* son de este módulo, y el rol empacadora también.
+
+    Y por el otro lado, la camaronera guarda aquí el costo de su dinero: es el
+    supuesto con el que este módulo traduce "te paga a 21 días" a dólares de
+    hoy, y el campo vive en shrimp_packer porque la comparación también.
     """
 
     def _guardar_extra(self, partner, post):
         res = super()._guardar_extra(partner, post)
-        if partner.shrimp_user_type != "empacadora":
-            return res
 
         def _f(v):
             try:
                 return float((v or "0").replace(",", "."))
             except (TypeError, ValueError, AttributeError):
                 return 0.0
+
+        # El costo del dinero de la camaronera. Es el supuesto con el que el
+        # comparador traduce "paga a 21 días" a dólares de hoy, así que tiene
+        # que poder cambiarlo ella desde su propia pantalla y no por soporte:
+        # una cifra que depende de una suposición que el usuario no controla
+        # es una cifra que no puede discutir.
+        #
+        # En blanco se guarda 0, que significa "no la he fijado": entonces se
+        # usa el supuesto del sector y la pantalla lo dice. No se escribe el
+        # valor por defecto en su ficha, porque entonces parecería suyo.
+        if partner.shrimp_user_type == "camaronera":
+            res["farm_tasa_descuento_anual"] = max(
+                _f(post.get("farm_tasa_descuento_anual")), 0.0)
+
+        if partner.shrimp_user_type != "empacadora":
+            return res
 
         res.update({
             "emp_razon_social": post.get("emp_razon_social") or False,

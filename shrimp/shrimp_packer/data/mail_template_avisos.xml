@@ -1,0 +1,135 @@
+<odoo>
+  <data noupdate="0">
+
+    <!-- Resumen de lotes nuevos que encajan con la lista de precios vigente de
+         la empacadora.
+
+         Va sobre res.partner y no sobre el lote a propósito: el destinatario
+         del correo es la empacadora y el correo habla de varios lotes a la
+         vez. Una plantilla por lote obligaría a un correo por lote, que es
+         justo lo que mata el canal.
+
+         Nada de formato con % dentro de los t-out ni de condicionales dentro
+         de #{}: el QWeb de Odoo 19 revienta con "incomplete format" en lo
+         primero y se come la almohadilla en lo segundo. Los números vienen
+         formateados con str.format() y los colores vienen calculados desde
+         Python. -->
+    <record id="mail_template_aviso_lotes_nuevos" model="mail.template">
+      <field name="name">Lotes nuevos que encajan con tu lista</field>
+      <field name="model_id" ref="base.model_res_partner"/>
+      <field name="subject">{{ ctx.get('total_lotes') or 0 }} lote(s) nuevos que tu lista de precios cotiza</field>
+      <field name="email_from">{{ user.company_id.email_formatted or user.email_formatted or '' }}</field>
+      <field name="body_html" type="html">
+        <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#243b45;max-width:680px;">
+
+          <div style="border-bottom:3px solid #14A0B0;padding-bottom:10px;margin-bottom:18px;">
+            <span style="font-size:22px;font-weight:bold;color:#123E5C;">tr</span><span style="font-size:22px;font-weight:bold;color:#14A0B0;">azul</span>
+          </div>
+
+          <p>Hola <t t-out="ctx.get('destinatario') or ''"/>,</p>
+
+          <h2 style="color:#123E5C;font-size:18px;margin:14px 0 6px;">
+            Se publicaron lotes que tu lista de precios cotiza
+          </h2>
+          <p style="margin:0 0 6px;color:#3d5560;">
+            <t t-out="ctx.get('total_lotes') or 0"/> lote(s) de camarón de engorde
+            en tallas y presentaciones que tu lista vigente sí paga.
+            La columna «A tu precio» es lo que costaría cada lote al precio que
+            tú mismo publicaste.
+          </p>
+          <t t-if="ctx.get('urgentes')">
+            <p style="margin:0 0 16px;color:#b3261e;">
+              <t t-out="ctx.get('urgentes')"/> de ellos entregan dentro de los
+              próximos tres días.
+            </p>
+          </t>
+
+          <table style="border-collapse:collapse;width:100%;margin-bottom:8px;">
+            <tr>
+              <th style="text-align:left;background:#f2f7f9;padding:7px 10px;border:1px solid #dfe8ec;font-size:12px;color:#123E5C;">Lote</th>
+              <th style="text-align:left;background:#f2f7f9;padding:7px 10px;border:1px solid #dfe8ec;font-size:12px;color:#123E5C;">Talla</th>
+              <th style="text-align:right;background:#f2f7f9;padding:7px 10px;border:1px solid #dfe8ec;font-size:12px;color:#123E5C;">Cantidad</th>
+              <th style="text-align:right;background:#f2f7f9;padding:7px 10px;border:1px solid #dfe8ec;font-size:12px;color:#123E5C;">Tu precio</th>
+              <th style="text-align:right;background:#f2f7f9;padding:7px 10px;border:1px solid #dfe8ec;font-size:12px;color:#123E5C;">A tu precio</th>
+              <th style="text-align:left;background:#f2f7f9;padding:7px 10px;border:1px solid #dfe8ec;font-size:12px;color:#123E5C;">Entrega</th>
+            </tr>
+            <t t-foreach="ctx.get('filas') or []" t-as="f">
+              <tr>
+                <td style="padding:7px 10px;border:1px solid #eef2f4;">
+                  <a t-attf-href="{{ object.get_base_url() }}{{ f['url'] }}"
+                     style="color:#123E5C;font-weight:bold;text-decoration:none;">
+                    <t t-out="f['nombre']"/>
+                  </a>
+                  <div style="font-size:12px;color:#8b9ba3;">
+                    <t t-out="f['camaronera']"/>
+                    <t t-if="f['ubicacion']"> · <t t-out="f['ubicacion']"/></t>
+                  </div>
+                </td>
+                <td style="padding:7px 10px;border:1px solid #eef2f4;">
+                  <strong t-out="f['talla']"/>
+                  <div style="font-size:12px;color:#8b9ba3;">
+                    <t t-out="f['presentacion']"/> · <t t-out="f['calidad']"/>
+                  </div>
+                </td>
+                <td style="padding:7px 10px;border:1px solid #eef2f4;text-align:right;">
+                  <t t-out="'{:,.0f}'.format(f['cantidad'])"/>
+                  <span style="font-size:11px;color:#8b9ba3;"> <t t-out="f['uom']"/></span>
+                </td>
+                <td style="padding:7px 10px;border:1px solid #eef2f4;text-align:right;">
+                  <t t-out="'{:,.2f}'.format(f['precio'])"/>
+                  <span style="font-size:11px;color:#8b9ba3;"> / <t t-out="f['uom']"/></span>
+                </td>
+                <td style="padding:7px 10px;border:1px solid #eef2f4;text-align:right;font-weight:bold;color:#123E5C;">
+                  <t t-out="'${:,.0f}'.format(f['valor'])"/>
+                  <t t-if="f['competencia'] &gt; 1">
+                    <div style="font-size:11px;color:#8b9ba3;font-weight:normal;">
+                      <t t-out="f['competencia']"/> empacadoras cotizan esta talla
+                    </div>
+                  </t>
+                </td>
+                <td t-attf-style="padding:7px 10px;border:1px solid #eef2f4;font-size:12px;color:{{ f['color'] }};">
+                  <t t-if="f['entrega']">
+                    <t t-out="f['entrega']"/>
+                    <t t-if="f['urgente']">
+                      <div style="font-size:11px;font-weight:bold;">Urgente</div>
+                    </t>
+                  </t>
+                  <t t-else="">Sin fecha</t>
+                </td>
+              </tr>
+            </t>
+          </table>
+
+          <p style="margin:0 0 16px;color:#123E5C;">
+            Total de lo listado a tus precios:
+            <strong t-out="'${:,.0f}'.format(ctx.get('total_valor') or 0.0)"/>
+          </p>
+
+          <t t-if="ctx.get('resto')">
+            <p style="color:#5A6B74;font-size:13px;">
+              Hay <t t-out="ctx.get('resto')"/> lote(s) más que también encajan
+              con tu lista. Te los contamos en el próximo resumen o los ves ya
+              en el marketplace.
+            </p>
+          </t>
+
+          <p>
+            <a t-attf-href="{{ object.get_base_url() }}/marketplace/products"
+               style="background:#123E5C;color:#ffffff;padding:11px 20px;border-radius:6px;text-decoration:none;display:inline-block;">
+              Ver los lotes publicados
+            </a>
+          </p>
+
+          <p style="color:#8b9ba3;font-size:12px;border-top:1px solid #e3eaed;padding-top:12px;margin-top:22px;">
+            Recibes este resumen porque tu lista de precios vigente cotiza estas
+            tallas. Solo te avisamos de lo que tú cotizas, una vez por lote y
+            agrupado. Si no lo quieres, se apaga en
+            <a t-attf-href="{{ object.get_base_url() }}/marketplace/mi-cuenta"
+               style="color:#14A0B0;">tu perfil</a>.
+          </p>
+        </div>
+      </field>
+    </record>
+
+  </data>
+</odoo>

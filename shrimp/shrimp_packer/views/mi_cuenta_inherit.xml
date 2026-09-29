@@ -163,6 +163,52 @@
         </div>
 
       </t>
+
+      <!-- ===============================================================
+           El costo del dinero de la camaronera.
+
+           El comparador de listas dejó de ordenar solo por precio: ahora
+           trae cada cobro a valor de hoy con la forma de pago de cada lista.
+           Eso necesita una tasa, y la tasa no nos la podemos inventar: es lo
+           que a ELLA le cuesta esperar. Se le pregunta aquí, en su ficha, y
+           mientras no la conteste la pantalla enseña la cifra marcada como
+           supuesto nuestro.
+           =============================================================== -->
+      <t t-if="partner.shrimp_user_type == 'camaronera'">
+        <div class="mp-table-card mb-4">
+          <div class="card-body p-4">
+            <div class="mp-sec-head">
+              <span class="mp-sec-ico"><i class="fa fa-percent"/></span>
+              <h3 class="mp-sec-title">El costo de tu dinero</h3>
+            </div>
+            <p class="text-muted small mb-3">
+              Las empacadoras no solo se diferencian en el precio: una paga el
+              60 % por adelantado a 2 días y otra todo a 21. Con este dato el
+              comparador te dice cuál te deja más dinero <b>en caja</b>, que no
+              siempre es la que más paga en el papel.
+            </p>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label small text-muted">
+                  Costo anual de tu dinero (%)
+                </label>
+                <input class="form-control" type="number" step="0.01" min="0"
+                       max="100" name="farm_tasa_descuento_anual"
+                       placeholder="12"
+                       t-att-value="partner.farm_tasa_descuento_anual or ''"/>
+                <div class="form-text">
+                  El interés anual de tu crédito, o lo que te cuesta cobrar
+                  tarde. Déjalo en blanco y usamos
+                  <strong t-esc="'{:.0f}'.format(partner.tasa_descuento_supuesta())"/> % anual como supuesto,
+                  y te lo avisamos en cada pantalla donde se note.
+                  Si te financias con anticipos de comisionista tu costo real
+                  es bastante más alto: súbelo.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </t>
     </xpath>
 
     <!-- Enlace a su propia ficha pública, para verla como la ve el productor.

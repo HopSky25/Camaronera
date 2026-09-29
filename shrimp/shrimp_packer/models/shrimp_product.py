@@ -10,6 +10,8 @@ LB_POR_KG = 2.2046226218
 from odoo.addons.shrimp_marketplace.models.shrimp_product import (
     ShrimpProduct as ShrimpProductBase)
 
+from .res_partner import TASA_DESCUENTO_DEFECTO
+
 
 class ShrimpProduct(models.Model):
     _name = "shrimp.product"
@@ -161,6 +163,25 @@ class ShrimpProduct(models.Model):
         solo cotiza cola, no se compara. Convertir entre las dos exige aplicar
         el rendimiento (~65 %), y hacerlo en silencio daría una cifra que el
         camaronero leería como firme cuando es una estimación.
+
+        Ordenar solo por precio es engañoso y por eso cada candidato lleva
+        además dos cosas que la lista ya traía y nadie usaba:
+
+        - CUÁNDO SE COBRA. dias_cobro, precio_efectivo y total_efectivo traen
+          el precio a valor de hoy con la forma de pago de esa lista y con el
+          costo del dinero de la propia camaronera. 3,20/Kg con el 60 % de
+          anticipo a 2 días puede convenirle más que 3,28 a 21 días si el
+          dinero le hace falta para la siembra siguiente: nominalmente pierde
+          8 centavos, en caja llega muy distinto. De ahí salen mejor_efectivo
+          y cambia_ganador, que es el aviso que justifica toda la función.
+
+        - SI RECIBE ESE DÍA. La mejor tarifa no sirve de nada si esa planta no
+          recibe el día que ella cosecha: recibe_en_fecha cruza la ventana de
+          despacho de la lista con expected_delivery_date del lote.
+
+        Todo esto se AÑADE. Las claves de siempre —mejor, segundo, ventaja,
+        empate...— conservan su orden y su significado: hay pantallas que
+        dependen de ellas.
         """
         self.ensure_one()
         if self.verification_scope != "adult":
@@ -191,6 +212,17 @@ class ShrimpProduct(models.Model):
         if not listas:
             return {}
 
+        # El costo del dinero de ESTA camaronera. No se inventa una tasa de
+        # mercado: descontar un cobro a 21 días solo significa algo contra lo
+        # que a ella le cuesta esperar. Si no la ha fijado se usa un supuesto
+        # y se devuelve marcado para que la pantalla lo diga.
+        dueno = self.seller_partner_id
+        tasa, tasa_supuesta = (dueno.sudo().tasa_descuento() if dueno
+                               else (TASA_DESCUENTO_DEFECTO, True))
+        # La fecha en que ella espera cosechar. Puede no estar: entonces no se
+        # supone "hoy" ni "cualquier día", se dice que falta.
+        fecha = fields.Date.to_date(self.expected_delivery_date) or False
+
         candidatos = []
         for linea in listas.mapped("line_ids").filtered(
                 lambda l: l.size_grade_id == self.size_grade_id
@@ -199,15 +231,31 @@ class ShrimpProduct(models.Model):
             # clasificar el entero, no un precio al que se pueda vender un lote.
             if self.presentation == "cola" and linea.channel != "directa":
                 continue
+            lista = linea.price_list_id
+            dias_cobro, pago_declarado = lista.dias_de_cobro()
+            factor = lista.factor_valor_presente(tasa)
+            total = linea.price * self.cantidad_en(linea.uom)
             candidatos.append({
                 "linea": linea,
-                "lista": linea.price_list_id,
-                "empacadora": linea.price_list_id.issuer_partner_id,
+                "lista": lista,
+                "empacadora": lista.issuer_partner_id,
                 "precio": linea.price,
                 "uom": linea.uom,
                 "calidad": linea.quality,
                 "calidad_txt": linea.etiqueta_columna(),
-                "total": linea.price * self.cantidad_en(linea.uom),
+                "total": total,
+                # --- Lo que el precio no dice: cuándo se cobra ---
+                "pago_declarado": pago_declarado,
+                "dias_cobro": dias_cobro,
+                "pago_txt": lista.texto_pago(),
+                "precio_efectivo": linea.price * factor,
+                "total_efectivo": total * factor,
+                # Lo que cuesta esperar, por unidad. Es la cifra que explica
+                # el porqué cuando el ganador cambia.
+                "costo_espera": linea.price * (1.0 - factor),
+                # --- Lo que el precio tampoco dice: si recibe ese día ---
+                "recibe_en_fecha": lista.recibe_el(fecha),
+                "ventana_txt": lista.texto_ventana(),
             })
         if not candidatos:
             return {"sin_precio": True, "listas": len(listas)}
@@ -223,6 +271,38 @@ class ShrimpProduct(models.Model):
         # en toda la base, y ahora hay una restricción que lo garantiza— pero
         # la resta no debe apoyarse en esa coincidencia.
         comparables = bool(segundo) and segundo["uom"] == mejor["uom"]
+
+        # ---------------------------------------------------------------
+        # Quién paga mejor EN CAJA
+        # ---------------------------------------------------------------
+        # El mismo cuidado que con la resta de precios: dos precios efectivos
+        # en unidades distintas tampoco se comparan. Se ordena solo entre los
+        # que cotizan en la misma unidad que el ganador nominal, que es contra
+        # quien se le va a comparar en pantalla.
+        misma_uom = [c for c in candidatos if c["uom"] == mejor["uom"]]
+        # candidatos ya viene ordenado por precio nominal, así que ante dos
+        # efectivos iguales max() se queda con el de mayor precio de papel:
+        # si en caja da lo mismo, mejor la cifra que ella puede defender.
+        mejor_efectivo = max(misma_uom, key=lambda c: c["precio_efectivo"])
+        cambia_ganador = mejor_efectivo["empacadora"] != mejor["empacadora"]
+        # El aviso solo se da si las DOS listas declaran su forma de pago. Una
+        # lista con el pago en blanco se descuenta con factor 1, o sea como si
+        # pagara de contado, y anunciar por eso que "gana en caja" sería
+        # premiar al que no llenó el campo.
+        pagos_declarados = (mejor["pago_declarado"]
+                            and mejor_efectivo["pago_declarado"])
+
+        # ---------------------------------------------------------------
+        # Quién puede recibir el día que ella cosecha
+        # ---------------------------------------------------------------
+        en_fecha = [c for c in candidatos if c["recibe_en_fecha"]] if fecha else []
+        mejor_en_fecha = en_fecha[0] if en_fecha else None
+        mejor_efectivo_en_fecha = None
+        if mejor_en_fecha:
+            mejor_efectivo_en_fecha = max(
+                (c for c in en_fecha if c["uom"] == mejor_en_fecha["uom"]),
+                key=lambda c: c["precio_efectivo"])
+
         return {
             "mejor": mejor,
             "segundo": segundo if comparables else None,
@@ -232,4 +312,38 @@ class ShrimpProduct(models.Model):
             # "eres el único que cotiza", y la tarjeta no lo distinguía.
             "empate": comparables and mejor["precio"] == segundo["precio"],
             "empacadoras": len({c["empacadora"].id for c in candidatos}),
+
+            # ---- Precio efectivo (todo lo de abajo es añadido, no sustituye
+            # nada de lo de arriba: hay pantallas que dependen de esas claves)
+            "tasa": tasa,
+            # La pantalla TIENE que poder decir "esto lo supusimos nosotros".
+            # Un número que parece exacto y descansa en una suposición oculta
+            # es peor que no dar el número.
+            "tasa_supuesta": tasa_supuesta,
+            "mejor_efectivo": mejor_efectivo,
+            # El aviso que justifica toda esta función: el que más paga no es
+            # el que mejor paga en caja.
+            "cambia_ganador": cambia_ganador and pagos_declarados,
+            # Cambia el ganador pero alguna de las dos listas no dice cuándo
+            # paga: hay algo que mirar, pero no se puede afirmar.
+            "efectivo_incierto": cambia_ganador and not pagos_declarados,
+            "ventaja_efectiva": (mejor_efectivo["precio_efectivo"]
+                                 - mejor["precio_efectivo"]),
+            "diferencia_total_efectiva": (mejor_efectivo["total_efectivo"]
+                                          - mejor["total_efectivo"]),
+
+            # ---- Ventana de despacho
+            "fecha_prevista": fecha,
+            # El texto se arma aquí y no en la plantilla: QWeb es un mal sitio
+            # para el formato de fechas.
+            "fecha_prevista_txt": fecha.strftime("%d/%m/%Y") if fecha else "",
+            # Sin fecha prevista no se dice nada sobre quién puede recibir: se
+            # dice que falta la fecha. Suponerla es inventarle una respuesta.
+            "sin_fecha_prevista": not fecha,
+            "mejor_en_fecha": mejor_en_fecha,
+            "mejor_efectivo_en_fecha": mejor_efectivo_en_fecha,
+            "candidatos_en_fecha": len(en_fecha),
+            # La mejor tarifa no vale nada si esa planta no recibe ese día.
+            "alerta_fecha": bool(fecha) and not mejor["recibe_en_fecha"],
+            "ninguna_en_fecha": bool(fecha) and not en_fecha,
         }

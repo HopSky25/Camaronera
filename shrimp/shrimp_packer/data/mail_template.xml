@@ -53,7 +53,8 @@
                     en <t t-out="c.get('lotes') or 1"/> lote<t t-if="(c.get('lotes') or 1) != 1">s</t>
                   </div>
                 </td>
-                <td t-attf-style="padding:7px 10px;border:1px solid #eef2f4;text-align:right;font-weight:bold;color:#{'0f7c88' if c['efecto'] &gt;= 0 else 'b3261e'};">
+                <t t-set="col_efecto" t-value="'#0f7c88' if c['efecto'] &gt;= 0 else '#b3261e'"/>
+                <td t-attf-style="padding:7px 10px;border:1px solid #eef2f4;text-align:right;font-weight:bold;color:{{col_efecto}};">
                   <t t-out="('+' if c['efecto'] &gt;= 0 else '') + '${:,.0f}'.format(c['efecto'])"/>
                 </td>
               </tr>

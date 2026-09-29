@@ -1,0 +1,98 @@
+<odoo>
+
+  <!-- =================================================================
+       El interruptor del canal de avisos, en el perfil de la empacadora.
+
+       Está aquí y no en un pie de correo con letra de 9 puntos porque un canal
+       que cuesta apagar se apaga igual, pero con el botón de "correo no
+       deseado", y ese no se puede deshacer: el filtro lo aprende y deja de
+       entregar también lo que sí servía.
+
+       Se engancha antes de la fila de botones de la cuenta, que es un ancla
+       estable del módulo base, para no depender del orden en que se apliquen
+       las otras herencias sobre esta misma pantalla.
+       ================================================================= -->
+  <template id="mi_cuenta_avisos_lotes"
+            inherit_id="shrimp_marketplace.my_account"
+            name="Mi cuenta - avisos de lotes nuevos">
+    <xpath expr="//div[@id='mpAccountActions']" position="before">
+      <t t-if="partner.shrimp_user_type == 'empacadora'">
+
+        <div class="mp-table-card mb-4">
+          <div class="card-body p-4">
+            <div class="mp-sec-head">
+              <span class="mp-sec-ico"><i class="fa fa-bell-o"/></span>
+              <h3 class="mp-sec-title">Avisos de lotes nuevos</h3>
+            </div>
+
+            <p class="text-muted small mb-3">
+              Cuando una camaronera publica un lote de una talla y presentación
+              que tu lista de precios vigente cotiza, te lo contamos. Siempre
+              en un solo correo con todos los lotes juntos, y de cada lote una
+              sola vez. Si no tienes lista vigente no te llega nada.
+            </p>
+
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label small text-muted">Cada cuánto quieres el resumen</label>
+                <select class="form-select" name="emp_aviso_frecuencia">
+                  <option value="diario"
+                          t-att-selected="'selected' if (partner.emp_aviso_frecuencia or 'diario') == 'diario' else None">
+                    Un resumen al día (7:00)
+                  </option>
+                  <option value="dos_veces"
+                          t-att-selected="'selected' if partner.emp_aviso_frecuencia == 'dos_veces' else None">
+                    Dos resúmenes al día (7:00 y 15:00)
+                  </option>
+                  <option value="off"
+                          t-att-selected="'selected' if partner.emp_aviso_frecuencia == 'off' else None">
+                    No quiero avisos
+                  </option>
+                </select>
+                <div class="form-text">
+                  Dos tandas si compras el mismo día: el camarón pierde valor en
+                  48 horas y esperar al día siguiente es perder un turno.
+                </div>
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label small text-muted">Cantidad mínima para avisarme (lb)</label>
+                <input class="form-control" type="number" step="100" min="0"
+                       name="emp_aviso_min_cantidad"
+                       t-att-value="'{:.0f}'.format(partner.emp_aviso_min_cantidad or 0.0)"/>
+                <div class="form-text">
+                  Deja 0 para que no filtremos por tamaño. Si compras por
+                  contenedor, pon aquí tu lote mínimo.
+                </div>
+              </div>
+
+              <div class="col-12">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="empAvisoNoDirigidos"
+                         name="emp_aviso_incluir_no_dirigidos" value="1"
+                         t-att-checked="'checked' if partner.emp_aviso_incluir_no_dirigidos else None"/>
+                  <label class="form-check-label" for="empAvisoNoDirigidos">
+                    Avisarme también de camaroneras a las que todavía no paso lista
+                  </label>
+                </div>
+                <div class="form-text">
+                  Solo lotes de tallas y presentaciones que ya cotizas. Sirve
+                  para captar proveedor nuevo.
+                </div>
+              </div>
+
+              <div class="col-12">
+                <div class="small text-muted">
+                  <i class="fa fa-clock-o me-1"/>
+                  <t t-out="partner.aviso_lotes_resumen()"/>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </t>
+    </xpath>
+  </template>
+
+</odoo>

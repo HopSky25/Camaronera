@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <data noupdate="1">
+
+    <!-- ================================================================
+         Confidencialidad de la reserva anticipada.
+
+         Una cosecha declarada dice cuánto camarón va a salir, de qué talla,
+         qué día y de qué piscina. Para la finca que la publica eso es
+         información comercial de primer orden: si la ve la competencia pierde
+         poder de negociación justo en el momento en que más lo necesita. Por
+         eso la visibilidad va en reglas de registro sobre la base, igual que
+         las listas de precios, y no escondiendo botones.
+
+         TODAS estas reglas son de SOLO LECTURA y el desglose por permiso es
+         deliberado. En Odoo una ir.rule sin perm_* declarados vale para las
+         cuatro operaciones, así que el dominio de lectura se convertiría
+         también en dominio de escritura y borrado. Este proyecto ya tropezó
+         con eso: la camaronera que RECIBÍA una lista de precios podía
+         cambiarle los precios a la empacadora que se la mandó.
+
+         El portal no escribe nada por sí mismo: el controlador hace todas las
+         mutaciones en sudo después de comprobar la propiedad del registro. Por
+         eso el ACL le da write/create/unlink = 0 y estas reglas solo abren
+         lectura.
+         ================================================================ -->
+
+    <!-- === LA DECLARACIÓN ===
+         La ve quien la hizo, y la ven los destinatarios a los que se la
+         dirigió. Se incluye el partner padre para cubrir los grupos con varias
+         razones sociales, igual que en la lista de precios.
+         Un borrador no lo ve nadie más que su autor: el estado forma parte del
+         dominio, no solo del botón de publicar. -->
+    <record id="rule_harvest_forecast_portal_read" model="ir.rule">
+      <field name="name">Cosechas declaradas: la finca y sus destinatarios</field>
+      <field name="model_id" ref="model_shrimp_harvest_forecast"/>
+      <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+      <field name="perm_read" eval="True"/>
+      <field name="perm_write" eval="False"/>
+      <field name="perm_create" eval="False"/>
+      <field name="perm_unlink" eval="False"/>
+      <field name="domain_force">['|',
+          ('farmer_partner_id','=',user.partner_id.id),
+          '&amp;',
+          ('state','!=','draft'),
+          ('recipient_ids','in',
+              [user.partner_id.id] + ([user.partner_id.parent_id.id] if user.partner_id.parent_id else []))]</field>
+    </record>
+
+    <!-- === EL COMPROMISO ===
+         Lo ven sus dos partes y nadie más. Que una empacadora vea a cuánto
+         ofertó otra sobre la misma cosecha sería filtrarle su precio de compra
+         a la competencia, que es exactamente el problema que las listas de
+         precios dirigidas existen para evitar. -->
+    <record id="rule_harvest_commitment_portal_read" model="ir.rule">
+      <field name="name">Compromisos de compra: solo sus dos partes</field>
+      <field name="model_id" ref="model_shrimp_harvest_commitment"/>
+      <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+      <field name="perm_read" eval="True"/>
+      <field name="perm_write" eval="False"/>
+      <field name="perm_create" eval="False"/>
+      <field name="perm_unlink" eval="False"/>
+      <field name="domain_force">['|',
+          ('farmer_partner_id','=',user.partner_id.id),
+          ('packer_partner_id','=',user.partner_id.id)]</field>
+    </record>
+
+    <!-- === LA CONFIRMACIÓN ===
+         Hereda la misma regla que el compromiso: si no, se podría leer el
+         precio liquidado consultando la firma sin pasar por el compromiso. -->
+    <record id="rule_harvest_confirmation_portal_read" model="ir.rule">
+      <field name="name">Confirmaciones: solo las partes del compromiso</field>
+      <field name="model_id" ref="model_shrimp_harvest_confirmation"/>
+      <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+      <field name="perm_read" eval="True"/>
+      <field name="perm_write" eval="False"/>
+      <field name="perm_create" eval="False"/>
+      <field name="perm_unlink" eval="False"/>
+      <field name="domain_force">['|',
+          ('commitment_id.farmer_partner_id','=',user.partner_id.id),
+          ('commitment_id.packer_partner_id','=',user.partner_id.id)]</field>
+    </record>
+
+    <!-- === LA CONTRAPARTE ===
+         Odoo solo deja a un usuario de portal ver los contactos ligados a SUS
+         registros, así que sin esto la empacadora recibía un 403 nada más
+         pintar el nombre de la finca en su bandeja.
+
+         Se abre lo justo: la finca que me dirigió una declaración, y la
+         empacadora con la que tengo un compromiso. Ni un contacto más. En
+         particular NO se abre el directorio entero de empacadoras: para elegir
+         destinatarias al declarar, el formulario las lee en sudo desde el
+         controlador, que es una lista de nombres y no una puerta abierta a
+         leer contactos por dominio. -->
+    <record id="rule_reserva_contrapartes" model="ir.rule">
+      <field name="name">Reservas: contactos de mi contraparte</field>
+      <field name="model_id" ref="base.model_res_partner"/>
+      <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+      <field name="perm_read" eval="True"/>
+      <field name="perm_write" eval="False"/>
+      <field name="perm_create" eval="False"/>
+      <field name="perm_unlink" eval="False"/>
+      <field name="domain_force">
+        ['|', '|',
+         '&amp;', ('reserva_forecast_ids.state','!=','draft'),
+                  ('reserva_forecast_ids.recipient_ids','in',
+                      [user.partner_id.id] + ([user.partner_id.parent_id.id] if user.partner_id.parent_id else [])),
+         ('reserva_commitment_packer_ids.farmer_partner_id','=',user.partner_id.id),
+         ('reserva_commitment_farmer_ids.packer_partner_id','=',user.partner_id.id)]
+      </field>
+    </record>
+
+  </data>
+</odoo>

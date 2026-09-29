@@ -1027,6 +1027,13 @@
                     <span t-esc="'Kg' if datos.get('uom') == 'kg' else 'Lb'"/>
                   </div>
                 </label>
+                <!-- El día que piensa cosechar. Es opcional: sin fecha la
+                     tabla no dice quién recibe, en vez de dar por hecho que
+                     reciben todas. -->
+                <label>Cuándo vas a cosechar
+                  <input type="date" name="fecha" class="form-control"
+                         t-att-value="fecha or ''"/>
+                </label>
                 <button type="submit" class="s-btn s-btn-primary">
                   <i class="fa fa-refresh me-1"/> Actualizar
                 </button>
@@ -1096,6 +1103,37 @@
               </div>
             </t>
 
+            <!-- ==========================================================
+                 El aviso que justifica toda la pantalla: quien más paga en
+                 el papel no es quien más deja en caja.
+                 ========================================================== -->
+            <t t-if="datos.get('cambian')">
+              <div class="pk-alert pk-alert--ojo mt-3">
+                <i class="fa fa-exclamation-triangle me-1"/>
+                <strong>En <t t-esc="datos['cambian']"/>
+                talla<t t-if="datos['cambian'] != 1">s</t>, quien más paga no
+                es quien mejor te paga en caja.</strong>
+                Está marcado en la tabla: el precio de arriba es el del papel y
+                el de abajo es lo que vale hoy ese dinero con los plazos de
+                cada lista.
+              </div>
+            </t>
+
+            <t t-if="datos.get('fecha') and datos.get('pagos')">
+              <t t-set="fuera" t-value="[l for l in datos['listas'] if datos['pagos'].get(l.id, {}).get('recibe') is False]"/>
+              <t t-if="fuera">
+                <div class="pk-alert pk-alert--ko mt-3">
+                  <i class="fa fa-calendar-times-o me-1"/>
+                  El <t t-esc="datos['fecha_txt']"/> no te reciben:
+                  <t t-foreach="fuera" t-as="l">
+                    <t t-esc="l.issuer_partner_id.name"/><t t-if="not l_last">, </t>
+                  </t>.
+                  Su ventana de despacho no cubre ese día, así que su precio no
+                  te sirve para esa cosecha.
+                </div>
+              </t>
+            </t>
+
             <t t-if="datos.get('filas')">
               <div class="pk-comp-wrap mt-3">
                 <table class="pk-comp">
@@ -1103,9 +1141,33 @@
                     <tr>
                       <th class="pk-comp-talla">Talla</th>
                       <t t-foreach="datos['listas']" t-as="l">
+                        <t t-set="pg" t-value="datos.get('pagos', {}).get(l.id, {})"/>
                         <th class="text-end">
                           <div class="pk-comp-emp" t-esc="l.issuer_partner_id.name"/>
                           <div class="pk-comp-ref" t-esc="l.name"/>
+                          <!-- Cuándo paga, debajo del nombre: es la mitad de
+                               la decisión y estaba solo en el detalle de la
+                               lista, a dos clics de aquí. -->
+                          <div class="pk-comp-pago" t-att-title="pg.get('ventana')">
+                            <t t-if="pg.get('declarado')">
+                              <i class="fa fa-clock-o me-1"/>
+                              paga a <t t-esc="'{:.0f}'.format(pg['dias'])"/> días
+                            </t>
+                            <t t-else="">
+                              <span class="pk-muted">no dice cuándo paga</span>
+                            </t>
+                          </div>
+                          <t t-if="pg.get('recibe') is True">
+                            <div class="pk-comp-recibe pk-comp-recibe--si">
+                              <i class="fa fa-check me-1"/>recibe ese día
+                            </div>
+                          </t>
+                          <t t-elif="pg.get('recibe') is False">
+                            <div class="pk-comp-recibe pk-comp-recibe--no"
+                                 t-att-title="pg.get('ventana')">
+                              <i class="fa fa-times me-1"/>no recibe ese día
+                            </div>
+                          </t>
                         </th>
                       </t>
                       <th class="text-end pk-comp-vent">Ventaja</th>
@@ -1116,15 +1178,41 @@
                   </thead>
                   <tbody>
                     <t t-foreach="datos['filas']" t-as="f">
-                      <tr>
-                        <td class="pk-talla" t-esc="f['talla'].name"/>
+                      <t t-set="cls_fila"
+                         t-value="'pk-comp-cambia' if f.get('cambia_ganador') else ''"/>
+                      <tr t-att-class="cls_fila">
+                        <td class="pk-talla">
+                          <t t-esc="f['talla'].name"/>
+                          <t t-if="f.get('cambia_ganador')">
+                            <span class="pk-comp-flag"
+                                  title="El que más paga no es el que más te deja en caja">
+                              <i class="fa fa-exclamation-triangle"/>
+                            </span>
+                          </t>
+                        </td>
                         <t t-foreach="datos['listas']" t-as="l">
                           <t t-set="p" t-value="f['precios'].get(l.id)"/>
-                          <td t-attf-class="text-end#{' pk-mejor' if (p and l.id in f['ganadores']) else ''}">
+                          <t t-set="pe" t-value="f.get('efectivos', {}).get(l.id)"/>
+                          <!-- La condicional se resuelve aquí y no dentro del
+                               t-attf: las almohadillas con lógica dentro son
+                               una fuente de sorpresas. -->
+                          <t t-set="cls_celda"
+                             t-value="'text-end pk-mejor' if (p and l.id in f['ganadores']) else 'text-end'"/>
+                          <t t-set="cls_celda"
+                             t-value="cls_celda + ' pk-mejor-caja' if (pe is not None and l.id in f.get('ganadores_efectivo', [])) else cls_celda"/>
+                          <td t-att-class="cls_celda">
                             <t t-if="p">
                               <t t-esc="'$ {:,.2f}'.format(p)"/>
                               <t t-if="l.id in f['ganadores']">
                                 <i class="fa fa-check ms-1"/>
+                              </t>
+                              <t t-if="pe is not None">
+                                <div class="pk-comp-efectivo">
+                                  en caja <t t-esc="'$ {:,.2f}'.format(pe)"/>
+                                  <t t-if="l.id in f.get('ganadores_efectivo', [])">
+                                    <i class="fa fa-star ms-1"/>
+                                  </t>
+                                </div>
                               </t>
                               <t t-if="cantidad">
                                 <div class="pk-comp-total" t-esc="'$ {:,.0f}'.format(p * cantidad)"/>
@@ -1171,6 +1259,31 @@
                   Pon una cantidad arriba para ver la diferencia en dólares.
                 </t>
                 Las bonificaciones por tamaño y color van aparte, en cada lista.
+              </p>
+
+              <p class="pk-nota">
+                <i class="fa fa-clock-o me-1"/>
+                <strong>«En caja»</strong> es ese mismo precio traído a hoy con
+                la forma de pago de cada lista: el anticipo pesa por lo que
+                adelanta y el saldo por lo que tarda. La estrella señala quién
+                te deja más dinero en caja, que no siempre es quien más paga.
+                <t t-if="datos.get('tasa_supuesta')">
+                  Se calcula suponiendo que tu dinero te cuesta
+                  <strong t-esc="'{:.0f}'.format(datos.get('tasa') or 0.0)"/> %
+                  al año — es un supuesto nuestro, no un dato tuyo.
+                  <a href="/marketplace/mi-cuenta">Dinos cuánto te cuesta de verdad</a>
+                  y esta tabla se recalcula con tu número.
+                </t>
+                <t t-else="">
+                  Se calcula con el costo de tu dinero,
+                  <strong t-esc="'{:.0f}'.format(datos.get('tasa') or 0.0)"/> %
+                  al año, tal como lo fijaste.
+                  <a href="/marketplace/mi-cuenta">Cambiarlo</a>.
+                </t>
+                <t t-if="not datos.get('fecha')">
+                  Pon arriba el día que vas a cosechar y te decimos cuál de
+                  ellas puede recibirte ese día.
+                </t>
               </p>
             </t>
             <t t-elif="not sin_seleccion">

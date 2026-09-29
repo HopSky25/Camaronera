@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- ================================================================
+       Las dos entradas de la reserva anticipada, dentro del desplegable
+       Operaciones.
+
+       Van en su propio fichero y no en `navbar_inherit.xml` para no pisar el
+       trabajo que se hace en paralelo sobre aquel: dos vistas heredadas
+       distintas sobre la misma plantilla base conviven sin problema.
+
+       Se ancla por el href del calendario, que es un nodo de la plantilla
+       base y por tanto estable. No se ancla por clase a propósito: un xpath
+       del tipo @class='dropdown-item' solo casa si la clase es EXACTAMENTE
+       esa, y aquí todas llevan además `mp-menu-item`, así que no casaría
+       nunca. Para eso estaría hasclass(), pero el href es más específico.
+
+       Cada entrada se muestra solo al eslabón al que le sirve. A un
+       semillero o a un laboratorio estas dos pantallas le devolverían un 403:
+       un menú que no lleva a ningún sitio es una promesa incumplida cada vez
+       que se abre la barra.
+       ================================================================ -->
+  <template id="navbar_reservas"
+            inherit_id="shrimp_marketplace.submenu_mi_panel_dropdown"
+            name="Operaciones - reservas anticipadas">
+    <xpath expr="//a[@href='/marketplace/calendar']/.." position="after">
+      <t t-set="shrimp_tipo_reserva"
+         t-value="request.env.user.partner_id.shrimp_user_type if request else False"/>
+
+      <!-- Quien cosecha: declarar la cosecha que viene y ver quién se
+           comprometió con ella. -->
+      <li t-if="shrimp_tipo_reserva == 'camaronera'">
+        <a role="menuitem" class="dropdown-item mp-menu-item"
+           href="/marketplace/reservas">
+          <span class="mp-menu-ico mp-mi-green"><i class="fa fa-calendar-check-o"/></span>
+          <span>Reservas anticipadas</span>
+        </a>
+      </li>
+
+      <!-- Quien compra: la bandeja de cosechas que le ofrecen por adelantado. -->
+      <li t-if="shrimp_tipo_reserva == 'empacadora'">
+        <a role="menuitem" class="dropdown-item mp-menu-item"
+           href="/empacadora/reservas">
+          <span class="mp-menu-ico mp-mi-blue"><i class="fa fa-handshake-o"/></span>
+          <span>Reservas anticipadas</span>
+        </a>
+      </li>
+    </xpath>
+  </template>
+
+</odoo>

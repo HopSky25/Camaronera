@@ -1,0 +1,21 @@
+<odoo>
+  <!-- Reparto de los avisos de lotes nuevos a las empacadoras.
+
+       Corre cada hora y casi siempre no hace nada: quien decide si toca es la
+       preferencia de cada empacadora (un resumen al día a las 7, o dos, a las
+       7 y a las 15). La frecuencia horaria es lo que permite las dos tandas y
+       lo que hace que un cron caído a las siete reparta a las ocho en vez de
+       saltarse el día entero.
+
+       No es "cada hora un correo": el correo sale como mucho una o dos veces
+       al día por empacadora, y solo si hay lotes que su lista vigente cotice. -->
+  <record id="ir_cron_avisos_lotes_nuevos" model="ir.cron">
+    <field name="name">Lotes nuevos: avisar a las empacadoras que los cotizan</field>
+    <field name="model_id" ref="model_shrimp_lot_alert"/>
+    <field name="state">code</field>
+    <field name="code">model._cron_avisar_lotes()</field>
+    <field name="interval_number">1</field>
+    <field name="interval_type">hours</field>
+    <field name="active" eval="True"/>
+  </record>
+</odoo>

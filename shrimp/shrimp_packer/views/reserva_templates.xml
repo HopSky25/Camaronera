@@ -1,0 +1,990 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- ================================================================
+       Trozos que se repiten. La banda se pinta en cinco sitios y tiene que
+       decir lo mismo en los cinco: si la finca lee una tolerancia en su
+       pantalla y la empacadora lee otra en la suya, el mecanismo entero se
+       cae el día de la primera discusión.
+       ================================================================ -->
+  <template id="reserva_banda_box" name="Reserva - la banda comprometida">
+    <div class="alert alert-light border">
+      <div class="fw-bold mb-1">La banda comprometida</div>
+      <div class="small">
+        <div>
+          Libras: entre <b><t t-esc="round(d.lb_min, 2)"/></b> y
+          <b><t t-esc="round(d.lb_max, 2)"/></b> lb
+          (<t t-esc="round(d.tolerance_lb_pct, 2)"/> % sobre las
+          <t t-esc="round(d.expected_lb, 2)"/> declaradas).
+        </div>
+        <div>
+          Talla: hasta <b><t t-esc="d.tolerance_size_steps"/></b> escalones
+          arriba o abajo de <b><t t-esc="d.size_grade_id.display_name"/></b>,
+          con el precio ajustado.
+        </div>
+        <div>
+          Fecha: <b>± <t t-esc="d.date_tolerance_days"/> días</b> del
+          <t t-esc="d.expected_date"/>.
+        </div>
+      </div>
+      <div class="small text-muted mt-2">
+        Dentro de la banda el compromiso se cumple solo, sobre lo que realmente
+        salió. Fuera de ella no hay incumplimiento de nadie: las dos partes
+        tienen que confirmar si aun así les sirve.
+      </div>
+    </div>
+  </template>
+
+  <template id="reserva_precio_box" name="Reserva - cómo se fija el precio">
+    <t t-if="c.price_mode == 'fijo'">
+      <div>
+        Precio cerrado: <b>$ <t t-esc="round(c.price_per_lb, 4)"/> / lb</b>
+        para la talla declarada.
+      </div>
+      <div class="small text-muted">
+        Escalón de talla: $ <t t-esc="round(c.step_delta_per_lb, 4)"/> / lb por
+        cada talla de diferencia.
+      </div>
+    </t>
+    <t t-else="">
+      <div>
+        Lista vigente el día de la cosecha, con piso de
+        <b>$ <t t-esc="round(c.price_floor_per_lb, 4)"/> / lb</b>.
+      </div>
+      <div class="small text-muted">
+        Se paga lo que diga la lista de esa empacadora ese día para la talla que
+        salga, y nunca menos del piso.
+      </div>
+    </t>
+  </template>
+
+  <!-- ================================================================
+       LADO CAMARONERA · Mis cosechas declaradas
+       ================================================================ -->
+  <template id="reserva_index" name="Mis cosechas declaradas">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page py-4">
+
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <h2 class="mb-1">Reservas anticipadas</h2>
+              <p class="text-muted mb-0">
+                Vende la cosecha antes de sacarla del agua: declara lo que viene
+                y deja que las empacadoras se comprometan a un precio.
+              </p>
+            </div>
+            <a href="/marketplace/reservas/nueva" class="btn btn-primary">
+              Declarar una cosecha
+            </a>
+          </div>
+
+          <t t-if="error">
+            <div class="alert alert-danger"><t t-esc="error"/></div>
+          </t>
+          <t t-if="mensaje == 'publicada'">
+            <div class="alert alert-success">Declaración publicada.</div>
+          </t>
+
+          <t t-if="not declaraciones">
+            <div class="alert alert-info">
+              Todavía no has declarado ninguna cosecha. La primera sirve para lo
+              mismo que la última: tener el camarón colocado antes de cosechar y
+              saber con cuánto dinero cuentas para la siembra siguiente.
+            </div>
+          </t>
+
+          <div class="row g-3">
+            <t t-foreach="declaraciones" t-as="d">
+              <div class="col-md-6">
+                <div class="card h-100">
+                  <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                      <h5 class="card-title mb-1">
+                        <a t-attf-href="/marketplace/reservas/#{d.uuid_ref}">
+                          <t t-esc="d.name"/>
+                        </a>
+                      </h5>
+                      <span class="badge text-bg-secondary">
+                        <t t-esc="dict(d._fields['state'].selection).get(d.state)"/>
+                      </span>
+                    </div>
+                    <div class="text-muted small mb-2">
+                      <t t-esc="d.pond_id.display_name"/>
+                    </div>
+                    <div>
+                      <b><t t-esc="round(d.expected_lb, 2)"/> lb</b> ·
+                      <t t-esc="d.size_grade_id.display_name"/> ·
+                      <t t-esc="d.expected_date"/>
+                    </div>
+                    <div class="small text-muted">
+                      Banda: <t t-esc="round(d.lb_min, 2)"/> a
+                      <t t-esc="round(d.lb_max, 2)"/> lb
+                    </div>
+                    <div class="small mt-2">
+                      <t t-esc="d.commitment_count"/> compromiso(s) ·
+                      <t t-esc="d.recipient_count"/> empacadora(s)
+                    </div>
+                    <t t-if="d.state == 'harvested' and d.actual_lb">
+                      <div class="small mt-1">
+                        Cosechado: <b><t t-esc="round(d.actual_lb, 2)"/> lb</b>
+                        de <t t-esc="d.actual_size_grade_id.display_name"/>
+                      </div>
+                    </t>
+                  </div>
+                </div>
+              </div>
+            </t>
+          </div>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+  <!-- ================================================================
+       LADO CAMARONERA · Declarar
+       ================================================================ -->
+  <template id="reserva_form" name="Declarar una cosecha">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page py-4">
+
+          <a href="/marketplace/reservas" class="btn btn-sm btn-link mb-2">&#8592; Volver</a>
+          <h2 class="mb-1">Declarar la cosecha que viene</h2>
+          <p class="text-muted">
+            Lo que declares aquí lo van a leer como una promesa, así que declara
+            lo que de verdad esperas y ajusta la banda a lo que de verdad
+            aguantas. Una banda ancha se acepta menos; una banda estrecha que no
+            cumples se paga en confianza.
+          </p>
+
+          <t t-if="error">
+            <div class="alert alert-danger"><t t-esc="error"/></div>
+          </t>
+
+          <t t-if="not piscinas">
+            <div class="alert alert-warning">
+              No tienes piscinas registradas y una reserva sale siempre de una
+              piscina concreta: es lo que después le da origen al lote y lo que
+              le permite a la empacadora cruzarla con tu historial. Regístralas
+              en tu cuenta antes de declarar.
+            </div>
+          </t>
+
+          <form method="post" action="/marketplace/reservas/nueva" class="card">
+            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+            <div class="card-body">
+
+              <h6 class="text-uppercase text-muted">1 · Qué y cuándo</h6>
+              <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                  <label class="form-label">Piscina *</label>
+                  <select name="pond_id" class="form-select" required="required">
+                    <option value="">— elige —</option>
+                    <t t-foreach="piscinas" t-as="p">
+                      <option t-att-value="p.id"
+                              t-att-selected="'selected' if datos.get('pond_id') == p.id else None">
+                        <t t-esc="p.display_name"/>
+                      </option>
+                    </t>
+                  </select>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Instalación</label>
+                  <select name="facility_id" class="form-select">
+                    <option value="">— sin especificar —</option>
+                    <t t-foreach="instalaciones" t-as="f">
+                      <option t-att-value="f.id"
+                              t-att-selected="'selected' if datos.get('facility_id') == f.id else None">
+                        <t t-esc="f.display_name"/>
+                      </option>
+                    </t>
+                  </select>
+                </div>
+
+                <div class="col-md-4">
+                  <label class="form-label">Fecha estimada de cosecha *</label>
+                  <input type="date" name="expected_date" class="form-control"
+                         required="required"
+                         t-att-value="datos.get('expected_date') or ''"/>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Libras estimadas *</label>
+                  <input type="number" step="0.01" min="1" name="expected_lb"
+                         class="form-control" required="required"
+                         t-att-value="datos.get('expected_lb') or ''"/>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Presentación *</label>
+                  <select name="presentation" class="form-select">
+                    <option value="entero"
+                            t-att-selected="'selected' if (datos.get('presentation') or 'entero') == 'entero' else None">Entero</option>
+                    <option value="cola"
+                            t-att-selected="'selected' if datos.get('presentation') == 'cola' else None">Cola</option>
+                  </select>
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label">Talla estimada *</label>
+                  <select name="size_grade_id" class="form-select" required="required">
+                    <option value="">— elige —</option>
+                    <t t-foreach="tallas" t-as="t">
+                      <option t-att-value="t.id"
+                              t-att-selected="'selected' if datos.get('size_grade_id') == t.id else None">
+                        <t t-esc="t.display_name"/>
+                      </option>
+                    </t>
+                  </select>
+                  <div class="form-text">
+                    Tiene que ser de la misma presentación que elegiste arriba.
+                  </div>
+                </div>
+              </div>
+
+              <h6 class="text-uppercase text-muted">2 · Hasta dónde te comprometes</h6>
+              <p class="small text-muted">
+                Ninguna cosecha sale exactamente como se estimó. Esta es la banda
+                dentro de la cual el compromiso sigue valiendo sin tener que
+                renegociar nada.
+              </p>
+              <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                  <label class="form-label">Tolerancia en libras (%)</label>
+                  <input type="number" step="0.01" min="1" max="40"
+                         name="tolerance_lb_pct" class="form-control"
+                         t-att-value="datos.get('tolerance_lb_pct') or '20'"/>
+                  <div class="form-text">Del 1 % al 40 %.</div>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Tolerancia de talla (escalones)</label>
+                  <input type="number" step="1" min="0" max="3"
+                         name="tolerance_size_steps" class="form-control"
+                         t-att-value="datos.get('tolerance_size_steps') or '1'"/>
+                  <div class="form-text">
+                    Un escalón es pasar de 30/40 a 40/50. El precio se ajusta.
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Tolerancia de fecha (días)</label>
+                  <input type="number" step="1" min="0" max="21"
+                         name="date_tolerance_days" class="form-control"
+                         t-att-value="datos.get('date_tolerance_days') or '7'"/>
+                </div>
+              </div>
+
+              <h6 class="text-uppercase text-muted">3 · A quién se la enseñas</h6>
+              <p class="small text-muted">
+                Lo que declaras es confidencial: solo lo ven las empacadoras que
+                elijas. Nadie más, ni otras camaroneras.
+              </p>
+              <div class="mb-3">
+                <label class="form-check-label">
+                  <input type="checkbox" name="open_call" value="1"
+                         class="form-check-input me-1"/>
+                  Abrirla a todas las empacadoras que aceptan reservas
+                </label>
+              </div>
+              <div class="row g-2 mb-4">
+                <t t-foreach="empacadoras" t-as="e">
+                  <div class="col-md-4">
+                    <label class="form-check-label small">
+                      <input type="checkbox" name="recipient_ids"
+                             t-att-value="e.id" class="form-check-input me-1"/>
+                      <t t-esc="e.name"/>
+                    </label>
+                  </div>
+                </t>
+              </div>
+
+              <div class="mb-2">
+                <label class="form-label">Observaciones</label>
+                <textarea name="notes" class="form-control" rows="2"><t t-esc="datos.get('notes') or ''"/></textarea>
+              </div>
+
+            </div>
+            <div class="card-footer bg-transparent">
+              <button type="submit" class="btn btn-primary">Publicar la declaración</button>
+              <a href="/marketplace/reservas" class="btn btn-link">Cancelar</a>
+            </div>
+          </form>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+  <!-- ================================================================
+       LADO CAMARONERA · Detalle
+       ================================================================ -->
+  <template id="reserva_detalle" name="Detalle de una cosecha declarada">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page py-4">
+
+          <a href="/marketplace/reservas" class="btn btn-sm btn-link mb-2">&#8592; Mis reservas</a>
+
+          <t t-if="error">
+            <div class="alert alert-danger"><t t-esc="error"/></div>
+          </t>
+          <t t-if="mensaje == 'publicada'">
+            <div class="alert alert-success">Declaración publicada.</div>
+          </t>
+          <t t-if="mensaje == 'cancelada'">
+            <div class="alert alert-warning">
+              Declaración cancelada. Si había un compromiso aceptado, queda
+              registrado como incumplimiento tuyo con el motivo que diste.
+            </div>
+          </t>
+          <t t-if="mensaje == 'cosechada'">
+            <div class="alert alert-success">Cosecha registrada.</div>
+          </t>
+
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <h2 class="mb-0"><t t-esc="d.name"/></h2>
+            <span class="badge text-bg-secondary">
+              <t t-esc="dict(d._fields['state'].selection).get(d.state)"/>
+            </span>
+          </div>
+          <p class="text-muted">
+            <t t-esc="d.pond_id.display_name"/> ·
+            <t t-esc="round(d.expected_lb, 2)"/> lb estimadas de
+            <t t-esc="d.size_grade_id.display_name"/> para el
+            <t t-esc="d.expected_date"/>
+          </p>
+
+          <div class="row g-3">
+            <div class="col-lg-5">
+              <t t-call="shrimp_packer.reserva_banda_box"/>
+
+              <t t-if="d.state == 'harvested'">
+                <div class="card mb-3">
+                  <div class="card-body">
+                    <h6 class="card-title">Lo que salió</h6>
+                    <div><b><t t-esc="round(d.actual_lb, 2)"/> lb</b> de
+                      <t t-esc="d.actual_size_grade_id.display_name"/>
+                      el <t t-esc="d.actual_date"/></div>
+                    <t t-if="d.product_id">
+                      <a class="btn btn-sm btn-outline-primary mt-2"
+                         t-attf-href="/marketplace/product/#{d.product_id.uuid_ref}">
+                        Ver el lote generado
+                      </a>
+                    </t>
+                  </div>
+                </div>
+              </t>
+
+              <t t-if="d.state in ('published', 'committed')">
+                <div class="card mb-3">
+                  <div class="card-body">
+                    <h6 class="card-title">Registrar la cosecha</h6>
+                    <p class="small text-muted">
+                      Al registrarla nace el lote y se resuelve el compromiso.
+                    </p>
+                    <form method="post"
+                          t-attf-action="/marketplace/reservas/#{d.uuid_ref}/cosecha">
+                      <input type="hidden" name="csrf_token"
+                             t-att-value="request.csrf_token()"/>
+                      <div class="mb-2">
+                        <label class="form-label">Libras cosechadas *</label>
+                        <input type="number" step="0.01" min="0.01"
+                               name="actual_lb" class="form-control"
+                               required="required"/>
+                      </div>
+                      <div class="mb-2">
+                        <label class="form-label">Talla que salió *</label>
+                        <select name="actual_size_grade_id" class="form-select"
+                                required="required">
+                          <option value="">— elige —</option>
+                          <t t-foreach="tallas" t-as="t">
+                            <option t-att-value="t.id">
+                              <t t-esc="t.display_name"/>
+                            </option>
+                          </t>
+                        </select>
+                      </div>
+                      <div class="mb-2">
+                        <label class="form-label">Fecha real</label>
+                        <input type="date" name="actual_date"
+                               class="form-control" t-att-value="hoy"/>
+                      </div>
+                      <button type="submit" class="btn btn-primary btn-sm">
+                        Registrar cosecha
+                      </button>
+                    </form>
+                  </div>
+                </div>
+
+                <div class="card mb-3 border-danger">
+                  <div class="card-body">
+                    <h6 class="card-title text-danger">Retirar la declaración</h6>
+                    <p class="small text-muted">
+                      Si hay un compromiso aceptado, retirarla es echarse atrás:
+                      queda registrado a tu nombre con el motivo que escribas.
+                    </p>
+                    <form method="post"
+                          t-attf-action="/marketplace/reservas/#{d.uuid_ref}/cancelar">
+                      <input type="hidden" name="csrf_token"
+                             t-att-value="request.csrf_token()"/>
+                      <textarea name="motivo" class="form-control mb-2" rows="2"
+                                placeholder="Por qué la retiras"></textarea>
+                      <button type="submit" class="btn btn-outline-danger btn-sm">
+                        Retirar
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              </t>
+            </div>
+
+            <div class="col-lg-7">
+              <h5>Compromisos recibidos</h5>
+              <t t-if="not compromisos">
+                <div class="alert alert-info">
+                  Todavía no hay compromisos. Las empacadoras a las que se la
+                  mandaste la tienen en su bandeja.
+                </div>
+              </t>
+              <t t-foreach="compromisos" t-as="c">
+                <div class="card mb-3">
+                  <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                      <h6 class="card-title mb-1">
+                        <t t-esc="c.packer_partner_id.name"/>
+                      </h6>
+                      <span class="badge text-bg-light">
+                        <t t-esc="dict(c._fields['state'].selection).get(c.state)"/>
+                      </span>
+                    </div>
+                    <div>Toma <b><t t-esc="round(c.committed_lb, 2)"/> lb</b></div>
+                    <t t-call="shrimp_packer.reserva_precio_box"/>
+                    <div class="small text-muted">
+                      Vale hasta <t t-esc="c.valid_until"/>
+                    </div>
+                    <t t-if="c.notes">
+                      <div class="small mt-1"><t t-esc="c.notes"/></div>
+                    </t>
+
+                    <t t-if="c.state == 'sent'">
+                      <div class="d-flex gap-2 mt-3">
+                        <form method="post"
+                              t-attf-action="/marketplace/reservas/compromiso/#{c.uuid_ref}/aceptar">
+                          <input type="hidden" name="csrf_token"
+                                 t-att-value="request.csrf_token()"/>
+                          <button type="submit" class="btn btn-sm btn-primary">
+                            Aceptar este compromiso
+                          </button>
+                        </form>
+                        <form method="post"
+                              t-attf-action="/marketplace/reservas/compromiso/#{c.uuid_ref}/descartar">
+                          <input type="hidden" name="csrf_token"
+                                 t-att-value="request.csrf_token()"/>
+                          <button type="submit" class="btn btn-sm btn-outline-secondary">
+                            Descartar
+                          </button>
+                        </form>
+                      </div>
+                    </t>
+
+                    <t t-if="c.state == 'accepted'">
+                      <form method="post" class="mt-3"
+                            t-attf-action="/marketplace/reservas/compromiso/#{c.uuid_ref}/desistir">
+                        <input type="hidden" name="csrf_token"
+                               t-att-value="request.csrf_token()"/>
+                        <textarea name="motivo" class="form-control mb-2" rows="2"
+                                  placeholder="Por qué te echas atrás"></textarea>
+                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                          Desistir del compromiso
+                        </button>
+                        <div class="form-text">
+                          Queda registrado a tu nombre, con el motivo y la fecha.
+                        </div>
+                      </form>
+                    </t>
+
+                    <t t-if="c.state in ('honored', 'released', 'to_confirm')">
+                      <div class="mt-2 small">
+                        <div>Liquidado: <b><t t-esc="round(c.settled_lb, 2)"/> lb</b>
+                          a $ <t t-esc="round(c.settled_price_per_lb, 4)"/> / lb
+                          = $ <t t-esc="round(c.settled_total, 2)"/></div>
+                        <t t-if="c.floor_applied">
+                          <div class="text-success">
+                            La lista del día pagaba menos: se aplicó el piso pactado.
+                          </div>
+                        </t>
+                        <t t-if="c.settled_steps">
+                          <div class="text-muted">
+                            Ajuste por <t t-esc="abs(c.settled_steps)"/> escalón(es) de talla.
+                          </div>
+                        </t>
+                      </div>
+                    </t>
+
+                    <t t-if="c.state == 'broken'">
+                      <div class="alert alert-danger mt-2 mb-0 small">
+                        Incumplido por <b><t t-esc="c.broken_by_partner_id.name"/></b>
+                        el <t t-esc="c.broken_at"/>.
+                        <div>Motivo: <t t-esc="c.break_reason"/></div>
+                      </div>
+                    </t>
+                  </div>
+                </div>
+              </t>
+
+              <!-- La confirmación cuando la cosecha se salió de la banda. -->
+              <t t-if="mi_firma and mi_firma.decision == 'pending'">
+                <div class="card border-warning mb-3">
+                  <div class="card-body">
+                    <h6 class="card-title text-warning">
+                      La cosecha se salió de la banda
+                    </h6>
+                    <div class="small mb-2" style="white-space: pre-line;">
+                      <t t-esc="mi_firma.frozen_reason"/>
+                    </div>
+                    <div class="small text-muted mb-2">
+                      Declarado <t t-esc="round(mi_firma.frozen_expected_lb, 2)"/> lb ·
+                      salió <t t-esc="round(mi_firma.frozen_actual_lb, 2)"/> lb ·
+                      se liquidarían <t t-esc="round(mi_firma.frozen_settled_lb, 2)"/> lb
+                      a $ <t t-esc="round(mi_firma.frozen_price_per_lb, 4)"/> / lb.
+                    </div>
+                    <p class="small">
+                      Nadie incumplió: lo que salió no es lo que se vendió. Si
+                      aceptas, el compromiso se cumple sobre estas cifras; si no,
+                      queda liberado y el lote es tuyo para venderlo a quien
+                      quieras.
+                    </p>
+                    <form method="post"
+                          t-attf-action="/marketplace/reservas/confirmacion/#{mi_firma.uuid_ref}/firmar">
+                      <input type="hidden" name="csrf_token"
+                             t-att-value="request.csrf_token()"/>
+                      <textarea name="motivo" class="form-control mb-2" rows="2"
+                                placeholder="Motivo (obligatorio si no la aceptas)"></textarea>
+                      <button type="submit" name="decision" value="accepted"
+                              class="btn btn-sm btn-primary">Acepto la cosecha que salió</button>
+                      <button type="submit" name="decision" value="rejected"
+                              class="btn btn-sm btn-outline-danger">No la acepto</button>
+                    </form>
+                  </div>
+                </div>
+              </t>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+  <!-- ================================================================
+       LADO EMPACADORA · Bandeja
+       ================================================================ -->
+  <template id="reserva_bandeja" name="Reservas anticipadas - bandeja">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page py-4">
+
+          <h2 class="mb-1">Cosechas que te ofrecen por adelantado</h2>
+          <p class="text-muted">
+            Camarón que todavía está en el agua. Comprometerte ahora asegura
+            materia prima de un proveedor cuyo rendimiento ya conoces.
+          </p>
+
+          <t t-if="error">
+            <div class="alert alert-danger"><t t-esc="error"/></div>
+          </t>
+          <t t-if="mensaje == 'preferencia'">
+            <div class="alert alert-success">Preferencia guardada.</div>
+          </t>
+
+          <!-- El interruptor vive aquí, en la bandeja, y no en «Mi cuenta»:
+               es una decisión sobre esta pantalla y se toma mirándola. -->
+          <form method="post" action="/empacadora/reservas/preferencia"
+                class="card card-body mb-3">
+            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+            <label class="form-check-label">
+              <input type="checkbox" name="reserva_acepta" value="1"
+                     class="form-check-input me-1"
+                     t-att-checked="'checked' if acepta else None"/>
+              Acepto reservas anticipadas de cualquier camaronera
+            </label>
+            <div class="form-text">
+              Si lo marcas, las cosechas publicadas «abiertas» te llegan aquí.
+              Las que te dirijan a ti te llegan igual, marques o no.
+            </div>
+            <div>
+              <button type="submit" class="btn btn-sm btn-outline-secondary mt-2">
+                Guardar
+              </button>
+            </div>
+          </form>
+
+          <h5 class="mt-4">Sin responder</h5>
+          <t t-if="not abiertas">
+            <div class="alert alert-info">
+              No hay declaraciones pendientes.
+            </div>
+          </t>
+          <div class="row g-3">
+            <t t-foreach="abiertas" t-as="d">
+              <div class="col-md-6">
+                <div class="card h-100">
+                  <div class="card-body">
+                    <h6 class="card-title mb-1">
+                      <a t-attf-href="/empacadora/reserva/#{d.uuid_ref}">
+                        <t t-esc="d.farmer_partner_id.name"/>
+                      </a>
+                    </h6>
+                    <div class="text-muted small mb-2"><t t-esc="d.name"/></div>
+                    <div>
+                      <b><t t-esc="round(d.expected_lb, 2)"/> lb</b> ·
+                      <t t-esc="d.size_grade_id.display_name"/> ·
+                      <t t-esc="d.expected_date"/>
+                    </div>
+                    <div class="small text-muted">
+                      Banda <t t-esc="round(d.lb_min, 2)"/> a
+                      <t t-esc="round(d.lb_max, 2)"/> lb ·
+                      ± <t t-esc="d.tolerance_size_steps"/> talla(s) ·
+                      ± <t t-esc="d.date_tolerance_days"/> días
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </t>
+          </div>
+
+          <h5 class="mt-4">Mis compromisos</h5>
+          <t t-if="not respondidas">
+            <p class="text-muted">Todavía no te has comprometido con ninguna.</p>
+          </t>
+          <div class="table-responsive">
+            <table class="table table-sm align-middle" t-if="respondidas">
+              <thead>
+                <tr>
+                  <th>Camaronera</th>
+                  <th>Cosecha</th>
+                  <th class="text-end">Libras</th>
+                  <th>Precio</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                <t t-foreach="respondidas" t-as="c">
+                  <tr>
+                    <td><t t-esc="c.farmer_partner_id.name"/></td>
+                    <td>
+                      <a t-attf-href="/empacadora/reserva/#{c.forecast_id.uuid_ref}">
+                        <t t-esc="c.forecast_id.name"/>
+                      </a>
+                    </td>
+                    <td class="text-end"><t t-esc="round(c.committed_lb, 2)"/></td>
+                    <td>
+                      <t t-if="c.price_mode == 'fijo'">
+                        $ <t t-esc="round(c.price_per_lb, 4)"/> cerrado
+                      </t>
+                      <t t-else="">
+                        Lista, piso $ <t t-esc="round(c.price_floor_per_lb, 4)"/>
+                      </t>
+                    </td>
+                    <td>
+                      <span class="badge text-bg-light">
+                        <t t-esc="dict(c._fields['state'].selection).get(c.state)"/>
+                      </span>
+                    </td>
+                  </tr>
+                </t>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+  <!-- ================================================================
+       LADO EMPACADORA · Una declaración
+       ================================================================ -->
+  <template id="reserva_declaracion" name="Declaración de cosecha - empacadora">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page py-4">
+
+          <a href="/empacadora/reservas" class="btn btn-sm btn-link mb-2">&#8592; Bandeja</a>
+
+          <t t-if="error">
+            <div class="alert alert-danger"><t t-esc="error"/></div>
+          </t>
+          <t t-if="mensaje == 'comprometida'">
+            <div class="alert alert-success">
+              Compromiso enviado. La camaronera decide si lo acepta.
+            </div>
+          </t>
+
+          <h2 class="mb-1"><t t-esc="d.farmer_partner_id.name"/></h2>
+          <p class="text-muted">
+            <t t-esc="d.name"/> ·
+            <t t-esc="round(d.expected_lb, 2)"/> lb estimadas de
+            <t t-esc="d.size_grade_id.display_name"/> para el
+            <t t-esc="d.expected_date"/>
+          </p>
+
+          <div class="row g-3">
+            <div class="col-lg-5">
+              <t t-call="shrimp_packer.reserva_banda_box"/>
+
+              <!-- Lo único que se puede mirar antes de comprometerse a ciegas. -->
+              <div class="card mb-3">
+                <div class="card-body">
+                  <h6 class="card-title">Qué sabemos de este proveedor</h6>
+                  <t t-if="not rendimiento and not reservas">
+                    <p class="small text-muted mb-0">
+                      Todavía no tiene lotes verificados ni reservas cerradas en
+                      la plataforma. No hay historial que enseñar, y un cero
+                      sobre una muestra de cero no es un aval.
+                    </p>
+                  </t>
+                  <t t-if="rendimiento">
+                    <div class="small">
+                      <div>Rendimiento medio en planta:
+                        <b><t t-esc="round(rendimiento.get('rendimiento') or 0, 2)"/> %</b>
+                        sobre <t t-esc="rendimiento.get('rendimiento_n')"/> lote(s)
+                      </div>
+                      <div>Clase A:
+                        <b><t t-esc="round(rendimiento.get('clase_a') or 0, 2)"/> %</b></div>
+                      <div>Cumplimiento:
+                        <b><t t-esc="round(rendimiento.get('cumplimiento') or 0, 2)"/> %</b>
+                        · <t t-esc="rendimiento.get('lotes')"/> lote(s) verificados</div>
+                      <t t-if="not rendimiento.get('suficiente')">
+                        <div class="text-warning">
+                          Muestra corta: estos promedios todavía no dicen mucho.
+                        </div>
+                      </t>
+                    </div>
+                  </t>
+                  <t t-if="reservas">
+                    <hr class="my-2"/>
+                    <div class="small">
+                      <div>Reservas cumplidas:
+                        <b><t t-esc="reservas.get('cumplidas')"/></b> ·
+                        incumplidas: <b><t t-esc="reservas.get('incumplidas')"/></b>
+                      </div>
+                      <t t-if="reservas.get('muestra')">
+                        <div>Error medio de sus estimaciones:
+                          <b><t t-esc="round(reservas.get('punteria') or 0, 2)"/> %</b>
+                          sobre <t t-esc="reservas.get('muestra')"/> cosecha(s)
+                        </div>
+                      </t>
+                    </div>
+                  </t>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-lg-7">
+              <t t-if="mio">
+                <div class="card mb-3">
+                  <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                      <h6 class="card-title mb-1">Mi compromiso</h6>
+                      <span class="badge text-bg-light">
+                        <t t-esc="dict(mio._fields['state'].selection).get(mio.state)"/>
+                      </span>
+                    </div>
+                    <div>Tomo <b><t t-esc="round(mio.committed_lb, 2)"/> lb</b></div>
+                    <t t-set="c" t-value="mio"/>
+                    <t t-call="shrimp_packer.reserva_precio_box"/>
+
+                    <t t-if="mio.state == 'sent'">
+                      <form method="post" class="mt-3"
+                            t-attf-action="/empacadora/compromiso/#{mio.uuid_ref}/retirar">
+                        <input type="hidden" name="csrf_token"
+                               t-att-value="request.csrf_token()"/>
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">
+                          Retirar el compromiso
+                        </button>
+                        <div class="form-text">
+                          Todavía nadie lo aceptó: retirarlo no deja marca.
+                        </div>
+                      </form>
+                    </t>
+
+                    <t t-if="mio.state == 'accepted'">
+                      <form method="post" class="mt-3"
+                            t-attf-action="/empacadora/compromiso/#{mio.uuid_ref}/desistir">
+                        <input type="hidden" name="csrf_token"
+                               t-att-value="request.csrf_token()"/>
+                        <textarea name="motivo" class="form-control mb-2" rows="2"
+                                  placeholder="Por qué te echas atrás"></textarea>
+                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                          Desistir
+                        </button>
+                        <div class="form-text">
+                          Ya te lo aceptaron: esto queda registrado a tu nombre
+                          con el motivo y la fecha.
+                        </div>
+                      </form>
+                    </t>
+
+                    <t t-if="mio.state == 'honored'">
+                      <div class="mt-2 small">
+                        Liquidado: <b><t t-esc="round(mio.settled_lb, 2)"/> lb</b>
+                        a $ <t t-esc="round(mio.settled_price_per_lb, 4)"/> / lb
+                        = $ <t t-esc="round(mio.settled_total, 2)"/>
+                      </div>
+                      <t t-if="not mio.transaction_id and mio.product_id">
+                        <form method="post" class="mt-2"
+                              t-attf-action="/empacadora/compromiso/#{mio.uuid_ref}/comprar">
+                          <input type="hidden" name="csrf_token"
+                                 t-att-value="request.csrf_token()"/>
+                          <button type="submit" class="btn btn-sm btn-primary">
+                            Comprar las libras reservadas
+                          </button>
+                        </form>
+                      </t>
+                      <t t-if="mio.transaction_id">
+                        <div class="small text-success mt-2">
+                          Compra ejecutada.
+                        </div>
+                      </t>
+                    </t>
+
+                    <t t-if="mio.state == 'broken'">
+                      <div class="alert alert-danger mt-2 mb-0 small">
+                        Incumplido por <b><t t-esc="mio.broken_by_partner_id.name"/></b>
+                        el <t t-esc="mio.broken_at"/>.
+                        <div>Motivo: <t t-esc="mio.break_reason"/></div>
+                      </div>
+                    </t>
+                  </div>
+                </div>
+              </t>
+
+              <t t-if="mi_firma and mi_firma.decision == 'pending'">
+                <div class="card border-warning mb-3">
+                  <div class="card-body">
+                    <h6 class="card-title text-warning">
+                      La cosecha se salió de la banda
+                    </h6>
+                    <div class="small mb-2" style="white-space: pre-line;">
+                      <t t-esc="mi_firma.frozen_reason"/>
+                    </div>
+                    <div class="small text-muted mb-2">
+                      Declarado <t t-esc="round(mi_firma.frozen_expected_lb, 2)"/> lb ·
+                      salió <t t-esc="round(mi_firma.frozen_actual_lb, 2)"/> lb ·
+                      se liquidarían <t t-esc="round(mi_firma.frozen_settled_lb, 2)"/> lb
+                      a $ <t t-esc="round(mi_firma.frozen_price_per_lb, 4)"/> / lb.
+                    </div>
+                    <p class="small">
+                      No te obliga nada: fuera de la banda el compromiso solo
+                      sigue en pie si las dos partes dicen que sí.
+                    </p>
+                    <form method="post"
+                          t-attf-action="/marketplace/reservas/confirmacion/#{mi_firma.uuid_ref}/firmar">
+                      <input type="hidden" name="csrf_token"
+                             t-att-value="request.csrf_token()"/>
+                      <textarea name="motivo" class="form-control mb-2" rows="2"
+                                placeholder="Motivo (obligatorio si no la aceptas)"></textarea>
+                      <button type="submit" name="decision" value="accepted"
+                              class="btn btn-sm btn-primary">Acepto la cosecha que salió</button>
+                      <button type="submit" name="decision" value="rejected"
+                              class="btn btn-sm btn-outline-danger">No la acepto</button>
+                    </form>
+                  </div>
+                </div>
+              </t>
+
+              <t t-if="d.admite_compromisos and (not mio or mio.state in ('sent', 'withdrawn'))">
+                <div class="card">
+                  <div class="card-body">
+                    <h6 class="card-title">
+                      <t t-if="mio">Cambiar mi compromiso</t>
+                      <t t-else="">Comprometerme con esta cosecha</t>
+                    </h6>
+                    <form method="post"
+                          t-attf-action="/empacadora/reserva/#{d.uuid_ref}/comprometer">
+                      <input type="hidden" name="csrf_token"
+                             t-att-value="request.csrf_token()"/>
+                      <div class="row g-3">
+                        <div class="col-md-6">
+                          <label class="form-label">Libras que tomo *</label>
+                          <input type="number" step="0.01" min="0.01"
+                                 name="committed_lb" class="form-control"
+                                 required="required"
+                                 t-att-value="mio.committed_lb if mio else d.expected_lb"/>
+                          <div class="form-text">
+                            No más de <t t-esc="round(d.lb_max, 2)"/> lb: es lo
+                            máximo que esta cosecha puede dar.
+                          </div>
+                        </div>
+                        <div class="col-md-6">
+                          <label class="form-label">Vale hasta *</label>
+                          <input type="date" name="valid_until"
+                                 class="form-control" required="required"
+                                 t-att-value="mio.valid_until if mio else ''"/>
+                        </div>
+
+                        <div class="col-12">
+                          <label class="form-label">Cómo se fija el precio *</label>
+                          <select name="price_mode" class="form-select">
+                            <option value="fijo"
+                                    t-att-selected="'selected' if (not mio or mio.price_mode == 'fijo') else None">
+                              Precio cerrado
+                            </option>
+                            <option value="lista"
+                                    t-att-selected="'selected' if (mio and mio.price_mode == 'lista') else None">
+                              Lista vigente el día de la cosecha, con piso
+                            </option>
+                          </select>
+                          <div class="form-text">
+                            El precio cerrado solo se admite si la cosecha está a
+                            45 días o menos: más allá, el mercado se mueve
+                            demasiado y el que pierda la apuesta rompe el trato.
+                          </div>
+                        </div>
+
+                        <div class="col-md-4">
+                          <label class="form-label">Precio cerrado ($/lb)</label>
+                          <input type="number" step="0.0001" min="0"
+                                 name="price_per_lb" class="form-control"
+                                 t-att-value="mio.price_per_lb if mio else ''"/>
+                        </div>
+                        <div class="col-md-4">
+                          <label class="form-label">Escalón de talla ($/lb)</label>
+                          <input type="number" step="0.0001" min="0"
+                                 name="step_delta_per_lb" class="form-control"
+                                 t-att-value="mio.step_delta_per_lb if mio else ''"/>
+                          <div class="form-text">
+                            Cuánto baja por cada talla más pequeña.
+                          </div>
+                        </div>
+                        <div class="col-md-4">
+                          <label class="form-label">Piso garantizado ($/lb)</label>
+                          <input type="number" step="0.0001" min="0"
+                                 name="price_floor_per_lb" class="form-control"
+                                 t-att-value="mio.price_floor_per_lb if mio else ''"/>
+                          <div class="form-text">
+                            Obligatorio si te comprometes a lista del día.
+                          </div>
+                        </div>
+
+                        <div class="col-12">
+                          <label class="form-label">Condiciones</label>
+                          <textarea name="notes" class="form-control" rows="2"><t t-esc="mio.notes if mio else ''"/></textarea>
+                        </div>
+                      </div>
+                      <button type="submit" class="btn btn-primary mt-3">
+                        Enviar compromiso
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              </t>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+</odoo>

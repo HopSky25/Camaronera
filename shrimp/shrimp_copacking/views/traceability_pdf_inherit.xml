@@ -1,7 +1,14 @@
 <odoo>
 
+  <!-- priority explicita, y no la de por defecto (16). Esta vista y la de
+       shrimp_verification inyectan en el MISMO ancla con position="before":
+       con la misma prioridad, el orden lo decide el id de la vista, o sea el
+       orden de instalacion. Si algun dia se reinstalara verificacion, su id
+       pasaria a ser el mayor y el certificado imprimiria 10, 8, 9. Con 30 se
+       aplica siempre despues y las secciones salen 8, 9, 10. -->
   <template id="report_traceability_copacking"
             inherit_id="shrimp_marketplace.report_shrimp_full_traceability"
+            priority="30"
             name="Certificado de trazabilidad - servicio de empaque">
 
     <!-- Cuando un lote se empaca fuera, la cadena se corta justo donde mas

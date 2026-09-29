@@ -65,12 +65,23 @@ class Website(models.Model):
         # 1) Identificar (o crear) el sitio de verificadores.
         verif = W.search([("shrimp_is_verifier_site", "=", True)], limit=1)
         if not verif:
-            verif = W.search([("name", "ilike", "verificador")], limit=1)
-        if not verif:
-            if len(sitios) == 1:
-                verif = W.create({"name": "Trazul Verificadores"})
-            else:
-                verif = sitios[-1]
+            # NUNCA robar el sitio del maquilador: si se lo quitáramos, esa
+            # plataforma se quedaría sin portada. Importa sobre todo en el
+            # último caso de abajo, donde se elegía sitios[-1] —el de id más
+            # alto— que por orden de instalación es justo el de empaque.
+            # El campo lo define shrimp_copacking, que depende de este módulo:
+            # puede no existir todavía, así que se comprueba antes de usarlo.
+            candidatos = sitios
+            if "shrimp_is_copacker_site" in W._fields:
+                candidatos = candidatos.filtered(
+                    lambda s: not s.shrimp_is_copacker_site)
+            verif = candidatos.filtered(
+                lambda s: "verificador" in (s.name or "").lower())[:1]
+            if not verif:
+                if len(candidatos) <= 1:
+                    verif = W.create({"name": "Trazul Verificadores"})
+                else:
+                    verif = candidatos[-1]
 
         # 2) Marcar el flag (uno y solo uno).
         W.search([("id", "!=", verif.id)]).write({"shrimp_is_verifier_site": False})

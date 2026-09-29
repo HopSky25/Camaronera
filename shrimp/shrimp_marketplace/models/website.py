@@ -118,32 +118,59 @@ class Website(models.Model):
         except Exception:
             return False
 
-    def _shrimp_sitios_principales(self):
-        """Los sitios que no son el de verificadores.
+    # Banderas con las que las OTRAS plataformas marcan su sitio. Las definen
+    # módulos que dependen de este (shrimp_verification, shrimp_copacking), así
+    # que aquí no se puede dar por hecho que existan: se comprueban una a una.
+    # Esta tupla es además la lista blanca de nombres que se interpolan en el
+    # SQL de abajo; no se consulta ningún nombre que no esté aquí.
+    _SHRIMP_FLAGS_OTRAS_PLATAFORMAS = (
+        "shrimp_is_verifier_site",
+        "shrimp_is_copacker_site",
+    )
 
-        El campo shrimp_is_verifier_site lo define shrimp_verification, que
-        depende de este módulo: puede no existir todavía.
+    def _shrimp_sitios_marcados(self, campo):
+        """Ids de los sitios con el flag `campo` activo, exista o no el campo.
+
+        Devuelve un set vacío si el módulo que define el flag no está
+        instalado.
         """
+        if campo not in self._SHRIMP_FLAGS_OTRAS_PLATAFORMAS:
+            raise ValueError("Flag de plataforma desconocido: %s" % campo)
         W = self.env["website"].sudo()
-        todos = W.search([], order="id")
-        if "shrimp_is_verifier_site" in W._fields:
-            return todos.filtered(lambda s: not s.shrimp_is_verifier_site)
+        if campo in W._fields:
+            return set(W.search([(campo, "=", True)]).ids)
 
         # El campo no está en el registro, pero la columna puede existir ya en
         # la base: se consulta directamente. Sin esto, al actualizar, TODOS los
         # sitios parecían el principal y el logo del marketplace pisaba también
-        # el del sitio de verificadores.
+        # el de la otra plataforma.
         self.env.cr.execute("""
             SELECT 1 FROM information_schema.columns
              WHERE table_name = 'website'
-               AND column_name = 'shrimp_is_verifier_site'
-        """)
+               AND column_name = %s
+        """, (campo,))
         if not self.env.cr.fetchone():
-            return todos
+            return set()
         self.env.cr.execute(
-            "SELECT id FROM website WHERE shrimp_is_verifier_site IS TRUE")
-        verificadores = {fila[0] for fila in self.env.cr.fetchall()}
-        return todos.filtered(lambda s: s.id not in verificadores)
+            'SELECT id FROM website WHERE "%s" IS TRUE' % campo)
+        return {fila[0] for fila in self.env.cr.fetchall()}
+
+    def _shrimp_sitios_principales(self):
+        """Los sitios del marketplace: ni el de verificadores ni el de empaque.
+
+        Cada plataforma lleva su propia marca. Cuando aquí solo se descartaba
+        el sitio de verificadores, el de empaque contaba como principal y en
+        cada actualización recibía el logo y el favicon del marketplace, o sea
+        que el maquilador entraba a un sitio con la marca de otra cosa.
+        """
+        W = self.env["website"].sudo()
+        todos = W.search([], order="id")
+        excluidos = set()
+        for campo in self._SHRIMP_FLAGS_OTRAS_PLATAFORMAS:
+            excluidos |= self._shrimp_sitios_marcados(campo)
+        if not excluidos:
+            return todos
+        return todos.filtered(lambda s: s.id not in excluidos)
 
     @api.model
     def _shrimp_ensure_marketplace_brand(self):

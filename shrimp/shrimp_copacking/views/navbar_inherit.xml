@@ -9,8 +9,14 @@
        no le sirve porque él no contrata el servicio, lo presta, y tiene
        su propio sitio para eso.
        ================================================================ -->
+  <!-- priority explicita, y no la de por defecto (16). El ancla de abajo
+       —el enlace a las listas de precios— no esta en la plantilla heredada:
+       lo inyecta otra vista de shrimp_packer con la misma prioridad, asi que
+       hasta ahora esto solo funcionaba porque el id de aquella es menor. Con
+       30 se garantiza que el ancla ya existe cuando se aplica esta vista. -->
   <template id="navbar_servicio_empaque"
             inherit_id="shrimp_marketplace.submenu_mi_panel_dropdown"
+            priority="30"
             name="Operaciones - servicio de empaque">
     <!-- Anclado por el href de las listas de precios, que es estable, y no
          por posición: así no se rompe si mañana se reordena el desplegable. -->

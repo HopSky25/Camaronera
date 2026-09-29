@@ -75,7 +75,12 @@
         <div class="shrimp-page py-4">
 
           <a href="/maquilador/tarifas" class="btn btn-sm btn-link mb-2">&#8592; Mis tarifas</a>
-          <t t-if="mensaje"><div class="alert alert-success">Guardada.</div></t>
+          <t t-if="mensaje == 'archivada'">
+            <div class="alert alert-warning">
+              Tarifa archivada. Deja de estar vigente y sus destinatarios ya no la ven.
+            </div>
+          </t>
+          <t t-elif="mensaje"><div class="alert alert-success">Guardada.</div></t>
           <t t-if="error"><div class="alert alert-danger"><t t-esc="error"/></div></t>
 
           <form method="post" t-attf-action="/maquilador/tarifa/#{t.uuid_ref}/guardar">
@@ -172,26 +177,41 @@
             <div class="card mb-3">
               <div class="card-body">
                 <h6 class="text-uppercase text-muted small mb-1">Dirigida a</h6>
+                <!-- Aqui salian TODAS las camaroneras y empacadoras de la
+                     plataforma. Ahora solo tus contrapartes: quien te dirigió
+                     una solicitud y aquellos con los que tienes órdenes. -->
                 <p class="text-muted small">
                   Solo estos clientes la verán. Ninguno ve lo que le cobras a otro.
+                  La lista son los clientes con los que ya tienes trato: los que te
+                  pidieron servicio directamente y aquellos con los que tienes órdenes.
                 </p>
-                <div class="row g-2" style="max-height:260px; overflow:auto">
-                  <t t-foreach="clientes" t-as="c">
-                    <div class="col-md-6">
-                      <div class="form-check">
-                        <input type="checkbox" name="recipient_ids" class="form-check-input"
-                               t-att-value="c.id"
-                               t-att-checked="'checked' if c in t.recipient_ids else None"/>
-                        <label class="form-check-label">
-                          <t t-esc="c.name"/>
-                          <span class="text-muted small">
-                            (<t t-esc="dict(c._fields['shrimp_user_type'].selection).get(c.shrimp_user_type)"/>)
-                          </span>
-                        </label>
+                <t t-if="not clientes">
+                  <div class="alert alert-light border mb-0">
+                    Todavía no hay ningún cliente con el que dirigir esta tarifa. Aparecen
+                    aquí en cuanto alguien te pida servicio a ti en concreto o te adjudique
+                    un trabajo. Mientras tanto, lo que te trae clientes es el directorio:
+                    revísalo en <a href="/maquilador/perfil">Perfil y capacidad</a>.
+                  </div>
+                </t>
+                <t t-else="">
+                  <div class="row g-2" style="max-height:260px; overflow:auto">
+                    <t t-foreach="clientes" t-as="c">
+                      <div class="col-md-6">
+                        <div class="form-check">
+                          <input type="checkbox" name="recipient_ids" class="form-check-input"
+                                 t-att-value="c.id"
+                                 t-att-checked="'checked' if c in t.recipient_ids else None"/>
+                          <label class="form-check-label">
+                            <t t-esc="c.name"/>
+                            <span class="text-muted small">
+                              (<t t-esc="dict(c._fields['shrimp_user_type'].selection).get(c.shrimp_user_type)"/>)
+                            </span>
+                          </label>
+                        </div>
                       </div>
-                    </div>
-                  </t>
-                </div>
+                    </t>
+                  </div>
+                </t>
               </div>
             </div>
 
@@ -200,6 +220,27 @@
               Guardar y publicar
             </button>
           </form>
+
+          <!-- Fuera del formulario de guardado a proposito: son dos acciones
+               distintas y anidar formularios no es HTML valido. Sin esto,
+               action_archive_tariff() no tenia por donde llamarse y una tarifa
+               equivocada se quedaba vigente para sus destinatarios. -->
+          <t t-if="t.state != 'archived'">
+            <form method="post" t-attf-action="/maquilador/tarifa/#{t.uuid_ref}/archivar"
+                  class="mt-3">
+              <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+              <button type="submit" class="btn btn-sm btn-outline-danger">Archivar la tarifa</button>
+              <span class="text-muted small ms-2">
+                Deja de estar vigente y sus destinatarios dejan de verla. No borra nada.
+              </span>
+            </form>
+          </t>
+          <t t-else="">
+            <p class="text-muted small mt-3 mb-0">
+              Esta tarifa está archivada: no la ve nadie. Si la vuelves a necesitar,
+              «Guardar y publicar» la pone otra vez en vigor.
+            </p>
+          </t>
 
         </div>
       </div>

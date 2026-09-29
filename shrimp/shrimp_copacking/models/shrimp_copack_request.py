@@ -126,6 +126,61 @@ class ShrimpCopackRequest(models.Model):
             if rec.quantity_lb <= 0:
                 raise ValidationError(_("Las libras a empacar deben ser mayores que cero."))
 
+    @api.constrains("product_id", "client_partner_id")
+    def _check_lote_del_cliente(self):
+        """El lote que se manda a empacar tiene que ser del propio cliente.
+
+        Si no se comprueba, se puede levantar una solicitud (y de ahi una
+        orden) apuntando al lote de otro, y el paso de empaque aparece en el
+        certificado de trazabilidad de un tercero que nunca piso esa planta.
+        Ensuciar el dato de otro es peor que equivocarse en el propio.
+
+        Nota: una empacadora cliente no puede figurar como vendedora de un
+        `shrimp.product` (ese modelo solo admite semillero, laboratorio o
+        camaronera), asi que en su caso el lote se deja vacio y el empaque no
+        se enlaza a ninguna trazabilidad. Es lo correcto: no hay lote suyo que
+        enlazar.
+
+        La lectura va en sudo para poder dar este mensaje; sin ella, apuntar a
+        un lote ajeno revienta antes con un AccessError que no explica nada.
+        """
+        for rec in self:
+            if not rec.product_id:
+                continue
+            dueno = rec.product_id.sudo().seller_partner_id
+            if dueno != rec.client_partner_id:
+                raise ValidationError(_(
+                    "El lote «%(lote)s» es de «%(dueno)s», no de «%(cliente)s». "
+                    "Solo se puede mandar a empacar camarón propio.")
+                    % {"lote": rec.product_id.display_name or "",
+                       "dueno": dueno.name or _("otro titular"),
+                       "cliente": rec.client_partner_id.name or ""})
+
+    @api.constrains("copacker_partner_id", "quantity_lb")
+    def _check_lote_minimo(self):
+        """El lote minimo que anuncia el maquilador se exige, no se sugiere.
+
+        El maquilador lo declara en su perfil y el directorio lo muestra, pero
+        nada impedia pedirle la mitad: la solicitud entraba en su bandeja y el
+        rechazo tenia que ponerlo a mano, uno por uno.
+
+        Solo se comprueba en las solicitudes DIRIGIDAS. Una solicitud abierta
+        va a la bandeja de todos y cada planta decide si le sirve; ahi el
+        minimo de uno no puede vetar la oferta de los demas.
+        """
+        for rec in self:
+            maquilador = rec.copacker_partner_id
+            if not maquilador:
+                continue
+            minimo = maquilador.pack_lote_minimo_lb or 0.0
+            if minimo and rec.quantity_lb and rec.quantity_lb < minimo:
+                raise ValidationError(_(
+                    "«%(planta)s» no toma trabajos de menos de %(minimo).2f lb y "
+                    "usted pide %(pedido).2f lb. Suba la cantidad o publique la "
+                    "solicitud abierta para que oferten otras plantas.")
+                    % {"planta": maquilador.name or "",
+                       "minimo": minimo, "pedido": rec.quantity_lb})
+
     def action_publish(self):
         for rec in self:
             if rec.state != "draft":
@@ -133,8 +188,35 @@ class ShrimpCopackRequest(models.Model):
             rec.state = "published"
 
     def action_cancel(self):
+        """Cancela la solicitud y, si ya habia orden, la arrastra con ella.
+
+        Antes cancelar la solicitud no tocaba la orden adjudicada: la orden
+        seguia viva, el maquilador podia registrar recepcion y empaque, y
+        acababa facturandose un trabajo cuyo encargo el cliente habia anulado.
+
+        La linea se traza en el empaque, porque es donde deja de haber marcha
+        atras:
+
+        * Antes de empacar (`confirmed`, `received`) la cancelacion baja en
+          cascada. Ojo con `received`: el camaron ya esta fisicamente en la
+          planta, asi que cancelar aqui cierra el expediente pero la
+          devolucion la acuerdan las partes fuera de la plataforma.
+        * Empacada o firmada, no. Ahi hay trabajo hecho, insumos gastados y
+          horas de linea: deshacerlo con un boton del cliente seria dejar al
+          maquilador sin cobro por una decision unilateral. Si hay algo que
+          discutir, ese es el camino del acta, no el de la cancelacion.
+        """
         for rec in self:
             if rec.state == "done":
                 raise ValidationError(_("Una solicitud cerrada ya no se cancela."))
+            orden = rec.order_id
+            if orden and orden.state != "cancelled":
+                if orden.state in ("packed", "signed", "closed"):
+                    raise ValidationError(_(
+                        "La orden «%(orden)s» ya se empacó: el trabajo está "
+                        "hecho y no se deshace cancelando la solicitud. Si hay "
+                        "un problema con el empaque, se plantea en el acta.")
+                        % {"orden": orden.name or ""})
+                orden.action_cancel()
             rec.state = "cancelled"
             rec.offer_ids.filtered(lambda o: o.state == "sent").write({"state": "rejected"})

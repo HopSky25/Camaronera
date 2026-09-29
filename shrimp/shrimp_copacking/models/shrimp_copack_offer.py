@@ -82,6 +82,57 @@ class ShrimpCopackOffer(models.Model):
                 raise ValidationError(_(
                     "La disponibilidad no puede terminar antes de empezar."))
 
+    def write(self, vals):
+        """Editar una oferta retirada la vuelve a poner sobre la mesa.
+
+        Sin esto, retirar seria una puerta de un solo sentido: la clave unica
+        (solicitud, maquilador) impide crear otra oferta, asi que un
+        maquilador que se retiro por error —o que al dia siguiente libera
+        camara y si puede tomar el trabajo— se quedaba fuera de esa solicitud
+        para siempre. La via de rectificar en este modelo ya era editar, no
+        duplicar; esto solo la mantiene abierta despues de un retiro.
+
+        Se reactiva unicamente si cambian las condiciones comerciales (es lo
+        que convierte el gesto en una oferta nueva) y si la solicitud sigue
+        publicada: sobre una ya adjudicada o cancelada no hay nada que ofertar.
+        """
+        terminos = {"rate_per_lb", "capacity_lb", "available_from", "available_to"}
+        revivir = self.browse()
+        if "state" not in vals and terminos.intersection(vals):
+            revivir = self.filtered(
+                lambda o: o.state == "withdrawn" and o.request_id.state == "published")
+        res = super().write(vals)
+        if revivir:
+            # Este write lleva "state", asi que no vuelve a entrar por aqui.
+            revivir.write({"state": "sent"})
+        return res
+
+    def action_withdraw(self, actor=None):
+        """El maquilador retira su oferta.
+
+        `withdrawn` estaba en el selector y no lo escribia nadie: una planta
+        que se quedaba sin camara, sin personal o sin habilitacion no tenia
+        forma de bajar su oferta, y el cliente podia adjudicarle un trabajo
+        que ya sabia que no iba a poder hacer.
+
+        La retira quien la hizo y solo quien la hizo: `actor` se comprueba
+        aqui porque el controlador trabaja en sudo, igual que al aceptar.
+        """
+        self.ensure_one()
+        actor = actor or self.env.user.partner_id
+        if actor != self.copacker_partner_id:
+            raise AccessError(_(
+                "Una oferta la retira el maquilador que la presentó."))
+        if self.state == "accepted":
+            raise ValidationError(_(
+                "Esta oferta ya fue adjudicada: el trabajo existe como orden y "
+                "no se deshace retirando la oferta. Hay que cancelar la orden."))
+        if self.state != "sent":
+            raise ValidationError(_("Solo se retira una oferta que sigue viva."))
+        self.state = "withdrawn"
+        self.message_post(body=_("Oferta retirada por el maquilador."))
+        return True
+
     def action_accept(self, actor=None):
         """El cliente acepta: nace la orden y las demas ofertas se descartan.
 

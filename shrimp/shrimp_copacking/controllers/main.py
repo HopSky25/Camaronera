@@ -2,7 +2,25 @@ from odoo import http, fields, _
 from odoo.http import request
 from odoo.exceptions import ValidationError
 from werkzeug.exceptions import NotFound, Forbidden
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
+
+
+# Lo que llega por la barra de direcciones o por un formulario es texto libre,
+# y un int()/float() desnudo sobre eso es un error 500 esperando a que alguien
+# escriba «hola». Estas dos ayudas convierten sin reventar y dejan que rechace
+# el valor la validacion del modelo, que si sabe explicarse.
+def _entero(valor, por_defecto=0):
+    try:
+        return int(valor)
+    except (TypeError, ValueError):
+        return por_defecto
+
+
+def _decimal(valor, por_defecto=0.0):
+    try:
+        return float(valor)
+    except (TypeError, ValueError):
+        return por_defecto
 
 
 class ShrimpCopackClient(http.Controller):
@@ -12,6 +30,12 @@ class ShrimpCopackClient(http.Controller):
     primero que hace quien busca servicio es mirar quien lo presta y desde
     cuanto; pedir es el segundo paso, no el primero.
     """
+
+    # Lo que el cliente teclea al pedir empaque. Se lista una sola vez porque
+    # lo usan tres sitios: el formulario que lo pinta, el guardado que lo
+    # devuelve cuando la validacion falla, y la correccion de una solicitud.
+    _CAMPOS_SOLICITUD = ("quantity_lb", "presentation", "size_grade_id",
+                         "needed_from", "needed_to", "supplies_notes", "notes")
 
     # ==================================================================
     # Ayudas
@@ -71,8 +95,14 @@ class ShrimpCopackClient(http.Controller):
                 auth="user", website=True)
     def copack_plant(self, socio_id, **kw):
         self._solo_cliente()
-        maq = request.env["res.partner"].browse(socio_id)
-        if not maq.exists() or maq.shrimp_user_type != "maquilador":
+        # Con browse().exists() el registro existe siempre y es la LECTURA de
+        # shrimp_user_type la que aplica las reglas de acceso: abrir la ficha de
+        # una planta que no esta en el directorio daba un AccessError (error
+        # 500) en vez de un 404. El search aplica las reglas al filtrar, asi que
+        # lo que no me toca ver sale como "no existe", que es lo honesto.
+        maq = request.env["res.partner"].search(
+            [("id", "=", socio_id), ("shrimp_user_type", "=", "maquilador")], limit=1)
+        if not maq:
             raise NotFound()
         # La tarifa firme solo si me la dirigieron. La regla de acceso ya filtra;
         # esto solo es para saber si hay algo que enseñar.
@@ -95,13 +125,27 @@ class ShrimpCopackClient(http.Controller):
         self._solo_cliente()
         dirigida = None
         if kw.get("a"):
-            dirigida = request.env["res.partner"].browse(int(kw["a"]))
-            if not dirigida.exists() or dirigida.shrimp_user_type != "maquilador":
-                dirigida = None
+            # Doble arreglo: _entero para que "?a=hola" no sea un error 500, y
+            # search en vez de browse para que una planta que no me toca ver sea
+            # un 404 limpio y no un AccessError al leer shrimp_user_type.
+            dirigida = request.env["res.partner"].search(
+                [("id", "=", _entero(kw["a"], -1)),
+                 ("shrimp_user_type", "=", "maquilador")], limit=1)
+            if not dirigida:
+                raise NotFound()
         return request.render("shrimp_copacking.copack_request_form", {
             "dirigida": dirigida,
             "tallas": request.env["shrimp.size.grade"].sudo().search(
                 [("active", "=", True)], order="presentation, sequence, name"),
+            # Lo tecleado vuelve al formulario cuando la validacion falla. Antes
+            # solo sobrevivian el destinatario y el error, asi que el cliente
+            # reescribia libras, fechas, insumos y observaciones cada vez.
+            "datos": dict({c: (kw.get(c) or "") for c in self._CAMPOS_SOLICITUD},
+                          # La talla se compara con el id del registro al pintar
+                          # el desplegable: se convierte aqui y no en la
+                          # plantilla, que es donde menos se puede depurar.
+                          size_grade_id=_entero(kw.get("size_grade_id"), 0)),
+            "aviso": kw.get("aviso"),
             "error": kw.get("error"),
         })
 
@@ -109,9 +153,13 @@ class ShrimpCopackClient(http.Controller):
                 website=True, methods=["POST"], csrf=True)
     def copack_request_save(self, **post):
         self._solo_cliente()
+        # Las conversiones estaban FUERA del try: un "hola" en las libras o un
+        # id de talla manipulado reventaba con un error 500 antes de llegar al
+        # savepoint. Ahora convierten sin romper y es el modelo el que rechaza
+        # el valor con un mensaje que el cliente puede entender.
         vals = {
             "client_partner_id": self._partner().id,
-            "quantity_lb": float(post.get("quantity_lb") or 0),
+            "quantity_lb": _decimal(post.get("quantity_lb")),
             "presentation": post.get("presentation") or "entero",
             "needed_from": post.get("needed_from") or False,
             "needed_to": post.get("needed_to") or False,
@@ -119,9 +167,9 @@ class ShrimpCopackClient(http.Controller):
             "notes": (post.get("notes") or "").strip() or False,
         }
         if post.get("size_grade_id"):
-            vals["size_grade_id"] = int(post["size_grade_id"])
+            vals["size_grade_id"] = _entero(post["size_grade_id"]) or False
         if post.get("copacker_partner_id"):
-            vals["copacker_partner_id"] = int(post["copacker_partner_id"])
+            vals["copacker_partner_id"] = _entero(post["copacker_partner_id"]) or False
         # En un savepoint: Odoo valida DESPUES de escribir, asi que sin esto
         # lo que el modelo rechaza se queda igual en la base. Dejaba
         # solicitudes fantasma en borrador que el cliente no podia ni
@@ -135,13 +183,17 @@ class ShrimpCopackClient(http.Controller):
                 sol = request.env["shrimp.copack.request"].sudo().create(vals)
                 sol.action_publish()
         except (ValidationError, ValueError) as e:
-            destino = "/marketplace/empaque/solicitar"
-            if post.get("copacker_partner_id"):
-                destino += "?a=%s&" % post["copacker_partner_id"]
-            else:
-                destino += "?"
             mensaje = e.args[0] if e.args else str(e)
-            return request.redirect("%serror=%s" % (destino, quote(str(mensaje))))
+            # Se devuelve TODO lo tecleado, no solo el destinatario: el cliente
+            # ya escribio una vez libras, fechas, insumos y observaciones, y
+            # perderlo por una fecha mal puesta es la forma mas rapida de que
+            # abandone el formulario.
+            params = {c: (post.get(c) or "") for c in self._CAMPOS_SOLICITUD}
+            params["error"] = str(mensaje)
+            if vals.get("copacker_partner_id"):
+                params["a"] = vals["copacker_partner_id"]
+            return request.redirect(
+                "/marketplace/empaque/solicitar?%s" % urlencode(params))
         return request.redirect("/marketplace/empaque/solicitud/%s?mensaje=publicada"
                                 % sol.uuid_ref)
 
@@ -149,9 +201,10 @@ class ShrimpCopackClient(http.Controller):
     def copack_requests(self, **kw):
         self._solo_cliente()
         S = request.env["shrimp.copack.request"]
+        # Sin "mensaje": nadie redirige nunca aqui con uno. La plantilla tenia
+        # un aviso de "solicitud publicada" que no se pintaba jamas.
         return request.render("shrimp_copacking.copack_requests", {
             "solicitudes": S.search([("client_partner_id", "=", self._partner().id)]),
-            "mensaje": kw.get("mensaje"),
         })
 
     @http.route("/marketplace/empaque/solicitud/<ref>", type="http", auth="user", website=True)
@@ -166,6 +219,58 @@ class ShrimpCopackClient(http.Controller):
             "mensaje": kw.get("mensaje"),
             "error": kw.get("error"),
         })
+
+    @http.route("/marketplace/empaque/solicitud/<ref>/cancelar", type="http",
+                auth="user", website=True, methods=["POST"], csrf=True)
+    def copack_request_cancel(self, ref, **post):
+        """Retirar —y de paso corregir— lo que uno mismo publico.
+
+        El modelo ya sabia cancelar, pero no habia por donde llamarlo: quien
+        publicaba 40.000 lb queriendo 4.000 no tenia arreglo, y la solicitud
+        equivocada se quedaba viva en la bandeja de todas las plantas.
+        """
+        self._solo_cliente()
+        sol = self._mi_solicitud(ref)
+        if sol.state not in ("draft", "published"):
+            # Adjudicada ya hay una orden viva detras, y cancelar la solicitud
+            # la dejaria huerfana. Eso se resuelve en la orden, no aqui.
+            return request.redirect(
+                "/marketplace/empaque/solicitud/%s?error=%s"
+                % (sol.uuid_ref, quote("Esta solicitud ya no se puede cancelar "
+                                       "desde aquí: hay que resolverlo en la orden.")))
+        # Los valores se leen ANTES de cancelar: corregir es volver a publicar
+        # con lo mismo delante, no empezar de cero.
+        params = {
+            "quantity_lb": ("%.2f" % sol.quantity_lb) if sol.quantity_lb else "",
+            "presentation": sol.presentation or "",
+            "size_grade_id": str(sol.size_grade_id.id) if sol.size_grade_id else "",
+            "needed_from": str(sol.needed_from or ""),
+            "needed_to": str(sol.needed_to or ""),
+            "supplies_notes": sol.supplies_notes or "",
+            "notes": sol.notes or "",
+            "aviso": "corregida",
+        }
+        if sol.copacker_partner_id:
+            params["a"] = str(sol.copacker_partner_id.id)
+        # En un savepoint: Odoo valida DESPUES de escribir, asi que sin esto
+        # lo que el modelo rechaza se queda igual en la base. Dejaba
+        # solicitudes fantasma en borrador que el cliente no podia ni
+        # publicar ni borrar, y libras empacadas que la validacion nego.
+        try:
+            with request.env.cr.savepoint():
+                sol.sudo().action_cancel()
+        except (ValidationError, ValueError) as e:
+            return request.redirect("/marketplace/empaque/solicitud/%s?error=%s"
+                                    % (sol.uuid_ref,
+                                       quote(str(e.args[0] if e.args else e))))
+        if post.get("corregir"):
+            # No se edita una solicitud que las plantas ya estan mirando: se
+            # cancela y se publica otra. Asi ninguna oferta queda colgando de
+            # unas condiciones que cambiaron por detras.
+            return request.redirect(
+                "/marketplace/empaque/solicitar?%s" % urlencode(params))
+        return request.redirect("/marketplace/empaque/solicitud/%s?mensaje=cancelada"
+                                % sol.uuid_ref)
 
     @http.route("/marketplace/empaque/oferta/<ref>/aceptar", type="http", auth="user",
                 website=True, methods=["POST"], csrf=True)
@@ -213,11 +318,38 @@ class ShrimpCopackClient(http.Controller):
         return request.render("shrimp_copacking.copack_order_detail", {
             "orden": orden,
             "rol": rol,
+            # La orden es una sola pantalla para las dos partes a proposito,
+            # pero la vuelta no puede serlo: al maquilador se le mandaba aqui
+            # tras registrar recepcion o empaque y la migaja lo soltaba en la
+            # zona del cliente, que no es la suya y desde la que no encuentra el
+            # camino de regreso a su bandeja.
+            "volver_url": ("/maquilador/ordenes" if rol == "copacker"
+                           else "/marketplace/empaque/ordenes"),
+            "volver_txt": ("Mis órdenes en curso" if rol == "copacker"
+                           else "Órdenes"),
             "mi_firma": orden.sudo().acceptance_ids.filtered(lambda f: f.role == rol),
             "otra_firma": orden.sudo().acceptance_ids.filtered(lambda f: f.role != rol),
             "mensaje": kw.get("mensaje"),
             "error": kw.get("error"),
         })
+
+    @http.route("/marketplace/empaque/orden/<ref>/cancelar", type="http", auth="user",
+                website=True, methods=["POST"], csrf=True)
+    def copack_order_cancel(self, ref, **post):
+        """Cancelar el trabajo. Lo puede pedir cualquiera de las dos partes.
+
+        Sin esta ruta, cancelar una solicitud ya adjudicada remitia a la orden
+        y alli no habia boton: el cliente que se equivocaba de cantidad se
+        quedaba con un trabajo vivo y facturable que nadie podia parar.
+        """
+        orden = self._mi_orden(ref)
+        try:
+            with request.env.cr.savepoint():
+                orden.sudo().action_cancel()
+        except ValidationError as e:
+            return request.redirect("/marketplace/empaque/orden/%s?error=%s"
+                                    % (ref, quote(str(e.args[0] if e.args else e))))
+        return request.redirect("/marketplace/empaque/orden/%s?mensaje=cancelada" % ref)
 
     @http.route("/marketplace/empaque/orden/<ref>/firmar", type="http", auth="user",
                 website=True, methods=["POST"], csrf=True)
@@ -242,6 +374,61 @@ class ShrimpCopackClient(http.Controller):
             return request.redirect("/marketplace/empaque/orden/%s?error=%s"
                                     % (orden.uuid_ref, quote(e.args[0] if e.args else "")))
         return request.redirect("/marketplace/empaque/orden/%s?mensaje=firmada" % orden.uuid_ref)
+
+    @http.route("/marketplace/empaque/orden/<ref>/reabrir-acta", type="http",
+                auth="user", website=True, methods=["POST"], csrf=True)
+    def copack_order_reopen(self, ref, **post):
+        """Un acta en disputa dejaba la orden congelada para siempre.
+
+        Reabrirla la devuelve a «recibida» para rectificar el empaque y volver a
+        firmar. Pueden pedirlo las dos partes: la disputa es entre ellas, y
+        dejar la llave en manos de una sola es obligar a la otra a tragar.
+        """
+        orden = self._mi_orden(ref)
+        motivo = (post.get("motivo") or "").strip()
+        if not motivo:
+            # El modelo lo exige; comprobarlo aqui evita el viaje de ida y
+            # vuelta con un error que no dice nada que el formulario no supiera.
+            return request.redirect(
+                "/marketplace/empaque/orden/%s?error=%s"
+                % (orden.uuid_ref, quote("Para reabrir el acta hay que decir por "
+                                         "qué: es lo que queda escrito de la "
+                                         "rectificación.")))
+        # En un savepoint: Odoo valida DESPUES de escribir, asi que sin esto
+        # lo que el modelo rechaza se queda igual en la base. Dejaba
+        # solicitudes fantasma en borrador que el cliente no podia ni
+        # publicar ni borrar, y libras empacadas que la validacion nego.
+        try:
+            with request.env.cr.savepoint():
+                orden.sudo().action_reabrir_acta(motivo)
+        except (ValidationError, ValueError) as e:
+            return request.redirect("/marketplace/empaque/orden/%s?error=%s"
+                                    % (orden.uuid_ref,
+                                       quote(str(e.args[0] if e.args else e))))
+        return request.redirect("/marketplace/empaque/orden/%s?mensaje=reabierta"
+                                % orden.uuid_ref)
+
+    @http.route("/marketplace/empaque/orden/<ref>/cerrar", type="http",
+                auth="user", website=True, methods=["POST"], csrf=True)
+    def copack_order_close(self, ref, **post):
+        """action_close() existia sin ruta: el acta se firmaba y la orden se
+        quedaba en «firmada» para siempre, sin que nadie pudiera darla por
+        terminada. La cierra cualquiera de las dos partes, porque a esas alturas
+        las dos ya firmaron lo mismo."""
+        orden = self._mi_orden(ref)
+        # En un savepoint: Odoo valida DESPUES de escribir, asi que sin esto
+        # lo que el modelo rechaza se queda igual en la base. Dejaba
+        # solicitudes fantasma en borrador que el cliente no podia ni
+        # publicar ni borrar, y libras empacadas que la validacion nego.
+        try:
+            with request.env.cr.savepoint():
+                orden.sudo().action_close()
+        except (ValidationError, ValueError) as e:
+            return request.redirect("/marketplace/empaque/orden/%s?error=%s"
+                                    % (orden.uuid_ref,
+                                       quote(str(e.args[0] if e.args else e))))
+        return request.redirect("/marketplace/empaque/orden/%s?mensaje=cerrada"
+                                % orden.uuid_ref)
 
 
 class ShrimpCopacker(http.Controller):
@@ -299,14 +486,22 @@ class ShrimpCopacker(http.Controller):
     def copacker_request(self, ref, **kw):
         maq = self._maq()
         sol = request.env["shrimp.copack.request"].sudo().resolve_ref(ref)
-        if not sol or sol.state != "published":
+        if not sol:
             raise NotFound()
         if sol.copacker_partner_id and sol.copacker_partner_id != maq:
             raise Forbidden()
         mia = request.env["shrimp.copack.offer"].sudo().search([
             ("request_id", "=", sol.id), ("copacker_partner_id", "=", maq.id)], limit=1)
+        # Antes esto era un 404 seco en cuanto la solicitud dejaba de estar
+        # publicada: el maquilador volvia sobre su propia oferta y se encontraba
+        # una pagina de error, sin saber si la habia perdido o si le habian
+        # adjudicado el trabajo. Quien oferto o quien la recibio dirigida la
+        # sigue viendo; lo que ya no puede es ofertar.
+        if sol.state != "published" and not (mia or sol.copacker_partner_id == maq):
+            raise NotFound()
         return request.render("shrimp_copacking.copacker_request", {
             "sol": sol, "maq": maq, "mi_oferta": mia,
+            "puede_ofertar": sol.state == "published",
             "error": kw.get("error"), "mensaje": kw.get("mensaje"),
         })
 
@@ -315,18 +510,25 @@ class ShrimpCopacker(http.Controller):
     def copacker_offer(self, ref, **post):
         maq = self._maq()
         sol = request.env["shrimp.copack.request"].sudo().resolve_ref(ref)
-        if not sol or sol.state != "published":
+        if not sol:
             raise NotFound()
         # La misma comprobacion que hace la ruta de lectura. Sin ella, quien
         # conociera el enlace podia ofertar sobre una solicitud dirigida en
         # exclusiva a un competidor.
         if sol.copacker_partner_id and sol.copacker_partner_id != maq:
             raise Forbidden()
+        if sol.state != "published":
+            # La pagina si se puede seguir viendo; lo que ya no admite es
+            # ofertas. Decirlo es mejor que un 404 sobre un boton que estaba ahi.
+            return request.redirect("/maquilador/solicitud/%s?error=%s"
+                                    % (ref, quote("Esta solicitud ya no admite ofertas.")))
         Oferta = request.env["shrimp.copack.offer"].sudo()
+        # Las conversiones van antes del try, asi que tienen que ser de las que
+        # no revientan: lo que llega del formulario es texto libre.
         vals = {
             "request_id": sol.id, "copacker_partner_id": maq.id,
-            "rate_per_lb": float(post.get("rate_per_lb") or 0),
-            "capacity_lb": float(post.get("capacity_lb") or 0),
+            "rate_per_lb": _decimal(post.get("rate_per_lb")),
+            "capacity_lb": _decimal(post.get("capacity_lb")),
             "available_from": post.get("available_from") or False,
             "available_to": post.get("available_to") or False,
             "notes": (post.get("notes") or "").strip() or False,
@@ -347,6 +549,35 @@ class ShrimpCopacker(http.Controller):
             return request.redirect("/maquilador/solicitud/%s?error=%s"
                                     % (ref, quote(str(e.args[0] if e.args else e))))
         return request.redirect("/maquilador/solicitud/%s?mensaje=ok" % ref)
+
+    @http.route("/maquilador/solicitud/<ref>/retirar", type="http", auth="user",
+                website=True, methods=["POST"], csrf=True)
+    def copacker_offer_withdraw(self, ref, **post):
+        """Retirar una oferta que ya no se puede cumplir.
+
+        El modelo tenia action_withdraw() sin ruta: la planta que se quedaba sin
+        cupo no podia hacer nada mas que dejarla viva y cruzar los dedos para
+        que el cliente no la aceptara.
+        """
+        maq = self._maq()
+        sol = request.env["shrimp.copack.request"].sudo().resolve_ref(ref)
+        if not sol:
+            raise NotFound()
+        mia = request.env["shrimp.copack.offer"].sudo().search([
+            ("request_id", "=", sol.id), ("copacker_partner_id", "=", maq.id)], limit=1)
+        if not mia:
+            raise NotFound()
+        # En un savepoint: Odoo valida DESPUES de escribir, asi que sin esto
+        # lo que el modelo rechaza se queda igual en la base. Dejaba
+        # solicitudes fantasma en borrador que el cliente no podia ni
+        # publicar ni borrar, y libras empacadas que la validacion nego.
+        try:
+            with request.env.cr.savepoint():
+                mia.action_withdraw()
+        except (ValidationError, ValueError) as e:
+            return request.redirect("/maquilador/solicitud/%s?error=%s"
+                                    % (ref, quote(str(e.args[0] if e.args else e))))
+        return request.redirect("/maquilador/solicitud/%s?mensaje=retirada" % ref)
 
     # ==================================================================
     # Las ordenes: recepcion, empaque y acta
@@ -435,10 +666,28 @@ class ShrimpCopacker(http.Controller):
     @http.route("/maquilador/tarifa/<ref>", type="http", auth="user", website=True)
     def copacker_tariff_edit(self, ref, **kw):
         t = self._mi_tarifa(ref)
+        maq = self._maq()
+        # Antes esto era un search en sudo de TODAS las camaroneras y
+        # empacadoras: cada maquilador veia el padron completo de clientes de la
+        # plataforma, con nombre y tipo, sin haber trabajado nunca con ellos.
+        # Eso es la cartera de la competencia servida en una pantalla.
+        # Ahora la lista son sus contrapartes reales: quien le dirigio una
+        # solicitud y aquellos con los que tiene una orden.
+        Solicitud = request.env["shrimp.copack.request"].sudo()
+        Orden = request.env["shrimp.copack.order"].sudo()
+        ids = set(Solicitud.search(
+            [("copacker_partner_id", "=", maq.id)]).mapped("client_partner_id").ids)
+        ids |= set(Orden.search(
+            [("copacker_partner_id", "=", maq.id)]).mapped("client_partner_id").ids)
+        # Los que ya estan en la tarifa siguen saliendo aunque la relacion se
+        # haya enfriado: el formulario reemplaza los destinatarios en bloque, y
+        # si uno desaparece de la lista, guardar lo borraria sin avisar.
+        ids |= set(t.recipient_ids.ids)
+        clientes = request.env["res.partner"].sudo().browse(sorted(ids)).filtered(
+            lambda p: p.shrimp_user_type in ("camaronera", "empacadora")).sorted("name")
         return request.render("shrimp_copacking.copacker_tariff_form", {
             "t": t,
-            "clientes": request.env["res.partner"].sudo().search(
-                [("shrimp_user_type", "in", ("camaronera", "empacadora"))], order="name"),
+            "clientes": clientes,
             "mensaje": kw.get("mensaje"), "error": kw.get("error"),
         })
 
@@ -488,6 +737,25 @@ class ShrimpCopacker(http.Controller):
             return request.redirect("/maquilador/tarifa/%s?error=%s"
                                     % (ref, quote(str(e.args[0] if e.args else e))))
         return request.redirect("/maquilador/tarifa/%s?mensaje=guardada" % ref)
+
+    @http.route("/maquilador/tarifa/<ref>/archivar", type="http", auth="user",
+                website=True, methods=["POST"], csrf=True)
+    def copacker_tariff_archive(self, ref, **post):
+        """action_archive_tariff() existia sin ruta: una tarifa equivocada se
+        quedaba publicada y vigente para sus destinatarios, y desde el portal no
+        habia manera de retirarla."""
+        t = self._mi_tarifa(ref)
+        # En un savepoint: Odoo valida DESPUES de escribir, asi que sin esto
+        # lo que el modelo rechaza se queda igual en la base. Dejaba
+        # solicitudes fantasma en borrador que el cliente no podia ni
+        # publicar ni borrar, y libras empacadas que la validacion nego.
+        try:
+            with request.env.cr.savepoint():
+                t.sudo().action_archive_tariff()
+        except (ValidationError, ValueError) as e:
+            return request.redirect("/maquilador/tarifa/%s?error=%s"
+                                    % (ref, quote(str(e.args[0] if e.args else e))))
+        return request.redirect("/maquilador/tarifa/%s?mensaje=archivada" % ref)
 
     # ==================================================================
     # Perfil y liquidaciones
@@ -544,9 +812,14 @@ class ShrimpCopacker(http.Controller):
     @http.route("/maquilador/liquidaciones", type="http", auth="user", website=True)
     def copacker_settlements(self, **kw):
         maq = self._maq()
+        # El filtro por estado metia en la liquidacion las ordenes con el acta
+        # en disputa: se cobraban libras que el cliente todavia esta
+        # discutiendo. Quien decide si un trabajo se cobra es el modelo, con
+        # es_facturable, que ademas es store=True e indexado justo para poder
+        # usarlo aqui como un criterio de busqueda normal.
         ordenes = request.env["shrimp.copack.order"].search([
             ("copacker_partner_id", "=", maq.id),
-            ("state", "in", ("packed", "signed", "closed")),
+            ("es_facturable", "=", True),
         ])
         return request.render("shrimp_copacking.copacker_settlements", {
             "ordenes": ordenes,

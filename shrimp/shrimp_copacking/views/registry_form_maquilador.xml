@@ -1,0 +1,220 @@
+<odoo>
+
+  <!-- ================================================================
+       REGISTRO DEL MAQUILADOR (/registro/maquilador)
+
+       Formulario propio y no un paso más del registro compartido: el
+       maquilador no compra ni vende camarón, así que nada de lo que pide
+       el formulario común (lotes, hectáreas, larvas) le aplica. Lo que
+       tiene que declarar es su habilitación y su capacidad, que es
+       exactamente lo que mira el cliente antes de mandarle producto.
+
+       El orden de los bloques es el orden en que la planta piensa: quién
+       soy, con qué permiso trabajo, cuánto puedo, cuánto cobro.
+       ================================================================ -->
+  <template id="registry_form_maquilador" name="Registro - Maquilador">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page py-4 sf-fields">
+
+          <div class="sf-banner mb-4">
+            <div class="sf-banner-row">
+              <div class="sf-banner-txt">
+                <h1>Regístrate como maquilador</h1>
+                <p>Crea la cuenta de tu planta de empaque: tu habilitación, tu capacidad
+                   y desde cuánto empacas. Con eso apareces en el directorio y empiezas a
+                   recibir solicitudes de quien necesita planta.</p>
+              </div>
+              <span class="sf-kicker"><i class="fa fa-cubes"></i> Empaque</span>
+            </div>
+          </div>
+
+          <t t-if="error">
+            <div class="alert alert-danger">
+              <i class="fa fa-exclamation-triangle me-1"/><t t-esc="error"/>
+            </div>
+          </t>
+
+          <form method="post" action="/registro/submit">
+            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+            <!-- El rol va fijo en el formulario: aquí no se elige perfil, y así
+                 el POST no depende de ningún JS que pueda no cargar. -->
+            <input type="hidden" name="shrimp_user_type" value="maquilador"/>
+
+            <div class="card mb-3">
+              <div class="card-body">
+                <h6 class="text-uppercase text-muted small mb-3">La planta</h6>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label">Nombre comercial <span class="text-danger">*</span></label>
+                    <input type="text" name="name" class="form-control" required="required"
+                           placeholder="Ej. Empaques del Golfo"
+                           t-att-value="values and values.get('name') or ''"/>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Razón social <span class="text-danger">*</span></label>
+                    <input type="text" name="pack_razon_social" class="form-control"
+                           required="required" placeholder="Ej. Empacadora del Golfo S.A."
+                           t-att-value="values and values.get('pack_razon_social') or ''"/>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">RUC <span class="text-danger">*</span></label>
+                    <input type="text" name="vat_or_id" class="form-control" required="required"
+                           placeholder="Ej. 0999999999001"
+                           t-att-value="values and values.get('vat_or_id') or ''"/>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Ubicación de la planta <span class="text-danger">*</span></label>
+                    <!-- Obligatoria porque el cliente lleva el camarón hasta la
+                         puerta: sin saber dónde está, no puede ni cotizar el flete. -->
+                    <input type="text" name="pack_ubicacion" class="form-control"
+                           required="required" placeholder="Ej. Machala, El Oro"
+                           t-att-value="values and values.get('pack_ubicacion') or ''"/>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Representante legal</label>
+                    <input type="text" name="pack_representante" class="form-control"
+                           t-att-value="values and values.get('pack_representante') or ''"/>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Teléfono</label>
+                    <input type="text" name="pack_telefono" class="form-control"
+                           t-att-value="values and values.get('pack_telefono') or ''"/>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card mb-3">
+              <div class="card-body">
+                <h6 class="text-uppercase text-muted small mb-1">Habilitación</h6>
+                <p class="text-muted small">
+                  El código de establecimiento sale impreso en el certificado de
+                  trazabilidad del lote: es lo que permite exportar el camarón que
+                  empacas. Si lo tienes en trámite puedes registrarte igual y
+                  completarlo después desde tu perfil.
+                </p>
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <label class="form-label">Código de establecimiento</label>
+                    <input type="text" name="pack_codigo_establecimiento" class="form-control"
+                           t-att-value="values and values.get('pack_codigo_establecimiento') or ''"/>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Vigente desde</label>
+                    <input type="date" name="pack_habilitacion_desde" class="form-control"
+                           t-att-value="values and values.get('pack_habilitacion_desde') or ''"/>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Vigente hasta</label>
+                    <input type="date" name="pack_habilitacion_hasta" class="form-control"
+                           t-att-value="values and values.get('pack_habilitacion_hasta') or ''"/>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card mb-3">
+              <div class="card-body">
+                <h6 class="text-uppercase text-muted small mb-1">Capacidad y tarifas de referencia</h6>
+                <p class="text-muted small">
+                  Estos precios son públicos: salen en el directorio para que el cliente
+                  pueda preseleccionar. La tarifa firme se la mandas dirigida a él y no
+                  la ve nadie más. Puedes dejarlos en blanco y ponerlos luego.
+                </p>
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <label class="form-label">Capacidad (lb/semana)</label>
+                    <input type="number" step="1" min="0" name="pack_capacidad_lb_semana"
+                           class="form-control"
+                           t-att-value="values and values.get('pack_capacidad_lb_semana') or ''"/>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Lote mínimo (lb)</label>
+                    <input type="number" step="1" min="0" name="pack_lote_minimo_lb"
+                           class="form-control"
+                           t-att-value="values and values.get('pack_lote_minimo_lb') or ''"/>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Presentaciones que manejas</label>
+                    <input type="text" name="pack_presentaciones" class="form-control"
+                           placeholder="Entero, cola, valor agregado..."
+                           t-att-value="values and values.get('pack_presentaciones') or ''"/>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Entero, desde ($/lb)</label>
+                    <input type="number" step="0.001" min="0" name="pack_desde_entero"
+                           class="form-control"
+                           t-att-value="values and values.get('pack_desde_entero') or ''"/>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Cola, desde ($/lb)</label>
+                    <input type="number" step="0.001" min="0" name="pack_desde_cola"
+                           class="form-control"
+                           t-att-value="values and values.get('pack_desde_cola') or ''"/>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Valor agregado, desde ($/lb)</label>
+                    <input type="number" step="0.001" min="0" name="pack_desde_valor_agregado"
+                           class="form-control"
+                           t-att-value="values and values.get('pack_desde_valor_agregado') or ''"/>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Aclaración de la tarifa</label>
+                    <input type="text" name="pack_tarifa_nota" class="form-control"
+                           placeholder="Precios referenciales; la tarifa firme depende del volumen."
+                           t-att-value="values and values.get('pack_tarifa_nota') or ''"/>
+                  </div>
+                  <div class="col-12">
+                    <div class="form-check">
+                      <!-- Marcado de salida: una planta que se registra y no
+                           aparece en el directorio no recibe una sola solicitud.
+                           Quien no quiera salir lo desmarca a conciencia. -->
+                      <input type="checkbox" name="pack_en_directorio" value="1"
+                             class="form-check-input"
+                             t-att-checked="'checked' if (not values or not values.get('shrimp_user_type') or values.get('pack_en_directorio')) else None"/>
+                      <label class="form-check-label">
+                        <b>Aparecer en el directorio.</b>
+                        Si lo apagas dejas de salir a quien busca planta, y solo podrás
+                        trabajar con quien ya te conoce.
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card mb-3">
+              <div class="card-body">
+                <h6 class="text-uppercase text-muted small mb-3">Tu cuenta</h6>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label">Correo (será tu usuario) <span class="text-danger">*</span></label>
+                    <input type="email" name="email" class="form-control" required="required"
+                           placeholder="correo@ejemplo.com"
+                           t-att-value="values and values.get('email') or ''"/>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Contraseña <span class="text-danger">*</span></label>
+                    <!-- No se repone al volver del error: la contraseña no viaja
+                         de vuelta al navegador ni aunque el alta haya fallado. -->
+                    <input type="password" name="password" class="form-control"
+                           required="required" minlength="8"
+                           placeholder="Mínimo 8 caracteres"/>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary">
+              <i class="fa fa-check me-1"/> Crear mi cuenta
+            </button>
+            <a href="/web/login" class="btn btn-link">Ya tengo cuenta</a>
+          </form>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+</odoo>

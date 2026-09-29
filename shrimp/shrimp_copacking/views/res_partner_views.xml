@@ -1,0 +1,72 @@
+<odoo>
+
+  <!-- Perfil del maquilador en el backend.
+
+       Sin esta vista el rol era un callejón sin salida: al elegir "Maquilador
+       (empaque)" y guardar saltaba la validación de razón social y ubicación, y
+       no había ni un campo en pantalla donde escribirlas. El alta manual (la que
+       hace soporte cuando la planta no se registra sola por la web) solo es
+       posible desde aquí. -->
+  <record id="view_partner_form_copacker" model="ir.ui.view">
+    <field name="name">res.partner.form.copacker</field>
+    <field name="model">res.partner</field>
+    <field name="inherit_id" ref="shrimp_user_registry.view_partner_form_inherit_shrimp"/>
+    <field name="arch" type="xml">
+      <xpath expr="//notebook" position="inside">
+        <page string="Maquilador" invisible="shrimp_user_type != 'maquilador'">
+          <group>
+            <group string="Identificación">
+              <field name="pack_razon_social" placeholder="Ej. Empacadora del Golfo S.A."/>
+              <field name="pack_representante"/>
+              <field name="pack_telefono"/>
+              <field name="pack_ubicacion" placeholder="Ej. Machala, El Oro"/>
+            </group>
+            <group string="Habilitación">
+              <!-- Es el dato que da valor de exportación al certificado del lote:
+                   quien escanea el QR ve en qué planta habilitada se empacó. -->
+              <field name="pack_codigo_establecimiento" placeholder="Ej. 123-EST"/>
+              <field name="pack_habilitacion_desde"/>
+              <field name="pack_habilitacion_hasta"/>
+              <field name="pack_habilitacion_vigente"/>
+            </group>
+          </group>
+          <group>
+            <group string="Capacidad">
+              <field name="pack_capacidad_lb_semana"/>
+              <field name="pack_lote_minimo_lb"/>
+              <field name="pack_presentaciones"
+                     placeholder="Entero, cola, valor agregado..."/>
+            </group>
+            <!-- Estas tarifas son las públicas del directorio, no las firmes.
+                 Se marca en el título para que nadie las confunda con las de
+                 shrimp.copack.tariff, que van dirigidas a un cliente concreto. -->
+            <group string="Tarifa referencial (pública)">
+              <field name="pack_currency_id"/>
+              <field name="pack_desde_entero"/>
+              <field name="pack_desde_cola"/>
+              <field name="pack_desde_valor_agregado"/>
+              <field name="pack_tarifa_nota"/>
+              <field name="pack_en_directorio"/>
+            </group>
+          </group>
+          <!-- Solo lectura: las órdenes se mueven desde el portal del maquilador
+               y del cliente, que es donde se firman las actas. Aquí están para
+               poder contestar "¿qué está empacando esta planta?" sin salir del
+               contacto. -->
+          <field name="copack_order_copacker_ids" readonly="1">
+            <list>
+              <field name="name"/>
+              <field name="client_partner_id"/>
+              <field name="agreed_qty_lb"/>
+              <field name="received_lb"/>
+              <field name="packed_lb"/>
+              <field name="difference_lb"/>
+              <field name="state"/>
+            </list>
+          </field>
+        </page>
+      </xpath>
+    </field>
+  </record>
+
+</odoo>

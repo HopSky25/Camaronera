@@ -23,9 +23,11 @@ class ShrimpTransaction(models.Model):
             if not rec.product_id:
                 rec.copack_order_ids = False
                 continue
-            # Solo trabajos con el empaque ya hecho: una orden a medias no
-            # acredita nada y en el certificado seria ruido.
+            # Solo trabajos con el empaque hecho Y sin disputa abierta. Antes
+            # el filtro era por estado, y eso metia en el certificado ordenes
+            # cuyo cuadre una de las partes se habia negado a firmar: el
+            # documento acreditaba un empaque que estaba en discusion.
             rec.copack_order_ids = Orden.search([
                 ("product_id", "=", rec.product_id.id),
-                ("state", "in", ("packed", "signed", "closed")),
+                ("es_facturable", "=", True),
             ], order="packed_date")

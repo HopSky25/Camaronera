@@ -65,10 +65,20 @@
                 </t>
               </tbody>
             </table>
+            <!-- Sin el t-if salia "Tu capacidad declarada es de 0 lb por
+                 semana" a quien todavia no ha rellenado el perfil: un dato
+                 falso en vez del aviso de que falta ponerlo. -->
             <p class="text-muted small">
-              Tu capacidad declarada es de
-              <t t-esc="int(maq.pack_capacidad_lb_semana)"/> lb por semana. Ofertar por
-              encima de lo que puedes cumplir es la forma más rápida de perder un cliente.
+              <t t-if="maq.pack_capacidad_lb_semana">
+                Tu capacidad declarada es de
+                <t t-esc="int(maq.pack_capacidad_lb_semana)"/> lb por semana. Ofertar por
+                encima de lo que puedes cumplir es la forma más rápida de perder un cliente.
+              </t>
+              <t t-else="">
+                Todavía no has declarado tu capacidad semanal. Ponla en
+                <a href="/maquilador/perfil">Perfil y capacidad</a>: es lo que te recuerda
+                hasta dónde puedes comprometerte antes de ofertar.
+              </t>
             </p>
           </t>
 
@@ -94,7 +104,12 @@
             del <t t-esc="sol.needed_from"/> al <t t-esc="sol.needed_to"/>
           </p>
 
-          <t t-if="mensaje"><div class="alert alert-success">Oferta enviada.</div></t>
+          <t t-if="mensaje == 'retirada'">
+            <div class="alert alert-warning">
+              Oferta retirada. El cliente ya no puede aceptártela.
+            </div>
+          </t>
+          <t t-elif="mensaje"><div class="alert alert-success">Oferta enviada.</div></t>
           <t t-if="error"><div class="alert alert-danger"><t t-esc="error"/></div></t>
 
           <t t-if="sol.supplies_notes">
@@ -114,11 +129,22 @@
             </div>
           </t>
 
+          <t t-if="puede_ofertar">
           <div class="card">
             <div class="card-body">
               <h5 class="mb-3">
                 <t t-if="mi_oferta">Tu oferta</t><t t-else="">Ofertar</t>
               </h5>
+              <!-- Una oferta retirada sigue ahi, solo que el cliente no la ve.
+                   El modelo la revive al cambiarle las condiciones, asi que
+                   conviene decirlo antes y no despues. -->
+              <t t-if="mi_oferta and mi_oferta.state == 'withdrawn'">
+                <div class="alert alert-warning py-2">
+                  Esta oferta está <b>retirada</b>: el cliente ya no puede aceptártela.
+                  Si vuelves a guardarla con las condiciones que puedas cumplir, se
+                  reactiva.
+                </div>
+              </t>
               <form method="post" t-attf-action="/maquilador/solicitud/#{sol.uuid_ref}/ofertar">
                 <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                 <div class="row g-3">
@@ -155,8 +181,61 @@
                   <t t-if="mi_oferta">Actualizar oferta</t><t t-else="">Enviar oferta</t>
                 </button>
               </form>
+
+              <!-- Fuera del formulario de arriba porque son dos acciones
+                   distintas y anidar formularios no es HTML valido. Sin este
+                   boton, la planta que se quedaba sin cupo no podia mas que
+                   dejar la oferta viva y esperar que no se la aceptaran. -->
+              <t t-if="mi_oferta and mi_oferta.state == 'sent'">
+                <form method="post" t-attf-action="/maquilador/solicitud/#{sol.uuid_ref}/retirar"
+                      class="mt-3 border-top pt-3">
+                  <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                  <button type="submit" class="btn btn-sm btn-outline-danger">
+                    Retirar la oferta
+                  </button>
+                  <span class="text-muted small ms-2">
+                    Si ya no puedes cumplirla, mejor retirarla que dejar que te la acepten.
+                  </span>
+                </form>
+              </t>
             </div>
           </div>
+          </t>
+          <t t-else="">
+            <!-- Antes esto era un 404 seco: el maquilador volvia sobre su
+                 propia oferta y se encontraba una pagina de error, sin saber si
+                 la habia perdido o si le habian adjudicado el trabajo. -->
+            <div class="card">
+              <div class="card-body">
+                <h5 class="mb-2">Esta solicitud ya no admite ofertas</h5>
+                <t t-if="sol.state == 'cancelled'">
+                  <p class="text-muted mb-0">El cliente la canceló.</p>
+                </t>
+                <t t-elif="mi_oferta and mi_oferta.state == 'accepted'">
+                  <p class="text-muted">
+                    Te la adjudicaron a ti. El trabajo se sigue desde la orden.
+                  </p>
+                  <t t-if="sol.order_id">
+                    <a t-attf-href="/marketplace/empaque/orden/#{sol.order_id.uuid_ref}"
+                       class="btn btn-primary">Ver la orden</a>
+                  </t>
+                </t>
+                <t t-elif="sol.state in ('assigned', 'done')">
+                  <p class="text-muted mb-0">Se adjudicó a otra planta.</p>
+                </t>
+                <t t-else="">
+                  <p class="text-muted mb-0">El cliente la retiró de las bandejas.</p>
+                </t>
+                <t t-if="mi_oferta">
+                  <p class="small text-muted border-top pt-3 mt-3 mb-0">
+                    Tu oferta fue de $ <t t-esc="round(mi_oferta.rate_per_lb, 3)"/> / lb por
+                    <t t-esc="int(mi_oferta.capacity_lb)"/> lb
+                    (<t t-esc="dict(mi_oferta._fields['state'].selection).get(mi_oferta.state)"/>).
+                  </p>
+                </t>
+              </div>
+            </div>
+          </t>
 
         </div>
       </div>
@@ -286,6 +365,8 @@
             </table>
             <p class="text-muted small">
               La comisión se calcula sobre las libras del acta, no sobre las declaradas.
+              Las órdenes con el acta en disputa no aparecen aquí: no se liquidan hasta
+              que las dos partes cierren el acta.
             </p>
           </t>
 

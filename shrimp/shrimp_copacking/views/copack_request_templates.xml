@@ -23,6 +23,14 @@
           <t t-if="error">
             <div class="alert alert-danger"><t t-esc="error"/></div>
           </t>
+          <!-- Se llega aqui tras cancelar para corregir: lo de antes ya viene
+               puesto abajo, solo hay que arreglar lo que estaba mal. -->
+          <t t-if="aviso == 'corregida'">
+            <div class="alert alert-info">
+              La solicitud anterior quedó cancelada y sus ofertas descartadas.
+              Corrige lo que haga falta y vuelve a publicarla.
+            </div>
+          </t>
 
           <form method="post" action="/marketplace/empaque/solicitar" class="card">
             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
@@ -31,17 +39,24 @@
             </t>
             <div class="card-body">
               <div class="row g-3">
+                <!-- Todos los campos se repintan con lo que venga en "datos":
+                     cuando la validacion del modelo rechaza algo, el cliente no
+                     tiene que volver a teclear lo que ya habia escrito. -->
                 <div class="col-md-4">
                   <label class="form-label">Libras a empacar *</label>
                   <input type="number" step="0.01" min="1" name="quantity_lb"
-                         class="form-control" required="required"/>
+                         class="form-control" required="required"
+                         t-att-value="datos.get('quantity_lb') or ''"/>
                 </div>
                 <div class="col-md-4">
                   <label class="form-label">Presentación *</label>
                   <select name="presentation" class="form-select">
-                    <option value="entero">Entero</option>
-                    <option value="cola">Cola</option>
-                    <option value="valor_agregado">Valor agregado</option>
+                    <option value="entero"
+                            t-att-selected="'selected' if (datos.get('presentation') or 'entero') == 'entero' else None">Entero</option>
+                    <option value="cola"
+                            t-att-selected="'selected' if datos.get('presentation') == 'cola' else None">Cola</option>
+                    <option value="valor_agregado"
+                            t-att-selected="'selected' if datos.get('presentation') == 'valor_agregado' else None">Valor agregado</option>
                   </select>
                 </div>
                 <div class="col-md-4">
@@ -49,24 +64,32 @@
                   <select name="size_grade_id" class="form-select">
                     <option value="">— sin especificar —</option>
                     <t t-foreach="tallas" t-as="t">
-                      <option t-att-value="t.id"><t t-esc="t.presentation"/> · <t t-esc="t.name"/></option>
+                      <!-- La etiqueta de la seleccion, no el valor tecnico:
+                           antes salia "entero · 20/30" en minuscula. -->
+                      <option t-att-value="t.id"
+                              t-att-selected="'selected' if datos.get('size_grade_id') == t.id else None">
+                        <t t-esc="dict(t._fields['presentation'].selection).get(t.presentation)"/>
+                        · <t t-esc="t.name"/>
+                      </option>
                     </t>
                   </select>
                 </div>
 
                 <div class="col-md-6">
                   <label class="form-label">Necesito desde *</label>
-                  <input type="date" name="needed_from" class="form-control" required="required"/>
+                  <input type="date" name="needed_from" class="form-control" required="required"
+                         t-att-value="datos.get('needed_from') or ''"/>
                 </div>
                 <div class="col-md-6">
                   <label class="form-label">Necesito hasta *</label>
-                  <input type="date" name="needed_to" class="form-control" required="required"/>
+                  <input type="date" name="needed_to" class="form-control" required="required"
+                         t-att-value="datos.get('needed_to') or ''"/>
                 </div>
 
                 <div class="col-12">
                   <label class="form-label">Insumos que llevo</label>
                   <textarea name="supplies_notes" class="form-control" rows="2"
-                            placeholder="Master de 5 lb, fundas, etiquetas…"></textarea>
+                            placeholder="Master de 5 lb, fundas, etiquetas…"><t t-esc="datos.get('supplies_notes') or ''"/></textarea>
                   <div class="form-text">
                     Los insumos los pones tú. Detállalos aquí: si algo falta y la línea se
                     para, esto es lo que dice quién se comprometió a llevar qué.
@@ -75,7 +98,7 @@
 
                 <div class="col-12">
                   <label class="form-label">Observaciones</label>
-                  <textarea name="notes" class="form-control" rows="2"></textarea>
+                  <textarea name="notes" class="form-control" rows="2"><t t-esc="datos.get('notes') or ''"/></textarea>
                 </div>
               </div>
             </div>
@@ -106,9 +129,8 @@
             </div>
           </div>
 
-          <t t-if="mensaje">
-            <div class="alert alert-success">Solicitud publicada.</div>
-          </t>
+          <!-- Aqui habia un aviso de "solicitud publicada" que no se pintaba
+               nunca: a esta pantalla nadie redirige con mensaje. -->
 
           <t t-if="not solicitudes">
             <div class="alert alert-light border">
@@ -173,7 +195,13 @@
             del <t t-esc="sol.needed_from"/> al <t t-esc="sol.needed_to"/>
           </p>
 
-          <t t-if="mensaje"><div class="alert alert-success">Solicitud publicada.</div></t>
+          <t t-if="mensaje == 'cancelada'">
+            <div class="alert alert-warning">
+              Solicitud cancelada. Las plantas ya no la ven y las ofertas que habías
+              recibido quedaron descartadas.
+            </div>
+          </t>
+          <t t-elif="mensaje"><div class="alert alert-success">Solicitud publicada.</div></t>
           <t t-if="error"><div class="alert alert-danger"><t t-esc="error"/></div></t>
 
           <t t-if="sol.supplies_notes">
@@ -240,6 +268,33 @@
           <t t-if="sol.order_id">
             <a t-attf-href="/marketplace/empaque/orden/#{sol.order_id.uuid_ref}"
                class="btn btn-primary">Ver la orden</a>
+          </t>
+
+          <!-- CANCELAR Y CORREGIR. El modelo ya sabia cancelar, pero no habia
+               por donde llamarlo: quien publicaba 40.000 lb queriendo 4.000 no
+               tenia arreglo y la solicitud seguia viva en todas las bandejas. -->
+          <t t-if="sol.state in ('draft', 'published')">
+            <form method="post" t-attf-action="/marketplace/empaque/solicitud/#{sol.uuid_ref}/cancelar"
+                  class="card mt-4">
+              <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+              <div class="card-body">
+                <h6 class="text-uppercase text-muted small mb-2">¿Te equivocaste?</h6>
+                <p class="small text-muted mb-3">
+                  Mientras no aceptes una oferta puedes retirarla. «Corregir» la cancela y
+                  te devuelve el formulario con lo que escribiste, para que la publiques
+                  bien; las ofertas recibidas se descartan en los dos casos.
+                </p>
+                <button type="submit" name="corregir" value="1" class="btn btn-outline-primary">
+                  Corregir y volver a publicar
+                </button>
+                <button type="submit" class="btn btn-outline-danger">Cancelar la solicitud</button>
+              </div>
+            </form>
+          </t>
+          <t t-elif="sol.state == 'cancelled'">
+            <div class="alert alert-secondary mt-4 mb-0">
+              Esta solicitud está cancelada. Si todavía necesitas empaque, publica una nueva.
+            </div>
           </t>
 
         </div>

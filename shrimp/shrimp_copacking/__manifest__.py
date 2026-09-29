@@ -35,6 +35,8 @@ sitio y sus propias bandejas.
         "views/copack_order_templates.xml",
         "views/copacker_templates.xml",
         "views/copacker_tariff_templates.xml",
+        "views/registry_form_maquilador.xml",
+        "views/res_partner_views.xml",
         "views/traceability_pdf_inherit.xml",
         "views/navbar_inherit.xml",
         "views/menus.xml",

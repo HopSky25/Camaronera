@@ -102,3 +102,15 @@ class ResPartner(models.Model):
         return self.sudo().search(
             [("shrimp_user_type", "=", "empacadora"), ("active", "=", True)],
             order="name")
+
+    # El historial verificado es de la camaronera, no del sistema. Publicarlo
+    # sin preguntarle convierte una herramienta de venta en una amenaza: la que
+    # rinde bien quiere presumirlo, pero a la que rinde flojo le estariamos
+    # publicando su peor numero delante de todos sus compradores, y lo racional
+    # entonces es no usar Trazul. Por defecto apagado: que lo encienda quien
+    # quiera usarlo para vender.
+    farm_publicar_historial = fields.Boolean(
+        string="Publicar mi rendimiento verificado",
+        help="Muestra tu rendimiento medio y tu clase A en la ficha de los "
+             "lotes que publicas, para que el comprador lo vea antes de "
+             "preguntarte. El detalle lote a lote nunca se publica.")

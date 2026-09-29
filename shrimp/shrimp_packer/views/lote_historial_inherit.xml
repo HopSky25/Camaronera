@@ -1,0 +1,166 @@
+<odoo>
+
+  <!-- ================================================================
+       EL AVAL DEL VENDEDOR EN LA FICHA DE SU LOTE
+
+       Un lote publicado dice qué es y cuánto cuesta. Lo que no decía es
+       lo único que separa a un vendedor de otro cuando los dos ofrecen
+       camarón de la misma talla al mismo precio: cuánto rindió el
+       anterior. Ese dato ya existía, verificado por un tercero, y vivía
+       encerrado en el ranking interno del comprador.
+
+       Va en la columna principal y justo encima de las especificaciones
+       —no al final, junto a los certificados— porque se lee ANTES de
+       decidir, en el mismo golpe de vista que el precio y el botón de
+       comprar. Al pie de la página sería un adorno.
+
+       Este bloque vive en shrimp_packer y no en shrimp_marketplace
+       porque el dato sale de shrimp.verification, y shrimp_marketplace no
+       depende de shrimp_verification: desde allí no habría a quién
+       preguntarle. Aquí sí, y es además donde vive el cálculo.
+       ================================================================ -->
+  <template id="lote_historial_vendedor"
+            inherit_id="shrimp_marketplace.product_detail"
+            name="Detalle de lote - rendimiento verificado del vendedor">
+    <!-- Anclado al encabezado de "Especificaciones", que no está dentro de
+         ningún t-if y por tanto no se mueve cuando cambian los permisos de
+         quien mira la página. -->
+    <xpath expr="//h3[hasclass('mp-sec-title')][text()='Especificaciones']/.."
+           position="before">
+      <!-- Solo si la camaronera lo activo en su perfil. Es su dato y su
+           argumento de venta: publicarselo sin preguntar convertiria la
+           herramienta en una amenaza para quien rinde flojo. -->
+      <t t-if="product.seller_partner_id.farm_publicar_historial">
+
+      <!-- resumen_publico devuelve {} cuando no hay nada verificado —un
+           vendedor de larva, o una camaronera que aún no ha pasado por
+           planta—, y entonces el bloque entero no existe. Un panel vacío
+           titulado "rendimiento verificado" leería como una falta. -->
+      <t t-set="hv"
+         t-value="request.env['shrimp.proveedor.ranking'].sudo().resumen_publico(product.seller_partner_id)"/>
+
+      <t t-if="hv">
+        <div class="pk-aval mb-3">
+
+          <div class="pk-aval-cab">
+            <span class="pk-aval-ico"><i class="fa fa-certificate"></i></span>
+            <div>
+              <div class="pk-aval-tit">Rendimiento verificado de este vendedor</div>
+              <div class="pk-aval-sub">
+                Medido en planta por verificadores independientes, no declarado
+                por el vendedor.
+              </div>
+            </div>
+          </div>
+
+          <!-- La muestra manda sobre la cifra: si no llega al umbral, lo
+               primero que se lee es eso y no el promedio. Es la misma regla
+               que en el ranking del comprador, y tiene que serlo: si aquí se
+               presentara como trayectoria lo que allí sale marcado, la ficha
+               del lote estaría contradiciendo a la pantalla con la que esa
+               misma empacadora decide. -->
+          <div class="pk-aval-corto" t-if="not hv['suficiente']">
+            <i class="fa fa-exclamation-circle me-1"/>
+            Muestra corta: <strong><t t-esc="hv['lotes']"/></strong>
+            lote<t t-if="hv['lotes'] != 1">s</t> verificado<t t-if="hv['lotes'] != 1">s</t>.
+            Hacen falta <t t-esc="hv['umbral']"/> para hablar de promedio, así
+            que esto son resultados sueltos y no una trayectoria.
+          </div>
+
+          <div class="pk-aval-cifras">
+            <div>
+              <span>Rendimiento</span>
+              <t t-if="hv['rendimiento'] is not None">
+                <strong><t t-esc="'{:.1f}'.format(hv['rendimiento'])"/> %</strong>
+                <em>
+                  <t t-esc="hv['rendimiento_n']"/> lote<t t-if="hv['rendimiento_n'] != 1">s</t>
+                  <t t-if="hv['rendimiento_n'] &gt; 1 and hv['rendimiento_max'] - hv['rendimiento_min'] &gt; 0.05">
+                    · <t t-esc="'{:.1f}'.format(hv['rendimiento_min'])"/>–<t
+                       t-esc="'{:.1f}'.format(hv['rendimiento_max'])"/>
+                  </t>
+                </em>
+              </t>
+              <t t-else="">
+                <strong class="pk-muted">sin dato</strong>
+                <em>no medido</em>
+              </t>
+            </div>
+
+            <div>
+              <span>Clase A</span>
+              <t t-if="hv['clase_a'] is not None">
+                <strong><t t-esc="'{:.0f}'.format(hv['clase_a'])"/> %</strong>
+                <em><t t-esc="hv['clase_a_n']"/> lote<t t-if="hv['clase_a_n'] != 1">s</t></em>
+              </t>
+              <t t-else="">
+                <strong class="pk-muted">sin dato</strong>
+                <em>no clasificado</em>
+              </t>
+            </div>
+
+            <div>
+              <span>Fue lo publicado</span>
+              <strong>
+                <t t-esc="hv['lotes'] - hv['incumplidos']"/> de <t t-esc="hv['lotes']"/>
+              </strong>
+              <em t-if="hv['incumplidos']" class="pk-aval-mal">
+                <t t-esc="hv['incumplidos']"/>
+                <t t-if="hv['incumplidos'] == 1"> no coincidió</t>
+                <t t-else=""> no coincidieron</t>
+              </em>
+              <em t-else="">sin discrepancias</em>
+            </div>
+
+            <div>
+              <span>Calidad</span>
+              <t t-if="hv['metabisulfito_n'] or hv['sabor_n']">
+                <strong>
+                  <t t-if="hv['metabisulfito_n']">
+                    <t t-esc="hv['metabisulfito_ok']"/>/<t t-esc="hv['metabisulfito_n']"/>
+                  </t>
+                  <t t-else="">—</t>
+                  ·
+                  <t t-if="hv['sabor_n']">
+                    <t t-esc="hv['sabor_ok']"/>/<t t-esc="hv['sabor_n']"/>
+                  </t>
+                  <t t-else="">—</t>
+                </strong>
+                <em>metabisulfito · sabor</em>
+              </t>
+              <t t-else="">
+                <strong class="pk-muted">sin medir</strong>
+                <em>metabisulfito y sabor</em>
+              </t>
+            </div>
+          </div>
+
+          <div class="pk-aval-pie">
+            <t t-esc="'{:,.0f}'.format(hv['lb_verificadas'])"/> lb verificadas ·
+            <t t-if="hv['verificadores'] &gt; 1">
+              <t t-esc="hv['verificadores']"/> verificadores distintos
+            </t>
+            <t t-else="">1 verificador</t>
+            <t t-if="hv['compradores'] &gt; 1">
+              · <t t-esc="hv['compradores']"/> empacadoras
+            </t>
+            <t t-if="hv['ultima']">
+              · último <t t-esc="hv['ultima'].strftime('%d/%m/%Y')"/>
+            </t>
+            <!-- No se nombra a ninguna empacadora ni se enlaza ninguna
+                 verificación: el historial del vendedor es suyo, pero con
+                 quién comerció es de las dos partes. -->
+          </div>
+
+          <div class="pk-aval-mio" t-if="is_owner">
+            <i class="fa fa-eye me-1"/>
+            Esto es lo que ve quien abre tu lote.
+            <a href="/marketplace/mi-historial">Ver mi historial completo</a>
+          </div>
+
+        </div>
+      </t>
+    </t>
+    </xpath>
+  </template>
+
+</odoo>

@@ -872,3 +872,36 @@ class ShrimpHarvestSimulator(http.Controller):
             "modo": modo,
             "sim": lote.simulador_cosecha(modo) if lote else {},
         })
+
+
+class ShrimpFarmerTrackRecord(ShrimpHarvestSimulator):
+    """Mi historial verificado: lo que la camaronera puede demostrar.
+
+    El rendimiento de cada camaronera lleva tiempo medido por un tercero y
+    guardado lote a lote, pero hasta ahora solo lo leía la empacadora en su
+    ranking de proveedores. El productor —que es quien lo produjo— no tenía
+    forma de verlo ni de usarlo: salía a vender diciendo 'cómpreme este lote'
+    con la misma voz que cualquiera, y su historial de rendimiento, que es su
+    mejor argumento, se quedaba del otro lado del mostrador.
+
+    Hereda de ShrimpHarvestSimulator por el corte de acceso: _solo_camaronera
+    es exactamente la misma pregunta —¿este usuario cosecha?— y tenerla
+    escrita dos veces es tener dos sitios donde equivocarse el día que el rol
+    cambie de nombre.
+    """
+
+    @http.route("/marketplace/mi-historial", type="http", auth="user", website=True)
+    def farmer_track_record(self, **kw):
+        """Su propia trayectoria, con la misma cuenta que ve su comprador.
+
+        Solo la camaronera, y solo la suya: el corte no es de confidencialidad
+        —cada quien puede ver su propio historial— sino de sentido. Para una
+        empacadora esta pantalla saldría vacía para siempre, porque ella no
+        vende camarón que se verifique en planta, y ya tiene la mitad que le
+        toca en /marketplace/proveedores.
+        """
+        self._solo_camaronera()
+        partner = self._partner()
+        return request.render("shrimp_packer.farmer_track_record", {
+            "h": request.env["shrimp.proveedor.ranking"].sudo().historial(partner),
+        })

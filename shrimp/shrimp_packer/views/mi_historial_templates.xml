@@ -1,0 +1,393 @@
+<odoo>
+
+  <!-- ================================================================
+       MI HISTORIAL VERIFICADO
+
+       El mismo cálculo que la empacadora ve en su ranking de proveedores,
+       devuelto a quien produjo esos números. No es una pantalla de
+       informe: es una pantalla de venta. Por eso arriba del todo va la
+       frase que la camaronera puede repetir tal cual al ofrecer un lote,
+       y no una tabla.
+
+       Y por eso mismo, cuando la muestra no llega al umbral, lo primero
+       que aparece es que no llega. Dar munición a alguien es darle
+       también la medida de su alcance: una camaronera que sale a decir
+       "rindo 74 %" con un solo lote verificado se expone a que la planta
+       —que tiene el mismo dato y sabe contarlo— le conteste con el n=1.
+       ================================================================ -->
+  <template id="farmer_track_record" name="Mi historial verificado">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page shrimp-page--full py-4">
+
+          <div class="sf-banner mb-4">
+            <div class="sf-banner-row">
+              <div class="sf-banner-txt">
+                <h1>Mi historial verificado</h1>
+                <p>Lo que rindió tu camarón en planta, medido por el
+                   verificador y no por ti ni por tu comprador. Es el mismo
+                   número que la empacadora tiene delante cuando decide a
+                   quién le compra.</p>
+              </div>
+              <span class="sf-kicker"><i class="fa fa-certificate"></i> Trayectoria</span>
+            </div>
+          </div>
+
+          <!-- ============================================================
+               Sin nada verificado todavía. No se muestra una tabla vacía:
+               se explica de dónde saldría el dato, que es lo único útil
+               que se le puede decir a quien todavía no lo tiene.
+               ============================================================ -->
+          <t t-if="not h['fila']">
+            <div class="pk-vacio">
+              <i class="fa fa-flask fa-2x mb-2"/>
+              <p class="mb-1">Todavía no tienes ningún lote con veredicto de verificación.</p>
+              <p class="pk-muted mb-0">
+                <t t-if="h['en_curso']">
+                  Tienes <t t-esc="h['en_curso']"/> verificación<t t-if="h['en_curso'] != 1">es</t>
+                  en curso. En cuanto el verificador emita el veredicto, tu
+                  historial empieza a construirse solo: no hay nada que llenar
+                  a mano.
+                </t>
+                <t t-else="">
+                  Tu historial se arma solo con las verificaciones de tus
+                  ventas: cada lote que pase por planta con un verificador
+                  independiente deja aquí su rendimiento, su clase A y su
+                  resultado de metabisulfito y sabor. Para siempre, y a tu
+                  nombre.
+                </t>
+              </p>
+              <a class="s-btn s-btn-primary mt-3" href="/marketplace/products">
+                <i class="fa fa-cubes me-1"/> Ver mis lotes
+              </a>
+            </div>
+          </t>
+
+          <t t-else="">
+            <t t-set="f" t-value="h['fila']"/>
+
+            <!-- ==========================================================
+                 EL AVISO DE MUESTRA, ANTES QUE LAS CIFRAS
+
+                 Va arriba y no en una nota al pie a propósito. Es la única
+                 posición en la que se lee antes de usar el número.
+                 ========================================================== -->
+            <div class="pk-prov-aviso mb-3" t-if="not h['suficiente']">
+              <i class="fa fa-exclamation-triangle me-1"/>
+              <strong>Esto todavía no es una trayectoria.</strong>
+              Llevas <t t-esc="h['lotes']"/> lote<t t-if="h['lotes'] != 1">s</t>
+              verificado<t t-if="h['lotes'] != 1">s</t>, y hacen falta
+              <strong><t t-esc="h['umbral']"/></strong> para que un promedio
+              signifique algo: con uno o dos, un mal día pesa lo mismo que una
+              forma de trabajar y nadie —ni tú— puede distinguirlos. Los
+              números de abajo son reales y son tuyos, pero preséntalos como
+              lo que son: <strong>lotes concretos</strong>, no una media.
+              Te falta<t t-if="h['faltan'] != 1">n</t>
+              <strong><t t-esc="h['faltan']"/></strong> lote<t t-if="h['faltan'] != 1">s</t>.
+            </div>
+
+            <!-- ==========================================================
+                 LA FRASE
+
+                 Lo que de verdad pidió el negocio: que la camaronera pueda
+                 dejar de decir "cómpreme este lote" y empiece a decir un
+                 hecho comprobable. Se le da escrita, con sus propias
+                 cifras, para que no tenga que redactarla ni calcularla.
+                 ========================================================== -->
+            <div class="pk-prov-lider mb-3" t-if="h['suficiente'] and f['rendimiento'] is not None">
+              <div class="pk-rep-eyebrow">Tu argumento de venta, en una frase</div>
+              <div class="pk-hist-frase">
+                Mis <t t-esc="f['lotes']"/> últimos lotes verificados rindieron
+                <strong t-esc="'{:.1f}'.format(f['rendimiento'])"/> %<t t-if="f['clase_a'] is not None">,
+                con <strong t-esc="'{:.0f}'.format(f['clase_a'])"/> % de clase A</t>,
+                medido en planta por un verificador independiente.
+              </div>
+              <div class="pk-hist-frase-pie">
+                <t t-if="h['verificadores'] &gt; 1">
+                  <t t-esc="h['verificadores']"/> verificadores distintos
+                </t>
+                <t t-else="">1 verificador</t>
+                ·
+                <t t-if="h['compradores'] &gt; 1">
+                  <t t-esc="h['compradores']"/> empacadoras
+                </t>
+                <t t-else="">1 empacadora</t>
+                · <t t-esc="'{:,.0f}'.format(f['lb_verificadas'])"/> lb pasadas por planta
+              </div>
+            </div>
+
+            <!-- ==========================================================
+                 LAS CIFRAS, CADA UNA CON SU MUESTRA PEGADA
+
+                 El n= no es un adorno estadístico: un lote puede traer
+                 pesada y no medición de metabisulfito, y enseñar "5 lotes"
+                 al lado de un promedio hecho sobre 2 es mentir con la
+                 verdad. Cada caja lleva la suya.
+                 ========================================================== -->
+            <div class="pk-oferta-kpis mb-3">
+              <div>
+                <span>Rendimiento medio</span>
+                <t t-if="f['rendimiento'] is not None">
+                  <strong><t t-esc="'{:.1f}'.format(f['rendimiento'])"/> %</strong>
+                  <div class="pk-prov-n">
+                    sobre <t t-esc="f['rendimiento_n']"/> lote<t t-if="f['rendimiento_n'] != 1">s</t>
+                    <t t-if="f['rendimiento_n'] &gt; 1 and f['rendimiento_max'] - f['rendimiento_min'] &gt; 0.05">
+                      · de <t t-esc="'{:.1f}'.format(f['rendimiento_min'])"/> a
+                      <t t-esc="'{:.1f}'.format(f['rendimiento_max'])"/>
+                    </t>
+                  </div>
+                </t>
+                <t t-else="">
+                  <strong class="pk-muted">sin dato</strong>
+                  <div class="pk-prov-n">ninguna verificación trae rendimiento</div>
+                </t>
+              </div>
+
+              <div>
+                <span>Clase A</span>
+                <t t-if="f['clase_a'] is not None">
+                  <strong><t t-esc="'{:.1f}'.format(f['clase_a'])"/> %</strong>
+                  <div class="pk-prov-n">
+                    sobre <t t-esc="f['clase_a_n']"/> lote<t t-if="f['clase_a_n'] != 1">s</t>
+                  </div>
+                </t>
+                <t t-else="">
+                  <strong class="pk-muted">sin dato</strong>
+                  <div class="pk-prov-n">falta la clasificación por talla</div>
+                </t>
+              </div>
+
+              <div>
+                <span>Lotes verificados</span>
+                <strong t-esc="f['lotes']"/>
+                <div class="pk-prov-n">
+                  <t t-esc="'{:,.0f}'.format(f['lb_verificadas'])"/> lb
+                  <t t-if="f['ultima']">
+                    · último <t t-esc="f['ultima'].strftime('%d/%m/%Y')"/>
+                  </t>
+                </div>
+              </div>
+
+              <div>
+                <span>Fueron lo publicado</span>
+                <strong>
+                  <t t-esc="f['lotes'] - f['incumplidos']"/> de <t t-esc="f['lotes']"/>
+                </strong>
+                <div class="pk-prov-n pk-prov-n--mal" t-if="f['incumplidos']">
+                  <t t-esc="f['incumplidos']"/> no coincidió con el anuncio
+                </div>
+                <div class="pk-prov-n" t-else="">todos coincidieron con tu anuncio</div>
+              </div>
+
+              <div>
+                <span>Metabisulfito</span>
+                <t t-if="h['metabisulfito_n']">
+                  <strong>
+                    <t t-esc="h['metabisulfito_ok']"/> de <t t-esc="h['metabisulfito_n']"/>
+                  </strong>
+                  <div class="pk-prov-n">
+                    conformes
+                    <t t-if="f['metabisulfito'] is not None">
+                      · media <t t-esc="'{:.0f}'.format(f['metabisulfito'])"/> ppm
+                    </t>
+                  </div>
+                </t>
+                <t t-else="">
+                  <strong class="pk-muted">sin medir</strong>
+                  <div class="pk-prov-n">ningún lote traía medición</div>
+                </t>
+              </div>
+
+              <div>
+                <span>Prueba de sabor</span>
+                <t t-if="h['sabor_n']">
+                  <strong>
+                    <t t-esc="h['sabor_ok']"/> de <t t-esc="h['sabor_n']"/>
+                  </strong>
+                  <div class="pk-prov-n">
+                    aprobados
+                    <t t-if="f['sabor_rechazos']">
+                      · <t t-esc="f['sabor_rechazos']"/> rechazado<t t-if="f['sabor_rechazos'] != 1">s</t>
+                    </t>
+                  </div>
+                </t>
+                <t t-else="">
+                  <strong class="pk-muted">sin medir</strong>
+                  <div class="pk-prov-n">ningún lote traía prueba de sabor</div>
+                </t>
+              </div>
+            </div>
+
+            <!-- ==========================================================
+                 QUÉ SIGNIFICA CADA NÚMERO
+
+                 Sin esto la pantalla es un tablero bonito que el usuario no
+                 se atreve a citar delante de un comprador, porque no sabría
+                 defender de dónde sale. Se explica en el mismo idioma en el
+                 que se negocia una venta, no en el del modelo de datos.
+                 ========================================================== -->
+            <h2 class="pk-seccion mt-4">Qué significa cada número</h2>
+            <div class="pk-hist-glosario">
+              <div>
+                <strong>Rendimiento</strong>
+                <p>De cada 100 libras que llegaron limpias a la planta, cuántas
+                   salieron como producto. Es el número que más le importa a la
+                   empacadora porque es dinero directo: paga las 100 y vende lo
+                   que rindieron.</p>
+              </div>
+              <div>
+                <strong>Clase A</strong>
+                <p>De lo que salió, qué parte fue primera. A igual rendimiento,
+                   la clase A se exporta y la C no, así que dos lotes con el
+                   mismo rendimiento no valen lo mismo.</p>
+              </div>
+              <div>
+                <strong>Fueron lo publicado</strong>
+                <p>En cuántos lotes lo que llegó coincidió con lo que
+                   anunciaste: peso, talla predominante, metabisulfito y sabor.
+                   Un incumplimiento no le cuesta puntos a la planta, le cuesta
+                   reprocesar o perder un embarque; por eso pesa casi tanto
+                   como el rendimiento.</p>
+              </div>
+              <div>
+                <strong>Metabisulfito y sabor</strong>
+                <p>Se cuentan solo sobre los lotes en los que se midió, no
+                   sobre todos. Un lote sin prueba de sabor no es un lote que
+                   la aprobó, y contarlo como tal inflaría tu historial con
+                   algo que nadie comprobó.</p>
+              </div>
+              <div>
+                <strong>Por qué <t t-esc="h['umbral']"/> lotes</strong>
+                <p>Por debajo de ahí la media se mueve entre 10 y 30 puntos con
+                   un solo lote flojo: no distingue un mal día de una forma de
+                   trabajar. Desde <t t-esc="h['umbral']"/> la media es más
+                   estable que cualquiera de sus términos y ya existe un rango
+                   mínimo-máximo, que es lo que de verdad decide una compra que
+                   se repite.</p>
+              </div>
+              <div>
+                <strong>Quién lo mide</strong>
+                <p>Un verificador independiente, que no eres tú ni tu
+                   comprador: el sistema impide que la verificación la haga
+                   ninguna de las dos partes. Es lo que hace que estos números
+                   sirvan como argumento y no como promesa.</p>
+              </div>
+            </div>
+
+            <!-- ==========================================================
+                 EL LOTE A LOTE
+
+                 Obligatorio, no decorativo. Con muestras cortas es la única
+                 lectura honesta; con muestras largas es lo que sostiene el
+                 promedio cuando un comprador pregunta. Aquí sí aparece
+                 entero, incluidos los motivos de cada incumplimiento:
+                 son SUS lotes y esconderle un mal resultado a quien lo
+                 produjo sería dejarle salir a vender sin saber qué le van a
+                 contestar.
+                 ========================================================== -->
+            <h2 class="pk-seccion mt-4">Lote a lote</h2>
+            <div class="pk-prov-det-plano">
+              <table class="pk-tabla">
+                <thead>
+                  <tr>
+                    <th>Verificación</th>
+                    <th>Fecha</th>
+                    <th class="text-end">Enviadas</th>
+                    <th class="text-end">En planta</th>
+                    <th class="text-end">Basura</th>
+                    <th class="text-end">Rendimiento</th>
+                    <th class="text-end">Clase A</th>
+                    <th class="text-end">Metabisulfito</th>
+                    <th>Sabor</th>
+                    <th>Coincidió con lo publicado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <t t-foreach="f['detalles']" t-as="d">
+                    <tr>
+                      <td>
+                        <strong t-esc="d['ref']"/>
+                        <span class="pk-estado pk-estado--draft"
+                              t-if="d['estado'] == 'rejected'">rechazada</span>
+                      </td>
+                      <td t-esc="d['fecha'].strftime('%d/%m/%Y') if d['fecha'] else '—'"/>
+                      <td class="text-end" t-esc="'{:,.0f}'.format(d['lb_enviadas']) if d['lb_enviadas'] else '—'"/>
+                      <td class="text-end" t-esc="'{:,.0f}'.format(d['lb_planta']) if d['lb_planta'] else '—'"/>
+                      <td class="text-end" t-esc="'{:,.0f}'.format(d['basura_lb']) if d['basura_lb'] else '—'"/>
+                      <td class="text-end">
+                        <t t-if="d['rendimiento']">
+                          <t t-esc="'{:.2f}'.format(d['rendimiento'])"/> %
+                        </t>
+                        <t t-else="">—</t>
+                      </td>
+                      <td class="text-end">
+                        <t t-if="d['clase_a']">
+                          <t t-esc="'{:.2f}'.format(d['clase_a'])"/> %
+                        </t>
+                        <t t-else="">—</t>
+                      </td>
+                      <td class="text-end">
+                        <t t-if="d['metabisulfito']">
+                          <t t-esc="'{:.0f}'.format(d['metabisulfito'])"/> ppm
+                          <span class="pk-prov-n pk-prov-n--mal"
+                                t-if="d['metabisulfito_res'] == 'fail'">fuera de límite</span>
+                        </t>
+                        <t t-else="">—</t>
+                      </td>
+                      <td t-esc="d['sabor_txt']"/>
+                      <td>
+                        <t t-if="d['cumple']">
+                          <span class="pk-prov-ok"><i class="fa fa-check me-1"/>Sí</span>
+                        </t>
+                        <t t-else="">
+                          <span class="pk-prov-ko"><i class="fa fa-times me-1"/>No</span>
+                          <div class="pk-prov-n pk-prov-n--mal" t-esc="'; '.join(d['motivos'])"/>
+                        </t>
+                      </td>
+                    </tr>
+                  </t>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- ==========================================================
+                 DÓNDE SE VE ESTO APARTE DE AQUÍ
+
+                 El historial no sirve de nada guardado en una pantalla que
+                 solo abre su dueño. Se dice explícitamente que ya viaja en
+                 cada lote publicado, porque si no la camaronera no tiene
+                 forma de saberlo.
+                 ========================================================== -->
+            <p class="pk-rep-nota mt-3">
+              <i class="fa fa-info-circle me-1"/>
+              Este resumen aparece solo en la ficha de cada lote que publicas,
+              para que la empacadora que lo está mirando lo vea sin pedírtelo.
+              Ahí viaja recortado: los promedios, la muestra y el cumplimiento,
+              <strong>nunca el lote a lote ni a quién le vendiste</strong>.
+              La empacadora ve además este mismo cálculo en su ranking de
+              proveedores, donde la conveniencia se reparte
+              <t t-esc="h['pesos']['rendimiento']"/> % rendimiento +
+              <t t-esc="h['pesos']['clase_a']"/> % clase A +
+              <t t-esc="h['pesos']['cumplimiento']"/> % lotes que fueron lo
+              publicado. Es el mismo número que ves aquí: no hay una cuenta
+              para ti y otra para ella.
+              <t t-if="h['en_curso']">
+                Tienes <t t-esc="h['en_curso']"/> verificación<t t-if="h['en_curso'] != 1">es</t>
+                sin veredicto todavía; cuando cierren, esto se mueve.
+              </t>
+            </p>
+
+            <div class="mt-3">
+              <a class="s-btn s-btn-primary" href="/marketplace/products">
+                <i class="fa fa-cubes me-1"/> Ver mis lotes publicados
+              </a>
+            </div>
+
+          </t>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+</odoo>

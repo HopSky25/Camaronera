@@ -185,7 +185,9 @@
                         <strong t-esc="f['lotes'] - f['incumplidos']"/>
                         de <t t-esc="f['lotes']"/>
                         <div class="pk-prov-n pk-prov-n--mal" t-if="f['incumplidos']">
-                          <t t-esc="f['incumplidos']"/> no coincidió<t t-if="f['incumplidos'] != 1">eron</t>
+                          <t t-esc="f['incumplidos']"/>
+                          <t t-if="f['incumplidos'] == 1"> no coincidió</t>
+                          <t t-else=""> no coincidieron</t>
                         </div>
                       </td>
 

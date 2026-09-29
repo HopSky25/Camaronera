@@ -132,6 +132,8 @@ class ShrimpAccountPortalController(http.Controller):
                 "farm_ubicacion": post.get("farm_ubicacion") or False,
                 "farm_capacidad": _f(post.get("farm_capacidad")),
                 "farm_area_ha": _f(post.get("farm_area_ha")),
+                # Casilla: viene o no viene, no llega "false".
+                "farm_publicar_historial": bool(post.get("farm_publicar_historial")),
             }
         return {}
 

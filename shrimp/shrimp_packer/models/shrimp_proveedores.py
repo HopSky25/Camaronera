@@ -252,3 +252,124 @@ class ShrimpProveedorRanking(models.AbstractModel):
                 "cumplimiento": int(self.PESO_CUMPLIMIENTO * 100),
             },
         }
+
+    # ==================================================================
+    # El mismo cálculo, leído desde el otro lado del mostrador
+    # ==================================================================
+    # Todo lo de arriba responde a "¿a quién le compro?". Lo de abajo responde
+    # a "¿qué puedo demostrar que rindo?", que es la misma cuenta cambiando el
+    # eje de agrupación: por vendedor en vez de por comprador.
+    #
+    # Se reutiliza _fila() tal cual —no una copia adaptada— precisamente
+    # porque el valor de esta pantalla es que el número que la camaronera
+    # enseña sea el MISMO que la empacadora tiene en su ranking. Dos cálculos
+    # del mismo rendimiento que se desincronizan convierten un argumento de
+    # venta en una discusión.
+
+    def historial(self, camaronera):
+        """La trayectoria verificada de una camaronera, en sus propias manos.
+
+        Agrupa por vendedor y no por comprador: a la camaronera no le sirve
+        saber cómo rindió para una planta concreta —eso ya lo sabe la planta—
+        sino cómo rinde en general, que es lo que puede poner por delante al
+        ofrecer un lote a una empacadora con la que nunca ha trabajado.
+
+        Cuenta también cuántos compradores y cuántos verificadores distintos
+        hay detrás: un 71 % medido por tres verificadores en dos plantas vale
+        como argumento; el mismo 71 % medido siempre por el mismo verificador
+        de la misma planta es un dato bueno pero más discutible, y quien lo
+        va a leer tiene derecho a distinguirlos.
+        """
+        V = self.env["shrimp.verification"].sudo()
+
+        # Mismo recorte que el ranking: scope adulto y solo con veredicto. Si
+        # aquí entrara el borrador, la camaronera vería una media que después
+        # cambia sola, y peor todavía: distinta de la que ve su comprador.
+        base = [("seller_partner_id", "=", camaronera.id), ("scope", "=", "adult")]
+        verificaciones = V.search(
+            base + [("state", "in", list(self.ESTADOS_VEREDICTO))],
+            order="create_date desc")
+
+        # _fila divide entre el número de lotes para el cumplimiento: sin
+        # lotes no hay fila que calcular, y la pantalla ya tiene que tratar
+        # ese caso aparte de todos modos.
+        fila = self._fila(camaronera, verificaciones) if verificaciones else None
+        detalles = fila["detalles"] if fila else []
+
+        # Metabisulfito y sabor se cuentan sobre lo MEDIDO, no sobre el total
+        # de lotes. Un lote sin prueba de sabor no es un lote que la aprobó:
+        # meterlo en el denominador inflaría el cumplimiento, y meterlo en el
+        # numerador de los fallos lo hundiría. Queda fuera y se dice cuántos.
+        sabor_medidos = [d for d in detalles if d["sabor"]]
+        meta_medidos = [d for d in detalles
+                        if d["metabisulfito_res"] in ("pass", "fail")]
+
+        lotes = fila["lotes"] if fila else 0
+        return {
+            "fila": fila,
+            "lotes": lotes,
+            "umbral": UMBRAL_LOTES,
+            "suficiente": bool(fila) and fila["suficiente"],
+            "faltan": max(0, UMBRAL_LOTES - lotes),
+            "compradores": len({
+                v.buyer_partner_id.id for v in verificaciones if v.buyer_partner_id}),
+            "verificadores": len({
+                v.verifier_partner_id.id for v in verificaciones
+                if v.verifier_partner_id}),
+            "sabor_n": len(sabor_medidos),
+            "sabor_ok": len([d for d in sabor_medidos if d["sabor"] != "rejected"]),
+            "metabisulfito_n": len(meta_medidos),
+            "metabisulfito_ok": len(
+                [d for d in meta_medidos if d["metabisulfito_res"] == "pass"]),
+            "en_curso": V.search_count(
+                base + [("state", "in", list(self.ESTADOS_EN_CURSO))]),
+            "pesos": {
+                "rendimiento": int(self.PESO_RENDIMIENTO * 100),
+                "clase_a": int(self.PESO_CLASE_A * 100),
+                "cumplimiento": int(self.PESO_CUMPLIMIENTO * 100),
+            },
+        }
+
+    # ------------------------------------------------------------------
+    # Lo único del historial que puede leer un tercero.
+    #
+    # Lista blanca y no lista negra a propósito: el día que _fila() gane una
+    # clave nueva, lo que pase por defecto tiene que ser que NO se publique.
+    # Fuera quedan 'detalles' (el lote a lote, con referencias de verificación
+    # y los motivos de cada incumplimiento) y cualquier rastro de quién
+    # compró: el comprador de un lote es información comercial de las dos
+    # partes, y esta pantalla la mira cualquiera que abra el anuncio.
+    CAMPOS_PUBLICOS = (
+        "lotes", "suficiente", "rendimiento", "rendimiento_n",
+        "rendimiento_min", "rendimiento_max", "clase_a", "clase_a_n",
+        "cumplimiento", "incumplidos", "metabisulfito", "metabisulfito_fail",
+        "sabor_rechazos", "lb_verificadas", "ultima",
+    )
+    CAMPOS_PUBLICOS_HIST = (
+        "umbral", "faltan", "compradores", "verificadores",
+        "sabor_n", "sabor_ok", "metabisulfito_n", "metabisulfito_ok",
+    )
+
+    def resumen_publico(self, vendedor):
+        """El aval del vendedor, para enseñarlo en el anuncio de su lote.
+
+        Devuelve {} cuando no hay nada verificado —un vendedor de larva, o una
+        camaronera que todavía no ha pasado por planta—, para que la ficha del
+        lote pueda callarse en vez de mostrar un bloque vacío.
+
+        Lo que NO se recorta es la muestra: 'lotes' y 'suficiente' viajan
+        siempre, porque el único uso deshonesto de esta caja sería enseñar un
+        promedio sin decir de cuántos lotes sale.
+        """
+        # Un lote sin vendedor no debe acabar consultando por
+        # seller_partner_id = False: ese dominio no devuelve "nada", devuelve
+        # las verificaciones huérfanas, que son de cualquiera.
+        if not vendedor:
+            return {}
+
+        h = self.historial(vendedor)
+        if not h["fila"]:
+            return {}
+        resumen = {clave: h["fila"][clave] for clave in self.CAMPOS_PUBLICOS}
+        resumen.update({clave: h[clave] for clave in self.CAMPOS_PUBLICOS_HIST})
+        return resumen

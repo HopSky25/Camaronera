@@ -39,6 +39,8 @@ desarrollo que se hace en paralelo sobre ese módulo.
         "views/menus.xml",
         "views/simulador_templates.xml",
         "views/proveedores_templates.xml",
+        "views/mi_historial_templates.xml",
+        "views/lote_historial_inherit.xml",
     ],
     "demo": [
         "demo/demo_01_partners.xml",

@@ -329,6 +329,14 @@ class ShrimpCopackClient(http.Controller):
                            else "Órdenes"),
             "mi_firma": orden.sudo().acceptance_ids.filtered(lambda f: f.role == rol),
             "otra_firma": orden.sudo().acceptance_ids.filtered(lambda f: f.role != rol),
+            # Las rondas anteriores. Reabrir un acta archiva las firmas en vez
+            # de borrarlas precisamente para dejar constancia de que hubo un
+            # desacuerdo y sobre que cifras; guardarlo y no enseñarlo es tener
+            # la prueba y no poder mostrarla.
+            "firmas_archivadas": request.env["shrimp.copack.acceptance"].sudo()
+            .with_context(active_test=False)
+            .search([("order_id", "=", orden.id), ("active", "=", False)],
+                    order="ronda desc, role"),
             "mensaje": kw.get("mensaje"),
             "error": kw.get("error"),
         })

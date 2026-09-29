@@ -345,6 +345,8 @@
                 <t t-elif="mi_firma">
                   <p class="text-muted small mt-3 mb-0">Ya firmaste. No se puede cambiar.</p>
                 </t>
+
+
               </div>
             </div>
           </t>
@@ -398,6 +400,63 @@
               </span>
             </form>
           </t>
+
+              <!-- RONDAS ANTERIORES. Solo aparece si el acta se reabrio
+                   alguna vez. Es la prueba de que hubo un desacuerdo y de
+                   sobre que cifras se firmo cada vez: sin esto, una orden
+                   que acabo bien parece que siempre fue bien. -->
+              <t t-if="firmas_archivadas">
+                <div class="card mt-3"><div class="card-body">
+                  <h6 class="text-uppercase text-muted small mb-2">
+                    Rondas anteriores del acta
+                  </h6>
+                  <t t-set="ronda_previa" t-value="0"/>
+                  <t t-foreach="firmas_archivadas" t-as="fa">
+                    <t t-if="fa.ronda != ronda_previa">
+                      <t t-set="ronda_previa" t-value="fa.ronda"/>
+                      <div class="small fw-bold text-muted mt-2">
+                        Ronda <t t-esc="fa.ronda"/>
+                        <t t-if="fa.archive_reason">
+                          &#160;·&#160; reabierta: <t t-esc="fa.archive_reason"/>
+                        </t>
+                      </div>
+                    </t>
+                    <div class="d-flex justify-content-between align-items-start small py-1 ps-3">
+                      <div>
+                        <t t-esc="fa.partner_id.name"/>
+                        <span class="text-muted">
+                          (<t t-esc="dict(fa._fields['role'].selection).get(fa.role)"/>)
+                        </span>
+                        <t t-if="fa.reason">
+                          <div class="text-danger"><t t-esc="fa.reason"/></div>
+                        </t>
+                      </div>
+                      <div class="text-end">
+                        <t t-if="fa.decision == 'accepted'">
+                          <span class="badge text-bg-success">Conforme</span>
+                        </t>
+                        <t t-elif="fa.decision == 'rejected'">
+                          <span class="badge text-bg-danger">No conforme</span>
+                        </t>
+                        <t t-else=""><span class="badge text-bg-secondary">Sin firmar</span></t>
+                        <t t-if="fa.signed_packed_lb">
+                          <div class="text-muted">
+                            sobre <t t-esc="int(fa.signed_received_lb)"/> &#8594;
+                            <t t-esc="int(fa.signed_packed_lb)"/> lb
+                          </div>
+                        </t>
+                        <t t-if="fa.decided_at">
+                          <div class="text-muted"><t t-esc="fa.decided_at"/></div>
+                        </t>
+                      </div>
+                    </div>
+                  </t>
+                  <p class="text-muted small mt-2 mb-0">
+                    Estas firmas quedaron archivadas al reabrir el acta. No se borran:
+                    son la constancia de qué se discutió y sobre qué cifras.
+                  </p>
+                </div></div>
+              </t>
 
         </div>
       </div>

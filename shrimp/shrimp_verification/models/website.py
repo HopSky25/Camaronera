@@ -21,7 +21,27 @@ class Website(models.Model):
         return self.sudo().search([("shrimp_is_verifier_site", "=", True)], limit=1)
 
     def _shrimp_main_site(self):
-        return self.sudo().search([("shrimp_is_verifier_site", "=", False)], limit=1)
+        """El sitio del marketplace: ni el de verificadores ni el de empaque.
+
+        La version anterior buscaba "el primero que no sea de verificadores", y
+        eso devolvia el sitio de maquiladores en cuanto alguien reordenara los
+        sitios: funcionaba solo porque el marketplace suele tener el id mas
+        bajo, que es apoyarse en una casualidad.
+
+        El flag de empaque lo define shrimp_copacking, que depende de este
+        modulo, asi que puede no existir todavia y hay que comprobarlo antes de
+        usarlo.
+
+        Ahora mismo no lo llama nadie. Se deja arreglado y no borrado porque la
+        pregunta que responde —cual es el sitio principal— es legitima, y un
+        ayudante equivocado que nadie usa es peor que ninguno: el dia que
+        alguien tire de el, se lleva el fallo puesto.
+        """
+        W = self.sudo()
+        dominio = [("shrimp_is_verifier_site", "=", False)]
+        if "shrimp_is_copacker_site" in W._fields:
+            dominio.append(("shrimp_is_copacker_site", "=", False))
+        return W.search(dominio, order="id", limit=1)
 
     # ------------------------------------------------------------------
     # Autoconfiguración de las dos plataformas (para "solo instalar").

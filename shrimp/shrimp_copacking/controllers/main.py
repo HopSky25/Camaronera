@@ -122,9 +122,18 @@ class ShrimpCopackClient(http.Controller):
             vals["size_grade_id"] = int(post["size_grade_id"])
         if post.get("copacker_partner_id"):
             vals["copacker_partner_id"] = int(post["copacker_partner_id"])
+        # En un savepoint: Odoo valida DESPUES de escribir, asi que sin esto
+        # lo que el modelo rechaza se queda igual en la base. Dejaba
+        # solicitudes fantasma en borrador que el cliente no podia ni
+        # publicar ni borrar, y libras empacadas que la validacion nego.
         try:
-            sol = request.env["shrimp.copack.request"].create(vals)
-            sol.action_publish()
+            with request.env.cr.savepoint():
+                # En sudo a proposito: el cliente se fuerza arriba al socio del
+                # usuario, y asi el portal no necesita permiso de creacion sobre
+                # el modelo. Ese permiso, con la regla del cliente, dejaba crear
+                # solicitudes a nombre de terceros.
+                sol = request.env["shrimp.copack.request"].sudo().create(vals)
+                sol.action_publish()
         except (ValidationError, ValueError) as e:
             destino = "/marketplace/empaque/solicitar"
             if post.get("copacker_partner_id"):
@@ -167,8 +176,13 @@ class ShrimpCopackClient(http.Controller):
             raise NotFound()
         if oferta.request_id.client_partner_id != self._partner():
             raise Forbidden()
+        # En un savepoint: Odoo valida DESPUES de escribir, asi que sin esto
+        # lo que el modelo rechaza se queda igual en la base. Dejaba
+        # solicitudes fantasma en borrador que el cliente no podia ni
+        # publicar ni borrar, y libras empacadas que la validacion nego.
         try:
-            orden = oferta.action_accept()
+            with request.env.cr.savepoint():
+                orden = oferta.action_accept(actor=self._partner())
         except ValidationError as e:
             return request.redirect("/marketplace/empaque/solicitud/%s?error=%s"
                                     % (oferta.request_id.uuid_ref,
@@ -214,11 +228,16 @@ class ShrimpCopackClient(http.Controller):
         firma = orden.sudo().acceptance_ids.filtered(lambda f: f.role == rol)
         if not firma:
             raise NotFound()
+        # En un savepoint: Odoo valida DESPUES de escribir, asi que sin esto
+        # lo que el modelo rechaza se queda igual en la base. Dejaba
+        # solicitudes fantasma en borrador que el cliente no podia ni
+        # publicar ni borrar, y libras empacadas que la validacion nego.
         try:
-            if post.get("decision") == "accepted":
-                firma.action_accept()
-            else:
-                firma.action_reject((post.get("motivo") or "").strip())
+            with request.env.cr.savepoint():
+                if post.get("decision") == "accepted":
+                    firma.action_accept(actor=socio)
+                else:
+                    firma.action_reject((post.get("motivo") or "").strip(), actor=socio)
         except ValidationError as e:
             return request.redirect("/marketplace/empaque/orden/%s?error=%s"
                                     % (orden.uuid_ref, quote(e.args[0] if e.args else "")))
@@ -298,6 +317,11 @@ class ShrimpCopacker(http.Controller):
         sol = request.env["shrimp.copack.request"].sudo().resolve_ref(ref)
         if not sol or sol.state != "published":
             raise NotFound()
+        # La misma comprobacion que hace la ruta de lectura. Sin ella, quien
+        # conociera el enlace podia ofertar sobre una solicitud dirigida en
+        # exclusiva a un competidor.
+        if sol.copacker_partner_id and sol.copacker_partner_id != maq:
+            raise Forbidden()
         Oferta = request.env["shrimp.copack.offer"].sudo()
         vals = {
             "request_id": sol.id, "copacker_partner_id": maq.id,
@@ -307,13 +331,18 @@ class ShrimpCopacker(http.Controller):
             "available_to": post.get("available_to") or False,
             "notes": (post.get("notes") or "").strip() or False,
         }
+        # En un savepoint: Odoo valida DESPUES de escribir, asi que sin esto
+        # lo que el modelo rechaza se queda igual en la base. Dejaba
+        # solicitudes fantasma en borrador que el cliente no podia ni
+        # publicar ni borrar, y libras empacadas que la validacion nego.
         try:
-            mia = Oferta.search([("request_id", "=", sol.id),
-                                 ("copacker_partner_id", "=", maq.id)], limit=1)
-            if mia:
-                mia.write(vals)      # rectificar es normal: se edita, no se duplica
-            else:
-                Oferta.create(vals)
+            with request.env.cr.savepoint():
+                mia = Oferta.search([("request_id", "=", sol.id),
+                                     ("copacker_partner_id", "=", maq.id)], limit=1)
+                if mia:
+                    mia.write(vals)      # rectificar es normal: se edita, no se duplica
+                else:
+                    Oferta.create(vals)
         except (ValidationError, ValueError) as e:
             return request.redirect("/maquilador/solicitud/%s?error=%s"
                                     % (ref, quote(str(e.args[0] if e.args else e))))
@@ -341,13 +370,18 @@ class ShrimpCopacker(http.Controller):
                 website=True, methods=["POST"], csrf=True)
     def copacker_reception(self, ref, **post):
         orden = self._mi_orden(ref)
+        # En un savepoint: Odoo valida DESPUES de escribir, asi que sin esto
+        # lo que el modelo rechaza se queda igual en la base. Dejaba
+        # solicitudes fantasma en borrador que el cliente no podia ni
+        # publicar ni borrar, y libras empacadas que la validacion nego.
         try:
-            orden.sudo().write({
-                "received_lb": float(post.get("received_lb") or 0),
-                "supplies_received": bool(post.get("supplies_received")),
-                "supplies_issue": (post.get("supplies_issue") or "").strip() or False,
-            })
-            orden.sudo().action_register_reception()
+            with request.env.cr.savepoint():
+                orden.sudo().write({
+                    "received_lb": float(post.get("received_lb") or 0),
+                    "supplies_received": bool(post.get("supplies_received")),
+                    "supplies_issue": (post.get("supplies_issue") or "").strip() or False,
+                })
+                orden.sudo().action_register_reception()
         except (ValidationError, ValueError) as e:
             return request.redirect("/marketplace/empaque/orden/%s?error=%s"
                                     % (ref, quote(str(e.args[0] if e.args else e))))
@@ -357,14 +391,18 @@ class ShrimpCopacker(http.Controller):
                 website=True, methods=["POST"], csrf=True)
     def copacker_packing(self, ref, **post):
         orden = self._mi_orden(ref)
+        # En un savepoint: Odoo valida DESPUES de escribir, asi que sin esto
+        # lo que el modelo rechaza se queda igual en la base. Dejaba
+        # solicitudes fantasma en borrador que el cliente no podia ni
+        # publicar ni borrar, y libras empacadas que la validacion nego.
         try:
-            orden.sudo().write({
-                "packed_lb": float(post.get("packed_lb") or 0),
-                "boxes": int(post.get("boxes") or 0),
-                "packed_presentation": (post.get("packed_presentation") or "").strip() or False,
-                "tolerance_pct": float(post.get("tolerance_pct") or 0.5),
-            })
-            orden.sudo().action_register_packing()
+            with request.env.cr.savepoint():
+                orden.sudo().write({
+                    "packed_lb": float(post.get("packed_lb") or 0),
+                    "boxes": int(post.get("boxes") or 0),
+                    "packed_presentation": (post.get("packed_presentation") or "").strip() or False,
+                })
+                orden.sudo().action_register_packing()
         except (ValidationError, ValueError) as e:
             return request.redirect("/marketplace/empaque/orden/%s?error=%s"
                                     % (ref, quote(str(e.args[0] if e.args else e))))
@@ -420,27 +458,32 @@ class ShrimpCopacker(http.Controller):
         # Se fija siempre, incluso vacio: si no, desmarcar a todos no los quita.
         vals["recipient_ids"] = [(6, 0, [int(x) for x in form.getlist("recipient_ids")
                                          if str(x).isdigit()])]
+        # En un savepoint: Odoo valida DESPUES de escribir, asi que sin esto
+        # lo que el modelo rechaza se queda igual en la base. Dejaba
+        # solicitudes fantasma en borrador que el cliente no podia ni
+        # publicar ni borrar, y libras empacadas que la validacion nego.
         try:
-            t.sudo().write(vals)
-            # Los renglones llegan como columnas paralelas y se reemplazan en
-            # bloque: editar en sitio con formularios planos es mas fragil.
-            pres = form.getlist("l_presentation")
-            fmts = form.getlist("l_format")
-            desde = form.getlist("l_from")
-            tarif = form.getlist("l_rate")
-            t.sudo().line_ids.unlink()
-            Line = request.env["shrimp.copack.tariff.line"].sudo()
-            for i in range(len(pres)):
-                if not (fmts[i] or "").strip() or not (tarif[i] or "").strip():
-                    continue
-                Line.create({
-                    "tariff_id": t.id, "presentation": pres[i],
-                    "pack_format": fmts[i].strip(),
-                    "from_lb": float(desde[i] or 0),
-                    "rate_per_lb": float(tarif[i]),
-                })
-            if post.get("publicar"):
-                t.sudo().action_publish()
+            with request.env.cr.savepoint():
+                t.sudo().write(vals)
+                # Los renglones llegan como columnas paralelas y se reemplazan en
+                # bloque: editar en sitio con formularios planos es mas fragil.
+                pres = form.getlist("l_presentation")
+                fmts = form.getlist("l_format")
+                desde = form.getlist("l_from")
+                tarif = form.getlist("l_rate")
+                t.sudo().line_ids.unlink()
+                Line = request.env["shrimp.copack.tariff.line"].sudo()
+                for i in range(len(pres)):
+                    if not (fmts[i] or "").strip() or not (tarif[i] or "").strip():
+                        continue
+                    Line.create({
+                        "tariff_id": t.id, "presentation": pres[i],
+                        "pack_format": fmts[i].strip(),
+                        "from_lb": float(desde[i] or 0),
+                        "rate_per_lb": float(tarif[i]),
+                    })
+                if post.get("publicar"):
+                    t.sudo().action_publish()
         except (ValidationError, ValueError) as e:
             return request.redirect("/maquilador/tarifa/%s?error=%s"
                                     % (ref, quote(str(e.args[0] if e.args else e))))
@@ -461,28 +504,38 @@ class ShrimpCopacker(http.Controller):
     def copacker_profile_save(self, **post):
         maq = self._maq()
         def num(k):
+            # En un savepoint: Odoo valida DESPUES de escribir, asi que sin esto
+            # lo que el modelo rechaza se queda igual en la base. Dejaba
+            # solicitudes fantasma en borrador que el cliente no podia ni
+            # publicar ni borrar, y libras empacadas que la validacion nego.
             try:
-                return float(post.get(k) or 0)
+                with request.env.cr.savepoint():
+                    return float(post.get(k) or 0)
             except ValueError:
                 return 0.0
+        # En un savepoint: Odoo valida DESPUES de escribir, asi que sin esto
+        # lo que el modelo rechaza se queda igual en la base. Dejaba
+        # solicitudes fantasma en borrador que el cliente no podia ni
+        # publicar ni borrar, y libras empacadas que la validacion nego.
         try:
-            maq.sudo().write({
-                "pack_razon_social": (post.get("pack_razon_social") or "").strip() or False,
-                "pack_representante": (post.get("pack_representante") or "").strip() or False,
-                "pack_telefono": (post.get("pack_telefono") or "").strip() or False,
-                "pack_ubicacion": (post.get("pack_ubicacion") or "").strip() or False,
-                "pack_codigo_establecimiento": (post.get("pack_codigo_establecimiento") or "").strip() or False,
-                "pack_habilitacion_desde": post.get("pack_habilitacion_desde") or False,
-                "pack_habilitacion_hasta": post.get("pack_habilitacion_hasta") or False,
-                "pack_presentaciones": (post.get("pack_presentaciones") or "").strip() or False,
-                "pack_tarifa_nota": (post.get("pack_tarifa_nota") or "").strip() or False,
-                "pack_capacidad_lb_semana": num("pack_capacidad_lb_semana"),
-                "pack_lote_minimo_lb": num("pack_lote_minimo_lb"),
-                "pack_desde_entero": num("pack_desde_entero"),
-                "pack_desde_cola": num("pack_desde_cola"),
-                "pack_desde_valor_agregado": num("pack_desde_valor_agregado"),
-                "pack_en_directorio": bool(post.get("pack_en_directorio")),
-            })
+            with request.env.cr.savepoint():
+                maq.sudo().write({
+                    "pack_razon_social": (post.get("pack_razon_social") or "").strip() or False,
+                    "pack_representante": (post.get("pack_representante") or "").strip() or False,
+                    "pack_telefono": (post.get("pack_telefono") or "").strip() or False,
+                    "pack_ubicacion": (post.get("pack_ubicacion") or "").strip() or False,
+                    "pack_codigo_establecimiento": (post.get("pack_codigo_establecimiento") or "").strip() or False,
+                    "pack_habilitacion_desde": post.get("pack_habilitacion_desde") or False,
+                    "pack_habilitacion_hasta": post.get("pack_habilitacion_hasta") or False,
+                    "pack_presentaciones": (post.get("pack_presentaciones") or "").strip() or False,
+                    "pack_tarifa_nota": (post.get("pack_tarifa_nota") or "").strip() or False,
+                    "pack_capacidad_lb_semana": num("pack_capacidad_lb_semana"),
+                    "pack_lote_minimo_lb": num("pack_lote_minimo_lb"),
+                    "pack_desde_entero": num("pack_desde_entero"),
+                    "pack_desde_cola": num("pack_desde_cola"),
+                    "pack_desde_valor_agregado": num("pack_desde_valor_agregado"),
+                    "pack_en_directorio": bool(post.get("pack_en_directorio")),
+                })
         except ValidationError as e:
             return request.redirect("/maquilador/perfil?error=%s"
                                     % quote(e.args[0] if e.args else ""))

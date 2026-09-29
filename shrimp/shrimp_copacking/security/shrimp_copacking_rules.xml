@@ -2,6 +2,21 @@
 <odoo>
     <data noupdate="1">
 
+        <!-- TODAS estas reglas son de SOLO LECTURA, y el desglose por permiso
+             es deliberado.
+
+             En Odoo, una ir.rule sin perm_* declarados vale para las cuatro
+             operaciones, asi que el dominio de lectura se convierte tambien en
+             dominio de escritura y borrado. Este proyecto ya tropezo con eso en
+             shrimp_packer: la camaronera que RECIBIA una lista de precios podia
+             cambiarle los precios a la empacadora que se la mando.
+
+             Aqui el portal no necesita escribir nada: el controlador hace todas
+             las mutaciones en sudo, despues de comprobar la propiedad del
+             registro. Por eso el ACL le da write/create/unlink = 0 y estas
+             reglas solo abren lectura.
+        -->
+
 
         <!-- === DIRECTORIO ===
              Odoo solo deja a un usuario de portal ver contactos ligados a sus
@@ -55,6 +70,10 @@
             <field name="name">Solicitudes de empaque: las propias del cliente</field>
             <field name="model_id" ref="model_shrimp_copack_request"/>
             <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="False"/>
+            <field name="perm_create" eval="False"/>
+            <field name="perm_unlink" eval="False"/>
             <field name="domain_force">[('client_partner_id', '=', user.partner_id.id)]</field>
         </record>
 
@@ -66,6 +85,10 @@
             <field name="name">Solicitudes de empaque: bandeja del maquilador</field>
             <field name="model_id" ref="model_shrimp_copack_request"/>
             <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="False"/>
+            <field name="perm_create" eval="False"/>
+            <field name="perm_unlink" eval="False"/>
             <field name="domain_force">['&amp;', ('state', '=', 'published'), '|', ('is_open', '=', True), ('copacker_partner_id', '=', user.partner_id.id)] if user.partner_id.shrimp_user_type == 'maquilador' else [(0, '=', 1)]</field>
         </record>
 
@@ -77,6 +100,10 @@
             <field name="name">Tarifas de empaque: las que publica el maquilador</field>
             <field name="model_id" ref="model_shrimp_copack_tariff"/>
             <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="False"/>
+            <field name="perm_create" eval="False"/>
+            <field name="perm_unlink" eval="False"/>
             <field name="domain_force">[('copacker_partner_id', '=', user.partner_id.id)]</field>
         </record>
 
@@ -84,6 +111,10 @@
             <field name="name">Tarifas de empaque: las dirigidas al cliente</field>
             <field name="model_id" ref="model_shrimp_copack_tariff"/>
             <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="False"/>
+            <field name="perm_create" eval="False"/>
+            <field name="perm_unlink" eval="False"/>
             <field name="domain_force">['&amp;', ('state', '=', 'published'), ('recipient_ids', 'in', user.partner_id.shrimp_grupo_ids())]</field>
         </record>
 
@@ -91,6 +122,10 @@
             <field name="name">Renglones: siguen a su tarifa</field>
             <field name="model_id" ref="model_shrimp_copack_tariff_line"/>
             <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="False"/>
+            <field name="perm_create" eval="False"/>
+            <field name="perm_unlink" eval="False"/>
             <field name="domain_force">['|', ('tariff_id.copacker_partner_id', '=', user.partner_id.id), '&amp;', ('tariff_id.state', '=', 'published'), ('tariff_id.recipient_ids', 'in', user.partner_id.shrimp_grupo_ids())]</field>
         </record>
 
@@ -100,6 +135,10 @@
             <field name="name">Ofertas de empaque: solo las partes</field>
             <field name="model_id" ref="model_shrimp_copack_offer"/>
             <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="False"/>
+            <field name="perm_create" eval="False"/>
+            <field name="perm_unlink" eval="False"/>
             <field name="domain_force">
                 ['|',
                  ('copacker_partner_id', '=', user.partner_id.id),
@@ -112,6 +151,10 @@
             <field name="name">Órdenes de empaque: solo las partes</field>
             <field name="model_id" ref="model_shrimp_copack_order"/>
             <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="False"/>
+            <field name="perm_create" eval="False"/>
+            <field name="perm_unlink" eval="False"/>
             <field name="domain_force">
                 ['|',
                  ('client_partner_id', '=', user.partner_id.id),
@@ -124,6 +167,10 @@
             <field name="name">Firmas del acta: solo las partes</field>
             <field name="model_id" ref="model_shrimp_copack_acceptance"/>
             <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="False"/>
+            <field name="perm_create" eval="False"/>
+            <field name="perm_unlink" eval="False"/>
             <field name="domain_force">
                 ['|',
                  ('order_id.client_partner_id', '=', user.partner_id.id),

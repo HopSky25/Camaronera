@@ -198,6 +198,11 @@ class ShrimpCopackOrder(models.Model):
 
     def _evaluar_acta(self):
         self.ensure_one()
+        # Solo una orden empacada tiene acta que evaluar. Si llega aqui en otro
+        # estado es que algo la movio por detras, y cerrar el acta entonces
+        # equivaldria a dar por bueno un trabajo que nadie hizo.
+        if self.state != "packed":
+            return
         decisiones = self.acceptance_ids.mapped("decision")
         if "rejected" in decisiones:
             self.acceptance_state = "disputed"
@@ -215,3 +220,11 @@ class ShrimpCopackOrder(models.Model):
             if rec.state in ("signed", "closed"):
                 raise ValidationError(_("Un trabajo ya firmado no se cancela."))
             rec.state = "cancelled"
+            # Cerrar el acta tambien. Sin esto las firmas pendientes seguian
+            # vivas: las dos partes firmaban una orden CANCELADA, _evaluar_acta
+            # la pasaba a "signed", de ahi a "closed", y acababa cobrandose en
+            # liquidaciones y saliendo en el certificado de trazabilidad.
+            if rec.acceptance_state == "open":
+                rec.acceptance_ids.filtered(
+                    lambda f: f.decision == "pending").unlink()
+                rec.acceptance_state = "na"

@@ -1,5 +1,5 @@
 from odoo import api, fields, models, _
-from odoo.exceptions import ValidationError
+from odoo.exceptions import AccessError, ValidationError
 
 
 class ShrimpCopackOffer(models.Model):
@@ -82,9 +82,19 @@ class ShrimpCopackOffer(models.Model):
                 raise ValidationError(_(
                     "La disponibilidad no puede terminar antes de empezar."))
 
-    def action_accept(self):
-        """El cliente acepta: nace la orden y las demas ofertas se descartan."""
+    def action_accept(self, actor=None):
+        """El cliente acepta: nace la orden y las demas ofertas se descartan.
+
+        `actor` se comprueba siempre. Hasta ahora lo unico que impedia que un
+        maquilador se autoadjudicara el trabajo era un permiso de OTRO modelo
+        (el portal no podia crear ordenes). Apoyar una regla de negocio en un
+        permiso de otra tabla es apoyarla en nada.
+        """
         self.ensure_one()
+        actor = actor or self.env.user.partner_id
+        if actor != self.request_id.client_partner_id:
+            raise AccessError(_(
+                "La oferta la acepta quien pidio el servicio, no otra parte."))
         if self.state != "sent":
             raise ValidationError(_("Solo se acepta una oferta enviada."))
         solicitud = self.request_id

@@ -1,5 +1,5 @@
 from odoo import api, fields, models, _
-from odoo.exceptions import ValidationError
+from odoo.exceptions import AccessError, ValidationError
 
 
 class ShrimpCopackAcceptance(models.Model):
@@ -42,8 +42,21 @@ class ShrimpCopackAcceptance(models.Model):
         "UNIQUE(order_id, role)",
         "Cada parte firma una sola vez por orden.")
 
-    def _firmar(self, decision, motivo=None):
+    def _firmar(self, decision, motivo=None, actor=None):
+        """`actor` es quien dice firmar, y hay que comprobarlo SIEMPRE.
+
+        El controlador resuelve el acta en sudo —lo necesita para leer las dos
+        filas— y sin este control quedaba en manos del ACL que una parte no
+        firmara por la otra. Un acta que el maquilador puede firmar en nombre
+        del cliente no es un acta: es justo lo que este registro existe para
+        impedir.
+        """
         self.ensure_one()
+        actor = actor or self.env.user.partner_id
+        if actor != self.partner_id:
+            raise AccessError(_(
+                "Cada parte firma la suya. Esta corresponde a «%s».")
+                % (self.partner_id.name or ""))
         if self.decision != "pending":
             raise ValidationError(_("Esta parte ya firmó; no se puede cambiar."))
         if decision == "rejected" and not motivo:
@@ -58,8 +71,8 @@ class ShrimpCopackAcceptance(models.Model):
         })
         self.order_id._evaluar_acta()
 
-    def action_accept(self):
-        self._firmar("accepted")
+    def action_accept(self, actor=None):
+        self._firmar("accepted", actor=actor)
 
-    def action_reject(self, motivo=None):
-        self._firmar("rejected", motivo or self.reason)
+    def action_reject(self, motivo=None, actor=None):
+        self._firmar("rejected", motivo or self.reason, actor=actor)

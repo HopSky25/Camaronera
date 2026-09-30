@@ -1,0 +1,135 @@
+<odoo>
+
+  <record id="view_shrimp_dispatch_list" model="ir.ui.view">
+    <field name="name">shrimp.dispatch.list</field>
+    <field name="model">shrimp.dispatch</field>
+    <field name="arch" type="xml">
+      <!-- El color dice lo único que hay que mirar de un vistazo: si la cita
+           se cumplió (verde), si se incumplió (rojo) o si el camión va en
+           camino ahora mismo (azul). -->
+      <list decoration-success="on_time"
+            decoration-danger="state == 'llegado' and not on_time"
+            decoration-info="state == 'en_ruta'"
+            decoration-muted="state == 'sin_cita'">
+        <field name="transaction_id"/>
+        <field name="product_id" optional="show"/>
+        <field name="seller_partner_id"/>
+        <field name="buyer_partner_id"/>
+        <field name="technician_partner_id" optional="show"/>
+        <field name="harvest_date" optional="hide"/>
+        <field name="farm_departure" optional="hide"/>
+        <field name="eta"/>
+        <field name="actual_arrival"/>
+        <field name="delay_minutes" optional="show"/>
+        <field name="eta_changes" optional="show"/>
+        <field name="carrier_name" optional="hide"/>
+        <field name="vehicle_plate" optional="hide"/>
+        <field name="on_time" optional="hide"/>
+        <field name="state" widget="badge"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_shrimp_dispatch_form" model="ir.ui.view">
+    <field name="name">shrimp.dispatch.form</field>
+    <field name="model">shrimp.dispatch</field>
+    <field name="arch" type="xml">
+      <form>
+        <sheet>
+          <div class="oe_title">
+            <h1><field name="name" readonly="1"/></h1>
+          </div>
+          <group>
+            <group string="La compra">
+              <field name="transaction_id" readonly="1"/>
+              <field name="product_id" readonly="1"/>
+              <field name="seller_partner_id" readonly="1"/>
+              <field name="buyer_partner_id" readonly="1"/>
+            </group>
+            <group string="Quién verifica">
+              <field name="verification_id" readonly="1"/>
+              <field name="verifier_partner_id" readonly="1"/>
+              <field name="technician_partner_id" readonly="1"/>
+              <field name="state" readonly="1"/>
+            </group>
+          </group>
+          <group>
+            <group string="Lo que declara el vendedor">
+              <field name="harvest_date"/>
+              <field name="farm_departure"/>
+              <field name="eta"/>
+              <field name="carrier_name"/>
+              <field name="vehicle_plate"/>
+              <field name="carrier_phone"/>
+            </group>
+            <group string="Lo que estampa el técnico">
+              <!-- Solo lectura también en el backend: el valor de esta hora
+                   está en que la ponga el verificador desde su pantalla. Un
+                   administrativo corrigiéndola a mano deshace justamente lo
+                   que la hace indiscutible. -->
+              <field name="actual_arrival" readonly="1"/>
+              <field name="arrival_registered_by_id" readonly="1"/>
+              <field name="delay_minutes" readonly="1"/>
+              <field name="on_time" readonly="1"/>
+              <field name="eta_first" readonly="1"/>
+              <field name="eta_changes" readonly="1"/>
+            </group>
+          </group>
+          <group string="Observaciones">
+            <field name="notes" nolabel="1"/>
+          </group>
+        </sheet>
+        <chatter/>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_shrimp_dispatch_search" model="ir.ui.view">
+    <field name="name">shrimp.dispatch.search</field>
+    <field name="model">shrimp.dispatch</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="transaction_id"/>
+        <field name="seller_partner_id"/>
+        <field name="buyer_partner_id"/>
+        <field name="technician_partner_id"/>
+        <field name="vehicle_plate"/>
+        <filter name="f_sin_cita" string="Sin cita"
+                domain="[('state','=','sin_cita')]"/>
+        <filter name="f_en_ruta" string="En camino"
+                domain="[('state','=','en_ruta')]"/>
+        <filter name="f_llegado" string="Llegó a planta"
+                domain="[('state','=','llegado')]"/>
+        <separator/>
+        <filter name="f_tarde" string="Llegó fuera de hora"
+                domain="[('state','=','llegado'),('on_time','=',False)]"/>
+        <filter name="f_movidas" string="Con la cita movida"
+                domain="[('eta_changes','&gt;',0)]"/>
+        <group>
+          <filter name="g_vendedor" string="Vendedor"
+                  context="{'group_by': 'seller_partner_id'}"/>
+          <filter name="g_tecnico" string="Técnico"
+                  context="{'group_by': 'technician_partner_id'}"/>
+          <filter name="g_estado" string="Situación"
+                  context="{'group_by': 'state'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
+  <record id="action_shrimp_dispatch" model="ir.actions.act_window">
+    <field name="name">Despachos a planta</field>
+    <field name="res_model">shrimp.dispatch</field>
+    <field name="view_mode">list,form</field>
+    <field name="search_view_id" ref="view_shrimp_dispatch_search"/>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">Todavía no hay despachos</p>
+      <p>
+        Cada compra sujeta a verificación abre su seguimiento: el vendedor
+        declara cuándo sale el camarón y a qué hora llega a la planta, y el
+        técnico verificador estampa la hora real de llegada.
+      </p>
+    </field>
+  </record>
+
+</odoo>

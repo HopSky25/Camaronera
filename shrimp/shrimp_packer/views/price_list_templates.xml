@@ -242,6 +242,15 @@
 
             <div class="pk-doc-vigencia">
               <i class="fa fa-calendar me-1"/><t t-esc="lista.texto_ventana()"/>
+              <t t-if="lista.aguaje_id">
+                <span class="mx-2">&#183;</span>
+                <b>Rige para el <t t-esc="lista.aguaje_id.name"/></b>,
+                del <t t-esc="lista.aguaje_id.date_from"/> al <t t-esc="lista.aguaje_id.date_to"/>
+                <t t-if="lista.aguaje_id.peak_from">
+                  &#160;(m&#225;ximo aguaje del <t t-esc="lista.aguaje_id.peak_from"/>
+                  al <t t-esc="lista.aguaje_id.peak_to"/>)
+                </t>
+              </t>
               <!-- El padrón de destinatarios SOLO lo ve quien emite la lista.
                    Antes se imprimía entero a todo el que la recibía, así que
                    cada camaronera aprendía la cartera completa de clientes de
@@ -493,6 +502,23 @@
                 <div class="col-md-3">
                   <label class="form-label">Despacho hasta</label>
                   <input type="date" name="dispatch_to" class="form-control" t-att-value="lista.dispatch_to if lista else ''"/>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Aguaje al que rige</label>
+                  <select name="aguaje_id" class="form-select">
+                    <option value="">&#8212; sin indicar &#8212;</option>
+                    <t t-foreach="aguajes or []" t-as="a">
+                      <option t-att-value="a.id"
+                              t-att-selected="'selected' if (lista and lista.aguaje_id == a) else None">
+                        <t t-esc="a.name"/> &#183; del <t t-esc="a.date_from"/> al <t t-esc="a.date_to"/>
+                      </option>
+                    </t>
+                  </select>
+                  <div class="form-text">
+                    El productor cosecha por marea, no por calendario: decirle a
+                    qu&#233; aguaje rige la lista es lo que le permite saber si le
+                    sirve para lo que tiene por sacar.
+                  </div>
                 </div>
                 <div class="col-12">
                   <div class="form-check">

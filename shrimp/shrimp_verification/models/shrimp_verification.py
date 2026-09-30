@@ -16,7 +16,13 @@ class ShrimpVerification(models.Model):
 
     _name = "shrimp.verification"
     _description = "Verificación de camarón en campo"
-    _inherit = ["mail.thread", "mail.activity.mixin", "shrimp.uuid.mixin"]
+    # shrimp.notify.mixin aporta _send_template / _log_notificacion /
+    # _hay_servidor_de_correo, que antes estaban escritos aquí dentro. Se
+    # sacaron a un mixin porque el seguimiento del despacho avisa igual y una
+    # copia de esos tres métodos se habría desincronizado a la primera
+    # corrección.
+    _inherit = ["mail.thread", "mail.activity.mixin", "shrimp.uuid.mixin",
+                "shrimp.notify.mixin"]
     _order = "create_date desc"
 
     name = fields.Char(
@@ -68,8 +74,32 @@ class ShrimpVerification(models.Model):
     pond_label = fields.Char(string="Piscina (texto)", help="Si la piscina no está dada de alta.")
     facility_id = fields.Many2one("shrimp.partner.facility", string="Instalación / sector", ondelete="set null")
     plant_name = fields.Char(string="Planta procesadora", help="Ej: Total Seafood")
+    # OJO: estas dos las escribe el TÉCNICO, después, y no llevan hora. No
+    # sirven para citarlo: cuando existen, él ya estuvo en la planta. La cita
+    # es shrimp.dispatch.eta, que declara el vendedor en cuanto se confirma la
+    # compra. Las dos cosas conviven a propósito: la del despacho es lo que el
+    # vendedor DICE, esta es lo que el técnico VIO.
     harvest_date = fields.Date(string="Fecha de cosecha")
     process_date = fields.Date(string="Fecha de proceso")
+
+    # ------------------------------------------------------------------
+    # La cita en planta, traída del seguimiento del despacho
+    # ------------------------------------------------------------------
+    dispatch_id = fields.Many2one(
+        "shrimp.dispatch", string="Despacho",
+        related="transaction_id.dispatch_id", store=True, readonly=True,
+    )
+    # Almacenada para poder ORDENAR la bandeja por ella: la pregunta del
+    # técnico al abrir su bandeja es «¿cuál me toca antes?», y esa no se puede
+    # responder con un campo que haya que calcular registro a registro.
+    dispatch_eta = fields.Datetime(
+        string="Llegada estimada a planta", related="dispatch_id.eta",
+        store=True, readonly=True, index=True,
+    )
+    dispatch_arrival = fields.Datetime(
+        string="Llegada real a planta", related="dispatch_id.actual_arrival",
+        store=True, readonly=True,
+    )
 
     # Qué se le pide a esta verificación depende del producto: al camarón
     # adulto los cinco análisis; a la larva, cantidad, supervivencia, tamaño y
@@ -458,6 +488,12 @@ class ShrimpVerification(models.Model):
                     "shrimp.verification") or _("VER-000000")
         records = super().create(vals_list)
         for rec in records:
+            # El seguimiento del despacho nace con la verificación, vacío: es
+            # lo que el vendedor tiene que llenar y no puede tener que pedirlo.
+            # Si se creara solo cuando el vendedor entra a la pantalla, la
+            # compra que nadie abre se queda sin cita y sin nadie a quien
+            # reclamársela.
+            rec.transaction_id._ensure_dispatch()
             rec._notify_verifier_assigned()
             rec._notify_stage()
         return records
@@ -478,6 +514,12 @@ class ShrimpVerification(models.Model):
                 rec.state = "assigned"
             rec._notify_technician_assigned()
             rec._notify_stage()
+            # Si el vendedor ya había fijado la cita, el técnico que acaba de
+            # entrar no la recibió: llegó después del aviso. Se le manda a él
+            # solo, porque la empacadora y la verificadora ya la tienen.
+            if rec.dispatch_id and rec.dispatch_id.eta:
+                rec.dispatch_id.sudo()._notify_eta(
+                    solo=rec.technician_partner_id)
 
     def action_start_field(self):
         for rec in self:
@@ -1178,36 +1220,6 @@ class ShrimpVerification(models.Model):
         ]
         self._log_notificacion(entregados)
 
-    def _log_notificacion(self, entregados):
-        """Deja constancia en el chatter de a quién se le avisó y a quién no.
-
-        Sin esto, un SMTP mal configurado se traga los correos en silencio y
-        nadie se entera hasta que un comprador reclama que nunca supo nada.
-        """
-        self.ensure_one()
-        if not entregados:
-            return
-        ok = [p.name for p, enviado in entregados if enviado]
-        fallo = [p.name for p, enviado in entregados if not enviado]
-        partes = []
-        if ok:
-            partes.append(_("Notificados por correo: %s.") % ", ".join(ok))
-        if fallo and not self._hay_servidor_de_correo():
-            partes.append(_(
-                "No se envió correo a %s: no hay ningún servidor de correo "
-                "saliente configurado en Ajustes > Técnico > Servidores de "
-                "correo saliente."
-            ) % ", ".join(fallo))
-        elif fallo:
-            partes.append(_(
-                "No se pudo enviar el correo a: %s. Revisa el servidor de "
-                "correo saliente en Ajustes."
-            ) % ", ".join(fallo))
-        # _message_log y no message_post: esto es una anotación de auditoría,
-        # no un mensaje que deba volver a notificar a los seguidores (eso
-        # dispararía una segunda tanda de correos por cada aviso enviado).
-        self.sudo()._message_log(body=" ".join(partes))
-
     def _stage_index(self):
         """Hasta qué etapa llegó realmente, como índice de ETAPAS.
 
@@ -1399,39 +1411,6 @@ class ShrimpVerification(models.Model):
             entregados.append((partner, ok))
         self.sudo().write({"buyer_notified": True})
         self._log_notificacion(entregados)
-
-    @api.model
-    def _hay_servidor_de_correo(self):
-        """¿Hay a dónde entregar el correo?
-
-        Si no hay ningún servidor SMTP configurado, intentar el envío no falla
-        rápido: Odoo abre un socket y espera el timeout por cada destinatario,
-        y eso deja colgada la página del comprador varios minutos. Mejor no
-        intentarlo y decirlo claro en el chatter.
-        """
-        return bool(self.env["ir.mail_server"].sudo().search_count([]))
-
-    def _send_template(self, xmlid, email_to, ctx=None):
-        """Envía una plantilla a una dirección. Devuelve True solo si el correo
-        salió de verdad: si no hay servidor SMTP configurado Odoo no lanza
-        excepción, deja el mail en estado ``exception``, y eso hay que poder
-        distinguirlo de un envío exitoso para reportarlo en el chatter."""
-        if not email_to or not self._hay_servidor_de_correo():
-            return False
-        try:
-            template = self.env.ref(xmlid, raise_if_not_found=False)
-            if not template:
-                return False
-            if ctx:
-                template = template.with_context(**ctx)
-            mail_id = template.sudo().send_mail(
-                self.id, force_send=True, email_values={"email_to": email_to})
-        except Exception:
-            # El correo nunca debe romper el flujo de compra ni el de verificación.
-            return False
-        # Con force_send y auto_delete, el registro desaparece al enviarse bien.
-        mail = self.env["mail.mail"].sudo().browse(mail_id).exists()
-        return (not mail) or mail.state == "sent"
 
     # ==================================================================
     # Parte para WhatsApp — mismo formato que ya usa el equipo

@@ -104,6 +104,18 @@ class ShrimpPriceList(models.Model):
     # copy=True a propósito: en Odoo los One2many NO se copian por defecto, y
     # duplicar una lista sin sus precios no sirve de nada. La gracia de copiar
     # es partir de los de la semana pasada y mover tres o cuatro.
+
+    # El aguaje al que corresponde la lista. En el sector la semana no es la
+    # unidad: la camaronera cosecha cuando la marea le deja vaciar y llenar las
+    # piscinas, asi que la empacadora reparte su lista "para el aguaje del 5 al
+    # 11" y no "para la semana 41". Decir a que aguaje rige es lo que hace que
+    # el productor sepa si esa lista le sirve para la cosecha que tiene encima.
+    aguaje_id = fields.Many2one(
+        "shrimp.aguaje", string="Aguaje", ondelete="set null", index=True,
+        help="Período de mareas vivas al que corresponde esta lista.")
+    aguaje_txt = fields.Char(
+        string="Rige para", compute="_compute_aguaje_txt", store=True)
+
     line_ids = fields.One2many(
         "shrimp.price.list.line", "price_list_id", string="Precios por talla",
         copy=True)
@@ -197,6 +209,29 @@ class ShrimpPriceList(models.Model):
             lambda r: (not r.dispatch_from or r.dispatch_from <= hoy)
             and (r.open_ended or not r.dispatch_to or r.dispatch_to >= hoy))
         return [("id", "in" if quiere else "not in", vigentes.ids)]
+
+    @api.depends("aguaje_id", "aguaje_id.date_from", "aguaje_id.date_to",
+                 "dispatch_from", "dispatch_to")
+    def _compute_aguaje_txt(self):
+        """Lo que se lee arriba de la lista: a que aguaje rige."""
+        for rec in self:
+            a = rec.aguaje_id
+            if a:
+                rec.aguaje_txt = _("%(n)s · del %(d)s al %(h)s") % {
+                    "n": a.name, "d": a.date_from, "h": a.date_to}
+            else:
+                rec.aguaje_txt = False
+
+    @api.onchange("dispatch_from")
+    def _onchange_dispatch_from_aguaje(self):
+        """Propone el aguaje de la fecha de despacho, sin imponerlo.
+
+        Se propone y no se fija: hay listas que cubren dos aguajes o que se
+        emiten fuera de calendario, y adivinar por ellas seria peor que dejar
+        el campo vacio.
+        """
+        if self.dispatch_from and not self.aguaje_id:
+            self.aguaje_id = self.env["shrimp.aguaje"].aguaje_de(self.dispatch_from)
 
     @api.constrains("issuer_partner_id", "recipient_ids")
     def _check_partes(self):

@@ -1,0 +1,57 @@
+<odoo>
+  <!-- ================================================================
+       Quién ve el seguimiento del despacho.
+
+       LEER: las cuatro partes implicadas. El vendedor porque lo llena, la
+       empacadora porque el cliente fue explícito («el comprador debe conocer
+       eso»), la empresa verificadora y su técnico porque la llegada estimada
+       ES su cita.
+
+       ESCRIBIR: nadie desde el portal. Los ir.model.access ya dejan
+       shrimp.dispatch en solo lectura para base.group_portal, y esta regla lo
+       repite con perm_* declarados uno a uno.
+
+       Los perm_* van SIEMPRE explícitos. Una ir.rule que no los declara vale
+       para las cuatro operaciones, así que este dominio —que incluye al
+       comprador y al técnico— estaría concediendo también escritura y borrado
+       sobre el despacho de cualquiera de ellos. Justamente lo que no puede
+       pasar aquí: el cliente pidió que la hora de llegada solo la pueda poner
+       el verificador.
+
+       Los controladores del portal trabajan con sudo() después de resolver
+       quién es el usuario (_despacho en controllers/dispatch.py) y el corte de
+       verdad lo hacen registrar_plan y registrar_llegada en el modelo. Cerrar
+       la escritura aquí no le quita ninguna acción legítima a nadie.
+       ================================================================ -->
+
+  <record id="rule_shrimp_dispatch_portal_read" model="ir.rule">
+    <field name="name">Despacho: lo leen las cuatro partes</field>
+    <field name="model_id" ref="model_shrimp_dispatch"/>
+    <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+    <field name="perm_read" eval="True"/>
+    <field name="perm_write" eval="False"/>
+    <field name="perm_create" eval="False"/>
+    <field name="perm_unlink" eval="False"/>
+    <field name="domain_force">['|','|','|',
+        ('seller_partner_id','=',user.partner_id.id),
+        ('buyer_partner_id','=',user.partner_id.id),
+        ('verifier_partner_id','=',user.partner_id.id),
+        ('technician_partner_id','=',user.partner_id.id)]</field>
+  </record>
+
+  <!-- Un dominio imposible y no "sin regla": sin regla, el dominio vacío
+       significa TODOS los registros. Si mañana alguien le diera escritura al
+       portal en el CSV, esta regla es la que impide que eso se convierta en
+       "cualquier camaronera puede mover la cita de cualquier otra". -->
+  <record id="rule_shrimp_dispatch_portal_write" model="ir.rule">
+    <field name="name">Despacho: el portal no escribe nunca por ORM</field>
+    <field name="model_id" ref="model_shrimp_dispatch"/>
+    <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+    <field name="perm_read" eval="False"/>
+    <field name="perm_write" eval="True"/>
+    <field name="perm_create" eval="True"/>
+    <field name="perm_unlink" eval="True"/>
+    <field name="domain_force">[(0,'=',1)]</field>
+  </record>
+
+</odoo>

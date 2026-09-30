@@ -25,8 +25,10 @@ genera el parte en el mismo formato de texto que el equipo ya usa por WhatsApp.
     "data": [
         "security/ir.model.access.csv",
         "security/shrimp_verification_rules.xml",
+        "security/shrimp_dispatch_rules.xml",
         "data/sequence.xml",
         "data/mail_template.xml",
+        "data/mail_template_dispatch.xml",
         "data/ir_cron.xml",
         "data/verifier_certificate_data.xml",
         "data/taste_criterion_data.xml",
@@ -34,6 +36,7 @@ genera el parte en el mismo formato de texto que el equipo ya usa por WhatsApp.
         "views/res_config_settings_views.xml",
         "views/verifier_approval_views.xml",
         "views/shrimp_verification_views.xml",
+        "views/shrimp_dispatch_views.xml",
         "views/registry_form_inherit.xml",
         "views/registry_form_verifier.xml",
         "views/website_settings_views.xml",
@@ -45,6 +48,9 @@ genera el parte en el mismo formato de texto que el equipo ya usa por WhatsApp.
         "views/acceptance_templates.xml",
         "views/technicians_templates.xml",
         "views/purchases_list_inherit.xml",
+        # Después de portal_templates.xml y de las listas del marketplace:
+        # hereda de todas ellas.
+        "views/dispatch_templates.xml",
         "views/traceability_inherit.xml",
         "views/traceability_pdf_inherit.xml",
         "views/portal_home_inherit.xml",

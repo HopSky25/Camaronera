@@ -1,0 +1,78 @@
+<odoo>
+
+  <record id="view_aguaje_list" model="ir.ui.view">
+    <field name="name">shrimp.aguaje.list</field>
+    <field name="model">shrimp.aguaje</field>
+    <field name="arch" type="xml">
+      <list string="Calendario de aguajes"
+            decoration-success="es_actual" decoration-muted="origen == 'calculado'">
+        <field name="year"/>
+        <field name="numero"/>
+        <field name="name"/>
+        <field name="date_from"/>
+        <field name="date_to"/>
+        <field name="peak_from" string="Máximo desde"/>
+        <field name="peak_to" string="Máximo hasta"/>
+        <field name="fase"/>
+        <field name="origen"/>
+        <field name="es_actual" string="En curso"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_aguaje_form" model="ir.ui.view">
+    <field name="name">shrimp.aguaje.form</field>
+    <field name="model">shrimp.aguaje</field>
+    <field name="arch" type="xml">
+      <form string="Aguaje">
+        <sheet>
+          <div class="oe_title">
+            <h1><field name="name" placeholder="Aguaje 1 de 2026"/></h1>
+          </div>
+          <group>
+            <group string="Cuándo">
+              <field name="year"/>
+              <field name="numero"/>
+              <field name="date_from"/>
+              <field name="date_to"/>
+              <field name="fase"/>
+            </group>
+            <group string="Máximo aguaje">
+              <field name="peak_from"/>
+              <field name="peak_to"/>
+              <field name="origen"/>
+              <field name="es_actual" readonly="1"/>
+            </group>
+          </group>
+          <div class="alert alert-info" role="status"
+               invisible="origen != 'calculado'">
+            Este aguaje está <b>calculado a partir de la luna</b> y es solo una
+            aproximación. El calendario bueno lo publica el INOCAR cada año y lo
+            reparte la Cámara Nacional de Acuacultura: al corregirlo contra ese
+            documento, marca el origen como «Calendario INOCAR».
+          </div>
+          <group string="Observaciones">
+            <field name="notes" nolabel="1" placeholder="Por ejemplo: coincide con feriado."/>
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="action_aguaje" model="ir.actions.act_window">
+    <field name="name">Calendario de aguajes</field>
+    <field name="res_model">shrimp.aguaje</field>
+    <field name="view_mode">list,form</field>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">Todavía no hay aguajes cargados</p>
+      <p>El calendario se siembra solo al instalar, calculado a partir de las
+         fases de la luna. Corrígelo una vez al año contra el calendario del
+         INOCAR que publica la Cámara Nacional de Acuacultura.</p>
+    </field>
+  </record>
+
+  <menuitem id="menu_aguaje" name="Calendario de aguajes"
+            parent="shrimp_packer.menu_price_list_root"
+            action="action_aguaje" groups="base.group_user" sequence="20"/>
+
+</odoo>

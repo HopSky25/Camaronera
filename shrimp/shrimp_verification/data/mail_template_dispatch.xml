@@ -1,0 +1,161 @@
+<odoo>
+  <data noupdate="0">
+
+    <!-- ================================================================
+         LA CITA EN PLANTA
+         ================================================================
+         Va a la empacadora que compró, a la empresa verificadora y al técnico
+         asignado. El vendedor no lo recibe: es quien acaba de fijarla.
+
+         El mismo correo sirve para la primera cita y para el cambio, pero se
+         nota la diferencia a primera vista: un cambio de hora que se lee como
+         una confirmación es un técnico que llega tarde.
+         ================================================================ -->
+    <record id="mail_template_dispatch_eta" model="mail.template">
+      <field name="name">Despacho: cita en planta</field>
+      <field name="model_id" ref="shrimp_verification.model_shrimp_dispatch"/>
+      <!-- El asunto sale del registro (eta_changes) y no del contexto: en el
+           cuerpo `ctx` está garantizado, en el asunto no, y un asunto que
+           reviente deja el correo sin enviar. eta_changes solo sube cuando ya
+           había una cita anterior, así que dice lo mismo. -->
+      <field name="subject">{{ 'CAMBIO de hora en planta' if object.eta_changes else 'Llegada a planta' }}: {{ object.fmt_dt('eta') }} - {{ object.transaction_id.name }}</field>
+      <field name="email_from">{{ user.company_id.email_formatted or user.email_formatted or '' }}</field>
+      <field name="body_html" type="html">
+        <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#243b45;max-width:560px;">
+
+          <div style="border-bottom:3px solid #14A0B0;padding-bottom:10px;margin-bottom:18px;">
+            <span style="font-size:22px;font-weight:bold;color:#123E5C;">tr</span><span style="font-size:22px;font-weight:bold;color:#14A0B0;">azul</span>
+            <span style="float:right;color:#5A6B74;font-size:12px;padding-top:9px;">
+              <t t-out="object.transaction_id.name or ''"/>
+            </span>
+          </div>
+
+          <p>Hola <t t-out="ctx.get('destinatario') or ''"/>,</p>
+
+          <t t-if="ctx.get('es_cambio')">
+            <h2 style="color:#a8510d;font-size:18px;margin:14px 0 6px;">
+              Cambió la hora de llegada a la planta
+            </h2>
+            <p style="margin:0 0 14px;color:#3d5560;">
+              <b><t t-out="object.seller_partner_id.name or ''"/></b> movió la cita del
+              despacho. Estaba prevista para
+              <b><t t-out="ctx.get('eta_previa') or ''"/></b>.
+            </p>
+          </t>
+          <t t-else="">
+            <h2 style="color:#123E5C;font-size:18px;margin:14px 0 6px;">
+              Ya hay hora de llegada a la planta
+            </h2>
+            <p style="margin:0 0 14px;color:#3d5560;">
+              <b><t t-out="object.seller_partner_id.name or ''"/></b> declaró cuándo
+              llega el camarón. Esta es la hora a la que el técnico verificador tiene
+              que estar en la planta: si no está, no hay verificación.
+            </p>
+          </t>
+
+          <div style="background:#eef7f9;border-left:4px solid #14A0B0;padding:14px 16px;margin:0 0 18px;">
+            <div style="font-size:12px;color:#5A6B74;text-transform:uppercase;letter-spacing:.08em;">
+              Llegada estimada a planta
+            </div>
+            <div style="font-size:22px;font-weight:bold;color:#123E5C;">
+              <t t-out="object.fmt_dt('eta')"/>
+            </div>
+          </div>
+
+          <table style="border-collapse:collapse;margin:0 0 20px;">
+            <tr><td style="padding:3px 14px 3px 0;color:#5A6B74;">Producto</td><td><b><t t-out="object.product_id.name or '-'"/></b></td></tr>
+            <tr><td style="padding:3px 14px 3px 0;color:#5A6B74;">Compra</td><td><t t-out="object.transaction_id.name or '-'"/></td></tr>
+            <tr><td style="padding:3px 14px 3px 0;color:#5A6B74;">Cantidad</td><td><t t-out="object.transaction_id.transaction_qty or 0"/></td></tr>
+            <tr><td style="padding:3px 14px 3px 0;color:#5A6B74;">Vendedor</td><td><t t-out="object.seller_partner_id.name or '-'"/></td></tr>
+            <tr><td style="padding:3px 14px 3px 0;color:#5A6B74;">Empacadora</td><td><t t-out="object.buyer_partner_id.name or '-'"/></td></tr>
+            <tr><td style="padding:3px 14px 3px 0;color:#5A6B74;">Fecha de pesca</td><td><t t-out="object.fmt_fecha('harvest_date')"/></td></tr>
+            <tr><td style="padding:3px 14px 3px 0;color:#5A6B74;">Salida de la finca</td><td><t t-out="object.fmt_dt('farm_departure')"/></td></tr>
+            <tr><td style="padding:3px 14px 3px 0;color:#5A6B74;">Transporte</td><td><t t-out="object.transporte_texto()"/></td></tr>
+            <t t-if="object.carrier_phone">
+              <tr><td style="padding:3px 14px 3px 0;color:#5A6B74;">Teléfono</td><td><t t-out="object.carrier_phone"/></td></tr>
+            </t>
+            <t t-if="object.technician_partner_id">
+              <tr><td style="padding:3px 14px 3px 0;color:#5A6B74;">Técnico</td><td><t t-out="object.technician_partner_id.name"/></td></tr>
+            </t>
+          </table>
+
+          <t t-if="object.eta_changes">
+            <p style="background:#fdf3e3;border:1px solid #edd9b0;border-radius:6px;padding:10px 12px;color:#7a5610;font-size:13px;margin:0 0 18px;">
+              Esta cita ya se movió <t t-out="object.eta_changes"/> vez/veces.
+            </p>
+          </t>
+
+          <p>
+            <a t-attf-href="{{ ctx.get('portal_url') or object.get_base_url() }}"
+               style="background:#123E5C;color:#ffffff;padding:11px 20px;border-radius:6px;text-decoration:none;display:inline-block;">
+              Ver el despacho
+            </a>
+          </p>
+
+          <p style="color:#8b9ba3;font-size:12px;border-top:1px solid #e3eaed;padding-top:12px;margin-top:22px;">
+            Este aviso es automático. Lo recibes porque eres parte de esta operación
+            en Trazul: la empacadora que compra, la empresa verificadora y el técnico
+            que va a campo.
+          </p>
+        </div>
+      </field>
+    </record>
+
+    <!-- ================================================================
+         LLEGADA REGISTRADA
+         ================================================================
+         Al vendedor y a la empacadora. La estampa el técnico, o sea un
+         tercero, así que vale como acuse de la hora a la que entró el camión.
+         ================================================================ -->
+    <record id="mail_template_dispatch_arrival" model="mail.template">
+      <field name="name">Despacho: llegada registrada en planta</field>
+      <field name="model_id" ref="shrimp_verification.model_shrimp_dispatch"/>
+      <field name="subject">El camarón llegó a la planta - {{ object.transaction_id.name }}</field>
+      <field name="email_from">{{ user.company_id.email_formatted or user.email_formatted or '' }}</field>
+      <field name="body_html" type="html">
+        <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#243b45;max-width:560px;">
+
+          <div style="border-bottom:3px solid #14A0B0;padding-bottom:10px;margin-bottom:18px;">
+            <span style="font-size:22px;font-weight:bold;color:#123E5C;">tr</span><span style="font-size:22px;font-weight:bold;color:#14A0B0;">azul</span>
+            <span style="float:right;color:#5A6B74;font-size:12px;padding-top:9px;">
+              <t t-out="object.transaction_id.name or ''"/>
+            </span>
+          </div>
+
+          <p>Hola <t t-out="ctx.get('destinatario') or ''"/>,</p>
+
+          <h2 style="color:#127a4b;font-size:18px;margin:14px 0 6px;">
+            El camarón llegó a la planta
+          </h2>
+          <p style="margin:0 0 14px;color:#3d5560;">
+            <b><t t-out="object.arrival_registered_by_id.name or ''"/></b>, del equipo
+            verificador, registró la entrada del producto. La hora la estampa el
+            verificador y no las partes, justamente para que nadie tenga que
+            discutirla después.
+          </p>
+
+          <table style="border-collapse:collapse;margin:0 0 20px;">
+            <tr><td style="padding:3px 14px 3px 0;color:#5A6B74;">Llegada estimada</td><td><t t-out="object.fmt_dt('eta')"/></td></tr>
+            <tr><td style="padding:3px 14px 3px 0;color:#5A6B74;">Llegada real</td><td><b><t t-out="object.fmt_dt('actual_arrival')"/></b></td></tr>
+            <tr><td style="padding:3px 14px 3px 0;color:#5A6B74;">Resultado</td><td><t t-out="object.puntualidad_texto()"/></td></tr>
+            <tr><td style="padding:3px 14px 3px 0;color:#5A6B74;">Producto</td><td><t t-out="object.product_id.name or '-'"/></td></tr>
+            <tr><td style="padding:3px 14px 3px 0;color:#5A6B74;">Transporte</td><td><t t-out="object.transporte_texto()"/></td></tr>
+          </table>
+
+          <p>
+            <a t-attf-href="{{ ctx.get('portal_url') or object.get_base_url() }}"
+               style="background:#123E5C;color:#ffffff;padding:11px 20px;border-radius:6px;text-decoration:none;display:inline-block;">
+              Ver el despacho
+            </a>
+          </p>
+
+          <p style="color:#8b9ba3;font-size:12px;border-top:1px solid #e3eaed;padding-top:12px;margin-top:22px;">
+            Este aviso es automático. Recibes el movimiento porque eres parte de esta
+            operación en Trazul.
+          </p>
+        </div>
+      </field>
+    </record>
+
+  </data>
+</odoo>

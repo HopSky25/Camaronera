@@ -1,4 +1,5 @@
 from . import website
+from . import shrimp_notify_mixin
 from . import res_partner
 from . import res_config_settings
 from . import shrimp_certificate
@@ -9,5 +10,7 @@ from . import shrimp_verification_line
 from . import shrimp_verifier_review
 from . import shrimp_verification
 from . import shrimp_transaction
+from . import shrimp_dispatch
+from . import res_partner_dispatch
 from . import shrimp_product
 from . import shrimp_verification_acceptance

@@ -123,8 +123,15 @@ class ShrimpVerificationPortal(http.Controller):
                        ("batch_code", "ilike", q),
                        ("product_id.name", "ilike", q)]
 
+        # Se ordena por la CITA primero. La pregunta del técnico al abrir la
+        # bandeja es "¿cuál me toca antes?", y la respuesta es la hora a la que
+        # llega cada camión, no el estado ni la fecha en que le asignaron el
+        # trabajo. Las órdenes cuyo vendedor todavía no declaró hora caen al
+        # final (PostgreSQL pone los nulos al final en un ASC) y ahí es donde
+        # tienen que estar: son las que hay que reclamar, no las que hay que
+        # atender ahora.
         verifications = request.env["shrimp.verification"].sudo().search(
-            domain, order="state asc, assigned_date asc")
+            domain, order="dispatch_eta asc, state asc, assigned_date asc")
 
         # Los contadores son GLOBALES (todas las órdenes del verificador),
         # no dependen del filtro activo: si no, al filtrar por un estado los

@@ -30,6 +30,40 @@ class ShrimpTransaction(models.Model):
     verifier_partner_id = fields.Many2one(
         related="verification_id.verifier_partner_id", string="Verificador", readonly=True, store=True)
 
+    # ------------------------------------------------------------------
+    # Seguimiento del despacho
+    # ------------------------------------------------------------------
+    # Uno por compra (lo garantiza un unique en shrimp.dispatch), pero el
+    # Many2one vive del lado del despacho, así que aquí entra como inverso.
+    # El Many2one calculado y almacenado es lo que permite escribir dominios
+    # y campos relacionados desde la verificación sin recorrer la colección.
+    dispatch_ids = fields.One2many(
+        "shrimp.dispatch", "transaction_id", string="Despachos")
+    dispatch_id = fields.Many2one(
+        "shrimp.dispatch", string="Despacho",
+        compute="_compute_dispatch_id", store=True, readonly=True)
+
+    @api.depends("dispatch_ids")
+    def _compute_dispatch_id(self):
+        for rec in self:
+            rec.dispatch_id = rec.dispatch_ids[:1]
+
+    def _ensure_dispatch(self):
+        """Devuelve el seguimiento del despacho, creándolo si aún no existe.
+
+        Se llama al crear la verificación y también desde el portal, porque las
+        compras que ya estaban verificándose cuando se instaló esto no pasaron
+        por aquel create y aun así necesitan su pantalla.
+        """
+        Dispatch = self.env["shrimp.dispatch"].sudo()
+        salida = Dispatch.browse()
+        for rec in self:
+            if rec.dispatch_ids:
+                salida |= rec.dispatch_ids[:1]
+                continue
+            salida |= Dispatch.create({"transaction_id": rec.id})
+        return salida
+
     needs_verification = fields.Boolean(
         string="Requiere verificación", default=False, readonly=True, copy=False,
         help="Marcada cuando la compra quedó sujeta a verificación en campo.",

@@ -447,6 +447,9 @@ class ShrimpPriceListPortal(http.Controller):
             "advance_days": _i("advance_days"),
             "balance_days": _i("balance_days"),
             "payment_notes": (post.get("payment_notes") or "").strip() or False,
+            # Puede venir vacio a proposito: hay listas que cubren dos aguajes
+            # o que se emiten fuera de calendario.
+            "aguaje_id": int(post["aguaje_id"]) if (post.get("aguaje_id") or "").isdigit() else False,
         }
         # Destinatarios: se fija siempre (incluso vacío) para que desmarcar
         # todas las camaroneras realmente las quite.
@@ -534,9 +537,16 @@ class ShrimpPriceListPortal(http.Controller):
         es_nueva = (lista.state == "draft" and lista.name == _("Lista de precios")
                     and not lista.line_ids and not lista.bonus_ids
                     and not lista.recipient_ids)
+        hoy = fields.Date.context_today(self._partner())
         return request.render("shrimp_packer.price_list_form", {
             "lista": lista,
             "es_nueva": es_nueva,
+            # Vigentes y proximos. Los pasados no se ofrecen —una lista para un
+            # aguaje que ya termino no sirve— pero se conserva el que ya tenga
+            # asignado para no borrarselo al guardar.
+            "aguajes": request.env["shrimp.aguaje"].sudo().search(
+                ["|", ("date_to", ">=", hoy), ("id", "=", lista.aguaje_id.id or 0)],
+                order="date_from", limit=30),
             "tallas": request.env["shrimp.size.grade"].sudo().search(
                 [("active", "=", True)], order="presentation, sequence, name"),
             "mensaje": kw.get("mensaje"),

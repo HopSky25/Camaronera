@@ -1,0 +1,585 @@
+<odoo>
+
+  <!-- ================================================================
+       SEGUIMIENTO DEL DESPACHO
+       ================================================================
+       Una sola página para las cuatro partes. Lo que cambia es qué formulario
+       aparece, y eso lo decide el controlador (`papel`, `puede_editar`,
+       `puede_llegada`), no la plantilla: si la decisión viviera aquí, el
+       formulario de "llegada real" existiría en el HTML de todo el mundo y solo
+       estaría escondido.
+
+       Nada de formato '%' dentro de un t-esc: en Odoo 19 el contexto de la
+       página se pasa por formato de cadena y un '%' suelto revienta el render
+       con "incomplete format". Todo lo que lleva número o fecha se arma en
+       Python (fmt_dt, fmt_fecha, puntualidad_texto, transporte_texto...).
+       ================================================================ -->
+  <template id="dispatch_page" name="Despacho - seguimiento hasta la planta">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page py-4 sf-fields" style="max-width:1040px;">
+
+          <t t-if="papel == 'verificador'">
+            <a href="/verificador/bandeja" class="s-back mb-3">
+              <i class="fa fa-arrow-left"></i><span>Volver a la bandeja</span>
+            </a>
+          </t>
+          <t t-elif="papel == 'vendedor'">
+            <a href="/marketplace/ventas" class="s-back mb-3">
+              <i class="fa fa-arrow-left"></i><span>Volver a mis ventas</span>
+            </a>
+          </t>
+          <t t-else="">
+            <a href="/marketplace/compras" class="s-back mb-3">
+              <i class="fa fa-arrow-left"></i><span>Volver a mis compras</span>
+            </a>
+          </t>
+
+          <div class="sf-banner mb-4">
+            <div class="sf-banner-row">
+              <div class="sf-banner-txt">
+                <h1>Despacho hacia la planta</h1>
+                <p>
+                  <t t-esc="tx.name"/> · <t t-esc="tx.product_id.name or ''"/>
+                </p>
+              </div>
+              <span class="sf-kicker"><i class="fa fa-truck"></i> Seguimiento</span>
+            </div>
+          </div>
+
+          <!-- Avisos -->
+          <t t-if="saved == 'avisado'">
+            <div class="alert alert-success" style="border-radius:14px;">
+              <i class="fa fa-paper-plane me-1"/>
+              Cita guardada. Se avisó a la empacadora, a la empresa verificadora
+              y al técnico asignado.
+            </div>
+          </t>
+          <t t-elif="saved == 'llegada'">
+            <div class="alert alert-success" style="border-radius:14px;">
+              <i class="fa fa-check-circle me-1"/>
+              Llegada registrada: <t t-esc="d.fmt_dt('actual_arrival')"/>.
+            </div>
+          </t>
+          <t t-elif="saved">
+            <div class="alert alert-success" style="border-radius:14px;">
+              <i class="fa fa-check me-1"/> Datos del despacho guardados.
+            </div>
+          </t>
+          <t t-if="error">
+            <div class="alert alert-danger" style="border-radius:14px;">
+              <i class="fa fa-exclamation-triangle me-1"/>
+              <t t-esc="message or 'No se pudo guardar el despacho.'"/>
+            </div>
+          </t>
+
+          <!-- ==========================================================
+               LA CITA. Es el dato por el que existe esta pantalla, así que
+               va arriba, solo y grande: el técnico tiene que poder leerlo
+               desde el teléfono sin desplazarse.
+               ========================================================== -->
+          <div class="mp-table-card mb-4">
+            <div class="card-body p-4">
+              <div class="mp-sec-head">
+                <span class="mp-sec-ico"><i class="fa fa-clock-o"></i></span>
+                <h3 class="mp-sec-title">Cita en planta</h3>
+              </div>
+
+              <t t-if="d.eta">
+                <div style="font-size:30px; font-weight:800; color:var(--shrimp-brand, #123E5C); line-height:1.2;">
+                  <t t-esc="d.fmt_dt('eta')"/>
+                </div>
+                <div class="text-soft" style="margin-top:4px;">
+                  <t t-if="d.actual_arrival">
+                    El camarón ya llegó.
+                  </t>
+                  <t t-else="">
+                    <i class="fa fa-hourglass-half me-1"/><t t-esc="d.falta_para_la_cita()"/>
+                  </t>
+                </div>
+                <t t-if="d.eta_changes">
+                  <div class="mt-2">
+                    <span class="s-badge" style="background:#fdf3e3; color:#a8510d;">
+                      <i class="fa fa-refresh me-1"/>
+                      La cita se movió <t t-esc="d.eta_changes"/> vez/veces
+                    </span>
+                  </div>
+                </t>
+              </t>
+              <t t-else="">
+                <div class="s-empty" style="padding:18px 0;">
+                  <div class="s-empty-ico"><i class="fa fa-calendar-times-o"></i></div>
+                  <h3>Todavía no hay cita</h3>
+                  <p>
+                    <t t-if="papel == 'vendedor'">
+                      Declara abajo cuándo llega el camarón. Mientras no lo hagas,
+                      nadie sabe a qué hora tiene que estar el técnico en la planta.
+                    </t>
+                    <t t-else="">
+                      <t t-esc="d.seller_partner_id.name or 'El vendedor'"/> todavía no
+                      declaró a qué hora llega el camarón a la planta.
+                    </t>
+                  </p>
+                </div>
+              </t>
+
+              <div class="mp-spec-grid mt-3">
+                <div class="mp-spec">
+                  <span class="mp-spec-ico"><i class="fa fa-calendar"></i></span>
+                  <div class="mp-spec-body">
+                    <div class="mp-spec-label">Fecha de pesca</div>
+                    <div class="mp-spec-value"><t t-esc="d.fmt_fecha('harvest_date')"/></div>
+                  </div>
+                </div>
+                <div class="mp-spec">
+                  <span class="mp-spec-ico"><i class="fa fa-sign-out"></i></span>
+                  <div class="mp-spec-body">
+                    <div class="mp-spec-label">Salida de la finca</div>
+                    <div class="mp-spec-value"><t t-esc="d.fmt_dt('farm_departure')"/></div>
+                  </div>
+                </div>
+                <div class="mp-spec">
+                  <span class="mp-spec-ico"><i class="fa fa-truck"></i></span>
+                  <div class="mp-spec-body">
+                    <div class="mp-spec-label">Transporte</div>
+                    <div class="mp-spec-value"><t t-esc="d.transporte_texto()"/></div>
+                  </div>
+                </div>
+                <div class="mp-spec">
+                  <span class="mp-spec-ico"><i class="fa fa-phone"></i></span>
+                  <div class="mp-spec-body">
+                    <div class="mp-spec-label">Teléfono del transportista</div>
+                    <div class="mp-spec-value">
+                      <t t-if="d.carrier_phone">
+                        <a t-attf-href="tel:#{d.carrier_phone}"><t t-esc="d.carrier_phone"/></a>
+                      </t>
+                      <t t-else="">—</t>
+                    </div>
+                  </div>
+                </div>
+                <div class="mp-spec">
+                  <span class="mp-spec-ico"><i class="fa fa-user-o"></i></span>
+                  <div class="mp-spec-body">
+                    <div class="mp-spec-label">Vendedor</div>
+                    <div class="mp-spec-value"><t t-esc="d.seller_partner_id.name or '—'"/></div>
+                  </div>
+                </div>
+                <div class="mp-spec">
+                  <span class="mp-spec-ico"><i class="fa fa-industry"></i></span>
+                  <div class="mp-spec-body">
+                    <div class="mp-spec-label">Empacadora</div>
+                    <div class="mp-spec-value"><t t-esc="d.buyer_partner_id.name or '—'"/></div>
+                  </div>
+                </div>
+                <div class="mp-spec">
+                  <span class="mp-spec-ico"><i class="fa fa-wrench"></i></span>
+                  <div class="mp-spec-body">
+                    <div class="mp-spec-label">Técnico que va a esperar</div>
+                    <div class="mp-spec-value">
+                      <t t-esc="d.technician_partner_id.name or d.verifier_partner_id.name or 'sin asignar'"/>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <t t-if="d.notes">
+                <div class="mt-3 text-soft" style="font-size:13px;">
+                  <i class="fa fa-sticky-note-o me-1"/><t t-esc="d.notes"/>
+                </div>
+              </t>
+            </div>
+          </div>
+
+          <!-- ==========================================================
+               LLEGADA REAL
+               ========================================================== -->
+          <div class="mp-table-card mb-4">
+            <div class="card-body p-4">
+              <div class="mp-sec-head">
+                <span class="mp-sec-ico"><i class="fa fa-flag-checkered"></i></span>
+                <h3 class="mp-sec-title">Llegada real a la planta</h3>
+              </div>
+
+              <t t-if="d.actual_arrival">
+                <div class="mp-spec-grid">
+                  <div class="mp-spec">
+                    <span class="mp-spec-ico"><i class="fa fa-check"></i></span>
+                    <div class="mp-spec-body">
+                      <div class="mp-spec-label">Entró a planta</div>
+                      <div class="mp-spec-value"><t t-esc="d.fmt_dt('actual_arrival')"/></div>
+                    </div>
+                  </div>
+                  <div class="mp-spec">
+                    <span class="mp-spec-ico"><i class="fa fa-balance-scale"></i></span>
+                    <div class="mp-spec-body">
+                      <div class="mp-spec-label">Frente a la cita</div>
+                      <div class="mp-spec-value"><t t-esc="d.puntualidad_texto()"/></div>
+                    </div>
+                  </div>
+                  <div class="mp-spec">
+                    <span class="mp-spec-ico"><i class="fa fa-pencil"></i></span>
+                    <div class="mp-spec-body">
+                      <div class="mp-spec-label">La registró</div>
+                      <div class="mp-spec-value">
+                        <t t-esc="d.arrival_registered_by_id.name or '—'"/>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </t>
+
+              <t t-elif="puede_llegada">
+                <p class="text-soft" style="font-size:13px;">
+                  La hora la pones tú porque estás en la planta esperando el producto
+                  y eres un tercero: así no la puede discutir ni el vendedor ni la
+                  empacadora. Déjala vacía para usar la hora de ahora mismo.
+                </p>
+                <form method="post"
+                      t-attf-action="/marketplace/despacho/#{tx.uuid_ref}/llegada"
+                      class="row g-3 align-items-end">
+                  <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                  <div class="col-md-5">
+                    <label class="form-label">Hora de entrada a la planta</label>
+                    <input type="datetime-local" name="actual_arrival" class="form-control"/>
+                  </div>
+                  <div class="col-md-4">
+                    <button type="submit" class="s-btn s-btn-primary"
+                            onclick="return confirm('¿Registrar la llegada? Después no se puede cambiar.');">
+                      <i class="fa fa-check me-1"/> Registrar la llegada
+                    </button>
+                  </div>
+                </form>
+              </t>
+
+              <t t-else="">
+                <p class="text-soft" style="margin:0;">
+                  Todavía no está registrada. La estampa el técnico verificador
+                  cuando el camarón entra a la planta: ni el vendedor ni la
+                  empacadora pueden ponerla.
+                </p>
+              </t>
+            </div>
+          </div>
+
+          <!-- ==========================================================
+               FORMULARIO DEL VENDEDOR
+               ========================================================== -->
+          <t t-if="puede_editar">
+            <div class="mp-table-card mb-4">
+              <div class="card-body p-4">
+                <div class="mp-sec-head">
+                  <span class="mp-sec-ico"><i class="fa fa-pencil-square-o"></i></span>
+                  <h3 class="mp-sec-title">Declarar el despacho</h3>
+                </div>
+                <p class="text-soft" style="font-size:13px;">
+                  Cada vez que fijes o cambies la llegada estimada avisamos a la
+                  empacadora, a la empresa verificadora y al técnico asignado. Si el
+                  camión se atrasa, cámbiala: un técnico que espera dos horas de más
+                  sin saberlo se va, y sin él no hay verificación.
+                </p>
+
+                <form method="post"
+                      t-attf-action="/marketplace/despacho/#{tx.uuid_ref}/guardar"
+                      class="row g-3">
+                  <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+
+                  <div class="col-md-4">
+                    <label class="form-label">Fecha de pesca</label>
+                    <input type="date" name="harvest_date" class="form-control"
+                           t-att-value="d.fmt_input_fecha('harvest_date')"/>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Salida de la finca</label>
+                    <input type="datetime-local" name="farm_departure" class="form-control"
+                           t-att-value="d.fmt_input('farm_departure')"/>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">
+                      Llegada estimada a la planta
+                      <span style="color:#b3261e;">*</span>
+                    </label>
+                    <input type="datetime-local" name="eta" class="form-control"
+                           t-att-value="d.fmt_input('eta')"/>
+                    <div class="form-text">Es la cita del técnico. Con hora y minuto.</div>
+                  </div>
+
+                  <div class="col-md-4">
+                    <label class="form-label">Transportista</label>
+                    <input type="text" name="carrier_name" class="form-control"
+                           t-att-value="d.carrier_name or ''"
+                           placeholder="Nombre de la empresa o del chofer"/>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Placa del vehículo</label>
+                    <input type="text" name="vehicle_plate" class="form-control"
+                           t-att-value="d.vehicle_plate or ''" placeholder="GBA-1234"/>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Teléfono del transportista</label>
+                    <input type="text" name="carrier_phone" class="form-control"
+                           t-att-value="d.carrier_phone or ''"
+                           placeholder="Para llamarlo si se atrasa"/>
+                  </div>
+
+                  <div class="col-12">
+                    <label class="form-label">Observaciones</label>
+                    <textarea name="notes" class="form-control" rows="2"
+                              placeholder="Lo que la planta deba saber antes de que llegue"><t t-esc="d.notes or ''"/></textarea>
+                  </div>
+
+                  <div class="col-12">
+                    <button type="submit" class="s-btn s-btn-primary">
+                      <i class="fa fa-save me-1"/> Guardar y avisar
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </t>
+
+          <t t-if="papel == 'vendedor' and not puede_editar">
+            <div class="alert alert-secondary" style="border-radius:14px;">
+              <i class="fa fa-lock me-1"/>
+              El camarón ya está en la planta, así que el despacho quedó
+              cerrado. Los datos de arriba son los que se usarán para medir la
+              puntualidad de esta entrega.
+            </div>
+          </t>
+
+          <!-- ==========================================================
+               PUNTUALIDAD DEL VENDEDOR
+               ==========================================================
+               Se calla si no hay historial. Un "0 min de desvío" sin decir
+               sobre cuántos despachos se lee como un aval y no lo es: es el
+               mismo criterio con el que la reserva anticipada enseña la
+               puntería de la camaronera. -->
+          <t t-if="resumen">
+            <div class="mp-table-card mb-4">
+              <div class="card-body p-4">
+                <div class="mp-sec-head">
+                  <span class="mp-sec-ico"><i class="fa fa-bullseye"></i></span>
+                  <h3 class="mp-sec-title">
+                    Puntualidad de <t t-esc="d.seller_partner_id.name or 'este vendedor'"/>
+                  </h3>
+                </div>
+                <t t-if="resumen.get('muestra')">
+                  <div class="mp-spec-grid">
+                    <div class="mp-spec">
+                      <span class="mp-spec-ico"><i class="fa fa-check-circle"></i></span>
+                      <div class="mp-spec-body">
+                        <div class="mp-spec-label">Llegó a la hora</div>
+                        <div class="mp-spec-value">
+                          <t t-esc="'{:.0f} de {}'.format(resumen['a_tiempo'], resumen['muestra'])"/>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="mp-spec">
+                      <span class="mp-spec-ico"><i class="fa fa-clock-o"></i></span>
+                      <div class="mp-spec-body">
+                        <div class="mp-spec-label">Desvío medio de la cita</div>
+                        <div class="mp-spec-value">
+                          <t t-esc="'{:.0f} min'.format(resumen['desvio_min'])"/>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="mp-spec">
+                      <span class="mp-spec-ico"><i class="fa fa-refresh"></i></span>
+                      <div class="mp-spec-body">
+                        <div class="mp-spec-label">Citas movidas</div>
+                        <div class="mp-spec-value"><t t-esc="resumen['citas_movidas']"/></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="text-soft mt-2" style="font-size:12px;">
+                    Sobre <t t-esc="resumen['muestra']"/> despacho(s) con cita y llegada
+                    registradas. Se cuenta "a la hora" hasta media hora de diferencia.
+                  </div>
+                </t>
+                <t t-else="">
+                  <p class="text-soft" style="margin:0;">
+                    Todavía no hay ningún despacho con cita y llegada registradas, así
+                    que no hay promedio que enseñar.
+                    <t t-if="resumen.get('citas_movidas')">
+                      Sí consta que movió la cita
+                      <t t-esc="resumen['citas_movidas']"/> vez/veces.
+                    </t>
+                  </p>
+                </t>
+              </div>
+            </div>
+          </t>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+
+  <!-- ================================================================
+       LA CITA EN LA BANDEJA DEL VERIFICADOR
+       ================================================================
+       Es su cita: tiene que verse en la tarjeta, sin abrir nada. Va dentro de
+       vw-order-meta, que es el bloque que se repite por orden. -->
+  <template id="verifier_inbox_dispatch"
+            inherit_id="shrimp_verification.verifier_inbox"
+            name="Bandeja del verificador - cita en planta">
+    <xpath expr="//div[hasclass('vw-order-meta')]" position="inside">
+      <t t-set="desp" t-value="v.dispatch_id"/>
+      <t t-if="desp and desp.eta">
+        <span>
+          <i class="fa fa-clock-o me-1"/>
+          <strong>Planta <t t-esc="desp.fmt_hora('eta')"/></strong>
+          <t t-if="desp.actual_arrival">
+            <em class="text-soft"> · <t t-esc="desp.puntualidad_texto()"/></em>
+          </t>
+          <t t-else="">
+            <em class="text-soft"> · <t t-esc="desp.falta_para_la_cita()"/></em>
+          </t>
+        </span>
+        <t t-if="desp.carrier_name or desp.vehicle_plate">
+          <span><i class="fa fa-truck me-1"/><t t-esc="desp.transporte_texto()"/></span>
+        </t>
+      </t>
+      <t t-else="">
+        <span class="text-soft">
+          <i class="fa fa-calendar-times-o me-1"/>
+          <em>sin hora de llegada declarada</em>
+        </span>
+      </t>
+    </xpath>
+  </template>
+
+  <!-- El detalle de la orden: el técnico entra aquí a trabajar, así que la
+       cita y el botón para estampar la llegada tienen que estar a la vista. -->
+  <template id="verifier_detail_dispatch"
+            inherit_id="shrimp_verification.verifier_detail"
+            name="Informe de campo - cita y llegada">
+    <xpath expr="//div[hasclass('sf-banner')]" position="after">
+      <t t-set="desp" t-value="v.dispatch_id"/>
+      <t t-if="desp">
+        <div class="alert d-flex flex-wrap justify-content-between align-items-center gap-3"
+             style="border-radius:14px; background:#eef7f9; border:1px solid #bfe2e8; color:#123E5C;">
+          <div>
+            <t t-if="desp.eta">
+              <strong><i class="fa fa-clock-o me-1"/>
+                Llegada a planta: <t t-esc="desp.fmt_dt('eta')"/>
+              </strong>
+              <div class="small mt-1">
+                <t t-if="desp.actual_arrival">
+                  Llegó <t t-esc="desp.fmt_dt('actual_arrival')"/>
+                  · <t t-esc="desp.puntualidad_texto()"/>.
+                </t>
+                <t t-else="">
+                  <t t-esc="desp.falta_para_la_cita()"/> ·
+                  <t t-esc="desp.transporte_texto()"/>.
+                </t>
+              </div>
+            </t>
+            <t t-else="">
+              <strong><i class="fa fa-calendar-times-o me-1"/>
+                El vendedor no ha declarado la hora de llegada
+              </strong>
+              <div class="small mt-1">
+                Sin esa hora no hay cita: conviene reclamársela antes de salir.
+              </div>
+            </t>
+          </div>
+          <a t-attf-href="/marketplace/despacho/#{v.transaction_id.uuid_ref}"
+             class="s-btn s-btn-primary btn-sm">
+            <i class="fa fa-truck me-1"/> Ver el despacho
+          </a>
+        </div>
+      </t>
+    </xpath>
+  </template>
+
+
+  <!-- ================================================================
+       ACCESO DEL VENDEDOR, DESDE SUS VENTAS
+       ================================================================
+       El ancla es el t-set de state_label, que en esta plantilla está una sola
+       vez y es la celda de estado de cada fila. No se usa un xpath por
+       posición porque la tabla ya cambia de columnas según el modo. -->
+  <template id="sales_list_dispatch"
+            inherit_id="shrimp_marketplace.marketplace_transaction_history"
+            name="Ventas - seguimiento del despacho">
+    <xpath expr="//t[@t-set='state_label']" position="after">
+      <t t-if="mode == 'sales' and tx.dispatch_id">
+        <t t-set="desp" t-value="tx.dispatch_id"/>
+        <div class="mt-1">
+          <t t-if="desp.eta">
+            <a t-attf-href="/marketplace/despacho/#{tx.uuid_ref}"
+               class="s-badge s-badge--teal" style="text-decoration:none;">
+              <i class="fa fa-truck me-1"/><t t-esc="desp.fmt_hora('eta')"/>
+            </a>
+          </t>
+          <t t-else="">
+            <a t-attf-href="/marketplace/despacho/#{tx.uuid_ref}"
+               class="s-badge" style="text-decoration:none; background:#fdf3e3; color:#a8510d;">
+              <i class="fa fa-exclamation-triangle me-1"/> Declarar despacho
+            </a>
+          </t>
+        </div>
+      </t>
+    </xpath>
+  </template>
+
+  <!-- ================================================================
+       ACCESO DEL COMPRADOR, DESDE SUS COMPRAS
+       ================================================================
+       El cliente insistió: «el comprador debe conocer eso». Va en el menú de
+       acciones de la compra, que es donde ya están los demás documentos. -->
+  <template id="purchases_list_dispatch"
+            inherit_id="shrimp_marketplace.marketplace_purchased_products"
+            name="Compras - seguimiento del despacho">
+    <xpath expr="//ul[hasclass('dropdown-menu-end')]" position="inside">
+      <t t-if="tx.dispatch_id">
+        <li><hr class="dropdown-divider"/></li>
+        <li>
+          <a class="dropdown-item" t-attf-href="/marketplace/despacho/#{tx.uuid_ref}">
+            <i class="fa fa-truck me-2"/> Seguimiento del despacho
+          </a>
+        </li>
+      </t>
+    </xpath>
+  </template>
+
+  <!-- La compra recién hecha: es el primer sitio donde el comprador mira, y a
+       esa altura la cita es lo único que todavía no sabe. -->
+  <template id="purchase_pending_dispatch"
+            inherit_id="shrimp_verification.purchase_pending"
+            name="Compra pendiente - cita en planta">
+    <!-- hasclass() y no @class='row g-4': un xpath por igualdad de @class solo
+         casa si la clase es EXACTAMENTE esa, así que se rompe en cuanto
+         alguien añade una utilidad más al div. -->
+    <xpath expr="//div[hasclass('row','g-4')]" position="after">
+      <t t-set="desp" t-value="tx.dispatch_id"/>
+      <t t-if="desp">
+        <div class="mt-4 p-3"
+             style="border:1px solid #bfe2e8; border-radius:14px; background:#eef7f9;">
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div>
+              <t t-if="desp.eta">
+                <strong><i class="fa fa-truck me-1"/>
+                  El camarón llega a la planta el <t t-esc="desp.fmt_dt('eta')"/>
+                </strong>
+                <div class="text-soft small mt-1"><t t-esc="desp.transporte_texto()"/></div>
+              </t>
+              <t t-else="">
+                <strong><i class="fa fa-truck me-1"/> Despacho sin hora declarada</strong>
+                <div class="text-soft small mt-1">
+                  El vendedor todavía no dijo cuándo sale el camarón de la finca.
+                  Te avisamos en cuanto lo haga.
+                </div>
+              </t>
+            </div>
+            <a t-attf-href="/marketplace/despacho/#{tx.uuid_ref}" class="s-btn s-btn-ghost">
+              Ver el seguimiento
+            </a>
+          </div>
+        </div>
+      </t>
+    </xpath>
+  </template>
+
+</odoo>

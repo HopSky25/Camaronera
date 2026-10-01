@@ -1,4 +1,4 @@
-"""Aplica la identidad de CamaronMkt a los dos sitios y limpia los datos de demo.
+"""Aplica la identidad de CamaronMarket a los dos sitios y limpia los datos de demo.
 
 Odoo instala una empresa de ejemplo con dirección en California, teléfono
 +1 555-555-5556 y www.example.com, y un pie de página con textos de relleno
@@ -20,9 +20,9 @@ en una factura es peor que un dato ausente.
 """
 
 DATOS_EMPRESA = {
-    "name": "CamaronMkt",
-    "email": "info@camaronmkt.com",
-    "website": "https://camaronmkt.com",
+    "name": "CamaronMarket",
+    "email": "info@camaronmarket.com",
+    "website": "https://camaronmarket.com",
     "pais": "EC",
     # Rellenar cuando existan:
     "phone": "",          # ej. "+593 4 000 0000"
@@ -32,13 +32,13 @@ DATOS_EMPRESA = {
 }
 
 DESCRIPCION = (
-    "CamaronMkt conecta camaroneras, laboratorios y semilleros con sus compradores, "
+    "CamaronMarket conecta camaroneras, laboratorios y semilleros con sus compradores, "
     "y deja constancia verificable de cada eslabón de la cadena: quién produjo el "
     "lote, quién lo movió y qué encontró el verificador en campo."
 )
 
 DESCRIPCION_VERIF = (
-    "Plataforma de las empresas verificadoras acreditadas en CamaronMkt. Aquí reciben "
+    "Plataforma de las empresas verificadoras acreditadas en CamaronMarket. Aquí reciben "
     "las órdenes de inspección, registran los cinco análisis en campo y emiten su "
     "veredicto. El informe es vinculante: la compra no se cierra hasta que "
     "comprador y vendedor lo aceptan."
@@ -163,9 +163,9 @@ def _vista_del_sitio(clave, sitio):
         [("key", "=", clave), ("website_id", "=", False)], limit=1)
 for sitio in env["website"].sudo().search([], order="id"):   # noqa: F821
     if sitio.shrimp_is_verifier_site:
-        arch = _pie("CamaronMkt Verificadores", DESCRIPCION_VERIF, ENLACES_VERIFICADORES, empresa)
+        arch = _pie("CamaronMarket Verificadores", DESCRIPCION_VERIF, ENLACES_VERIFICADORES, empresa)
     else:
-        arch = _pie("CamaronMkt", DESCRIPCION, ENLACES_CAMARONERA, empresa)
+        arch = _pie("CamaronMarket", DESCRIPCION, ENLACES_CAMARONERA, empresa)
     # Escribir con website_id en el contexto dispara el copy-on-write de Odoo:
     # se crea (o se reusa) una copia de la vista propia de este sitio y la
     # genérica del módulo queda intacta.

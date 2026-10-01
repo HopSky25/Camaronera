@@ -99,7 +99,7 @@ class Website(models.Model):
                 lambda s: "verificador" in (s.name or "").lower())[:1]
             if not verif:
                 if len(candidatos) <= 1:
-                    verif = W.create({"name": "CamaronMkt Verificadores"})
+                    verif = W.create({"name": "CamaronMarket Verificadores"})
                 else:
                     verif = candidatos[-1]
 
@@ -149,7 +149,7 @@ class Website(models.Model):
                 crear(hn, hu, padre.id, 10 + i * 10)
 
     # ------------------------------------------------------------------
-    # Marca CamaronMkt (logo y favicon)
+    # Marca CamaronMarket (logo y favicon)
     # ------------------------------------------------------------------
     # Los archivos viven en el módulo, no sueltos en el disco de un equipo:
     # así viajan con el código y una instalación nueva arranca con la marca

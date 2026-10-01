@@ -74,8 +74,8 @@ El módulo no emite hasta tenerlos: `_ec_sri_company_data()` lo valida.
 Se lee de variables de entorno del servidor, con el prefijo que se configure
 en la compañía (`EC_SRI_...`):
 
-    export EC_SRI_CAMARONMKT_P12_PATH=/ruta/segura/firma.p12
-    export EC_SRI_CAMARONMKT_P12_PASSWORD='...'
+    export EC_SRI_CAMARONMARKET_P12_PATH=/ruta/segura/firma.p12
+    export EC_SRI_CAMARONMARKET_P12_PASSWORD='...'
 
 Es deliberado: un `.p12` guardado en una tabla se acaba filtrando en un
 respaldo. El campo del prefijo además está restringido a `base.group_system`.

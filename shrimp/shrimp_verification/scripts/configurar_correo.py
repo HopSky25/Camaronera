@@ -1,4 +1,4 @@
-"""Configura el servidor de correo saliente de CamaronMkt.
+"""Configura el servidor de correo saliente de CamaronMarket.
 
 Sin esto el sistema calcula y registra todo bien, pero ningún aviso sale del
 servidor: los correos se quedan en cola con estado "excepción" y nadie se
@@ -18,18 +18,18 @@ funciona con SMTP desde 2022.
 
 CONFIG = {
     # --- Servidor SMTP ---
-    "nombre": "Correo saliente CamaronMkt",
+    "nombre": "Correo saliente CamaronMarket",
     "host": "smtp.gmail.com",       # Gmail: smtp.gmail.com | Outlook: smtp.office365.com
     "puerto": 587,
     "cifrado": "starttls",          # "starttls" (587) | "ssl" (465) | "none"
-    "usuario": "notificaciones@camaronmkt.com",  # cuenta desde la que salen los correos
+    "usuario": "notificaciones@camaronmarket.com",  # cuenta desde la que salen los correos
     "clave": "PON-AQUI-LA-CLAVE",   # contraseña de aplicación, no la del correo
 
     # --- Identidad del remitente ---
     # El dominio debe ser uno que controles: si mandas "desde" un dominio ajeno,
     # Gmail y Outlook mandan tus avisos directo a spam.
-    "dominio": "camaronmkt.com",
-    "remitente": "notificaciones",  # resultado: notificaciones@camaronmkt.com
+    "dominio": "camaronmarket.com",
+    "remitente": "notificaciones",  # resultado: notificaciones@camaronmarket.com
 
     # --- URL pública ---
     # Los botones de los correos se arman con esto. Si queda en localhost,

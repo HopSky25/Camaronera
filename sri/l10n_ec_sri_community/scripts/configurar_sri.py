@@ -25,20 +25,20 @@ servidor, nunca de la base de datos, que es lo correcto: un .p12 guardado en
 una tabla se acaba filtrando en un respaldo. Hay que exportar, con el mismo
 prefijo que se ponga en `secreto`:
 
-    export EC_SRI_CAMARONMKT_P12_PATH=/ruta/segura/firma.p12
-    export EC_SRI_CAMARONMKT_P12_PASSWORD='...'
+    export EC_SRI_CAMARONMARKET_P12_PATH=/ruta/segura/firma.p12
+    export EC_SRI_CAMARONMARKET_P12_PASSWORD='...'
 """
 
 DATOS = {
-    "compania": "CamaronMkt",
+    "compania": "CamaronMarket",
     # RUC de 13 dígitos. Sin esto el módulo se niega a emitir.
     "ruc": "",
     # Dirección de la matriz tal como consta en el RUC.
     "direccion_matriz": "",
     # Prefijo de las variables de entorno del certificado. Debe empezar por
     # EC_SRI_ y llevar solo mayúsculas, números y guion bajo.
-    "secreto": "EC_SRI_CAMARONMKT",
-    "nombre_comercial": "CamaronMkt",
+    "secreto": "EC_SRI_CAMARONMARKET",
+    "nombre_comercial": "CamaronMarket",
     # 'regular', 'rimpe' o 'popular'
     "regimen": "regular",
     "obligado_contabilidad": True,

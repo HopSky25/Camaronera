@@ -124,7 +124,7 @@ class ResPartner(models.Model):
     # sin preguntarle convierte una herramienta de venta en una amenaza: la que
     # rinde bien quiere presumirlo, pero a la que rinde flojo le estariamos
     # publicando su peor numero delante de todos sus compradores, y lo racional
-    # entonces es no usar CamaronMkt. Por defecto apagado: que lo encienda quien
+    # entonces es no usar CamaronMarket. Por defecto apagado: que lo encienda quien
     # quiera usarlo para vender.
     farm_publicar_historial = fields.Boolean(
         string="Publicar mi rendimiento verificado",

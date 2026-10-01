@@ -13,7 +13,7 @@ def _es_sitio_maquiladores():
 class ShrimpCopackerHome(ShrimpWebsiteHome):
     """En la plataforma del maquilador la portada es su bandeja.
 
-    El módulo crea su propio sitio ("CamaronMkt Empaque"), pero sin este override
+    El módulo crea su propio sitio ("CamaronMarket Empaque"), pero sin este override
     la raíz "/" cae en el controlador del marketplace y sirve la landing de
     marketing de la compraventa: un sitio entero cuya portada habla de otra
     cosa y no lleva a ninguna de sus pantallas. Mismo patrón que usa

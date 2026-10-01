@@ -16,7 +16,7 @@ producción. Es idempotente: se puede correr las veces que haga falta.
 
 # --- Ajusta esto según el entorno -------------------------------------------
 # El sitio se identifica por su dominio, no por su nombre: el nombre es de
-# marca y cambia (era "Verificadores", hoy es "CamaronMkt Verificadores"), mientras
+# marca y cambia (era "Verificadores", hoy es "CamaronMarket Verificadores"), mientras
 # que el dominio es lo que de verdad lo distingue para Odoo.
 DOMINIO_CAMARONERA = "http://localhost:8069"
 DOMINIO_VERIFICADORES = "http://verificadores.localhost:8069"
@@ -90,7 +90,7 @@ print("Menús del portal realineados:",
 # sin maquetar, con todo pegado al margen izquierdo, y Odoo no lo reporta como
 # error en el log, solo escribe el aviso dentro del propio bundle.
 #
-# Como no personalizamos colores desde el editor —la identidad de CamaronMkt vive
+# Como no personalizamos colores desde el editor —la identidad de CamaronMarket vive
 # en verification.css— lo correcto es no tener esos overrides.
 for sitio in W.search([]):
     if sitio.theme_id and sitio.theme_id.state != "installed":

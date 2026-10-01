@@ -20,7 +20,7 @@ en una factura es peor que un dato ausente.
 """
 
 DATOS_EMPRESA = {
-    "name": "TRAZUL S.A.S.",
+    "name": "CamaronMkt",
     "email": "info@camaronmkt.com",
     "website": "https://camaronmkt.com",
     "pais": "EC",

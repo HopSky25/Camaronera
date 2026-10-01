@@ -55,7 +55,7 @@ class Website(models.Model):
                 candidatos = candidatos.filtered(lambda s: not s.shrimp_is_verifier_site)
             maq = candidatos[:1]
         if not maq:
-            maq = W.create({"name": "Trazul Empaque"})
+            maq = W.create({"name": "CamaronMkt Empaque"})
 
         W.search([("id", "!=", maq.id)]).write({"shrimp_is_copacker_site": False})
         if not maq.shrimp_is_copacker_site:

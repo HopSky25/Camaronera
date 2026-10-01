@@ -38,7 +38,7 @@ DATOS = {
     # Prefijo de las variables de entorno del certificado. Debe empezar por
     # EC_SRI_ y llevar solo mayúsculas, números y guion bajo.
     "secreto": "EC_SRI_TRAZUL",
-    "nombre_comercial": "Trazul",
+    "nombre_comercial": "CamaronMkt",
     # 'regular', 'rimpe' o 'popular'
     "regimen": "regular",
     "obligado_contabilidad": True,

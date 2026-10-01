@@ -91,11 +91,11 @@ class ShrimpCopackOrder(models.Model):
         currency_field="currency_id",
         help="Tarifa por las libras efectivamente empacadas.")
     platform_rate_per_lb = fields.Monetary(
-        string="Comisión Trazul por libra", currency_field="currency_id",
+        string="Comisión CamaronMkt por libra", currency_field="currency_id",
         default=0.01,
         help="Lo que la plataforma cobra al maquilador por libra empacada.")
     platform_amount = fields.Monetary(
-        string="Comisión Trazul", compute="_compute_importes", store=True,
+        string="Comisión CamaronMkt", compute="_compute_importes", store=True,
         currency_field="currency_id")
 
     # Un solo sitio donde se decide si una orden se puede cobrar y si puede

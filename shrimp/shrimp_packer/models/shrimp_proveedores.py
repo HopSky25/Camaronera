@@ -252,3 +252,101 @@ class ShrimpProveedorRanking(models.AbstractModel):
                 "cumplimiento": int(self.PESO_CUMPLIMIENTO * 100),
             },
         }
+
+    # ==================================================================
+    # Lo primero que ve la empacadora al entrar: su mejor proveedor, por talla
+    # ==================================================================
+    # Orden comercial de las tallas. El código es texto libre ("U15", "21/25"),
+    # así que ordenarlo alfabéticamente pone "U15" al final y "16/20" antes de
+    # "21/25" solo por casualidad. Lo que no esté aquí va al final, en el orden
+    # en que apareció: mejor una talla rara al fondo que una excepción.
+    # Conviven dos nomenclaturas: la de cola (U15, 16/20, 21/25...) y la de
+    # entero (20/30, 30/40, 40/50...), que es la que lleva un lote publicado
+    # como entero. Van intercaladas por tamaño aproximado del animal: de más
+    # grande a más chico, que es como se lee una lista de precios.
+    ORDEN_TALLAS = ("U10", "U12", "U15", "16/20", "20/30", "21/25", "26/30",
+                    "30/32", "30/40", "31/35", "36/40", "40/50", "41/50",
+                    "50/60", "51/60", "60/70", "61/70", "70/80", "71/90",
+                    "80/100", "91/110", "100/120")
+
+    def _orden_talla(self, codigo):
+        c = (codigo or "").strip().upper()
+        return (self.ORDEN_TALLAS.index(c) if c in self.ORDEN_TALLAS
+                else len(self.ORDEN_TALLAS))
+
+    def por_talla(self, empacadora, proveedor):
+        """Cuánto salió de cada talla, y de qué clase, en lo que ese proveedor
+        le entregó a esta empacadora.
+
+        Sale de shrimp.verification.line, que es donde el verificador anota
+        libras por talla y clase. Se agrupa por talla y se suma por clase: el
+        porcentaje de clase A de cada talla va sobre lo clasificado EN ESA
+        talla, no sobre el lote, porque la pregunta del comprador es "la 31/35
+        de este proveedor, ¿me sale A?", no "¿cuánto A trae en total?".
+
+        El reparto ("share") va sobre el total clasificado del proveedor: dice
+        qué tallas trae de verdad, que es lo que decide si conviene para el
+        pedido que la planta tiene entre manos.
+        """
+        V = self.env["shrimp.verification"].sudo()
+        verifs = V.search([
+            ("buyer_partner_id", "=", empacadora.id),
+            ("seller_partner_id", "=", proveedor.id),
+            ("scope", "=", "adult"),
+            ("state", "in", list(self.ESTADOS_VEREDICTO)),
+        ])
+        acum = {}
+        for v in verifs:
+            vistas = set()
+            for l in v.line_ids:
+                if not l.weight_lb or not l.size_code:
+                    continue
+                t = acum.setdefault(l.size_code.strip().upper(), {
+                    "talla": l.size_code.strip().upper(),
+                    "lb": 0.0, "a": 0.0, "b": 0.0, "c": 0.0, "lotes": 0,
+                })
+                t["lb"] += l.weight_lb
+                t[l.quality_class or "c"] += l.weight_lb
+                if l.size_code not in vistas:
+                    t["lotes"] += 1
+                    vistas.add(l.size_code)
+
+        total = sum(t["lb"] for t in acum.values()) or 0.0
+        filas = []
+        for t in acum.values():
+            t["clase_a"] = (100.0 * t["a"] / t["lb"]) if t["lb"] else None
+            t["share"] = (100.0 * t["lb"] / total) if total else 0.0
+            filas.append(t)
+        filas.sort(key=lambda t: self._orden_talla(t["talla"]))
+
+        # La "mejor talla" exige peso real detrás: una talla con 30 lb al 100 %
+        # de clase A no es la fortaleza del proveedor, es un residuo.
+        con_peso = [t for t in filas if total and t["share"] >= 10.0 and t["clase_a"] is not None]
+        mejor = max(con_peso, key=lambda t: (t["clase_a"], t["lb"])) if con_peso else None
+        return {"filas": filas, "total_lb": total, "mejor": mejor, "lotes": len(verifs)}
+
+    def dashboard_empacadora(self, empacadora):
+        """Lo que la empacadora necesita ver de entrada, sin buscarlo.
+
+        Devuelve None cuando no hay nada verificado: la portada no debe
+        enseñar un tablero vacío con ceros, que se lee como que el sistema no
+        funciona. Sin datos, sencillamente no aparece.
+
+        El líder es el mismo que corona /marketplace/proveedores —se reutiliza
+        ranking() tal cual— para que la portada y el ranking nunca digan dos
+        nombres distintos.
+        """
+        r = self.ranking(empacadora, orden="puntaje")
+        if not r["filas"]:
+            return None
+        lider = r["filas"][0] if r["filas"][0]["suficiente"] else None
+        if not lider:
+            return None
+        return {
+            "r": r,
+            "lider": lider,
+            "tallas": self.por_talla(empacadora, lider["proveedor"]),
+            # Los que vienen detrás, para que el titular tenga contexto: un
+            # 72 % solo impresiona al lado de un 61 %.
+            "resto": [f for f in r["filas"][1:4] if f["rendimiento"] is not None],
+        }

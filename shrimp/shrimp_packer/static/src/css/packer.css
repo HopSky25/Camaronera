@@ -658,3 +658,44 @@
 }
 .sim-aviso--fuerte { border-left-width: 6px; background: #fff3e0; color: #8a4b0a; }
 .sim-aviso strong { color: #6b4408; }
+/* =====================================================================
+   Tablero de la empacadora en la portada (landing_dashboard_empacadora)
+   Vive dentro de .sl-section de la landing, así que respeta su ritmo y
+   solo aporta la tarjeta blanca y la tabla por talla. Un solo color de
+   marca para las barras: son la misma medida en tallas distintas, no
+   categorías, así que no llevan paleta.
+   ===================================================================== */
+.pk-dash { background: linear-gradient(180deg, #f4f8fb 0%, #ffffff 100%); padding-top: clamp(36px, 5vw, 64px); }
+.pk-dash-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.pk-dash-titulo { margin: 10px 0 4px; }
+.pk-dash-titulo a { color: #123E5C; text-decoration: none; }
+.pk-dash-titulo a:hover { color: #0f7c88; }
+.pk-dash-sub { color: #5A6B74; font-size: .95rem; margin: 0; }
+.pk-dash-btn { white-space: nowrap; }
+.pk-dash-kpis { margin-bottom: 18px; }
+.pk-dash-kpis strong { font-size: 1.7rem; }
+
+.pk-dash-cols { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 18px; }
+@media (max-width: 900px) { .pk-dash-cols { grid-template-columns: 1fr; } }
+.pk-dash-card { background: #fff; border: 1px solid #e3eaed; border-radius: 12px; padding: 16px 18px; box-shadow: 0 10px 30px rgba(18,62,92,.06); }
+.pk-dash-mejor { margin: 6px 0 10px; color: #123E5C; font-size: .95rem; }
+
+.pk-dash-tallas th { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: #8b9ba3; font-weight: 700; padding: 6px 10px; border-bottom: 2px solid #e3eaed; }
+.pk-dash-tallas td { padding: 7px 10px; }
+.pk-dash-top td { background: #eaf7f8; }
+.pk-dash-barra-td { min-width: 160px; }
+.pk-dash-pista { background: #eef2f4; border-radius: 4px; height: 10px; overflow: hidden; display: inline-block; width: calc(100% - 44px); vertical-align: middle; }
+.pk-dash-barra { height: 10px; background: #14A0B0; border-radius: 0 4px 4px 0; }
+.pk-dash-barra-td .pk-prov-n { display: inline-block; width: 38px; text-align: right; margin-left: 6px; vertical-align: middle; }
+
+.pk-dash-podio { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.pk-dash-fila { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 8px 12px; border: 1px solid #eef2f4; border-radius: 10px; background: #fafcfd; }
+/* Color solido ANTES del degradado: si un motor viejo ignora el gradient, el texto
+   blanco no queda sobre blanco (paso en la captura con wkhtmltopdf). */
+.pk-dash-fila--lider { background-color: #0f5c66; background-image: linear-gradient(135deg, #0f5c66, #14A0B0); border-color: transparent; color: #fff; }
+.pk-dash-fila--lider .pk-dash-nombre, .pk-dash-fila--lider .pk-dash-rend { color: #fff; }
+.pk-dash-fila--lider .pk-prov-score { background: rgba(255,255,255,.22); }
+.pk-dash-pos { font-weight: 800; color: #8b9ba3; text-align: center; }
+.pk-dash-fila--lider .pk-dash-pos { color: rgba(255,255,255,.8); }
+.pk-dash-nombre { font-weight: 600; color: #123E5C; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pk-dash-rend { font-weight: 700; color: #0f5c66; font-variant-numeric: tabular-nums; }

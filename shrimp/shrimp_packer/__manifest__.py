@@ -39,6 +39,7 @@ desarrollo que se hace en paralelo sobre ese módulo.
         "views/menus.xml",
         "views/simulador_templates.xml",
         "views/proveedores_templates.xml",
+        "views/dashboard_empacadora_templates.xml",
     ],
     "assets": {
         "web.assets_frontend": [

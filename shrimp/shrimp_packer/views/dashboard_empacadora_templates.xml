@@ -7,8 +7,13 @@
        empacadora que ya compra y verifica no necesita que le vendan el
        sistema: necesita saber, antes de leer nada más, a quién le está
        comprando mejor y en qué talla. Este bloque se cuela justo debajo
-       del hero, y SOLO aparece si quien entra es empacadora y además tiene
-       un proveedor con muestra suficiente.
+       del todo —ANTES del hero— y SOLO aparece si quien entra es empacadora
+       y además tiene un proveedor con muestra suficiente.
+
+       Va antes y no después del hero por una razón concreta: el hero ocupa
+       la pantalla entera, y en la primera prueba la empacadora estuvo dos
+       minutos en la portada sin bajar y se fue convencida de que no había
+       nada. "De entrada" significa sin hacer scroll.
 
        Sin datos no se pinta nada —ni un recuadro con ceros—: un tablero
        vacío en la primera pantalla se lee como "esto no funciona". Por eso
@@ -22,7 +27,7 @@
   <template id="landing_dashboard_empacadora"
             inherit_id="shrimp_marketplace.landing"
             name="Portada - tablero de la empacadora">
-    <xpath expr="//section[hasclass('sl-hero')]" position="after">
+    <xpath expr="//section[hasclass('sl-hero')]" position="before">
       <t t-set="pk_dash"
          t-value="request.env['shrimp.proveedor.ranking'].sudo().dashboard_empacadora(request.env.user.partner_id)
                   if request and request.env.user.partner_id.shrimp_user_type == 'empacadora' else None"/>

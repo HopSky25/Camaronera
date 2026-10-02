@@ -1,0 +1,2418 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- =============================================================
+       LO QUE AQUAGOLD YA COMPRO Y MANDO A VERIFICAR
+
+       Hasta aqui ninguna empacadora de la demo tenia una sola verificacion
+       como compradora: el ranking de proveedores y el tablero de la portada
+       salian vacios. Esto le da a AQUAGOLD un historial de 13 lotes con
+       cuatro proveedores, para que la comparacion sea real y no un podio
+       de uno.
+
+       Grupo Burgos queda primero A PROPOSITO y con margen: ~73 % de
+       rendimiento, ~85 % de clase A, metabisulfito bajo y los cinco lotes
+       conformes. Los otros tres bajan en escalera (Rio Chone, Balao Grande,
+       El Manglar), uno con observaciones y uno con faltante de peso, para
+       que la columna "fue lo publicado" tambien tenga algo que decir.
+
+       Burgos publica sus lotes como ENTERO 30/40 y sus lineas van en esa
+       nomenclatura con 30/40 dominante: cumple_lo_publicado() compara la
+       talla mas pesada con la publicada, y si no coincidieran los cinco
+       lotes saldrian como incumplidos.
+
+       GENERADO por docs/herramientas/generar_demo_aquagold.py: el
+       rendimiento sale de dividir lo clasificado entre el peso neto, y las
+       lineas por talla suman exactamente lo clasificado. No editar a mano
+       una sola linea sin recalcular el resto.
+       ============================================================= -->
+  <data noupdate="1">
+
+    <!-- Finca y piscinas de Grupo Burgos: los productos las referencian y
+         el certificado de trazabilidad las imprime. -->
+    <record id="demo_pk_burgos_f1" model="shrimp.partner.facility">
+      <field name="partner_id" ref="demo_pk_grupo_burgos"/>
+      <field name="name">Camaronera Grupo Burgos – Taura</field>
+      <field name="code">BURG-01</field>
+      <field name="facility_type">farm</field>
+      <field name="city">Taura</field>
+      <field name="province">Guayas</field>
+      <field name="address">Vía Taura–Churute, km 14</field>
+    </record>
+    <record id="demo_pk_burgos_pond_07" model="shrimp.partner.pond">
+      <field name="partner_id" ref="demo_pk_grupo_burgos"/>
+      <field name="facility_id" ref="demo_pk_burgos_f1"/>
+      <field name="name">Piscina 7</field>
+      <field name="code">BURG-P07</field>
+      <field name="pond_type">earth</field>
+      <field name="capacity_mode">dimensions</field>
+      <field name="length_m">180</field>
+      <field name="width_m">110</field>
+      <field name="depth_m">1.4</field>
+      <field name="location">Bloque Norte</field>
+    </record>
+    <record id="demo_pk_burgos_pond_12" model="shrimp.partner.pond">
+      <field name="partner_id" ref="demo_pk_grupo_burgos"/>
+      <field name="facility_id" ref="demo_pk_burgos_f1"/>
+      <field name="name">Piscina 12</field>
+      <field name="code">BURG-P12</field>
+      <field name="pond_type">earth</field>
+      <field name="capacity_mode">dimensions</field>
+      <field name="length_m">210</field>
+      <field name="width_m">120</field>
+      <field name="depth_m">1.4</field>
+      <field name="location">Bloque Norte</field>
+    </record>
+    <record id="demo_pk_burgos_pond_03" model="shrimp.partner.pond">
+      <field name="partner_id" ref="demo_pk_grupo_burgos"/>
+      <field name="facility_id" ref="demo_pk_burgos_f1"/>
+      <field name="name">Piscina 3</field>
+      <field name="code">BURG-P03</field>
+      <field name="pond_type">earth</field>
+      <field name="capacity_mode">dimensions</field>
+      <field name="length_m">160</field>
+      <field name="width_m">95</field>
+      <field name="depth_m">1.4</field>
+      <field name="location">Bloque Sur</field>
+    </record>
+
+    <!-- Tres lotes de engorde de Burgos, publicados como ENTERO 30/40 —el
+         constraint _check_datos_para_cruce exige presentacion, talla y
+         libras—. Llevan initial_qty porque al crear el producto Odoo abre un
+         lote de stock disponible: asi el ranking puede decir "N lotes a la
+         venta" y el boton de comprar tiene a donde ir. -->
+    <record id="demo_pk_burgos_prod_07" model="shrimp.product">
+      <field name="name">Camarón Vannamei Engorde 30/40 – Piscina 07</field>
+      <field name="seller_partner_id" ref="demo_pk_grupo_burgos"/>
+      <field name="seller_role">camaronera</field>
+      <field name="species_id" ref="shrimp_marketplace.shrimp_species_vannamei"/>
+      <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_engorde"/>
+      <field name="genetics_line_id" ref="shrimp_marketplace.shrimp_genetics_spr_plus"/>
+      <field name="avg_size_mg">21500</field>
+      <field name="survival_rate">91.5</field>
+      <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Cosecha programada por aguaje. Trazabilidad completa.</field>
+      <field name="initial_qty">24000</field>
+      <field name="uom_id" ref="shrimp_marketplace.uom_libra"/>
+      <field name="price">3.28</field>
+      <field name="presentation">entero</field>
+      <field name="size_grade_id" ref="shrimp_marketplace.size_entero_3040"/>
+      <field name="location">Taura, Guayas</field>
+      <field name="state">published</field>
+      <field name="expected_delivery_date">2026-10-20</field>
+      <field name="origin_facility_id" ref="demo_pk_burgos_f1"/>
+      <field name="origin_pond_id" ref="demo_pk_burgos_pond_07"/>
+    </record>
+    <record id="demo_pk_burgos_prod_12" model="shrimp.product">
+      <field name="name">Camarón Vannamei Engorde 30/40 – Piscina 12</field>
+      <field name="seller_partner_id" ref="demo_pk_grupo_burgos"/>
+      <field name="seller_role">camaronera</field>
+      <field name="species_id" ref="shrimp_marketplace.shrimp_species_vannamei"/>
+      <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_engorde"/>
+      <field name="genetics_line_id" ref="shrimp_marketplace.shrimp_genetics_spr_plus"/>
+      <field name="avg_size_mg">23000</field>
+      <field name="survival_rate">93.2</field>
+      <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Cosecha programada por aguaje. Trazabilidad completa.</field>
+      <field name="initial_qty">26500</field>
+      <field name="uom_id" ref="shrimp_marketplace.uom_libra"/>
+      <field name="price">3.22</field>
+      <field name="presentation">entero</field>
+      <field name="size_grade_id" ref="shrimp_marketplace.size_entero_3040"/>
+      <field name="location">Taura, Guayas</field>
+      <field name="state">published</field>
+      <field name="expected_delivery_date">2026-10-20</field>
+      <field name="origin_facility_id" ref="demo_pk_burgos_f1"/>
+      <field name="origin_pond_id" ref="demo_pk_burgos_pond_12"/>
+    </record>
+    <record id="demo_pk_burgos_prod_03" model="shrimp.product">
+      <field name="name">Camarón Vannamei Engorde 30/40 – Piscina 03</field>
+      <field name="seller_partner_id" ref="demo_pk_grupo_burgos"/>
+      <field name="seller_role">camaronera</field>
+      <field name="species_id" ref="shrimp_marketplace.shrimp_species_vannamei"/>
+      <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_engorde"/>
+      <field name="genetics_line_id" ref="shrimp_marketplace.shrimp_genetics_spr_plus"/>
+      <field name="avg_size_mg">19800</field>
+      <field name="survival_rate">94.0</field>
+      <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Cosecha programada por aguaje. Trazabilidad completa.</field>
+      <field name="initial_qty">21000</field>
+      <field name="uom_id" ref="shrimp_marketplace.uom_libra"/>
+      <field name="price">3.35</field>
+      <field name="presentation">entero</field>
+      <field name="size_grade_id" ref="shrimp_marketplace.size_entero_3040"/>
+      <field name="location">Taura, Guayas</field>
+      <field name="state">published</field>
+      <field name="expected_delivery_date">2026-10-20</field>
+      <field name="origin_facility_id" ref="demo_pk_burgos_f1"/>
+      <field name="origin_pond_id" ref="demo_pk_burgos_pond_03"/>
+    </record>
+
+    <!-- ===================== Grupo Burgos: 5 lotes ===================== -->
+    <record id="demo_pk_ag_tx_burgos_1" model="shrimp.transaction">
+      <field name="product_id" ref="demo_pk_burgos_prod_07"/>
+      <field name="seller_partner_id" ref="shrimp_packer.demo_pk_grupo_burgos"/>
+      <field name="buyer_partner_id" ref="demo_pk_aquagold"/>
+      <field name="transaction_type">camaronera_to_buyer</field>
+      <field name="transaction_qty">13853.99</field>
+      <field name="sold_qty">13853.99</field>
+      <field name="desired_qty">13853.99</field>
+      <field name="sold_date">2026-07-17</field>
+      <field name="desired_date">2026-07-17</field>
+      <field name="price_unit">3.13</field>
+      <field name="amount_total">43362.99</field>
+      <field name="state">done</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_1" model="shrimp.verification">
+      <field name="transaction_id" ref="demo_pk_ag_tx_burgos_1"/>
+      <field name="verifier_partner_id" ref="shrimp_verification.demo_ver_pacifico"/>
+      <field name="technician_partner_id" ref="shrimp_verification.demo_vtec_pacifico_2"/>
+      <field name="state">approved</field>
+      <field name="batch_code">AG-2026-1101</field>
+      <field name="pond_label">Piscina 7</field>
+      <field name="plant_name">AQUAGOLD – Planta Durán</field>
+      <field name="harvest_date">2026-07-17</field>
+      <field name="process_date">2026-07-18</field>
+      <field name="weight_sent_lb">13853.99</field>
+      <field name="weight_plant_lb">13823.02</field>
+      <field name="trash_lb">371.03</field>
+      <field name="presentation">entero</field>
+      <field name="metabisulfite_ppm">39.44</field>
+      <field name="metabisulfite_limit_ppm">100.0</field>
+      <field name="metabisulfite_notes">Kit colorimétrico, tres tomas sobre el mismo lote.</field>
+      <field name="taste_result">good</field>
+      <field name="taste_notes">Sabor característico, sin notas extrañas.</field>
+      <field name="taste_criteria_ok_ids" eval="[(6, 0, [ref('shrimp_verification.taste_crit_olor'), ref('shrimp_verification.taste_crit_color')])]"/>
+      <field name="grams_farm">21.88</field>
+      <field name="grams_plant_1">21.66</field>
+      <field name="grams_plant_2">22.15</field>
+      <field name="gps_latitude">-2.180138</field>
+      <field name="gps_longitude">-79.594095</field>
+      <field name="incident_notes">Sin novedades.</field>
+      <field name="verdict_notes">Lote conforme. Peso, presentación y sabor dentro de lo pactado.</field>
+      <field name="fee">408.69</field>
+      <field name="margin_pct">15.0</field>
+      <field name="acceptance_state">closed</field>
+      <field name="buyer_notified" eval="True"/>
+      <field name="assigned_date">2026-07-15 09:00:00</field>
+      <field name="field_start_date">2026-07-18 06:20:00</field>
+      <field name="verified_date">2026-07-18 16:45:00</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_1_l1" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_1"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">20/30</field>
+      <field name="weight_lb">1842.78</field>
+      <field name="sequence">10</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_1_l2" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_1"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">20/30</field>
+      <field name="weight_lb">158.03</field>
+      <field name="sequence">20</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_1_l3" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_1"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">30/40</field>
+      <field name="weight_lb">3551.54</field>
+      <field name="sequence">30</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_1_l4" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_1"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">30/40</field>
+      <field name="weight_lb">447.51</field>
+      <field name="sequence">40</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_1_l5" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_1"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">40/50</field>
+      <field name="weight_lb">2010.31</field>
+      <field name="sequence">50</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_1_l6" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_1"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">40/50</field>
+      <field name="weight_lb">268.50</field>
+      <field name="sequence">60</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_1_l7" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_1"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">40/50</field>
+      <field name="weight_lb">122.16</field>
+      <field name="sequence">70</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_1_l8" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_1"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">50/60</field>
+      <field name="weight_lb">856.89</field>
+      <field name="sequence">80</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_1_l9" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_1"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">50/60</field>
+      <field name="weight_lb">123.06</field>
+      <field name="sequence">90</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_1_l10" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_1"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">50/60</field>
+      <field name="weight_lb">120.49</field>
+      <field name="sequence">100</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_1_l11" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_1"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">60/70</field>
+      <field name="weight_lb">360.18</field>
+      <field name="sequence">110</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_1_l12" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_1"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">60/70</field>
+      <field name="weight_lb">55.94</field>
+      <field name="sequence">120</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_1_l13" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_1"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">60/70</field>
+      <field name="weight_lb">86.66</field>
+      <field name="sequence">130</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_1_c1" model="shrimp.verification.count">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_1"/>
+      <field name="value">10004.05</field>
+      <field name="note">Conteo en planta</field>
+      <field name="sequence">10</field>
+    </record>
+    <record id="demo_pk_ag_tx_burgos_2" model="shrimp.transaction">
+      <field name="product_id" ref="demo_pk_burgos_prod_12"/>
+      <field name="seller_partner_id" ref="shrimp_packer.demo_pk_grupo_burgos"/>
+      <field name="buyer_partner_id" ref="demo_pk_aquagold"/>
+      <field name="transaction_type">camaronera_to_buyer</field>
+      <field name="transaction_qty">14095.42</field>
+      <field name="sold_qty">14095.42</field>
+      <field name="desired_qty">14095.42</field>
+      <field name="sold_date">2026-07-24</field>
+      <field name="desired_date">2026-07-24</field>
+      <field name="price_unit">3.08</field>
+      <field name="amount_total">43413.89</field>
+      <field name="state">done</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_2" model="shrimp.verification">
+      <field name="transaction_id" ref="demo_pk_ag_tx_burgos_2"/>
+      <field name="verifier_partner_id" ref="shrimp_verification.demo_ver_pacifico"/>
+      <field name="technician_partner_id" ref="shrimp_verification.demo_vtec_pacifico_3"/>
+      <field name="state">approved</field>
+      <field name="batch_code">AG-2026-1102</field>
+      <field name="pond_label">Piscina 12</field>
+      <field name="plant_name">AQUAGOLD – Planta Durán</field>
+      <field name="harvest_date">2026-07-24</field>
+      <field name="process_date">2026-07-25</field>
+      <field name="weight_sent_lb">14095.42</field>
+      <field name="weight_plant_lb">14011.57</field>
+      <field name="trash_lb">287.45</field>
+      <field name="presentation">entero</field>
+      <field name="metabisulfite_ppm">45.0</field>
+      <field name="metabisulfite_limit_ppm">100.0</field>
+      <field name="metabisulfite_notes">Kit colorimétrico, tres tomas sobre el mismo lote.</field>
+      <field name="taste_result">good</field>
+      <field name="taste_notes">Sabor característico, sin notas extrañas.</field>
+      <field name="taste_criteria_ok_ids" eval="[(6, 0, [ref('shrimp_verification.taste_crit_olor'), ref('shrimp_verification.taste_crit_color')])]"/>
+      <field name="grams_farm">21.46</field>
+      <field name="grams_plant_1">21.36</field>
+      <field name="grams_plant_2">21.26</field>
+      <field name="gps_latitude">-2.102082</field>
+      <field name="gps_longitude">-79.633434</field>
+      <field name="incident_notes">Sin novedades.</field>
+      <field name="verdict_notes">Lote conforme. Peso, presentación y sabor dentro de lo pactado.</field>
+      <field name="fee">415.81</field>
+      <field name="margin_pct">15.0</field>
+      <field name="acceptance_state">closed</field>
+      <field name="buyer_notified" eval="True"/>
+      <field name="assigned_date">2026-07-22 09:00:00</field>
+      <field name="field_start_date">2026-07-25 06:20:00</field>
+      <field name="verified_date">2026-07-25 10:30:00</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_2_l1" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_2"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">20/30</field>
+      <field name="weight_lb">1926.37</field>
+      <field name="sequence">10</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_2_l2" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_2"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">20/30</field>
+      <field name="weight_lb">120.05</field>
+      <field name="sequence">20</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_2_l3" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_2"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">30/40</field>
+      <field name="weight_lb">3712.64</field>
+      <field name="sequence">30</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_2_l4" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_2"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">30/40</field>
+      <field name="weight_lb">380.21</field>
+      <field name="sequence">40</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_2_l5" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_2"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">40/50</field>
+      <field name="weight_lb">2101.50</field>
+      <field name="sequence">50</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_2_l6" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_2"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">40/50</field>
+      <field name="weight_lb">265.24</field>
+      <field name="sequence">60</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_2_l7" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_2"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">40/50</field>
+      <field name="weight_lb">88.97</field>
+      <field name="sequence">70</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_2_l8" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_2"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">50/60</field>
+      <field name="weight_lb">895.76</field>
+      <field name="sequence">80</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_2_l9" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_2"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">50/60</field>
+      <field name="weight_lb">121.57</field>
+      <field name="sequence">90</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_2_l10" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_2"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">50/60</field>
+      <field name="weight_lb">108.20</field>
+      <field name="sequence">100</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_2_l11" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_2"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">60/70</field>
+      <field name="weight_lb">376.52</field>
+      <field name="sequence">110</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_2_l12" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_2"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">60/70</field>
+      <field name="weight_lb">55.26</field>
+      <field name="sequence">120</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_2_l13" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_2"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">60/70</field>
+      <field name="weight_lb">79.83</field>
+      <field name="sequence">130</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_2_c1" model="shrimp.verification.count">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_2"/>
+      <field name="value">10232.13</field>
+      <field name="note">Conteo en planta</field>
+      <field name="sequence">10</field>
+    </record>
+    <record id="demo_pk_ag_tx_burgos_3" model="shrimp.transaction">
+      <field name="product_id" ref="demo_pk_burgos_prod_03"/>
+      <field name="seller_partner_id" ref="shrimp_packer.demo_pk_grupo_burgos"/>
+      <field name="buyer_partner_id" ref="demo_pk_aquagold"/>
+      <field name="transaction_type">camaronera_to_buyer</field>
+      <field name="transaction_qty">9185.54</field>
+      <field name="sold_qty">9185.54</field>
+      <field name="desired_qty">9185.54</field>
+      <field name="sold_date">2026-07-30</field>
+      <field name="desired_date">2026-07-30</field>
+      <field name="price_unit">3.22</field>
+      <field name="amount_total">29577.44</field>
+      <field name="state">done</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_3" model="shrimp.verification">
+      <field name="transaction_id" ref="demo_pk_ag_tx_burgos_3"/>
+      <field name="verifier_partner_id" ref="shrimp_verification.demo_ver_pacifico"/>
+      <field name="technician_partner_id" ref="shrimp_verification.demo_vtec_pacifico_4"/>
+      <field name="state">approved</field>
+      <field name="batch_code">AG-2026-1103</field>
+      <field name="pond_label">Piscina 3</field>
+      <field name="plant_name">AQUAGOLD – Planta Durán</field>
+      <field name="harvest_date">2026-07-30</field>
+      <field name="process_date">2026-07-31</field>
+      <field name="weight_sent_lb">9185.54</field>
+      <field name="weight_plant_lb">9153.89</field>
+      <field name="trash_lb">198.05</field>
+      <field name="presentation">entero</field>
+      <field name="metabisulfite_ppm">38.48</field>
+      <field name="metabisulfite_limit_ppm">100.0</field>
+      <field name="metabisulfite_notes">Kit colorimétrico, tres tomas sobre el mismo lote.</field>
+      <field name="taste_result">good</field>
+      <field name="taste_notes">Sabor característico, sin notas extrañas.</field>
+      <field name="taste_criteria_ok_ids" eval="[(6, 0, [ref('shrimp_verification.taste_crit_olor'), ref('shrimp_verification.taste_crit_color')])]"/>
+      <field name="grams_farm">22.63</field>
+      <field name="grams_plant_1">22.75</field>
+      <field name="grams_plant_2">22.67</field>
+      <field name="gps_latitude">-1.993298</field>
+      <field name="gps_longitude">-79.816543</field>
+      <field name="incident_notes">Sin novedades.</field>
+      <field name="verdict_notes">Lote conforme. Peso, presentación y sabor dentro de lo pactado.</field>
+      <field name="fee">270.97</field>
+      <field name="margin_pct">15.0</field>
+      <field name="acceptance_state">closed</field>
+      <field name="buyer_notified" eval="True"/>
+      <field name="assigned_date">2026-07-28 09:00:00</field>
+      <field name="field_start_date">2026-07-31 06:20:00</field>
+      <field name="verified_date">2026-07-31 10:45:00</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_3_l1" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_3"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">20/30</field>
+      <field name="weight_lb">1190.40</field>
+      <field name="sequence">10</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_3_l2" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_3"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">20/30</field>
+      <field name="weight_lb">123.04</field>
+      <field name="sequence">20</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_3_l3" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_3"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">30/40</field>
+      <field name="weight_lb">2294.22</field>
+      <field name="sequence">30</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_3_l4" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_3"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">30/40</field>
+      <field name="weight_lb">330.11</field>
+      <field name="sequence">40</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_3_l5" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_3"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">40/50</field>
+      <field name="weight_lb">1298.62</field>
+      <field name="sequence">50</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_3_l6" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_3"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">40/50</field>
+      <field name="weight_lb">198.07</field>
+      <field name="sequence">60</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_3_l7" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_3"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">40/50</field>
+      <field name="weight_lb">79.45</field>
+      <field name="sequence">70</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_3_l8" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_3"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">50/60</field>
+      <field name="weight_lb">553.54</field>
+      <field name="sequence">80</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_3_l9" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_3"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">50/60</field>
+      <field name="weight_lb">90.78</field>
+      <field name="sequence">90</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_3_l10" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_3"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">50/60</field>
+      <field name="weight_lb">78.08</field>
+      <field name="sequence">100</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_3_l11" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_3"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">60/70</field>
+      <field name="weight_lb">232.67</field>
+      <field name="sequence">110</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_3_l12" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_3"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">60/70</field>
+      <field name="weight_lb">41.26</field>
+      <field name="sequence">120</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_3_l13" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_3"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">60/70</field>
+      <field name="weight_lb">56.98</field>
+      <field name="sequence">130</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_3_c1" model="shrimp.verification.count">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_3"/>
+      <field name="value">6567.22</field>
+      <field name="note">Conteo en planta</field>
+      <field name="sequence">10</field>
+    </record>
+    <record id="demo_pk_ag_tx_burgos_4" model="shrimp.transaction">
+      <field name="product_id" ref="demo_pk_burgos_prod_07"/>
+      <field name="seller_partner_id" ref="shrimp_packer.demo_pk_grupo_burgos"/>
+      <field name="buyer_partner_id" ref="demo_pk_aquagold"/>
+      <field name="transaction_type">camaronera_to_buyer</field>
+      <field name="transaction_qty">13230.00</field>
+      <field name="sold_qty">13230.00</field>
+      <field name="desired_qty">13230.00</field>
+      <field name="sold_date">2026-08-06</field>
+      <field name="desired_date">2026-08-06</field>
+      <field name="price_unit">3.21</field>
+      <field name="amount_total">42468.30</field>
+      <field name="state">done</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_4" model="shrimp.verification">
+      <field name="transaction_id" ref="demo_pk_ag_tx_burgos_4"/>
+      <field name="verifier_partner_id" ref="shrimp_verification.demo_ver_pacifico"/>
+      <field name="technician_partner_id" ref="shrimp_verification.demo_vtec_pacifico_1"/>
+      <field name="state">approved</field>
+      <field name="batch_code">AG-2026-1104</field>
+      <field name="pond_label">Piscina 7</field>
+      <field name="plant_name">AQUAGOLD – Planta Durán</field>
+      <field name="harvest_date">2026-08-06</field>
+      <field name="process_date">2026-08-07</field>
+      <field name="weight_sent_lb">13230.00</field>
+      <field name="weight_plant_lb">13202.37</field>
+      <field name="trash_lb">305.36</field>
+      <field name="presentation">entero</field>
+      <field name="metabisulfite_ppm">42.64</field>
+      <field name="metabisulfite_limit_ppm">100.0</field>
+      <field name="metabisulfite_notes">Kit colorimétrico, tres tomas sobre el mismo lote.</field>
+      <field name="taste_result">good</field>
+      <field name="taste_notes">Sabor característico, sin notas extrañas.</field>
+      <field name="taste_criteria_ok_ids" eval="[(6, 0, [ref('shrimp_verification.taste_crit_olor'), ref('shrimp_verification.taste_crit_color')])]"/>
+      <field name="grams_farm">21.15</field>
+      <field name="grams_plant_1">21.01</field>
+      <field name="grams_plant_2">21.47</field>
+      <field name="gps_latitude">-2.109332</field>
+      <field name="gps_longitude">-79.737281</field>
+      <field name="incident_notes">Sin novedades.</field>
+      <field name="verdict_notes">Lote conforme. Peso, presentación y sabor dentro de lo pactado.</field>
+      <field name="fee">390.28</field>
+      <field name="margin_pct">15.0</field>
+      <field name="acceptance_state">closed</field>
+      <field name="buyer_notified" eval="True"/>
+      <field name="assigned_date">2026-08-04 09:00:00</field>
+      <field name="field_start_date">2026-08-07 06:20:00</field>
+      <field name="verified_date">2026-08-07 10:45:00</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_4_l1" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_4"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">20/30</field>
+      <field name="weight_lb">1756.27</field>
+      <field name="sequence">10</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_4_l2" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_4"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">20/30</field>
+      <field name="weight_lb">156.91</field>
+      <field name="sequence">20</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_4_l3" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_4"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">30/40</field>
+      <field name="weight_lb">3384.81</field>
+      <field name="sequence">30</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_4_l4" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_4"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">30/40</field>
+      <field name="weight_lb">441.55</field>
+      <field name="sequence">40</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_4_l5" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_4"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">40/50</field>
+      <field name="weight_lb">1915.93</field>
+      <field name="sequence">50</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_4_l6" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_4"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">40/50</field>
+      <field name="weight_lb">282.08</field>
+      <field name="sequence">60</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_4_l7" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_4"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">40/50</field>
+      <field name="weight_lb">97.81</field>
+      <field name="sequence">70</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_4_l8" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_4"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">50/60</field>
+      <field name="weight_lb">816.66</field>
+      <field name="sequence">80</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_4_l9" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_4"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">50/60</field>
+      <field name="weight_lb">129.29</field>
+      <field name="sequence">90</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_4_l10" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_4"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">50/60</field>
+      <field name="weight_lb">106.30</field>
+      <field name="sequence">100</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_4_l11" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_4"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">60/70</field>
+      <field name="weight_lb">343.27</field>
+      <field name="sequence">110</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_4_l12" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_4"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">60/70</field>
+      <field name="weight_lb">58.77</field>
+      <field name="sequence">120</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_4_l13" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_4"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">60/70</field>
+      <field name="weight_lb">76.26</field>
+      <field name="sequence">130</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_4_c1" model="shrimp.verification.count">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_4"/>
+      <field name="value">9565.89</field>
+      <field name="note">Conteo en planta</field>
+      <field name="sequence">10</field>
+    </record>
+    <record id="demo_pk_ag_tx_burgos_5" model="shrimp.transaction">
+      <field name="product_id" ref="demo_pk_burgos_prod_12"/>
+      <field name="seller_partner_id" ref="shrimp_packer.demo_pk_grupo_burgos"/>
+      <field name="buyer_partner_id" ref="demo_pk_aquagold"/>
+      <field name="transaction_type">camaronera_to_buyer</field>
+      <field name="transaction_qty">14358.92</field>
+      <field name="sold_qty">14358.92</field>
+      <field name="desired_qty">14358.92</field>
+      <field name="sold_date">2026-08-13</field>
+      <field name="desired_date">2026-08-13</field>
+      <field name="price_unit">3.19</field>
+      <field name="amount_total">45804.95</field>
+      <field name="state">done</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_5" model="shrimp.verification">
+      <field name="transaction_id" ref="demo_pk_ag_tx_burgos_5"/>
+      <field name="verifier_partner_id" ref="shrimp_verification.demo_ver_pacifico"/>
+      <field name="technician_partner_id" ref="shrimp_verification.demo_vtec_pacifico_2"/>
+      <field name="state">approved</field>
+      <field name="batch_code">AG-2026-1105</field>
+      <field name="pond_label">Piscina 12</field>
+      <field name="plant_name">AQUAGOLD – Planta Durán</field>
+      <field name="harvest_date">2026-08-13</field>
+      <field name="process_date">2026-08-14</field>
+      <field name="weight_sent_lb">14358.92</field>
+      <field name="weight_plant_lb">14327.30</field>
+      <field name="trash_lb">398.14</field>
+      <field name="presentation">entero</field>
+      <field name="metabisulfite_ppm">39.13</field>
+      <field name="metabisulfite_limit_ppm">100.0</field>
+      <field name="metabisulfite_notes">Kit colorimétrico, tres tomas sobre el mismo lote.</field>
+      <field name="taste_result">good</field>
+      <field name="taste_notes">Sabor característico, sin notas extrañas.</field>
+      <field name="taste_criteria_ok_ids" eval="[(6, 0, [ref('shrimp_verification.taste_crit_olor'), ref('shrimp_verification.taste_crit_color')])]"/>
+      <field name="grams_farm">20.12</field>
+      <field name="grams_plant_1">20.01</field>
+      <field name="grams_plant_2">19.84</field>
+      <field name="gps_latitude">-2.097743</field>
+      <field name="gps_longitude">-79.681091</field>
+      <field name="incident_notes">Sin novedades.</field>
+      <field name="verdict_notes">Lote conforme. Peso, presentación y sabor dentro de lo pactado.</field>
+      <field name="fee">423.59</field>
+      <field name="margin_pct">15.0</field>
+      <field name="acceptance_state">closed</field>
+      <field name="buyer_notified" eval="True"/>
+      <field name="assigned_date">2026-08-11 09:00:00</field>
+      <field name="field_start_date">2026-08-14 06:20:00</field>
+      <field name="verified_date">2026-08-14 16:45:00</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_5_l1" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_5"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">20/30</field>
+      <field name="weight_lb">1842.38</field>
+      <field name="sequence">10</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_5_l2" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_5"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">20/30</field>
+      <field name="weight_lb">189.95</field>
+      <field name="sequence">20</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_5_l3" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_5"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">30/40</field>
+      <field name="weight_lb">3550.77</field>
+      <field name="sequence">30</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_5_l4" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_5"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">30/40</field>
+      <field name="weight_lb">513.88</field>
+      <field name="sequence">40</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_5_l5" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_5"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">40/50</field>
+      <field name="weight_lb">2009.87</field>
+      <field name="sequence">50</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_5_l6" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_5"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">40/50</field>
+      <field name="weight_lb">334.44</field>
+      <field name="sequence">60</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_5_l7" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_5"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">40/50</field>
+      <field name="weight_lb">94.49</field>
+      <field name="sequence">70</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_5_l8" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_5"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">50/60</field>
+      <field name="weight_lb">856.71</field>
+      <field name="sequence">80</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_5_l9" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_5"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">50/60</field>
+      <field name="weight_lb">153.28</field>
+      <field name="sequence">90</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_5_l10" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_5"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">50/60</field>
+      <field name="weight_lb">107.79</field>
+      <field name="sequence">100</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_5_l11" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_5"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">60/70</field>
+      <field name="weight_lb">360.10</field>
+      <field name="sequence">110</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_5_l12" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_5"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">60/70</field>
+      <field name="weight_lb">69.67</field>
+      <field name="sequence">120</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_5_l13" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_5"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">60/70</field>
+      <field name="weight_lb">78.31</field>
+      <field name="sequence">130</field>
+    </record>
+    <record id="demo_pk_ag_ver_burgos_5_c1" model="shrimp.verification.count">
+      <field name="verification_id" ref="demo_pk_ag_ver_burgos_5"/>
+      <field name="value">10161.63</field>
+      <field name="note">Conteo en planta</field>
+      <field name="sequence">10</field>
+    </record>
+
+    <!-- ===================== Río Chone: 3 lotes ===================== -->
+    <record id="demo_pk_ag_tx_riochone_1" model="shrimp.transaction">
+      <field name="product_id" ref="shrimp_marketplace.demo_prod_rio_chone_01"/>
+      <field name="seller_partner_id" ref="shrimp_marketplace.demo_p_rio_chone"/>
+      <field name="buyer_partner_id" ref="demo_pk_aquagold"/>
+      <field name="transaction_type">camaronera_to_buyer</field>
+      <field name="transaction_qty">15026.60</field>
+      <field name="sold_qty">15026.60</field>
+      <field name="desired_qty">15026.60</field>
+      <field name="sold_date">2026-08-20</field>
+      <field name="desired_date">2026-08-20</field>
+      <field name="price_unit">3.23</field>
+      <field name="amount_total">48535.92</field>
+      <field name="state">done</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_1" model="shrimp.verification">
+      <field name="transaction_id" ref="demo_pk_ag_tx_riochone_1"/>
+      <field name="verifier_partner_id" ref="shrimp_verification.demo_ver_pacifico"/>
+      <field name="technician_partner_id" ref="shrimp_verification.demo_vtec_pacifico_3"/>
+      <field name="state">approved</field>
+      <field name="batch_code">AG-2026-1106</field>
+      <field name="pond_label">Piscina 4</field>
+      <field name="plant_name">AQUAGOLD – Planta Durán</field>
+      <field name="harvest_date">2026-08-20</field>
+      <field name="process_date">2026-08-21</field>
+      <field name="weight_sent_lb">15026.60</field>
+      <field name="weight_plant_lb">14991.06</field>
+      <field name="trash_lb">323.80</field>
+      <field name="presentation">entero</field>
+      <field name="metabisulfite_ppm">58.73</field>
+      <field name="metabisulfite_limit_ppm">100.0</field>
+      <field name="metabisulfite_notes">Kit colorimétrico, tres tomas sobre el mismo lote.</field>
+      <field name="taste_result">good</field>
+      <field name="taste_notes">Sabor característico, sin notas extrañas.</field>
+      <field name="taste_criteria_ok_ids" eval="[(6, 0, [ref('shrimp_verification.taste_crit_olor'), ref('shrimp_verification.taste_crit_color')])]"/>
+      <field name="grams_farm">23.07</field>
+      <field name="grams_plant_1">22.99</field>
+      <field name="grams_plant_2">23.41</field>
+      <field name="gps_latitude">-2.320650</field>
+      <field name="gps_longitude">-79.644267</field>
+      <field name="incident_notes">Sin novedades.</field>
+      <field name="verdict_notes">Lote conforme. Peso, presentación y sabor dentro de lo pactado.</field>
+      <field name="fee">443.28</field>
+      <field name="margin_pct">15.0</field>
+      <field name="acceptance_state">closed</field>
+      <field name="buyer_notified" eval="True"/>
+      <field name="assigned_date">2026-08-18 09:00:00</field>
+      <field name="field_start_date">2026-08-21 06:20:00</field>
+      <field name="verified_date">2026-08-21 16:45:00</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_1_l1" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_1"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">U15</field>
+      <field name="weight_lb">306.90</field>
+      <field name="sequence">10</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_1_l2" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_1"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">U15</field>
+      <field name="weight_lb">76.23</field>
+      <field name="sequence">20</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_1_l3" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_1"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">16/20</field>
+      <field name="weight_lb">739.35</field>
+      <field name="sequence">30</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_1_l4" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_1"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">16/20</field>
+      <field name="weight_lb">190.58</field>
+      <field name="sequence">40</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_1_l5" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_1"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">16/20</field>
+      <field name="weight_lb">41.92</field>
+      <field name="sequence">50</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_1_l6" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_1"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">21/25</field>
+      <field name="weight_lb">1395.00</field>
+      <field name="sequence">60</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_1_l7" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_1"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">21/25</field>
+      <field name="weight_lb">381.16</field>
+      <field name="sequence">70</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_1_l8" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_1"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">21/25</field>
+      <field name="weight_lb">167.54</field>
+      <field name="sequence">80</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_1_l9" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_1"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">26/30</field>
+      <field name="weight_lb">1686.56</field>
+      <field name="sequence">90</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_1_l10" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_1"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">26/30</field>
+      <field name="weight_lb">495.51</field>
+      <field name="sequence">100</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_1_l11" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_1"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">26/30</field>
+      <field name="weight_lb">344.74</field>
+      <field name="sequence">110</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_1_l12" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_1"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">31/35</field>
+      <field name="weight_lb">1319.67</field>
+      <field name="sequence">120</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_1_l13" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_1"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">31/35</field>
+      <field name="weight_lb">419.27</field>
+      <field name="sequence">130</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_1_l14" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_1"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">31/35</field>
+      <field name="weight_lb">399.12</field>
+      <field name="sequence">140</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_1_l15" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_1"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">36/40</field>
+      <field name="weight_lb">669.60</field>
+      <field name="sequence">150</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_1_l16" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_1"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">36/40</field>
+      <field name="weight_lb">228.69</field>
+      <field name="sequence">160</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_1_l17" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_1"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">36/40</field>
+      <field name="weight_lb">267.92</field>
+      <field name="sequence">170</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_1_l18" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_1"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">41/50</field>
+      <field name="weight_lb">313.88</field>
+      <field name="sequence">180</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_1_l19" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_1"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">41/50</field>
+      <field name="weight_lb">114.35</field>
+      <field name="sequence">190</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_1_l20" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_1"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">41/50</field>
+      <field name="weight_lb">160.49</field>
+      <field name="sequence">200</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_1_c1" model="shrimp.verification.count">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_1"/>
+      <field name="value">9718.47</field>
+      <field name="note">Conteo en planta</field>
+      <field name="sequence">10</field>
+    </record>
+    <record id="demo_pk_ag_tx_riochone_2" model="shrimp.transaction">
+      <field name="product_id" ref="shrimp_marketplace.demo_prod_rio_chone_02"/>
+      <field name="seller_partner_id" ref="shrimp_marketplace.demo_p_rio_chone"/>
+      <field name="buyer_partner_id" ref="demo_pk_aquagold"/>
+      <field name="transaction_type">camaronera_to_buyer</field>
+      <field name="transaction_qty">10941.23</field>
+      <field name="sold_qty">10941.23</field>
+      <field name="desired_qty">10941.23</field>
+      <field name="sold_date">2026-08-28</field>
+      <field name="desired_date">2026-08-28</field>
+      <field name="price_unit">3.08</field>
+      <field name="amount_total">33698.99</field>
+      <field name="state">done</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_2" model="shrimp.verification">
+      <field name="transaction_id" ref="demo_pk_ag_tx_riochone_2"/>
+      <field name="verifier_partner_id" ref="shrimp_verification.demo_ver_pacifico"/>
+      <field name="technician_partner_id" ref="shrimp_verification.demo_vtec_pacifico_4"/>
+      <field name="state">approved</field>
+      <field name="batch_code">AG-2026-1107</field>
+      <field name="pond_label">Piscina 2</field>
+      <field name="plant_name">AQUAGOLD – Planta Durán</field>
+      <field name="harvest_date">2026-08-28</field>
+      <field name="process_date">2026-08-29</field>
+      <field name="weight_sent_lb">10941.23</field>
+      <field name="weight_plant_lb">10915.08</field>
+      <field name="trash_lb">216.45</field>
+      <field name="presentation">entero</field>
+      <field name="metabisulfite_ppm">57.08</field>
+      <field name="metabisulfite_limit_ppm">100.0</field>
+      <field name="metabisulfite_notes">Kit colorimétrico, tres tomas sobre el mismo lote.</field>
+      <field name="taste_result">good</field>
+      <field name="taste_notes">Sabor característico, sin notas extrañas.</field>
+      <field name="taste_criteria_ok_ids" eval="[(6, 0, [ref('shrimp_verification.taste_crit_olor'), ref('shrimp_verification.taste_crit_color')])]"/>
+      <field name="grams_farm">23.21</field>
+      <field name="grams_plant_1">23.01</field>
+      <field name="grams_plant_2">23.55</field>
+      <field name="gps_latitude">-2.323133</field>
+      <field name="gps_longitude">-79.739508</field>
+      <field name="incident_notes">Sin novedades.</field>
+      <field name="verdict_notes">Lote conforme. Peso, presentación y sabor dentro de lo pactado.</field>
+      <field name="fee">322.77</field>
+      <field name="margin_pct">15.0</field>
+      <field name="acceptance_state">closed</field>
+      <field name="buyer_notified" eval="True"/>
+      <field name="assigned_date">2026-08-26 09:00:00</field>
+      <field name="field_start_date">2026-08-29 06:20:00</field>
+      <field name="verified_date">2026-08-29 16:30:00</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_2_l1" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_2"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">U15</field>
+      <field name="weight_lb">226.06</field>
+      <field name="sequence">10</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_2_l2" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_2"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">U15</field>
+      <field name="weight_lb">59.72</field>
+      <field name="sequence">20</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_2_l3" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_2"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">16/20</field>
+      <field name="weight_lb">544.60</field>
+      <field name="sequence">30</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_2_l4" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_2"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">16/20</field>
+      <field name="weight_lb">154.60</field>
+      <field name="sequence">40</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_2_l5" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_2"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">16/20</field>
+      <field name="weight_lb">15.24</field>
+      <field name="sequence">50</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_2_l6" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_2"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">21/25</field>
+      <field name="weight_lb">1027.54</field>
+      <field name="sequence">60</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_2_l7" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_2"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">21/25</field>
+      <field name="weight_lb">309.21</field>
+      <field name="sequence">70</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_2_l8" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_2"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">21/25</field>
+      <field name="weight_lb">92.14</field>
+      <field name="sequence">80</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_2_l9" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_2"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">26/30</field>
+      <field name="weight_lb">1242.30</field>
+      <field name="sequence">90</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_2_l10" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_2"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">26/30</field>
+      <field name="weight_lb">401.97</field>
+      <field name="sequence">100</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_2_l11" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_2"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">26/30</field>
+      <field name="weight_lb">213.29</field>
+      <field name="sequence">110</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_2_l12" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_2"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">31/35</field>
+      <field name="weight_lb">972.06</field>
+      <field name="sequence">120</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_2_l13" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_2"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">31/35</field>
+      <field name="weight_lb">340.13</field>
+      <field name="sequence">130</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_2_l14" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_2"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">31/35</field>
+      <field name="weight_lb">259.60</field>
+      <field name="sequence">140</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_2_l15" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_2"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">36/40</field>
+      <field name="weight_lb">493.22</field>
+      <field name="sequence">150</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_2_l16" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_2"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">36/40</field>
+      <field name="weight_lb">185.52</field>
+      <field name="sequence">160</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_2_l17" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_2"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">36/40</field>
+      <field name="weight_lb">178.59</field>
+      <field name="sequence">170</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_2_l18" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_2"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">41/50</field>
+      <field name="weight_lb">231.20</field>
+      <field name="sequence">180</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_2_l19" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_2"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">41/50</field>
+      <field name="weight_lb">92.76</field>
+      <field name="sequence">190</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_2_l20" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_2"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">41/50</field>
+      <field name="weight_lb">104.71</field>
+      <field name="sequence">200</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_2_c1" model="shrimp.verification.count">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_2"/>
+      <field name="value">7144.47</field>
+      <field name="note">Conteo en planta</field>
+      <field name="sequence">10</field>
+    </record>
+    <record id="demo_pk_ag_tx_riochone_3" model="shrimp.transaction">
+      <field name="product_id" ref="shrimp_marketplace.demo_prod_rio_chone_01"/>
+      <field name="seller_partner_id" ref="shrimp_marketplace.demo_p_rio_chone"/>
+      <field name="buyer_partner_id" ref="demo_pk_aquagold"/>
+      <field name="transaction_type">camaronera_to_buyer</field>
+      <field name="transaction_qty">15991.34</field>
+      <field name="sold_qty">15991.34</field>
+      <field name="desired_qty">15991.34</field>
+      <field name="sold_date">2026-09-05</field>
+      <field name="desired_date">2026-09-05</field>
+      <field name="price_unit">3.05</field>
+      <field name="amount_total">48773.59</field>
+      <field name="state">done</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_3" model="shrimp.verification">
+      <field name="transaction_id" ref="demo_pk_ag_tx_riochone_3"/>
+      <field name="verifier_partner_id" ref="shrimp_verification.demo_ver_pacifico"/>
+      <field name="technician_partner_id" ref="shrimp_verification.demo_vtec_pacifico_1"/>
+      <field name="state">approved</field>
+      <field name="batch_code">AG-2026-1108</field>
+      <field name="pond_label">Piscina 2</field>
+      <field name="plant_name">AQUAGOLD – Planta Durán</field>
+      <field name="harvest_date">2026-09-05</field>
+      <field name="process_date">2026-09-06</field>
+      <field name="weight_sent_lb">15991.34</field>
+      <field name="weight_plant_lb">15886.04</field>
+      <field name="trash_lb">412.05</field>
+      <field name="presentation">entero</field>
+      <field name="metabisulfite_ppm">61.39</field>
+      <field name="metabisulfite_limit_ppm">100.0</field>
+      <field name="metabisulfite_notes">Kit colorimétrico, tres tomas sobre el mismo lote.</field>
+      <field name="taste_result">good</field>
+      <field name="taste_notes">Sabor característico, sin notas extrañas.</field>
+      <field name="taste_criteria_ok_ids" eval="[(6, 0, [ref('shrimp_verification.taste_crit_olor'), ref('shrimp_verification.taste_crit_color')])]"/>
+      <field name="grams_farm">21.71</field>
+      <field name="grams_plant_1">21.95</field>
+      <field name="grams_plant_2">22.07</field>
+      <field name="gps_latitude">-2.163204</field>
+      <field name="gps_longitude">-79.631811</field>
+      <field name="incident_notes">Sin novedades.</field>
+      <field name="verdict_notes">Lote conforme. Peso, presentación y sabor dentro de lo pactado.</field>
+      <field name="fee">471.74</field>
+      <field name="margin_pct">15.0</field>
+      <field name="acceptance_state">closed</field>
+      <field name="buyer_notified" eval="True"/>
+      <field name="assigned_date">2026-09-03 09:00:00</field>
+      <field name="field_start_date">2026-09-06 06:20:00</field>
+      <field name="verified_date">2026-09-06 14:15:00</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_3_l1" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_3"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">U15</field>
+      <field name="weight_lb">323.03</field>
+      <field name="sequence">10</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_3_l2" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_3"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">U15</field>
+      <field name="weight_lb">86.72</field>
+      <field name="sequence">20</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_3_l3" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_3"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">16/20</field>
+      <field name="weight_lb">778.20</field>
+      <field name="sequence">30</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_3_l4" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_3"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">16/20</field>
+      <field name="weight_lb">216.80</field>
+      <field name="sequence">40</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_3_l5" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_3"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">16/20</field>
+      <field name="weight_lb">32.01</field>
+      <field name="sequence">50</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_3_l6" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_3"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">21/25</field>
+      <field name="weight_lb">1468.30</field>
+      <field name="sequence">60</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_3_l7" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_3"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">21/25</field>
+      <field name="weight_lb">433.60</field>
+      <field name="sequence">70</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_3_l8" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_3"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">21/25</field>
+      <field name="weight_lb">152.11</field>
+      <field name="sequence">80</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_3_l9" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_3"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">26/30</field>
+      <field name="weight_lb">1775.18</field>
+      <field name="sequence">90</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_3_l10" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_3"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">26/30</field>
+      <field name="weight_lb">563.69</field>
+      <field name="sequence">100</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_3_l11" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_3"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">26/30</field>
+      <field name="weight_lb">331.36</field>
+      <field name="sequence">110</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_3_l12" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_3"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">31/35</field>
+      <field name="weight_lb">1389.01</field>
+      <field name="sequence">120</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_3_l13" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_3"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">31/35</field>
+      <field name="weight_lb">476.97</field>
+      <field name="sequence">130</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_3_l14" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_3"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">31/35</field>
+      <field name="weight_lb">393.44</field>
+      <field name="sequence">140</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_3_l15" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_3"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">36/40</field>
+      <field name="weight_lb">704.78</field>
+      <field name="sequence">150</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_3_l16" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_3"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">36/40</field>
+      <field name="weight_lb">260.16</field>
+      <field name="sequence">160</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_3_l17" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_3"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">36/40</field>
+      <field name="weight_lb">267.46</field>
+      <field name="sequence">170</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_3_l18" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_3"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">41/50</field>
+      <field name="weight_lb">330.37</field>
+      <field name="sequence">180</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_3_l19" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_3"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">41/50</field>
+      <field name="weight_lb">130.08</field>
+      <field name="sequence">190</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_3_l20" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_3"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">41/50</field>
+      <field name="weight_lb">156.81</field>
+      <field name="sequence">200</field>
+    </record>
+    <record id="demo_pk_ag_ver_riochone_3_c1" model="shrimp.verification.count">
+      <field name="verification_id" ref="demo_pk_ag_ver_riochone_3"/>
+      <field name="value">10270.09</field>
+      <field name="note">Conteo en planta</field>
+      <field name="sequence">10</field>
+    </record>
+
+    <!-- ===================== Balao Grande: 3 lotes ===================== -->
+    <record id="demo_pk_ag_tx_balao_1" model="shrimp.transaction">
+      <field name="product_id" ref="shrimp_marketplace.demo_prod_balao_grande_01"/>
+      <field name="seller_partner_id" ref="shrimp_marketplace.demo_p_balao_grande"/>
+      <field name="buyer_partner_id" ref="demo_pk_aquagold"/>
+      <field name="transaction_type">camaronera_to_buyer</field>
+      <field name="transaction_qty">13093.53</field>
+      <field name="sold_qty">13093.53</field>
+      <field name="desired_qty">13093.53</field>
+      <field name="sold_date">2026-09-10</field>
+      <field name="desired_date">2026-09-10</field>
+      <field name="price_unit">3.31</field>
+      <field name="amount_total">43339.58</field>
+      <field name="state">done</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_1" model="shrimp.verification">
+      <field name="transaction_id" ref="demo_pk_ag_tx_balao_1"/>
+      <field name="verifier_partner_id" ref="shrimp_verification.demo_ver_pacifico"/>
+      <field name="technician_partner_id" ref="shrimp_verification.demo_vtec_pacifico_2"/>
+      <field name="state">approved</field>
+      <field name="batch_code">AG-2026-1109</field>
+      <field name="pond_label">Piscina 2</field>
+      <field name="plant_name">AQUAGOLD – Planta Durán</field>
+      <field name="harvest_date">2026-09-10</field>
+      <field name="process_date">2026-09-11</field>
+      <field name="weight_sent_lb">13093.53</field>
+      <field name="weight_plant_lb">13032.84</field>
+      <field name="trash_lb">251.69</field>
+      <field name="presentation">entero</field>
+      <field name="metabisulfite_ppm">64.61</field>
+      <field name="metabisulfite_limit_ppm">100.0</field>
+      <field name="metabisulfite_notes">Kit colorimétrico, tres tomas sobre el mismo lote.</field>
+      <field name="taste_result">good</field>
+      <field name="taste_notes">Sabor característico, sin notas extrañas.</field>
+      <field name="taste_criteria_ok_ids" eval="[(6, 0, [ref('shrimp_verification.taste_crit_olor'), ref('shrimp_verification.taste_crit_color')])]"/>
+      <field name="grams_farm">20.18</field>
+      <field name="grams_plant_1">20.17</field>
+      <field name="grams_plant_2">20.45</field>
+      <field name="gps_latitude">-2.151988</field>
+      <field name="gps_longitude">-79.841321</field>
+      <field name="incident_notes">Sin novedades.</field>
+      <field name="verdict_notes">Lote conforme. Peso, presentación y sabor dentro de lo pactado.</field>
+      <field name="fee">386.26</field>
+      <field name="margin_pct">15.0</field>
+      <field name="acceptance_state">closed</field>
+      <field name="buyer_notified" eval="True"/>
+      <field name="assigned_date">2026-09-08 09:00:00</field>
+      <field name="field_start_date">2026-09-11 06:20:00</field>
+      <field name="verified_date">2026-09-11 11:15:00</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_1_l1" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_1"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">U15</field>
+      <field name="weight_lb">245.88</field>
+      <field name="sequence">10</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_1_l2" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_1"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">U15</field>
+      <field name="weight_lb">70.85</field>
+      <field name="sequence">20</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_1_l3" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_1"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">16/20</field>
+      <field name="weight_lb">592.35</field>
+      <field name="sequence">30</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_1_l4" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_1"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">16/20</field>
+      <field name="weight_lb">177.13</field>
+      <field name="sequence">40</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_1_l5" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_1"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">16/20</field>
+      <field name="weight_lb">55.10</field>
+      <field name="sequence">50</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_1_l6" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_1"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">21/25</field>
+      <field name="weight_lb">1117.65</field>
+      <field name="sequence">60</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_1_l7" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_1"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">21/25</field>
+      <field name="weight_lb">354.27</field>
+      <field name="sequence">70</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_1_l8" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_1"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">21/25</field>
+      <field name="weight_lb">177.26</field>
+      <field name="sequence">80</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_1_l9" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_1"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">26/30</field>
+      <field name="weight_lb">1351.24</field>
+      <field name="sequence">90</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_1_l10" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_1"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">26/30</field>
+      <field name="weight_lb">460.55</field>
+      <field name="sequence">100</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_1_l11" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_1"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">26/30</field>
+      <field name="weight_lb">332.14</field>
+      <field name="sequence">110</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_1_l12" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_1"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">31/35</field>
+      <field name="weight_lb">1057.30</field>
+      <field name="sequence">120</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_1_l13" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_1"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">31/35</field>
+      <field name="weight_lb">389.69</field>
+      <field name="sequence">130</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_1_l14" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_1"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">31/35</field>
+      <field name="weight_lb">367.10</field>
+      <field name="sequence">140</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_1_l15" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_1"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">36/40</field>
+      <field name="weight_lb">536.47</field>
+      <field name="sequence">150</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_1_l16" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_1"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">36/40</field>
+      <field name="weight_lb">212.56</field>
+      <field name="sequence">160</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_1_l17" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_1"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">36/40</field>
+      <field name="weight_lb">240.47</field>
+      <field name="sequence">170</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_1_l18" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_1"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">41/50</field>
+      <field name="weight_lb">251.47</field>
+      <field name="sequence">180</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_1_l19" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_1"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">41/50</field>
+      <field name="weight_lb">106.28</field>
+      <field name="sequence">190</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_1_l20" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_1"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">41/50</field>
+      <field name="weight_lb">150.10</field>
+      <field name="sequence">200</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_1_c1" model="shrimp.verification.count">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_1"/>
+      <field name="value">8245.87</field>
+      <field name="note">Conteo en planta</field>
+      <field name="sequence">10</field>
+    </record>
+    <record id="demo_pk_ag_tx_balao_2" model="shrimp.transaction">
+      <field name="product_id" ref="shrimp_marketplace.demo_prod_balao_grande_02"/>
+      <field name="seller_partner_id" ref="shrimp_marketplace.demo_p_balao_grande"/>
+      <field name="buyer_partner_id" ref="demo_pk_aquagold"/>
+      <field name="transaction_type">camaronera_to_buyer</field>
+      <field name="transaction_qty">16191.18</field>
+      <field name="sold_qty">16191.18</field>
+      <field name="desired_qty">16191.18</field>
+      <field name="sold_date">2026-09-14</field>
+      <field name="desired_date">2026-09-14</field>
+      <field name="price_unit">3.16</field>
+      <field name="amount_total">51164.13</field>
+      <field name="state">done</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_2" model="shrimp.verification">
+      <field name="transaction_id" ref="demo_pk_ag_tx_balao_2"/>
+      <field name="verifier_partner_id" ref="shrimp_verification.demo_ver_pacifico"/>
+      <field name="technician_partner_id" ref="shrimp_verification.demo_vtec_pacifico_3"/>
+      <field name="state">approved</field>
+      <field name="batch_code">AG-2026-1110</field>
+      <field name="pond_label">Piscina 9</field>
+      <field name="plant_name">AQUAGOLD – Planta Durán</field>
+      <field name="harvest_date">2026-09-14</field>
+      <field name="process_date">2026-09-15</field>
+      <field name="weight_sent_lb">16191.18</field>
+      <field name="weight_plant_lb">16109.36</field>
+      <field name="trash_lb">301.80</field>
+      <field name="presentation">entero</field>
+      <field name="metabisulfite_ppm">76.74</field>
+      <field name="metabisulfite_limit_ppm">100.0</field>
+      <field name="metabisulfite_notes">Kit colorimétrico, tres tomas sobre el mismo lote.</field>
+      <field name="taste_result">good</field>
+      <field name="taste_notes">Sabor característico, sin notas extrañas.</field>
+      <field name="taste_criteria_ok_ids" eval="[(6, 0, [ref('shrimp_verification.taste_crit_olor'), ref('shrimp_verification.taste_crit_color')])]"/>
+      <field name="grams_farm">20.98</field>
+      <field name="grams_plant_1">21.32</field>
+      <field name="grams_plant_2">21.02</field>
+      <field name="gps_latitude">-2.173367</field>
+      <field name="gps_longitude">-79.672558</field>
+      <field name="incident_notes">Sin novedades.</field>
+      <field name="verdict_notes">Lote conforme. Peso, presentación y sabor dentro de lo pactado.</field>
+      <field name="fee">477.64</field>
+      <field name="margin_pct">15.0</field>
+      <field name="acceptance_state">closed</field>
+      <field name="buyer_notified" eval="True"/>
+      <field name="assigned_date">2026-09-12 09:00:00</field>
+      <field name="field_start_date">2026-09-15 06:20:00</field>
+      <field name="verified_date">2026-09-15 09:45:00</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_2_l1" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_2"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">U15</field>
+      <field name="weight_lb">305.71</field>
+      <field name="sequence">10</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_2_l2" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_2"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">U15</field>
+      <field name="weight_lb">102.57</field>
+      <field name="sequence">20</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_2_l3" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_2"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">16/20</field>
+      <field name="weight_lb">736.49</field>
+      <field name="sequence">30</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_2_l4" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_2"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">16/20</field>
+      <field name="weight_lb">256.43</field>
+      <field name="sequence">40</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_2_l5" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_2"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">16/20</field>
+      <field name="weight_lb">35.11</field>
+      <field name="sequence">50</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_2_l6" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_2"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">21/25</field>
+      <field name="weight_lb">1389.60</field>
+      <field name="sequence">60</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_2_l7" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_2"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">21/25</field>
+      <field name="weight_lb">512.87</field>
+      <field name="sequence">70</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_2_l8" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_2"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">21/25</field>
+      <field name="weight_lb">153.60</field>
+      <field name="sequence">80</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_2_l9" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_2"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">26/30</field>
+      <field name="weight_lb">1680.02</field>
+      <field name="sequence">90</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_2_l10" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_2"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">26/30</field>
+      <field name="weight_lb">666.73</field>
+      <field name="sequence">100</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_2_l11" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_2"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">26/30</field>
+      <field name="weight_lb">326.14</field>
+      <field name="sequence">110</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_2_l12" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_2"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">31/35</field>
+      <field name="weight_lb">1314.56</field>
+      <field name="sequence">120</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_2_l13" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_2"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">31/35</field>
+      <field name="weight_lb">564.16</field>
+      <field name="sequence">130</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_2_l14" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_2"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">31/35</field>
+      <field name="weight_lb">382.96</field>
+      <field name="sequence">140</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_2_l15" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_2"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">36/40</field>
+      <field name="weight_lb">667.01</field>
+      <field name="sequence">150</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_2_l16" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_2"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">36/40</field>
+      <field name="weight_lb">307.72</field>
+      <field name="sequence">160</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_2_l17" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_2"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">36/40</field>
+      <field name="weight_lb">258.91</field>
+      <field name="sequence">170</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_2_l18" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_2"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">41/50</field>
+      <field name="weight_lb">312.66</field>
+      <field name="sequence">180</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_2_l19" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_2"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">41/50</field>
+      <field name="weight_lb">153.86</field>
+      <field name="sequence">190</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_2_l20" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_2"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">41/50</field>
+      <field name="weight_lb">153.23</field>
+      <field name="sequence">200</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_2_c1" model="shrimp.verification.count">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_2"/>
+      <field name="value">10280.35</field>
+      <field name="note">Conteo en planta</field>
+      <field name="sequence">10</field>
+    </record>
+    <record id="demo_pk_ag_tx_balao_3" model="shrimp.transaction">
+      <field name="product_id" ref="shrimp_marketplace.demo_prod_balao_grande_01"/>
+      <field name="seller_partner_id" ref="shrimp_marketplace.demo_p_balao_grande"/>
+      <field name="buyer_partner_id" ref="demo_pk_aquagold"/>
+      <field name="transaction_type">camaronera_to_buyer</field>
+      <field name="transaction_qty">10154.18</field>
+      <field name="sold_qty">10154.18</field>
+      <field name="desired_qty">10154.18</field>
+      <field name="sold_date">2026-09-19</field>
+      <field name="desired_date">2026-09-19</field>
+      <field name="price_unit">3.11</field>
+      <field name="amount_total">31579.50</field>
+      <field name="state">done</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_3" model="shrimp.verification">
+      <field name="transaction_id" ref="demo_pk_ag_tx_balao_3"/>
+      <field name="verifier_partner_id" ref="shrimp_verification.demo_ver_pacifico"/>
+      <field name="technician_partner_id" ref="shrimp_verification.demo_vtec_pacifico_4"/>
+      <field name="state">approved_obs</field>
+      <field name="batch_code">AG-2026-1111</field>
+      <field name="pond_label">Piscina 4</field>
+      <field name="plant_name">AQUAGOLD – Planta Durán</field>
+      <field name="harvest_date">2026-09-19</field>
+      <field name="process_date">2026-09-20</field>
+      <field name="weight_sent_lb">10154.18</field>
+      <field name="weight_plant_lb">10109.48</field>
+      <field name="trash_lb">225.81</field>
+      <field name="presentation">entero</field>
+      <field name="metabisulfite_ppm">56.6</field>
+      <field name="metabisulfite_limit_ppm">100.0</field>
+      <field name="metabisulfite_notes">Kit colorimétrico, tres tomas sobre el mismo lote.</field>
+      <field name="taste_result">good</field>
+      <field name="taste_notes">Sabor característico, sin notas extrañas.</field>
+      <field name="taste_criteria_ok_ids" eval="[(6, 0, [ref('shrimp_verification.taste_crit_olor'), ref('shrimp_verification.taste_crit_color')])]"/>
+      <field name="grams_farm">18.75</field>
+      <field name="grams_plant_1">18.83</field>
+      <field name="grams_plant_2">19.04</field>
+      <field name="gps_latitude">-2.179272</field>
+      <field name="gps_longitude">-79.618116</field>
+      <field name="incident_notes">Hielo insuficiente en dos gavetas al llegar a planta.</field>
+      <field name="verdict_notes">Aprobado con observaciones: revisar cadena de frío en el despacho.</field>
+      <field name="fee">299.55</field>
+      <field name="margin_pct">15.0</field>
+      <field name="acceptance_state">closed</field>
+      <field name="buyer_notified" eval="True"/>
+      <field name="assigned_date">2026-09-17 09:00:00</field>
+      <field name="field_start_date">2026-09-20 06:20:00</field>
+      <field name="verified_date">2026-09-20 15:00:00</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_3_l1" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_3"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">U15</field>
+      <field name="weight_lb">187.40</field>
+      <field name="sequence">10</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_3_l2" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_3"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">U15</field>
+      <field name="weight_lb">60.05</field>
+      <field name="sequence">20</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_3_l3" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_3"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">16/20</field>
+      <field name="weight_lb">451.45</field>
+      <field name="sequence">30</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_3_l4" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_3"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">16/20</field>
+      <field name="weight_lb">150.13</field>
+      <field name="sequence">40</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_3_l5" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_3"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">16/20</field>
+      <field name="weight_lb">30.38</field>
+      <field name="sequence">50</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_3_l6" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_3"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">21/25</field>
+      <field name="weight_lb">851.80</field>
+      <field name="sequence">60</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_3_l7" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_3"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">21/25</field>
+      <field name="weight_lb">300.26</field>
+      <field name="sequence">70</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_3_l8" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_3"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">21/25</field>
+      <field name="weight_lb">111.87</field>
+      <field name="sequence">80</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_3_l9" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_3"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">26/30</field>
+      <field name="weight_lb">1029.82</field>
+      <field name="sequence">90</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_3_l10" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_3"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">26/30</field>
+      <field name="weight_lb">390.34</field>
+      <field name="sequence">100</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_3_l11" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_3"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">26/30</field>
+      <field name="weight_lb">222.94</field>
+      <field name="sequence">110</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_3_l12" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_3"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">31/35</field>
+      <field name="weight_lb">805.80</field>
+      <field name="sequence">120</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_3_l13" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_3"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">31/35</field>
+      <field name="weight_lb">330.29</field>
+      <field name="sequence">130</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_3_l14" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_3"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">31/35</field>
+      <field name="weight_lb">254.23</field>
+      <field name="sequence">140</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_3_l15" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_3"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">36/40</field>
+      <field name="weight_lb">408.86</field>
+      <field name="sequence">150</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_3_l16" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_3"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">36/40</field>
+      <field name="weight_lb">180.16</field>
+      <field name="sequence">160</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_3_l17" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_3"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">36/40</field>
+      <field name="weight_lb">169.34</field>
+      <field name="sequence">170</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_3_l18" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_3"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">41/50</field>
+      <field name="weight_lb">191.65</field>
+      <field name="sequence">180</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_3_l19" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_3"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">41/50</field>
+      <field name="weight_lb">90.08</field>
+      <field name="sequence">190</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_3_l20" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_3"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">41/50</field>
+      <field name="weight_lb">102.78</field>
+      <field name="sequence">200</field>
+    </record>
+    <record id="demo_pk_ag_ver_balao_3_c1" model="shrimp.verification.count">
+      <field name="verification_id" ref="demo_pk_ag_ver_balao_3"/>
+      <field name="value">6319.63</field>
+      <field name="note">Conteo en planta</field>
+      <field name="sequence">10</field>
+    </record>
+
+    <!-- ===================== El Manglar: 2 lotes ===================== -->
+    <record id="demo_pk_ag_tx_manglar_1" model="shrimp.transaction">
+      <field name="product_id" ref="shrimp_marketplace.demo_prod_el_manglar_01"/>
+      <field name="seller_partner_id" ref="shrimp_marketplace.demo_p_el_manglar"/>
+      <field name="buyer_partner_id" ref="demo_pk_aquagold"/>
+      <field name="transaction_type">camaronera_to_buyer</field>
+      <field name="transaction_qty">12628.81</field>
+      <field name="sold_qty">12628.81</field>
+      <field name="desired_qty">12628.81</field>
+      <field name="sold_date">2026-09-24</field>
+      <field name="desired_date">2026-09-24</field>
+      <field name="price_unit">3.27</field>
+      <field name="amount_total">41296.21</field>
+      <field name="state">done</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_1" model="shrimp.verification">
+      <field name="transaction_id" ref="demo_pk_ag_tx_manglar_1"/>
+      <field name="verifier_partner_id" ref="shrimp_verification.demo_ver_pacifico"/>
+      <field name="technician_partner_id" ref="shrimp_verification.demo_vtec_pacifico_1"/>
+      <field name="state">approved</field>
+      <field name="batch_code">AG-2026-1112</field>
+      <field name="pond_label">Piscina 4</field>
+      <field name="plant_name">AQUAGOLD – Planta Durán</field>
+      <field name="harvest_date">2026-09-24</field>
+      <field name="process_date">2026-09-25</field>
+      <field name="weight_sent_lb">12628.81</field>
+      <field name="weight_plant_lb">12583.26</field>
+      <field name="trash_lb">229.07</field>
+      <field name="presentation">entero</field>
+      <field name="metabisulfite_ppm">89.68</field>
+      <field name="metabisulfite_limit_ppm">100.0</field>
+      <field name="metabisulfite_notes">Kit colorimétrico, tres tomas sobre el mismo lote.</field>
+      <field name="taste_result">good</field>
+      <field name="taste_notes">Sabor característico, sin notas extrañas.</field>
+      <field name="taste_criteria_ok_ids" eval="[(6, 0, [ref('shrimp_verification.taste_crit_olor'), ref('shrimp_verification.taste_crit_color')])]"/>
+      <field name="grams_farm">20.64</field>
+      <field name="grams_plant_1">20.64</field>
+      <field name="grams_plant_2">20.63</field>
+      <field name="gps_latitude">-2.328536</field>
+      <field name="gps_longitude">-79.798036</field>
+      <field name="incident_notes">Sin novedades.</field>
+      <field name="verdict_notes">Lote conforme. Peso, presentación y sabor dentro de lo pactado.</field>
+      <field name="fee">372.55</field>
+      <field name="margin_pct">15.0</field>
+      <field name="acceptance_state">closed</field>
+      <field name="buyer_notified" eval="True"/>
+      <field name="assigned_date">2026-09-22 09:00:00</field>
+      <field name="field_start_date">2026-09-25 06:20:00</field>
+      <field name="verified_date">2026-09-25 11:15:00</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_1_l1" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_1"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">16/20</field>
+      <field name="weight_lb">185.69</field>
+      <field name="sequence">10</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_1_l2" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_1"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">16/20</field>
+      <field name="weight_lb">96.19</field>
+      <field name="sequence">20</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_1_l3" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_1"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">16/20</field>
+      <field name="weight_lb">19.66</field>
+      <field name="sequence">30</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_1_l4" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_1"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">21/25</field>
+      <field name="weight_lb">437.94</field>
+      <field name="sequence">40</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_1_l5" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_1"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">21/25</field>
+      <field name="weight_lb">240.48</field>
+      <field name="sequence">50</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_1_l6" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_1"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">21/25</field>
+      <field name="weight_lb">75.43</field>
+      <field name="sequence">60</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_1_l7" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_1"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">26/30</field>
+      <field name="weight_lb">733.12</field>
+      <field name="sequence">70</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_1_l8" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_1"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">26/30</field>
+      <field name="weight_lb">432.87</field>
+      <field name="sequence">80</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_1_l9" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_1"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">26/30</field>
+      <field name="weight_lb">190.96</field>
+      <field name="sequence">90</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_1_l10" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_1"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">31/35</field>
+      <field name="weight_lb">979.24</field>
+      <field name="sequence">100</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_1_l11" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_1"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">31/35</field>
+      <field name="weight_lb">625.25</field>
+      <field name="sequence">110</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_1_l12" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_1"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">31/35</field>
+      <field name="weight_lb">355.53</field>
+      <field name="sequence">120</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_1_l13" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_1"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">36/40</field>
+      <field name="weight_lb">840.85</field>
+      <field name="sequence">130</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_1_l14" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_1"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">36/40</field>
+      <field name="weight_lb">577.16</field>
+      <field name="sequence">140</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_1_l15" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_1"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">36/40</field>
+      <field name="weight_lb">391.25</field>
+      <field name="sequence">150</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_1_l16" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_1"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">41/50</field>
+      <field name="weight_lb">591.22</field>
+      <field name="sequence">160</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_1_l17" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_1"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">41/50</field>
+      <field name="weight_lb">432.87</field>
+      <field name="sequence">170</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_1_l18" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_1"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">41/50</field>
+      <field name="weight_lb">332.85</field>
+      <field name="sequence">180</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_1_c1" model="shrimp.verification.count">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_1"/>
+      <field name="value">7538.58</field>
+      <field name="note">Conteo en planta</field>
+      <field name="sequence">10</field>
+    </record>
+    <record id="demo_pk_ag_tx_manglar_2" model="shrimp.transaction">
+      <field name="product_id" ref="shrimp_marketplace.demo_prod_el_manglar_02"/>
+      <field name="seller_partner_id" ref="shrimp_marketplace.demo_p_el_manglar"/>
+      <field name="buyer_partner_id" ref="demo_pk_aquagold"/>
+      <field name="transaction_type">camaronera_to_buyer</field>
+      <field name="transaction_qty">10310.21</field>
+      <field name="sold_qty">10310.21</field>
+      <field name="desired_qty">10310.21</field>
+      <field name="sold_date">2026-09-30</field>
+      <field name="desired_date">2026-09-30</field>
+      <field name="price_unit">3.09</field>
+      <field name="amount_total">31858.55</field>
+      <field name="state">done</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_2" model="shrimp.verification">
+      <field name="transaction_id" ref="demo_pk_ag_tx_manglar_2"/>
+      <field name="verifier_partner_id" ref="shrimp_verification.demo_ver_pacifico"/>
+      <field name="technician_partner_id" ref="shrimp_verification.demo_vtec_pacifico_2"/>
+      <field name="state">approved</field>
+      <field name="batch_code">AG-2026-1113</field>
+      <field name="pond_label">Piscina 2</field>
+      <field name="plant_name">AQUAGOLD – Planta Durán</field>
+      <field name="harvest_date">2026-09-30</field>
+      <field name="process_date">2026-10-01</field>
+      <field name="weight_sent_lb">10310.21</field>
+      <field name="weight_plant_lb">9846.25</field>
+      <field name="trash_lb">222.91</field>
+      <field name="presentation">entero</field>
+      <field name="metabisulfite_ppm">73.89</field>
+      <field name="metabisulfite_limit_ppm">100.0</field>
+      <field name="metabisulfite_notes">Kit colorimétrico, tres tomas sobre el mismo lote.</field>
+      <field name="taste_result">good</field>
+      <field name="taste_notes">Sabor característico, sin notas extrañas.</field>
+      <field name="taste_criteria_ok_ids" eval="[(6, 0, [ref('shrimp_verification.taste_crit_olor'), ref('shrimp_verification.taste_crit_color')])]"/>
+      <field name="grams_farm">22.88</field>
+      <field name="grams_plant_1">23.15</field>
+      <field name="grams_plant_2">23.18</field>
+      <field name="gps_latitude">-2.267466</field>
+      <field name="gps_longitude">-79.538530</field>
+      <field name="incident_notes">Faltante de peso frente a lo vendido: 10310.21 lb vendidas, 9846.25 lb en planta.</field>
+      <field name="verdict_notes">Lote aprobado en calidad; el faltante de peso se registra para la liquidación.</field>
+      <field name="fee">304.15</field>
+      <field name="margin_pct">15.0</field>
+      <field name="acceptance_state">closed</field>
+      <field name="buyer_notified" eval="True"/>
+      <field name="assigned_date">2026-09-28 09:00:00</field>
+      <field name="field_start_date">2026-10-01 06:20:00</field>
+      <field name="verified_date">2026-10-01 16:45:00</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_2_l1" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_2"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">16/20</field>
+      <field name="weight_lb">154.00</field>
+      <field name="sequence">10</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_2_l2" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_2"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">16/20</field>
+      <field name="weight_lb">61.67</field>
+      <field name="sequence">20</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_2_l3" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_2"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">16/20</field>
+      <field name="weight_lb">22.21</field>
+      <field name="sequence">30</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_2_l4" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_2"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">21/25</field>
+      <field name="weight_lb">363.22</field>
+      <field name="sequence">40</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_2_l5" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_2"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">21/25</field>
+      <field name="weight_lb">154.18</field>
+      <field name="sequence">50</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_2_l6" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_2"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">21/25</field>
+      <field name="weight_lb">77.31</field>
+      <field name="sequence">60</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_2_l7" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_2"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">26/30</field>
+      <field name="weight_lb">608.02</field>
+      <field name="sequence">70</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_2_l8" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_2"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">26/30</field>
+      <field name="weight_lb">277.52</field>
+      <field name="sequence">80</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_2_l9" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_2"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">26/30</field>
+      <field name="weight_lb">184.93</field>
+      <field name="sequence">90</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_2_l10" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_2"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">31/35</field>
+      <field name="weight_lb">812.15</field>
+      <field name="sequence">100</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_2_l11" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_2"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">31/35</field>
+      <field name="weight_lb">400.86</field>
+      <field name="sequence">110</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_2_l12" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_2"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">31/35</field>
+      <field name="weight_lb">333.22</field>
+      <field name="sequence">120</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_2_l13" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_2"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">36/40</field>
+      <field name="weight_lb">697.38</field>
+      <field name="sequence">130</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_2_l14" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_2"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">36/40</field>
+      <field name="weight_lb">370.03</field>
+      <field name="sequence">140</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_2_l15" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_2"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">36/40</field>
+      <field name="weight_lb">359.89</field>
+      <field name="sequence">150</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_2_l16" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_2"/>
+      <field name="quality_class">a</field>
+      <field name="size_code">41/50</field>
+      <field name="weight_lb">490.34</field>
+      <field name="sequence">160</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_2_l17" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_2"/>
+      <field name="quality_class">b</field>
+      <field name="size_code">41/50</field>
+      <field name="weight_lb">277.52</field>
+      <field name="sequence">170</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_2_l18" model="shrimp.verification.line">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_2"/>
+      <field name="quality_class">c</field>
+      <field name="size_code">41/50</field>
+      <field name="weight_lb">302.61</field>
+      <field name="sequence">180</field>
+    </record>
+    <record id="demo_pk_ag_ver_manglar_2_c1" model="shrimp.verification.count">
+      <field name="verification_id" ref="demo_pk_ag_ver_manglar_2"/>
+      <field name="value">5947.06</field>
+      <field name="note">Conteo en planta</field>
+      <field name="sequence">10</field>
+    </record>
+
+  </data>
+</odoo>

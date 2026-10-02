@@ -1,0 +1,193 @@
+<odoo>
+
+  <!-- ================================================================
+       LO PRIMERO QUE VE LA EMPACADORA AL ENTRAR
+
+       La portada (/) es una landing de marketing igual para todos. Una
+       empacadora que ya compra y verifica no necesita que le vendan el
+       sistema: necesita saber, antes de leer nada más, a quién le está
+       comprando mejor y en qué talla. Este bloque se cuela justo debajo
+       del hero, y SOLO aparece si quien entra es empacadora y además tiene
+       un proveedor con muestra suficiente.
+
+       Sin datos no se pinta nada —ni un recuadro con ceros—: un tablero
+       vacío en la primera pantalla se lee como "esto no funciona". Por eso
+       en producción, donde hoy no hay verificaciones de empacadoras, la
+       portada queda exactamente igual que antes.
+
+       El líder es el mismo que corona /marketplace/proveedores, porque se
+       reutiliza el mismo cálculo. La portada y el ranking no pueden decir
+       dos nombres distintos.
+       ================================================================ -->
+  <template id="landing_dashboard_empacadora"
+            inherit_id="shrimp_marketplace.landing"
+            name="Portada - tablero de la empacadora">
+    <xpath expr="//section[hasclass('sl-hero')]" position="after">
+      <t t-set="pk_dash"
+         t-value="request.env['shrimp.proveedor.ranking'].sudo().dashboard_empacadora(request.env.user.partner_id)
+                  if request and request.env.user.partner_id.shrimp_user_type == 'empacadora' else None"/>
+
+      <section class="sl-section pk-dash" t-if="pk_dash">
+        <div class="sl-wrap">
+          <t t-set="L" t-value="pk_dash['lider']"/>
+          <t t-set="T" t-value="pk_dash['tallas']"/>
+          <t t-set="R" t-value="pk_dash['r']"/>
+
+          <div class="pk-dash-head">
+            <div>
+              <span class="sl-eyebrow sl-eyebrow--teal">
+                <i class="fa fa-trophy"></i> Tu mejor proveedor, verificado en tu planta
+              </span>
+              <h2 class="sl-h2 pk-dash-titulo">
+                <a t-attf-href="/marketplace/vendedor/#{L['proveedor'].uuid_ref}"
+                   t-esc="L['proveedor'].name"/>
+              </h2>
+              <p class="pk-dash-sub">
+                <t t-esc="L['lotes']"/> lotes verificados ·
+                <t t-esc="'{:,.0f}'.format(L['lb_verificadas'])"/> lb en planta
+                <t t-if="L['ultima']">· último el <t t-esc="L['ultima'].strftime('%d/%m/%Y')"/></t>
+              </p>
+            </div>
+            <a class="s-btn s-btn-primary pk-dash-btn" href="/marketplace/proveedores">
+              <i class="fa fa-list-ol me-1"></i> Ver el ranking completo
+            </a>
+          </div>
+
+          <!-- Las cuatro cifras que deciden una compra. Cada una con su "n":
+               un promedio sin su muestra es una opinión con tipografía. -->
+          <div class="pk-oferta-kpis pk-dash-kpis">
+            <div>
+              <span>Rendimiento</span>
+              <strong><t t-esc="'{:.1f}'.format(L['rendimiento'])"/> %</strong>
+              <div class="pk-prov-n">
+                sobre <t t-esc="L['rendimiento_n']"/> lotes
+                <t t-if="L['rendimiento_n'] &gt; 1 and L['rendimiento_max'] - L['rendimiento_min'] &gt; 0.05">
+                  · de <t t-esc="'{:.1f}'.format(L['rendimiento_min'])"/> a <t t-esc="'{:.1f}'.format(L['rendimiento_max'])"/>
+                </t>
+              </div>
+            </div>
+            <div>
+              <span>Clase A</span>
+              <strong><t t-esc="'{:.0f}'.format(L['clase_a'] or 0.0)"/> %</strong>
+              <div class="pk-prov-n">de lo clasificado</div>
+            </div>
+            <div>
+              <span>Fue lo publicado</span>
+              <strong><t t-esc="L['lotes'] - L['incumplidos']"/> de <t t-esc="L['lotes']"/></strong>
+              <div class="pk-prov-n" t-if="not L['incumplidos']">ningún lote discutido</div>
+              <div class="pk-prov-n pk-prov-n--mal" t-else=""><t t-esc="L['incumplidos']"/> no coincidió</div>
+            </div>
+            <div>
+              <span>Metabisulfito</span>
+              <t t-if="L['metabisulfito'] is not None">
+                <strong><t t-esc="'{:.0f}'.format(L['metabisulfito'])"/> ppm</strong>
+                <div class="pk-prov-n">límite 100 · <t t-esc="L['metabisulfito_fail']"/> fuera</div>
+              </t>
+              <t t-else=""><strong class="pk-muted">—</strong></t>
+            </div>
+          </div>
+
+          <div class="pk-dash-cols">
+
+            <!-- Talla por talla: lo que la planta pregunta de verdad. Cada
+                 barra es la misma medida para una talla distinta, así que
+                 lleva un solo color de marca; el ancho es la porción de
+                 libras y la etiqueta la clase A dentro de esa talla. -->
+            <div class="pk-dash-card">
+              <div class="pk-rep-eyebrow">Qué trae y cómo sale, por talla</div>
+              <t t-if="T['mejor']">
+                <p class="pk-dash-mejor">
+                  Donde más rinde: <strong t-esc="T['mejor']['talla']"/> —
+                  <strong><t t-esc="'{:.0f}'.format(T['mejor']['clase_a'])"/> %</strong> clase A
+                  sobre <t t-esc="'{:,.0f}'.format(T['mejor']['lb'])"/> lb.
+                </p>
+              </t>
+              <table class="pk-tabla pk-dash-tallas">
+                <thead>
+                  <tr>
+                    <th>Talla</th>
+                    <th>Parte del lote</th>
+                    <th class="text-end">Libras</th>
+                    <th class="text-end">Clase A</th>
+                    <th class="text-end">B</th>
+                    <th class="text-end">C</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <t t-foreach="T['filas']" t-as="t">
+                    <!-- Ancho y clase se calculan ANTES en t-set y no dentro de
+                         t-attf: el compilador de atributos parte la expresión en
+                         la primera "}" que encuentra, así que un .format('{...}')
+                         ahí dentro deja una cadena sin cerrar y la portada entera
+                         cae con 500. Ya pasó en este proyecto; no repetirlo. -->
+                    <t t-set="ancho" t-value="'{:.1f}'.format(max(2.0, t['share']))"/>
+                    <t t-set="cls_fila" t-value="'pk-dash-top' if T['mejor'] and t['talla'] == T['mejor']['talla'] else ''"/>
+                    <tr t-att-class="cls_fila">
+                      <td><strong t-esc="t['talla']"/></td>
+                      <td class="pk-dash-barra-td">
+                        <div class="pk-dash-pista">
+                          <div class="pk-dash-barra" t-attf-style="width:#{ancho}%"></div>
+                        </div>
+                        <span class="pk-prov-n"><t t-esc="'{:.0f}'.format(t['share'])"/> %</span>
+                      </td>
+                      <td class="text-end" t-esc="'{:,.0f}'.format(t['lb'])"/>
+                      <td class="text-end">
+                        <strong class="pk-rep-precio"><t t-esc="'{:.0f}'.format(t['clase_a'] or 0.0)"/> %</strong>
+                      </td>
+                      <td class="text-end pk-muted" t-esc="'{:,.0f}'.format(t['b'])"/>
+                      <td class="text-end pk-muted" t-esc="'{:,.0f}'.format(t['c'])"/>
+                    </tr>
+                  </t>
+                </tbody>
+              </table>
+              <p class="pk-prov-n mt-2">
+                Sobre <t t-esc="'{:,.0f}'.format(T['total_lb'])"/> lb clasificadas en
+                <t t-esc="T['lotes']"/> lotes. La clase A de cada talla va sobre esa
+                talla, no sobre el lote.
+              </p>
+            </div>
+
+            <!-- El contexto: un 73 % solo impresiona al lado de un 61 %. -->
+            <div class="pk-dash-card">
+              <div class="pk-rep-eyebrow">Frente a los demás</div>
+              <div class="pk-dash-podio">
+                <div class="pk-dash-fila pk-dash-fila--lider">
+                  <span class="pk-dash-pos">1</span>
+                  <span class="pk-dash-nombre" t-esc="L['proveedor'].name"/>
+                  <span class="pk-dash-rend"><t t-esc="'{:.1f}'.format(L['rendimiento'])"/> %</span>
+                  <span class="pk-prov-score" t-esc="'{:.0f}'.format(L['puntaje'])"/>
+                </div>
+                <t t-foreach="pk_dash['resto']" t-as="f">
+                  <div class="pk-dash-fila">
+                    <span class="pk-dash-pos" t-esc="f_index + 2"/>
+                    <span class="pk-dash-nombre">
+                      <t t-esc="f['proveedor'].name"/>
+                      <span class="pk-prov-flag" t-if="not f['suficiente']">muestra corta</span>
+                    </span>
+                    <span class="pk-dash-rend"><t t-esc="'{:.1f}'.format(f['rendimiento'])"/> %</span>
+                    <span class="pk-prov-score" t-if="f['puntaje'] is not None"
+                          t-esc="'{:.0f}'.format(f['puntaje'])"/>
+                  </div>
+                </t>
+              </div>
+              <p class="pk-prov-n mt-2">
+                <t t-esc="R['proveedores']"/> proveedores · <t t-esc="R['lotes']"/> lotes con veredicto ·
+                <t t-esc="R['incumplidos']"/> no fueron lo publicado.
+                Conveniencia = <t t-esc="R['pesos']['rendimiento']"/> % rendimiento +
+                <t t-esc="R['pesos']['clase_a']"/> % clase A +
+                <t t-esc="R['pesos']['cumplimiento']"/> % cumplimiento.
+              </p>
+              <a t-if="L['ofertas']" class="s-btn s-btn-primary mt-2"
+                 t-attf-href="/marketplace/vendedor/#{L['proveedor'].uuid_ref}">
+                <i class="fa fa-cubes me-1"></i>
+                <t t-esc="L['ofertas']"/> lote<t t-if="L['ofertas'] != 1">s</t> de
+                <t t-esc="L['proveedor'].name"/> a la venta ahora
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+    </xpath>
+  </template>
+
+</odoo>

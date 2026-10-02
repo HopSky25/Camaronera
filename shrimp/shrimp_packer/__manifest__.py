@@ -47,6 +47,7 @@ desarrollo que se hace en paralelo sobre ese módulo.
         "views/aguaje_views.xml",
         "views/simulador_templates.xml",
         "views/proveedores_templates.xml",
+        "views/dashboard_empacadora_templates.xml",
         "views/mi_historial_templates.xml",
         "views/lote_historial_inherit.xml",
         "views/reserva_templates.xml",
@@ -56,6 +57,7 @@ desarrollo que se hace en paralelo sobre ese módulo.
         "demo/demo_01_partners.xml",
         "demo/demo_02_price_lists.xml",
         "demo/demo_03_listas_semana.xml",
+        "demo/demo_04_verificaciones_aquagold.xml",
     ],
     "assets": {
         "web.assets_frontend": [

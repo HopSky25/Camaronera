@@ -1,0 +1,222 @@
+<odoo>
+
+  <!-- ================================================================
+       VERIFICACIÓN DECLARADA POR LAS PARTES: el informe.
+       Lo abren comprador y vendedor. Cualquiera de los dos carga el borrador
+       con el MISMO formulario que usa el técnico de la plataforma
+       (verification_report_fields); la parte que lo presenta lo suscribe y
+       la otra lo confirma en el panel de aceptación.
+       ================================================================ -->
+  <template id="declared_report" name="Verificación declarada - informe de las partes">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page py-4 sf-fields">
+
+          <a t-attf-href="/marketplace/#{'purchases' if role == 'buyer' else 'sales'}" class="s-back mb-3">
+            <i class="fa fa-arrow-left"></i>
+            <span>Volver a mis <t t-if="role == 'buyer'">compras</t><t t-else="">ventas</t></span>
+          </a>
+
+          <div class="sf-banner mb-4">
+            <div class="sf-banner-row">
+              <div class="sf-banner-txt">
+                <h1>Verificación declarada por las partes</h1>
+                <p><t t-esc="v.name"/> · <t t-esc="v.product_id.name"/> · compra <t t-esc="tx.name"/></p>
+              </div>
+              <span class="sf-kicker sv-badge--declared" style="border:none;">
+                <i class="fa fa-handshake-o"></i>
+                <t t-esc="dict(v._fields['state']._description_selection(request.env)).get(v.state)"/>
+              </span>
+            </div>
+          </div>
+
+          <div class="sv-mode-note mb-4">
+            <i class="fa fa-info-circle me-1"/>
+            <strong>Esta compra NO la verifica una verificadora de la plataforma.</strong>
+            El comprador eligió una verificación declarada: la hicieron las partes o una
+            verificadora externa. Cualquiera de las dos partes carga aquí el informe y lo
+            <strong>presenta</strong>; quien lo presenta lo suscribe y la
+            <strong>otra parte lo confirma</strong> (acepta, rechaza o, el comprador,
+            propone otro precio). Sin honorario de verificación. En la trazabilidad se
+            mostrará como «Verificación declarada por …».
+          </div>
+
+          <t t-if="saved">
+            <div class="alert alert-success">Borrador guardado.</div>
+          </t>
+          <t t-if="error">
+            <div class="alert alert-danger"><t t-esc="message or 'No se pudo guardar.'"/></div>
+          </t>
+
+          <div class="mp-table-card mb-4">
+            <div class="card-body p-4">
+              <div class="mp-sec-head">
+                <span class="mp-sec-ico"><i class="fa fa-file-text-o"></i></span>
+                <h3 class="mp-sec-title">Resumen</h3>
+              </div>
+              <div class="sv-datos">
+                <div><span>Producto</span><strong t-esc="v.product_id.name"/></div>
+                <div><span>Vendedor</span><strong t-esc="v.seller_partner_id.name"/></div>
+                <div><span>Comprador</span><strong t-esc="v.buyer_partner_id.name"/></div>
+                <div><span>Cantidad comprada</span><strong t-esc="tx.shrimp_fmt_qty(tx.transaction_qty, tx.product_id.uom_id.name or 'lb')"/></div>
+                <div><span>Tú participas como</span><strong t-esc="'Comprador' if role == 'buyer' else 'Vendedor'"/></div>
+                <div t-if="v.declared_last_editor_id"><span>Última edición</span><strong t-esc="v.declared_last_editor_id.name"/></div>
+              </div>
+            </div>
+          </div>
+
+          <t t-if="puede_editar">
+            <t t-if="warnings">
+              <div class="alert alert-warning">
+                <strong>Revisa antes de presentar:</strong>
+                <ul class="mb-0 mt-2"><t t-foreach="warnings" t-as="w"><li t-esc="w"/></t></ul>
+              </div>
+            </t>
+
+            <form method="post" enctype="multipart/form-data"
+                  t-attf-action="/marketplace/verifications/#{v.uuid_ref}/declare/save">
+              <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+
+              <!-- Quién verificó -->
+              <div class="sv-section">
+                <h3><i class="fa fa-building-o me-1"/> Quién hizo la verificación</h3>
+                <div class="d-flex flex-wrap gap-3 mb-2">
+                  <label><input type="radio" name="declared_source" value="external"
+                                t-att-checked="v.declared_source != 'self' or None"/> Una verificadora externa
+                    <span class="sv-muted small">(por convenio o no registrada en la plataforma)</span></label>
+                  <label><input type="radio" name="declared_source" value="self"
+                                t-att-checked="v.declared_source == 'self' or None"/> La verificamos nosotros mismos</label>
+                </div>
+                <div class="row g-3">
+                  <div class="col-md-6"><label>Verificadora externa</label>
+                    <input class="form-control" name="external_verifier_name" maxlength="200"
+                           t-att-value="v.external_verifier_name or ''" placeholder="Nombre de la empresa"/></div>
+                  <div class="col-md-3"><label>RUC</label>
+                    <input class="form-control" name="external_verifier_vat" maxlength="20"
+                           t-att-value="v.external_verifier_vat or ''"/></div>
+                  <div class="col-md-3"><label>Informe en PDF</label>
+                    <input type="file" class="form-control" name="declared_report_file" accept="application/pdf"/>
+                    <div class="sv-muted small mt-1" t-if="v.declared_report_file">
+                      Cargado:
+                      <a t-attf-href="/marketplace/verifications/#{v.uuid_ref}/declare/report" target="_blank"
+                         t-esc="v.declared_report_filename or 'informe.pdf'"/>
+                      (subir otro lo reemplaza)
+                    </div>
+                  </div>
+                </div>
+                <div class="sv-muted small mt-2">
+                  Con verificadora externa, el nombre y su informe en PDF son obligatorios
+                  para presentar; el RUC es opcional.
+                </div>
+              </div>
+
+              <t t-call="shrimp_verification.verification_report_fields">
+                <t t-set="photo_view_base" t-value="'/marketplace/verifications/%s' % v.uuid_ref"/>
+                <t t-set="photo_del_base" t-value="'/marketplace/verifications/%s/declare' % v.uuid_ref"/>
+              </t>
+
+              <div class="sv-section">
+                <h3>Observaciones de la verificación</h3>
+                <textarea class="form-control" name="verdict_notes" rows="2"
+                          placeholder="Conclusión u observaciones de quien verificó (opcional)"><t t-esc="v.verdict_notes or ''"/></textarea>
+              </div>
+
+              <t t-if="missing">
+                <div class="alert alert-light" style="border:1px solid var(--shrimp-border);">
+                  <i class="fa fa-list-ul me-1"/> Para presentar falta:
+                  <t t-esc="', '.join(missing)"/>.
+                </div>
+              </t>
+
+              <div class="d-flex flex-wrap gap-2 mb-2">
+                <button class="s-btn s-btn-ghost" type="submit" name="accion" value="guardar">
+                  <i class="fa fa-save me-1"/> Guardar borrador
+                </button>
+                <button class="s-btn s-btn-primary" type="submit" name="accion" value="presentar">
+                  <i class="fa fa-paper-plane me-1"/> Presentar el informe a la otra parte
+                </button>
+              </div>
+              <div class="sv-muted small mb-4">
+                Al presentarlo quedas como declarante: tu conformidad queda registrada y la
+                otra parte tiene el plazo de aceptación para responder. Mientras no responda,
+                puedes deshacer la presentación para corregir el informe.
+              </div>
+            </form>
+
+            <t t-if="role == 'buyer'">
+              <form method="post" class="mb-4"
+                    t-attf-action="/marketplace/verifications/#{v.uuid_ref}/declare/cancel"
+                    onsubmit="return window.confirm('¿Cancelar la compra? Se libera la cantidad reservada.');">
+                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                <button type="submit" class="s-btn sv-btn-danger btn-sm">
+                  <i class="fa fa-times me-1"/> Cancelar la compra
+                </button>
+              </form>
+            </t>
+          </t>
+          <t t-else="">
+            <div class="alert alert-secondary">
+              <t t-if="v.state == 'cancelled'">La compra se canceló: el informe declarado ya no se puede cargar.</t>
+              <t t-else="">El informe ya no se puede editar.</t>
+            </div>
+          </t>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+  <!-- ================================================================
+       Aviso en «mis compras» y «mis ventas»: informes declarados por cargar.
+       ================================================================ -->
+  <template id="declared_banner" name="Aviso: informes declarados por cargar">
+    <t t-set="sv_yo" t-value="request.env.user.partner_id"/>
+    <t t-set="sv_borradores" t-value="request.env['shrimp.verification'].sudo().search([
+        ('verification_mode', '=', 'declared'), ('state', '=', 'declared_draft'),
+        '|', ('buyer_partner_id', '=', sv_yo.id), ('seller_partner_id', '=', sv_yo.id)], limit=20)"/>
+    <t t-if="sv_borradores">
+      <div class="sv-banner-aceptar sv-banner-declarada">
+        <div class="sv-banner-aceptar-head">
+          <i class="fa fa-handshake-o me-2"/>
+          <strong>
+            <t t-if="len(sv_borradores) == 1">Hay un informe de verificación declarado por cargar</t>
+            <t t-else="">Hay <t t-esc="len(sv_borradores)"/> informes de verificación declarados por cargar</t>
+          </strong>
+        </div>
+        <p class="sv-muted small mb-2">
+          En estas compras no interviene una verificadora de la plataforma: el comprador o
+          el vendedor carga el informe y la otra parte lo confirma.
+        </p>
+        <t t-foreach="sv_borradores" t-as="sv">
+          <a class="sv-banner-aceptar-item"
+             t-attf-href="/marketplace/verifications/#{sv.uuid_ref}/declare">
+            <span>
+              <strong t-esc="sv.product_id.name or sv.name"/>
+              <span class="sv-muted"> · compra <t t-esc="sv.transaction_id.name"/></span>
+            </span>
+            <span class="sv-banner-aceptar-plazo">
+              cargar informe <i class="fa fa-chevron-right ms-2"/>
+            </span>
+          </a>
+        </t>
+      </div>
+    </t>
+  </template>
+
+  <template id="purchases_declared_banner"
+            inherit_id="shrimp_marketplace.marketplace_purchased_products"
+            name="Compras - aviso de informes declarados por cargar">
+    <xpath expr="//div[hasclass('sf-banner')]" position="after">
+      <t t-call="shrimp_verification.declared_banner"/>
+    </xpath>
+  </template>
+
+  <template id="sales_declared_banner"
+            inherit_id="shrimp_marketplace.marketplace_transaction_history"
+            name="Ventas - aviso de informes declarados por cargar">
+    <xpath expr="//div[hasclass('sf-banner')]" position="after">
+      <t t-call="shrimp_verification.declared_banner"/>
+    </xpath>
+  </template>
+
+</odoo>

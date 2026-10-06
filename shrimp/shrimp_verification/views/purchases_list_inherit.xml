@@ -4,27 +4,21 @@
             inherit_id="shrimp_marketplace.marketplace_purchased_products"
             name="Compras - acciones según el estado de verificación">
 
-    <!-- Comprobante: la compra pendiente todavía no se ha realizado, así que no
-         hay nada que comprobar. Tampoco en una compra cancelada. -->
-    <xpath expr="//a[contains(@t-att-href, 'marketplace/thanks')]" position="attributes">
-      <attribute name="t-if">tx.state not in ('pending_verification', 'cancel')</attribute>
-    </xpath>
-
-    <!-- Certificado PDF: certifica la cadena de custodia. Mientras la compra
-         está pendiente no se han movido lotes, así que el certificado saldría
-         vacío y daría una garantía que todavía no existe. -->
-    <xpath expr="//a[contains(@t-att-href, 'trazabilidad/pdf')]" position="attributes">
-      <attribute name="t-if">tx.state not in ('pending_verification', 'cancel')</attribute>
-    </xpath>
-
-    <!-- En su lugar, acceso al estado de la verificación en curso. -->
-    <xpath expr="//a[contains(@t-att-href, 'marketplace/thanks')]" position="before">
-      <t t-if="tx.state == 'pending_verification'">
-        <a t-attf-href="/marketplace/verificacion/pendiente/#{tx.uuid_ref}"
-           class="s-btn s-btn-primary">
-          <i class="fa fa-hourglass-half me-1"/> Ver verificación
+    <!-- El comprobante y el certificado PDF ya solo se ofrecen con la compra
+         cerrada (confirmada o recibida): lo decide la plantilla base. Aquí
+         se añade el acceso a lo que la compra verificada tiene pendiente. -->
+    <xpath expr="//a[contains(@t-att-href, 'marketplace/thanks')]/.." position="before">
+      <li t-if="tx.state == 'pending_verification'">
+        <a class="dropdown-item" t-attf-href="/marketplace/verifications/pending/#{tx.uuid_ref}">
+          <i class="fa fa-hourglass-half me-2"/> Ver verificación
         </a>
-      </t>
+      </li>
+      <li t-if="tx.state == 'pending_acceptance' and tx.sudo().verification_ids[:1]">
+        <a class="dropdown-item"
+           t-attf-href="/marketplace/verifications/#{tx.sudo().verification_ids[:1].uuid_ref}/acceptance">
+          <i class="fa fa-pencil-square-o me-2"/> Firmar el informe
+        </a>
+      </li>
     </xpath>
 
   </template>

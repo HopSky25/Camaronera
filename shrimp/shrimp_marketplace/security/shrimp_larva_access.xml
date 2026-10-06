@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <!-- Permisos de los modelos de la Fase 1 (ficha de calidad y «Avísame»).
+         Van en su propio archivo para no tocar ir.model.access.csv mientras
+         otros cambios trabajan sobre él. Desde el portal todo pasa por los
+         controladores (sudo tras comprobar que el lote es del usuario). -->
+    <record id="access_shrimp_product_quality_user" model="ir.model.access">
+        <field name="name">shrimp.product.quality user</field>
+        <field name="model_id" ref="model_shrimp_product_quality"/>
+        <field name="group_id" ref="shrimp_marketplace.group_shrimp_user"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+    <record id="access_shrimp_product_quality_manager" model="ir.model.access">
+        <field name="name">shrimp.product.quality manager</field>
+        <field name="model_id" ref="model_shrimp_product_quality"/>
+        <field name="group_id" ref="shrimp_marketplace.group_shrimp_manager"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+    <record id="access_shrimp_larva_interest_user" model="ir.model.access">
+        <field name="name">shrimp.larva.interest user</field>
+        <field name="model_id" ref="model_shrimp_larva_interest"/>
+        <field name="group_id" ref="shrimp_marketplace.group_shrimp_user"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+    <record id="access_shrimp_larva_interest_manager" model="ir.model.access">
+        <field name="name">shrimp.larva.interest manager</field>
+        <field name="model_id" ref="model_shrimp_larva_interest"/>
+        <field name="group_id" ref="shrimp_marketplace.group_shrimp_manager"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+    <!-- Portal: solo lectura (las escrituras van por los controladores, que
+         comprueban que el lote es del usuario) y acotada por reglas. -->
+    <record id="access_shrimp_product_quality_portal" model="ir.model.access">
+        <field name="name">shrimp.product.quality portal</field>
+        <field name="model_id" ref="model_shrimp_product_quality"/>
+        <field name="group_id" ref="base.group_portal"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+    <record id="access_shrimp_larva_interest_portal" model="ir.model.access">
+        <field name="name">shrimp.larva.interest portal</field>
+        <field name="model_id" ref="model_shrimp_larva_interest"/>
+        <field name="group_id" ref="base.group_portal"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <!-- El socio de portal lee las fichas de SUS lotes y las de lotes
+         publicados o ya vendidos (lo mismo que muestra la ficha pública). -->
+    <record id="rule_shrimp_product_quality_portal" model="ir.rule">
+        <field name="name">Ficha de calidad: propias o de lotes públicos (portal)</field>
+        <field name="model_id" ref="model_shrimp_product_quality"/>
+        <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+        <field name="domain_force">['|', ('seller_partner_id', '=', user.partner_id.id), ('product_id.state', 'in', ('published', 'sold'))]</field>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+    <record id="rule_shrimp_larva_interest_portal" model="ir.rule">
+        <field name="name">Avísame: solo los propios (portal)</field>
+        <field name="model_id" ref="model_shrimp_larva_interest"/>
+        <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+        <field name="domain_force">[('partner_id', '=', user.partner_id.id)]</field>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+</odoo>

@@ -7,9 +7,12 @@
     <!-- El certificado es el documento que el comprador enseña a terceros: si el
          lote pasó por un verificador acreditado, tiene que constar aquí. -->
     <xpath expr="//div[hasclass('st-foot')]" position="before">
-      <t t-set="ver" t-value="doc.verification_id[:1]"/>
+      <t t-set="ver" t-value="doc.verification_ids[:1]"/>
       <t t-if="ver">
-        <div class="st-sec">8. Verificación en campo</div>
+        <t t-set="sec_n" t-value="sec_n + 1"/>
+        <!-- Título, veredicto y ficha juntos: que el título no quede solo al pie de página. -->
+        <div class="st-keep">
+        <div class="st-sec"><t t-esc="sec_n"/>. Verificación en campo</div>
 
         <!-- Lo primero que se lee: si lo entregado coincide con lo que el anuncio
              prometía. Ese cotejo ya lo calcula el módulo para decidir quién paga
@@ -19,7 +22,17 @@
              mediría pesos aún incompletos y daría un "coincide" que no significa
              nada. El informe se imprime desde el backend en cualquier estado, así
              que el resguardo tiene que vivir aquí y no en el controlador. -->
-        <t t-set="chequeo" t-value="ver.cumple_lo_publicado() if ver.state in ('approved', 'approved_obs', 'rejected') else None"/>
+        <t t-set="chequeo" t-value="ver.cumple_lo_publicado() if ver.state in ('approved', 'approved_obs', 'rejected', 'declared') else None"/>
+        <!-- Modo de verificación, lo primero: un informe declarado por las
+             partes no puede leerse como el de una verificadora acreditada. -->
+        <t t-set="mcol" t-value="'#8a5a00' if ver.verification_mode == 'declared' else '#123e5c'"/>
+        <div t-attf-style="font-size:11px; font-weight:bold; color:#{mcol}; margin-bottom:6px;">
+          <t t-esc="ver.verification_label()"/>
+          <div t-if="ver.verification_mode == 'declared'" style="font-size:9px; font-weight:normal; color:#5a6b74;">
+            No la realizó una verificadora de la plataforma: el informe lo presentó una
+            de las partes y lo confirmó la otra.
+          </div>
+        </div>
         <t t-if="chequeo">
           <!-- Los colores se resuelven en un t-set y no dentro del t-attf: una
                condicional con almohadillas dentro de #{} es justo lo que rompe el
@@ -39,7 +52,14 @@
 
         <table class="st-tbl">
           <tbody>
-            <tr>
+            <tr t-if="ver.verification_mode == 'declared'">
+              <th style="width:28%;">Verificación declarada</th>
+              <td>
+                Presentada por <strong t-esc="ver.declarant_partner_id.name or '—'"/>
+                · <t t-esc="ver.declared_origin_text()"/>
+              </td>
+            </tr>
+            <tr t-if="ver.verification_mode == 'platform'">
               <th style="width:28%;">Técnico de campo</th>
               <td>
                 <strong t-esc="ver.technician_partner_id.name or ver.verifier_partner_id.name or '—'"/>
@@ -48,7 +68,7 @@
                 </t>
               </td>
             </tr>
-            <tr>
+            <tr t-if="ver.verification_mode == 'platform'">
               <th>Empresa verificadora</th>
               <td>
                 <t t-esc="ver.verifier_partner_id.name or '—'"/>
@@ -57,14 +77,14 @@
                 </t>
               </td>
             </tr>
-            <tr>
+            <tr t-if="ver.verification_mode == 'platform'">
               <th>Acreditación</th>
               <td>
                 <t t-if="ver.verifier_partner_id.verifier_accreditation_line_id">
                   <t t-esc="ver.verifier_partner_id.verifier_accreditation_line_id.certificate_id.name"/>
                   <t t-if="ver.verifier_partner_id.verifier_accreditation_line_id.expiry_date">
                     · vigente hasta
-                    <t t-esc="ver.verifier_partner_id.verifier_accreditation_line_id.expiry_date"/>
+                    <t t-esc="doc.shrimp_fmt_dt(ver.verifier_partner_id.verifier_accreditation_line_id.expiry_date, doc.buyer_partner_id)"/>
                   </t>
                 </t>
                 <t t-else="">Sin acreditación registrada</t>
@@ -78,9 +98,10 @@
                   <t t-if="ver.state == 'approved'">Aprobada</t>
                   <t t-elif="ver.state == 'approved_obs'">Aprobada con observaciones</t>
                   <t t-elif="ver.state == 'rejected'">Rechazada</t>
+                  <t t-elif="ver.state == 'declared'">Informe declarado por las partes</t>
                   <t t-else="">En proceso</t>
                 </strong>
-                <t t-if="ver.verified_date"> · <t t-esc="ver.verified_date"/></t>
+                <t t-if="ver.verified_date"> · <t t-esc="doc.shrimp_fmt_dt(ver.verified_date, doc.buyer_partner_id)"/></t>
               </td>
             </tr>
             <tr t-if="ver.batch_code or ver.plant_name">
@@ -119,13 +140,14 @@
             <tr t-if="ver.harvest_date or ver.process_date">
               <th>Cosecha y proceso</th>
               <td>
-                <t t-if="ver.harvest_date">cosechado <t t-esc="ver.harvest_date"/></t>
+                <t t-if="ver.harvest_date">cosechado <t t-esc="doc.shrimp_fmt_dt(ver.harvest_date, doc.buyer_partner_id)"/></t>
                 <t t-if="ver.harvest_date and ver.process_date"> · </t>
-                <t t-if="ver.process_date">procesado <t t-esc="ver.process_date"/></t>
+                <t t-if="ver.process_date">procesado <t t-esc="doc.shrimp_fmt_dt(ver.process_date, doc.buyer_partner_id)"/></t>
               </td>
             </tr>
           </tbody>
         </table>
+        </div>
 
         <!-- Camarón adulto: pesos, rendimientos y clasificación -->
         <t t-if="ver.scope == 'adult' and ver.total_processed_lb">
@@ -140,18 +162,18 @@
             </thead>
             <tbody>
               <tr>
-                <td class="st-r"><t t-esc="'{:.2f}'.format(ver.weight_sent_lb)"/></td>
-                <td class="st-r"><t t-esc="'{:.2f}'.format(ver.weight_plant_lb)"/></td>
+                <td class="st-r"><t t-esc="doc.shrimp_fmt_num(ver.weight_sent_lb, 2)"/></td>
+                <td class="st-r"><t t-esc="doc.shrimp_fmt_num(ver.weight_plant_lb, 2)"/></td>
                 <!-- El sobrepeso lo calcula el sistema y decide si el lote llegó
                      completo; sin él, "enviado" y "en planta" no se explican solos. -->
                 <td class="st-r">
-                  <t t-esc="'{:.2f}'.format(ver.overweight_lb)"/>
-                  <t t-if="ver.overweight_factor"><br/><span style="font-size:8px;color:#5a6b74;">×<t t-esc="'{:.4f}'.format(ver.overweight_factor)"/></span></t>
+                  <t t-esc="doc.shrimp_fmt_num(ver.overweight_lb, 2)"/>
+                  <t t-if="ver.overweight_factor"><br/><span style="font-size:8px;color:#5a6b74;">×<t t-esc="doc.shrimp_fmt_num(ver.overweight_factor, 4)"/></span></t>
                 </td>
-                <td class="st-r"><t t-esc="'{:.2f}'.format(ver.trash_lb)"/></td>
-                <td class="st-r"><t t-esc="'{:.2f}'.format(ver.net_weight_lb)"/></td>
-                <td class="st-r"><t t-esc="'{:.2f}'.format(ver.total_processed_lb)"/></td>
-                <td class="st-r"><strong t-esc="'{:.2f} %'.format(ver.yield_pct)"/></td>
+                <td class="st-r"><t t-esc="doc.shrimp_fmt_num(ver.trash_lb, 2)"/></td>
+                <td class="st-r"><t t-esc="doc.shrimp_fmt_num(ver.net_weight_lb, 2)"/></td>
+                <td class="st-r"><t t-esc="doc.shrimp_fmt_num(ver.total_processed_lb, 2)"/></td>
+                <td class="st-r"><strong t-esc="doc.shrimp_fmt_num(ver.yield_pct, 2) + ' %'"/></td>
               </tr>
             </tbody>
           </table>
@@ -170,17 +192,17 @@
             <tbody>
               <tr>
                 <th>Libras</th>
-                <td class="st-r"><t t-esc="'{:.2f}'.format(ver.class_a_lb)"/></td>
-                <td class="st-r"><t t-esc="'{:.2f}'.format(ver.class_b_lb)"/></td>
-                <td class="st-r"><t t-esc="'{:.2f}'.format(ver.class_c_lb)"/></td>
-                <td class="st-r"><strong t-esc="'{:.2f}'.format(ver.total_processed_lb)"/></td>
+                <td class="st-r"><t t-esc="doc.shrimp_fmt_num(ver.class_a_lb, 2)"/></td>
+                <td class="st-r"><t t-esc="doc.shrimp_fmt_num(ver.class_b_lb, 2)"/></td>
+                <td class="st-r"><t t-esc="doc.shrimp_fmt_num(ver.class_c_lb, 2)"/></td>
+                <td class="st-r"><strong t-esc="doc.shrimp_fmt_num(ver.total_processed_lb, 2)"/></td>
               </tr>
               <tr>
                 <th>% sobre peso neto</th>
-                <td class="st-r"><strong t-esc="'{:.2f} %'.format(ver.yield_class_a_pct)"/></td>
-                <td class="st-r"><t t-esc="'{:.2f} %'.format(ver.yield_class_b_pct)"/></td>
-                <td class="st-r"><t t-esc="'{:.2f} %'.format(ver.yield_class_c_pct)"/></td>
-                <td class="st-r"><strong t-esc="'{:.2f} %'.format(ver.yield_pct)"/></td>
+                <td class="st-r"><strong t-esc="doc.shrimp_fmt_num(ver.yield_class_a_pct, 2) + ' %'"/></td>
+                <td class="st-r"><t t-esc="doc.shrimp_fmt_num(ver.yield_class_b_pct, 2) + ' %'"/></td>
+                <td class="st-r"><t t-esc="doc.shrimp_fmt_num(ver.yield_class_c_pct, 2) + ' %'"/></td>
+                <td class="st-r"><strong t-esc="doc.shrimp_fmt_num(ver.yield_pct, 2) + ' %'"/></td>
               </tr>
             </tbody>
           </table>
@@ -194,13 +216,13 @@
                 <tr>
                   <td><t t-esc="dict(ln._fields['quality_class'].selection).get(ln.quality_class)"/></td>
                   <td><t t-esc="ln.size_code"/></td>
-                  <td class="st-r"><t t-esc="'{:.2f}'.format(ln.weight_lb)"/></td>
-                  <td class="st-r"><t t-esc="'{:.2f}'.format(ln.percent_of_total)"/></td>
+                  <td class="st-r"><t t-esc="doc.shrimp_fmt_num(ln.weight_lb, 2)"/></td>
+                  <td class="st-r"><t t-esc="doc.shrimp_fmt_num(ln.percent_of_total, 2)"/></td>
                 </tr>
               </t>
               <tr>
                 <th colspan="2">Total procesado</th>
-                <th class="st-r"><t t-esc="'{:.2f}'.format(ver.total_processed_lb)"/></th>
+                <th class="st-r"><t t-esc="doc.shrimp_fmt_num(ver.total_processed_lb, 2)"/></th>
                 <th class="st-r">100,00</th>
               </tr>
             </tbody>
@@ -214,17 +236,17 @@
               <tr t-if="ver.grams_farm or ver.grams_plant_1">
                 <th style="width:28%;">Gramaje (g)</th>
                 <td>
-                  camaronera <strong t-esc="'{:.2f}'.format(ver.grams_farm)"/>
-                  · planta 1 <t t-esc="'{:.2f}'.format(ver.grams_plant_1)"/>
-                  <t t-if="ver.grams_plant_2"> · planta 2 <t t-esc="'{:.2f}'.format(ver.grams_plant_2)"/></t>
-                  <t t-if="ver.grams_variation"> · variación <strong t-esc="'{:.2f}'.format(ver.grams_variation)"/> g</t>
+                  camaronera <strong t-esc="doc.shrimp_fmt_num(ver.grams_farm, 2)"/>
+                  · planta 1 <t t-esc="doc.shrimp_fmt_num(ver.grams_plant_1, 2)"/>
+                  <t t-if="ver.grams_plant_2"> · planta 2 <t t-esc="doc.shrimp_fmt_num(ver.grams_plant_2, 2)"/></t>
+                  <t t-if="ver.grams_variation"> · variación <strong t-esc="doc.shrimp_fmt_num(ver.grams_variation, 2)"/> g</t>
                 </td>
               </tr>
               <tr t-if="ver.count_ids">
                 <th>Conteos (camarones/lb)</th>
                 <td>
                   <t t-foreach="ver.count_ids" t-as="cnt">
-                    <t t-esc="'{:.2f}'.format(cnt.value)"/>
+                    <t t-esc="doc.shrimp_fmt_num(cnt.value, 2)"/>
                     <t t-if="cnt.note"> (<t t-esc="cnt.note"/>)</t>
                     <t t-if="not cnt_last"> · </t>
                   </t>
@@ -238,11 +260,11 @@
               <tr>
                 <th style="width:28%;">Metabisulfito</th>
                 <td>
-                  <strong t-esc="'{:.2f}'.format(ver.metabisulfite_ppm)"/> ppm
+                  <strong t-esc="doc.shrimp_fmt_num(ver.metabisulfite_ppm, 2)"/> ppm
                   <!-- Sin el límite, "conforme" es una palabra que el comprador
                        tiene que creerse; con él, cualquiera puede comprobarlo. -->
                   <t t-if="ver.metabisulfite_limit_ppm">
-                    sobre un límite de <t t-esc="'{:.2f}'.format(ver.metabisulfite_limit_ppm)"/> ppm
+                    sobre un límite de <t t-esc="doc.shrimp_fmt_num(ver.metabisulfite_limit_ppm, 2)"/> ppm
                   </t>
                   <t t-if="ver.metabisulfite_result == 'pass'"> · conforme</t>
                   <t t-if="ver.metabisulfite_result == 'fail'"> · NO CONFORME</t>
@@ -284,13 +306,13 @@
             </thead>
             <tbody>
               <tr>
-                <td class="st-r"><t t-esc="'{:.2f}'.format(ver.larvae_qty_verified)"/></td>
-                <td class="st-r"><t t-esc="'{:.2f} %'.format(ver.larvae_qty_diff_pct)"/></td>
-                <td class="st-r"><t t-esc="'{:.2f} %'.format(ver.larvae_survival_rate)"/></td>
+                <td class="st-r"><t t-esc="doc.shrimp_fmt_num(ver.larvae_qty_verified, 2)"/></td>
+                <td class="st-r"><t t-esc="doc.shrimp_fmt_num(ver.larvae_qty_diff_pct, 2) + ' %'"/></td>
+                <td class="st-r"><t t-esc="doc.shrimp_fmt_num(ver.larvae_survival_rate, 2) + ' %'"/></td>
                 <!-- Contra la supervivencia publicada: es el dato que decide si el
                      lote cumplió, y hasta ahora sólo se veía en el portal. -->
-                <td class="st-r"><t t-esc="'{:.2f} pp'.format(ver.larvae_survival_diff)"/></td>
-                <td class="st-r"><t t-esc="'{:.3f}'.format(ver.larvae_avg_size_mg)"/></td>
+                <td class="st-r"><t t-esc="doc.shrimp_fmt_num(ver.larvae_survival_diff, 2) + ' pp'"/></td>
+                <td class="st-r"><t t-esc="doc.shrimp_fmt_num(ver.larvae_avg_size_mg, 3)"/></td>
                 <td><t t-esc="ver.etiqueta('larvae_health_status')"/></td>
               </tr>
             </tbody>
@@ -312,7 +334,7 @@
               <td><t t-esc="ver.incident_notes"/></td>
             </tr>
             <tr t-if="ver.verdict_notes">
-              <th>Conclusión</th>
+              <th style="width:28%;">Conclusión</th>
               <td><t t-esc="ver.verdict_notes"/></td>
             </tr>
           </tbody>
@@ -326,9 +348,9 @@
             <tr>
               <th style="width:28%;">Cronología de la inspección</th>
               <td>
-                <t t-if="ver.assigned_date">asignada <t t-esc="ver.assigned_date"/></t>
-                <t t-if="ver.field_start_date"> · en campo <t t-esc="ver.field_start_date"/></t>
-                <t t-if="ver.verified_date"> · veredicto <t t-esc="ver.verified_date"/></t>
+                <t t-if="ver.assigned_date">asignada <t t-esc="doc.shrimp_fmt_dt(ver.assigned_date, doc.buyer_partner_id)"/></t>
+                <t t-if="ver.field_start_date"> · en campo <t t-esc="doc.shrimp_fmt_dt(ver.field_start_date, doc.buyer_partner_id)"/></t>
+                <t t-if="ver.verified_date"> · veredicto <t t-esc="doc.shrimp_fmt_dt(ver.verified_date, doc.buyer_partner_id)"/></t>
               </td>
             </tr>
             <tr t-if="ver.gps_latitude or ver.gps_longitude">
@@ -341,54 +363,10 @@
           </tbody>
         </table>
 
-        <!-- La ronda de aceptación es la firma de las dos partes sobre el informe.
-             Un certificado que no la recoge deja abierto si el vendedor discutió
-             el resultado, que es lo primero que preguntará quien lo reciba. -->
-        <t t-if="ver.acceptance_state != 'na'">
-          <div class="st-sec">9. Aceptación de las partes</div>
-          <table class="st-tbl">
-            <tbody>
-              <tr>
-                <th style="width:28%;">Estado de la ronda</th>
-                <td>
-                  <strong t-esc="ver.etiqueta('acceptance_state')"/>
-                  <t t-if="ver.acceptance_state == 'waiting' and ver.acceptance_deadline">
-                    · plazo hasta <t t-esc="ver.acceptance_deadline"/>
-                  </t>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <table class="st-tbl" t-if="ver.acceptance_ids">
-            <thead>
-              <tr>
-                <th>Parte</th><th>Quien decide</th><th>Decisión</th>
-                <th>Fecha</th><th>Motivo o contraoferta</th>
-              </tr>
-            </thead>
-            <tbody>
-              <t t-foreach="ver.acceptance_ids" t-as="post">
-                <tr>
-                  <td><t t-esc="dict(post._fields['role'].selection).get(post.role)"/></td>
-                  <td><t t-esc="post.partner_id.name or '—'"/></td>
-                  <td>
-                    <strong t-esc="dict(post._fields['decision'].selection).get(post.decision)"/>
-                    <t t-if="post.auto"> (por vencimiento del plazo)</t>
-                  </td>
-                  <td><t t-esc="post.decided_at or '—'"/></td>
-                  <td>
-                    <t t-if="post.counter_price">
-                      <t t-esc="'{:,.2f}'.format(post.counter_price)"/> / unidad
-                      <t t-if="post.counter_total"> · total <t t-esc="'{:,.2f}'.format(post.counter_total)"/></t>
-                    </t>
-                    <t t-if="post.reason"><t t-if="post.counter_price"> · </t><t t-esc="post.reason"/></t>
-                    <t t-if="not post.counter_price and not post.reason">—</t>
-                  </td>
-                </tr>
-              </t>
-            </tbody>
-          </table>
-        </t>
+        <!-- La ronda de aceptación de las partes NO se imprime en el
+             certificado (petición expresa): el certificado acredita el
+             informe del verificador, no la negociación posterior. Sigue
+             en el backend y en la pantalla de aceptación. -->
 
         <!-- Evidencia fotográfica embebida: da peso probatorio al certificado.
              Maquetada con inline-block y no con una tabla agrupada, porque las
@@ -396,9 +374,10 @@
         <t t-if="ver.photo_ids">
           <t t-set="fotos" t-value="ver.photo_data_uris()"/>
           <t t-if="fotos">
-            <div class="st-sec" style="margin-top:10px;">
-              <t t-if="ver.acceptance_state != 'na'">10.</t><t t-else="">9.</t>
-              Evidencia fotográfica de campo
+            <div class="st-keep">
+            <div class="st-sec">
+              <t t-set="sec_n" t-value="sec_n + 1"/>
+              <t t-esc="sec_n"/>. Evidencia fotográfica de campo
             </div>
             <div style="width:100%;">
               <t t-foreach="fotos" t-as="f">
@@ -416,11 +395,60 @@
               Se muestran <t t-esc="len(fotos)"/> de <t t-esc="len(ver.photo_ids)"/>
               fotografías. El resto puede consultarse en la versión en línea.
             </div>
+            </div>
           </t>
         </t>
       </t>
     </xpath>
 
+  </template>
+
+  <!-- Despacho de la finca a la planta: pesca, salida, cita, llegada real,
+       transporte y puntualidad. Prioridad 20: después de la verificación (16)
+       y antes del servicio de empaque (30) y de la salida (50). -->
+  <template id="report_traceability_dispatch"
+            inherit_id="shrimp_marketplace.report_shrimp_full_traceability"
+            priority="20"
+            name="Certificado de trazabilidad - despacho a planta">
+    <xpath expr="//div[hasclass('st-foot')]" position="before">
+      <t t-set="desp" t-value="doc.dispatch_id"/>
+      <t t-if="desp and (desp.harvest_date or desp.farm_departure or desp.eta or desp.actual_arrival)">
+        <t t-set="sec_n" t-value="sec_n + 1"/>
+        <div class="st-keep">
+        <div class="st-sec"><t t-esc="sec_n"/>. Despacho a planta</div>
+        <table class="st-tbl">
+          <tbody>
+            <tr>
+              <th style="width:22%;">Pesca</th>
+              <td><t t-esc="doc.shrimp_fmt_dt(desp.harvest_date)"/></td>
+              <th style="width:22%;">Salida de la finca</th>
+              <td><t t-esc="doc.shrimp_fmt_dt(desp.farm_departure, doc.buyer_partner_id)"/></td>
+            </tr>
+            <tr>
+              <th>Cita en planta (ETA)</th>
+              <td>
+                <t t-esc="doc.shrimp_fmt_dt(desp.eta, doc.buyer_partner_id)"/>
+                <t t-if="desp.eta_changes"> · movida <t t-esc="desp.eta_changes"/> vez/veces (primera: <t t-esc="doc.shrimp_fmt_dt(desp.eta_first, doc.buyer_partner_id)"/>)</t>
+              </td>
+              <th>Llegada real</th>
+              <td><t t-esc="doc.shrimp_fmt_dt(desp.actual_arrival, doc.buyer_partner_id)"/></td>
+            </tr>
+            <tr>
+              <th>Transporte</th>
+              <td><t t-esc="desp.transporte_texto()"/></td>
+              <th>Puntualidad</th>
+              <td>
+                <t t-if="desp.actual_arrival">
+                  <strong t-att-style="'color:#1f7a4d;' if desp.on_time else 'color:#a4562a;'" t-esc="desp.puntualidad_texto()"/>
+                </t>
+                <t t-else="">pendiente de llegada</t>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+      </t>
+    </xpath>
   </template>
 
 </odoo>

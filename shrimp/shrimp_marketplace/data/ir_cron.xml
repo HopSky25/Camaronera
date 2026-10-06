@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Reintenta la facturación de los cobros de la plataforma que fallaron
+       (sin plan contable, sin punto de emisión SRI, datos del cliente
+       incompletos...) y emite las notas de crédito pendientes. Un cobro se
+       reintenta como mucho 5 veces solo; después espera al botón
+       «Reintentar facturación» de su ficha. -->
+  <record id="ir_cron_shrimp_charge_retry" model="ir.cron">
+    <field name="name">Camaronera: reintentar facturación de cobros</field>
+    <field name="model_id" ref="model_shrimp_charge"/>
+    <field name="state">code</field>
+    <field name="code">model._cron_retry_invoices()</field>
+    <field name="interval_number">1</field>
+    <field name="interval_type">hours</field>
+    <field name="active" eval="True"/>
+  </record>
+</odoo>

@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <!-- =====================================================================
+         /my/dashboard — panel de trabajo por perfil (Fase 1).
+         La plantilla solo pinta lo que arma shrimp.dashboard._panel_data():
+         cada módulo agrega indicadores, alertas, tablas y accesos heredando
+         ese modelo, sin tocar esta vista.
+         ===================================================================== -->
+    <template id="mi_panel" name="Mi panel">
+        <t t-call="website.layout">
+            <t t-set="p" t-value="panel"/>
+            <div class="shrimp-bg sp-page">
+                <div class="shrimp-page sp-wrap py-4" id="sp_panel" t-att-data-role="p['role'] or ''">
+
+                    <!-- Cabecera -->
+                    <div class="sp-head">
+                        <div class="sp-head-txt">
+                            <div class="sp-eyebrow">Mi panel · <t t-esc="p['role_label']"/></div>
+                            <h1 class="sp-title">Hola, <t t-esc="partner.name"/></h1>
+                        </div>
+                        <div class="sp-head-actions" t-if="p['actions']">
+                            <t t-foreach="p['actions']" t-as="a">
+                                <a t-att-href="a['url']"
+                                   t-att-class="'s-btn ' + ('s-btn-primary' if a.get('primary') else 's-btn-ghost')">
+                                    <i t-att-class="'fa %s me-1' % (a.get('icon') or 'fa-arrow-right')"/>
+                                    <t t-esc="a['label']"/>
+                                </a>
+                            </t>
+                        </div>
+                    </div>
+
+                    <div t-if="error_message" class="alert alert-danger" role="alert"><t t-esc="error_message"/></div>
+                    <div t-if="not operativo" class="sp-alert sp-alert--info" role="status">
+                        <i class="fa fa-hourglass-half me-2"/>
+                        Tu cuenta está pendiente de aprobación. Mientras tanto puedes revisar tu panel,
+                        pero no publicar ni comprar.
+                    </div>
+
+                    <!-- Perfil sin panel propio todavía -->
+                    <t t-if="not p['supported']">
+                        <div class="sp-card sp-empty-card">
+                            <h3>Tu panel todavía no tiene indicadores para este perfil</h3>
+                            <p>Mientras tanto, encuentra todas tus opciones en el panel completo.</p>
+                            <a class="s-btn s-btn-primary" href="/my">Ir al panel completo</a>
+                        </div>
+                    </t>
+
+                    <t t-else="">
+                        <!-- Alertas -->
+                        <div class="sp-alerts" t-if="p['alerts']" id="sp_alerts">
+                            <t t-foreach="p['alerts']" t-as="al">
+                                <div t-att-class="'sp-alert sp-alert--%s' % (al.get('level') or 'warning')"
+                                     t-att-data-key="al.get('key') or ''" role="status">
+                                    <i t-att-class="'fa me-2 ' + ('fa-exclamation-circle' if al.get('level') == 'danger' else ('fa-info-circle' if al.get('level') == 'info' else 'fa-exclamation-triangle'))"/>
+                                    <span class="sp-alert-txt"><t t-esc="al['text']"/></span>
+                                    <a t-if="al.get('url')" class="sp-alert-link" t-att-href="al['url']">
+                                        <t t-esc="al.get('link_label') or 'Ver'"/> <i class="fa fa-angle-right"/>
+                                    </a>
+                                </div>
+                            </t>
+                        </div>
+
+                        <!-- Indicadores -->
+                        <div class="sp-kpis" id="sp_kpis">
+                            <t t-foreach="p['kpis']" t-as="k">
+                                <a t-if="k.get('url')" t-att-href="k['url']"
+                                   t-att-class="'sp-kpi sp-kpi--%s' % (k.get('tone') or 'navy')" t-att-data-key="k.get('key') or ''">
+                                    <div class="sp-kpi-top">
+                                        <span class="sp-kpi-label"><t t-esc="k['label']"/></span>
+                                        <i t-att-class="'fa %s sp-kpi-ico' % (k.get('icon') or 'fa-circle')"/>
+                                    </div>
+                                    <div class="sp-kpi-value"><t t-esc="k['value']"/></div>
+                                    <div class="sp-kpi-sub" t-if="k.get('sub')"><t t-esc="k['sub']"/></div>
+                                </a>
+                                <div t-else="" t-att-class="'sp-kpi sp-kpi--%s' % (k.get('tone') or 'navy')" t-att-data-key="k.get('key') or ''">
+                                    <div class="sp-kpi-top">
+                                        <span class="sp-kpi-label"><t t-esc="k['label']"/></span>
+                                        <i t-att-class="'fa %s sp-kpi-ico' % (k.get('icon') or 'fa-circle')"/>
+                                    </div>
+                                    <div class="sp-kpi-value"><t t-esc="k['value']"/></div>
+                                    <div class="sp-kpi-sub" t-if="k.get('sub')"><t t-esc="k['sub']"/></div>
+                                </div>
+                            </t>
+                        </div>
+
+                        <!-- Otros perfiles de la cuenta -->
+                        <t t-foreach="p['other_roles']" t-as="o">
+                            <div class="sp-other" t-att-data-role="o['role']">
+                                <div class="sp-other-txt">
+                                    <strong>También eres <t t-esc="o['label']"/>.</strong>
+                                    <t t-if="o['alerts']">
+                                        <t t-foreach="o['alerts']" t-as="oal">
+                                            <span class="sp-other-alert"><t t-esc="oal['text']"/></span>
+                                        </t>
+                                    </t>
+                                    <span t-else="" class="sp-other-alert">Sin pendientes en ese perfil.</span>
+                                </div>
+                                <form method="post" action="/my/profile/activate" class="sp-other-form">
+                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                    <input type="hidden" name="role" t-att-value="o['role']"/>
+                                    <input type="hidden" name="next" value="/my/dashboard"/>
+                                    <button type="submit" class="s-btn s-btn-ghost btn-sm">
+                                        Cambiar a <t t-esc="o['label']"/> <i class="fa fa-angle-right ms-1"/>
+                                    </button>
+                                </form>
+                            </div>
+                        </t>
+
+                        <!-- Tablas -->
+                        <t t-foreach="p['sections']" t-as="sec">
+                            <div class="sp-card" t-att-id="sec.get('key')">
+                                <div class="sp-card-head">
+                                    <h3><i t-att-class="'fa %s me-2' % (sec.get('icon') or 'fa-list')"/><t t-esc="sec['title']"/></h3>
+                                    <a t-if="sec.get('more_url')" t-att-href="sec['more_url']" class="sp-more">
+                                        <t t-esc="sec.get('more_label') or 'Ver todo'"/> <i class="fa fa-angle-right"/>
+                                    </a>
+                                </div>
+                                <t t-if="sec['rows']">
+                                    <table class="sp-table">
+                                        <thead>
+                                            <tr>
+                                                <t t-foreach="sec['columns']" t-as="col"><th><t t-esc="col"/></th></t>
+                                                <th t-if="any(r.get('button') for r in sec['rows'])"/>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <t t-foreach="sec['rows']" t-as="row">
+                                                <tr>
+                                                    <t t-foreach="row['cells']" t-as="cell">
+                                                        <td t-att-data-label="sec['columns'][cell_index] if cell_index &lt; len(sec['columns']) else ''">
+                                                            <a t-if="cell_first and row.get('url')" t-att-href="row['url']" class="sp-row-link"><t t-esc="cell"/></a>
+                                                            <t t-else=""><t t-esc="cell"/></t>
+                                                        </td>
+                                                    </t>
+                                                    <td t-if="any(r.get('button') for r in sec['rows'])" class="sp-td-action">
+                                                        <a t-if="row.get('button')" t-att-href="row['button']['url']"
+                                                           t-att-class="'s-btn btn-sm ' + ('s-btn-primary' if row['button'].get('primary') else 's-btn-ghost')">
+                                                            <t t-esc="row['button']['label']"/>
+                                                        </a>
+                                                    </td>
+                                                </tr>
+                                            </t>
+                                        </tbody>
+                                    </table>
+                                </t>
+                                <div t-else="" class="sp-empty"><t t-esc="sec.get('empty') or 'Sin datos.'"/></div>
+                            </div>
+                        </t>
+
+                        <!-- Accesos directos -->
+                        <div class="sp-card" id="sp_shortcuts">
+                            <div class="sp-card-head"><h3><i class="fa fa-th-large me-2"/>Accesos</h3></div>
+                            <div class="sp-short">
+                                <t t-foreach="p['shortcuts']" t-as="sc">
+                                    <a t-att-href="sc['url']">
+                                        <span t-att-class="'sp-ico sp-ico--%s' % (sc.get('tone') or 'navy')"><i t-att-class="'fa %s' % (sc.get('icon') or 'fa-arrow-right')"/></span>
+                                        <span><t t-esc="sc['label']"/></span>
+                                    </a>
+                                </t>
+                            </div>
+                        </div>
+                    </t>
+
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <!-- Mi inventario: «Publicar larva de este lote» para el nauplio comprado
+         cuyo lote (producto resultado, en borrador) todavía no se publica.
+         Va dentro de la celda del producto para no tocar las columnas. -->
+    <template id="my_lots_publicar_larva" inherit_id="shrimp_marketplace.my_lots"
+              name="Mis lotes - Publicar larva de este lote">
+        <xpath expr="//tbody//td[t[@t-esc='lot.product_id.name']]" position="inside">
+            <t t-if="lot.available_qty &gt; 0 and lot.origin_move_id and lot.product_id.state == 'draft' and lot.product_id.seller_partner_id == lot.owner_id and (lot.product_id._shrimp_tipo() == 'nauplio' or lot.origin_move_id.transaction_id.transaction_type == 'semillero_to_laboratorio')">
+                <div class="mt-1">
+                    <a class="s-btn s-btn-primary btn-sm" t-att-href="'/marketplace/products/%s/edit' % lot.product_id.uuid_ref">
+                        <i class="fa fa-arrow-up me-1"/> Publicar larva de este lote
+                    </a>
+                </div>
+            </t>
+        </xpath>
+    </template>
+
+    <!-- /my: tarjeta «Mi panel» arriba del todo, para los perfiles que ya
+         tienen panel. La barra superior enlazará a /my/dashboard más adelante. -->
+    <template id="portal_my_home_mi_panel" inherit_id="portal.portal_my_home" name="Mi panel en /my">
+        <xpath expr="//div[@id='oe_structure_portal_my_home_1']" position="after">
+            <t t-set="sp_dash" t-value="request.env['shrimp.dashboard']"/>
+            <t t-set="sp_role" t-value="sp_dash._panel_active_role(request.env.user.partner_id)"/>
+            <a t-if="sp_dash._panel_supported(sp_role)" href="/my/dashboard" class="sp-mypanel-card" id="sp_mypanel_card">
+                <span class="sp-mypanel-ico"><i class="fa fa-tachometer"/></span>
+                <span class="sp-mypanel-txt">
+                    <span class="sp-mypanel-title">Mi panel</span>
+                    <span class="sp-mypanel-sub">Tus indicadores, alertas y accesos como
+                        <t t-esc="sp_dash._panel_role_label(sp_role)"/>: disponible, reservas, ventas del mes y certificados por vencer.</span>
+                </span>
+                <span class="sp-mypanel-go">Abrir <i class="fa fa-angle-right"/></span>
+            </a>
+        </xpath>
+    </template>
+
+</odoo>

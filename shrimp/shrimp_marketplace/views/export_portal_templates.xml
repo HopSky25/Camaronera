@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Mis lotes: registrar la salida y (para el stock propio que se vende)
+         declarar la producción real. -->
+    <template id="my_lots_trazabilidad_actions" inherit_id="shrimp_marketplace.my_lots"
+              name="Mis lotes - salida y producción declarada">
+        <xpath expr="//div[hasclass('mp-sec-head')]" position="after">
+            <t t-set="trz_saved" t-value="request.params.get('saved')"/>
+            <t t-set="trz_error" t-value="request.params.get('message') if request.params.get('error') else False"/>
+            <div t-if="trz_saved == 'production'" class="alert alert-success py-2">Producción declarada: el lote quedó ajustado y el movimiento consta en la trazabilidad.</div>
+            <div t-if="trz_error" class="alert alert-danger py-2"><t t-esc="trz_error"/></div>
+            <!-- Misma regla que el menú «Salidas» y la ruta: register_exports. -->
+            <t t-set="trz_can_export" t-value="partner.sudo()._shrimp_can_any('register_exports')"/>
+            <div t-if="trz_can_export" class="mb-3 small">
+                <a href="/marketplace/exports" class="s-btn s-btn-ghost btn-sm"><i class="fa fa-ship me-1"/> Mis salidas / exportaciones</a>
+            </div>
+        </xpath>
+        <xpath expr="//thead/tr/th[last()]" position="after">
+            <th class="text-end">Acciones</th>
+        </xpath>
+        <xpath expr="//tbody/t/tr/td[last()]" position="after">
+            <td class="text-end" style="min-width:220px;">
+                <t t-if="lot.state == 'available' and lot.available_qty &gt; 0">
+                    <a t-if="trz_can_export and lot.shrimp_can_register_export(partner)"
+                       class="s-btn s-btn-ghost btn-sm" t-attf-href="/marketplace/exports/new?lot=#{lot.uuid_ref}">
+                        <i class="fa fa-ship me-1"/> Registrar salida
+                    </a>
+                    <t t-if="lot.product_id.seller_partner_id == lot.owner_id">
+                        <details class="mt-2 text-start">
+                            <summary class="small" style="cursor:pointer;">Declarar producción real</summary>
+                            <form method="post" t-attf-action="/marketplace/my-lots/#{lot.uuid_ref}/production" class="mt-2">
+                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                <label class="small text-muted">Cantidad real (<t t-esc="lot.uom_id.name or ''"/>)</label>
+                                <input class="form-control form-control-sm" type="number" step="0.01" min="0" name="actual_qty" required="required"
+                                       t-att-placeholder="lot.product_id.available_qty"/>
+                                <input class="form-control form-control-sm mt-1" type="text" name="reason" placeholder="Motivo (p. ej. supervivencia 72 % a PL12)"/>
+                                <button type="submit" class="s-btn s-btn-primary btn-sm mt-1">Declarar</button>
+                            </form>
+                        </details>
+                    </t>
+                </t>
+            </td>
+        </xpath>
+    </template>
+
+    <!-- Lista de salidas -->
+    <template id="export_list" name="Marketplace - Salidas / exportaciones">
+        <t t-call="website.layout">
+            <t t-set="TX" t-value="request.env['shrimp.transaction']"/>
+            <div class="shrimp-bg">
+                <div class="shrimp-page shrimp-page--wide py-4">
+                    <div class="sf-banner mb-4">
+                        <div class="sf-banner-row">
+                            <div class="sf-banner-txt">
+                                <h1>Salidas y exportaciones</h1>
+                                <p>El último paso de la trazabilidad: a dónde fue tu producto fuera de la plataforma.</p>
+                            </div>
+                            <a class="s-btn s-btn-ghost" href="/marketplace/exports/new"
+                               style="background:rgba(255,255,255,.16); color:#fff; border-color:rgba(255,255,255,.35);">
+                                <i class="fa fa-plus me-1"/> Registrar salida
+                            </a>
+                        </div>
+                    </div>
+                    <div t-if="saved and saved != 'cancelled'" class="alert alert-success">Salida registrada. Ya consta como paso final en la trazabilidad de la compra.</div>
+                    <div t-if="saved == 'cancelled'" class="alert alert-info">Salida anulada: la cantidad volvió al lote.</div>
+                    <div class="mp-table-card">
+                        <div class="card-body p-4">
+                            <t t-if="exports">
+                                <div class="table-responsive mp-table-wrap">
+                                    <table class="table align-middle mb-0">
+                                        <thead><tr><th>Ref.</th><th>Fecha</th><th>Lote</th><th class="text-end">Cantidad</th><th>Destino</th><th>DAE / factura</th><th>Contenedor</th><th>Estado</th><th/></tr></thead>
+                                        <tbody>
+                                            <t t-foreach="exports" t-as="exp">
+                                                <tr>
+                                                    <td class="fw-semibold"><t t-esc="exp.name"/></td>
+                                                    <td><t t-esc="TX.shrimp_fmt_dt(exp.date)"/></td>
+                                                    <td><t t-esc="', '.join(exp.line_ids.mapped('product_id.name'))"/></td>
+                                                    <td class="text-end"><t t-esc="exp.qty_label()"/></td>
+                                                    <td><t t-esc="exp.destination_buyer or '—'"/><t t-if="exp.destination_country_id"> · <t t-esc="exp.destination_country_id.name"/></t></td>
+                                                    <td><t t-esc="exp.dae_number or '—'"/><t t-if="exp.invoice_number"> / <t t-esc="exp.invoice_number"/></t></td>
+                                                    <td><t t-esc="exp.container or '—'"/></td>
+                                                    <td><span class="s-badge"><t t-esc="dict(exp._fields['state'].selection).get(exp.state)"/></span></td>
+                                                    <td class="text-end">
+                                                        <form t-if="exp.state == 'registered'" method="post" t-attf-action="/marketplace/exports/#{exp.uuid_ref}/cancel"
+                                                              onsubmit="return confirm('¿Anular la salida? La cantidad vuelve al lote.');">
+                                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                            <button class="s-btn s-btn-ghost btn-sm" type="submit">Anular</button>
+                                                        </form>
+                                                    </td>
+                                                </tr>
+                                            </t>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </t>
+                            <t t-else="">
+                                <div class="s-empty">
+                                    <div class="s-empty-ico"><i class="fa fa-ship"/></div>
+                                    <h3>Sin salidas registradas</h3>
+                                    <p>Registra aquí la exportación o venta externa de tu producto: cierra su trazabilidad y lo descuenta de tu inventario.</p>
+                                    <a class="s-btn s-btn-primary" href="/marketplace/my-lots">Ir a mis lotes</a>
+                                </div>
+                            </t>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <!-- Formulario de salida -->
+    <template id="export_form" name="Marketplace - Registrar salida">
+        <t t-call="website.layout">
+            <t t-set="TX" t-value="request.env['shrimp.transaction']"/>
+            <div class="shrimp-bg">
+                <div class="shrimp-page py-4" style="max-width:900px;">
+                    <div class="sf-banner mb-4">
+                        <div class="sf-banner-row">
+                            <div class="sf-banner-txt">
+                                <h1>Registrar salida / exportación</h1>
+                                <p>Fecha, destino, documentos y de qué lote sale. Se descuenta del lote y queda como paso final de la trazabilidad.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div t-if="error" class="alert alert-danger"><t t-esc="message or 'Revisa los datos.'"/></div>
+                    <t t-if="not lots">
+                        <div class="alert alert-info">No tienes lotes con saldo disponible.</div>
+                    </t>
+                    <form t-else="" method="post" action="/marketplace/exports/register" enctype="multipart/form-data" class="mp-table-card">
+                        <div class="card-body p-4">
+                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                            <div class="row g-3">
+                                <div class="col-md-8">
+                                    <label class="form-label fw-bold">Lote</label>
+                                    <select class="form-select" name="lot_ref" required="required">
+                                        <t t-foreach="lots" t-as="l">
+                                            <option t-att-value="l.uuid_ref" t-att-selected="l == selected">
+                                                <t t-esc="l.product_id.name"/> · disponible <t t-esc="TX.shrimp_fmt_qty(l.available_qty, l.uom_id)"/>
+                                            </option>
+                                        </t>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">Cantidad</label>
+                                    <input class="form-control" type="number" step="0.01" min="0.01" name="qty" required="required"
+                                           t-att-value="selected.available_qty if selected else ''"/>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">Fecha de salida</label>
+                                    <input class="form-control" type="date" name="date" t-att-value="today" required="required"/>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">País de destino</label>
+                                    <select class="form-select" name="country_code">
+                                        <option value="">—</option>
+                                        <t t-foreach="countries" t-as="c"><option t-att-value="c.code"><t t-esc="c.name"/></option></t>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">Puerto / ciudad</label>
+                                    <input class="form-control" type="text" name="destination_place"/>
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label fw-bold">Comprador de destino</label>
+                                    <input class="form-control" type="text" name="destination_buyer"/>
+                                </div>
+                                <div class="col-md-4 d-flex align-items-end">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="confidential" id="expConf" checked="checked"/>
+                                        <label class="form-check-label" for="expConf">Comprador confidencial (no se publica)</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">N.º DAE</label>
+                                    <input class="form-control" type="text" name="dae_number"/>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">Factura de exportación / venta</label>
+                                    <input class="form-control" type="text" name="invoice_number"/>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">Contenedor</label>
+                                    <input class="form-control" type="text" name="container"/>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">Cajas / masters</label>
+                                    <input class="form-control" type="number" min="0" name="boxes"/>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">Precio unitario <span class="text-muted fw-normal">(privado)</span></label>
+                                    <input class="form-control" type="number" step="0.0001" min="0" name="price_unit"/>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">Documentos (PDF/imagen)</label>
+                                    <input class="form-control" type="file" name="attachments" multiple="multiple"/>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label fw-bold">Observaciones</label>
+                                    <textarea class="form-control" name="notes" rows="2"/>
+                                </div>
+                            </div>
+                            <div class="mt-4 d-flex gap-2">
+                                <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-ship me-1"/> Registrar salida</button>
+                                <a href="/marketplace/exports" class="s-btn s-btn-ghost">Cancelar</a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </t>
+    </template>
+</odoo>

@@ -1,7 +1,7 @@
 <odoo>
 
   <!-- ================================================================
-       REGISTRO DEL MAQUILADOR (/registro/maquilador)
+       REGISTRO DEL MAQUILADOR (/register/copacker)
 
        Formulario propio y no un paso más del registro compartido: el
        maquilador no compra ni vende camarón, así que nada de lo que pide
@@ -35,7 +35,9 @@
             </div>
           </t>
 
-          <form method="post" action="/registro/submit">
+          <form method="post" action="/register/submit"
+                t-att-data-captcha="'shrimp_signup' if request.env['ir.config_parameter'].sudo().get_param('recaptcha_public_key') else None">
+            <t t-call="shrimp_user_registry.signup_honeypot"/>
             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
             <!-- El rol va fijo en el formulario: aquí no se elige perfil, y así
                  el POST no depende de ningún JS que pueda no cargar. -->

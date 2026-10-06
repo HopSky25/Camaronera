@@ -47,17 +47,17 @@ DESCRIPCION_VERIF = (
 ENLACES_CAMARONERA = [
     ("Inicio", "/"),
     ("Marketplace", "/marketplace"),
-    ("Mis compras", "/marketplace/compras"),
-    ("Mis ventas", "/marketplace/ventas"),
-    ("Mi cuenta", "/marketplace/mi-cuenta"),
+    ("Mis compras", "/marketplace/purchases"),
+    ("Mis ventas", "/marketplace/sales"),
+    ("Mi cuenta", "/marketplace/my-account"),
 ]
 
 ENLACES_VERIFICADORES = [
     ("Inicio", "/"),
-    ("Mi bandeja", "/verificador/bandeja"),
-    ("En campo", "/verificador/bandeja?state=in_field"),
-    ("Por dictaminar", "/verificador/bandeja?state=done"),
-    ("Mi acreditación", "/marketplace/mis-certificados"),
+    ("Mi bandeja", "/verifier/inbox"),
+    ("En campo", "/verifier/inbox?state=in_field"),
+    ("Por dictaminar", "/verifier/inbox?state=done"),
+    ("Mi acreditación", "/marketplace/my-certificates"),
 ]
 
 

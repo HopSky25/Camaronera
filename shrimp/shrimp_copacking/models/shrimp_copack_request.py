@@ -1,6 +1,46 @@
 from odoo import api, fields, models, _
 from odoo.exceptions import ValidationError
 
+from odoo.addons.shrimp_marketplace.models.shrimp_selection import (
+    PRESENTATIONS_WITH_VALUE_ADDED)
+
+
+def check_origen_del_cliente(records):
+    """El camarón de una solicitud u orden de empaque es del propio cliente.
+
+    Vale de dos formas: un lote que el cliente publica como vendedor (la
+    camaronera), o una compra en la que el cliente es el COMPRADOR (la
+    empacadora con el camarón que adquirió), confirmada o recibida. Lo usan
+    la solicitud y la orden: una sola regla.
+    """
+    for rec in records:
+        cliente = rec.client_partner_id
+        compra = rec.transaction_id.sudo()
+        if compra:
+            if compra.buyer_partner_id != cliente:
+                raise ValidationError(_(
+                    "La compra «%(compra)s» no es de «%(cliente)s»: solo se "
+                    "manda a empacar camarón propio.")
+                    % {"compra": compra.name or "", "cliente": cliente.name or ""})
+            if compra.state not in ("confirmed", "done"):
+                raise ValidationError(_(
+                    "La compra «%s» todavía no está confirmada.") % (compra.name or ""))
+            if rec.product_id and rec.product_id != compra.product_id:
+                raise ValidationError(_(
+                    "El lote no corresponde a la compra elegida."))
+        elif rec.product_id:
+            dueno = rec.product_id.sudo().seller_partner_id
+            if dueno != cliente:
+                raise ValidationError(_(
+                    "El lote «%(lote)s» es de «%(dueno)s», no de «%(cliente)s». "
+                    "Solo se puede mandar a empacar camarón propio.")
+                    % {"lote": rec.product_id.display_name or "",
+                       "dueno": dueno.name or _("otro titular"),
+                       "cliente": cliente.name or ""})
+        if rec.stock_lot_id and rec.stock_lot_id.sudo().owner_id != cliente:
+            raise ValidationError(_(
+                "El lote de inventario elegido no es de «%s».") % (cliente.name or ""))
+
 
 class ShrimpCopackRequest(models.Model):
     """Lo que un cliente necesita empacar y no puede empacar el mismo.
@@ -32,6 +72,16 @@ class ShrimpCopackRequest(models.Model):
     product_id = fields.Many2one(
         "shrimp.product", string="Lote", ondelete="set null", index=True,
         help="Si se indica, el empaque queda enlazado a la trazabilidad del lote.")
+    # Lo que la empacadora manda a empacar casi nunca es un lote SUYO: es el
+    # camarón que COMPRÓ. El vínculo con esa compra (y con el lote de stock
+    # que recibió) es lo que permite que el paso de empaque salga en la
+    # trazabilidad de ESA compra y no en la de todas las del mismo producto.
+    transaction_id = fields.Many2one(
+        "shrimp.transaction", string="Compra de origen", ondelete="set null", index=True,
+        help="La compra con la que el cliente adquirió el camarón que manda a empacar.")
+    stock_lot_id = fields.Many2one(
+        "shrimp.stock.lot", string="Lote de inventario", ondelete="set null", index=True,
+        help="El lote de inventario del cliente (si ya recibió la compra).")
 
     # Dirigida o abierta. El cliente normalmente entra al directorio, ve quien
     # empaca y desde cuanto, y le pide a uno en concreto: asi es como se
@@ -49,8 +99,8 @@ class ShrimpCopackRequest(models.Model):
     size_grade_id = fields.Many2one(
         "shrimp.size.grade", string="Talla", ondelete="restrict")
     presentation = fields.Selection(
-        [("entero", "Entero"), ("cola", "Cola"), ("valor_agregado", "Valor agregado")],
-        string="Presentación", required=True, default="entero")
+        PRESENTATIONS_WITH_VALUE_ADDED, string="Presentación", required=True,
+        default="entero")
 
     needed_from = fields.Date(string="Necesita desde", required=True, tracking=True)
     needed_to = fields.Date(string="Necesita hasta", required=True, tracking=True)
@@ -91,10 +141,20 @@ class ShrimpCopackRequest(models.Model):
     def _check_dirigida(self):
         for rec in self:
             if (rec.copacker_partner_id
-                    and rec.copacker_partner_id.shrimp_user_type != "maquilador"):
+                    and not rec.copacker_partner_id._shrimp_can_any("provide_copack")):
                 raise ValidationError(_(
                     "Una solicitud de empaque se dirige a un maquilador. «%s» no lo es.")
                     % (rec.copacker_partner_id.name or ""))
+            # Varios perfiles: una empacadora puede ser también maquiladora,
+            # pero no dirigirse una solicitud a sí misma.
+            if rec.copacker_partner_id and rec.client_partner_id \
+                    and rec.copacker_partner_id.commercial_partner_id \
+                    == rec.client_partner_id.commercial_partner_id:
+                raise ValidationError(_(
+                    "Una empresa no se contrata a sí misma: el empaque de tu propio "
+                    "camarón en tu planta es una operación interna, no un servicio de "
+                    "la plataforma (no hay contraparte que firme el acta ni comisión "
+                    "que cobrar)."))
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -107,7 +167,7 @@ class ShrimpCopackRequest(models.Model):
     @api.constrains("client_partner_id")
     def _check_cliente(self):
         for rec in self:
-            if rec.client_partner_id.shrimp_user_type not in ("camaronera", "empacadora"):
+            if not rec.client_partner_id._shrimp_can_any("request_copack"):
                 raise ValidationError(_(
                     "El servicio de empaque lo pide quien es dueño del camarón: "
                     "una camaronera o una empacadora. «%s» no lo es.")
@@ -126,35 +186,81 @@ class ShrimpCopackRequest(models.Model):
             if rec.quantity_lb <= 0:
                 raise ValidationError(_("Las libras a empacar deben ser mayores que cero."))
 
-    @api.constrains("product_id", "client_partner_id")
+    @api.constrains("product_id", "client_partner_id", "transaction_id", "stock_lot_id")
     def _check_lote_del_cliente(self):
-        """El lote que se manda a empacar tiene que ser del propio cliente.
+        """El camarón que se manda a empacar tiene que ser del propio cliente.
 
         Si no se comprueba, se puede levantar una solicitud (y de ahi una
         orden) apuntando al lote de otro, y el paso de empaque aparece en el
         certificado de trazabilidad de un tercero que nunca piso esa planta.
         Ensuciar el dato de otro es peor que equivocarse en el propio.
 
-        Nota: una empacadora cliente no puede figurar como vendedora de un
-        `shrimp.product` (ese modelo solo admite semillero, laboratorio o
-        camaronera), asi que en su caso el lote se deja vacio y el empaque no
-        se enlaza a ninguna trazabilidad. Es lo correcto: no hay lote suyo que
-        enlazar.
-
-        La lectura va en sudo para poder dar este mensaje; sin ella, apuntar a
-        un lote ajeno revienta antes con un AccessError que no explica nada.
+        Vale de dos formas: un lote que el cliente publica como vendedor (la
+        camaronera), o una compra en la que el cliente es el COMPRADOR (la
+        empacadora con el camarón que adquirió), confirmada o recibida.
         """
-        for rec in self:
-            if not rec.product_id:
-                continue
-            dueno = rec.product_id.sudo().seller_partner_id
-            if dueno != rec.client_partner_id:
-                raise ValidationError(_(
-                    "El lote «%(lote)s» es de «%(dueno)s», no de «%(cliente)s». "
-                    "Solo se puede mandar a empacar camarón propio.")
-                    % {"lote": rec.product_id.display_name or "",
-                       "dueno": dueno.name or _("otro titular"),
-                       "cliente": rec.client_partner_id.name or ""})
+        self._shrimp_check_origen_del_cliente()
+
+    def _shrimp_check_origen_del_cliente(self):
+        check_origen_del_cliente(self)
+
+    @api.onchange("transaction_id")
+    def _onchange_transaction_id(self):
+        if self.transaction_id:
+            self.product_id = self.transaction_id.product_id
+
+    @api.model
+    def _shrimp_origenes_del_cliente(self, cliente):
+        """Lo que `cliente` puede mandar a empacar: sus compras confirmadas o
+        recibidas y, si vende, sus propios lotes publicados. Lista de dicts
+        {ref, label, kind, record} para el formulario del portal."""
+        cliente = cliente.sudo()
+        salida = []
+        compras = self.env["shrimp.transaction"].sudo().search([
+            ("buyer_partner_id", "=", cliente.id),
+            ("state", "in", ("confirmed", "done")),
+        ], order="create_date desc", limit=100)
+        for tx in compras:
+            salida.append({
+                "ref": "t:%s" % tx.uuid_ref, "kind": "transaction", "record": tx,
+                "label": "%s · %s · %s %s" % (
+                    tx.name or "", tx.product_id.display_name or "",
+                    "{:,.2f}".format(tx.transaction_qty or 0.0),
+                    tx.product_id.uom_id.name or ""),
+            })
+        if cliente._shrimp_can_any("sell_products"):
+            for prod in self.env["shrimp.product"].sudo().search([
+                    ("seller_partner_id", "=", cliente.id),
+                    ("state", "in", ("published", "sold")),
+                    ("active", "=", True)], order="create_date desc", limit=100):
+                salida.append({"ref": "p:%s" % prod.uuid_ref, "kind": "product",
+                               "record": prod, "label": prod.display_name or ""})
+        return salida
+
+    @api.model
+    def _shrimp_resolver_origen(self, cliente, token):
+        """Valores (product_id, transaction_id, stock_lot_id) del origen
+        elegido en el formulario, validando que sea del cliente. Vacío si no
+        viene nada; ValidationError si no es suyo."""
+        token = (token or "").strip()
+        if not token:
+            return {}
+        tipo, _sep, ref = token.partition(":")
+        if tipo == "t":
+            tx = self.env["shrimp.transaction"].sudo().resolve_ref(ref)
+            if not tx or tx.buyer_partner_id != cliente:
+                raise ValidationError(_("La compra elegida no es tuya."))
+            lote = self.env["shrimp.stock.lot"].sudo().search([
+                ("owner_id", "=", cliente.id),
+                ("origin_move_id.transaction_id", "=", tx.id)], limit=1)
+            return {"transaction_id": tx.id, "product_id": tx.product_id.id,
+                    "stock_lot_id": lote.id or False}
+        if tipo == "p":
+            prod = self.env["shrimp.product"].sudo().resolve_ref(ref)
+            if not prod or prod.seller_partner_id != cliente:
+                raise ValidationError(_("El lote elegido no es tuyo."))
+            return {"product_id": prod.id}
+        raise ValidationError(_("El origen del camarón no es válido."))
 
     @api.constrains("copacker_partner_id", "quantity_lb")
     def _check_lote_minimo(self):

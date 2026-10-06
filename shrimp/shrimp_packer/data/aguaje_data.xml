@@ -6,4 +6,18 @@
        calendario y los registros pasan a origen "INOCAR".
        Es idempotente: si el año ya tiene aguajes, no toca nada. -->
   <function model="shrimp.aguaje" name="sembrar_desde_hoy"/>
+
+  <!-- Que el selector de aguajes de las listas de precios nunca quede vacío:
+       a diario se asegura que haya al menos seis aguajes por delante; si no,
+       se generan (calculados) los del año siguiente. Nunca toca lo ajustado a
+       mano ni lo traído del INOCAR, y nunca duplica. -->
+  <record id="ir_cron_aguaje_asegurar_calendario" model="ir.cron">
+    <field name="name">Aguajes: asegurar aguajes próximos en el calendario</field>
+    <field name="model_id" ref="model_shrimp_aguaje"/>
+    <field name="state">code</field>
+    <field name="code">model._cron_asegurar_calendario()</field>
+    <field name="interval_number">1</field>
+    <field name="interval_type">days</field>
+    <field name="active" eval="True"/>
+  </record>
 </odoo>

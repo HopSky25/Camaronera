@@ -20,7 +20,9 @@
     <xpath expr="//div[hasclass('st-foot')]" position="before">
       <t t-set="empaques" t-value="doc.copack_order_ids"/>
       <t t-if="empaques">
-        <div class="st-sec">10. Servicio de empaque</div>
+        <t t-set="sec_n" t-value="sec_n + 1"/>
+        <div class="st-keep">
+        <div class="st-sec"><t t-esc="sec_n"/>. Servicio de empaque</div>
 
         <t t-foreach="empaques" t-as="emp">
           <!-- Los colores se resuelven en un t-set y no dentro del t-attf: una
@@ -29,23 +31,27 @@
           <t t-set="ecol" t-value="'#1f7a4d' if emp.cuadra else '#a4562a'"/>
           <t t-set="ebg" t-value="'#eef7f1' if emp.cuadra else '#fdf3ec'"/>
           <div t-attf-style="border:1px solid #{ecol}; border-left:5px solid #{ecol}; background:#{ebg}; border-radius:6px; padding:8px 12px; margin-bottom:10px;">
+            <div t-if="emp.self_packing" style="font-size:12px; font-weight:bold; color:#14365a; margin-bottom:3px;">
+              <t t-esc="emp.shrimp_plant_label()"/>
+            </div>
             <div t-attf-style="font-size:12px; font-weight:bold; color:#{ecol};">
               <t t-if="emp.cuadra">Las libras entregadas cuadran con las recibidas</t>
               <t t-else="">Hay diferencia entre lo recibido y lo entregado</t>
             </div>
             <div style="font-size:10px; color:#3d4a52; margin-top:3px;">
-              Recibidas <t t-esc="round(emp.received_lb, 2)"/> lb ·
-              empacadas <t t-esc="round(emp.packed_lb, 2)"/> lb ·
-              diferencia <t t-esc="round(emp.difference_lb, 2)"/> lb
-              (<t t-esc="round(emp.difference_pct, 2)"/> %, tolerancia
-              <t t-esc="emp.tolerance_pct"/> %)
+              Recibidas <t t-esc="doc.shrimp_fmt_qty(emp.received_lb, 'lb')"/> ·
+              empacadas <t t-esc="doc.shrimp_fmt_qty(emp.packed_lb, 'lb')"/> ·
+              diferencia <t t-esc="doc.shrimp_fmt_qty(emp.difference_lb, 'lb')"/>
+              (<t t-esc="doc.shrimp_fmt_num(emp.difference_pct, 2)"/> %, tolerancia
+              <t t-esc="doc.shrimp_fmt_num(emp.tolerance_pct, 2)"/> %)
+              <t t-if="emp.packed_lot_id"> · la merma quedó consumida y lo empacado pasó al lote L-<t t-esc="emp.packed_lot_id.id"/></t>
             </div>
           </div>
 
           <table class="st-tbl">
             <tr>
               <td class="st-k">Planta que empacó</td>
-              <td class="st-v"><t t-esc="emp.copacker_partner_id.name"/></td>
+              <td class="st-v"><t t-esc="emp.copacker_partner_id.name"/><t t-if="emp.self_packing"> (empaque propio)</t></td>
               <td class="st-k">Dueño del camarón</td>
               <td class="st-v"><t t-esc="emp.client_partner_id.name"/></td>
             </tr>
@@ -59,25 +65,25 @@
                   <b><t t-esc="emp.copacker_partner_id.pack_codigo_establecimiento"/></b>
                   <t t-if="emp.copacker_partner_id.pack_habilitacion_hasta">
                     · habilitado hasta
-                    <t t-esc="emp.copacker_partner_id.pack_habilitacion_hasta"/>
+                    <t t-esc="doc.shrimp_fmt_dt(emp.copacker_partner_id.pack_habilitacion_hasta)"/>
                   </t>
                 </t>
                 <t t-else="">no registrado</t>
               </td>
               <td class="st-k">Ubicación de la planta</td>
-              <td class="st-v"><t t-esc="emp.copacker_partner_id.pack_ubicacion or '—'"/></td>
+              <td class="st-v"><t t-esc="emp.copacker_partner_id.shrimp_ubicacion or '—'"/></td>
             </tr>
             <tr>
               <td class="st-k">Recepción en planta</td>
-              <td class="st-v"><t t-esc="emp.received_date or '—'"/></td>
+              <td class="st-v"><t t-esc="doc.shrimp_fmt_dt(emp.received_date, doc.buyer_partner_id)"/></td>
               <td class="st-k">Entrega</td>
-              <td class="st-v"><t t-esc="emp.packed_date or '—'"/></td>
+              <td class="st-v"><t t-esc="doc.shrimp_fmt_dt(emp.packed_date, doc.buyer_partner_id)"/></td>
             </tr>
             <tr>
               <td class="st-k">Presentación empacada</td>
-              <td class="st-v"><t t-esc="emp.packed_presentation or '—'"/></td>
+              <td class="st-v"><t t-esc="dict(emp._fields['packed_presentation'].selection).get(emp.packed_presentation) or '—'"/><t t-if="emp.packed_presentation_note"> · <t t-esc="emp.packed_presentation_note"/></t></td>
               <td class="st-k">Cajas / masters</td>
-              <td class="st-v"><t t-esc="emp.boxes or '—'"/></td>
+              <td class="st-v"><t t-esc="doc.shrimp_fmt_num(emp.boxes, 0) if emp.boxes else '—'"/></td>
             </tr>
             <tr>
               <!-- En este servicio los insumos SIEMPRE los pone el cliente.
@@ -85,12 +91,14 @@
                    quien era el empaque. -->
               <td class="st-k">Insumos</td>
               <td class="st-v">
-                Los aporta el dueño del camarón<t t-if="emp.supplies_received">, recibidos completos</t>
+                <t t-if="emp.self_packing">Propios de la empresa (empaque propio)</t>
+                <t t-else="">Los aporta el dueño del camarón<t t-if="emp.supplies_received">, recibidos completos</t></t>
                 <t t-if="emp.supplies_issue"> · <t t-esc="emp.supplies_issue"/></t>
               </td>
               <td class="st-k">Acta</td>
               <td class="st-v">
-                <t t-if="emp.acceptance_state == 'closed'">firmada por las dos partes</t>
+                <t t-if="emp.self_packing">cierre interno de la propia empresa (sin acta de dos partes)<t t-if="emp.self_signoff_date"> · <t t-esc="doc.shrimp_fmt_dt(emp.self_signoff_date, doc.buyer_partner_id)"/></t></t>
+                <t t-elif="emp.acceptance_state == 'closed'">firmada por las dos partes</t>
                 <t t-elif="emp.acceptance_state == 'disputed'">en disputa</t>
                 <t t-elif="emp.acceptance_state == 'open'">pendiente de firma</t>
                 <t t-else="">—</t>
@@ -107,7 +115,7 @@
                   </td>
                   <td class="st-v">
                     <t t-esc="f.partner_id.name"/>
-                    <t t-if="f.decided_at"> · <t t-esc="f.decided_at"/></t>
+                    <t t-if="f.decided_at"> · <t t-esc="doc.shrimp_fmt_dt(f.decided_at, doc.buyer_partner_id)"/></t>
                   </td>
                 </t>
               </tr>
@@ -115,9 +123,10 @@
           </t>
         </t>
 
-        <div class="st-empty" style="margin-top:4px;">
+        <div class="st-note">
           El servicio de empaque no transfiere la propiedad del camarón: el lote
           siguió siendo del dueño en todo momento y la planta solo prestó el servicio.
+        </div>
         </div>
       </t>
     </xpath>

@@ -1,5 +1,34 @@
 from odoo import api, fields, models, _
-from odoo.exceptions import ValidationError
+from odoo.exceptions import UserError, ValidationError
+
+
+class ShrimpVerificationChildGuard(models.AbstractModel):
+    """Las líneas y conteos de un informe cerrado no se crean, cambian ni
+    borran (salvo el propio servidor en sudo). Es la evidencia primaria del
+    dictamen: si se pudiera retocar después, el informe dejaría de valer."""
+
+    _name = "shrimp.verification.child.guard"
+    _description = "Protección de líneas de informe cerrado"
+
+    def _check_parent_open(self, verifications):
+        if self.env.su:
+            return
+        if any(v.is_final for v in verifications):
+            raise UserError(_("Esta verificación ya está cerrada: su informe no se puede modificar."))
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        ids = [v.get("verification_id") for v in vals_list if v.get("verification_id")]
+        self._check_parent_open(self.env["shrimp.verification"].browse(ids))
+        return super().create(vals_list)
+
+    def write(self, vals):
+        self._check_parent_open(self.mapped("verification_id"))
+        return super().write(vals)
+
+    def unlink(self):
+        self._check_parent_open(self.mapped("verification_id"))
+        return super().unlink()
 
 
 class ShrimpVerificationLine(models.Model):
@@ -12,7 +41,7 @@ class ShrimpVerificationLine(models.Model):
     """
 
     _name = "shrimp.verification.line"
-    _inherit = "shrimp.uuid.mixin"
+    _inherit = ["shrimp.uuid.mixin", "shrimp.verification.child.guard"]
     _description = "Clasificación por talla de la verificación"
     _order = "quality_class asc, sequence asc, id asc"
 
@@ -79,7 +108,7 @@ class ShrimpVerificationCount(models.Model):
     """Los 'Conteo. 19 / 24 / 26' del parte: camarones por libra medidos en planta."""
 
     _name = "shrimp.verification.count"
-    _inherit = "shrimp.uuid.mixin"
+    _inherit = ["shrimp.uuid.mixin", "shrimp.verification.child.guard"]
     _description = "Conteo de la verificación"
     _order = "sequence asc, id asc"
 

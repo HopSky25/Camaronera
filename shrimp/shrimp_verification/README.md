@@ -19,7 +19,7 @@ la trazabilidad.
 
 ## El verificador en el registro
 
-En `/registro` el rol **Verificador** tiene su propio bloque en el paso 3
+En `/register` el rol **Verificador** tiene su propio bloque en el paso 3
 "Campos por tipo": razón social, responsable técnico, teléfono, base de
 operaciones, zona de cobertura y n.º de registro o licencia.
 
@@ -73,7 +73,7 @@ Al elegir verificador, el comprador ve una **lista** (no un `<select>`: un
 acreditado o no acreditado. Los acreditados llevan un icono de ojo que abre el
 documento:
 
-    /marketplace/verificador/<uuid_ref>/acreditacion
+    /marketplace/verifiers/<uuid_ref>/accreditation
 
 Requiere sesión iniciada, y responde 404 si el verificador no tiene una
 acreditación aprobada y vigente. Con `?download=1` fuerza la descarga.
@@ -134,7 +134,7 @@ El verificador tiene su propio sitio web, distinto del marketplace:
 
 Qué sitio es cuál lo decide el campo **`shrimp_is_verifier_site`** en `website`
 (Ajustes › Sitios web), no el id ni el nombre: así se puede renombrar o mover sin
-romper nada. Si se entra a `/verificador/...` desde el sitio del marketplace, se
+romper nada. Si se entra a `/verifier/...` desde el sitio del marketplace, se
 redirige al sitio de verificación; y su portada es la propia, no la del
 marketplace.
 
@@ -144,7 +144,7 @@ al servidor.
 
 **La separación es de experiencia, no de seguridad.** Las cuentas son compartidas
 entre sitios, así que un verificador podría entrar por el otro dominio. Lo que de
-verdad protege son los controladores: `/verificador/*` responde 403 a quien no
+verdad protege son los controladores: `/verifier/*` responde 403 a quien no
 sea verificador, y las rutas de publicación rechazan a quien no publica.
 
 **La sesión no se comparte entre dominios**: son cookies distintas, así que al
@@ -221,14 +221,14 @@ propio, tanto en `/my` como en el desplegable "Mi panel" de la barra superior:
 
 | Tarjeta | Va a |
 |---|---|
-| Compras por verificar | `/verificador/bandeja?state=assigned` |
-| En campo | `/verificador/bandeja?state=in_field` |
-| Por dictaminar | `/verificador/bandeja?state=done` |
-| Ya verificadas | `/verificador/bandeja?state=approved` |
-| Rechazadas | `/verificador/bandeja?state=rejected` |
-| Todas mis verificaciones | `/verificador/bandeja` |
-| Mi acreditación | `/marketplace/mis-certificados` |
-| Mi cuenta | `/marketplace/mi-cuenta` |
+| Compras por verificar | `/verifier/inbox?state=assigned` |
+| En campo | `/verifier/inbox?state=in_field` |
+| Por dictaminar | `/verifier/inbox?state=done` |
+| Ya verificadas | `/verifier/inbox?state=approved` |
+| Rechazadas | `/verifier/inbox?state=rejected` |
+| Todas mis verificaciones | `/verifier/inbox` |
+| Mi acreditación | `/marketplace/my-certificates` |
+| Mi cuenta | `/marketplace/my-account` |
 
 Cada tarjeta lleva su contador real. Si la acreditación aún no está aprobada,
 el panel lo avisa arriba: sin ella no recibirá asignaciones.
@@ -276,7 +276,7 @@ metabisulfito, sabor, incidencias y conclusión. Es el documento que el comprado
 enseña a terceros: si el lote pasó por un verificador acreditado, tiene que
 constar ahí.
 
-Las fotos se sirven por `/marketplace/verificacion/<uuid>/foto/<id>`, restringido
+Las fotos se sirven por `/marketplace/verifications/<uuid>/photos/<id>`, restringido
 a las partes de la operación (comprador, vendedor, verificador) y a usuarios
 internos, y solo para adjuntos de esa verificación.
 
@@ -332,11 +332,11 @@ Está en el portal (botón Copiar) y en el backend (botón "Parte para WhatsApp"
 
 | Ruta | Quién | Para qué |
 |---|---|---|
-| `/verificador/bandeja` | verificador | Órdenes asignadas, con contadores |
-| `/verificador/verificacion/<uuid>` | verificador | Informe de campo y veredicto |
-| `/marketplace/buy/<uuid>/verificar` | comprador | Compra eligiendo verificador |
-| `/marketplace/verificacion/pendiente/<uuid>` | comprador | Confirmación de compra pendiente |
-| `/marketplace/compras/<uuid>/concluir` | comprador | Concluir tras la aprobación |
+| `/verifier/inbox` | verificador | Órdenes asignadas, con contadores |
+| `/verifier/verifications/<uuid>` | verificador | Informe de campo y veredicto |
+| `/marketplace/buy/<uuid>/verify` | comprador | Compra eligiendo verificador |
+| `/marketplace/verifications/pending/<uuid>` | comprador | Confirmación de compra pendiente |
+| `/marketplace/purchases/<uuid>/complete` | comprador | Concluir tras la aprobación |
 
 El informe **se puede guardar por partes**: una verificación no se completa de
 una sentada.
@@ -369,3 +369,35 @@ de cadena, así que el literal se procesa dos veces: `'%.2f %%'` se convierte en
 
 Por la misma razón el parte de WhatsApp (que contiene "67,22%") **no se pasa por
 el contexto** del `render`, sino que la plantilla llama a `v.whatsapp_report()`.
+
+## Aceptación del informe por las partes: cuándo surte efecto y cómo deshacerla
+
+Tras un veredicto favorable, comprador y vendedor aceptan, rechazan o (el
+comprador, si el producto no cumplió lo publicado) contraofertan el informe.
+
+* **Cuándo surte efecto una decisión.** Al cerrarse la ronda: cuando las dos
+  partes ya decidieron, o al vencer el plazo (`shrimp_verification.acceptance_hours`,
+  48 h; el cron da por aceptadas las posturas pendientes). Un rechazo con la
+  otra parte todavía pendiente **ya no cancela la compra en el acto**: la
+  compra sigue reservada y a la otra parte se le avisa. Con la ronda cerrada,
+  si alguna rechazó el trato se cae (se cancela la compra y se reasigna el
+  honorario); si las dos aceptaron, se cierra y se factura.
+* **Deshacer mi decisión.** Mientras la ronda siga abierta, cada parte puede
+  devolver SU postura a como estaba antes («pendiente»; una contraoferta
+  vuelve a la propuesta anterior y el vendedor recupera la postura que tenía).
+  Si el vendedor ya respondió a la contraoferta, no se deshace. Portal: botón
+  «Deshacer mi decisión» en `/marketplace/verifications/<ref>/acceptance`
+  (POST `/marketplace/verifications/<ref>/undo`). API:
+  `POST /api/v1/verifications/{id}/acceptance:revert`.
+* **Plazo tras deshacer.** El plazo original se mantiene (deshacer no reinicia
+  la ronda), pero si le quedan menos de `shrimp.signoff_undo_margin_minutes`
+  (60 por defecto) se corre hasta ahora + ese margen, para que el cron no dé
+  por aceptada sin querer una postura recién deshecha. Vencido el plazo, una
+  postura deshecha se trata como cualquier pendiente: callar es consentir.
+* **Auditoría.** Cada decisión y cada reversión queda en el chatter de la
+  verificación y en el «Historial de decisiones» (`shrimp.signoff.event`), que
+  ven las dos partes en el portal. La otra parte recibe un correo y, por API,
+  el webhook `verification.acceptance_reverted`. Un gestor
+  (`group_shrimp_manager`) puede deshacer en nombre de una parte, con motivo,
+  desde la pestaña «Aceptación de las partes» o desde Camaronera > Marketplace >
+  Historial de firmas.

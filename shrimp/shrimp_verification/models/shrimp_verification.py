@@ -1,8 +1,10 @@
 import logging
 
 from odoo import api, fields, models, _
-from odoo.exceptions import ValidationError, UserError
+from odoo.exceptions import AccessError, ValidationError, UserError
 from odoo.tools.float_utils import float_compare, float_is_zero
+
+from odoo.addons.shrimp_marketplace.models.shrimp_selection import PRESENTATIONS
 
 _logger = logging.getLogger(__name__)
 
@@ -37,11 +39,64 @@ class ShrimpVerification(models.Model):
         "shrimp.transaction", string="Compra", required=True,
         ondelete="cascade", index=True, tracking=True,
     )
+    # ------------------------------------------------------------------
+    # MODO DE VERIFICACIÓN (lo elige el comprador al comprar)
+    # ------------------------------------------------------------------
+    # platform: la de siempre — verificadora acreditada de la plataforma,
+    #   técnico, veredicto, honorario y aceptación de las partes.
+    # declared: las partes verificaron por su cuenta (una verificadora
+    #   externa por convenio, o ellas mismas) y UNA de ellas sube el informe;
+    #   la otra lo acepta, rechaza o contraoferta con la misma ronda de
+    #   aceptación. Sin verificadora de la plataforma ni honorario.
+    # No existe "no aplica": un lote que exige verificación se compra en uno
+    # de estos dos modos (lo garantizan el required y el CHECK de abajo).
+    verification_mode = fields.Selection(
+        [("platform", "Verificadora de la plataforma"),
+         ("declared", "Verificación declarada por las partes")],
+        string="Modo de verificación", required=True, default="platform",
+        index=True, tracking=True, copy=False,
+        help="Verificadora de la plataforma: un verificador acreditado inspecciona "
+             "y dictamina (con honorario). Declarada por las partes: el comprador "
+             "o el vendedor sube el informe de una verificadora externa o de su "
+             "propia verificación, y la otra parte lo confirma (sin honorario).")
+
+    # Obligatoria solo en modo plataforma (_check_mode_requirements): en la
+    # declarada no hay verificadora de la plataforma.
     verifier_partner_id = fields.Many2one(
-        "res.partner", string="Empresa verificadora", required=True,
+        "res.partner", string="Empresa verificadora",
         ondelete="restrict", index=True, tracking=True,
-        domain=[("shrimp_user_type", "=", "verificador")],
+        domain=["|", ("shrimp_user_type", "=", "verificador"),
+                ("shrimp_role_ids", "any", [("role", "=", "verificador"), ("state", "=", "approved")])],
     )
+
+    # ---- Datos propios de la verificación declarada ----
+    declared_source = fields.Selection(
+        [("external", "Verificadora externa"),
+         ("self", "Verificación propia de las partes")],
+        string="Quién verificó", default="external", tracking=True,
+        help="Verificadora externa (no registrada en la plataforma o por "
+             "convenio entre las partes) o verificación hecha por las propias partes.")
+    external_verifier_name = fields.Char(
+        string="Verificadora externa", tracking=True,
+        help="Nombre de la empresa que verificó fuera de la plataforma (opcional).")
+    external_verifier_vat = fields.Char(
+        string="RUC de la verificadora externa", tracking=True)
+    declared_report_file = fields.Binary(
+        string="Informe de verificación (PDF)", attachment=True, copy=False)
+    declared_report_filename = fields.Char(string="Nombre del informe", copy=False)
+    declarant_partner_id = fields.Many2one(
+        "res.partner", string="Declarado por", readonly=True, copy=False,
+        ondelete="restrict", index=True,
+        help="La parte (comprador o vendedor) que presentó el informe declarado. "
+             "La otra parte es la que lo confirma.")
+    declarant_role = fields.Selection(
+        [("buyer", "Comprador"), ("seller", "Vendedor")],
+        string="Parte declarante", readonly=True, copy=False)
+    declared_submitted_date = fields.Datetime(
+        string="Fecha de presentación", readonly=True, copy=False)
+    declared_last_editor_id = fields.Many2one(
+        "res.partner", string="Última edición del borrador", readonly=True, copy=False,
+        ondelete="set null")
 
     # Quien realmente pisa el campo. La empresa es la acreditada y la que elige
     # el comprador; el técnico es el que firma lo que vio.
@@ -167,9 +222,10 @@ class ShrimpVerification(models.Model):
     # ------------------------------------------------------------------
     # ANÁLISIS 2 — CUERPO O COLA
     # ------------------------------------------------------------------
+    # Lista única de presentaciones (shrimp_marketplace/models/shrimp_selection.py).
     presentation = fields.Selection(
-        [("entero", "Entero (cuerpo)"), ("cola", "Cola")],
-        string="Presentación", tracking=True,
+        PRESENTATIONS, string="Presentación", tracking=True,
+        help="Entero (cuerpo) o cola, tal como llegó a planta.",
     )
     presentation_matches_product = fields.Boolean(
         string="Coincide con lo publicado", compute="_compute_presentation_match",
@@ -277,6 +333,11 @@ class ShrimpVerification(models.Model):
             ("approved_obs", "Aprobada con observaciones"),
             ("rejected", "Rechazada"),
             ("cancelled", "Cancelada"),
+            # Modo «declarada por las partes»: borrador que llenan comprador o
+            # vendedor, y el informe ya presentado (que la otra parte confirma
+            # en la ronda de aceptación).
+            ("declared_draft", "Declaración en preparación"),
+            ("declared", "Informe declarado"),
         ],
         string="Estado", default="received", required=True, index=True, tracking=True,
     )
@@ -301,14 +362,35 @@ class ShrimpVerification(models.Model):
         string="Liquidar al verificador", currency_field="currency_id",
         compute="_compute_reparto", store=True)
 
+    # Cobros del honorario (shrimp.charge, tipo «verification_fee»). Hay uno
+    # vigente; si el honorario se reasigna, el anterior queda acreditado.
+    charge_ids = fields.One2many(
+        "shrimp.charge", "verification_id", string="Cobros del honorario")
+    fee_charge_id = fields.Many2one(
+        "shrimp.charge", string="Cobro vigente del honorario",
+        compute="_compute_fee_charge")
     sale_order_id = fields.Many2one(
-        "sale.order", string="Pedido al comprador", readonly=True, copy=False)
+        "sale.order", string="Pedido al pagador", compute="_compute_fee_charge")
     invoice_id = fields.Many2one(
-        "account.move", string="Factura al comprador", readonly=True, copy=False)
+        "account.move", string="Factura del honorario", compute="_compute_fee_charge")
     vendor_bill_id = fields.Many2one(
         "account.move", string="Factura del verificador", readonly=True, copy=False)
     invoice_state = fields.Selection(
-        related="invoice_id.state", string="Estado de la factura", readonly=True)
+        [("draft", "Borrador"), ("posted", "Contabilizada"), ("cancel", "Cancelada")],
+        string="Estado de la factura", compute="_compute_fee_charge")
+
+    @api.depends("charge_ids.state", "charge_ids.invoice_id", "charge_ids.sale_order_id",
+                 "charge_ids.invoice_id.state")
+    def _compute_fee_charge(self):
+        for rec in self:
+            vigente = rec.charge_ids.filtered(
+                lambda c: c.charge_type == "verification_fee"
+                and c.state not in ("cancelled", "credited", "to_credit")
+            ).sorted("id", reverse=True)[:1]
+            rec.fee_charge_id = vigente
+            rec.sale_order_id = vigente.sale_order_id
+            rec.invoice_id = vigente.invoice_id
+            rec.invoice_state = vigente.invoice_id.state or False
 
     @api.depends("fee", "margin_pct")
     def _compute_reparto(self):
@@ -427,42 +509,145 @@ class ShrimpVerification(models.Model):
     @api.depends("state")
     def _compute_is_final(self):
         for rec in self:
-            rec.is_final = rec.state in ("approved", "approved_obs", "rejected", "cancelled")
+            # «declared»: el informe declarado ya se presentó; se congela igual
+            # que un informe con veredicto (la otra parte decide sobre ESE).
+            rec.is_final = rec.state in ("approved", "approved_obs", "rejected", "cancelled",
+                                         "declared")
 
     # ==================================================================
     # Validaciones
     # ==================================================================
+    PLATFORM_STATES = ("received", "assigned", "in_field", "done",
+                       "approved", "approved_obs", "rejected")
+    DECLARED_STATES = ("declared_draft", "declared")
+
+    _verification_mode_valid = models.Constraint(
+        "CHECK(verification_mode IN ('platform', 'declared'))",
+        "El modo de verificación debe ser «Verificadora de la plataforma» o "
+        "«Verificación declarada por las partes»: no existe «no aplica».",
+    )
+
+    def is_declared(self):
+        self.ensure_one()
+        return self.verification_mode == "declared"
+
+    @api.constrains("verification_mode", "verifier_partner_id", "technician_partner_id",
+                    "fee", "state")
+    def _check_mode_requirements(self):
+        """Lo que exige cada modo.
+
+        Plataforma: verificadora obligatoria y solo los estados de su flujo.
+        Declarada: sin verificadora de la plataforma, sin técnico y sin
+        honorario (no hay servicio de la plataforma que cobrar), y solo los
+        estados de la declaración (o cancelada).
+        """
+        for rec in self:
+            if rec.verification_mode not in ("platform", "declared"):
+                raise ValidationError(_(
+                    "Elige cómo se verifica la compra: con la verificadora de la "
+                    "plataforma o con una verificación declarada por las partes."))
+            if rec.verification_mode == "platform":
+                if not rec.verifier_partner_id:
+                    raise ValidationError(_(
+                        "Una verificación de la plataforma necesita una empresa verificadora."))
+                if rec.state in self.DECLARED_STATES:
+                    raise ValidationError(_(
+                        "Ese estado es de las verificaciones declaradas por las partes."))
+            else:
+                if rec.verifier_partner_id or rec.technician_partner_id:
+                    raise ValidationError(_(
+                        "Una verificación declarada por las partes no lleva verificadora "
+                        "ni técnico de la plataforma: los datos de la verificadora "
+                        "externa van en sus propios campos."))
+                if rec.fee:
+                    raise ValidationError(_(
+                        "La verificación declarada por las partes no tiene honorario "
+                        "de verificación de la plataforma."))
+                if rec.state not in self.DECLARED_STATES + ("cancelled",):
+                    raise ValidationError(_(
+                        "Una verificación declarada solo puede estar en preparación, "
+                        "declarada o cancelada."))
+
     @api.constrains("verifier_partner_id")
     def _check_verifier_role(self):
         for rec in self:
-            if rec.verifier_partner_id.shrimp_user_type != "verificador":
+            if not rec.verifier_partner_id:
+                continue    # declarada: _check_mode_requirements ya lo exige vacío
+            if not rec.verifier_partner_id._shrimp_has_role("verificador"):
                 raise ValidationError(_("El verificador asignado debe ser un contacto de tipo Verificador."))
 
     @api.constrains("verifier_partner_id", "buyer_partner_id", "seller_partner_id")
     def _check_verifier_independence(self):
         """El verificador tiene que ser un tercero: si es el propio comprador o
-        vendedor, la verificación no garantiza nada."""
+        vendedor, la verificación no garantiza nada.
+
+        No aplica a la verificación DECLARADA: ahí son las propias partes las
+        que verifican (o traen a su verificadora externa) y la garantía es que
+        la otra parte tiene que confirmar el informe. Se salta por el modo, de
+        forma explícita, y no por la mera ausencia de verificadora."""
         for rec in self:
+            if rec.verification_mode == "declared":
+                continue
             if not rec.verifier_partner_id:
                 continue
-            if rec.verifier_partner_id in (rec.buyer_partner_id, rec.seller_partner_id):
+            # Misma ENTIDAD comercial, no solo el mismo contacto: con varios
+            # perfiles por cuenta una empresa puede ser verificadora y a la
+            # vez compradora o vendedora, y nunca debe verificarse a sí misma.
+            if rec.verifier_partner_id in (rec.buyer_partner_id, rec.seller_partner_id) \
+                    or rec.verifier_partner_id.shrimp_same_entity(
+                        rec.buyer_partner_id, rec.seller_partner_id):
                 raise ValidationError(
                     _("El verificador no puede ser el comprador ni el vendedor de la compra."))
 
-    @api.constrains("technician_partner_id", "verifier_partner_id")
+    @api.constrains("technician_partner_id", "verifier_partner_id",
+                    "buyer_partner_id", "seller_partner_id")
     def _check_technician_belongs_to_company(self):
         for rec in self:
-            tec = rec.technician_partner_id
+            tec = rec.technician_partner_id.sudo()
             if not tec:
                 continue
+            # Nunca una de las partes: el técnico es los ojos del tercero.
+            partes = rec.buyer_partner_id | rec.seller_partner_id
+            if tec in partes or (tec.parent_id and tec.parent_id in partes):
+                raise ValidationError(_(
+                    "El técnico no puede ser el comprador ni el vendedor de la compra."))
             # Vale el propio partner de la empresa (cuando el admin hace el
-            # trabajo) o un técnico dado de alta por ella.
+            # trabajo) o un técnico ACTIVO dado de alta por ella.
             if tec == rec.verifier_partner_id:
                 continue
-            if not (tec.shrimp_is_field_tech and tec.parent_id == rec.verifier_partner_id):
+            activos = rec.verifier_partner_id.sudo().field_tech_ids.filtered("active")
+            if not (tec.shrimp_is_field_tech and tec.parent_id == rec.verifier_partner_id
+                    and tec in activos):
                 raise ValidationError(_(
-                    "El técnico «%s» no pertenece a la empresa verificadora «%s»."
+                    "El técnico «%s» no es un técnico activo de la empresa verificadora «%s»."
                 ) % (tec.name, rec.verifier_partner_id.name))
+
+    # ------------------------------------------------------------------
+    # Escritura: el informe cerrado no se toca
+    # ------------------------------------------------------------------
+    # Tras el veredicto el flujo sigue escribiendo datos de PROCESO
+    # (aceptación de las partes, facturación, avisos). Todo lo demás —pesos,
+    # análisis, veredicto, estado, honorario— queda congelado para cualquiera
+    # que no sea el propio servidor (sudo).
+    _FINAL_WRITABLE_FIELDS = frozenset({
+        "acceptance_state", "acceptance_deadline", "fee_payer_partner_id",
+        "margin_pct", "vendor_bill_id", "buyer_notified",
+        "message_main_attachment_id", "activity_ids", "message_follower_ids",
+    })
+
+    def write(self, vals):
+        user = self.env.user
+        if "fee" in vals and user.share:
+            # El honorario lo fija la plataforma al crear la verificación; el
+            # verificador no se lo sube por su cuenta, ni siquiera vía sudo.
+            raise AccessError(_("El honorario de la verificación no se puede modificar."))
+        if not self.env.su:
+            if user.share:
+                raise AccessError(_("Las verificaciones solo se modifican desde sus pantallas."))
+            congelados = set(vals) - self._FINAL_WRITABLE_FIELDS
+            if congelados and any(rec.is_final for rec in self):
+                raise UserError(_("Esta verificación ya está cerrada: su informe no se puede modificar."))
+        return super().write(vals)
 
     @api.constrains("weight_sent_lb", "weight_plant_lb", "trash_lb")
     def _check_weights(self):
@@ -488,6 +673,12 @@ class ShrimpVerification(models.Model):
                     "shrimp.verification") or _("VER-000000")
         records = super().create(vals_list)
         for rec in records:
+            if rec.verification_mode == "declared":
+                # Sin verificadora a la que avisar y con el despacho opcional:
+                # la pantalla del despacho se crea si una parte la abre. Se
+                # avisa a las partes de que el informe lo suben ellas.
+                rec._notify_stage()
+                continue
             # El seguimiento del despacho nace con la verificación, vacío: es
             # lo que el vendedor tiene que llenar y no puede tener que pedirlo.
             # Si se creara solo cuando el vendedor entra a la pantalla, la
@@ -502,7 +693,10 @@ class ShrimpVerification(models.Model):
     # Acciones del flujo
     # ==================================================================
     def action_assign_technician(self, technician=None):
-        """El admin de la empresa reparte el trabajo entre sus técnicos."""
+        """El admin de la empresa reparte el trabajo entre sus técnicos.
+
+        La pertenencia (técnico activo de la empresa, nunca comprador ni
+        vendedor) la garantiza _check_technician_belongs_to_company."""
         for rec in self:
             if rec.is_final:
                 raise UserError(_("Esta verificación ya está cerrada."))
@@ -653,11 +847,182 @@ class ShrimpVerification(models.Model):
             # Al rechazar, la compra se cancela y se libera la reserva de stock.
             rec.transaction_id.action_cancel_for_verification()
 
+    # ==================================================================
+    # VERIFICACIÓN DECLARADA POR LAS PARTES
+    # ==================================================================
+    # Quién llena: cualquiera de las dos partes (comprador o vendedor) puede
+    # editar el borrador; la que lo PRESENTA queda como declarante y su
+    # postura en la ronda de aceptación queda aceptada en el acto (presentar
+    # el informe es suscribirlo). La OTRA parte lo acepta, lo rechaza o —si
+    # es el comprador y el informe muestra que el producto no cumplió—
+    # contraoferta, exactamente como frente al informe de un verificador.
+    # Si el declarante se equivocó, «deshacer mi decisión» mientras la otra
+    # parte no haya respondido retira la declaración y la devuelve a
+    # borrador (shrimp.verification.acceptance._signoff_after_undo).
+    def _declared_role_of(self, partner):
+        """«buyer» / «seller» si `partner` es parte de la compra, si no False."""
+        self.ensure_one()
+        if partner and partner == self.buyer_partner_id:
+            return "buyer"
+        if partner and partner == self.seller_partner_id:
+            return "seller"
+        return False
+
+    def _check_declared_editable(self, actor):
+        self.ensure_one()
+        if self.verification_mode != "declared":
+            raise UserError(_("Esta verificación la hace la verificadora de la plataforma."))
+        if not self._declared_role_of(actor):
+            raise AccessError(_(
+                "El informe declarado solo lo pueden cargar el comprador o el vendedor de la compra."))
+        if self.state != "declared_draft":
+            raise UserError(_(
+                "El informe declarado ya se presentó: ahora la otra parte lo "
+                "acepta o lo rechaza. Para corregirlo, el declarante puede "
+                "deshacer su presentación mientras la otra parte no haya respondido."))
+
+    def action_declared_save(self, vals, actor):
+        """Guarda (por partes) el borrador del informe declarado.
+
+        `vals` son campos del informe y de la verificadora externa; nunca
+        estado, partes ni honorario (esos los fija el flujo)."""
+        self.ensure_one()
+        self._check_declared_editable(actor)
+        prohibidos = set(vals) & {
+            "state", "verification_mode", "verifier_partner_id", "technician_partner_id",
+            "fee", "transaction_id", "declarant_partner_id", "declarant_role",
+            "declared_submitted_date", "acceptance_state", "acceptance_deadline",
+            "fee_payer_partner_id", "verified_date"}
+        if prohibidos:
+            raise AccessError(_("Esos datos no se cargan desde el informe declarado: %s")
+                              % ", ".join(sorted(prohibidos)))
+        vals = dict(vals, declared_last_editor_id=actor.id)
+        self.sudo().write(vals)
+        return True
+
+    def _missing_declared_fields(self):
+        """Lo que falta para PRESENTAR el informe declarado: los mismos datos
+        mínimos que el informe de un verificador, más el informe en PDF cuando
+        verificó una empresa externa (es el respaldo de lo declarado)."""
+        self.ensure_one()
+        missing = self._missing_report_fields()
+        if self.declared_source == "external":
+            if not (self.external_verifier_name or "").strip():
+                missing.append(_("nombre de la verificadora externa"))
+            if not self.declared_report_file:
+                missing.append(_("informe de la verificadora externa (PDF)"))
+        return missing
+
+    def action_declared_submit(self, actor, notes=None):
+        """Presenta el informe declarado: lo congela y lo pone a la firma.
+
+        `actor` (comprador o vendedor) queda como declarante; su postura queda
+        aceptada y la otra parte pasa a tener que responder en el plazo."""
+        self.ensure_one()
+        self._check_declared_editable(actor)
+        missing = self._missing_declared_fields()
+        if missing:
+            raise UserError(_("Faltan datos del informe declarado: %s.") % ", ".join(missing))
+        rol = self._declared_role_of(actor)
+        vals = {
+            "state": "declared",
+            "declarant_partner_id": actor.id,
+            "declarant_role": rol,
+            "declared_submitted_date": fields.Datetime.now(),
+            "verified_date": fields.Datetime.now(),
+        }
+        texto = (notes or "").strip()
+        if texto:
+            vals["verdict_notes"] = texto
+        self.sudo().write(vals)
+        self.sudo()._message_log(body=_(
+            "Informe declarado presentado por %(quien)s (%(rol)s). %(origen)s") % {
+                "quien": actor.name, "rol": dict(self._fields["declarant_role"].selection)[rol],
+                "origen": self.declared_origin_text()})
+        self.sudo()._abrir_ronda_aceptacion()
+        # Presentar el informe es suscribirlo: la postura del declarante queda
+        # aceptada (con su historial, así que «deshacer» la puede revertir).
+        postura = self.acceptance_ids.filtered(lambda a: a.role == rol)[:1]
+        if postura and postura.decision == "pending":
+            postura.sudo().action_accept(
+                reason=_("Presentó el informe declarado."), actor=actor)
+        return True
+
+    def _reabrir_declaracion(self):
+        """El declarante retiró su presentación (deshizo su aceptación antes
+        de que la otra parte respondiera): el informe vuelve a borrador, la
+        ronda se cierra sin efecto y la compra vuelve a «pendiente de
+        verificación». Las posturas quedan en «pendiente» (con su historial)."""
+        for rec in self.sudo():
+            if rec.verification_mode != "declared" or rec.state != "declared":
+                continue
+            quien = rec.declarant_partner_id
+            rec.write({
+                "state": "declared_draft",
+                "acceptance_state": "na",
+                "acceptance_deadline": False,
+                "declarant_partner_id": False,
+                "declarant_role": False,
+                "declared_submitted_date": False,
+                "verified_date": False,
+            })
+            tx = rec.transaction_id
+            if tx.state == "pending_acceptance":
+                tx.write({"state": "pending_verification"})
+            rec._message_log(body=_(
+                "%s retiró el informe declarado para corregirlo: vuelve a borrador.")
+                % (quien.name or _("El declarante")))
+        return True
+
+    # ---- textos para pantallas, PDF, página pública y API ----
+    def declared_origin_text(self):
+        """«externa: X (RUC …)» o «verificación propia de las partes»."""
+        self.ensure_one()
+        if self.declared_source == "self":
+            return _("verificación propia de las partes")
+        nombre = (self.external_verifier_name or "").strip() or _("verificadora externa no indicada")
+        if (self.external_verifier_vat or "").strip():
+            return _("externa: %(n)s, RUC %(r)s") % {"n": nombre, "r": self.external_verifier_vat.strip()}
+        return _("externa: %s") % nombre
+
+    def verification_label(self):
+        """La etiqueta que distingue los dos modos en la trazabilidad.
+
+        Plataforma: «Verificado por <verificadora acreditada>».
+        Declarada:  «Verificación declarada por <empresa> (externa: <verificadora>
+        RUC …)» — nunca se presenta como si la hubiera hecho un acreditado."""
+        self.ensure_one()
+        if self.verification_mode == "declared":
+            quien = self.declarant_partner_id.commercial_partner_id.name \
+                or self.declarant_partner_id.name
+            if not quien:
+                return _("Verificación declarada por las partes (pendiente de presentar)")
+            return _("Verificación declarada por %(empresa)s (%(origen)s)") % {
+                "empresa": quien, "origen": self.declared_origin_text()}
+        empresa = self.verifier_partner_id.name or "—"
+        if self.verifier_partner_id.verifier_is_accredited:
+            return _("Verificado por %s (verificadora acreditada de la plataforma)") % empresa
+        return _("Verificado por %s (verificadora de la plataforma)") % empresa
+
+    def declared_other_party(self):
+        """La parte que tiene que confirmar el informe declarado."""
+        self.ensure_one()
+        if self.declarant_role == "buyer":
+            return self.seller_partner_id
+        if self.declarant_role == "seller":
+            return self.buyer_partner_id
+        return self.env["res.partner"]
+
     def action_cancel(self):
         for rec in self:
             rec.write({"state": "cancelled"})
             rec._notify_stage()
             rec.transaction_id.action_cancel_for_verification()
+            # Sin inspección no hay servicio que cobrar: el honorario que se
+            # facturó al iniciar la compra se anula con nota de crédito.
+            rec.charge_ids.filtered(
+                lambda c: c.charge_type == "verification_fee"
+            ).action_cancel_charge(_("Verificación %s cancelada") % rec.name)
 
     # ==================================================================
     # Aceptación de las dos partes
@@ -667,20 +1032,16 @@ class ShrimpVerification(models.Model):
     # veredicto: se cierra cuando comprador y vendedor firman que lo aceptan.
 
     def _horas_de_plazo(self):
-        try:
-            return int(self.env["ir.config_parameter"].sudo().get_param(
-                "shrimp_verification.acceptance_hours") or 48)
-        except (TypeError, ValueError):
-            return 48
+        """Ajustes › CamaronMarket › Verificación (acceptance_hours, 48)."""
+        return self.env["shrimp.settings"].get_int(
+            "shrimp_verification.acceptance_hours", 48, minimum=1)
 
     def _tolerancia_peso(self):
         """Cuánto puede faltar del peso vendido sin considerarlo incumplimiento.
-        Entre la pesada del vendedor y la de planta siempre hay merma."""
-        try:
-            return float(self.env["ir.config_parameter"].sudo().get_param(
-                "shrimp_verification.weight_tolerance_pct") or 2.0)
-        except (TypeError, ValueError):
-            return 2.0
+        Entre la pesada del vendedor y la de planta siempre hay merma.
+        Ajustes › CamaronMarket › Verificación (weight_tolerance_pct, 2 %)."""
+        return self.env["shrimp.settings"].get_float(
+            "shrimp_verification.weight_tolerance_pct", 2.0, minimum=0)
 
     def cumple_lo_publicado(self):
         """¿El producto entregado cumple lo que el anuncio prometía?
@@ -751,13 +1112,21 @@ class ShrimpVerification(models.Model):
                         "partner_id": partner.id,
                     })
             rec.acceptance_state = "waiting"
-            rec.fee_payer_partner_id = rec.buyer_partner_id.id
+            if rec.verification_mode == "platform":
+                rec.fee_payer_partner_id = rec.buyer_partner_id.id
             rec._abrir_plazo()
             rec.transaction_id.action_await_acceptance()
             rec._notify_acceptance("opened")
 
     def _resolver_aceptacion(self):
-        """Cierra la ronda si ya hay decisión de las dos partes."""
+        """Cierra la ronda si ya hay decisión de las dos partes.
+
+        Una decisión surte efecto cuando la ronda se cierra, no al hacer clic:
+        un rechazo con la otra parte todavía pendiente NO tumba la compra
+        (quien rechazó puede deshacerlo). La compra se cae cuando las dos
+        decidieron —o al vencer el plazo, cuando el cron da por aceptada la
+        pendiente— y alguna rechazó.
+        """
         for rec in self:
             if rec.acceptance_state != "waiting":
                 continue
@@ -765,7 +1134,13 @@ class ShrimpVerification(models.Model):
             if len(posturas) < 2:
                 continue
 
+            pendientes = posturas.filtered(lambda a: a.decision == "pending")
             rechazo = posturas.filtered(lambda a: a.decision == "rejected")
+            if rechazo and pendientes:
+                # Rechazo todavía reversible: se avisa a la otra parte de que
+                # la pelota está en su cancha, pero la compra sigue en pie.
+                rec._notify_acceptance("rejected_pending")
+                continue
             if rechazo:
                 rec._cerrar_trato_caido(rechazo[0])
                 continue
@@ -808,8 +1183,10 @@ class ShrimpVerification(models.Model):
         self.ensure_one()
         self.acceptance_state = "closed"
         # El honorario lo paga el comprador: contrató la verificación y el
-        # trato salió adelante.
-        self.fee_payer_partner_id = self.buyer_partner_id.id
+        # trato salió adelante. (La declarada no tiene honorario; la comisión
+        # de la venta sí se cobra, en action_confirm, como en toda compra.)
+        if self.verification_mode == "platform":
+            self.fee_payer_partner_id = self.buyer_partner_id.id
         self._create_payer_invoice()
         self.transaction_id.action_complete_after_verification()
         self._notify_acceptance("closed")
@@ -835,6 +1212,15 @@ class ShrimpVerification(models.Model):
                 "verificación la paga el vendedor.") % "; ".join(motivos)
 
         self.acceptance_state = "broken"
+        if self.verification_mode == "declared":
+            # Sin honorario de la plataforma: no hay nada que cargarle a nadie.
+            self.sudo()._message_log(body=_(
+                "Trato caído: %(quien)s rechazó el informe declarado. Al ser una "
+                "verificación declarada por las partes, no hay honorario de "
+                "verificación.") % {"quien": rechazo.partner_id.name})
+            self.transaction_id.action_cancel_for_verification()
+            self._notify_acceptance("broken")
+            return
         self.fee_payer_partner_id = culpable.id
         self.sudo()._message_log(body=_(
             "Trato caído: lo rechazó %(quien)s. %(explicacion)s Se factura a "
@@ -890,7 +1276,21 @@ class ShrimpVerification(models.Model):
         contra = self.acceptance_ids.filtered(lambda a: a.decision == "counter")[:1]
         _cumple, motivos = self.cumple_lo_publicado()
 
-        if evento == "opened":
+        declarada = self.verification_mode == "declared"
+        if evento == "opened" and declarada:
+            # Solo a la parte que tiene que confirmar: el declarante ya lo
+            # suscribió al presentarlo.
+            destinos = ["seller" if self.declarant_role == "buyer" else "buyer"]
+            titular = _("Confirma el informe de verificación declarado")
+            detalle = _(
+                "%(quien)s presentó el informe de la verificación hecha fuera de "
+                "la plataforma (%(origen)s). La compra se cierra cuando lo "
+                "aceptes. Revísalo y responde antes del %(plazo)s: si no dices "
+                "nada, se dará por aceptado."
+            ) % {"quien": self.declarant_partner_id.name or _("La otra parte"),
+                 "origen": self.declared_origin_text(), "plazo": plazo}
+
+        elif evento == "opened":
             destinos = ["buyer", "seller"]
             titular = _("Falta tu aceptación del informe")
             detalle = _(
@@ -916,6 +1316,24 @@ class ShrimpVerification(models.Model):
                 "plazo": plazo,
             }
 
+        elif evento == "rejected_pending":
+            pendiente = self.acceptance_ids.filtered(lambda a: a.decision == "pending")[:1]
+            rechazo = self.acceptance_ids.filtered(lambda a: a.decision == "rejected")[:1]
+            if not pendiente or not rechazo:
+                return
+            destinos = [pendiente.role]
+            titular = _("La otra parte rechazó el informe")
+            detalle = _(
+                "%(quien)s rechazó el informe%(motivo)s. El rechazo surte efecto "
+                "cuando respondas o al vencer el plazo (%(plazo)s): entonces la "
+                "compra se cancela. Hasta ese momento %(quien)s todavía puede "
+                "deshacer su rechazo."
+            ) % {
+                "quien": rechazo.partner_id.name or _("Una de las partes"),
+                "motivo": (_(": %s") % rechazo.reason) if rechazo.reason else "",
+                "plazo": plazo,
+            }
+
         elif evento == "waiting_on_one":
             pendiente = self.acceptance_ids.filtered(lambda a: a.decision == "pending")[:1]
             if not pendiente:
@@ -923,6 +1341,10 @@ class ShrimpVerification(models.Model):
             destinos = [pendiente.role]
             titular = _("Solo faltas tú para cerrar la compra")
             detalle = _(
+                "La otra parte ya aceptó el informe declarado. En cuanto "
+                "respondas, la compra queda cerrada. Tienes hasta el %(plazo)s; "
+                "si no dices nada, se dará por aceptado."
+            ) % {"plazo": plazo} if declarada else _(
                 "La otra parte ya aceptó el informe del verificador. En cuanto "
                 "respondas, la compra queda cerrada. Tienes hasta el %(plazo)s; "
                 "si no dices nada, se dará por aceptado."
@@ -936,7 +1358,8 @@ class ShrimpVerification(models.Model):
                 "compra quedó concretada por %(total)s y la trazabilidad ya "
                 "está registrada."
             ) % {
-                "empresa": self.verifier_partner_id.name or "",
+                "empresa": (self.verification_label() if declarada
+                            else self.verifier_partner_id.name) or "",
                 "total": tx.amount_total,
             }
 
@@ -952,6 +1375,14 @@ class ShrimpVerification(models.Model):
                 "quien": rechazo.partner_id.name or _("Una de las partes"),
                 "motivo": (_(": %s") % rechazo.reason) if rechazo.reason else "",
                 "pagador": (self.fee_payer_partner_id.name or ""),
+            } if not declarada else _(
+                "%(quien)s no aceptó el informe declarado%(motivo)s. La compra se "
+                "canceló y el producto vuelve a quedar disponible. Al ser una "
+                "verificación declarada por las partes, no hay honorario de "
+                "verificación que cobrar."
+            ) % {
+                "quien": rechazo.partner_id.name or _("Una de las partes"),
+                "motivo": (_(": %s") % rechazo.reason) if rechazo.reason else "",
             }
         else:
             return
@@ -996,147 +1427,121 @@ class ShrimpVerification(models.Model):
         }
 
     # ==================================================================
-    # Facturación del honorario
+    # Facturación del honorario (vía shrimp.charge)
     # ==================================================================
+    # El honorario es un cobro de la PLATAFORMA (factura electrónica propia)
+    # y se emite al iniciar la compra verificada, al comprador que la
+    # contrata. Si al final paga otro (veredicto rechazado o trato caído por
+    # culpa medible del vendedor), el cobro se reasigna: nota de crédito al
+    # comprador y factura al nuevo pagador. La parte del verificador es un
+    # documento de COMPRA (factura de proveedor) y va por otro camino.
     def _get_verification_product(self):
-        """Producto de servicio con el que se factura la verificación. Se crea
-        en tiempo de ejecución para no depender del orden de carga de módulos."""
-        producto = self.env.ref(
-            "shrimp_verification.product_field_verification",
-            raise_if_not_found=False)
-        if producto:
-            return producto
-        tmpl = self.env["product.template"].sudo().create({
-            "name": "Verificación de camarón en campo",
-            "type": "service",
-            "invoice_policy": "order",
-            "list_price": 0.0,
-            "sale_ok": True,
-            "purchase_ok": True,
-            "default_code": "VERIF-CAMPO",
-        })
-        variante = tmpl.product_variant_id
-        self.env["ir.model.data"].sudo().create({
-            "name": "product_field_verification",
-            "module": "shrimp_verification",
-            "model": "product.product",
-            "res_id": variante.id,
-            "noupdate": True,
-        })
-        return variante
+        """Producto de servicio con el que se factura la verificación."""
+        return self.env["shrimp.charge"]._get_service_product("verification_fee")
 
     def _margen_configurado(self):
-        try:
-            return float(self.env["ir.config_parameter"].sudo().get_param(
-                "shrimp_verification.margin_pct") or 0.0)
-        except (TypeError, ValueError):
-            return 0.0
+        # Sin parámetro, 0 como siempre (la instalación lo siembra en 15 %).
+        return self.env["shrimp.settings"].get_float(
+            "shrimp_verification.margin_pct", 0.0, minimum=0, maximum=100)
+
+    def _congelar_margen(self):
+        """El margen se congela al emitir el primer documento: cambiarlo
+        después no debe alterar documentos ya emitidos."""
+        for rec in self:
+            if not rec.margin_pct:
+                rec.sudo().write({"margin_pct": rec._margen_configurado()})
+
+    def _register_fee_charge(self):
+        """Registra (una vez) el cobro del honorario y lo intenta facturar."""
+        Charge = self.env["shrimp.charge"].sudo()
+        for rec in self:
+            if (rec.fee or 0.0) <= 0 or rec.fee_charge_id:
+                continue
+            pagador = rec.fee_payer_partner_id or rec.buyer_partner_id
+            if not pagador:
+                continue
+            rec._congelar_margen()
+            Charge._register_charge({
+                "charge_type": "verification_fee",
+                "verification_id": rec.id,
+                "transaction_id": rec.transaction_id.id,
+                "payer_partner_id": pagador.id,
+                "buyer_partner_id": rec.buyer_partner_id.id,
+                "seller_partner_id": rec.seller_partner_id.id,
+                "product_id": rec.product_id.id,
+                "qty": rec.transaction_id.transaction_qty,
+                "uom_id": rec.product_id.uom_id.id,
+                "amount": rec.fee,
+                "invoice_qty": 1.0,
+                "origin": rec.name,
+                "description": _("Verificación en campo – %s") % (rec.name or ""),
+            })
+            rec.invalidate_recordset(["charge_ids", "fee_charge_id"])
+        return True
 
     def _create_verification_documents(self):
-        """Emite todo lo que ya se pueda emitir del honorario.
-
-        Se conserva como un solo botón de reintento, pero por dentro son dos
-        momentos distintos: al verificador se le liquida con el veredicto, y al
-        pagador se le factura cuando se sabe quién es.
-        """
-        self._create_verifier_bill()
+        """Emite todo lo que ya se pueda emitir del honorario (botón de
+        reintento): el cobro al pagador y la liquidación al verificador."""
         self._create_payer_invoice()
+        for rec in self:
+            rec.charge_ids.filtered(lambda c: c.state in ("pending", "error", "to_credit")) \
+                .action_retry_invoice()
+        self.filtered(lambda r: r.state in ("approved", "approved_obs", "rejected"))._create_verifier_bill()
 
     def _create_verifier_bill(self):
         """Liquidación a la EMPRESA VERIFICADORA por su parte del honorario.
 
         Se emite al cerrar el veredicto, sea aprobado o rechazado: el honorario
         retribuye la inspección hecha, no su resultado. Pagarle solo cuando
-        aprueba le daría al verificador un incentivo a aprobar.
+        aprueba le daría al verificador un incentivo a aprobar. Pasa por el
+        único creador de facturas de proveedor (shrimp.charge._create_vendor_bill),
+        que la deja en borrador cuando el diario exige documentos del SRI.
         """
-        Move = self.env["account.move"].sudo()
+        Charge = self.env["shrimp.charge"].sudo()
         for rec in self:
             if rec.vendor_bill_id or (rec.fee or 0.0) <= 0 or not rec.verifier_partner_id:
                 continue
-            producto = rec._get_verification_product()
-            if not producto:
-                rec.message_post(body=_(
-                    "No se pudo liquidar la verificación: falta el producto de servicio."))
-                continue
-            # El margen se congela aquí: cambiarlo después no debe alterar
-            # documentos ya emitidos.
-            if not rec.margin_pct:
-                rec.margin_pct = rec._margen_configurado()
+            rec._congelar_margen()
             if (rec.verifier_amount or 0.0) <= 0:
                 continue
-            etiqueta = _("Verificación en campo – %s") % (rec.name or "")
             try:
-                gasto = Move.create({
-                    "move_type": "in_invoice",
-                    "partner_id": rec.verifier_partner_id.id,
-                    "invoice_date": fields.Date.context_today(rec),
-                    "ref": _("Honorario de verificación %s") % (rec.name or ""),
-                    "invoice_line_ids": [(0, 0, {
-                        "product_id": producto.id,
-                        "name": etiqueta,
-                        "quantity": 1.0,
-                        "price_unit": rec.verifier_amount,
-                        "tax_ids": [(6, 0, [])],
-                    })],
-                })
-                gasto.action_post()
-                rec.vendor_bill_id = gasto.id
+                with self.env.cr.savepoint():
+                    gasto = Charge._create_vendor_bill(
+                        rec.verifier_partner_id, rec._get_verification_product(),
+                        _("Verificación en campo – %s") % (rec.name or ""),
+                        rec.verifier_amount,
+                        _("Honorario de verificación %s") % (rec.name or ""))
             except Exception as e:  # noqa: BLE001
                 _logger.exception("Verificación %s: fallo al liquidar al verificador", rec.name)
                 rec.message_post(body=_(
                     "No se pudo registrar la liquidación al verificador: %s") % e)
+                continue
+            rec.sudo().write({"vendor_bill_id": gasto.id})
 
     def _create_payer_invoice(self):
-        """Factura del honorario a quien corresponda pagarlo.
+        """Deja el honorario facturado a quien corresponda pagarlo.
 
-        No se emite con el veredicto sino al resolverse la aceptación, porque
-        hasta ese momento no se sabe quién paga: si el trato se cae, lo carga
-        el que se salió sin motivo medible, y facturar antes obligaría a
-        emitir una nota de crédito y refacturar.
+        El cobro se emitió al iniciar la compra (al comprador). Si al
+        resolverse la aceptación resulta que paga otro, se reasigna: nota de
+        crédito al anterior y factura al nuevo. Las verificaciones iniciadas
+        antes de esta versión no tienen cobro: se emite aquí, al resolverse,
+        como se hacía entonces.
         """
-        Sale = self.env["sale.order"].sudo()
-
         for rec in self:
+            if (rec.fee or 0.0) <= 0:
+                continue
             pagador = rec.fee_payer_partner_id or rec.buyer_partner_id
-            if rec.sale_order_id or (rec.fee or 0.0) <= 0 or not pagador:
+            vigente = rec.fee_charge_id
+            if not vigente:
+                rec._register_fee_charge()
                 continue
-
-            producto = rec._get_verification_product()
-            if not producto:
-                rec.message_post(body=_(
-                    "No se pudo facturar la verificación: falta el producto de servicio."))
-                continue
-
-            if not rec.margin_pct:
-                rec.margin_pct = rec._margen_configurado()
-
-            etiqueta = _("Verificación en campo – %s") % (rec.name or "")
-            try:
-                pedido = Sale.create({
-                    "partner_id": pagador.id,
-                    "client_order_ref": rec.name,
-                    "order_line": [(0, 0, {
-                        "product_id": producto.id,
-                        "name": etiqueta,
-                        "product_uom_qty": 1.0,
-                        "price_unit": rec.fee,
-                        "tax_ids": [(6, 0, [])],
-                    })],
-                })
-                pedido.action_confirm()
-                rec.sale_order_id = pedido.id
-
-                factura = pedido._create_invoices()
-                if factura:
-                    factura.action_post()
-                    rec.invoice_id = factura.id
+            if pagador and vigente.payer_partner_id != pagador:
+                vigente._reassign_payer(pagador, _(
+                    "El honorario de %(v)s lo asume %(p)s") % {
+                        "v": rec.name, "p": pagador.name})
+                rec.invalidate_recordset(["charge_ids", "fee_charge_id"])
                 rec.sudo()._message_log(body=_(
-                    "Honorario de verificación facturado a %s.") % pagador.name)
-            except Exception as e:  # noqa: BLE001 - no debe romper el veredicto
-                _logger.exception("Verificación %s: fallo al facturar el honorario", rec.name)
-                rec.message_post(body=_(
-                    "No se pudo facturar el honorario a %(quien)s: %(error)s"
-                ) % {"quien": pagador.name, "error": e})
+                    "Honorario de verificación reasignado a %s.") % pagador.name)
 
     def action_generate_verification_documents(self):
         """Botón: reintentar la facturación si algo falló."""
@@ -1166,6 +1571,16 @@ class ShrimpVerification(models.Model):
         ("verdict",  "Verificada",       "Se emitió el veredicto"),
         ("accepted", "Aceptada",         "Comprador y vendedor firmaron el informe"),
     ]
+    # Verificación declarada por las partes: no hay verificadora ni técnico.
+    ETAPAS_DECLARADA = [
+        ("declared_draft", "En preparación", "Comprador o vendedor cargan el informe"),
+        ("declared",       "Presentada",     "Una parte presentó el informe declarado"),
+        ("accepted",       "Aceptada",       "La otra parte confirmó el informe"),
+    ]
+
+    def _etapas(self):
+        self.ensure_one()
+        return self.ETAPAS_DECLARADA if self.verification_mode == "declared" else self.ETAPAS
 
     # Quién se entera de cada cambio de etapa. Comprador y vendedor siguen el
     # avance de punta a punta: son los que tienen plata en juego. La empresa
@@ -1178,6 +1593,8 @@ class ShrimpVerification(models.Model):
         "in_field":     ("buyer", "seller", "verifier"),
         "done":         ("buyer", "seller", "verifier"),
         "cancelled":    ("buyer", "seller", "verifier", "technician"),
+        # Declarada: las dos partes se enteran de que el informe lo cargan ellas.
+        "declared_draft": ("buyer", "seller"),
     }
 
     def _stage_recipients(self, roles):
@@ -1190,11 +1607,16 @@ class ShrimpVerification(models.Model):
         self.ensure_one()
         base = self.get_base_url()
         mapa = {
-            "buyer":      (self.buyer_partner_id,      "/marketplace/compras"),
-            "seller":     (self.seller_partner_id,     "/marketplace/ventas"),
-            "verifier":   (self.verifier_partner_id,   "/verificador/verificacion/%s" % self.uuid_ref),
-            "technician": (self.technician_partner_id, "/verificador/verificacion/%s" % self.uuid_ref),
+            "buyer":      (self.buyer_partner_id,      "/marketplace/purchases"),
+            "seller":     (self.seller_partner_id,     "/marketplace/sales"),
+            "verifier":   (self.verifier_partner_id,   "/verifier/verifications/%s" % self.uuid_ref),
+            "technician": (self.technician_partner_id, "/verifier/verifications/%s" % self.uuid_ref),
         }
+        if self.verification_mode == "declared":
+            # En la declarada las partes van a la pantalla del informe.
+            ruta_decl = "/marketplace/verifications/%s/declare" % self.uuid_ref
+            mapa["buyer"] = (self.buyer_partner_id, ruta_decl)
+            mapa["seller"] = (self.seller_partner_id, ruta_decl)
         salida, vistos = [], set()
         for rol in roles:
             partner, ruta = mapa.get(rol, (None, ""))
@@ -1230,6 +1652,10 @@ class ShrimpVerification(models.Model):
         entera en gris, como si nunca hubiera pasado nada.
         """
         self.ensure_one()
+        if self.verification_mode == "declared":
+            if self.acceptance_state == "closed":
+                return 2
+            return 1 if (self.state == "declared" or self.declared_submitted_date) else 0
         if self.acceptance_state == "closed":
             return 5
         por_estado = {"received": 0, "assigned": 1, "in_field": 2, "done": 3,
@@ -1252,7 +1678,7 @@ class ShrimpVerification(models.Model):
         indice = self._stage_index()
         cancelada = self.state == "cancelled"
         pasos = []
-        for i, (_clave, titulo, detalle) in enumerate(self.ETAPAS):
+        for i, (_clave, titulo, detalle) in enumerate(self._etapas()):
             # "Verificada" solo es cierto si el veredicto fue favorable; en un
             # rechazo la etapa igual se cumplió, pero se llama de otro modo.
             if _clave == "verdict" and self.state in ("rejected", "cancelled"):
@@ -1307,6 +1733,8 @@ class ShrimpVerification(models.Model):
             "approved_obs": _("Aprobada con observaciones"),
             "rejected":     _("La verificación fue rechazada"),
             "cancelled":    _("La verificación fue cancelada"),
+            "declared_draft": _("Carga el informe de verificación declarado"),
+            "declared":     _("El informe declarado fue presentado"),
         }.get(self.state, _("Avance de la verificación"))
 
     def stage_detail(self):
@@ -1337,6 +1765,13 @@ class ShrimpVerification(models.Model):
             "cancelled": _(
                 "La verificación se canceló y la compra quedó sin efecto. El "
                 "producto vuelve a estar disponible."
+            ),
+            "declared_draft": _(
+                "Elegiste una verificación declarada por las partes: no interviene "
+                "una verificadora de la plataforma. El comprador o el vendedor "
+                "carga el informe (pesos, clasificación, metabisulfito, sabor, "
+                "fotos y el PDF de la verificadora externa, si la hubo) y lo "
+                "presenta; la otra parte lo confirma para cerrar la compra."
             ),
         }.get(self.state, "")
 
@@ -1502,9 +1937,9 @@ class ShrimpVerification(models.Model):
         # Enlace al informe completo (pantalla de detalle del verificador).
         site = self.env["website"].sudo()._shrimp_verifier_site()
         base = (site.domain or "").rstrip("/") or (self.get_base_url() or "").rstrip("/")
-        if base and self.uuid_ref:
+        if base and self.uuid_ref and self.verification_mode == "platform":
             L.append("")
-            L.append("Informe completo: %s/verificador/verificacion/%s/detalle" % (
+            L.append("Informe completo: %s/verifier/verifications/%s/detail" % (
                 base, self.uuid_ref))
 
         return "\n".join(L)
@@ -1517,6 +1952,10 @@ class ShrimpVerification(models.Model):
     # ==================================================================
     # Evidencia para el PDF
     # ==================================================================
+    def photo_token(self, attachment):
+        """Token del adjunto para las URLs de fotos (nunca su id)."""
+        return attachment.sudo().generate_access_token()[0]
+
     def photo_data_uris(self, limit=6, max_px=900):
         """Fotos de campo como data-URI, para incrustarlas en el certificado.
 

@@ -8,7 +8,7 @@
       <div class="shrimp-bg">
         <div class="shrimp-page py-4">
 
-          <a href="/marketplace/empaque" class="btn btn-sm btn-link mb-2">&#8592; Volver al directorio</a>
+          <a href="/marketplace/copacking" class="btn btn-sm btn-link mb-2">&#8592; Volver al directorio</a>
           <h2 class="mb-1">Solicitar servicio de empaque</h2>
           <t t-if="dirigida">
             <p class="text-muted">A <b><t t-esc="dirigida.name"/></b>. Solo esta planta la verá.</p>
@@ -32,16 +32,44 @@
             </div>
           </t>
 
-          <form method="post" action="/marketplace/empaque/solicitar" class="card">
+          <form method="post" action="/marketplace/copacking/requests/new" class="card">
             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
             <t t-if="dirigida">
-              <input type="hidden" name="copacker_partner_id" t-att-value="dirigida.id"/>
+              <input type="hidden" name="copacker_partner_ref" t-att-value="dirigida.uuid_ref"/>
             </t>
             <div class="card-body">
               <div class="row g-3">
                 <!-- Todos los campos se repintan con lo que venga en "datos":
                      cuando la validacion del modelo rechaza algo, el cliente no
                      tiene que volver a teclear lo que ya habia escrito. -->
+                <!-- El camarón que se manda a empacar: una COMPRA propia
+                     (la empacadora con lo que compró) o un lote propio (la
+                     camaronera). Es lo que enlaza el paso de empaque con la
+                     trazabilidad de esa compra y no con la de otras. -->
+                <div class="col-12">
+                  <label class="form-label" for="origen_ref">Camarón a empacar</label>
+                  <select name="origen_ref" id="origen_ref" class="form-select">
+                    <option value="">— sin enlazar (no saldrá en la trazabilidad) —</option>
+                    <t t-set="compras" t-value="[o for o in origenes if o['kind'] == 'transaction']"/>
+                    <t t-set="lotes" t-value="[o for o in origenes if o['kind'] == 'product']"/>
+                    <optgroup t-if="compras" label="Mis compras">
+                      <t t-foreach="compras" t-as="o">
+                        <option t-att-value="o['ref']"
+                                t-att-selected="'selected' if datos.get('origen_ref') == o['ref'] else None">
+                          <t t-esc="o['label']"/>
+                        </option>
+                      </t>
+                    </optgroup>
+                    <optgroup t-if="lotes" label="Mis lotes">
+                      <t t-foreach="lotes" t-as="o">
+                        <option t-att-value="o['ref']"
+                                t-att-selected="'selected' if datos.get('origen_ref') == o['ref'] else None">
+                          <t t-esc="o['label']"/>
+                        </option>
+                      </t>
+                    </optgroup>
+                  </select>
+                </div>
                 <div class="col-md-4">
                   <label class="form-label">Libras a empacar *</label>
                   <input type="number" step="0.01" min="1" name="quantity_lb"
@@ -51,12 +79,13 @@
                 <div class="col-md-4">
                   <label class="form-label">Presentación *</label>
                   <select name="presentation" class="form-select">
-                    <option value="entero"
-                            t-att-selected="'selected' if (datos.get('presentation') or 'entero') == 'entero' else None">Entero</option>
-                    <option value="cola"
-                            t-att-selected="'selected' if datos.get('presentation') == 'cola' else None">Cola</option>
-                    <option value="valor_agregado"
-                            t-att-selected="'selected' if datos.get('presentation') == 'valor_agregado' else None">Valor agregado</option>
+                    <!-- Lista única de presentaciones (shrimp_selection). -->
+                    <t t-foreach="presentaciones" t-as="pres">
+                      <option t-att-value="pres[0]"
+                              t-att-selected="'selected' if (datos.get('presentation') or 'entero') == pres[0] else None">
+                        <t t-esc="pres[1]"/>
+                      </option>
+                    </t>
                   </select>
                 </div>
                 <div class="col-md-4">
@@ -104,7 +133,7 @@
             </div>
             <div class="card-footer bg-transparent">
               <button type="submit" class="btn btn-primary">Publicar solicitud</button>
-              <a href="/marketplace/empaque" class="btn btn-link">Cancelar</a>
+              <a href="/marketplace/copacking" class="btn btn-link">Cancelar</a>
             </div>
           </form>
 
@@ -123,9 +152,9 @@
 
           <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
             <h2 class="mb-0">Mis solicitudes de empaque</h2>
-            <div class="d-flex gap-2">
-              <a href="/marketplace/empaque" class="btn btn-outline-secondary">Directorio</a>
-              <a href="/marketplace/empaque/solicitar" class="btn btn-primary">Nueva solicitud</a>
+            <div class="d-flex flex-wrap gap-2">
+              <a href="/marketplace/copacking" class="btn btn-outline-secondary">Directorio</a>
+              <a href="/marketplace/copacking/requests/new" class="btn btn-primary">Nueva solicitud</a>
             </div>
           </div>
 
@@ -135,10 +164,11 @@
           <t t-if="not solicitudes">
             <div class="alert alert-light border">
               Todavía no has pedido servicio de empaque.
-              <a href="/marketplace/empaque">Mira quién lo presta</a>.
+              <a href="/marketplace/copacking">Mira quién lo presta</a>.
             </div>
           </t>
           <t t-else="">
+            <div class="table-responsive">
             <table class="table table-hover bg-white">
               <thead>
                 <tr>
@@ -150,7 +180,7 @@
                 <t t-foreach="solicitudes" t-as="s">
                   <tr>
                     <td>
-                      <a t-attf-href="/marketplace/empaque/solicitud/#{s.uuid_ref}">
+                      <a t-attf-href="/marketplace/copacking/requests/#{s.uuid_ref}">
                         <t t-esc="s.name"/>
                       </a>
                     </td>
@@ -171,6 +201,7 @@
                 </t>
               </tbody>
             </table>
+            </div>
           </t>
 
         </div>
@@ -187,12 +218,13 @@
       <div class="shrimp-bg">
         <div class="shrimp-page py-4">
 
-          <a href="/marketplace/empaque/solicitudes" class="btn btn-sm btn-link mb-2">&#8592; Mis solicitudes</a>
+          <a href="/marketplace/copacking/requests" class="btn btn-sm btn-link mb-2">&#8592; Mis solicitudes</a>
           <h2 class="mb-1"><t t-esc="sol.name"/></h2>
           <p class="text-muted">
             <t t-esc="int(sol.quantity_lb)"/> lb ·
             <t t-esc="dict(sol._fields['presentation'].selection).get(sol.presentation)"/> ·
             del <t t-esc="sol.needed_from"/> al <t t-esc="sol.needed_to"/>
+            <t t-if="sol.sudo().transaction_id"> · compra <t t-esc="sol.sudo().transaction_id.name"/></t>
           </p>
 
           <t t-if="mensaje == 'cancelada'">
@@ -221,6 +253,7 @@
             </div>
           </t>
           <t t-else="">
+            <div class="table-responsive">
             <table class="table bg-white align-middle">
               <thead>
                 <tr>
@@ -249,7 +282,7 @@
                         <span class="badge text-bg-success">Adjudicada</span>
                       </t>
                       <t t-elif="sol.state == 'published'">
-                        <form method="post" t-attf-action="/marketplace/empaque/oferta/#{o.uuid_ref}/aceptar">
+                        <form method="post" t-attf-action="/marketplace/copacking/offers/#{o.uuid_ref}/accept">
                           <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                           <button type="submit" class="btn btn-sm btn-primary">Aceptar</button>
                         </form>
@@ -259,6 +292,7 @@
                 </t>
               </tbody>
             </table>
+            </div>
             <p class="text-muted small">
               Ordenadas de la tarifa más baja a la más alta. Mira también la ventana de
               disponibilidad: la más barata no sirve si no puede en tus fechas.
@@ -266,7 +300,7 @@
           </t>
 
           <t t-if="sol.order_id">
-            <a t-attf-href="/marketplace/empaque/orden/#{sol.order_id.uuid_ref}"
+            <a t-attf-href="/marketplace/copacking/orders/#{sol.order_id.uuid_ref}"
                class="btn btn-primary">Ver la orden</a>
           </t>
 
@@ -274,7 +308,7 @@
                por donde llamarlo: quien publicaba 40.000 lb queriendo 4.000 no
                tenia arreglo y la solicitud seguia viva en todas las bandejas. -->
           <t t-if="sol.state in ('draft', 'published')">
-            <form method="post" t-attf-action="/marketplace/empaque/solicitud/#{sol.uuid_ref}/cancelar"
+            <form method="post" t-attf-action="/marketplace/copacking/requests/#{sol.uuid_ref}/cancel"
                   class="card mt-4">
               <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
               <div class="card-body">

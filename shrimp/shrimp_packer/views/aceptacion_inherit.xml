@@ -14,7 +14,7 @@
     <!-- Se ancla al formulario de contraoferta y no a un label: es estable y
          además hereda su condición —solo se muestra al comprador cuando el
          producto no cumplió lo publicado, que es cuando la sugerencia aplica. -->
-    <xpath expr="//form[contains(@t-attf-action, 'contraoferta')]" position="before">
+    <xpath expr="//form[contains(@t-attf-action, 'counter-offer')]" position="before">
       <t t-set="pk_sug" t-value="v.precio_sugerido_por_lista()"/>
       <t t-if="pk_sug.get('aplicable')">
         <div class="pk-sugerido">
@@ -74,7 +74,7 @@
     b.addEventListener('click', function(){
       var f = b.closest('.sv-accept') || document;
       var precio = f.querySelector('input[name="precio"]');
-      var motivo = f.querySelector('form[action*="contraoferta"] input[name="reason"]');
+      var motivo = f.querySelector('form[action*="counter-offer"] input[name="reason"]');
       if(precio){
         precio.value = b.getAttribute('data-precio');
         // Se rellena el formulario, no se envía: la contraoferta la manda el

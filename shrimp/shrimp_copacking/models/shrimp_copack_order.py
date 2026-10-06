@@ -1,6 +1,15 @@
 from odoo import api, fields, models, _
 from odoo.exceptions import AccessError, ValidationError
 
+from odoo.addons.shrimp_marketplace.models.shrimp_selection import (
+    PRESENTATIONS_WITH_VALUE_ADDED)
+
+from .shrimp_copack_request import check_origen_del_cliente
+
+# Valores de siempre (Ajustes › CamaronMarket › Empaque los puede cambiar).
+PLATFORM_RATE_PER_LB = 0.01
+DEFAULT_TOLERANCE_PCT = 0.5
+
 
 class ShrimpCopackOrder(models.Model):
     """El trabajo de empaque, desde que se adjudica hasta que se cuadra.
@@ -38,6 +47,23 @@ class ShrimpCopackOrder(models.Model):
     product_id = fields.Many2one(
         "shrimp.product", string="Lote", ondelete="set null", index=True,
         help="Enlaza el empaque con la trazabilidad del lote.")
+    # La compra concreta cuyo camarón se empaca (la empacadora que compró a
+    # una camaronera). Antes el certificado buscaba las órdenes por PRODUCTO,
+    # y cada orden salía en todas las compras de ese producto, de cualquier
+    # comprador. Ahora el paso de empaque cuelga de su compra.
+    transaction_id = fields.Many2one(
+        "shrimp.transaction", string="Compra de origen", ondelete="set null", index=True)
+    stock_lot_id = fields.Many2one(
+        "shrimp.stock.lot", string="Lote de inventario", ondelete="set null", index=True)
+    # Lo que sale del empaque es un lote nuevo del mismo dueño (el producto
+    # empacado), que nace del movimiento de empaque. Así la venta posterior de
+    # ese producto arrastra el paso de empaque en su cadena, y la merma
+    # (recibidas - empacadas) queda consumida en vez de seguir a la venta.
+    packed_lot_id = fields.Many2one(
+        "shrimp.stock.lot", string="Lote empacado", readonly=True, copy=False,
+        ondelete="set null", index=True)
+    packing_move_ids = fields.One2many(
+        "shrimp.stock.move", "copack_order_id", string="Movimientos de empaque")
 
     currency_id = fields.Many2one(
         "res.currency", string="Moneda", required=True,
@@ -70,7 +96,12 @@ class ShrimpCopackOrder(models.Model):
     packed_lb = fields.Float(string="Libras empacadas", digits=(16, 2), tracking=True)
     packed_date = fields.Datetime(string="Fecha de entrega", readonly=True, copy=False)
     boxes = fields.Integer(string="Cajas / masters")
-    packed_presentation = fields.Char(string="Presentación empacada")
+    packed_presentation = fields.Selection(
+        PRESENTATIONS_WITH_VALUE_ADDED, string="Presentación empacada")
+    packed_presentation_note = fields.Char(
+        string="Detalle de la presentación",
+        help="Formato o detalle libre (p. ej. «master 5 lb IQF»). También guarda "
+             "el texto que se escribía antes, cuando la presentación era libre.")
 
     # --- el cuadre ---
     difference_lb = fields.Float(
@@ -82,8 +113,10 @@ class ShrimpCopackOrder(models.Model):
         string="Cuadra", compute="_compute_cuadre", store=True,
         help="Verdadero cuando la diferencia está dentro de la tolerancia pactada.")
     tolerance_pct = fields.Float(
-        string="Tolerancia (%)", default=0.5, digits=(5, 2),
-        help="Merma de manipulación que las partes dan por normal.")
+        string="Tolerancia (%)", default=lambda self: self._shrimp_default_tolerance_pct(),
+        digits=(5, 2),
+        help="Merma de manipulación que las partes dan por normal. Por defecto, "
+             "la de Ajustes › CamaronMarket › Empaque.")
 
     # --- dinero ---
     service_amount = fields.Monetary(
@@ -92,11 +125,18 @@ class ShrimpCopackOrder(models.Model):
         help="Tarifa por las libras efectivamente empacadas.")
     platform_rate_per_lb = fields.Monetary(
         string="Comisión CamaronMarket por libra", currency_field="currency_id",
-        default=0.01,
-        help="Lo que la plataforma cobra al maquilador por libra empacada.")
+        default=lambda self: self._shrimp_default_platform_rate(),
+        help="Lo que la plataforma cobra al maquilador por libra empacada. Se "
+             "fija al crear la orden con la cuota de Ajustes › CamaronMarket › "
+             "Empaque; cambiar la cuota no altera las órdenes ya creadas.")
     platform_amount = fields.Monetary(
         string="Comisión CamaronMarket", compute="_compute_importes", store=True,
         currency_field="currency_id")
+    # La comisión de la plataforma se cobra (factura electrónica al
+    # maquilador) cuando las dos partes firman el acta: es entonces cuando
+    # las libras empacadas quedan aceptadas por ambos.
+    charge_ids = fields.One2many(
+        "shrimp.charge", "copack_order_id", string="Cobros de la plataforma")
 
     # Un solo sitio donde se decide si una orden se puede cobrar y si puede
     # salir en el certificado. Antes cada pantalla repetia
@@ -135,6 +175,25 @@ class ShrimpCopackOrder(models.Model):
         ],
         string="Acta", default="na", required=True, readonly=True, index=True)
 
+    # --- empaque propio ---
+    # Una cuenta con perfil Maquilador APROBADO puede empacar su propio
+    # camarón (el que tiene como camaronera o el que compró como empacadora).
+    # No es un servicio de la plataforma: no hay solicitud ni ofertas, no hay
+    # tarifa ni comisión y no hay acta de dos partes (cliente y planta son la
+    # misma empresa). Sí deja el mismo rastro que un empaque de terceros
+    # (recepción, empaque, cajas, merma consumida y lote empacado) para que el
+    # informe de trazabilidad diga quién empacó y en qué planta. El cierre es
+    # una sola conformidad interna de la propia cuenta (self_signoff_*).
+    self_packing = fields.Boolean(
+        string="Empaque propio", readonly=True, copy=False, index=True, tracking=True,
+        help="La empresa empacó su propio camarón en su planta (perfil Maquilador): "
+             "sin solicitud, sin tarifa, sin comisión y sin acta de dos partes.")
+    self_signoff_user_id = fields.Many2one(
+        "res.users", string="Cierre interno por", readonly=True, copy=False,
+        ondelete="set null")
+    self_signoff_date = fields.Datetime(
+        string="Fecha del cierre interno", readonly=True, copy=False)
+
     @api.depends("received_lb", "packed_lb", "tolerance_pct")
     def _compute_cuadre(self):
         for rec in self:
@@ -149,11 +208,15 @@ class ShrimpCopackOrder(models.Model):
             rec.service_amount = (rec.packed_lb or 0.0) * rec.rate_per_lb
             rec.platform_amount = (rec.packed_lb or 0.0) * rec.platform_rate_per_lb
 
-    @api.depends("state", "acceptance_state", "packed_lb")
+    @api.depends("state", "acceptance_state", "packed_lb", "self_packing")
     def _compute_es_facturable(self):
         for rec in self:
             rec.es_facturable = (
-                rec.state in ("packed", "signed", "closed")
+                # El empaque propio no es un servicio: no se cobra ni se
+                # liquida (su paso por la trazabilidad lo decide
+                # _shrimp_consta_en_trazabilidad).
+                not rec.self_packing
+                and rec.state in ("packed", "signed", "closed")
                 and rec.acceptance_state != "disputed"
                 # Sin libras empacadas no hay nada que cobrar; cobrar cero es
                 # ruido en la liquidacion, no un cobro.
@@ -168,41 +231,50 @@ class ShrimpCopackOrder(models.Model):
                     "shrimp.copack.order") or _("Nueva")
         return super().create(vals_list)
 
-    @api.constrains("client_partner_id", "copacker_partner_id")
+    @api.constrains("client_partner_id", "copacker_partner_id", "self_packing",
+                    "request_id", "offer_id", "rate_per_lb", "platform_rate_per_lb")
     def _check_partes(self):
         for rec in self:
-            if rec.client_partner_id.shrimp_user_type not in ("camaronera", "empacadora"):
+            if not rec.client_partner_id._shrimp_can_any("request_copack"):
                 raise ValidationError(_(
                     "El cliente del empaque es quien es dueño del camarón: una "
                     "camaronera o una empacadora."))
-            if rec.copacker_partner_id.shrimp_user_type != "maquilador":
+            if not rec.copacker_partner_id._shrimp_can_any("provide_copack"):
                 raise ValidationError(_("Quien empaca tiene que ser un maquilador."))
-            if rec.client_partner_id == rec.copacker_partner_id:
-                raise ValidationError(_("Nadie se contrata a sí mismo."))
+            misma = rec.client_partner_id._shrimp_same_entity_as(rec.copacker_partner_id)
+            if rec.self_packing:
+                # Empaque propio: la planta ES la empresa dueña del camarón, y
+                # el perfil Maquilador tiene que estar aprobado (un perfil
+                # pendiente no da capacidad de empacar).
+                if rec.client_partner_id != rec.copacker_partner_id:
+                    raise ValidationError(_(
+                        "En un empaque propio la planta es la misma cuenta dueña del camarón."))
+                if not rec.copacker_partner_id._shrimp_self_pack_allowed():
+                    raise ValidationError(rec._shrimp_self_pack_profile_msg())
+                if rec.request_id or rec.offer_id:
+                    raise ValidationError(_(
+                        "Un empaque propio no viene de una solicitud ni de una oferta: "
+                        "no hay contraparte a la que contratar."))
+                if (rec.rate_per_lb or 0.0) or (rec.platform_rate_per_lb or 0.0):
+                    raise ValidationError(_(
+                        "Un empaque propio no tiene tarifa ni comisión de la plataforma."))
+            elif misma:
+                # En el mercado (solicitud → oferta → orden) sigue prohibido:
+                # una empresa no se adjudica su propia solicitud.
+                raise ValidationError(_(
+                    "Nadie se contrata a sí mismo. Si empacas tu propio camarón en "
+                    "tu planta, regístralo como «Empaque propio»."))
 
-    @api.constrains("product_id", "client_partner_id")
+    @api.constrains("product_id", "client_partner_id", "transaction_id", "stock_lot_id")
     def _check_lote_del_cliente(self):
         """El lote empacado tiene que ser del cliente que contrata el empaque.
 
-        Apuntar la orden al lote de otro inyecta un paso de empaque falso en el
-        certificado de trazabilidad de ese tercero: su comprador leeria que su
-        camaron paso por una planta por la que nunca paso. Es el unico error de
-        este modulo que ensucia datos ajenos.
-
-        La lectura va en sudo para poder dar este mensaje: sin ella, apuntar a
-        un lote ajeno revienta antes con un AccessError que no explica nada.
+        Apuntar la orden al lote (o a la compra) de otro inyecta un paso de
+        empaque falso en el certificado de trazabilidad de ese tercero: su
+        comprador leeria que su camaron paso por una planta por la que nunca
+        paso. Misma regla que la solicitud (check_origen_del_cliente).
         """
-        for rec in self:
-            if not rec.product_id:
-                continue
-            dueno = rec.product_id.sudo().seller_partner_id
-            if dueno != rec.client_partner_id:
-                raise ValidationError(_(
-                    "El lote «%(lote)s» es de «%(dueno)s», no de «%(cliente)s». "
-                    "Solo se puede mandar a empacar camarón propio.")
-                    % {"lote": rec.product_id.display_name or "",
-                       "dueno": dueno.name or _("otro titular"),
-                       "cliente": rec.client_partner_id.name or ""})
+        check_origen_del_cliente(self)
 
     @api.constrains("agreed_qty_lb", "rate_per_lb", "received_lb", "packed_lb",
                     "tolerance_pct", "platform_rate_per_lb", "agreed_overrun_pct",
@@ -283,9 +355,53 @@ class ShrimpCopackOrder(models.Model):
                            "techo": techo})
 
     # ------------------------------------------------------------------
+    # Parámetros (Ajustes › CamaronMarket › Empaque)
+    # ------------------------------------------------------------------
+    @api.model
+    def _shrimp_default_platform_rate(self):
+        """Cuota de la plataforma por libra empacada (antes fija en 0,01)."""
+        return self.env["shrimp.settings"].get_float(
+            "shrimp_copacking.platform_rate_per_lb", PLATFORM_RATE_PER_LB, minimum=0)
+
+    @api.model
+    def _shrimp_default_tolerance_pct(self):
+        """Tolerancia de merma por defecto del acta (antes fija en 0,5 %)."""
+        return self.env["shrimp.settings"].get_float(
+            "shrimp_copacking.default_tolerance_pct", DEFAULT_TOLERANCE_PCT, minimum=0, maximum=100)
+
+    @api.model
+    def _shrimp_requires_valid_license(self):
+        return self.env["shrimp.settings"].get_bool("shrimp_copacking.require_valid_license", False)
+
+    def _shrimp_check_plant_license(self):
+        """Con «Exigir habilitación vigente» activado (apagado por defecto),
+        la planta que empaca —el maquilador, o la propia cuenta en el empaque
+        propio— necesita su habilitación vigente para recibir y empacar."""
+        if not self._shrimp_requires_valid_license():
+            return
+        hoy = fields.Date.context_today(self)
+        for rec in self:
+            planta = rec.copacker_partner_id.sudo()
+            if not planta:
+                continue
+            hasta = planta.pack_habilitacion_hasta
+            if hasta and hasta >= hoy:
+                continue
+            if hasta:
+                motivo = _("venció el %s") % hasta.strftime("%d/%m/%Y")
+            else:
+                motivo = _("no tiene registrada la fecha de vigencia")
+            raise ValidationError(_(
+                "La planta %(p)s no puede recibir ni empacar: su habilitación %(m)s. "
+                "La plataforma exige habilitación vigente para empacar; actualízala en "
+                "«Mi cuenta» (Habilitación desde / hasta) y vuelve a intentarlo.") % {
+                    "p": planta.name or "", "m": motivo})
+
+    # ------------------------------------------------------------------
     # Recorrido
     # ------------------------------------------------------------------
     def action_register_reception(self):
+        self._shrimp_check_plant_license()
         for rec in self:
             if rec.state != "confirmed":
                 raise ValidationError(_("La recepción se registra sobre una orden adjudicada."))
@@ -294,12 +410,17 @@ class ShrimpCopackOrder(models.Model):
             rec.write({"state": "received", "received_date": fields.Datetime.now()})
 
     def action_register_packing(self):
+        self._shrimp_check_plant_license()
         for rec in self:
             if rec.state != "received":
                 raise ValidationError(_("Primero hay que registrar la recepción."))
             if not rec.packed_lb:
                 raise ValidationError(_("Hay que indicar cuántas libras se empacaron."))
             rec.write({"state": "packed", "packed_date": fields.Datetime.now()})
+            if rec.self_packing:
+                # Sin acta de dos partes: la propia cuenta revisa las cifras y
+                # cierra (action_self_close).
+                continue
             rec._abrir_acta()
 
     def _abrir_acta(self):
@@ -348,6 +469,130 @@ class ShrimpCopackOrder(models.Model):
             self.acceptance_state = "disputed"
         elif decisiones and all(d == "accepted" for d in decisiones):
             self.write({"acceptance_state": "closed", "state": "signed"})
+            self._register_platform_charge()
+            # Con el acta firmada por los dos, las libras empacadas quedan
+            # aceptadas: es el momento de mover el inventario.
+            self._shrimp_apply_packing_stock()
+
+    # ------------------------------------------------------------------
+    # Inventario: el empaque transforma el lote del cliente
+    # ------------------------------------------------------------------
+    def _shrimp_source_lots(self):
+        """Lotes del cliente de los que sale el camarón que se empacó."""
+        self.ensure_one()
+        Lot = self.env["shrimp.stock.lot"].sudo()
+        cliente = self.client_partner_id
+        if self.stock_lot_id and self.stock_lot_id.owner_id == cliente:
+            return self.stock_lot_id
+        if self.transaction_id:
+            lots = Lot.search([("origin_move_id", "in", self.transaction_id.stock_move_ids.ids),
+                               ("owner_id", "=", cliente.id)], order="id asc")
+            if lots:
+                return lots
+        if self.product_id:
+            # Lotes propios del producto que todavía no se empacaron.
+            return Lot.search([
+                ("product_id", "=", self.product_id.id), ("owner_id", "=", cliente.id),
+                ("state", "=", "available"), ("available_qty", ">", 0),
+                "|", ("origin_move_id", "=", False),
+                ("origin_move_id.move_type", "!=", "packing"),
+            ], order="create_date asc, id asc")
+        return Lot
+
+    def _shrimp_apply_packing_stock(self, at_date=None):
+        """Saca del lote del cliente lo que entró a planta y crea el lote
+        empacado. Idempotente. Devuelve el lote empacado (o vacío si no hay
+        lote de origen que mover: órdenes sin vínculo con el inventario)."""
+        Lot = self.env["shrimp.stock.lot"].sudo()
+        salida = Lot
+        for rec in self:
+            if rec.packed_lot_id or rec.packing_move_ids:
+                salida |= rec.packed_lot_id
+                continue
+            if not rec.received_lb or not rec.packed_lb:
+                continue
+            fuentes = rec._shrimp_source_lots().filtered(lambda l: l.available_qty > 0)
+            if not fuentes:
+                continue
+            fecha = at_date or rec.packed_date or fields.Datetime.now()
+            empacar = rec.packed_lb
+            merma = max(0.0, (rec.received_lb or 0.0) - rec.packed_lb)
+            fmt = self.env["shrimp.transaction"].shrimp_fmt_qty
+            motivo_emp = _("Empaque %(o)s en %(p)s") % {
+                "o": rec.name, "p": rec.copacker_partner_id.name or ""}
+            motivo_merma = _("Merma de empaque %(o)s: recibidas %(r)s, empacadas %(e)s") % {
+                "o": rec.name, "r": fmt(rec.received_lb, "lb"), "e": fmt(rec.packed_lb, "lb")}
+            # Primero la merma (lo que no llegó a la caja) y luego lo empacado:
+            # si el lote ya no tiene todo (datos antiguos en los que se vendió
+            # del lote sin empacar), lo que falta se da por vendido empacado.
+            for lot in fuentes:
+                if merma < 0.005:
+                    break
+                take = min(lot.available_qty, merma)
+                if take <= 0:
+                    continue
+                lot._shrimp_internal_move(
+                    "consumption", take, motivo_merma, copack_order_id=rec.id, date=fecha)
+                merma -= take
+            primero = self.env["shrimp.stock.move"]
+            empacado = 0.0
+            for lot in fuentes:
+                if empacar < 0.005:
+                    break
+                take = min(lot.available_qty, empacar)
+                if take <= 0:
+                    continue
+                move = lot._shrimp_internal_move(
+                    "packing", take, motivo_emp, copack_order_id=rec.id, date=fecha)
+                primero = primero or move
+                empacado += take
+                empacar -= take
+            if not primero:
+                continue
+            base = fuentes[:1]
+            packed = Lot.create({
+                "product_id": base.product_id.id,
+                "owner_id": rec.client_partner_id.id,
+                "origin_move_id": primero.id,
+                "initial_qty": empacado,
+                "available_qty": empacado,
+                "uom_id": base.uom_id.id,
+                "state": "available",
+            })
+            rec.with_context(tracking_disable=True).write({"packed_lot_id": packed.id})
+            base.product_id._compute_available_qty()
+            if base.product_id.state in ("published", "sold"):
+                base.product_id._update_state_from_stock()
+            rec.message_post(body=_("Inventario: %(e)s empacadas pasan al lote empacado; merma de %(m)s consumida.") % {
+                "e": fmt(empacado, "lb"), "m": fmt(max(0.0, rec.received_lb - rec.packed_lb), "lb")})
+            salida |= packed
+        return salida
+
+    def _register_platform_charge(self):
+        """Comisión de la plataforma por las libras empacadas (una por orden)."""
+        Charge = self.env["shrimp.charge"].sudo()
+        for rec in self:
+            if rec.self_packing:
+                continue   # el empaque propio no paga comisión
+            if (rec.platform_amount or 0.0) <= 0 or rec.charge_ids.filtered(
+                    lambda c: c.charge_type == "copack_platform"
+                    and c.state not in ("cancelled", "credited")):
+                continue
+            Charge._register_charge({
+                "charge_type": "copack_platform",
+                "copack_order_id": rec.id,
+                "payer_partner_id": rec.copacker_partner_id.id,
+                "transaction_id": rec.transaction_id.id or False,
+                "product_id": rec.product_id.id or False,
+                "qty": rec.packed_lb,
+                "invoice_qty": rec.packed_lb or 1.0,
+                "unit_amount": rec.platform_rate_per_lb,
+                "amount": rec.platform_amount,
+                "currency_id": rec.currency_id.id,
+                "origin": rec.name,
+                "description": _("Comisión de empaque – %(o)s (%(lb)s lb)") % {
+                    "o": rec.name or "", "lb": "{:,.2f}".format(rec.packed_lb or 0.0)},
+            })
 
     def action_reabrir_acta(self, motivo, actor=None):
         """Saca del atasco a una orden cuya acta quedo en disputa.
@@ -415,6 +660,9 @@ class ShrimpCopackOrder(models.Model):
 
     def action_close(self):
         for rec in self:
+            if rec.self_packing:
+                rec.action_self_close()
+                continue
             if rec.state != "signed":
                 raise ValidationError(_("Se cierra cuando las dos partes firmaron el acta."))
             rec.state = "closed"
@@ -429,6 +677,21 @@ class ShrimpCopackOrder(models.Model):
         for rec in self:
             if rec.state in ("signed", "closed"):
                 raise ValidationError(_("Un trabajo ya firmado no se cancela."))
+            if rec.self_packing:
+                # Sin contraparte a la que proteger: hasta el cierre interno
+                # (que es cuando se mueve el inventario) se puede anular.
+                rec.state = "cancelled"
+                continue
+            # Empacada = el maquilador ya hizo el trabajo y el acta está a la
+            # firma. Antes el cliente podía cancelar aquí y no pagar un
+            # servicio prestado. Desde "empacada" el camino es el acta: firmar,
+            # o no dar conformidad (disputa) y reabrirla para rectificar; una
+            # orden reabierta vuelve a "recibida" y sí se puede cancelar.
+            if rec.state == "packed":
+                raise ValidationError(_(
+                    "Esta orden ya está empacada: no se cancela. Si no estás "
+                    "conforme, no firmes el acta (queda en disputa) y reabre el "
+                    "acta para rectificar el empaque."))
             rec.state = "cancelled"
             # Cerrar el acta tambien. Sin esto las firmas pendientes seguian
             # vivas: las dos partes firmaban una orden CANCELADA, _evaluar_acta
@@ -438,3 +701,120 @@ class ShrimpCopackOrder(models.Model):
                 rec.acceptance_ids.filtered(
                     lambda f: f.active and f.decision == "pending").unlink()
                 rec.acceptance_state = "na"
+
+    # ------------------------------------------------------------------
+    # Empaque propio (la empresa empaca su camarón en su propia planta)
+    # ------------------------------------------------------------------
+    @api.model
+    def _shrimp_self_pack_profile_msg(self):
+        return _("Para empacar tu propio producto necesitas el perfil Maquilador "
+                 "(aprobado). Agrégalo desde «Mi cuenta» en la plataforma de empaque.")
+
+    @api.model
+    def shrimp_create_self_packing(self, partner, origen=None, qty_lb=0.0, **extra):
+        """Crea una orden de EMPAQUE PROPIO para `partner` (su cuenta de
+        perfiles), lista para registrar la recepción.
+
+        `origen` es el mismo token que usa la solicitud ("t:<uuid compra>" o
+        "p:<uuid lote>") y se valida contra la cuenta: solo se empaca camarón
+        propio. `extra` admite supplies_notes, tolerance_pct, packed_presentation
+        y packed_presentation_note. Lanza ValidationError si la cuenta no tiene
+        el perfil Maquilador aprobado o no es dueña de camarón.
+        """
+        socio = partner.sudo()._shrimp_role_holder()
+        if not socio._shrimp_self_pack_allowed():
+            raise ValidationError(self._shrimp_self_pack_profile_msg())
+        if not socio._shrimp_can_any("request_copack"):
+            raise ValidationError(_(
+                "El empaque propio es de quien es dueño del camarón: una camaronera "
+                "o una empacadora."))
+        try:
+            qty = float(qty_lb or 0.0)
+        except (TypeError, ValueError):
+            qty = 0.0
+        if qty <= 0:
+            raise ValidationError(_("Las libras a empacar deben ser mayores que cero."))
+        vals = self.env["shrimp.copack.request"].sudo()._shrimp_resolver_origen(socio, origen)
+        if not vals:
+            raise ValidationError(_(
+                "Elige qué camarón vas a empacar: uno de tus lotes o una de tus compras."))
+        permitidos = {"supplies_notes", "tolerance_pct", "packed_presentation",
+                      "packed_presentation_note", "agreed_overrun_pct"}
+        vals.update({k: v for k, v in extra.items() if k in permitidos and v not in (None, "")})
+        vals.update({
+            "self_packing": True,
+            "client_partner_id": socio.id,
+            "copacker_partner_id": socio.id,
+            "agreed_qty_lb": qty,
+            "rate_per_lb": 0.0,
+            "platform_rate_per_lb": 0.0,
+        })
+        orden = self.sudo().create(vals)
+        orden.message_post(body=_("Empaque propio registrado por %s.") % (socio.name or ""))
+        return orden
+
+    def action_self_correct(self):
+        """Empaque propio: volver a «recibida» para corregir lo empacado antes
+        del cierre interno (todavía no se movió el inventario)."""
+        for rec in self:
+            if not rec.self_packing or rec.state != "packed":
+                raise ValidationError(_(
+                    "Solo se corrige un empaque propio empacado y sin cerrar."))
+            rec.write({"state": "received", "packed_date": False})
+
+    def action_self_close(self, user=None):
+        """Cierre interno del empaque propio: una sola conformidad, la de la
+        propia cuenta (no hay otra parte que firme). Mueve el inventario igual
+        que el acta firmada de un empaque de terceros: la merma se consume y lo
+        empacado pasa al lote empacado."""
+        user = user or self.env.user
+        for rec in self:
+            if not rec.self_packing:
+                raise ValidationError(_("Esta orden no es un empaque propio."))
+            if rec.state != "packed":
+                raise ValidationError(_(
+                    "El empaque propio se cierra después de registrar lo empacado."))
+            rec.write({
+                "state": "closed",
+                "self_signoff_user_id": user.id,
+                "self_signoff_date": fields.Datetime.now(),
+            })
+            rec._shrimp_apply_packing_stock()
+            rec.message_post(body=_("Cierre interno del empaque propio por %s.")
+                             % (user.partner_id.name or user.name or ""))
+        return True
+
+    def _shrimp_consta_en_trazabilidad(self):
+        """True si la orden sale en el certificado: un empaque de terceros
+        hecho y sin disputa (es_facturable) o un empaque propio cerrado."""
+        self.ensure_one()
+        if self.self_packing:
+            return self.state == "closed" and (self.packed_lb or 0.0) > 0
+        return bool(self.es_facturable)
+
+    def shrimp_plant_label(self):
+        """Texto de la planta para la trazabilidad. En el empaque propio:
+        «Empaque propio — empacado por <empresa> (planta <código>)»."""
+        self.ensure_one()
+        planta = self.copacker_partner_id.sudo()
+        codigo = planta.pack_codigo_establecimiento or _("sin código registrado")
+        if self.self_packing:
+            return _("Empaque propio — empacado por %(empresa)s (planta %(codigo)s)") % {
+                "empresa": planta.name or "", "codigo": codigo}
+        return planta.name or ""
+
+    @api.model
+    def _shrimp_self_pack_origin_for_lot(self, lot):
+        """Token de origen («t:<compra>» o «p:<lote>») con el que un lote de
+        inventario se puede mandar a empaque propio, o "" si no aplica (lote
+        ya empacado, o sin compra ni producto propio del dueño)."""
+        lot = lot.sudo()
+        dueno = lot.owner_id
+        if not dueno or lot.origin_move_id.move_type == "packing":
+            return ""
+        tx = lot.origin_move_id.transaction_id
+        if tx and tx.buyer_partner_id == dueno and tx.state in ("confirmed", "done"):
+            return "t:%s" % tx.uuid_ref
+        if lot.product_id.seller_partner_id == dueno:
+            return "p:%s" % lot.product_id.uuid_ref
+        return ""

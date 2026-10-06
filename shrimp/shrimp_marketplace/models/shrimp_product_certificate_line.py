@@ -50,6 +50,75 @@ class ShrimpProductCertificateLine(models.Model):
 
     active = fields.Boolean(default=True)
 
+    # Revisión interna, igual que los certificados del usuario. Antes un
+    # vendedor subía cualquier PDF como "certificado del producto" y se
+    # mostraba al público de inmediato, sin que nadie lo mirara. Ahora solo
+    # se publica lo aprobado. Los que vienen de un certificado del usuario ya
+    # aprobado heredan esa aprobación.
+    status = fields.Selection(
+        [
+            ("pending", "Pendiente"),
+            ("approved", "Aprobado"),
+            ("rejected", "Rechazado"),
+        ],
+        string="Estado",
+        default="pending",
+        required=True,
+        index=True,
+        copy=False,
+    )
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        UserLine = self.env["shrimp.user.certificate.line"].sudo()
+        for vals in vals_list:
+            origen = vals.get("source_user_certificate_line_id")
+            if self.env.context.get("shrimp_keep_cert_status"):
+                # Copia de un certificado ya revisado (p. ej. al pasar el lote
+                # al comprador): conserva el estado del original.
+                continue
+            if origen:
+                vals["status"] = (
+                    "approved" if UserLine.browse(origen).status == "approved" else "pending")
+            elif not self.env.su or self.env.user.share:
+                # Desde el portal siempre entra pendiente, venga lo que venga.
+                vals["status"] = "pending"
+        return super().create(vals_list)
+
+    def _notify_seller_status(self):
+        for rec in self:
+            producto = rec.product_id.sudo()
+            etiqueta = dict(self._fields["status"].selection).get(rec.status)
+            producto.message_post(body=_(
+                "El certificado «%(c)s» del producto quedó %(e)s.") % {
+                    "c": rec.certificate_id.name or "", "e": (etiqueta or "").lower()},
+                partner_ids=producto.seller_partner_id.ids,
+                subtype_xmlid="mail.mt_comment")
+
+    def action_approve(self):
+        self.write({"status": "approved"})
+        self._notify_seller_status()
+        return True
+
+    def action_reject(self):
+        self.write({"status": "rejected"})
+        self._notify_seller_status()
+        return True
+
+    def action_reset_pending(self):
+        self.write({"status": "pending"})
+        return True
+
+    def action_open_attachment(self):
+        self.ensure_one()
+        if not self.attachment_id:
+            return False
+        return {
+            "type": "ir.actions.act_url",
+            "url": "/web/content/%s?download=true" % self.attachment_id.id,
+            "target": "new",
+        }
+
     @api.depends("certificate_id")
     def _compute_issuer(self):
         for rec in self:

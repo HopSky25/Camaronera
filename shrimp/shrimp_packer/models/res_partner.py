@@ -33,12 +33,20 @@ class ResPartner(models.Model):
     # ------------------------------------------------------------------
     # Perfil de la empacadora
     # ------------------------------------------------------------------
-    emp_razon_social = fields.Char(string="Razón social (Empacadora)")
-    emp_representante = fields.Char(string="Representante legal")
+    # Razón social, representante, teléfono, ubicación y capacidad viven en el
+    # perfil común (shrimp_user_registry); estos nombres quedan como alias
+    # obsoletos durante una versión.
+    emp_razon_social = fields.Char(
+        string="Razón social (Empacadora)", related="shrimp_razon_social", readonly=False)
+    emp_representante = fields.Char(
+        string="Representante legal (Empacadora, obsoleto)", related="shrimp_representante", readonly=False,
+        groups="base.group_user")
     emp_contacto_comercial = fields.Char(
         string="Contacto comercial",
         help="Quien negocia y manda las listas de precios a los productores.")
-    emp_telefono = fields.Char(string="Teléfono (Empacadora)")
+    emp_telefono = fields.Char(
+        string="Teléfono (Empacadora)", related="shrimp_telefono", readonly=False,
+        groups="base.group_user")
 
     emp_codigo_exportador = fields.Char(
         string="Código de exportador",
@@ -46,13 +54,53 @@ class ResPartner(models.Model):
              "autoridad sanitaria y en la declaración de exportación.")
     emp_planta_nombre = fields.Char(string="Planta de proceso")
     emp_planta_ubicacion = fields.Char(
-        string="Ubicación de la planta",
+        string="Ubicación de la planta", related="shrimp_ubicacion", readonly=False,
         help="Dónde entrega el productor. Pesa tanto como el precio: llevar "
              "camarón dos horas más lejos se come la diferencia.")
     emp_capacidad_lb_dia = fields.Float(
         string="Capacidad (lb/día)",
+        compute="_compute_capacity_alias_lb_day", inverse="_inverse_capacity_alias_lb_day",
         help="Cuánto puede procesar al día. Le dice al productor si puede "
              "recibirle una cosecha grande de una sola vez.")
+
+    @api.model
+    def _shrimp_profile_alias_map(self):
+        mapa = super()._shrimp_profile_alias_map()
+        mapa.update({
+            "emp_razon_social": ("shrimp_razon_social", None),
+            "emp_representante": ("shrimp_representante", None),
+            "emp_telefono": ("shrimp_telefono", None),
+            "emp_planta_ubicacion": ("shrimp_ubicacion", None),
+            "emp_capacidad_lb_dia": ("shrimp_capacity_value", "lb_day"),
+        })
+        return mapa
+
+    @api.depends("shrimp_capacity_value", "shrimp_capacity_unit")
+    def _compute_capacity_alias_lb_day(self):
+        self._capacity_alias_compute("emp_capacidad_lb_dia", "lb_day")
+
+    def _inverse_capacity_alias_lb_day(self):
+        self._capacity_alias_inverse("emp_capacidad_lb_dia", "lb_day")
+
+    # ------------------------------------------------------------------
+    # Matriz de capacidades: lo que agrega la empacadora
+    # ------------------------------------------------------------------
+    @api.model
+    def _shrimp_capability_matrix(self):
+        matriz = super()._shrimp_capability_matrix()
+        # El camarón adulto lo compra la empacadora (cierra la última pata de
+        # la cadena, que antes compraba "cualquiera") y, al mismo nivel, otra
+        # camaronera: juveniles para transferencia/precría o camarón adulto
+        # que luego revende (a una empacadora o a otra camaronera).
+        matriz["buy_from_camaronera"] = {"empacadora", "camaronera"}
+        matriz["requires_approval"] = set(matriz.get("requires_approval", set())) | {"empacadora"}
+        matriz["issue_price_lists"] = {"empacadora"}
+        matriz["declare_harvest"] = {"camaronera"}
+        matriz["commit_harvest"] = {"empacadora"}
+        # Una camaronera puede agregarse el perfil de empacadora (queda
+        # pendiente de aprobación, como el alta).
+        matriz["add_profile"] = set(matriz.get("add_profile", set())) | {"empacadora"}
+        return matriz
 
     # Certificaciones: es lo primero que mira un productor serio, porque
     # determinan a qué mercados puede ir su camarón y, por tanto, cuánto vale.
@@ -116,8 +164,10 @@ class ResPartner(models.Model):
 
     @api.model
     def empacadoras_activas(self):
+        # Con varios perfiles: toda cuenta que puede actuar como empacadora
+        # (perfil activo o aprobado), no solo la que navega como tal.
         return self.sudo().search(
-            [("shrimp_user_type", "=", "empacadora"), ("active", "=", True)],
+            self._shrimp_role_domain("empacadora") + [("active", "=", True)],
             order="name")
 
     # El historial verificado es de la camaronera, no del sistema. Publicarlo

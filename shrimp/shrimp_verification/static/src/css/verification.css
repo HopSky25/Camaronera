@@ -367,20 +367,12 @@
   color: #3d5560; font-style: italic; margin: 0;
 }
 
-/* ==================================================================
-   Botones de las páginas de Odoo que quedan fuera de .shrimp-bg
-   (contacto, agradecimiento). Sin esto salen del morado por defecto
-   de Odoo, que no tiene nada que ver con la marca.
-   ================================================================== */
-#wrap .btn-primary,
-#wrap .btn-primary:focus {
-  background-color: #123E5C; border-color: #123E5C; color: #fff;
-}
-#wrap .btn-primary:hover { background-color: #0D2B3E; border-color: #0D2B3E; color: #fff; }
-#wrap a { color: #14A0B0; }
-#wrap a:hover { color: #123E5C; }
-/* El marketplace ya tiene su propia paleta: no se le toca. */
-#wrap .shrimp-bg a { color: inherit; }
+/* Los botones y enlaces de las páginas de Odoo fuera de .shrimp-bg ya no
+   se pintan aquí: la regla global "#wrap a { color:#14A0B0 }" teñía de teal
+   los enlaces de los TRES sitios. El color de marca de los botones vive en
+   shrimp_marketplace (global, con el token de cada plataforma) y el teal de
+   los enlaces solo en el sitio de verificadores (#wrapwrap.o_shrimp_verifier
+   a, más abajo). */
 
 /* ==================================================================
    Ficha de la verificadora (la abre el ojo de la tarjeta)
@@ -505,12 +497,22 @@ button.sv-eye { background: none; border: 0; padding: 0; cursor: pointer; }
 /* Botones */
 .vl-btn{ display:inline-flex; align-items:center; justify-content:center; gap:9px; font-weight:700; font-size:15px; padding:13px 26px; border-radius:14px; text-decoration:none; border:1.5px solid transparent; transition:transform .18s ease, box-shadow .18s ease, background .18s ease, color .18s ease; }
 .vl-btn--lg{ padding:16px 32px; font-size:16px; }
-.vl-btn--primary{ background:var(--vw-teal); color:#fff; box-shadow:0 10px 24px rgba(20,160,176,.32); }
-.vl-btn--primary:hover{ transform:translateY(-2px); background:var(--vw-teal-dark); color:#fff; box-shadow:0 16px 34px rgba(20,160,176,.42); }
+/* Fondo teal-dark (#0d7c88): blanco sobre él = 4.9:1 (WCAG AA). Sobre #14a0b0 daba 3.1:1. */
+.vl-btn--primary{ background:var(--vw-teal-dark); color:#fff; border-color:rgba(255,255,255,.35); box-shadow:0 10px 24px rgba(6,30,40,.30); }
+.vl-btn--primary:hover{ transform:translateY(-2px); background:#0a5f68; color:#fff; box-shadow:0 16px 34px rgba(6,30,40,.40); }
 .vl-btn--ghost{ background:transparent; color:#fff; border-color:rgba(255,255,255,.42); }
 .vl-btn--ghost:hover{ background:rgba(255,255,255,.14); color:#fff; }
 .vl-btn--dark{ background:var(--vw-navy); color:#fff; }
 .vl-btn--dark:hover{ transform:translateY(-2px); background:#0b2e3d; color:#fff; }
+/* Los .vl-btn son <a>: "#wrap a{color:#14A0B0}" y "#wrapwrap.o_shrimp_verifier a"
+   (especificidad de ID) les pisaban el color -> texto teal sobre botón teal = invisible.
+   Se sube la especificidad (1,2,1) para que el texto quede siempre blanco. */
+#wrapwrap a.vl-btn.vl-btn--primary, #wrapwrap a.vl-btn.vl-btn--primary:hover, #wrapwrap a.vl-btn.vl-btn--primary:focus,
+#wrapwrap a.vl-btn.vl-btn--ghost, #wrapwrap a.vl-btn.vl-btn--ghost:hover, #wrapwrap a.vl-btn.vl-btn--ghost:focus,
+#wrapwrap a.vl-btn.vl-btn--dark, #wrapwrap a.vl-btn.vl-btn--dark:hover, #wrapwrap a.vl-btn.vl-btn--dark:focus{ color:#fff; }
+#wrapwrap a.vl-btn.vl-btn--ghost{ border-color:rgba(255,255,255,.6); }
+#wrapwrap a.vl-btn.vl-btn--ghost:hover{ background:rgba(255,255,255,.16); border-color:#fff; }
+#wrapwrap a.vl-btn:focus-visible{ outline:3px solid #7ff0e0; outline-offset:3px; }
 
 /* ---- HERO (split asimétrico) ---- */
 /* En la portada el header va en overlay (position:absolute, ver layout), así
@@ -562,8 +564,11 @@ button.sv-eye { background: none; border: 0; padding: 0; cursor: pointer; }
 .vl-float-ico.money{ background:#e6f6f8; color:var(--vw-teal-dark); }
 .vl-float-t{ font-size:13px; font-weight:800; color:var(--vw-ink); line-height:1.1; }
 .vl-float-s{ font-size:11.5px; color:var(--vw-soft); margin-top:2px; }
-.vl-float--tl{ top:-20px; left:-24px; }
-.vl-float--br{ bottom:-20px; right:-20px; }
+/* Los flotantes asoman por encima/debajo de la tarjeta (padding en .vl-mock) para no
+   tapar el título de la cabecera ni el rendimiento del pie; solo rozan el borde. */
+.vl-mock{ padding:46px 0; }
+.vl-float--tl{ top:0; left:-24px; }
+.vl-float--br{ bottom:0; right:-20px; }
 
 /* ---- BANDA DE MÉTRICAS ---- */
 .vl-stats{ background:#fff; border-bottom:1px solid var(--vw-line); }
@@ -757,13 +762,9 @@ button.sv-eye { background: none; border: 0; padding: 0; cursor: pointer; }
 .sv-switch-label{ font-size:14px; color:var(--vw-ink); font-weight:600; }
 
 /* ==================================================================
-   Sin subrayado en enlaces de navegación, KPIs y tarjetas
-   (al pasar el mouse el texto no debe subrayarse)
+   Sin subrayado en KPIs y tarjetas del verificador. (La barra de
+   navegación de los tres sitios la gobierna shrimp_marketplace.)
    ================================================================== */
-#wrapwrap header#top a,
-#wrapwrap header#top a:hover,
-#wrapwrap header#top .nav-link,
-#wrapwrap header#top .nav-link:hover,
 .vw-kpi, .vw-kpi:hover, .vw-kpi *,
 .vw-order, .vw-order:hover, .vw-order *,
 .sv-kpi, .sv-kpi:hover, .sv-kpi *,
@@ -799,42 +800,9 @@ button.sv-eye { background: none; border: 0; padding: 0; cursor: pointer; }
 }
 #wrapwrap.o_shrimp_verifier a{ color:var(--shrimp-teal); }
 
-/* ==================================================================
-   Menú desplegable: opción seleccionada / hover en color de marca
-   (antes salía MORADA, el primario del tema)
-   ================================================================== */
-#wrapwrap #top_menu .dropdown-menu .dropdown-item:hover,
-#wrapwrap #top_menu .dropdown-menu .dropdown-item:focus,
-#wrapwrap #top_menu .dropdown-menu .dropdown-item.active,
-#wrapwrap #top_menu .dropdown-menu .dropdown-item:active{
-  background-color:var(--shrimp-brand-soft) !important;
-  color:var(--shrimp-brand) !important;
-}
-
-/* ==================================================================
-   FOOTER: fondo oscuro branded con texto claro (reemplaza el beige)
-   ================================================================== */
-#wrapwrap footer#bottom.o_footer{
-  background:#0f2b3a !important; color:#b9ccd5 !important; border-top:0 !important;
-}
 #wrapwrap.o_shrimp_verifier footer#bottom.o_footer{
   background:linear-gradient(180deg,#0f3a4d 0%,#0b2c3a 100%) !important;
 }
-#wrapwrap footer#bottom.o_footer h1,
-#wrapwrap footer#bottom.o_footer h2,
-#wrapwrap footer#bottom.o_footer h3,
-#wrapwrap footer#bottom.o_footer h4,
-#wrapwrap footer#bottom.o_footer h5,
-#wrapwrap footer#bottom.o_footer strong{ color:#fff !important; }
-#wrapwrap footer#bottom.o_footer p,
-#wrapwrap footer#bottom.o_footer li,
-#wrapwrap footer#bottom.o_footer span{ color:#b9ccd5 !important; }
-#wrapwrap footer#bottom.o_footer a{ color:#cddee6 !important; text-decoration:none !important; }
-#wrapwrap footer#bottom.o_footer a:hover{ color:#fff !important; }
-#wrapwrap footer#bottom.o_footer .fa{ color:#cddee6 !important; }
-#wrapwrap .o_footer_copyright{ background:#0a2230 !important; }
-#wrapwrap .o_footer_copyright,
-#wrapwrap .o_footer_copyright *{ color:#8fa8b3 !important; }
 #wrapwrap.o_shrimp_verifier .o_footer_copyright{ background:#092533 !important; }
 
 
@@ -882,3 +850,46 @@ button.sv-eye { background: none; border: 0; padding: 0; cursor: pointer; }
 .vp-count--blue  { background: #123E5C; }
 .vp-count--green { background: #217a48; }
 .vp-count--coral { background: #b3261e; }
+
+/* ==================================================================
+   Responsive (teléfono): cabeceras y filas que no deben empujar ancho
+   ================================================================== */
+.sv-banner-aceptar-item { flex-wrap: wrap; }
+@media (max-width: 575.98px) {
+  .sv-accept-head { padding: 14px 16px; gap: 12px; }
+  .sv-accept-head h1 { font-size: 1.2rem; }
+  .sv-veredicto { padding: 16px; gap: 12px; flex-wrap: wrap; }
+  .sv-banner-aceptar-plazo { white-space: normal; }
+  .sv-photo-thumb, .sv-photo-add { width: 88px; height: 88px; }
+  .tech-modal-foot, .sv-info-acred { flex-wrap: wrap; }
+}
+.tech-modal-card { overflow-x: hidden; overflow-y: auto; max-height: calc(100dvh - 40px); }
+
+/* ===================================================================
+   Modo de verificación: plataforma vs. declarada por las partes
+   =================================================================== */
+.sv-modes { display: grid; gap: 10px; }
+@media (min-width: 768px) { .sv-modes { grid-template-columns: 1fr 1fr; } }
+.sv-mode {
+  display: flex; flex-direction: column; gap: 4px; cursor: pointer;
+  border: 1.5px solid var(--shrimp-border, #d9e2e7); border-radius: 12px;
+  padding: 12px 14px; background: #fff; position: relative;
+}
+.sv-mode .sv-mode-radio { position: absolute; top: 14px; right: 14px; }
+.sv-mode-title { font-weight: 700; color: #123e5c; padding-right: 22px; }
+.sv-mode-txt { font-size: 12.5px; color: #4a5b66; line-height: 1.45; }
+.sv-mode.is-selected, .sv-mode:has(input:checked) {
+  border-color: var(--shrimp-brand, #0f7c8c); box-shadow: 0 0 0 3px rgba(15, 124, 140, .12);
+}
+.sv-mode:has(input:disabled) { opacity: .55; cursor: not-allowed; }
+.sv-declared-box {
+  border: 1px dashed #d6b46a; background: #fffaf0; border-radius: 12px; padding: 12px 14px;
+}
+.sv-mode-note {
+  border: 1px solid #edd9b0; border-left: 5px solid #c98a12; background: #fdf8ee;
+  border-radius: 10px; padding: 12px 14px; font-size: 13.5px; color: #5c4210;
+}
+.sv-mode-label { font-weight: 700; font-size: 14px; }
+.sv-mode-label--platform { color: #1f7a4d; }
+.sv-mode-label--declared { color: #8a5a00; }
+.sv-badge--declared, .sv-badge--declared_draft { background: #fdf1e0; color: #8a5a00; }

@@ -10,7 +10,7 @@
       <!-- El perfil de verificador solo se ofrece en su propia plataforma:
            en el sitio de la camaronera no tiene sentido registrarse así. -->
       <option value="verificador"
-              t-if="request.website.sudo().shrimp_is_verifier_site"
+              t-if="request.website.sudo().shrimp_platform == 'verifier'"
               t-att-selected="'selected' if values.get('shrimp_user_type') == 'verificador' else None">
         Verificador
       </option>
@@ -24,13 +24,13 @@
 
     <xpath expr="//span[@id='pill_camaronera']" position="after">
       <span class="badge rounded-pill text-bg-light border" id="pill_verificador"
-            t-if="request.website.sudo().shrimp_is_verifier_site"
+            t-if="request.website.sudo().shrimp_platform == 'verifier'"
             style="font-weight:600;">Verificador</span>
     </xpath>
 
     <xpath expr="//div[@id='section_camaronera']" position="after">
       <div id="section_verificador" class="d-none"
-           t-if="request.website.sudo().shrimp_is_verifier_site">
+           t-if="request.website.sudo().shrimp_platform == 'verifier'">
         <div class="p-3 rounded-3 mb-3"
              style="background:rgba(20,160,176,.08); border:1px solid rgba(20,160,176,.20);">
           <div class="d-flex align-items-center justify-content-between gap-2">
@@ -145,23 +145,22 @@
          no aporta nada. La tarjeta del paso 1 se OCULTA con CSS, no se elimina:
          el <select> tiene que seguir en el DOM porque el JS del registro lo usa
          para pintar el paso 3 y el POST necesita su valor. -->
-    <xpath expr="//div[hasclass('s-eyebrow')][normalize-space()='Paso 1']/ancestor::div[hasclass('card')][1]"
-           position="attributes">
+    <xpath expr="//div[@id='shrimp_reg_step_profile']" position="attributes">
       <attribute name="t-attf-style">
-        #{'display:none;' if request.website.sudo().shrimp_is_verifier_site else ''}
+        #{'display:none;' if request.website.sudo().shrimp_platform == 'verifier' else ''}
       </attribute>
     </xpath>
 
     <!-- Con el paso 1 oculto, los siguientes se renumeran para que el usuario
          no vea una secuencia que empieza en 2. -->
-    <xpath expr="//div[hasclass('s-eyebrow')][normalize-space()='Paso 2']" position="replace">
-      <div class="s-eyebrow">
-        Paso <t t-esc="1 if request.website.sudo().shrimp_is_verifier_site else 2"/>
+    <xpath expr="//div[@id='shrimp_reg_step_basic_label']" position="replace">
+      <div class="s-eyebrow" id="shrimp_reg_step_basic_label">
+        Paso <t t-esc="1 if request.website.sudo().shrimp_platform == 'verifier' else 2"/>
       </div>
     </xpath>
-    <xpath expr="//div[hasclass('s-eyebrow')][normalize-space()='Paso 3']" position="replace">
-      <div class="s-eyebrow">
-        Paso <t t-esc="2 if request.website.sudo().shrimp_is_verifier_site else 3"/>
+    <xpath expr="//div[@id='shrimp_reg_step_type_label']" position="replace">
+      <div class="s-eyebrow" id="shrimp_reg_step_type_label">
+        Paso <t t-esc="2 if request.website.sudo().shrimp_platform == 'verifier' else 3"/>
       </div>
     </xpath>
 
@@ -170,18 +169,18 @@
          Se resuelve en el servidor: si dependiera del JS, un fallo de script
          dejaría el formulario ofreciendo roles que ese sitio no admite. -->
     <xpath expr="//select[@name='shrimp_user_type']/option[@value='semillero']" position="attributes">
-      <attribute name="t-if">not request.website.sudo().shrimp_is_verifier_site</attribute>
+      <attribute name="t-if">not request.website.sudo().shrimp_platform == 'verifier'</attribute>
     </xpath>
     <xpath expr="//select[@name='shrimp_user_type']/option[@value='laboratorio']" position="attributes">
-      <attribute name="t-if">not request.website.sudo().shrimp_is_verifier_site</attribute>
+      <attribute name="t-if">not request.website.sudo().shrimp_platform == 'verifier'</attribute>
     </xpath>
     <xpath expr="//select[@name='shrimp_user_type']/option[@value='camaronera']" position="attributes">
-      <attribute name="t-if">not request.website.sudo().shrimp_is_verifier_site</attribute>
+      <attribute name="t-if">not request.website.sudo().shrimp_platform == 'verifier'</attribute>
     </xpath>
 
     <xpath expr="//select[@name='shrimp_user_type']" position="attributes">
       <attribute name="t-att-data-verifier-site">
-        '1' if request.website.sudo().shrimp_is_verifier_site else None
+        '1' if request.website.sudo().shrimp_platform == 'verifier' else None
       </attribute>
     </xpath>
     <xpath expr="//select[@name='shrimp_user_type']" position="after">

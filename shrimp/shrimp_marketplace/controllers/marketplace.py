@@ -6,6 +6,22 @@ from odoo import http, fields
 from odoo.http import request
 from werkzeug.exceptions import NotFound
 from odoo.addons.website.controllers.main import Website
+from odoo.tools import consteq
+
+from odoo.addons.shrimp_user_registry.controllers.main import binary_headers
+
+
+def _por_token(adjuntos, token):
+    """Adjunto de `adjuntos` cuyo access_token coincide (comparación en
+    tiempo constante). Las rutas de archivos se identifican por este token,
+    nunca por el id del ir.attachment."""
+    token = str(token or "")
+    if not token or token.isdigit():
+        return adjuntos.browse()
+    for att in adjuntos.sudo():
+        if att.access_token and consteq(att.access_token, token):
+            return att
+    return adjuntos.browse()
 
 
 class ShrimpMarketplacePublicController(http.Controller):
@@ -31,7 +47,8 @@ class ShrimpMarketplacePublicController(http.Controller):
 
     def _build_public_marketplace_domain(self):
         current_partner = self._get_current_partner()
-        current_user_type = current_partner.shrimp_user_type if current_partner else False
+        # Perfil ACTIVO efectivo (un contacto hijo navega con el de su empresa).
+        current_user_type = current_partner._shrimp_effective_type() if current_partner else False
 
         domain = [
             ("active", "=", True),
@@ -39,19 +56,19 @@ class ShrimpMarketplacePublicController(http.Controller):
             ("available_qty", ">", 0),
         ]
 
-        # El camarón adulto (vendido por camaroneras) es visible para cualquier
-        # comprador registrado, además de la cadena tradicional de larvas.
-        cam = [("seller_partner_id.shrimp_user_type", "=", "camaronera")]
-
-        if current_user_type == "laboratorio":
-            # larvas de semillero + camarón de camaronera
-            domain += ["|", ("seller_partner_id.shrimp_user_type", "=", "semillero")] + cam
-        elif current_user_type == "camaronera":
-            # larvas de laboratorio + camarón de camaronera
-            domain += ["|", ("seller_partner_id.shrimp_user_type", "=", "laboratorio")] + cam
-        elif current_user_type == "semillero":
-            # el semillero no compra larvas, pero sí puede comprar camarón
-            domain += cam
+        # Varios perfiles por cuenta: se filtra por el ROL del lote
+        # (seller_role), no por el perfil con el que navega su vendedor.
+        # Los roles de lote que el perfil activo puede comprar salen de la
+        # matriz (buy_from_<rol>), incluido su MISMO nivel: una camaronera ve
+        # la larva de laboratorio y el camarón de otras camaroneras; un
+        # laboratorio, el nauplio de semillero y la larva de otros
+        # laboratorios. El filtro fino (motivo_no_comprable) va después.
+        if current_user_type:
+            Partner = request.env["res.partner"].sudo()
+            roles_lote = [v for v, _l in request.env["shrimp.product"]._fields["seller_role"].selection]
+            domain.append(("seller_role", "in", [
+                r for r in roles_lote
+                if Partner._shrimp_type_can(current_user_type, "buy_from_%s" % r)]))
         # público / sin tipo: ve todo el catálogo publicado
 
         return domain
@@ -148,6 +165,96 @@ class ShrimpMarketplacePublicController(http.Controller):
         }
         return products, filters, sort, best_price_id
 
+    # ------------------------------------------------------------------
+    # Etiquetas de filtros activos (barra superior del catálogo)
+    # ------------------------------------------------------------------
+    def _filter_tag_groups(self):
+        """Grupos de parámetros que forman UNA etiqueta, en el orden en que se
+        muestran. La búsqueda (q) y el orden (sort) no son etiquetas."""
+        return [
+            ("stage",), ("species",), ("presentation",), ("size_grade",),
+            ("location",), ("price_min", "price_max"), ("seller",),
+        ]
+
+    def _filter_tag_label(self, group, filters):
+        """Texto de la etiqueta de un grupo de filtros (o None si no aplica)."""
+        key = group[0]
+        val = filters.get(key) or ""
+        if group == ("price_min", "price_max"):
+            pmin, pmax = filters.get("price_min") or "", filters.get("price_max") or ""
+            if pmin and pmax:
+                return "Precio $%s–$%s" % (pmin, pmax)
+            if pmin:
+                return "Precio desde $%s" % pmin
+            if pmax:
+                return "Precio hasta $%s" % pmax
+            return None
+        if not val:
+            return None
+        if key == "stage":
+            try:
+                st = request.env["shrimp.stage"].sudo().browse(int(val)).exists()
+            except (TypeError, ValueError):
+                st = False
+            return ("Estadío: %s" % st.name) if st else None
+        if key == "presentation":
+            return {"entero": "Entero", "cola": "Cola"}.get(val)
+        if key == "size_grade":
+            try:
+                sg = request.env["shrimp.size.grade"].sudo().browse(int(val)).exists()
+            except (TypeError, ValueError):
+                sg = False
+            return ("Talla: %s" % sg.name) if sg else None
+        if key == "location":
+            return "Ubicación: %s" % val
+        if key == "seller":
+            return "Vendedor: %s" % val
+        if key == "species":
+            return val
+        return None
+
+    def _active_filter_tags(self, filters, sort, vista, is_best):
+        """Etiquetas removibles: cada una enlaza a la misma URL sin su
+        parámetro (se conservan la búsqueda, el orden, la vista y el resto).
+        Devuelve (etiquetas, url_limpiar_todo)."""
+        keep = {}
+        if sort and sort != "recommended":
+            keep["sort"] = sort
+        if vista:
+            keep["vista"] = vista
+        base = {k: v for k, v in filters.items() if v}
+        best = {"best": "1"} if is_best else {}
+
+        def url(qs):
+            return "/marketplace" + ("?" + urlencode(qs) if qs else "") + "#listado"
+
+        tags = []
+        for group in self._filter_tag_groups():
+            label = self._filter_tag_label(group, filters)
+            if not label:
+                continue
+            qs = {k: v for k, v in base.items() if k not in group}
+            qs.update(keep)
+            qs.update(best)
+            tags.append({"key": "-".join(group), "label": label, "url": url(qs)})
+        clear = dict({"q": filters["q"]} if filters.get("q") else {}, **keep)
+        return tags, url(clear)
+
+    def _toolbar_hidden_keys(self):
+        """Filtros que la barra superior (búsqueda y orden) conserva como
+        campos ocultos. Los módulos que añaden filtros amplían la lista."""
+        return ["stage", "species", "presentation", "size_grade", "location",
+                "seller", "price_min", "price_max"]
+
+    def _sort_options(self):
+        return [
+            ("recommended", "Recomendados"),
+            ("price_asc", "Precio: menor a mayor"),
+            ("price_desc", "Precio: mayor a menor"),
+            ("rating", "Mejor calificados"),
+            ("recent", "Más recientes"),
+        ]
+
     def _partner_price_map(self, products):
         """El precio por cliente se retiró: ya no hay precios personalizados."""
         return {}
@@ -184,13 +291,61 @@ class ShrimpMarketplacePublicController(http.Controller):
         base_products = product_model.search(self._build_public_marketplace_domain())
         species_options = base_products.mapped("species_id")
         location_options = sorted({p.location for p in base_products if p.location})
-        active_filters = len([v for v in filters.values() if v])
 
         # URL para quitar el modo Top 10 conservando los filtros actuales.
         _qs = {k: v for k, v in filters.items() if v}
         if sort and sort != "recommended":
             _qs["sort"] = sort
+
+        # Vista del listado elegida por el usuario: "lista" (filas, estilo
+        # Amazon) o "grid" (tarjetas, por defecto). Solo cambia la
+        # presentación; se conserva en todos los enlaces y formularios del
+        # listado. Sin parámetro, el navegador aplica la última vista
+        # guardada (localStorage) antes de pintar las tarjetas.
+        vista = (kw.get("vista") or "").strip()
+        if vista not in ("lista", "grid"):
+            vista = ""
+        vista_qs = ("?vista=" + vista) if vista else ""
+        vista_amp = ("&vista=" + vista) if vista else ""
+        _qs_vista = dict(_qs, **({"best": "1"} if is_best else {}))
+        vista_lista_url = "/marketplace?" + urlencode(dict(_qs_vista, vista="lista")) + "#listado"
+        vista_grid_url = "/marketplace?" + urlencode(dict(_qs_vista, vista="grid")) + "#listado"
+        if vista:
+            _qs["vista"] = vista
+
         all_url = ("/marketplace?" + urlencode(_qs) + "#listado") if _qs else "/marketplace"
+
+        # Filtros activos: etiquetas removibles y contador del botón «Filtros»
+        # (no cuentan la búsqueda ni el orden).
+        filter_tags, clear_filters_url = self._active_filter_tags(filters, sort, vista, is_best)
+        active_filters = len(filter_tags)
+
+        # Barra superior, etiquetas y cajón: plantillas reutilizables
+        # (views/filter_drawer_templates.xml) que leen este diccionario.
+        fd = {
+            "action": "/marketplace",
+            "toolbar_label": "Buscar y ordenar productos",
+            "search": {"name": "q", "value": filters.get("q") or "",
+                       "placeholder": "Buscar por nombre, especie o ubicación…",
+                       "label": "Buscar productos"},
+            "hidden": [(k, filters.get(k) or "") for k in self._toolbar_hidden_keys()]
+            + [("vista", vista)],
+            "sort": {"name": "sort", "value": sort, "options": self._sort_options()},
+            "view": {"key": "shrimp_mkt_vista", "target": "prodGrid", "path": "/marketplace",
+                     "current": vista, "lista_url": vista_lista_url, "grid_url": vista_grid_url,
+                     "label": "Vista de los productos"},
+            "tags": filter_tags,
+            "clear_url": clear_filters_url,
+            "active": active_filters,
+            "count_url": "/marketplace/count",
+            "total": total_count,
+            "one": "producto", "many": "productos", "apply_label": "Ver productos",
+            "drawer_hidden": [("q", filters.get("q") or ""), ("stage", filters.get("stage") or ""),
+                              ("sort", sort if sort and sort != "recommended" else ""),
+                              ("vista", vista)],
+            "keep": ["q", "sort", "vista"],
+            "anchor": "#listado",
+        }
 
         cover_atts = request.env["ir.attachment"].sudo().browse([])
         for product in page:
@@ -213,11 +368,19 @@ class ShrimpMarketplacePublicController(http.Controller):
             "size_grade_options": size_grade_options,
             "location_options": location_options,
             "active_filters": active_filters,
+            "filter_tags": filter_tags,
+            "clear_filters_url": clear_filters_url,
             "sort": sort,
             "best_price_id": best_price_id,
             "is_best": is_best,
             "all_url": all_url,
+            "vista": vista,
+            "vista_qs": vista_qs,
+            "vista_amp": vista_amp,
+            "vista_lista_url": vista_lista_url,
+            "vista_grid_url": vista_grid_url,
             "partner_prices": self._partner_price_map(page),
+            "fd": fd,
         })
 
     @http.route("/marketplace/cards", type="http", auth="public", website=True, sitemap=False)
@@ -259,6 +422,20 @@ class ShrimpMarketplacePublicController(http.Controller):
         return request.make_response(payload, headers=[
             ("Content-Type", "application/json; charset=utf-8"),
             ("Cache-Control", "no-store"),
+            ("X-Content-Type-Options", "nosniff"),
+        ])
+
+    @http.route("/marketplace/count", type="http", auth="public", website=True,
+                methods=["GET"], sitemap=False)
+    def marketplace_count(self, **kw):
+        """Cuántos productos daría la selección actual del cajón de filtros
+        (botón «Ver N productos»). Mismo dominio que /marketplace."""
+        products, _filters, _sort, _best = self._search_marketplace_products(kw)
+        payload = json.dumps({"count": len(products)})
+        return request.make_response(payload, headers=[
+            ("Content-Type", "application/json; charset=utf-8"),
+            ("Cache-Control", "no-store"),
+            ("X-Content-Type-Options", "nosniff"),
         ])
 
     @http.route("/marketplace/product/<product_ref>", type="http", auth="public", website=True)
@@ -275,9 +452,8 @@ class ShrimpMarketplacePublicController(http.Controller):
         photos = []
         for att in product.photo_attachment_ids:
             photos.append({
-                "id": att.id,
                 "name": att.name,
-                "url": f"/marketplace/producto/{product.uuid_ref}/foto/{att.id}",
+                "url": product.shrimp_photo_url(att),
             })
 
         evolution_lines = request.env["shrimp.product.evolution"].sudo().search([
@@ -346,42 +522,14 @@ class ShrimpMarketplacePublicController(http.Controller):
             "has_custom_price": has_custom_price,
         })
 
-    @http.route("/marketplace/producto/<product_ref>", type="http", auth="public", website=True)
-    def marketplace_product_detail_legacy(self, product_ref, **kwargs):
-        product = request.env["shrimp.product"].sudo().resolve_ref(product_ref)
-        if not product:
-            raise NotFound()
-        return request.redirect(f"/marketplace/product/{product.uuid_ref}")
+    # La antigua /marketplace/producto/<ref> (redirect legacy) la atiende ahora
+    # el redirector genérico de rutas viejas (shrimp_user_registry/ir_http.py):
+    # 301 a /marketplace/product/<ref>, que resuelve los mismos formatos de ref.
 
-    @http.route("/marketplace/producto/<product_ref>/foto/<int:attachment_id>", type="http", auth="public", website=True, sitemap=False)
-    def marketplace_product_photo(self, product_ref, attachment_id, **kwargs):
-        product = request.env["shrimp.product"].sudo().resolve_ref(product_ref)
-
-        if not product or not product.active:
-            raise NotFound()
-
-        can_see, _, _ = self._can_see_product(product)
-        if not can_see:
-            raise NotFound()
-
-        att = request.env["ir.attachment"].sudo().browse(attachment_id)
-        if not att.exists() or att.id not in product.photo_attachment_ids.ids:
-            raise NotFound()
-
-        if not att.datas:
-            raise NotFound()
-
-        content = base64.b64decode(att.datas)
-        mimetype = att.mimetype or "image/jpeg"
-
-        return request.make_response(content, headers=[
-            ("Content-Type", mimetype),
-            ("Content-Length", str(len(content))),
-            ("Cache-Control", "private, max-age=3600"),
-        ])
-
-    @http.route("/marketplace/product/<product_ref>/certificate/<int:attachment_id>", type="http", auth="public", website=True, sitemap=False)
-    def marketplace_product_certificate(self, product_ref, attachment_id, **kwargs):
+    @http.route("/marketplace/product/<product_ref>/photo/<token>", type="http", auth="public", website=True, sitemap=False)
+    def marketplace_product_photo(self, product_ref, token, **kwargs):
+        """Foto de un producto. Se identifica por el access_token del adjunto
+        (no por su id) y solo entre las fotos de ESTE producto."""
         product = request.env["shrimp.product"].sudo().resolve_ref(product_ref)
 
         if not product or not product.active:
@@ -391,34 +539,53 @@ class ShrimpMarketplacePublicController(http.Controller):
         if not can_see:
             raise NotFound()
 
-        # Solo se pueden descargar adjuntos que pertenezcan a los certificados
-        # de ESTE producto (evita el IDOR sobre cualquier ir.attachment de la BD).
-        allowed_ids = set(product.cert_attachment_ids.ids)
-        allowed_ids |= set(product.certificate_line_ids.mapped("attachment_id").ids)
-
-        if attachment_id not in allowed_ids:
-            raise NotFound()
-
-        att = request.env["ir.attachment"].sudo().browse(attachment_id)
-        if not att.exists() or not att.datas:
+        att = _por_token(product.photo_attachment_ids, token)
+        if not att or not att.datas:
             raise NotFound()
 
         content = base64.b64decode(att.datas)
-        filename = (att.name or "certificado").replace("/", "-").replace("\\", "-")
+        return request.make_response(content, headers=binary_headers(
+            content, att.mimetype or "image/jpeg", cache="private, max-age=3600"))
 
-        # Por defecto se muestra en el navegador (inline); con ?download=1 se fuerza
-        # la descarga.
-        disposition = "attachment" if kwargs.get("download") else "inline"
+    @http.route("/marketplace/product/<product_ref>/certificate/<token>", type="http", auth="public", website=True, sitemap=False)
+    def marketplace_product_certificate(self, product_ref, token, **kwargs):
+        """Archivo de un certificado del producto, por el token del adjunto.
 
-        return request.make_response(content, headers=[
-            ("Content-Type", att.mimetype or "application/octet-stream"),
-            ("Content-Length", str(len(content))),
-            ("Content-Disposition", f'{disposition}; filename="{filename}"'),
-            ("Cache-Control", "private, max-age=0"),
-        ])
+        Al público solo se le sirven los certificados APROBADOS; el dueño y el
+        personal interno ven también los pendientes (y el campo heredado
+        cert_attachment_ids).
+        """
+        product = request.env["shrimp.product"].sudo().resolve_ref(product_ref)
 
-    @http.route("/marketplace/product/<product_ref>/user-certificate/<int:line_id>", type="http", auth="public", website=True, sitemap=False)
-    def marketplace_seller_certificate(self, product_ref, line_id, **kwargs):
+        if not product or not product.active:
+            raise NotFound()
+
+        can_see, is_owner, is_internal = self._can_see_product(product)
+        if not can_see:
+            raise NotFound()
+
+        lineas = product.shrimp_visible_certificate_lines(owner_view=is_owner or is_internal)
+        permitidos = lineas.mapped("attachment_id")
+        if is_owner or is_internal:
+            permitidos |= product.cert_attachment_ids
+
+        att = _por_token(permitidos, token)
+        if not att or not att.datas:
+            raise NotFound()
+
+        content = base64.b64decode(att.datas)
+        # Por defecto en el navegador (inline); con ?download=1 se descarga.
+        return request.make_response(content, headers=binary_headers(
+            content, att.mimetype, att.name or "certificado",
+            download=bool(kwargs.get("download"))))
+
+    @http.route("/marketplace/product/<product_ref>/user-certificate/<line_ref>", type="http", auth="public", website=True, sitemap=False)
+    def marketplace_seller_certificate(self, product_ref, line_ref, **kwargs):
+        """Certificado del VENDEDOR mostrado en la ficha del producto.
+
+        La línea se resuelve por su código (uuid_ref), como el resto de la
+        plataforma: un id numérico responde 404.
+        """
         product = request.env["shrimp.product"].sudo().resolve_ref(product_ref)
         if not product or not product.active:
             raise NotFound()
@@ -428,8 +595,8 @@ class ShrimpMarketplacePublicController(http.Controller):
             raise NotFound()
 
         # El certificado debe pertenecer al vendedor del producto y estar aprobado.
-        line = request.env["shrimp.user.certificate.line"].sudo().browse(line_id)
-        if (not line.exists()
+        line = request.env["shrimp.user.certificate.line"].sudo().resolve_ref(line_ref)
+        if (not line
                 or line.partner_id.id != product.seller_partner_id.id
                 or line.status != "approved"
                 or not line.file_attachment_id):
@@ -450,11 +617,28 @@ class ShrimpMarketplacePublicController(http.Controller):
             ("Cache-Control", "private, max-age=0"),
         ])
 
-    @http.route("/marketplace/vendedor/<partner_ref>", type="http", auth="public", website=True)
+    @http.route("/marketplace/sellers/<partner_ref>/avatar", type="http", auth="public", website=True, sitemap=False)
+    def marketplace_seller_avatar(self, partner_ref, **kw):
+        """Logo del vendedor por su código (en vez de /web/image/res.partner/<id>)."""
+        seller = request.env["res.partner"].sudo().resolve_ref(partner_ref)
+        if not seller or not seller._shrimp_can_any("sell_products") \
+                or not seller.image_128:
+            raise NotFound()
+        content = base64.b64decode(seller.image_128)
+        from odoo.tools.mimetypes import guess_mimetype
+        mimetype = guess_mimetype(content, default="image/png")
+        if mimetype not in ("image/png", "image/jpeg", "image/webp", "image/gif"):
+            raise NotFound()   # nunca SVG/HTML desde esta ruta
+        return request.make_response(content, headers=binary_headers(
+            content, mimetype, cache="public, max-age=3600"))
+
+    @http.route("/marketplace/sellers/<partner_ref>", type="http", auth="public", website=True)
     def marketplace_seller_storefront(self, partner_ref, **kw):
         seller = request.env["res.partner"].sudo().resolve_ref(partner_ref)
 
-        if not seller or seller.shrimp_user_type not in ("semillero", "laboratorio", "camaronera"):
+        # Varios perfiles: la tienda es de la cuenta si ALGUNO de sus perfiles
+        # vende, aunque ahora navegue con otro (p. ej. como empacadora).
+        if not seller or not seller._shrimp_can_any("sell_products"):
             raise NotFound()
 
         products = request.env["shrimp.product"].sudo().search([
@@ -479,8 +663,9 @@ class ShrimpMarketplacePublicController(http.Controller):
             "|", ("expiry_date", "=", False), ("expiry_date", ">=", today),
         ])
 
-        reviews = request.env["shrimp.review"].sudo().search(
-            [("seller_partner_id", "=", seller.id)], order="create_date desc", limit=50)
+        # Solo las reseñas recibidas como VENDEDOR: las que le dejaron como
+        # comprador no hablan de lo que vende (y no cuentan en su nota).
+        reviews = seller._shrimp_seller_reviews(limit=50)
 
         return request.render("shrimp_marketplace.seller_storefront", {
             "seller": seller,
@@ -516,7 +701,7 @@ class ShrimpMarketplacePublicController(http.Controller):
             uom_label = product.uom_id.name or ""
 
             events.append({
-                "id": product.id,
+                "id": product.uuid_ref,
                 "start": date_str,
                 "title": f"{stage_label} • {product.available_qty:g} {uom_label} • {product.seller_partner_id.name}",
                 "url": f"/marketplace/product/{product.uuid_ref}",
@@ -537,6 +722,26 @@ class ShrimpMarketplacePublicController(http.Controller):
 class ShrimpWebsiteHome(Website):
     """La home del sitio (/) es la landing de marketing estilo Apple."""
 
+    def _login_redirect(self, uid, redirect=None):
+        """Tras el login, el socio de portal entra a su trabajo y no a /my.
+
+        Sin ?redirect= explícito (o con el genérico /web, que para el portal
+        acaba en /my), el sitio decide la llegada (website._shrimp_login_landing):
+        /my/dashboard en el marketplace si el perfil activo tiene panel; la bandeja
+        propia en los sitios de verificadores y de empaque. Un ?redirect=
+        explícito se respeta siempre; los usuarios internos siguen al backend.
+        También vale tras el alta con invitación (auth_signup acaba en
+        web_login) y tras el registro propio (/register → /web/login)."""
+        if (not redirect or redirect in ("/web", "/web/")) and request.website:
+            user = request.env["res.users"].sudo().browse(uid)
+            destino = request.website.sudo()._shrimp_login_landing(user) if user.exists() else None
+            if destino:
+                redirect = destino
+        return super()._login_redirect(uid, redirect=redirect)
+
     @http.route()
     def index(self, **kw):
+        # «/» (y el logo) muestran SIEMPRE la portada, también con sesión.
+        # Al panel se llega al iniciar sesión (_login_redirect) y desde
+        # «Mi panel» en la barra.
         return request.render("shrimp_marketplace.landing", {})

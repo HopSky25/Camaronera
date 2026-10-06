@@ -30,6 +30,59 @@ class ShrimpStockLot(models.Model):
         index=True,
     )
 
+    move_ids = fields.One2many(
+        "shrimp.stock.move", "lot_id", string="Movimientos del lote")
+
+    def _shrimp_internal_move(self, move_type, qty, reason, direction="out", date=None, **extra):
+        """Mueve cantidad DENTRO del lote sin cambiar de dueño y deja el
+        movimiento que lo documenta (siembra, producción, ajuste, empaque,
+        exportación).
+
+        `qty` es positiva; `direction` dice si se descuenta (out) o se suma
+        (in). Una subida por encima de lo inicial también sube la cantidad
+        inicial: el lote creció de verdad (p. ej. más peso en planta que en
+        la finca). Devuelve el movimiento, o un recordset vacío si la cantidad
+        es cero.
+        """
+        self.ensure_one()
+        qty = float(qty or 0.0)
+        if float_compare(qty, 0.0, precision_digits=6) <= 0:
+            return self.env["shrimp.stock.move"]
+        lot = self.sudo()
+        antes = lot.available_qty
+        if direction == "out":
+            if float_compare(qty, antes, precision_digits=6) == 1:
+                raise ValidationError(_(
+                    "El lote «%(lote)s» solo tiene %(disp)s disponibles; no se pueden "
+                    "descontar %(qty)s.") % {"lote": lot.display_name, "disp": antes, "qty": qty})
+            despues = antes - qty
+            vals = {"available_qty": despues}
+        else:
+            despues = antes + qty
+            vals = {"available_qty": despues,
+                    "initial_qty": max(lot.initial_qty, despues)}
+        vals["state"] = "consumed" if float_compare(despues, 0.0, precision_digits=6) <= 0 else "available"
+        move_vals = {
+            "product_id": lot.product_id.id,
+            "source_partner_id": lot.owner_id.id,
+            "dest_partner_id": False,
+            "qty": qty,
+            "parent_move_id": lot.origin_move_id.id or False,
+            "move_type": move_type,
+            "direction": direction,
+            "lot_id": lot.id,
+            "reason": reason,
+            "qty_before": antes,
+            "qty_after": despues,
+            "date": date or fields.Datetime.now(),
+        }
+        move_vals.update(extra)
+        move = self.env["shrimp.stock.move"].sudo().create(move_vals)
+        lot.write(vals)
+        # El disponible del producto depende de los lotes del vendedor.
+        lot.product_id._compute_available_qty()
+        return move
+
     @api.constrains("initial_qty", "available_qty")
     def _check_quantities(self):
         for rec in self:

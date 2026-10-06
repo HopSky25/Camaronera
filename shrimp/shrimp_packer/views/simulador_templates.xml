@@ -43,7 +43,7 @@
           </t>
 
           <t t-if="lotes">
-            <form method="get" action="/marketplace/simulador" class="pk-filtro-panel">
+            <form method="get" action="/marketplace/simulator" class="pk-filtro-panel">
               <div class="pk-filtro">
                 <label>Lote a simular
                   <select name="lote" class="form-control js-sim-refrescar">
@@ -391,7 +391,7 @@
                    t-attf-href="/marketplace/product/#{lote.uuid_ref}">
                   <i class="fa fa-eye me-1"/> Ver el lote
                 </a>
-                <a class="s-btn s-btn-ghost ms-2" href="/marketplace/listas-de-precios/comparar">
+                <a class="s-btn s-btn-ghost ms-2" href="/marketplace/price-lists/compare">
                   <i class="fa fa-balance-scale me-1"/> Comparar empacadoras
                 </a>
               </div>
@@ -439,7 +439,7 @@
       <t t-if="p.verification_scope == 'adult' and (p.stage_id.code or '').strip().upper() == 'ENGORDE' and p.size_grade_id">
         <a class="s-btn s-btn-ghost btn-sm" style="flex:0 0 auto;"
            title="Simular cosecha: ¿cosecho ahora o espero?"
-           t-attf-href="/marketplace/simulador/#{p.uuid_ref}">
+           t-attf-href="/marketplace/simulator/#{p.uuid_ref}">
           <i class="fa fa-line-chart"></i>
         </a>
       </t>

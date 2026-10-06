@@ -86,6 +86,13 @@ Cfg = env["ir.config_parameter"].sudo()
 empresa = P.search([("email", "=", CORREO),
                     ("shrimp_user_type", "=", "verificador")], limit=1)
 if not empresa:
+    # En la demo masiva CORREO es el LOGIN de la cuenta de portal de la
+    # empresa (el correo de la ficha es otro): se busca también por ahí.
+    cuenta = env["res.users"].sudo().with_context(active_test=False).search(
+        [("login", "=", CORREO)], limit=1)
+    if cuenta and cuenta.partner_id.shrimp_user_type == "verificador":
+        empresa = cuenta.partner_id
+if not empresa:
     raise SystemExit(
         "No se encontró el verificador de demo (%s). Si la base se regeneró "
         "con otros correos, ajusta CORREO en la cabecera de este script."

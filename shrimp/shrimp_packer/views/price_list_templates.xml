@@ -32,10 +32,10 @@
             <div class="pk-alert pk-alert--ko"><i class="fa fa-exclamation-triangle me-1"/><t t-esc="error"/></div>
           </t>
 
-          <div class="d-flex justify-content-between align-items-center mb-2">
+          <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-2">
             <h2 class="pk-h2 mb-0">Dirigidas a ti</h2>
             <t t-if="vigentes">
-              <a class="s-btn s-btn-primary" href="/marketplace/listas-de-precios/comparar">
+              <a class="s-btn s-btn-primary" href="/marketplace/price-lists/compare">
                 <i class="fa fa-balance-scale me-1"/> Comparar precios
               </a>
             </t>
@@ -43,10 +43,13 @@
           <t t-if="vigentes">
             <div class="pk-cards">
               <t t-foreach="vigentes" t-as="l">
-                <a class="pk-card" t-attf-href="/marketplace/listas-de-precios/#{l.uuid_ref}">
+                <a class="pk-card" t-attf-href="/marketplace/price-lists/#{l.uuid_ref}">
                   <div class="pk-card-emisor"><t t-esc="l.issuer_partner_id.name"/></div>
                   <div class="pk-card-nombre"><t t-esc="l.name"/></div>
                   <div class="pk-card-meta"><t t-esc="l.texto_ventana()"/></div>
+                  <div t-if="l.aguaje_txt" class="pk-card-meta pk-card-aguaje">
+                    <i class="fa fa-moon-o me-1"/>Rige para: <t t-esc="l.aguaje_txt"/>
+                  </div>
                   <div class="pk-card-pie">
                     <span><t t-esc="l.line_count"/> precios</span>
                     <span class="pk-ver">Ver <i class="fa fa-chevron-right"/></span>
@@ -75,10 +78,13 @@
             <div class="pk-cards">
               <t t-foreach="proximas" t-as="l">
                 <a class="pk-card pk-card--proxima"
-                   t-attf-href="/marketplace/listas-de-precios/#{l.uuid_ref}">
+                   t-attf-href="/marketplace/price-lists/#{l.uuid_ref}">
                   <div class="pk-card-emisor"><t t-esc="l.issuer_partner_id.name"/></div>
                   <div class="pk-card-nombre"><t t-esc="l.name"/></div>
                   <div class="pk-card-meta"><t t-esc="l.texto_ventana()"/></div>
+                  <div t-if="l.aguaje_txt" class="pk-card-meta pk-card-aguaje">
+                    <i class="fa fa-moon-o me-1"/>Rige para: <t t-esc="l.aguaje_txt"/>
+                  </div>
                   <div class="pk-card-pie">
                     <span><t t-esc="l.line_count"/> precios</span>
                     <span class="pk-badge-proxima">Empieza pronto</span>
@@ -91,16 +97,17 @@
           <!-- Solo la empacadora publica listas. A una camaronera esta
                sección le ofrecía un botón que el modelo iba a rechazar. -->
           <t t-if="es_empacadora">
-          <div class="d-flex justify-content-between align-items-center mt-5">
+          <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mt-5">
             <h2 class="pk-h2 mb-0">Las que publicas tú</h2>
-            <a class="s-btn s-btn-primary" href="/marketplace/listas-de-precios/nueva">
+            <a class="s-btn s-btn-primary" href="/marketplace/price-lists/new">
               <i class="fa fa-plus me-1"/> Nueva lista
             </a>
           </div>
           <t t-if="mias">
+            <div class="table-responsive">
             <table class="pk-tabla mt-3">
               <thead>
-                <tr><th>Lista</th><th>Emitida</th><th>Vigencia</th><th>Dirigida a</th>
+                <tr><th>Lista</th><th>Emitida</th><th>Vigencia</th><th>Rige para</th><th>Dirigida a</th>
                     <th class="text-end">Precios</th><th>Estado</th><th></th></tr>
               </thead>
               <tbody>
@@ -109,6 +116,10 @@
                     <td><strong t-esc="l.name"/></td>
                     <td t-esc="l.issue_date.strftime('%d/%m/%Y') if l.issue_date else '—'"/>
                     <td t-esc="l.texto_ventana()"/>
+                    <td>
+                      <t t-if="l.aguaje_txt"><t t-esc="l.aguaje_txt"/></t>
+                      <t t-else=""><span class="pk-muted">sin aguaje</span></t>
+                    </td>
                     <td>
                       <t t-if="l.recipient_ids">
                         <t t-esc="', '.join(l.recipient_ids.mapped('name')[:2])"/>
@@ -127,11 +138,11 @@
                     </td>
                     <td class="text-end pk-acciones">
                       <a class="s-btn s-btn-ghost btn-sm"
-                         t-attf-href="/marketplace/listas-de-precios/#{l.uuid_ref}/editar">Editar</a>
+                         t-attf-href="/marketplace/price-lists/#{l.uuid_ref}/edit">Editar</a>
                       <!-- Partir de la anterior es como se arma la siguiente
                            semana: nadie escribe sesenta precios de cero. -->
                       <form method="post" class="d-inline"
-                            t-attf-action="/marketplace/listas-de-precios/#{l.uuid_ref}/duplicar">
+                            t-attf-action="/marketplace/price-lists/#{l.uuid_ref}/duplicate">
                         <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                         <button type="submit" class="s-btn s-btn-ghost btn-sm"
                                 title="Crear la lista de la próxima semana partiendo de esta">
@@ -142,7 +153,7 @@
                            destinatario. Solo aplica si está publicada. -->
                       <t t-if="l.state == 'published'">
                         <form method="post" class="d-inline"
-                              t-attf-action="/marketplace/listas-de-precios/#{l.uuid_ref}/despublicar">
+                              t-attf-action="/marketplace/price-lists/#{l.uuid_ref}/unpublish">
                           <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                           <button type="submit" class="s-btn s-btn-ghost btn-sm"
                                   title="Quitarla de la vista de los destinatarios y volverla a borrador">
@@ -152,7 +163,7 @@
                       </t>
                       <!-- Eliminar: destructivo, confirma con modal (no alert). -->
                       <form method="post" class="d-inline"
-                            t-attf-action="/marketplace/listas-de-precios/#{l.uuid_ref}/eliminar">
+                            t-attf-action="/marketplace/price-lists/#{l.uuid_ref}/delete">
                         <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                         <button type="button" class="s-btn s-btn-danger btn-sm pl-del-btn"
                                 t-att-data-nombre="l.name" title="Eliminar la lista">
@@ -164,6 +175,7 @@
                 </t>
               </tbody>
             </table>
+            </div>
 
             <!-- Modal de confirmación para eliminar (compartido por todas las
                  filas). Evita el alert nativo del navegador. -->
@@ -220,7 +232,7 @@
     <t t-call="website.layout">
       <div class="shrimp-bg">
         <div class="shrimp-page py-4">
-          <a class="pk-volver" href="/marketplace/listas-de-precios">
+          <a class="pk-volver" href="/marketplace/price-lists">
             <i class="fa fa-arrow-left me-1"/> Volver a las listas
           </a>
 
@@ -228,7 +240,7 @@
             <div class="pk-doc-head">
               <div>
                 <a class="pk-doc-emisor"
-                   t-attf-href="/marketplace/empacadora/#{lista.issuer_partner_id.uuid_ref}"
+                   t-attf-href="/marketplace/packers/#{lista.issuer_partner_id.uuid_ref}"
                    t-esc="lista.issuer_partner_id.name"/>
                 <div class="pk-doc-titulo">Lista de precios</div>
               </div>
@@ -244,11 +256,12 @@
               <i class="fa fa-calendar me-1"/><t t-esc="lista.texto_ventana()"/>
               <t t-if="lista.aguaje_id">
                 <span class="mx-2">&#183;</span>
-                <b>Rige para el <t t-esc="lista.aguaje_id.name"/></b>,
-                del <t t-esc="lista.aguaje_id.date_from"/> al <t t-esc="lista.aguaje_id.date_to"/>
-                <t t-if="lista.aguaje_id.peak_from">
-                  &#160;(m&#225;ximo aguaje del <t t-esc="lista.aguaje_id.peak_from"/>
-                  al <t t-esc="lista.aguaje_id.peak_to"/>)
+                <b>Rige para: <t t-esc="lista.aguaje_id.name"/></b>,
+                del <t t-esc="lista.aguaje_id.date_from.strftime('%d/%m/%Y')"/>
+                al <t t-esc="lista.aguaje_id.date_to.strftime('%d/%m/%Y')"/>
+                <t t-if="lista.aguaje_id.peak_from and lista.aguaje_id.peak_to">
+                  &#160;(m&#225;ximo aguaje del <t t-esc="lista.aguaje_id.peak_from.strftime('%d/%m')"/>
+                  al <t t-esc="lista.aguaje_id.peak_to.strftime('%d/%m')"/>)
                 </t>
               </t>
               <!-- El padrón de destinatarios SOLO lo ve quien emite la lista.
@@ -270,6 +283,7 @@
             <!-- ENTERO -->
             <t t-if="entero">
               <h3 class="pk-seccion">Entero</h3>
+              <div class="table-responsive">
               <table class="pk-precios">
                 <thead>
                   <tr>
@@ -299,11 +313,13 @@
                   </t>
                 </tbody>
               </table>
+              </div>
             </t>
 
             <!-- COLA -->
             <t t-if="cola">
               <h3 class="pk-seccion">Cola</h3>
+              <div class="table-responsive">
               <table class="pk-precios">
                 <thead>
                   <tr>
@@ -333,6 +349,7 @@
                   </t>
                 </tbody>
               </table>
+              </div>
             </t>
 
             <t t-if="not entero and not cola">
@@ -342,6 +359,7 @@
             <!-- Bonificaciones -->
             <t t-if="lista.bonus_ids">
               <h3 class="pk-seccion">Bonificaciones</h3>
+              <div class="table-responsive">
               <table class="pk-precios pk-precios--corta">
                 <tbody>
                   <t t-foreach="lista.bonus_ids" t-as="b">
@@ -353,6 +371,7 @@
                   </t>
                 </tbody>
               </table>
+              </div>
             </t>
 
             <t t-if="lista.quality_conditions">
@@ -375,7 +394,7 @@
             <t t-if="es_mia">
               <div class="mt-4">
                 <a class="s-btn s-btn-ghost"
-                   t-attf-href="/marketplace/listas-de-precios/#{lista.uuid_ref}/editar">
+                   t-attf-href="/marketplace/price-lists/#{lista.uuid_ref}/edit">
                   <i class="fa fa-pencil me-1"/> Editar esta lista
                 </a>
               </div>
@@ -446,7 +465,7 @@
       <div class="shrimp-bg">
         <div class="shrimp-page py-4 sf-fields" style="max-width:1100px;">
 
-          <a class="s-back mb-3" href="/marketplace/listas-de-precios">
+          <a class="s-back mb-3" href="/marketplace/price-lists">
             <i class="fa fa-arrow-left"></i><span>Volver a las listas</span>
           </a>
 
@@ -474,7 +493,7 @@
           </t>
 
           <!-- ===== Cabecera ===== -->
-          <form method="post" action="/marketplace/listas-de-precios/guardar" id="plHeaderForm">
+          <form method="post" action="/marketplace/price-lists/save" id="plHeaderForm">
             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
             <input type="hidden" name="ref" t-att-value="lista.uuid_ref if lista else ''"/>
 
@@ -503,22 +522,53 @@
                   <label class="form-label">Despacho hasta</label>
                   <input type="date" name="dispatch_to" class="form-control" t-att-value="lista.dispatch_to if lista else ''"/>
                 </div>
+                <!-- El aguaje sale del calendario de la plataforma (no lo
+                     configura la empacadora). Obligatorio, y solo el que está
+                     en curso o uno próximo: nunca uno que ya pasó. Solo una
+                     lista vieja que nunca tuvo aguaje se puede guardar sin él. -->
+                <t t-set="aguaje_opcional" t-value="lista and not lista.aguaje_id and not es_nueva"/>
                 <div class="col-md-6">
-                  <label class="form-label">Aguaje al que rige</label>
-                  <select name="aguaje_id" class="form-select">
-                    <option value="">&#8212; sin indicar &#8212;</option>
+                  <label class="form-label" for="pl_aguaje_ref">Aguaje <span t-if="not aguaje_opcional" class="text-danger">*</span></label>
+                  <select name="aguaje_ref" id="pl_aguaje_ref" class="form-select"
+                          t-att-required="None if aguaje_opcional else 'required'"
+                          onchange="plAguajeDespacho(this)">
+                    <option value=""><t t-if="aguaje_opcional">&#8212; sin indicar &#8212;</t><t t-else="">&#8212; elige el aguaje &#8212;</t></option>
                     <t t-foreach="aguajes or []" t-as="a">
-                      <option t-att-value="a.id"
+                      <option t-att-value="a.uuid_ref"
+                              t-att-data-desde="request.env['shrimp.price.list']._despacho_propuesto(a)['dispatch_from'].isoformat()"
+                              t-att-data-hasta="a.date_to.isoformat()"
                               t-att-selected="'selected' if (lista and lista.aguaje_id == a) else None">
-                        <t t-esc="a.name"/> &#183; del <t t-esc="a.date_from"/> al <t t-esc="a.date_to"/>
+                        <t t-esc="a.etiqueta"/><t t-if="a.estado == 'actual'"> &#183; en curso</t><t t-elif="a.estado == 'pasado'"> &#183; ya pasó</t>
                       </option>
                     </t>
                   </select>
                   <div class="form-text">
                     El productor cosecha por marea, no por calendario: decirle a
                     qu&#233; aguaje rige la lista es lo que le permite saber si le
-                    sirve para lo que tiene por sacar.
+                    sirve para lo que tiene por sacar. Se ofrecen el aguaje en
+                    curso y los pr&#243;ximos; si dejas el despacho en blanco,
+                    se toma de las fechas del aguaje.
                   </div>
+                  <t t-if="not aguajes">
+                    <div class="alert alert-warning mt-2 mb-0">
+                      El calendario de aguajes todavía no tiene fechas próximas.
+                      Avísanos y lo completamos.
+                    </div>
+                  </t>
+                  <script type="text/javascript">
+                    function plAguajeDespacho(sel) {
+                        var op = sel.options[sel.selectedIndex];
+                        if (!op || !op.getAttribute('data-desde')) { return; }
+                        var f = sel.form;
+                        var desde = f.querySelector('input[name=dispatch_from]');
+                        var hasta = f.querySelector('input[name=dispatch_to]');
+                        var abierta = f.querySelector('input[name=open_ended]');
+                        if (desde &amp;&amp; !desde.value) { desde.value = op.getAttribute('data-desde'); }
+                        if (hasta &amp;&amp; !hasta.value &amp;&amp; abierta &amp;&amp; !abierta.checked) {
+                            hasta.value = op.getAttribute('data-hasta');
+                        }
+                    }
+                  </script>
                 </div>
                 <div class="col-12">
                   <div class="form-check">
@@ -560,7 +610,7 @@
                     fincas. Son camaroneras porque esta lista es de camarón adulto.
                   </div>
                   <t t-set="clientes"
-                     t-value="request.env['res.partner'].sudo().search([('shrimp_user_type','=','camaronera'),('id','!=',request.env.user.partner_id.id)], order='name')"/>
+                     t-value="request.env['res.partner'].sudo().search(request.env['res.partner']._shrimp_role_domain('camaronera') + [('id','!=',request.env.user.partner_id.id)], order='name')"/>
                   <t t-if="clientes">
                     <div class="pl-recipients">
                       <div class="pl-recip-search">
@@ -572,7 +622,7 @@
                         <t t-foreach="clientes" t-as="c">
                           <label class="pl-recip-row"
                                  t-att-data-name="(c.name + ' ' + (c.parent_id.name or '')).lower()">
-                            <input type="checkbox" name="recipient_ids" t-att-value="c.id"
+                            <input type="checkbox" name="recipient_refs" t-att-value="c.uuid_ref"
                                    t-att-checked="'checked' if (lista and c in lista.recipient_ids) else None"/>
                             <span class="pl-recip-box"><i class="fa fa-check"/></span>
                             <span class="pl-recip-name">
@@ -664,12 +714,25 @@
               </div>
               <div class="pl-excel-actions">
                 <a class="pl-excel-btn pl-excel-btn--ghost"
-                   t-attf-href="/marketplace/listas-de-precios/#{lista.uuid_ref}/plantilla">
+                   t-attf-href="/marketplace/price-lists/#{lista.uuid_ref}/template">
                   <i class="fa fa-download me-1"/> Descargar plantilla
                 </a>
                 <form method="post" enctype="multipart/form-data" class="pl-excel-upload"
-                      t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/cargar">
+                      t-attf-action="/marketplace/price-lists/#{lista.uuid_ref}/upload">
                   <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                  <!-- La planilla trae precios; el aguaje al que rigen se
+                       elige aquí, del calendario (actual o próximo). -->
+                  <select name="aguaje_ref" class="form-select pl-excel-aguaje"
+                          t-att-required="None if lista.aguaje_id else 'required'"
+                          title="Aguaje al que rige la lista" aria-label="Aguaje al que rige la lista">
+                    <option value="">&#8212; aguaje &#8212;</option>
+                    <t t-foreach="aguajes or []" t-as="a">
+                      <option t-att-value="a.uuid_ref"
+                              t-att-selected="'selected' if lista.aguaje_id == a else None">
+                        <t t-esc="a.etiqueta"/>
+                      </option>
+                    </t>
+                  </select>
                   <input type="file" name="archivo" class="pl-excel-file" accept=".xlsx" required="required"/>
                   <button type="submit" class="pl-excel-btn pl-excel-btn--solid"><i class="fa fa-upload me-1"/> Subir</button>
                 </form>
@@ -817,7 +880,7 @@
                 <span class="mp-sec-ico"><i class="fa fa-gift"></i></span>
                 <h3 class="mp-sec-title">Bonificaciones</h3>
               </div>
-              <form method="post" t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/bonificacion">
+              <form method="post" t-attf-action="/marketplace/price-lists/#{lista.uuid_ref}/bonuses">
                 <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                 <div class="row g-2 align-items-end">
                   <div class="col-md-4">
@@ -847,7 +910,7 @@
                           <td class="text-muted" t-esc="b.note or ''"/>
                           <td class="text-end">
                             <form method="post"
-                                  t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/bonificacion/#{b.id}/borrar">
+                                  t-attf-action="/marketplace/price-lists/#{lista.uuid_ref}/bonuses/#{b.uuid_ref}/delete">
                               <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                               <button type="submit" class="s-btn s-btn-ghost btn-sm" title="Quitar"><i class="fa fa-times"/></button>
                             </form>
@@ -878,12 +941,12 @@
                     <i class="fa fa-save me-1"/> Guardar borrador
                   </button>
                   <form method="post" class="d-inline"
-                        t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/publicar">
+                        t-attf-action="/marketplace/price-lists/#{lista.uuid_ref}/publish">
                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                     <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-paper-plane me-1"/> Publicar</button>
                   </form>
                   <form method="post" class="d-inline"
-                        t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/eliminar">
+                        t-attf-action="/marketplace/price-lists/#{lista.uuid_ref}/delete">
                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                     <button type="button" class="s-btn s-btn-danger pl-del-btn"
                             t-att-data-nombre="lista.name"><i class="fa fa-trash me-1"/> Eliminar</button>
@@ -897,7 +960,7 @@
                     <i class="fa fa-save me-1"/> Guardar borrador
                   </button>
                   <form method="post" class="d-inline"
-                        t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/despublicar">
+                        t-attf-action="/marketplace/price-lists/#{lista.uuid_ref}/unpublish">
                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                     <button type="submit" class="s-btn s-btn-danger"
                             title="Quitarla de la vista de los destinatarios y volverla a borrador">
@@ -905,12 +968,12 @@
                     </button>
                   </form>
                   <form method="post" class="d-inline"
-                        t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/archivar">
+                        t-attf-action="/marketplace/price-lists/#{lista.uuid_ref}/archive">
                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                     <button type="submit" class="s-btn s-btn-ghost"><i class="fa fa-archive me-1"/> Archivar</button>
                   </form>
                   <form method="post" class="d-inline"
-                        t-attf-action="/marketplace/listas-de-precios/#{lista.uuid_ref}/eliminar">
+                        t-attf-action="/marketplace/price-lists/#{lista.uuid_ref}/delete">
                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                     <button type="button" class="s-btn s-btn-danger pl-del-btn"
                             t-att-data-nombre="lista.name"><i class="fa fa-trash me-1"/> Eliminar</button>
@@ -974,7 +1037,7 @@
     <t t-call="website.layout">
       <div class="shrimp-bg">
         <div class="shrimp-page shrimp-page--full py-4">
-          <a class="pk-volver" href="/marketplace/listas-de-precios">
+          <a class="pk-volver" href="/marketplace/price-lists">
             <i class="fa fa-arrow-left me-1"/> Volver a las listas
           </a>
 
@@ -998,73 +1061,74 @@
           </t>
 
           <t t-if="combinaciones">
-            <form method="get" class="pk-filtro-panel">
-              <!-- Marca de que el filtro se envió: distingue "llegué a la
-                   pantalla" de "desmarqué todas las empacadoras". -->
-              <input type="hidden" name="filtrar" value="1"/>
-
-              <!-- Empacadoras a comparar. Se reutiliza el patrón de chips que
-                   ya usa el marketplace en sus filtros, para que no aparezca
-                   un control nuevo que el usuario tenga que aprender. -->
-              <t t-if="len(empacadoras) &gt; 1">
-                <div class="s-filter-sec" t-att-data-tope="tope">
-                  <div class="s-filter-sec-label">
-                    <i class="fa fa-industry"/> Empacadoras a comparar
-                    <span class="pk-tope">máximo <t t-esc="tope"/></span>
-                  </div>
-                  <div class="s-choice-chips">
-                    <t t-foreach="empacadoras" t-as="e">
-                      <!-- Ya no se marca "no cotiza": su columna sale igual, con un
-                           guion en las tallas que no compra. Etiquetar el chip y
-                           además esconder la columna era decir dos veces lo
-                           mismo, y desconcertaba más de lo que aclaraba. -->
-                      <t t-set="cotiza" t-value="e.id in cotizan"/>
-                      <label class="s-choice"
-                             t-attf-title="#{'' if cotiza else 'En su lista vigente no aparece esta combinación'}">
-                        <input type="checkbox" name="emp" class="js-emp" t-att-value="e.id"
-                               t-att-checked="'checked' if e.id in elegidas else None"/>
-                        <span t-esc="e.name"/>
-                      </label>
-                    </t>
-                  </div>
-                  <div id="pk_aviso_tope" class="pk-tope-aviso" style="display:none;">
-                    <i class="fa fa-info-circle me-1"/>
-                    Ya tienes <t t-esc="tope"/> seleccionadas. Desmarca una para
-                    cambiarla por otra.
-                  </div>
-                </div>
-              </t>
-
-              <div class="pk-filtro">
-                <label>Qué comparar
-                  <select name="combo" class="form-control js-refrescar">
+            <!-- Barra: «Qué comparar» (cambia al instante) + «Filtros (N)». El cajón
+                 afina el resultado: empacadoras (máx. tope), cantidad y fecha de
+                 cosecha. Mismos parámetros de siempre (combo, emp, cantidad,
+                 fecha, filtrar): los enlaces guardados siguen valiendo. -->
+            <div id="comparativa">
+              <t t-call="shrimp_marketplace.s_filter_toolbar">
+                <div class="s-mkt-extra">
+                  <label for="pkCombo">Qué comparar</label>
+                  <select name="combo" id="pkCombo" class="form-select" onchange="this.form.submit()">
                     <t t-foreach="combinaciones" t-as="c">
                       <option t-att-value="c['clave']"
                               t-att-selected="'selected' if sel and c['clave'] == sel['clave'] else None"
                               t-esc="c['etiqueta']"/>
                     </t>
                   </select>
-                </label>
-                <label>Cantidad a despachar
-                  <div class="pk-cant">
-                    <input type="number" step="1" min="0" name="cantidad" class="form-control"
-                           t-att-value="'{:.0f}'.format(cantidad) if cantidad else ''"
-                           placeholder="0"/>
-                    <span t-esc="'Kg' if datos.get('uom') == 'kg' else 'Lb'"/>
-                  </div>
-                </label>
-                <!-- El día que piensa cosechar. Es opcional: sin fecha la
-                     tabla no dice quién recibe, en vez de dar por hecho que
-                     reciben todas. -->
-                <label>Cuándo vas a cosechar
-                  <input type="date" name="fecha" class="form-control"
-                         t-att-value="fecha or ''"/>
-                </label>
-                <button type="submit" class="s-btn s-btn-primary">
-                  <i class="fa fa-refresh me-1"/> Actualizar
-                </button>
+                </div>
+              </t>
+              <t t-call="shrimp_marketplace.s_filter_tags"/>
+            </div>
+
+            <!-- ===== Cajón de filtros ===== -->
+            <t t-call="shrimp_marketplace.s_filter_drawer">
+              <!-- Marca de que el filtro se envió: distingue "llegué a la
+                   pantalla" de "desmarqué todas las empacadoras". -->
+              <input type="hidden" name="filtrar" value="1"/>
+
+              <!-- Empacadoras a comparar (chips, como el resto del cajón). -->
+              <div t-if="fd_show.get('emp')" class="s-filter-sec" id="sf_sec_emp" t-att-data-tope="tope">
+                <div class="s-filter-sec-label">
+                  Empacadoras a comparar
+                  <span class="pk-tope">máximo <t t-esc="tope"/></span>
+                </div>
+                <div class="s-choice-chips">
+                  <t t-foreach="empacadoras" t-as="e">
+                    <t t-set="cotiza" t-value="e.id in cotizan"/>
+                    <label class="s-choice"
+                           t-attf-title="#{'' if cotiza else 'En su lista vigente no aparece esta combinación'}">
+                      <input type="checkbox" name="emp" class="js-emp" t-att-value="e.uuid_ref"
+                             t-att-checked="'checked' if e.id in elegidas else None"/>
+                      <span t-esc="e.name"/>
+                    </label>
+                  </t>
+                </div>
+                <div id="pk_aviso_tope" class="pk-tope-aviso" style="display:none;">
+                  <i class="fa fa-info-circle me-1"/>
+                  Ya tienes <t t-esc="tope"/> seleccionadas. Desmarca una para
+                  cambiarla por otra.
+                </div>
               </div>
-            </form>
+
+              <div class="s-filter-sec" id="sf_sec_cantidad">
+                <label class="s-filter-sec-label" for="pkCantidad">Cantidad a despachar</label>
+                <div class="pk-cant">
+                  <input type="number" step="1" min="0" name="cantidad" id="pkCantidad" class="form-control"
+                         t-att-value="'{:.0f}'.format(cantidad) if cantidad else ''"
+                         placeholder="0"/>
+                  <span t-esc="'Kg' if datos.get('uom') == 'kg' else 'Lb'"/>
+                </div>
+              </div>
+              <!-- El día que piensa cosechar. Es opcional: sin fecha la
+                   tabla no dice quién recibe, en vez de dar por hecho que
+                   reciben todas. -->
+              <div class="s-filter-sec" id="sf_sec_fecha">
+                <label class="s-filter-sec-label" for="pkFecha">Cuándo vas a cosechar</label>
+                <input type="date" name="fecha" id="pkFecha" class="form-control"
+                       t-att-value="fecha or ''"/>
+              </div>
+            </t>
 
             <t t-if="recortadas">
               <div class="pk-alert pk-alert--ko mt-3">
@@ -1101,18 +1165,14 @@
       });
       if(aviso){ aviso.style.display = lleno ? 'block' : 'none'; }
     }
-    cajas.forEach(function(c){
-      c.addEventListener('change', function(){
-        refrescar();
-        // La tabla se rearma sola: obligar a pulsar "Actualizar" después de
-        // cada clic sobra. El botón queda para la cantidad, que no debe
-        // recargar en cada tecla.
-        c.form.submit();
-      });
-    });
-    // El desplegable de la combinación también refresca solo.
-    var sel = document.querySelector('select.js-refrescar');
-    if(sel){ sel.addEventListener('change', function(){ sel.form.submit(); }); }
+    // Dentro del cajón la selección se aplica con «Aplicar» (como el resto
+    // de filtros); aquí solo se cuida el tope. Al cerrar sin aplicar el
+    // cajón se restablece y el tope se recalcula.
+    cajas.forEach(function(c){ c.addEventListener('change', refrescar); });
+    var panel = document.getElementById('sFilterPanel');
+    if(panel){ panel.addEventListener('reset', function(){ setTimeout(refrescar, 0); }); }
+    var limpiar = document.querySelector('#sFilterDrawer .js-filter-reset');
+    if(limpiar){ limpiar.addEventListener('click', function(){ setTimeout(refrescar, 0); }); }
     refrescar();
   }
   if(document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', init); }
@@ -1297,14 +1357,14 @@
                   Se calcula suponiendo que tu dinero te cuesta
                   <strong t-esc="'{:.0f}'.format(datos.get('tasa') or 0.0)"/> %
                   al año — es un supuesto nuestro, no un dato tuyo.
-                  <a href="/marketplace/mi-cuenta">Dinos cuánto te cuesta de verdad</a>
+                  <a href="/marketplace/my-account">Dinos cuánto te cuesta de verdad</a>
                   y esta tabla se recalcula con tu número.
                 </t>
                 <t t-else="">
                   Se calcula con el costo de tu dinero,
                   <strong t-esc="'{:.0f}'.format(datos.get('tasa') or 0.0)"/> %
                   al año, tal como lo fijaste.
-                  <a href="/marketplace/mi-cuenta">Cambiarlo</a>.
+                  <a href="/marketplace/my-account">Cambiarlo</a>.
                 </t>
                 <t t-if="not datos.get('fecha')">
                   Pon arriba el día que vas a cosechar y te decimos cuál de

@@ -13,10 +13,19 @@ class ResPartner(models.Model):
         ondelete={"maquilador": "set null"},
     )
 
-    pack_razon_social = fields.Char(string="Razón social (Maquilador)")
-    pack_representante = fields.Char(string="Representante legal")
-    pack_telefono = fields.Char(string="Teléfono (Maquilador)")
-    pack_ubicacion = fields.Char(string="Ubicación de la planta")
+    # Razón social, representante, teléfono, ubicación y capacidad viven en el
+    # perfil común (shrimp_user_registry); estos nombres quedan como alias
+    # obsoletos durante una versión.
+    pack_razon_social = fields.Char(
+        string="Razón social (Maquilador)", related="shrimp_razon_social", readonly=False)
+    pack_representante = fields.Char(
+        string="Representante legal (Maquilador, obsoleto)", related="shrimp_representante", readonly=False,
+        groups="base.group_user")
+    pack_telefono = fields.Char(
+        string="Teléfono (Maquilador)", related="shrimp_telefono", readonly=False,
+        groups="base.group_user")
+    pack_ubicacion = fields.Char(
+        string="Ubicación de la planta (Maquilador)", related="shrimp_ubicacion", readonly=False)
 
     # Esto es lo que da valor de exportacion al certificado: el comprador final
     # escanea el QR y ve en que planta habilitada se empaco su camaron.
@@ -31,7 +40,41 @@ class ResPartner(models.Model):
     # puede tomar, y en dos semanas deja de mirarla.
     pack_capacidad_lb_semana = fields.Float(
         string="Capacidad (lb/semana)", digits=(16, 2),
+        compute="_compute_capacity_alias_lb_week", inverse="_inverse_capacity_alias_lb_week",
         help="Libras que la planta puede empacar en una semana normal.")
+
+    @api.model
+    def _shrimp_profile_alias_map(self):
+        mapa = super()._shrimp_profile_alias_map()
+        mapa.update({
+            "pack_razon_social": ("shrimp_razon_social", None),
+            "pack_representante": ("shrimp_representante", None),
+            "pack_telefono": ("shrimp_telefono", None),
+            "pack_ubicacion": ("shrimp_ubicacion", None),
+            "pack_capacidad_lb_semana": ("shrimp_capacity_value", "lb_week"),
+        })
+        return mapa
+
+    @api.depends("shrimp_capacity_value", "shrimp_capacity_unit")
+    def _compute_capacity_alias_lb_week(self):
+        self._capacity_alias_compute("pack_capacidad_lb_semana", "lb_week")
+
+    def _inverse_capacity_alias_lb_week(self):
+        self._capacity_alias_inverse("pack_capacidad_lb_semana", "lb_week")
+
+    # ------------------------------------------------------------------
+    # Matriz de capacidades: lo que agrega el servicio de empaque
+    # ------------------------------------------------------------------
+    @api.model
+    def _shrimp_capability_matrix(self):
+        matriz = super()._shrimp_capability_matrix()
+        matriz["request_copack"] = {"camaronera", "empacadora"}
+        matriz["provide_copack"] = {"maquilador"}
+        matriz["requires_approval"] = set(matriz.get("requires_approval", set())) | {"maquilador"}
+        # Una camaronera o empacadora puede agregarse el perfil de maquilador
+        # (queda pendiente de aprobación).
+        matriz["add_profile"] = set(matriz.get("add_profile", set())) | {"maquilador"}
+        return matriz
     pack_presentaciones = fields.Char(
         string="Presentaciones que maneja",
         help="Texto libre: entero, cola, valor agregado, etc.")
@@ -97,15 +140,37 @@ class ResPartner(models.Model):
                 if (rec[campo] or 0.0) < 0:
                     raise ValidationError(_("Las tarifas y el lote mínimo no pueden ser negativos."))
 
-    @api.constrains("shrimp_user_type", "pack_razon_social", "pack_ubicacion")
+    @api.constrains("shrimp_user_type", "shrimp_razon_social", "shrimp_ubicacion",
+                    "pack_razon_social", "pack_ubicacion")
     def _check_datos_maquilador(self):
         for rec in self:
-            if rec.shrimp_user_type != "maquilador":
+            # Con varios perfiles: vale para cualquier cuenta que tenga (o
+            # haya pedido) el perfil de maquilador, esté activo o no.
+            if not rec.shrimp_user_type \
+                    or "maquilador" not in rec._shrimp_roles(include_pending=True):
                 continue
-            if not rec.pack_razon_social:
+            rec._shrimp_validate_role_profile("maquilador")
+
+    def _shrimp_validate_role_profile(self, role, for_request=False):
+        res = super()._shrimp_validate_role_profile(role, for_request=for_request)
+        if role == "maquilador":
+            rec = self.sudo()
+            if not rec.shrimp_razon_social:
                 raise ValidationError(_("La razón social del maquilador es obligatoria."))
-            if not rec.pack_ubicacion:
+            if not rec.shrimp_ubicacion:
                 raise ValidationError(_("La ubicación de la planta es obligatoria."))
+        return res
+
+    def _shrimp_self_pack_allowed(self):
+        """True si la cuenta puede registrar EMPAQUE PROPIO: tiene el perfil
+        Maquilador aprobado (activo o no) y es dueña de camarón (camaronera o
+        empacadora). Un perfil pendiente o rechazado no basta."""
+        self.ensure_one()
+        socio = self.sudo()._shrimp_role_holder()
+        return bool(
+            socio._shrimp_has_role("maquilador")
+            and socio.shrimp_is_operational(role="maquilador")
+            and socio._shrimp_can_any("request_copack"))
 
     @api.constrains("pack_habilitacion_desde", "pack_habilitacion_hasta")
     def _check_habilitacion(self):
@@ -115,8 +180,5 @@ class ResPartner(models.Model):
                 raise ValidationError(_(
                     "La habilitación no puede terminar antes de empezar."))
 
-    @api.constrains("pack_capacidad_lb_semana")
-    def _check_capacidad(self):
-        for rec in self:
-            if rec.pack_capacidad_lb_semana and rec.pack_capacidad_lb_semana < 0:
-                raise ValidationError(_("La capacidad no puede ser negativa."))
+    # La capacidad negativa la rechaza el perfil común
+    # (shrimp_user_registry: _check_required_fields_by_type).

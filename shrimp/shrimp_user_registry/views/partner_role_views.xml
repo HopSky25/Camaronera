@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- =============================================================
+       Perfiles de las cuentas (varios roles por cuenta) y su
+       aprobación por perfil. El menú «Aprobaciones › Perfiles por
+       aprobar» lo cuelga shrimp_marketplace.
+       ============================================================= -->
+  <record id="view_shrimp_partner_role_list" model="ir.ui.view">
+    <field name="name">shrimp.partner.role.list</field>
+    <field name="model">shrimp.partner.role</field>
+    <field name="arch" type="xml">
+      <list string="Perfiles" create="0" decoration-warning="state == 'pending'"
+            decoration-muted="state == 'rejected'">
+        <field name="partner_id"/>
+        <field name="role"/>
+        <field name="state" widget="badge"
+               decoration-success="state == 'approved'"
+               decoration-warning="state == 'pending'"
+               decoration-danger="state == 'rejected'"/>
+        <field name="is_active_profile" string="Activo"/>
+        <field name="partner_email"/>
+        <field name="partner_vat"/>
+        <field name="request_date"/>
+        <field name="decision_date" optional="hide"/>
+        <field name="decided_by_id" optional="hide"/>
+        <button name="action_approve" type="object" string="Aprobar" icon="fa-check"
+                class="btn-link" invisible="state == 'approved'" groups="base.group_system"/>
+        <button name="action_reject" type="object" string="Rechazar" icon="fa-times"
+                class="btn-link" invisible="state == 'rejected'" groups="base.group_system"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_shrimp_partner_role_form" model="ir.ui.view">
+    <field name="name">shrimp.partner.role.form</field>
+    <field name="model">shrimp.partner.role</field>
+    <field name="arch" type="xml">
+      <form string="Perfil de la cuenta">
+        <header>
+          <button name="action_approve" type="object" string="Aprobar perfil" class="btn-primary"
+                  invisible="state == 'approved'" groups="base.group_system"
+                  confirm="¿Aprobar este perfil? La cuenta podrá operar con él."/>
+          <button name="action_reject" type="object" string="Rechazar"
+                  invisible="state == 'rejected'" groups="base.group_system"/>
+          <button name="action_reset" type="object" string="Volver a pendiente"
+                  invisible="state == 'pending'" groups="base.group_system"/>
+          <field name="state" widget="statusbar" statusbar_visible="pending,approved"/>
+        </header>
+        <sheet>
+          <group>
+            <group>
+              <field name="partner_id" readonly="id"/>
+              <field name="role" readonly="id"/>
+              <field name="is_active_profile" string="Es el perfil activo"/>
+              <field name="requires_approval"/>
+            </group>
+            <group>
+              <field name="request_date"/>
+              <field name="decision_date"/>
+              <field name="decided_by_id"/>
+            </group>
+          </group>
+          <field name="notes" placeholder="Notas internas de la revisión..."/>
+          <p class="text-muted">
+            Los certificados que la cuenta subió para este perfil están en la
+            ficha del contacto (pestaña Certificados) y en «Aprobaciones ›
+            Certificados de usuario».
+          </p>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_shrimp_partner_role_search" model="ir.ui.view">
+    <field name="name">shrimp.partner.role.search</field>
+    <field name="model">shrimp.partner.role</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="partner_id"/>
+        <field name="role"/>
+        <filter name="pending" string="Pendientes" domain="[('state', '=', 'pending')]"/>
+        <filter name="approved" string="Aprobados" domain="[('state', '=', 'approved')]"/>
+        <filter name="rejected" string="Rechazados" domain="[('state', '=', 'rejected')]"/>
+        <separator/>
+        <filter name="g_role" string="Perfil" context="{'group_by': 'role'}"/>
+        <filter name="g_state" string="Estado" context="{'group_by': 'state'}"/>
+      </search>
+    </field>
+  </record>
+
+  <record id="action_shrimp_partner_role_approval" model="ir.actions.act_window">
+    <field name="name">Perfiles por aprobar</field>
+    <field name="res_model">shrimp.partner.role</field>
+    <field name="view_mode">list,form</field>
+    <field name="search_view_id" ref="view_shrimp_partner_role_search"/>
+    <field name="context">{'search_default_pending': 1}</field>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">No hay perfiles pendientes de aprobación.</p>
+      <p>Una cuenta puede tener varios perfiles (por ejemplo laboratorio y
+         camaronera). Los que requieren aprobación —empacadora, maquilador—
+         quedan aquí, cada uno por separado, hasta que un administrador los
+         aprueba.</p>
+    </field>
+  </record>
+
+  <!-- Filtros por perfil en la lista de contactos. -->
+  <record id="view_res_partner_filter_shrimp_roles" model="ir.ui.view">
+    <field name="name">res.partner.search.shrimp.roles</field>
+    <field name="model">res.partner</field>
+    <field name="inherit_id" ref="base.view_res_partner_filter"/>
+    <field name="arch" type="xml">
+      <xpath expr="//search" position="inside">
+        <separator/>
+        <filter name="shrimp_role_semillero" string="Perfil: semillero"
+                domain="[('shrimp_role_ids', 'any', [('role', '=', 'semillero'), ('state', '=', 'approved')])]"/>
+        <filter name="shrimp_role_laboratorio" string="Perfil: laboratorio"
+                domain="[('shrimp_role_ids', 'any', [('role', '=', 'laboratorio'), ('state', '=', 'approved')])]"/>
+        <filter name="shrimp_role_camaronera" string="Perfil: camaronera"
+                domain="[('shrimp_role_ids', 'any', [('role', '=', 'camaronera'), ('state', '=', 'approved')])]"/>
+        <filter name="shrimp_multi_role" string="Varios perfiles"
+                domain="[('shrimp_role_count', '>', 1)]"/>
+        <filter name="shrimp_role_pending" string="Con perfil pendiente"
+                domain="[('shrimp_role_ids', 'any', [('state', '=', 'pending')])]"/>
+        <filter name="g_shrimp_active_role" string="Perfil activo" context="{'group_by': 'shrimp_user_type'}"/>
+      </xpath>
+    </field>
+  </record>
+</odoo>

@@ -15,7 +15,7 @@
                 Cada tarifa va dirigida a los clientes que elijas. Nadie ve la del vecino.
               </p>
             </div>
-            <form method="post" action="/maquilador/tarifa/nueva" class="d-flex gap-2">
+            <form method="post" action="/copacker/tariffs/new" class="d-flex flex-wrap gap-2">
               <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
               <input type="text" name="name" class="form-control" placeholder="Nombre de la tarifa"/>
               <button type="submit" class="btn btn-primary text-nowrap">Nueva</button>
@@ -31,6 +31,7 @@
             </div>
           </t>
           <t t-else="">
+            <div class="table-responsive">
             <table class="table table-hover bg-white align-middle">
               <thead>
                 <tr>
@@ -41,7 +42,7 @@
               <tbody>
                 <t t-foreach="tarifas" t-as="t">
                   <tr>
-                    <td><a t-attf-href="/maquilador/tarifa/#{t.uuid_ref}"><t t-esc="t.name"/></a></td>
+                    <td><a t-attf-href="/copacker/tariffs/#{t.uuid_ref}"><t t-esc="t.name"/></a></td>
                     <td class="small">
                       desde <t t-esc="t.valid_from"/>
                       <t t-if="t.open_ended"> · sin fin</t>
@@ -59,6 +60,7 @@
                 </t>
               </tbody>
             </table>
+            </div>
           </t>
 
         </div>
@@ -74,7 +76,7 @@
       <div class="shrimp-bg">
         <div class="shrimp-page py-4">
 
-          <a href="/maquilador/tarifas" class="btn btn-sm btn-link mb-2">&#8592; Mis tarifas</a>
+          <a href="/copacker/tariffs" class="btn btn-sm btn-link mb-2">&#8592; Mis tarifas</a>
           <t t-if="mensaje == 'archivada'">
             <div class="alert alert-warning">
               Tarifa archivada. Deja de estar vigente y sus destinatarios ya no la ven.
@@ -83,7 +85,7 @@
           <t t-elif="mensaje"><div class="alert alert-success">Guardada.</div></t>
           <t t-if="error"><div class="alert alert-danger"><t t-esc="error"/></div></t>
 
-          <form method="post" t-attf-action="/maquilador/tarifa/#{t.uuid_ref}/guardar">
+          <form method="post" t-attf-action="/copacker/tariffs/#{t.uuid_ref}/save">
             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
 
             <div class="card mb-3">
@@ -130,6 +132,7 @@
                   precio. Deja un renglón desde 0 y añade otro desde el volumen en que
                   bajas.
                 </p>
+                <div class="table-responsive">
                 <table class="table table-sm align-middle">
                   <thead>
                     <tr>
@@ -168,6 +171,7 @@
                     </t>
                   </tbody>
                 </table>
+                </div>
                 <p class="text-muted small mb-0">
                   Los renglones sin formato o sin precio se descartan al guardar.
                 </p>
@@ -190,7 +194,7 @@
                     Todavía no hay ningún cliente con el que dirigir esta tarifa. Aparecen
                     aquí en cuanto alguien te pida servicio a ti en concreto o te adjudique
                     un trabajo. Mientras tanto, lo que te trae clientes es el directorio:
-                    revísalo en <a href="/maquilador/perfil">Perfil y capacidad</a>.
+                    revísalo en <a href="/copacker/profile">Perfil y capacidad</a>.
                   </div>
                 </t>
                 <t t-else="">
@@ -198,8 +202,8 @@
                     <t t-foreach="clientes" t-as="c">
                       <div class="col-md-6">
                         <div class="form-check">
-                          <input type="checkbox" name="recipient_ids" class="form-check-input"
-                                 t-att-value="c.id"
+                          <input type="checkbox" name="recipient_refs" class="form-check-input"
+                                 t-att-value="c.uuid_ref"
                                  t-att-checked="'checked' if c in t.recipient_ids else None"/>
                           <label class="form-check-label">
                             <t t-esc="c.name"/>
@@ -226,7 +230,7 @@
                action_archive_tariff() no tenia por donde llamarse y una tarifa
                equivocada se quedaba vigente para sus destinatarios. -->
           <t t-if="t.state != 'archived'">
-            <form method="post" t-attf-action="/maquilador/tarifa/#{t.uuid_ref}/archivar"
+            <form method="post" t-attf-action="/copacker/tariffs/#{t.uuid_ref}/archive"
                   class="mt-3">
               <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
               <button type="submit" class="btn btn-sm btn-outline-danger">Archivar la tarifa</button>
@@ -261,7 +265,7 @@
           <t t-if="mensaje"><div class="alert alert-success">Guardado.</div></t>
           <t t-if="error"><div class="alert alert-danger"><t t-esc="error"/></div></t>
 
-          <form method="post" action="/maquilador/perfil/guardar">
+          <form method="post" action="/copacker/profile/save">
             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
 
             <div class="card mb-3">
@@ -271,22 +275,22 @@
                   <div class="col-md-6">
                     <label class="form-label">Razón social *</label>
                     <input type="text" name="pack_razon_social" class="form-control"
-                           required="required" t-att-value="maq.pack_razon_social or ''"/>
+                           required="required" t-att-value="maq.shrimp_razon_social or ''"/>
                   </div>
                   <div class="col-md-6">
                     <label class="form-label">Representante legal</label>
                     <input type="text" name="pack_representante" class="form-control"
-                           t-att-value="maq.pack_representante or ''"/>
+                           t-att-value="maq.shrimp_representante or ''"/>
                   </div>
                   <div class="col-md-6">
                     <label class="form-label">Ubicación de la planta *</label>
                     <input type="text" name="pack_ubicacion" class="form-control"
-                           required="required" t-att-value="maq.pack_ubicacion or ''"/>
+                           required="required" t-att-value="maq.shrimp_ubicacion or ''"/>
                   </div>
                   <div class="col-md-6">
                     <label class="form-label">Teléfono</label>
                     <input type="text" name="pack_telefono" class="form-control"
-                           t-att-value="maq.pack_telefono or ''"/>
+                           t-att-value="maq.shrimp_telefono or ''"/>
                   </div>
                 </div>
               </div>
@@ -332,7 +336,7 @@
                   <div class="col-md-4">
                     <label class="form-label">Capacidad (lb/semana)</label>
                     <input type="number" step="1" min="0" name="pack_capacidad_lb_semana"
-                           class="form-control" t-att-value="int(maq.pack_capacidad_lb_semana)"/>
+                           class="form-control" t-att-value="int(maq.shrimp_capacity_value)"/>
                   </div>
                   <div class="col-md-4">
                     <label class="form-label">Lote mínimo (lb)</label>

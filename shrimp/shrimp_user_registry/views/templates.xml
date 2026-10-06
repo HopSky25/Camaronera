@@ -30,9 +30,11 @@
             <span id="formAlertText"></span>
           </div>
 
-          <form id="shrimpRegisterForm" class="sf" action="/registro/submit" method="post"
-            enctype="multipart/form-data" novalidate="novalidate">
+          <form id="shrimpRegisterForm" class="sf" action="/register/submit" method="post"
+            enctype="multipart/form-data" novalidate="novalidate"
+            t-att-data-captcha="'shrimp_signup' if request.env['ir.config_parameter'].sudo().get_param('recaptcha_public_key') else None">
             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()" />
+            <t t-call="shrimp_user_registry.signup_honeypot"/>
 
           <div class="row g-4">
 
@@ -63,12 +65,14 @@
             <!-- Col derecha: pasos 1 y 2 -->
             <div class="col-lg-8">
 
-                <!-- Card: Perfil -->
-                <div class="card mb-4">
+                <!-- Card: Perfil. Los id de las tarjetas y de sus rótulos son
+                     anclas estables para los módulos que heredan este
+                     formulario (antes buscaban el texto "Paso 1"). -->
+                <div class="card mb-4" id="shrimp_reg_step_profile">
                   <div class="card-body p-4">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                       <div>
-                        <div class="s-eyebrow">Paso 1</div>
+                        <div class="s-eyebrow" id="shrimp_reg_step_profile_label">Paso 1</div>
                         <h5 class="mb-0" style="font-weight:600;">Tipo de usuario</h5>
                       </div>
                       <span class="badge rounded-pill" style="background:var(--c-blue); color:#fff; font-weight:600;">
@@ -91,11 +95,11 @@
                 </div>
 
                 <!-- Card: Básicos -->
-                <div class="card mb-4">
+                <div class="card mb-4" id="shrimp_reg_step_basic">
                   <div class="card-body p-4">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                       <div>
-                        <div class="s-eyebrow">Paso 2</div>
+                        <div class="s-eyebrow" id="shrimp_reg_step_basic_label">Paso 2</div>
                         <h5 class="mb-0" style="font-weight:600;">Datos básicos</h5>
                       </div>
                       <span class="text-muted small">Obligatorios</span>
@@ -156,11 +160,11 @@
               <div class="col-12">
 
                 <!-- Card: Campos por tipo -->
-                <div class="card mb-4">
+                <div class="card mb-4" id="shrimp_reg_step_type">
                   <div class="card-body p-4">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                       <div>
-                        <div class="s-eyebrow">Paso 3</div>
+                        <div class="s-eyebrow" id="shrimp_reg_step_type_label">Paso 3</div>
                         <h5 class="mb-0" style="font-weight:600;">Campos por tipo</h5>
                       </div>
                       <span class="text-muted small">Sección dinámica</span>
@@ -407,7 +411,7 @@
             id: Date.now(),
           };
 
-          const r = await fetch("/registro/certificados", {
+          const r = await fetch("/register/certificates", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
@@ -424,11 +428,20 @@
           return res;
         }
 
+        // Todo valor que viene del servidor se escapa antes de entrar en HTML:
+        // nombre y emisor del certificado los edita un administrador, y un
+        // nombre con "<img onerror=...>" se ejecutaba en el registro público.
+        function esc(v) {
+          return String(v == null ? "" : v)
+            .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+        }
+
         function buildOptions(certs) {
           const out = ['<option value="">Seleccione…</option>'];
           certs.forEach(c => {
-            const issuer = (c.issuer || "").replace(/"/g, "&quot;");
-            out.push(`<option value="${c.id}" data-issuer="${issuer}">${c.name}</option>`);
+            const val = c.ref || c.uuid_ref || c.id;
+            out.push(`<option value="${esc(val)}" data-issuer="${esc(c.issuer || "")}">${esc(c.name)}</option>`);
           });
           return out.join("");
         }
@@ -646,4 +659,29 @@
     </t>
   </template>
 
+
+  <!-- Campo trampa (honeypot) para el alta pública. Fuera de pantalla y fuera
+       del orden de tabulación: una persona no lo ve ni lo rellena; un bot que
+       completa todos los campos sí, y su alta se descarta. -->
+  <template id="signup_honeypot" name="Registro: campo trampa">
+    <div aria-hidden="true" style="position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden;">
+      <label for="website_hp">No completar este campo</label>
+      <input type="text" id="website_hp" name="website_hp" value="" tabindex="-1" autocomplete="off"/>
+    </div>
+  </template>
+
+  <!-- Página para cuentas pendientes de aprobación (empacadora, maquilador). -->
+  <template id="account_pending" name="Cuenta pendiente de aprobación">
+    <t t-call="website.layout">
+      <div class="container py-5" style="max-width:720px;">
+        <div class="alert alert-warning" role="alert">
+          <h4 class="alert-heading"><i class="fa fa-hourglass-half me-1"/> Tu cuenta está en revisión</h4>
+          <p class="mb-1">La administración de la plataforma debe aprobar tu cuenta antes de que
+             puedas usar las funciones de tu rol (listas de precios, compras, órdenes de empaque…).</p>
+          <p class="mb-0">Te avisaremos por correo cuando esté aprobada. Mientras tanto puedes
+             completar tu perfil en <a href="/marketplace/my-account">Mi cuenta</a>.</p>
+        </div>
+      </div>
+    </t>
+  </template>
 </odoo>

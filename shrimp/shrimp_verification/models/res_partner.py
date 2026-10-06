@@ -1,4 +1,5 @@
-from odoo import api, fields, models
+from odoo import _, api, fields, models
+from odoo.exceptions import ValidationError
 
 
 def _bool_search_domain(operator, value, ids):
@@ -40,10 +41,19 @@ class ResPartner(models.Model):
     )
 
     # ---- Datos propios del verificador (paso 3 del registro) ----
-    ver_razon_social = fields.Char(string="Razón social (Verificador)")
-    ver_representante = fields.Char(string="Responsable técnico")
-    ver_telefono = fields.Char(string="Teléfono (Verificador)")
-    ver_ubicacion = fields.Char(string="Ubicación / base de operaciones")
+    # Razón social, responsable, teléfono y ubicación viven en el perfil común
+    # (shrimp_user_registry); estos nombres quedan como alias obsoletos durante
+    # una versión. Responsable y teléfono del verificador NO estaban
+    # restringidos a usuarios internos (el comprador los ve en la ficha del
+    # verificador): los alias conservan esa visibilidad.
+    ver_razon_social = fields.Char(
+        string="Razón social (Verificador)", related="shrimp_razon_social", readonly=False)
+    ver_representante = fields.Char(
+        string="Responsable técnico", related="shrimp_representante", readonly=False)
+    ver_telefono = fields.Char(
+        string="Teléfono (Verificador)", related="shrimp_telefono", readonly=False)
+    ver_ubicacion = fields.Char(
+        string="Ubicación / base de operaciones", related="shrimp_ubicacion", readonly=False)
     ver_cobertura = fields.Char(
         string="Zona de cobertura",
         help="Provincias o sectores donde presta el servicio de verificación.")
@@ -52,13 +62,73 @@ class ResPartner(models.Model):
         help="Número de la habilitación que lo autoriza a verificar.")
 
     # ---- Cuenta bancaria del verificador (para el cobro de honorarios) ----
-    ver_bank_name = fields.Char(string="Banco")
+    # Solo usuarios internos por RPC: un técnico de campo puede LEER el
+    # partner de su empresa (regla estándar "child_of commercial partner") y
+    # antes se llevaba así la cuenta bancaria completa. El portal la ve solo a
+    # través de las pantallas, que la leen en sudo y la enmascaran al técnico.
+    #
+    # La cuenta vive ahora en el modelo estándar res.partner.bank (la que usan
+    # Contabilidad y los pagos). Estos campos son alias (calculados con
+    # inversa) sobre la primera cuenta del socio, durante una versión.
+    ver_bank_name = fields.Char(
+        string="Banco", groups="base.group_user",
+        compute="_compute_ver_bank", inverse="_inverse_ver_bank")
     ver_bank_account_type = fields.Selection(
         [("ahorros", "Ahorros"), ("corriente", "Corriente")],
-        string="Tipo de cuenta")
-    ver_bank_account_number = fields.Char(string="N.º de cuenta")
-    ver_bank_holder = fields.Char(string="Titular de la cuenta")
-    ver_bank_holder_id = fields.Char(string="Cédula/RUC del titular")
+        string="Tipo de cuenta", groups="base.group_user",
+        compute="_compute_ver_bank", inverse="_inverse_ver_bank")
+    ver_bank_account_number = fields.Char(
+        string="N.º de cuenta", groups="base.group_user",
+        compute="_compute_ver_bank", inverse="_inverse_ver_bank")
+    ver_bank_holder = fields.Char(
+        string="Titular de la cuenta", groups="base.group_user",
+        compute="_compute_ver_bank", inverse="_inverse_ver_bank")
+    ver_bank_holder_id = fields.Char(
+        string="Cédula/RUC del titular", groups="base.group_user",
+        compute="_compute_ver_bank", inverse="_inverse_ver_bank")
+
+    @api.depends("bank_ids.acc_number", "bank_ids.bank_id", "bank_ids.acc_holder_name",
+                 "bank_ids.shrimp_account_type", "bank_ids.shrimp_holder_id")
+    def _compute_ver_bank(self):
+        for rec in self:
+            cuenta = rec.sudo().bank_ids[:1]
+            rec.ver_bank_name = cuenta.bank_id.name or False
+            rec.ver_bank_account_type = cuenta.shrimp_account_type or False
+            rec.ver_bank_account_number = cuenta.acc_number or False
+            rec.ver_bank_holder = cuenta.acc_holder_name or False
+            rec.ver_bank_holder_id = cuenta.shrimp_holder_id or False
+
+    def _inverse_ver_bank(self):
+        for rec in self:
+            rec.sudo()._shrimp_set_bank_account(
+                bank_name=rec.ver_bank_name, account_type=rec.ver_bank_account_type,
+                number=rec.ver_bank_account_number, holder=rec.ver_bank_holder,
+                holder_id=rec.ver_bank_holder_id)
+
+    def _shrimp_set_bank_account(self, bank_name=None, account_type=None, number=None,
+                                 holder=None, holder_id=None):
+        """Crea o actualiza la primera cuenta bancaria del socio."""
+        self.ensure_one()
+        number = (number or "").strip()
+        cuenta = self.bank_ids[:1]
+        banco = self.env["res.bank"]
+        if bank_name and bank_name.strip():
+            banco = banco.search([("name", "=ilike", bank_name.strip())], limit=1) \
+                or banco.create({"name": bank_name.strip()})
+        vals = {
+            "bank_id": banco.id or False,
+            "shrimp_account_type": account_type or False,
+            "acc_holder_name": (holder or "").strip() or False,
+            "shrimp_holder_id": (holder_id or "").strip() or False,
+        }
+        if cuenta:
+            if number:
+                vals["acc_number"] = number
+            cuenta.write(vals)
+        elif number:
+            vals.update({"acc_number": number, "partner_id": self.id})
+            self.env["res.partner.bank"].create(vals)
+        return True
 
     # ---- Contacto operativo ----
     ver_email_avisos = fields.Char(string="Email de avisos")
@@ -74,7 +144,30 @@ class ResPartner(models.Model):
     # ---- Capacidades técnicas ----
     ver_analisis_tipos = fields.Text(string="Tipos de análisis que realiza")
     ver_equipos = fields.Text(string="Equipos / instrumentos")
-    ver_capacidad_lotes_dia = fields.Integer(string="Capacidad diaria de lotes")
+    ver_capacidad_lotes_dia = fields.Integer(
+        string="Capacidad diaria de lotes",
+        compute="_compute_capacity_alias_lots_day", inverse="_inverse_capacity_alias_lots_day")
+
+    @api.model
+    def _shrimp_profile_alias_map(self):
+        mapa = super()._shrimp_profile_alias_map()
+        mapa.update({
+            "ver_razon_social": ("shrimp_razon_social", None),
+            "ver_representante": ("shrimp_representante", None),
+            "ver_telefono": ("shrimp_telefono", None),
+            "ver_ubicacion": ("shrimp_ubicacion", None),
+            "ver_capacidad_lotes_dia": ("shrimp_capacity_value", "lots_day"),
+        })
+        return mapa
+
+    @api.depends("shrimp_capacity_value", "shrimp_capacity_unit")
+    def _compute_capacity_alias_lots_day(self):
+        for rec in self:
+            rec.ver_capacidad_lotes_dia = int(
+                rec.shrimp_capacity_value if rec.shrimp_capacity_unit == "lots_day" else 0)
+
+    def _inverse_capacity_alias_lots_day(self):
+        self._capacity_alias_inverse("ver_capacidad_lotes_dia", "lots_day")
 
     # ---- Acreditación ----
     ver_entidad_acredita = fields.Char(string="Entidad que acredita")
@@ -209,6 +302,43 @@ class ResPartner(models.Model):
         for rec in self:
             rec.field_tech_count = len(rec.child_ids.filtered("shrimp_is_field_tech"))
 
+    @api.model
+    def _shrimp_capability_matrix(self):
+        matriz = super()._shrimp_capability_matrix()
+        matriz["verify"] = {"verificador"}
+        # Una cuenta puede ser verificadora y además operar con otros perfiles
+        # (decisión de negocio). El conflicto de interés no se resuelve
+        # prohibiendo la combinación sino en cada verificación: la empresa
+        # verificadora nunca puede ser —ella ni su entidad comercial— parte
+        # de la compra que verifica (shrimp.verification.
+        # _check_verifier_independence y start_verified_purchase), y el
+        # selector del comprador no se la ofrece. El perfil se agrega desde
+        # «Mi cuenta» en la plataforma de verificadores (allí se valida la
+        # acreditación, como en el alta).
+        matriz["add_profile"] = set(matriz.get("add_profile", set())) | {"verificador"}
+        return matriz
+
+    def _shrimp_validate_role_profile(self, role, for_request=False):
+        res = super()._shrimp_validate_role_profile(role, for_request=for_request)
+        # Solo al AGREGAR el perfil (lo mismo que exige el alta del
+        # verificador); el modelo nunca lo exigió a las cuentas existentes.
+        if role == "verificador" and for_request:
+            rec = self.sudo()
+            if not rec.shrimp_razon_social:
+                raise ValidationError(_("La razón social del verificador es obligatoria."))
+            if not rec.shrimp_representante:
+                raise ValidationError(_("El responsable técnico es obligatorio."))
+            if not rec.shrimp_telefono:
+                raise ValidationError(_("El teléfono del verificador es obligatorio."))
+        return res
+
+    def shrimp_same_entity(self, *others):
+        """True si este contacto y alguno de `others` son la misma empresa
+        (misma entidad comercial: la empresa y sus contactos/técnicos)."""
+        self.ensure_one()
+        mia = self.sudo().commercial_partner_id
+        return any(o and o.sudo().commercial_partner_id == mia for o in others)
+
     def shrimp_verifier_company(self):
         """Empresa verificadora a la que pertenece este contacto.
 
@@ -216,7 +346,10 @@ class ResPartner(models.Model):
         Cualquier otro contacto devuelve vacío.
         """
         self.ensure_one()
-        if self.shrimp_is_field_tech and self.parent_id.shrimp_user_type == "verificador":
+        # El técnico trabaja para el perfil verificador de su empresa aunque
+        # la empresa (con varios perfiles) esté navegando con otro.
+        if self.shrimp_is_field_tech and self.parent_id \
+                and self.parent_id._shrimp_has_role("verificador"):
             return self.parent_id
         if self.shrimp_user_type == "verificador":
             return self
@@ -265,9 +398,19 @@ class ResPartner(models.Model):
         aprobada y vigente: dejar elegir a uno sin acreditar vaciaría de sentido
         la verificación.
         """
-        domain = [("shrimp_user_type", "=", "verificador"), ("active", "=", True)]
+        # Varios perfiles: toda cuenta con el perfil verificador aprobado (o
+        # activo). Nunca la propia empresa de quien elige (conflicto de
+        # interés), ni las que vengan en el contexto
+        # shrimp_exclude_partner_ids (p. ej. el vendedor del lote).
+        domain = self._shrimp_role_domain("verificador") + [("active", "=", True)]
         if only_accredited:
             domain.append(("verifier_is_accredited", "=", True))
+        excluir = set(self.env.context.get("shrimp_exclude_partner_ids") or [])
+        user = self.env.user
+        if user and user.share and not user._is_public() and user.partner_id:
+            excluir.add(user.partner_id.commercial_partner_id.id)
+        if excluir:
+            domain.append(("commercial_partner_id", "not in", list(excluir)))
         # Mejor calificados primero; a igualdad, los que más reseñas acumulan,
         # para que una única nota de 5 no adelante a quien lleva veinte trabajos.
         return self.sudo().search(

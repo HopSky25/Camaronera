@@ -20,21 +20,29 @@
             </div>
           </div>
 
+          <!-- Barra + etiquetas + cajón de filtros (plantillas reutilizables del
+               marketplace). El cajón solo ofrece lo que distingue a las plantas
+               publicadas: servicio con tarifa declarada, habilitación vigente,
+               ubicación. -->
+          <div id="listado">
+            <t t-call="shrimp_marketplace.s_filter_toolbar"/>
+            <t t-call="shrimp_marketplace.s_filter_tags"/>
+          </div>
           <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-            <form method="get" action="/marketplace/empaque" class="d-flex gap-2">
-              <input type="text" name="q" t-att-value="q or ''" class="form-control"
-                     placeholder="Buscar por nombre o ubicación…" style="max-width:320px"/>
-              <button type="submit" class="btn btn-outline-secondary">Buscar</button>
-            </form>
-            <div class="d-flex gap-2">
-              <a href="/marketplace/empaque/solicitudes" class="btn btn-outline-primary">Mis solicitudes</a>
-              <a href="/marketplace/empaque/ordenes" class="btn btn-outline-primary">Mis órdenes</a>
+            <div class="text-soft" style="font-size:var(--fs-sm);">
+              <strong><t t-esc="len(maquiladores)"/></strong> planta(s)
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+              <a href="/marketplace/copacking/requests" class="btn btn-outline-primary">Mis solicitudes</a>
+              <a href="/marketplace/copacking/orders" class="btn btn-outline-primary">Mis órdenes</a>
             </div>
           </div>
 
           <t t-if="not maquiladores">
             <div class="alert alert-light border">
-              Todavía no hay plantas publicadas en el directorio.
+              <t t-if="total_plantas">Ninguna planta cumple esos filtros.
+                <a t-att-href="fd['clear_url']">Quitar filtros</a></t>
+              <t t-else="">Todavía no hay plantas publicadas en el directorio.</t>
             </div>
           </t>
 
@@ -53,7 +61,7 @@
                       </t>
                     </div>
                     <p class="text-muted mb-2">
-                      <i class="fa fa-map-marker"></i> <t t-esc="m.pack_ubicacion or 'Ubicación no indicada'"/>
+                      <i class="fa fa-map-marker"></i> <t t-esc="m.shrimp_ubicacion or 'Ubicación no indicada'"/>
                       <t t-if="m.pack_codigo_establecimiento">
                         &#160;·&#160; Establecimiento <b><t t-esc="m.pack_codigo_establecimiento"/></b>
                       </t>
@@ -81,10 +89,10 @@
                     </div>
 
                     <div class="row g-2 small mt-1">
-                      <t t-if="m.pack_capacidad_lb_semana">
+                      <t t-if="m.shrimp_capacity_value">
                         <div class="col-6">
                           <div class="text-muted">Capacidad</div>
-                          <div><t t-esc="int(m.pack_capacidad_lb_semana)"/> lb / semana</div>
+                          <div><t t-esc="int(m.shrimp_capacity_value)"/> lb / semana</div>
                         </div>
                       </t>
                       <t t-if="m.pack_lote_minimo_lb">
@@ -99,10 +107,10 @@
                       <p class="text-muted small fst-italic mt-2 mb-0"><t t-esc="m.pack_tarifa_nota"/></p>
                     </t>
                   </div>
-                  <div class="card-footer bg-transparent d-flex gap-2">
-                    <a t-attf-href="/marketplace/empaque/planta/#{m.id}"
+                  <div class="card-footer bg-transparent d-flex flex-wrap gap-2">
+                    <a t-attf-href="/marketplace/copacking/plants/#{m.uuid_ref}"
                        class="btn btn-sm btn-outline-secondary">Ver planta</a>
-                    <a t-attf-href="/marketplace/empaque/solicitar?a=#{m.id}"
+                    <a t-attf-href="/marketplace/copacking/requests/new?a=#{m.uuid_ref}"
                        class="btn btn-sm btn-primary">Pedirle servicio</a>
                   </div>
                 </div>
@@ -114,6 +122,39 @@
             Las tarifas de arriba son referenciales. La firme depende del volumen y te la
             manda la planta dirigida solo a ti.
           </p>
+
+          <!-- ===== Cajón de filtros ===== -->
+          <t t-call="shrimp_marketplace.s_filter_drawer">
+            <div t-if="fd_show.get('servicio')" class="s-filter-sec" id="sf_sec_servicio">
+              <div class="s-filter-sec-label">Empaca (con tarifa declarada)</div>
+              <div class="s-choice-chips">
+                <t t-foreach="servicio_opts" t-as="opt">
+                  <label class="s-choice">
+                    <input type="checkbox" name="servicio" t-att-value="opt[0]" t-att-checked="opt[0] in filters['servicio']"/>
+                    <span><t t-esc="opt[1]"/></span>
+                  </label>
+                </t>
+              </div>
+            </div>
+            <div t-if="fd_show.get('habilitada')" class="s-filter-sec" id="sf_sec_habilitada">
+              <div class="s-filter-sec-label">Habilitación</div>
+              <div class="s-choice-chips">
+                <label class="s-choice">
+                  <input type="checkbox" name="habilitada" value="1" t-att-checked="bool(filters['habilitada'])"/>
+                  <span>Solo con habilitación vigente</span>
+                </label>
+              </div>
+            </div>
+            <div t-if="fd_show.get('ubicacion')" class="s-filter-sec" id="sf_sec_location">
+              <label class="s-filter-sec-label" for="fltUbicacion">Ubicación</label>
+              <select class="form-select" name="ubicacion" id="fltUbicacion">
+                <option value="">Todas</option>
+                <t t-foreach="ubicacion_opts" t-as="loc">
+                  <option t-att-value="loc" t-att-selected="filters['ubicacion'].lower() == loc.lower()"><t t-esc="loc"/></option>
+                </t>
+              </select>
+            </div>
+          </t>
 
         </div>
       </div>
@@ -128,10 +169,10 @@
       <div class="shrimp-bg">
         <div class="shrimp-page py-4">
 
-          <a href="/marketplace/empaque" class="btn btn-sm btn-link mb-2">&#8592; Volver al directorio</a>
+          <a href="/marketplace/copacking" class="btn btn-sm btn-link mb-2">&#8592; Volver al directorio</a>
           <h2 class="mb-1"><t t-esc="maq.name"/></h2>
           <p class="text-muted">
-            <t t-esc="maq.pack_ubicacion or ''"/>
+            <t t-esc="maq.shrimp_ubicacion or ''"/>
             <t t-if="maq.pack_codigo_establecimiento">
               &#160;·&#160; Establecimiento <b><t t-esc="maq.pack_codigo_establecimiento"/></b>
             </t>
@@ -142,14 +183,14 @@
               <h6 class="text-uppercase text-muted small mb-3">Datos de la planta</h6>
               <dl class="row mb-0">
                 <dt class="col-sm-4">Razón social</dt>
-                <dd class="col-sm-8"><t t-esc="maq.pack_razon_social or '—'"/></dd>
+                <dd class="col-sm-8"><t t-esc="maq.shrimp_razon_social or '—'"/></dd>
                 <dt class="col-sm-4">Representante</dt>
-                <dd class="col-sm-8"><t t-esc="maq.pack_representante or '—'"/></dd>
+                <dd class="col-sm-8"><t t-esc="maq.shrimp_representante or '—'"/></dd>
                 <dt class="col-sm-4">Presentaciones</dt>
                 <dd class="col-sm-8"><t t-esc="maq.pack_presentaciones or '—'"/></dd>
                 <dt class="col-sm-4">Capacidad</dt>
                 <dd class="col-sm-8">
-                  <t t-if="maq.pack_capacidad_lb_semana"><t t-esc="int(maq.pack_capacidad_lb_semana)"/> lb / semana</t>
+                  <t t-if="maq.shrimp_capacity_value"><t t-esc="int(maq.shrimp_capacity_value)"/> lb / semana</t>
                   <t t-else="">—</t>
                 </dd>
                 <dt class="col-sm-4">Habilitación</dt>
@@ -182,6 +223,7 @@
                   <t t-if="t.min_lot_lb">
                     <p class="small text-muted mb-2">Lote mínimo: <t t-esc="int(t.min_lot_lb)"/> lb</p>
                   </t>
+                  <div class="table-responsive">
                   <table class="table table-sm mb-2">
                     <thead>
                       <tr>
@@ -200,6 +242,7 @@
                       </t>
                     </tbody>
                   </table>
+                  </div>
                   <t t-if="t.conditions">
                     <p class="small text-muted mb-0"><t t-esc="t.conditions"/></p>
                   </t>
@@ -215,7 +258,7 @@
             </div>
           </t>
 
-          <a t-attf-href="/marketplace/empaque/solicitar?a=#{maq.id}" class="btn btn-primary">
+          <a t-attf-href="/marketplace/copacking/requests/new?a=#{maq.uuid_ref}" class="btn btn-primary">
             Pedirle servicio
           </a>
 

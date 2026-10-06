@@ -22,11 +22,11 @@
   <template id="lote_historial_vendedor"
             inherit_id="shrimp_marketplace.product_detail"
             name="Detalle de lote - rendimiento verificado del vendedor">
-    <!-- Anclado al encabezado de "Especificaciones", que no está dentro de
-         ningún t-if y por tanto no se mueve cuando cambian los permisos de
-         quien mira la página. -->
-    <xpath expr="//h3[hasclass('mp-sec-title')][text()='Especificaciones']/.."
-           position="before">
+    <!-- Anclado al encabezado de "Especificaciones" por su id estable
+         (shrimp_product_specs_head), que no está dentro de ningún t-if y por
+         tanto no se mueve cuando cambian los permisos de quien mira la
+         página. Antes se buscaba por el TEXTO del título. -->
+    <xpath expr="//div[@id='shrimp_product_specs_head']" position="before">
       <!-- Solo si la camaronera lo activo en su perfil. Es su dato y su
            argumento de venta: publicarselo sin preguntar convertiria la
            herramienta en una amenaza para quien rinde flojo. -->
@@ -154,7 +154,7 @@
           <div class="pk-aval-mio" t-if="is_owner">
             <i class="fa fa-eye me-1"/>
             Esto es lo que ve quien abre tu lote.
-            <a href="/marketplace/mi-historial">Ver mi historial completo</a>
+            <a href="/marketplace/my-track-record">Ver mi historial completo</a>
           </div>
 
         </div>

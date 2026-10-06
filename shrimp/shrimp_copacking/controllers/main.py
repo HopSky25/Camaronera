@@ -1,29 +1,72 @@
 from odoo import http, fields, _
 from odoo.http import request
-from odoo.exceptions import ValidationError
+from odoo.exceptions import AccessError, UserError, ValidationError
 from werkzeug.exceptions import NotFound, Forbidden
-from urllib.parse import quote, urlencode
+from urllib.parse import quote, urlencode, urlsplit
+
+from odoo.addons.shrimp_user_registry.controllers.main import (
+    flash_message, require_operational)
+from odoo.addons.shrimp_marketplace.controllers.utils import (
+    ShrimpPortalMixin, to_int, to_number)
+from odoo.addons.shrimp_marketplace.models.shrimp_selection import (
+    PRESENTATIONS_WITH_VALUE_ADDED)
+from odoo.addons.shrimp_marketplace.controllers.filter_drawer import (
+    fd_context, fd_json_count, fd_tags)
+
+from . import landing
 
 
-# Lo que llega por la barra de direcciones o por un formulario es texto libre,
-# y un int()/float() desnudo sobre eso es un error 500 esperando a que alguien
-# escriba «hola». Estas dos ayudas convierten sin reventar y dejan que rechace
-# el valor la validacion del modelo, que si sabe explicarse.
-def _entero(valor, por_defecto=0):
-    try:
-        return int(valor)
-    except (TypeError, ValueError):
-        return por_defecto
+# Lo que llega por la barra de direcciones o por un formulario es texto libre:
+# se convierte con las ayudas comunes (shrimp_marketplace.controllers.utils),
+# que no revientan y dejan que rechace el valor la validacion del modelo.
+_entero = to_int
+_decimal = to_number
 
 
-def _decimal(valor, por_defecto=0.0):
-    try:
-        return float(valor)
-    except (TypeError, ValueError):
-        return por_defecto
+# Filtros de propiedad EXPLICITOS. Las ir.rule de este modulo solo valen para
+# base.group_portal: un usuario INTERNO cuyo contacto sea camaronera,
+# empacadora o maquilador no tiene ninguna, y un search([]) le devolvia las
+# ordenes, solicitudes y plantas de todo el mundo. Las reglas se quedan como
+# segunda linea de defensa; la primera es que el controlador pida solo lo suyo.
+# Son funciones sueltas para que los tests puedan comprobar el dominio sin
+# levantar una peticion HTTP.
+def _dominio_plantas_visibles(socio):
+    """Maquiladores que `socio` (cliente) puede ver: los del directorio y
+    aquellos con los que ya tiene una orden. Es lo mismo que abren las reglas
+    rule_copack_directorio y rule_copack_contrapartes para el portal."""
+    contrapartes = socio.env["shrimp.copack.order"].sudo().search(
+        [("client_partner_id", "=", socio.id)]).mapped("copacker_partner_id").ids
+    # Varios perfiles: la propia planta (si la cuenta es también maquiladora)
+    # no sale: nadie se contrata a sí mismo.
+    return socio.env["res.partner"]._shrimp_role_domain("maquilador") + [
+        ("id", "!=", socio.id),
+        "|", ("pack_en_directorio", "=", True), ("id", "in", contrapartes)]
 
 
-class ShrimpCopackClient(http.Controller):
+def _dominio_ordenes(socio):
+    """Ordenes en las que `socio` es una de las dos partes."""
+    return ["|", ("client_partner_id", "=", socio.id),
+            ("copacker_partner_id", "=", socio.id)]
+
+
+def _dominio_tarifas_recibidas(socio, maquilador):
+    """Tarifas publicadas de `maquilador` dirigidas a `socio` o a su grupo."""
+    return [("copacker_partner_id", "=", maquilador.id),
+            ("state", "=", "published"),
+            ("recipient_ids", "in", socio.shrimp_grupo_ids())]
+
+
+def _dominio_bandeja_maquilador(maquilador):
+    """Solicitudes publicadas que `maquilador` puede ofertar: las abiertas a
+    todos y las dirigidas a el (rule_copack_request_bandeja)."""
+    return [("state", "=", "published"),
+            # Sus propias solicitudes (cuenta cliente + maquiladora) no.
+            ("client_partner_id", "!=", maquilador.id),
+            "|", ("is_open", "=", True),
+            ("copacker_partner_id", "=", maquilador.id)]
+
+
+class ShrimpCopackClient(ShrimpPortalMixin, http.Controller):
     """Las pantallas de quien necesita empacar: camaronera y empacadora.
 
     El orden de las rutas no es casual. Primero el directorio, porque lo
@@ -35,14 +78,12 @@ class ShrimpCopackClient(http.Controller):
     # lo usan tres sitios: el formulario que lo pinta, el guardado que lo
     # devuelve cuando la validacion falla, y la correccion de una solicitud.
     _CAMPOS_SOLICITUD = ("quantity_lb", "presentation", "size_grade_id",
-                         "needed_from", "needed_to", "supplies_notes", "notes")
+                         "needed_from", "needed_to", "supplies_notes", "notes",
+                         "origen_ref")
 
     # ==================================================================
     # Ayudas
     # ==================================================================
-    def _partner(self):
-        return request.env.user.partner_id
-
     def _solo_cliente(self):
         """Corta el paso a quien no es dueño de camarón.
 
@@ -50,8 +91,24 @@ class ShrimpCopackClient(http.Controller):
         formulario entero a un semillero para reventar al final. Una pantalla
         que no lleva a ningun sitio es peor que no tenerla.
         """
-        if self._partner().shrimp_user_type not in ("camaronera", "empacadora"):
+        if not self._partner()._shrimp_can("request_copack"):
             raise Forbidden()
+        if self._partner()._shrimp_can("requires_approval"):
+            require_operational(self._partner())
+
+    def _planta_visible(self, ref):
+        """Maquilador visible para mí (directorio o contraparte), por su
+        código uuid_ref. Un id numérico, o una planta que no me toca ver,
+        responde 404."""
+        token = str(ref or "").strip()
+        if not token or token.isdigit():
+            raise NotFound()
+        maq = request.env["res.partner"].search(
+            [("uuid_ref", "=", token)] + _dominio_plantas_visibles(self._partner()),
+            limit=1)
+        if not maq:
+            raise NotFound()
+        return maq
 
     def _mi_solicitud(self, ref):
         sol = request.env["shrimp.copack.request"].sudo().resolve_ref(ref)
@@ -73,45 +130,139 @@ class ShrimpCopackClient(http.Controller):
     # ==================================================================
     # 1. El directorio: quien empaca y desde cuanto
     # ==================================================================
-    @http.route("/marketplace/empaque", type="http", auth="user", website=True)
-    def copack_directory(self, **kw):
-        self._solo_cliente()
+    # Servicios del directorio: tarifa «desde» declarada por la planta.
+    DIR_SERVICIOS = [("entero", "Entero", "pack_desde_entero"),
+                     ("cola", "Cola", "pack_desde_cola"),
+                     ("valor_agregado", "Valor agregado", "pack_desde_valor_agregado")]
+    DIR_ORDENES = [("", "Nombre (A–Z)"), ("tarifa", "Tarifa más baja"),
+                   ("capacidad", "Mayor capacidad")]
+
+    def _copack_directory_search(self, kw):
+        """(plantas, filtros, todas) del directorio de empaque. Parámetros: q,
+        servicio (repetible), habilitada=1, ubicacion, orden."""
         # Sin sudo a proposito: la regla de acceso ya deja ver solo a los
         # maquiladores que activaron aparecer en el directorio. Si esto
         # devuelve de mas, el fallo esta en la regla y hay que verlo ahi.
         Socio = request.env["res.partner"]
-        dominio = [("shrimp_user_type", "=", "maquilador"),
-                   ("pack_en_directorio", "=", True)]
-        busca = (kw.get("q") or "").strip()
-        if busca:
-            dominio += ["|", ("name", "ilike", busca), ("pack_ubicacion", "ilike", busca)]
+        dominio = Socio._shrimp_role_domain("maquilador") + [
+            ("pack_en_directorio", "=", True), ("id", "!=", self._partner().id)]
+        todas = Socio.search(dominio, order="name")
+        servicios_ok = {c for c, _l, _f in self.DIR_SERVICIOS}
+        f = {
+            "q": (kw.get("q") or "").strip(),
+            "servicio": [x for x in request.httprequest.args.getlist("servicio") if x in servicios_ok],
+            "habilitada": "1" if (kw.get("habilitada") or "") in ("1", "on") else "",
+            "ubicacion": (kw.get("ubicacion") or "").strip(),
+            "orden": (kw.get("orden") or "").strip(),
+        }
+        if f["orden"] not in dict(self.DIR_ORDENES):
+            f["orden"] = ""
+        if f["q"]:
+            dominio += ["|", ("name", "ilike", f["q"]), ("shrimp_ubicacion", "ilike", f["q"])]
+        plantas = Socio.search(dominio, order="name")
+        campos = {c: fld for c, _l, fld in self.DIR_SERVICIOS}
+        for code in f["servicio"]:
+            plantas = plantas.filtered(lambda m, fld=campos[code]: m[fld])
+        if f["habilitada"]:
+            plantas = plantas.filtered("pack_habilitacion_vigente")
+        if f["ubicacion"]:
+            plantas = plantas.filtered(
+                lambda m: (m.shrimp_ubicacion or "").strip().lower() == f["ubicacion"].lower())
+        if f["orden"] == "tarifa":
+            def _desde(m):
+                tarifas = [m[fld] for _c, _l, fld in self.DIR_SERVICIOS if m[fld]]
+                return min(tarifas) if tarifas else float("inf")
+            plantas = plantas.sorted(_desde)
+        elif f["orden"] == "capacidad":
+            plantas = plantas.sorted(lambda m: -(m.shrimp_capacity_value or 0.0))
+        return plantas, f, todas
+
+    @http.route("/marketplace/copacking", type="http", auth="user", website=True)
+    def copack_directory(self, **kw):
+        self._solo_cliente()
+        plantas, f, todas = self._copack_directory_search(kw)
+        # El cajón solo ofrece lo que distingue a las plantas publicadas.
+        servicios = [(c, l) for c, l, fld in self.DIR_SERVICIOS
+                     if any(todas.mapped(fld)) or c in f["servicio"]]
+        ubicaciones = sorted({(m.shrimp_ubicacion or "").strip() for m in todas} - {""})
+        vigentes = todas.filtered("pack_habilitacion_vigente")
+        show = {
+            "servicio": len(servicios) > 1,
+            "habilitada": bool(vigentes) and len(vigentes) < len(todas) or bool(f["habilitada"]),
+            "ubicacion": len(ubicaciones) > 1,
+        }
+        nombres = {c: l for c, l, _f in self.DIR_SERVICIOS}
+
+        def label(group, vals):
+            key, val = group[0], vals.get(group[0])
+            if not val:
+                return None
+            if key == "servicio":
+                return "Empaca: %s" % nombres.get(val, val)
+            if key == "habilitada":
+                return "Habilitación vigente"
+            if key == "ubicacion":
+                return "Ubicación: %s" % val
+            return None
+
+        url = "/marketplace/copacking"
+        tags, clear_url = fd_tags(url, f, [("servicio",), ("habilitada",), ("ubicacion",)], label,
+                                  keep={"q": f["q"], "orden": f["orden"]}, anchor="#listado")
+        fd = fd_context(
+            url, len(plantas), tags, clear_url,
+            search={"name": "q", "value": f["q"], "label": "Buscar plantas",
+                    "placeholder": "Buscar por nombre o ubicación…"},
+            toolbar_label="Buscar y filtrar plantas de empaque",
+            hidden=[("servicio", x) for x in f["servicio"]]
+            + [("habilitada", f["habilitada"]), ("ubicacion", f["ubicacion"])],
+            sort={"name": "orden", "value": f["orden"], "options": self.DIR_ORDENES},
+            count_url="/marketplace/copacking/count",
+            noun=("planta", "plantas"),
+            drawer_hidden=[("q", f["q"]), ("orden", f["orden"])],
+            keep=["q", "orden"],
+            has_drawer=any(show.values()),
+        )
         return request.render("shrimp_copacking.copack_directory", {
-            "maquiladores": Socio.search(dominio, order="name"),
-            "q": busca,
+            "maquiladores": plantas,
+            "q": f["q"],
             "hoy": fields.Date.context_today(self._partner()),
+            "filters": f,
+            "fd": fd,
+            "fd_show": show,
+            "servicio_opts": servicios,
+            "ubicacion_opts": ubicaciones,
+            "total_plantas": len(todas),
         })
 
-    @http.route("/marketplace/empaque/planta/<int:socio_id>", type="http",
+    @http.route("/marketplace/copacking/count", type="http", auth="user", website=True,
+                methods=["GET"], sitemap=False)
+    def copack_directory_count(self, **kw):
+        """«Ver N plantas» del cajón: mismo filtro que el directorio."""
+        self._solo_cliente()
+        plantas, _f, _todas = self._copack_directory_search(kw)
+        return fd_json_count(len(plantas))
+
+    @http.route("/marketplace/copacking/plants/<socio_ref>", type="http",
                 auth="user", website=True)
-    def copack_plant(self, socio_id, **kw):
+    def copack_plant(self, socio_ref, **kw):
         self._solo_cliente()
         # Con browse().exists() el registro existe siempre y es la LECTURA de
         # shrimp_user_type la que aplica las reglas de acceso: abrir la ficha de
         # una planta que no esta en el directorio daba un AccessError (error
         # 500) en vez de un 404. El search aplica las reglas al filtrar, asi que
         # lo que no me toca ver sale como "no existe", que es lo honesto.
-        maq = request.env["res.partner"].search(
-            [("id", "=", socio_id), ("shrimp_user_type", "=", "maquilador")], limit=1)
-        if not maq:
-            raise NotFound()
-        # La tarifa firme solo si me la dirigieron. La regla de acceso ya filtra;
-        # esto solo es para saber si hay algo que enseñar.
-        tarifas = request.env["shrimp.copack.tariff"].search([
-            ("copacker_partner_id", "=", maq.id),
-            ("state", "=", "published"),
-        ])
+        # El dominio es explicito (directorio o contraparte con orden): la
+        # regla solo cubre al portal, y un usuario interno veia cualquier planta.
+        # Por su código (uuid_ref), nunca por id.
+        maq = self._planta_visible(socio_ref)
+        # La tarifa firme solo si me la dirigieron. Se filtra aqui por el
+        # destinatario y la regla de acceso queda como segunda barrera.
+        tarifas = request.env["shrimp.copack.tariff"].search(
+            _dominio_tarifas_recibidas(self._partner(), maq))
         return request.render("shrimp_copacking.copack_plant", {
-            "maq": maq,
+            # sudo: la ficha muestra representante/teléfono, que son
+            # solo-internos por RPC; la visibilidad ya se comprobó arriba.
+            "maq": maq.sudo(),
             "tarifas": tarifas.filtered("is_current"),
             "hoy": fields.Date.context_today(self._partner()),
         })
@@ -119,22 +270,23 @@ class ShrimpCopackClient(http.Controller):
     # ==================================================================
     # 2. Pedir el servicio
     # ==================================================================
-    @http.route("/marketplace/empaque/solicitar", type="http", auth="user",
+    @http.route("/marketplace/copacking/requests/new", type="http", auth="user",
                 website=True, methods=["GET"])
     def copack_request_form(self, **kw):
         self._solo_cliente()
         dirigida = None
         if kw.get("a"):
-            # Doble arreglo: _entero para que "?a=hola" no sea un error 500, y
-            # search en vez de browse para que una planta que no me toca ver sea
-            # un 404 limpio y no un AccessError al leer shrimp_user_type.
-            dirigida = request.env["res.partner"].search(
-                [("id", "=", _entero(kw["a"], -1)),
-                 ("shrimp_user_type", "=", "maquilador")], limit=1)
-            if not dirigida:
-                raise NotFound()
+            # La planta llega por su código; una que no me toca ver (o un id
+            # numérico) es un 404 limpio.
+            dirigida = self._planta_visible(kw["a"])
         return request.render("shrimp_copacking.copack_request_form", {
             "dirigida": dirigida,
+            # Lo que el cliente puede mandar a empacar: sus compras y, si
+            # vende, sus lotes. Antes no había forma de elegirlo y el empaque
+            # quedaba fuera de la trazabilidad de la compra.
+            "origenes": request.env["shrimp.copack.request"].sudo()._shrimp_origenes_del_cliente(
+                self._partner()),
+            "presentaciones": PRESENTATIONS_WITH_VALUE_ADDED,
             "tallas": request.env["shrimp.size.grade"].sudo().search(
                 [("active", "=", True)], order="presentation, sequence, name"),
             # Lo tecleado vuelve al formulario cuando la validacion falla. Antes
@@ -149,7 +301,7 @@ class ShrimpCopackClient(http.Controller):
             "error": kw.get("error"),
         })
 
-    @http.route("/marketplace/empaque/solicitar", type="http", auth="user",
+    @http.route("/marketplace/copacking/requests/new", type="http", auth="user",
                 website=True, methods=["POST"], csrf=True)
     def copack_request_save(self, **post):
         self._solo_cliente()
@@ -168,14 +320,22 @@ class ShrimpCopackClient(http.Controller):
         }
         if post.get("size_grade_id"):
             vals["size_grade_id"] = _entero(post["size_grade_id"]) or False
-        if post.get("copacker_partner_id"):
-            vals["copacker_partner_id"] = _entero(post["copacker_partner_id"]) or False
+        dirigida_ref = (post.get("copacker_partner_ref") or "").strip()
+        if dirigida_ref:
+            # El create va en sudo: sin esta comprobacion se podia dirigir la
+            # solicitud a una planta que el cliente no puede ver (fuera del
+            # directorio y sin relacion previa) manipulando el formulario.
+            vals["copacker_partner_id"] = self._planta_visible(dirigida_ref).id
         # En un savepoint: Odoo valida DESPUES de escribir, asi que sin esto
         # lo que el modelo rechaza se queda igual en la base. Dejaba
         # solicitudes fantasma en borrador que el cliente no podia ni
         # publicar ni borrar, y libras empacadas que la validacion nego.
         try:
             with request.env.cr.savepoint():
+                # El origen (compra o lote propio) llega por su código y se
+                # valida contra el cliente antes de nada.
+                vals.update(request.env["shrimp.copack.request"].sudo()._shrimp_resolver_origen(
+                    self._partner(), post.get("origen_ref")))
                 # En sudo a proposito: el cliente se fuerza arriba al socio del
                 # usuario, y asi el portal no necesita permiso de creacion sobre
                 # el modelo. Ese permiso, con la regla del cliente, dejaba crear
@@ -189,15 +349,15 @@ class ShrimpCopackClient(http.Controller):
             # perderlo por una fecha mal puesta es la forma mas rapida de que
             # abandone el formulario.
             params = {c: (post.get(c) or "") for c in self._CAMPOS_SOLICITUD}
-            params["error"] = str(mensaje)
-            if vals.get("copacker_partner_id"):
-                params["a"] = vals["copacker_partner_id"]
+            params["error"] = flash_message(mensaje)
+            if dirigida_ref:
+                params["a"] = dirigida_ref
             return request.redirect(
-                "/marketplace/empaque/solicitar?%s" % urlencode(params))
-        return request.redirect("/marketplace/empaque/solicitud/%s?mensaje=publicada"
+                "/marketplace/copacking/requests/new?%s" % urlencode(params))
+        return request.redirect("/marketplace/copacking/requests/%s?mensaje=publicada"
                                 % sol.uuid_ref)
 
-    @http.route("/marketplace/empaque/solicitudes", type="http", auth="user", website=True)
+    @http.route("/marketplace/copacking/requests", type="http", auth="user", website=True)
     def copack_requests(self, **kw):
         self._solo_cliente()
         S = request.env["shrimp.copack.request"]
@@ -207,7 +367,7 @@ class ShrimpCopackClient(http.Controller):
             "solicitudes": S.search([("client_partner_id", "=", self._partner().id)]),
         })
 
-    @http.route("/marketplace/empaque/solicitud/<ref>", type="http", auth="user", website=True)
+    @http.route("/marketplace/copacking/requests/<ref>", type="http", auth="user", website=True)
     def copack_request_detail(self, ref, **kw):
         self._solo_cliente()
         sol = self._mi_solicitud(ref)
@@ -220,7 +380,7 @@ class ShrimpCopackClient(http.Controller):
             "error": kw.get("error"),
         })
 
-    @http.route("/marketplace/empaque/solicitud/<ref>/cancelar", type="http",
+    @http.route("/marketplace/copacking/requests/<ref>/cancel", type="http",
                 auth="user", website=True, methods=["POST"], csrf=True)
     def copack_request_cancel(self, ref, **post):
         """Retirar —y de paso corregir— lo que uno mismo publico.
@@ -235,8 +395,8 @@ class ShrimpCopackClient(http.Controller):
             # Adjudicada ya hay una orden viva detras, y cancelar la solicitud
             # la dejaria huerfana. Eso se resuelve en la orden, no aqui.
             return request.redirect(
-                "/marketplace/empaque/solicitud/%s?error=%s"
-                % (sol.uuid_ref, quote("Esta solicitud ya no se puede cancelar "
+                "/marketplace/copacking/requests/%s?error=%s"
+                % (sol.uuid_ref, flash_message("Esta solicitud ya no se puede cancelar "
                                        "desde aquí: hay que resolverlo en la orden.")))
         # Los valores se leen ANTES de cancelar: corregir es volver a publicar
         # con lo mismo delante, no empezar de cero.
@@ -250,8 +410,13 @@ class ShrimpCopackClient(http.Controller):
             "notes": sol.notes or "",
             "aviso": "corregida",
         }
+        if sol.transaction_id:
+            params["origen_ref"] = "t:%s" % sol.transaction_id.uuid_ref
+        elif sol.product_id:
+            params["origen_ref"] = "p:%s" % sol.product_id.uuid_ref
         if sol.copacker_partner_id:
-            params["a"] = str(sol.copacker_partner_id.id)
+            # Por su código: el id numérico ya no se acepta (404).
+            params["a"] = sol.copacker_partner_id.uuid_ref
         # En un savepoint: Odoo valida DESPUES de escribir, asi que sin esto
         # lo que el modelo rechaza se queda igual en la base. Dejaba
         # solicitudes fantasma en borrador que el cliente no podia ni
@@ -260,19 +425,19 @@ class ShrimpCopackClient(http.Controller):
             with request.env.cr.savepoint():
                 sol.sudo().action_cancel()
         except (ValidationError, ValueError) as e:
-            return request.redirect("/marketplace/empaque/solicitud/%s?error=%s"
+            return request.redirect("/marketplace/copacking/requests/%s?error=%s"
                                     % (sol.uuid_ref,
-                                       quote(str(e.args[0] if e.args else e))))
+                                       flash_message(str(e.args[0] if e.args else e))))
         if post.get("corregir"):
             # No se edita una solicitud que las plantas ya estan mirando: se
             # cancela y se publica otra. Asi ninguna oferta queda colgando de
             # unas condiciones que cambiaron por detras.
             return request.redirect(
-                "/marketplace/empaque/solicitar?%s" % urlencode(params))
-        return request.redirect("/marketplace/empaque/solicitud/%s?mensaje=cancelada"
+                "/marketplace/copacking/requests/new?%s" % urlencode(params))
+        return request.redirect("/marketplace/copacking/requests/%s?mensaje=cancelada"
                                 % sol.uuid_ref)
 
-    @http.route("/marketplace/empaque/oferta/<ref>/aceptar", type="http", auth="user",
+    @http.route("/marketplace/copacking/offers/<ref>/accept", type="http", auth="user",
                 website=True, methods=["POST"], csrf=True)
     def copack_offer_accept(self, ref, **post):
         self._solo_cliente()
@@ -289,31 +454,156 @@ class ShrimpCopackClient(http.Controller):
             with request.env.cr.savepoint():
                 orden = oferta.action_accept(actor=self._partner())
         except ValidationError as e:
-            return request.redirect("/marketplace/empaque/solicitud/%s?error=%s"
+            return request.redirect("/marketplace/copacking/requests/%s?error=%s"
                                     % (oferta.request_id.uuid_ref,
-                                       quote(e.args[0] if e.args else "")))
-        return request.redirect("/marketplace/empaque/orden/%s?mensaje=adjudicada"
+                                       flash_message(e.args[0] if e.args else "")))
+        return request.redirect("/marketplace/copacking/orders/%s?mensaje=adjudicada"
                                 % orden.uuid_ref)
+
+    # ==================================================================
+    # 2b. Empaque propio: la empresa empaca su camarón en su planta
+    # ==================================================================
+    # Sin solicitud, ofertas, tarifa, comisión ni acta de dos partes: la
+    # cuenta (camaronera o empacadora con el perfil Maquilador aprobado)
+    # registra el empaque de su propio lote o compra, y lo cierra con una sola
+    # conformidad interna. Deja el mismo rastro de trazabilidad que un
+    # empaque de terceros («Empaque propio — empacado por …»).
+    def _empaque_propio_bloqueo(self):
+        """None si la cuenta puede registrar empaque propio; si no, la
+        respuesta (página que explica qué perfil falta y dónde agregarlo)."""
+        socio = self._partner().sudo()._shrimp_role_holder()
+        if socio._shrimp_self_pack_allowed():
+            return None
+        if not socio._shrimp_can_any("request_copack"):
+            raise Forbidden()
+        sitio = request.env["website"].sudo()._shrimp_copacker_site()
+        estado = socio._shrimp_role_state("maquilador")
+        return request.render("shrimp_copacking.copack_self_need_profile", {
+            "estado_perfil": estado,
+            "url_agregar": landing._url_en_sitio(sitio, "/marketplace/my-account#perfiles"),
+            "url_registro": landing._url_en_sitio(sitio, "/register/copacker"),
+        })
+
+    def _mi_empaque_propio(self, ref):
+        orden = self._mi_orden(ref)
+        if not orden.self_packing:
+            raise NotFound()
+        return orden
+
+    @http.route("/marketplace/copacking/self/new", type="http", auth="user",
+                website=True, methods=["GET"], sitemap=False)
+    def copack_self_form(self, **kw):
+        bloqueo = self._empaque_propio_bloqueo()
+        if bloqueo:
+            return bloqueo
+        socio = self._partner().sudo()._shrimp_role_holder()
+        return request.render("shrimp_copacking.copack_self_form", {
+            "planta": socio,
+            "origenes": request.env["shrimp.copack.request"].sudo()._shrimp_origenes_del_cliente(socio),
+            "datos": {"origen_ref": kw.get("origen") or kw.get("origen_ref") or "",
+                      "quantity_lb": kw.get("quantity_lb") or "",
+                      "supplies_notes": kw.get("supplies_notes") or ""},
+            "error": kw.get("error"),
+        })
+
+    @http.route("/marketplace/copacking/self/new", type="http", auth="user",
+                website=True, methods=["POST"], csrf=True, sitemap=False)
+    def copack_self_create(self, **post):
+        bloqueo = self._empaque_propio_bloqueo()
+        if bloqueo:
+            return bloqueo
+        socio = self._partner().sudo()._shrimp_role_holder()
+        try:
+            with request.env.cr.savepoint():
+                orden = request.env["shrimp.copack.order"].sudo().shrimp_create_self_packing(
+                    socio, post.get("origen_ref"), _decimal(post.get("quantity_lb")),
+                    supplies_notes=(post.get("supplies_notes") or "").strip() or None)
+        except (ValidationError, ValueError) as e:
+            params = {k: (post.get(k) or "") for k in ("origen_ref", "quantity_lb", "supplies_notes")}
+            params["error"] = flash_message(e.args[0] if e.args else str(e))
+            return request.redirect("/marketplace/copacking/self/new?%s" % urlencode(params))
+        return request.redirect("/marketplace/copacking/orders/%s?mensaje=propio" % orden.uuid_ref)
+
+    def _paso_empaque_propio(self, ref, accion, vals_fn, mensaje):
+        orden = self._mi_empaque_propio(ref)
+        try:
+            with request.env.cr.savepoint():
+                vals = vals_fn()
+                if vals:
+                    orden.sudo().write(vals)
+                accion(orden.sudo())
+        except (ValidationError, ValueError) as e:
+            return request.redirect("/marketplace/copacking/orders/%s?error=%s"
+                                    % (orden.uuid_ref, flash_message(str(e.args[0] if e.args else e))))
+        return request.redirect("/marketplace/copacking/orders/%s?mensaje=%s" % (orden.uuid_ref, mensaje))
+
+    @http.route("/marketplace/copacking/self/<ref>/reception", type="http", auth="user",
+                website=True, methods=["POST"], csrf=True, sitemap=False)
+    def copack_self_reception(self, ref, **post):
+        return self._paso_empaque_propio(ref, lambda o: o.action_register_reception(), lambda: {
+            "received_lb": _decimal(post.get("received_lb")),
+            "supplies_received": bool(post.get("supplies_received")),
+            "supplies_issue": (post.get("supplies_issue") or "").strip() or False,
+        }, "recibida")
+
+    @http.route("/marketplace/copacking/self/<ref>/packing", type="http", auth="user",
+                website=True, methods=["POST"], csrf=True, sitemap=False)
+    def copack_self_packing(self, ref, **post):
+        def vals():
+            presentacion = (post.get("packed_presentation") or "").strip()
+            validas = dict(PRESENTATIONS_WITH_VALUE_ADDED)
+            return {
+                "packed_lb": _decimal(post.get("packed_lb")),
+                "boxes": _entero(post.get("boxes"), 0),
+                "packed_presentation": presentacion if presentacion in validas else False,
+                "packed_presentation_note": (post.get("packed_presentation_note") or "").strip() or False,
+            }
+        return self._paso_empaque_propio(ref, lambda o: o.action_register_packing(), vals, "empacada")
+
+    @http.route("/marketplace/copacking/self/<ref>/correct", type="http", auth="user",
+                website=True, methods=["POST"], csrf=True, sitemap=False)
+    def copack_self_correct(self, ref, **post):
+        return self._paso_empaque_propio(ref, lambda o: o.action_self_correct(), lambda: {},
+                                         "corregir")
+
+    @http.route("/marketplace/copacking/self/<ref>/close", type="http", auth="user",
+                website=True, methods=["POST"], csrf=True, sitemap=False)
+    def copack_self_close(self, ref, **post):
+        user = request.env.user
+        return self._paso_empaque_propio(ref, lambda o: o.action_self_close(user=user),
+                                         lambda: {}, "cerrada")
 
     # ==================================================================
     # 3. Las ordenes y el acta
     # ==================================================================
-    @http.route("/marketplace/empaque/ordenes", type="http", auth="user", website=True)
+    @http.route("/marketplace/copacking/orders", type="http", auth="user", website=True)
     def copack_orders(self, **kw):
         socio = self._partner()
-        if socio.shrimp_user_type not in ("camaronera", "empacadora", "maquilador"):
+        if not (socio._shrimp_can("request_copack") or socio._shrimp_can("provide_copack")):
             raise Forbidden()
         O = request.env["shrimp.copack.order"]
         return request.render("shrimp_copacking.copack_orders", {
-            "ordenes": O.search([]),
+            # Dominio explicito: con search([]) un usuario interno (sin las
+            # reglas del portal) veia las ordenes de todos los clientes.
+            "ordenes": O.search(_dominio_ordenes(socio)),
             "soy_maquilador": socio.shrimp_user_type == "maquilador",
+            # Botón «Registrar empaque propio» (o el aviso de qué perfil falta).
+            "puede_empaque_propio": socio.sudo()._shrimp_self_pack_allowed(),
+            "es_duenio_camaron": socio.sudo()._shrimp_can_any("request_copack"),
             "mensaje": kw.get("mensaje"),
         })
 
-    @http.route("/marketplace/empaque/orden/<ref>", type="http", auth="user", website=True)
+    @http.route("/marketplace/copacking/orders/<ref>", type="http", auth="user", website=True)
     def copack_order_detail(self, ref, **kw):
         orden = self._mi_orden(ref)
         socio = self._partner()
+        if orden.self_packing:
+            return request.render("shrimp_copacking.copack_self_order_detail", {
+                "orden": orden.sudo(),
+                "volver_url": "/marketplace/copacking/orders",
+                "mensaje": kw.get("mensaje"),
+                "error": kw.get("error"),
+            })
         rol = "copacker" if socio == orden.copacker_partner_id else "client"
         return request.render("shrimp_copacking.copack_order_detail", {
             "orden": orden,
@@ -323,8 +613,8 @@ class ShrimpCopackClient(http.Controller):
             # tras registrar recepcion o empaque y la migaja lo soltaba en la
             # zona del cliente, que no es la suya y desde la que no encuentra el
             # camino de regreso a su bandeja.
-            "volver_url": ("/maquilador/ordenes" if rol == "copacker"
-                           else "/marketplace/empaque/ordenes"),
+            "volver_url": ("/copacker/orders" if rol == "copacker"
+                           else "/marketplace/copacking/orders"),
             "volver_txt": ("Mis órdenes en curso" if rol == "copacker"
                            else "Órdenes"),
             "mi_firma": orden.sudo().acceptance_ids.filtered(lambda f: f.role == rol),
@@ -339,9 +629,16 @@ class ShrimpCopackClient(http.Controller):
                     order="ronda desc, role"),
             "mensaje": kw.get("mensaje"),
             "error": kw.get("error"),
+            # Historial de decisiones y «deshacer mi firma» (firmas de dos partes).
+            "historial": request.env["shrimp.signoff.event"].history_for(orden),
+            "undo_info": (orden.sudo().acceptance_ids.filtered(lambda f: f.role == rol)[:1]
+                          .signoff_undo_info(actor=socio)
+                          if orden.sudo().acceptance_ids.filtered(lambda f: f.role == rol)
+                          else {}),
+            "undo_url": "/marketplace/copacking/orders/%s/undo-signature" % orden.uuid_ref,
         })
 
-    @http.route("/marketplace/empaque/orden/<ref>/cancelar", type="http", auth="user",
+    @http.route("/marketplace/copacking/orders/<ref>/cancel", type="http", auth="user",
                 website=True, methods=["POST"], csrf=True)
     def copack_order_cancel(self, ref, **post):
         """Cancelar el trabajo. Lo puede pedir cualquiera de las dos partes.
@@ -355,11 +652,11 @@ class ShrimpCopackClient(http.Controller):
             with request.env.cr.savepoint():
                 orden.sudo().action_cancel()
         except ValidationError as e:
-            return request.redirect("/marketplace/empaque/orden/%s?error=%s"
-                                    % (ref, quote(str(e.args[0] if e.args else e))))
-        return request.redirect("/marketplace/empaque/orden/%s?mensaje=cancelada" % ref)
+            return request.redirect("/marketplace/copacking/orders/%s?error=%s"
+                                    % (ref, flash_message(str(e.args[0] if e.args else e))))
+        return request.redirect("/marketplace/copacking/orders/%s?mensaje=cancelada" % ref)
 
-    @http.route("/marketplace/empaque/orden/<ref>/firmar", type="http", auth="user",
+    @http.route("/marketplace/copacking/orders/<ref>/sign", type="http", auth="user",
                 website=True, methods=["POST"], csrf=True)
     def copack_order_sign(self, ref, **post):
         orden = self._mi_orden(ref)
@@ -379,11 +676,30 @@ class ShrimpCopackClient(http.Controller):
                 else:
                     firma.action_reject((post.get("motivo") or "").strip(), actor=socio)
         except ValidationError as e:
-            return request.redirect("/marketplace/empaque/orden/%s?error=%s"
-                                    % (orden.uuid_ref, quote(e.args[0] if e.args else "")))
-        return request.redirect("/marketplace/empaque/orden/%s?mensaje=firmada" % orden.uuid_ref)
+            return request.redirect("/marketplace/copacking/orders/%s?error=%s"
+                                    % (orden.uuid_ref, flash_message(e.args[0] if e.args else "")))
+        return request.redirect("/marketplace/copacking/orders/%s?mensaje=firmada" % orden.uuid_ref)
 
-    @http.route("/marketplace/empaque/orden/<ref>/reabrir-acta", type="http",
+    @http.route("/marketplace/copacking/orders/<ref>/undo-signature", type="http", auth="user",
+                website=True, methods=["POST"], csrf=True)
+    def copack_order_unsign(self, ref, **post):
+        """Cada parte deshace SU firma mientras el acta no esté cerrada."""
+        orden = self._mi_orden(ref)
+        socio = self._partner()
+        rol = "copacker" if socio == orden.copacker_partner_id else "client"
+        firma = orden.sudo().acceptance_ids.filtered(lambda f: f.role == rol)[:1]
+        if not firma:
+            raise NotFound()
+        try:
+            with request.env.cr.savepoint():
+                firma.action_signoff_undo(
+                    reason=(post.get("motivo") or "").strip() or None, actor=socio)
+        except (ValidationError, UserError, AccessError) as e:
+            return request.redirect("/marketplace/copacking/orders/%s?error=%s"
+                                    % (orden.uuid_ref, flash_message(e.args[0] if e.args else "")))
+        return request.redirect("/marketplace/copacking/orders/%s?mensaje=deshecha" % orden.uuid_ref)
+
+    @http.route("/marketplace/copacking/orders/<ref>/reopen", type="http",
                 auth="user", website=True, methods=["POST"], csrf=True)
     def copack_order_reopen(self, ref, **post):
         """Un acta en disputa dejaba la orden congelada para siempre.
@@ -398,8 +714,8 @@ class ShrimpCopackClient(http.Controller):
             # El modelo lo exige; comprobarlo aqui evita el viaje de ida y
             # vuelta con un error que no dice nada que el formulario no supiera.
             return request.redirect(
-                "/marketplace/empaque/orden/%s?error=%s"
-                % (orden.uuid_ref, quote("Para reabrir el acta hay que decir por "
+                "/marketplace/copacking/orders/%s?error=%s"
+                % (orden.uuid_ref, flash_message("Para reabrir el acta hay que decir por "
                                          "qué: es lo que queda escrito de la "
                                          "rectificación.")))
         # En un savepoint: Odoo valida DESPUES de escribir, asi que sin esto
@@ -410,13 +726,13 @@ class ShrimpCopackClient(http.Controller):
             with request.env.cr.savepoint():
                 orden.sudo().action_reabrir_acta(motivo)
         except (ValidationError, ValueError) as e:
-            return request.redirect("/marketplace/empaque/orden/%s?error=%s"
+            return request.redirect("/marketplace/copacking/orders/%s?error=%s"
                                     % (orden.uuid_ref,
-                                       quote(str(e.args[0] if e.args else e))))
-        return request.redirect("/marketplace/empaque/orden/%s?mensaje=reabierta"
+                                       flash_message(str(e.args[0] if e.args else e))))
+        return request.redirect("/marketplace/copacking/orders/%s?mensaje=reabierta"
                                 % orden.uuid_ref)
 
-    @http.route("/marketplace/empaque/orden/<ref>/cerrar", type="http",
+    @http.route("/marketplace/copacking/orders/<ref>/close", type="http",
                 auth="user", website=True, methods=["POST"], csrf=True)
     def copack_order_close(self, ref, **post):
         """action_close() existia sin ruta: el acta se firmaba y la orden se
@@ -432,10 +748,10 @@ class ShrimpCopackClient(http.Controller):
             with request.env.cr.savepoint():
                 orden.sudo().action_close()
         except (ValidationError, ValueError) as e:
-            return request.redirect("/marketplace/empaque/orden/%s?error=%s"
+            return request.redirect("/marketplace/copacking/orders/%s?error=%s"
                                     % (orden.uuid_ref,
-                                       quote(str(e.args[0] if e.args else e))))
-        return request.redirect("/marketplace/empaque/orden/%s?mensaje=cerrada"
+                                       flash_message(str(e.args[0] if e.args else e))))
+        return request.redirect("/marketplace/copacking/orders/%s?mensaje=cerrada"
                                 % orden.uuid_ref)
 
 
@@ -450,8 +766,11 @@ class ShrimpCopacker(http.Controller):
 
     def _maq(self):
         socio = request.env.user.partner_id
-        if socio.shrimp_user_type != "maquilador":
+        if not socio._shrimp_can("provide_copack"):
             raise Forbidden()
+        # Un maquilador registrado por la web no opera hasta que la
+        # administración aprueba su cuenta (M4).
+        require_operational(socio)
         return socio
 
     def _mi_tarifa(self, ref):
@@ -470,15 +789,51 @@ class ShrimpCopacker(http.Controller):
             raise Forbidden()
         return o
 
+    def _redirigir_a_plataforma_maquiladores(self):
+        """Equivalente a _redirigir_a_plataforma_verificadores de
+        shrimp_verification: un GET a /copacker/* que entra por otro sitio se
+        manda (302) al dominio del sitio de empaque, con la misma ruta y la
+        misma query string.
+
+        No se redirige si no hay sitio de empaque o no tiene dominio (se sirve
+        en el sitio actual, como hasta ahora), si ya se esta en el, si el
+        dominio apunta al mismo host (evita bucles) ni en un POST: un 302 a
+        otro dominio perderia el cuerpo del formulario y la sesion/CSRF de ese
+        dominio no es la misma.
+        """
+        hreq = request.httprequest
+        if hreq.method not in ("GET", "HEAD"):
+            return None
+        web = getattr(request, "website", False)
+        if web and web.sudo().shrimp_is_copacker_site:
+            return None
+        destino = request.env["website"].sudo()._shrimp_copacker_site()
+        dominio = (destino.domain or "").strip().rstrip("/") if destino else ""
+        if not dominio:
+            return None
+        if "://" not in dominio:
+            dominio = "%s://%s" % (hreq.scheme, dominio)
+        if urlsplit(dominio).netloc.lower() == (hreq.host or "").lower():
+            return None
+        ruta = hreq.path
+        query = hreq.query_string.decode("utf-8", "replace") if hreq.query_string else ""
+        if query:
+            ruta += "?" + query
+        return request.redirect(dominio + ruta, code=302, local=False)
+
     # ==================================================================
     # La bandeja: lo que hay pidiendo planta
     # ==================================================================
-    @http.route("/maquilador/bandeja", type="http", auth="user", website=True)
+    @http.route("/copacker/inbox", type="http", auth="user", website=True)
     def copacker_inbox(self, **kw):
+        salto = self._redirigir_a_plataforma_maquiladores()
+        if salto:
+            return salto
         maq = self._maq()
         S = request.env["shrimp.copack.request"]
-        # La regla de acceso ya devuelve solo las abiertas y las dirigidas a mi.
-        solicitudes = S.search([("state", "=", "published")])
+        # Abiertas o dirigidas a mi, explicito: la regla de acceso solo vale
+        # para el portal y un usuario interno veia las dirigidas a otros.
+        solicitudes = S.search(_dominio_bandeja_maquilador(maq))
         ya_ofertadas = request.env["shrimp.copack.offer"].sudo().search([
             ("copacker_partner_id", "=", maq.id),
             ("request_id", "in", solicitudes.ids),
@@ -490,8 +845,11 @@ class ShrimpCopacker(http.Controller):
             "mensaje": kw.get("mensaje"),
         })
 
-    @http.route("/maquilador/solicitud/<ref>", type="http", auth="user", website=True)
+    @http.route("/copacker/requests/<ref>", type="http", auth="user", website=True)
     def copacker_request(self, ref, **kw):
+        salto = self._redirigir_a_plataforma_maquiladores()
+        if salto:
+            return salto
         maq = self._maq()
         sol = request.env["shrimp.copack.request"].sudo().resolve_ref(ref)
         if not sol:
@@ -513,7 +871,7 @@ class ShrimpCopacker(http.Controller):
             "error": kw.get("error"), "mensaje": kw.get("mensaje"),
         })
 
-    @http.route("/maquilador/solicitud/<ref>/ofertar", type="http", auth="user",
+    @http.route("/copacker/requests/<ref>/offer", type="http", auth="user",
                 website=True, methods=["POST"], csrf=True)
     def copacker_offer(self, ref, **post):
         maq = self._maq()
@@ -528,8 +886,8 @@ class ShrimpCopacker(http.Controller):
         if sol.state != "published":
             # La pagina si se puede seguir viendo; lo que ya no admite es
             # ofertas. Decirlo es mejor que un 404 sobre un boton que estaba ahi.
-            return request.redirect("/maquilador/solicitud/%s?error=%s"
-                                    % (ref, quote("Esta solicitud ya no admite ofertas.")))
+            return request.redirect("/copacker/requests/%s?error=%s"
+                                    % (ref, flash_message("Esta solicitud ya no admite ofertas.")))
         Oferta = request.env["shrimp.copack.offer"].sudo()
         # Las conversiones van antes del try, asi que tienen que ser de las que
         # no revientan: lo que llega del formulario es texto libre.
@@ -554,11 +912,11 @@ class ShrimpCopacker(http.Controller):
                 else:
                     Oferta.create(vals)
         except (ValidationError, ValueError) as e:
-            return request.redirect("/maquilador/solicitud/%s?error=%s"
-                                    % (ref, quote(str(e.args[0] if e.args else e))))
-        return request.redirect("/maquilador/solicitud/%s?mensaje=ok" % ref)
+            return request.redirect("/copacker/requests/%s?error=%s"
+                                    % (ref, flash_message(str(e.args[0] if e.args else e))))
+        return request.redirect("/copacker/requests/%s?mensaje=ok" % ref)
 
-    @http.route("/maquilador/solicitud/<ref>/retirar", type="http", auth="user",
+    @http.route("/copacker/requests/<ref>/withdraw", type="http", auth="user",
                 website=True, methods=["POST"], csrf=True)
     def copacker_offer_withdraw(self, ref, **post):
         """Retirar una oferta que ya no se puede cumplir.
@@ -583,29 +941,94 @@ class ShrimpCopacker(http.Controller):
             with request.env.cr.savepoint():
                 mia.action_withdraw()
         except (ValidationError, ValueError) as e:
-            return request.redirect("/maquilador/solicitud/%s?error=%s"
-                                    % (ref, quote(str(e.args[0] if e.args else e))))
-        return request.redirect("/maquilador/solicitud/%s?mensaje=retirada" % ref)
+            return request.redirect("/copacker/requests/%s?error=%s"
+                                    % (ref, flash_message(str(e.args[0] if e.args else e))))
+        return request.redirect("/copacker/requests/%s?mensaje=retirada" % ref)
 
     # ==================================================================
     # Las ordenes: recepcion, empaque y acta
     # ==================================================================
-    @http.route("/maquilador/ordenes", type="http", auth="user", website=True)
-    def copacker_orders(self, **kw):
+    MAQ_SITUACIONES = [("firmar", "Actas por firmar"), ("cerradas", "Cerradas")]
+
+    def _copacker_orders_search(self, kw):
+        """(órdenes, filtros, todas) del maquilador. Parámetros de siempre
+        (f=firmar|cerradas) más q (referencia o cliente) y cliente (código)."""
         maq = self._maq()
         O = request.env["shrimp.copack.order"]
-        dominio = [("copacker_partner_id", "=", maq.id)]
-        filtro = kw.get("f")
-        if filtro == "firmar":
+        base = [("copacker_partner_id", "=", maq.id)]
+        todas = O.search(base)
+        f = {
+            "q": (kw.get("q") or "").strip(),
+            "f": (kw.get("f") or "").strip(),
+            "cliente": (kw.get("cliente") or "").strip(),
+        }
+        if f["f"] not in dict(self.MAQ_SITUACIONES):
+            f["f"] = ""
+        dominio = list(base)
+        if f["f"] == "firmar":
             dominio += [("acceptance_state", "=", "open")]
-        elif filtro == "cerradas":
+        elif f["f"] == "cerradas":
             dominio += [("state", "in", ("signed", "closed"))]
+        if f["q"]:
+            dominio += ["|", ("name", "ilike", f["q"]), ("client_partner_id.name", "ilike", f["q"])]
+        clientes = todas.mapped("client_partner_id")
+        if f["cliente"]:
+            # Por su código, y solo entre los clientes de MIS órdenes.
+            elegido = clientes.filtered(lambda c: c.uuid_ref == f["cliente"])
+            dominio += [("client_partner_id", "in", elegido.ids or [0])]
+        return O.search(dominio), f, todas
+
+    @http.route("/copacker/orders", type="http", auth="user", website=True)
+    def copacker_orders(self, **kw):
+        salto = self._redirigir_a_plataforma_maquiladores()
+        if salto:
+            return salto
+        ordenes, f, todas = self._copacker_orders_search(kw)
+        clientes = todas.mapped("client_partner_id").sorted(lambda c: c.name or "")
+        nombres_cliente = {c.uuid_ref: c.name for c in clientes}
+        show = {"f": bool(todas), "cliente": len(clientes) > 1}
+
+        def label(group, vals):
+            key, val = group[0], vals.get(group[0])
+            if not val:
+                return None
+            if key == "f":
+                return dict(self.MAQ_SITUACIONES).get(val)
+            if key == "cliente":
+                return "Cliente: %s" % nombres_cliente.get(val, val)
+            return None
+
+        url = "/copacker/orders"
+        tags, clear_url = fd_tags(url, f, [("f",), ("cliente",)], label,
+                                  keep={"q": f["q"]}, anchor="#listado")
+        fd = fd_context(
+            url, len(ordenes), tags, clear_url,
+            search={"name": "q", "value": f["q"], "label": "Buscar órdenes",
+                    "placeholder": "Referencia o cliente…"},
+            toolbar_label="Buscar y filtrar órdenes",
+            hidden=[("f", f["f"]), ("cliente", f["cliente"])],
+            count_url="/copacker/orders/count",
+            noun=("orden", "órdenes"),
+            drawer_hidden=[("q", f["q"])],
+            keep=["q"],
+            has_drawer=any(show.values()),
+        )
         return request.render("shrimp_copacking.copacker_orders", {
-            "ordenes": O.search(dominio), "filtro": filtro,
+            "ordenes": ordenes, "filtro": f["f"],
             "mensaje": kw.get("mensaje"), "error": kw.get("error"),
+            "filters": f, "fd": fd, "fd_show": show,
+            "situacion_opts": self.MAQ_SITUACIONES,
+            "cliente_opts": [(c.uuid_ref, c.name) for c in clientes],
         })
 
-    @http.route("/maquilador/orden/<ref>/recepcion", type="http", auth="user",
+    @http.route("/copacker/orders/count", type="http", auth="user", website=True,
+                methods=["GET"], sitemap=False)
+    def copacker_orders_count(self, **kw):
+        """«Ver N órdenes» del cajón: mismo dominio que la lista."""
+        ordenes, _f, _todas = self._copacker_orders_search(kw)
+        return fd_json_count(len(ordenes))
+
+    @http.route("/copacker/orders/<ref>/reception", type="http", auth="user",
                 website=True, methods=["POST"], csrf=True)
     def copacker_reception(self, ref, **post):
         orden = self._mi_orden(ref)
@@ -622,11 +1045,11 @@ class ShrimpCopacker(http.Controller):
                 })
                 orden.sudo().action_register_reception()
         except (ValidationError, ValueError) as e:
-            return request.redirect("/marketplace/empaque/orden/%s?error=%s"
-                                    % (ref, quote(str(e.args[0] if e.args else e))))
-        return request.redirect("/marketplace/empaque/orden/%s?mensaje=recibida" % ref)
+            return request.redirect("/marketplace/copacking/orders/%s?error=%s"
+                                    % (ref, flash_message(str(e.args[0] if e.args else e))))
+        return request.redirect("/marketplace/copacking/orders/%s?mensaje=recibida" % ref)
 
-    @http.route("/maquilador/orden/<ref>/empaque", type="http", auth="user",
+    @http.route("/copacker/orders/<ref>/packing", type="http", auth="user",
                 website=True, methods=["POST"], csrf=True)
     def copacker_packing(self, ref, **post):
         orden = self._mi_orden(ref)
@@ -636,22 +1059,31 @@ class ShrimpCopacker(http.Controller):
         # publicar ni borrar, y libras empacadas que la validacion nego.
         try:
             with request.env.cr.savepoint():
+                presentacion = (post.get("packed_presentation") or "").strip()
+                valores_validos = dict(PRESENTATIONS_WITH_VALUE_ADDED)
                 orden.sudo().write({
                     "packed_lb": float(post.get("packed_lb") or 0),
                     "boxes": int(post.get("boxes") or 0),
-                    "packed_presentation": (post.get("packed_presentation") or "").strip() or False,
+                    # Selección única; un texto libre (formulario viejo) va a la nota.
+                    "packed_presentation": presentacion if presentacion in valores_validos else False,
+                    "packed_presentation_note": (post.get("packed_presentation_note") or (
+                        presentacion if presentacion and presentacion not in valores_validos
+                        else "")).strip() or False,
                 })
                 orden.sudo().action_register_packing()
         except (ValidationError, ValueError) as e:
-            return request.redirect("/marketplace/empaque/orden/%s?error=%s"
-                                    % (ref, quote(str(e.args[0] if e.args else e))))
-        return request.redirect("/marketplace/empaque/orden/%s?mensaje=empacada" % ref)
+            return request.redirect("/marketplace/copacking/orders/%s?error=%s"
+                                    % (ref, flash_message(str(e.args[0] if e.args else e))))
+        return request.redirect("/marketplace/copacking/orders/%s?mensaje=empacada" % ref)
 
     # ==================================================================
     # Tarifas
     # ==================================================================
-    @http.route("/maquilador/tarifas", type="http", auth="user", website=True)
+    @http.route("/copacker/tariffs", type="http", auth="user", website=True)
     def copacker_tariffs(self, **kw):
+        salto = self._redirigir_a_plataforma_maquiladores()
+        if salto:
+            return salto
         maq = self._maq()
         T = request.env["shrimp.copack.tariff"]
         return request.render("shrimp_copacking.copacker_tariffs", {
@@ -659,7 +1091,7 @@ class ShrimpCopacker(http.Controller):
             "mensaje": kw.get("mensaje"),
         })
 
-    @http.route("/maquilador/tarifa/nueva", type="http", auth="user",
+    @http.route("/copacker/tariffs/new", type="http", auth="user",
                 website=True, methods=["POST"], csrf=True)
     def copacker_tariff_new(self, **post):
         maq = self._maq()
@@ -669,12 +1101,10 @@ class ShrimpCopacker(http.Controller):
             "valid_from": fields.Date.context_today(maq),
             "open_ended": True,
         })
-        return request.redirect("/maquilador/tarifa/%s" % t.uuid_ref)
+        return request.redirect("/copacker/tariffs/%s" % t.uuid_ref)
 
-    @http.route("/maquilador/tarifa/<ref>", type="http", auth="user", website=True)
-    def copacker_tariff_edit(self, ref, **kw):
-        t = self._mi_tarifa(ref)
-        maq = self._maq()
+    def _clientes_de_tarifa(self, maq, t):
+        """Clientes que `maq` puede poner como destinatarios de la tarifa `t`."""
         # Antes esto era un search en sudo de TODAS las camaroneras y
         # empacadoras: cada maquilador veia el padron completo de clientes de la
         # plataforma, con nombre y tipo, sin haber trabajado nunca con ellos.
@@ -691,15 +1121,24 @@ class ShrimpCopacker(http.Controller):
         # haya enfriado: el formulario reemplaza los destinatarios en bloque, y
         # si uno desaparece de la lista, guardar lo borraria sin avisar.
         ids |= set(t.recipient_ids.ids)
-        clientes = request.env["res.partner"].sudo().browse(sorted(ids)).filtered(
-            lambda p: p.shrimp_user_type in ("camaronera", "empacadora")).sorted("name")
+        return request.env["res.partner"].sudo().browse(sorted(ids)).filtered(
+            lambda p: p._shrimp_can_any("request_copack")).sorted("name")
+
+    @http.route("/copacker/tariffs/<ref>", type="http", auth="user", website=True)
+    def copacker_tariff_edit(self, ref, **kw):
+        salto = self._redirigir_a_plataforma_maquiladores()
+        if salto:
+            return salto
+        t = self._mi_tarifa(ref)
+        maq = self._maq()
+        clientes = self._clientes_de_tarifa(maq, t)
         return request.render("shrimp_copacking.copacker_tariff_form", {
             "t": t,
             "clientes": clientes,
             "mensaje": kw.get("mensaje"), "error": kw.get("error"),
         })
 
-    @http.route("/maquilador/tarifa/<ref>/guardar", type="http", auth="user",
+    @http.route("/copacker/tariffs/<ref>/save", type="http", auth="user",
                 website=True, methods=["POST"], csrf=True)
     def copacker_tariff_save(self, ref, **post):
         t = self._mi_tarifa(ref)
@@ -713,8 +1152,13 @@ class ShrimpCopacker(http.Controller):
             "valid_to": post.get("valid_to") or False,
         }
         # Se fija siempre, incluso vacio: si no, desmarcar a todos no los quita.
-        vals["recipient_ids"] = [(6, 0, [int(x) for x in form.getlist("recipient_ids")
-                                         if str(x).isdigit()])]
+        # Solo se aceptan los clientes que el formulario ofrece: el write va en
+        # sudo, y sin este filtro un id manipulado dirigia la tarifa a
+        # cualquier contacto de la plataforma.
+        permitidos = {c.uuid_ref: c.id for c in self._clientes_de_tarifa(self._maq(), t)
+                      if c.uuid_ref}
+        vals["recipient_ids"] = [(6, 0, [permitidos[x] for x in form.getlist("recipient_refs")
+                                         if x in permitidos])]
         # En un savepoint: Odoo valida DESPUES de escribir, asi que sin esto
         # lo que el modelo rechaza se queda igual en la base. Dejaba
         # solicitudes fantasma en borrador que el cliente no podia ni
@@ -742,11 +1186,11 @@ class ShrimpCopacker(http.Controller):
                 if post.get("publicar"):
                     t.sudo().action_publish()
         except (ValidationError, ValueError) as e:
-            return request.redirect("/maquilador/tarifa/%s?error=%s"
-                                    % (ref, quote(str(e.args[0] if e.args else e))))
-        return request.redirect("/maquilador/tarifa/%s?mensaje=guardada" % ref)
+            return request.redirect("/copacker/tariffs/%s?error=%s"
+                                    % (ref, flash_message(str(e.args[0] if e.args else e))))
+        return request.redirect("/copacker/tariffs/%s?mensaje=guardada" % ref)
 
-    @http.route("/maquilador/tarifa/<ref>/archivar", type="http", auth="user",
+    @http.route("/copacker/tariffs/<ref>/archive", type="http", auth="user",
                 website=True, methods=["POST"], csrf=True)
     def copacker_tariff_archive(self, ref, **post):
         """action_archive_tariff() existia sin ruta: una tarifa equivocada se
@@ -761,21 +1205,25 @@ class ShrimpCopacker(http.Controller):
             with request.env.cr.savepoint():
                 t.sudo().action_archive_tariff()
         except (ValidationError, ValueError) as e:
-            return request.redirect("/maquilador/tarifa/%s?error=%s"
-                                    % (ref, quote(str(e.args[0] if e.args else e))))
-        return request.redirect("/maquilador/tarifa/%s?mensaje=archivada" % ref)
+            return request.redirect("/copacker/tariffs/%s?error=%s"
+                                    % (ref, flash_message(str(e.args[0] if e.args else e))))
+        return request.redirect("/copacker/tariffs/%s?mensaje=archivada" % ref)
 
     # ==================================================================
     # Perfil y liquidaciones
     # ==================================================================
-    @http.route("/maquilador/perfil", type="http", auth="user", website=True)
+    @http.route("/copacker/profile", type="http", auth="user", website=True)
     def copacker_profile(self, **kw):
+        salto = self._redirigir_a_plataforma_maquiladores()
+        if salto:
+            return salto
         return request.render("shrimp_copacking.copacker_profile", {
-            "maq": self._maq(),
+            # sudo: su propio teléfono/representante son solo-internos por RPC.
+            "maq": self._maq().sudo(),
             "mensaje": kw.get("mensaje"), "error": kw.get("error"),
         })
 
-    @http.route("/maquilador/perfil/guardar", type="http", auth="user",
+    @http.route("/copacker/profile/save", type="http", auth="user",
                 website=True, methods=["POST"], csrf=True)
     def copacker_profile_save(self, **post):
         maq = self._maq()
@@ -796,16 +1244,17 @@ class ShrimpCopacker(http.Controller):
         try:
             with request.env.cr.savepoint():
                 maq.sudo().write({
-                    "pack_razon_social": (post.get("pack_razon_social") or "").strip() or False,
-                    "pack_representante": (post.get("pack_representante") or "").strip() or False,
-                    "pack_telefono": (post.get("pack_telefono") or "").strip() or False,
-                    "pack_ubicacion": (post.get("pack_ubicacion") or "").strip() or False,
+                    "shrimp_razon_social": (post.get("pack_razon_social") or "").strip() or False,
+                    "shrimp_representante": (post.get("pack_representante") or "").strip() or False,
+                    "shrimp_telefono": (post.get("pack_telefono") or "").strip() or False,
+                    "shrimp_ubicacion": (post.get("pack_ubicacion") or "").strip() or False,
                     "pack_codigo_establecimiento": (post.get("pack_codigo_establecimiento") or "").strip() or False,
                     "pack_habilitacion_desde": post.get("pack_habilitacion_desde") or False,
                     "pack_habilitacion_hasta": post.get("pack_habilitacion_hasta") or False,
                     "pack_presentaciones": (post.get("pack_presentaciones") or "").strip() or False,
                     "pack_tarifa_nota": (post.get("pack_tarifa_nota") or "").strip() or False,
-                    "pack_capacidad_lb_semana": num("pack_capacidad_lb_semana"),
+                    "shrimp_capacity_value": num("pack_capacidad_lb_semana"),
+                    "shrimp_capacity_unit": "lb_week",
                     "pack_lote_minimo_lb": num("pack_lote_minimo_lb"),
                     "pack_desde_entero": num("pack_desde_entero"),
                     "pack_desde_cola": num("pack_desde_cola"),
@@ -813,12 +1262,15 @@ class ShrimpCopacker(http.Controller):
                     "pack_en_directorio": bool(post.get("pack_en_directorio")),
                 })
         except ValidationError as e:
-            return request.redirect("/maquilador/perfil?error=%s"
-                                    % quote(e.args[0] if e.args else ""))
-        return request.redirect("/maquilador/perfil?mensaje=guardado")
+            return request.redirect("/copacker/profile?error=%s"
+                                    % flash_message(e.args[0] if e.args else ""))
+        return request.redirect("/copacker/profile?mensaje=guardado")
 
-    @http.route("/maquilador/liquidaciones", type="http", auth="user", website=True)
+    @http.route("/copacker/settlements", type="http", auth="user", website=True)
     def copacker_settlements(self, **kw):
+        salto = self._redirigir_a_plataforma_maquiladores()
+        if salto:
+            return salto
         maq = self._maq()
         # El filtro por estado metia en la liquidacion las ordenes con el acta
         # en disputa: se cobraban libras que el cliente todavia esta

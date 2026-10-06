@@ -1,0 +1,663 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Empacadoras, calendario de aguajes del año anterior, datos de empacadora
+     en las camaroneras y cuentas de acceso.
+
+     GENERADO por shrimp_marketplace/scripts/demo_masivo (semilla fija).
+     No editar a mano: cambiar el generador y volver a ejecutarlo.
+     Fechas relativas al día de carga de la demo. -->
+<odoo>
+    <data noupdate="1">
+
+        <!-- ===== Aguajes del año anterior (los del año en curso los siembra data/) ===== -->
+        <function model="shrimp.aguaje" name="sembrar_anio" eval="[(DateTime.today() - relativedelta(years=1)).year]"/>
+
+        <!-- ===== Empacadoras nuevas ===== -->
+        <record id="demo_ms_emp_01" model="res.partner">
+            <field name="name">Empacadora Golfo Azul S.A.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">empacadora</field>
+            <field name="vat_or_id">0997017706001</field>
+            <field name="email">compras@empacadoragolfoazul.test</field>
+            <field name="phone">04-3172851</field>
+            <field name="street">Km 6 vía Durán-Tambo</field>
+            <field name="city">Durán</field>
+            <field name="state_id" ref="base.state_ec_09"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Empacadora Golfo Azul S.A.</field>
+            <field name="shrimp_representante">Acuic. Elena Aguirre Bajaña</field>
+            <field name="emp_contacto_comercial">Darwin Zambrano Murillo</field>
+            <field name="shrimp_telefono">04-3172851</field>
+            <field name="emp_codigo_exportador">EXP-7910</field>
+            <field name="emp_planta_nombre">Planta Durán</field>
+            <field name="shrimp_ubicacion">Durán, Guayas</field>
+            <field name="shrimp_capacity_value" eval="60000.0"/>
+            <field name="shrimp_capacity_unit">lb_day</field>
+            <field name="emp_cert_bap" eval="True"/>
+            <field name="emp_cert_asc" eval="False"/>
+            <field name="emp_cert_haccp" eval="True"/>
+            <field name="emp_cert_otras">BRCGS AA</field>
+            <field name="emp_aprobacion_sanitaria">ARCSA-PL-42661</field>
+            <field name="emp_mercado_asia" eval="False"/>
+            <field name="emp_mercado_europa" eval="True"/>
+            <field name="emp_mercado_norteamerica" eval="True"/>
+            <field name="emp_mercado_local" eval="False"/>
+            <field name="emp_aviso_frecuencia">diario</field>
+            <field name="emp_aviso_min_cantidad" eval="5000.0"/>
+            <field name="emp_aviso_incluir_no_dirigidos" eval="True"/>
+            <field name="emp_aviso_ultima_revision" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-1, hours=12, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="emp_aviso_ultimo_envio" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-1, hours=12, minutes=2)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="reserva_acepta" eval="True"/>
+            <field name="shrimp_account_state">approved</field>
+        </record>
+        <record id="demo_ms_emp_02" model="res.partner">
+            <field name="name">Mariscos del Estero S.A.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">empacadora</field>
+            <field name="vat_or_id">0991043217001</field>
+            <field name="email">compras@mariscosdelestero.test</field>
+            <field name="phone">04-6704167</field>
+            <field name="street">Km 22 vía Puerto Bolívar</field>
+            <field name="city">Guayaquil</field>
+            <field name="state_id" ref="base.state_ec_09"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Mariscos del Estero S.A.</field>
+            <field name="shrimp_representante">Econ. Lorena Pincay Valarezo</field>
+            <field name="emp_contacto_comercial">Glenda Delgado Álava</field>
+            <field name="shrimp_telefono">04-6704167</field>
+            <field name="emp_codigo_exportador">EXP-2691</field>
+            <field name="emp_planta_nombre">Planta Guayaquil</field>
+            <field name="shrimp_ubicacion">Guayaquil, Guayas</field>
+            <field name="shrimp_capacity_value" eval="400000.0"/>
+            <field name="shrimp_capacity_unit">lb_day</field>
+            <field name="emp_cert_bap" eval="False"/>
+            <field name="emp_cert_asc" eval="True"/>
+            <field name="emp_cert_haccp" eval="True"/>
+            <field name="emp_cert_otras">IFS Food</field>
+            <field name="emp_aprobacion_sanitaria">ARCSA-PL-13334</field>
+            <field name="emp_mercado_asia" eval="True"/>
+            <field name="emp_mercado_europa" eval="False"/>
+            <field name="emp_mercado_norteamerica" eval="True"/>
+            <field name="emp_mercado_local" eval="False"/>
+            <field name="emp_aviso_frecuencia">dos_veces</field>
+            <field name="emp_aviso_min_cantidad" eval="20000.0"/>
+            <field name="emp_aviso_incluir_no_dirigidos" eval="False"/>
+            <field name="emp_aviso_ultima_revision" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-1, hours=12, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="emp_aviso_ultimo_envio" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-1, hours=12, minutes=2)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="reserva_acepta" eval="True"/>
+            <field name="shrimp_account_state">approved</field>
+        </record>
+        <record id="demo_ms_emp_03" model="res.partner">
+            <field name="name">Procesadora Puerto Bolívar Seafood S.A.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">empacadora</field>
+            <field name="vat_or_id">0796570458001</field>
+            <field name="email">compras@procesadorapuertoboliva.test</field>
+            <field name="phone">07-2916599</field>
+            <field name="street">Km 17 vía Durán-Tambo</field>
+            <field name="city">Puerto Bolívar</field>
+            <field name="state_id" ref="base.state_ec_07"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Procesadora Puerto Bolívar Seafood S.A.</field>
+            <field name="shrimp_representante">Econ. Galo Holguín Alvarado</field>
+            <field name="emp_contacto_comercial">Rubén Borbor Jaramillo</field>
+            <field name="shrimp_telefono">07-2916599</field>
+            <field name="emp_codigo_exportador">EXP-8718</field>
+            <field name="emp_planta_nombre">Planta Puerto Bolívar</field>
+            <field name="shrimp_ubicacion">Puerto Bolívar, El Oro</field>
+            <field name="shrimp_capacity_value" eval="90000.0"/>
+            <field name="shrimp_capacity_unit">lb_day</field>
+            <field name="emp_cert_bap" eval="True"/>
+            <field name="emp_cert_asc" eval="True"/>
+            <field name="emp_cert_haccp" eval="True"/>
+            <field name="emp_cert_otras">FDA registrada</field>
+            <field name="emp_aprobacion_sanitaria">ARCSA-PL-61417</field>
+            <field name="emp_mercado_asia" eval="True"/>
+            <field name="emp_mercado_europa" eval="False"/>
+            <field name="emp_mercado_norteamerica" eval="False"/>
+            <field name="emp_mercado_local" eval="False"/>
+            <field name="emp_aviso_frecuencia">off</field>
+            <field name="emp_aviso_min_cantidad" eval="5000.0"/>
+            <field name="emp_aviso_incluir_no_dirigidos" eval="False"/>
+            <field name="emp_aviso_ultima_revision" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-1, hours=12, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="emp_aviso_ultimo_envio" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-1, hours=12, minutes=2)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="reserva_acepta" eval="False"/>
+            <field name="shrimp_account_state">approved</field>
+        </record>
+        <record id="demo_ms_emp_04" model="res.partner">
+            <field name="name">Exportadora Pacific Prime S.A.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">empacadora</field>
+            <field name="vat_or_id">0994568795001</field>
+            <field name="email">compras@exportadorapacificprime.test</field>
+            <field name="phone">04-4788784</field>
+            <field name="street">Km 13 vía Data</field>
+            <field name="city">Posorja</field>
+            <field name="state_id" ref="base.state_ec_09"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Exportadora Pacific Prime S.A.</field>
+            <field name="shrimp_representante">Ing. Gabriela Aguirre Carvajal</field>
+            <field name="emp_contacto_comercial">Johanna Benítez Delgado</field>
+            <field name="shrimp_telefono">04-4788784</field>
+            <field name="emp_codigo_exportador">EXP-5560</field>
+            <field name="emp_planta_nombre">Planta Posorja</field>
+            <field name="shrimp_ubicacion">Posorja, Guayas</field>
+            <field name="shrimp_capacity_value" eval="120000.0"/>
+            <field name="shrimp_capacity_unit">lb_day</field>
+            <field name="emp_cert_bap" eval="True"/>
+            <field name="emp_cert_asc" eval="False"/>
+            <field name="emp_cert_haccp" eval="True"/>
+            <field name="emp_cert_otras">Halal</field>
+            <field name="emp_aprobacion_sanitaria">ARCSA-PL-35111</field>
+            <field name="emp_mercado_asia" eval="True"/>
+            <field name="emp_mercado_europa" eval="False"/>
+            <field name="emp_mercado_norteamerica" eval="True"/>
+            <field name="emp_mercado_local" eval="True"/>
+            <field name="emp_aviso_frecuencia">diario</field>
+            <field name="emp_aviso_min_cantidad" eval="5000.0"/>
+            <field name="emp_aviso_incluir_no_dirigidos" eval="True"/>
+            <field name="emp_aviso_ultima_revision" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-1, hours=12, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="emp_aviso_ultimo_envio" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-1, hours=12, minutes=2)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="reserva_acepta" eval="True"/>
+            <field name="shrimp_account_state">approved</field>
+        </record>
+        <record id="demo_ms_emp_05" model="res.partner">
+            <field name="name">Frigorífico Manabita del Mar S.A.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">empacadora</field>
+            <field name="vat_or_id">1396288296001</field>
+            <field name="email">compras@frigorificomanabitadel.test</field>
+            <field name="phone">05-3335264</field>
+            <field name="street">Km 19 vía Puerto Bolívar</field>
+            <field name="city">Jaramijó</field>
+            <field name="state_id" ref="base.state_ec_13"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Frigorífico Manabita del Mar S.A.</field>
+            <field name="shrimp_representante">Lcdo. Freddy Torres Bajaña</field>
+            <field name="emp_contacto_comercial">Maritza Mendoza Castillo</field>
+            <field name="shrimp_telefono">05-3335264</field>
+            <field name="emp_codigo_exportador">EXP-7994</field>
+            <field name="emp_planta_nombre">Planta Jaramijó</field>
+            <field name="shrimp_ubicacion">Jaramijó, Manabí</field>
+            <field name="shrimp_capacity_value" eval="90000.0"/>
+            <field name="shrimp_capacity_unit">lb_day</field>
+            <field name="emp_cert_bap" eval="False"/>
+            <field name="emp_cert_asc" eval="False"/>
+            <field name="emp_cert_haccp" eval="True"/>
+            <field name="emp_cert_otras">Halal</field>
+            <field name="emp_aprobacion_sanitaria">ARCSA-PL-64591</field>
+            <field name="emp_mercado_asia" eval="True"/>
+            <field name="emp_mercado_europa" eval="True"/>
+            <field name="emp_mercado_norteamerica" eval="True"/>
+            <field name="emp_mercado_local" eval="True"/>
+            <field name="emp_aviso_frecuencia">diario</field>
+            <field name="emp_aviso_min_cantidad" eval="5000.0"/>
+            <field name="emp_aviso_incluir_no_dirigidos" eval="False"/>
+            <field name="emp_aviso_ultima_revision" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-1, hours=12, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="emp_aviso_ultimo_envio" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-1, hours=12, minutes=2)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="reserva_acepta" eval="True"/>
+            <field name="shrimp_account_state">approved</field>
+        </record>
+        <record id="demo_ms_emp_06" model="res.partner">
+            <field name="name">Empacadora Santa Elena Export S.A.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">empacadora</field>
+            <field name="vat_or_id">2497429415001</field>
+            <field name="email">compras@empacadorasantaelenaex.test</field>
+            <field name="phone">04-4204421</field>
+            <field name="street">Km 14 vía Durán-Tambo</field>
+            <field name="city">Santa Elena</field>
+            <field name="state_id" ref="base.state_ec_24"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Empacadora Santa Elena Export S.A.</field>
+            <field name="shrimp_representante">Econ. Cecilia Delgado Palacios</field>
+            <field name="emp_contacto_comercial">Édison Parrales Sánchez</field>
+            <field name="shrimp_telefono">04-4204421</field>
+            <field name="emp_codigo_exportador">EXP-4825</field>
+            <field name="emp_planta_nombre">Planta Santa Elena</field>
+            <field name="shrimp_ubicacion">Santa Elena, Santa Elena</field>
+            <field name="shrimp_capacity_value" eval="400000.0"/>
+            <field name="shrimp_capacity_unit">lb_day</field>
+            <field name="emp_cert_bap" eval="False"/>
+            <field name="emp_cert_asc" eval="True"/>
+            <field name="emp_cert_haccp" eval="True"/>
+            <field name="emp_cert_otras">BRCGS AA</field>
+            <field name="emp_aprobacion_sanitaria">ARCSA-PL-97480</field>
+            <field name="emp_mercado_asia" eval="True"/>
+            <field name="emp_mercado_europa" eval="False"/>
+            <field name="emp_mercado_norteamerica" eval="True"/>
+            <field name="emp_mercado_local" eval="False"/>
+            <field name="emp_aviso_frecuencia">dos_veces</field>
+            <field name="emp_aviso_min_cantidad" eval="0.0"/>
+            <field name="emp_aviso_incluir_no_dirigidos" eval="True"/>
+            <field name="emp_aviso_ultima_revision" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-1, hours=12, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="emp_aviso_ultimo_envio" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-1, hours=12, minutes=2)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="reserva_acepta" eval="True"/>
+            <field name="shrimp_account_state">approved</field>
+        </record>
+        <record id="demo_ms_emp_07" model="res.partner">
+            <field name="name">Langostinos del Ecuador Export S.A.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">empacadora</field>
+            <field name="vat_or_id">0996287564001</field>
+            <field name="email">compras@langostinosdelecuadore.test</field>
+            <field name="phone">04-3170493</field>
+            <field name="street">Km 13 vía Manta-Montecristi</field>
+            <field name="city">Taura</field>
+            <field name="state_id" ref="base.state_ec_09"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Langostinos del Ecuador Export S.A.</field>
+            <field name="shrimp_representante">Ing. Verónica Aguirre Suárez</field>
+            <field name="emp_contacto_comercial">Ángel Palacios Chávez</field>
+            <field name="shrimp_telefono">04-3170493</field>
+            <field name="emp_codigo_exportador">EXP-3391</field>
+            <field name="emp_planta_nombre">Planta Taura</field>
+            <field name="shrimp_ubicacion">Taura, Guayas</field>
+            <field name="shrimp_capacity_value" eval="60000.0"/>
+            <field name="shrimp_capacity_unit">lb_day</field>
+            <field name="emp_cert_bap" eval="True"/>
+            <field name="emp_cert_asc" eval="False"/>
+            <field name="emp_cert_haccp" eval="True"/>
+            <field name="emp_cert_otras">FDA registrada</field>
+            <field name="emp_aprobacion_sanitaria">ARCSA-PL-81665</field>
+            <field name="emp_mercado_asia" eval="True"/>
+            <field name="emp_mercado_europa" eval="True"/>
+            <field name="emp_mercado_norteamerica" eval="False"/>
+            <field name="emp_mercado_local" eval="False"/>
+            <field name="emp_aviso_frecuencia">diario</field>
+            <field name="emp_aviso_min_cantidad" eval="5000.0"/>
+            <field name="emp_aviso_incluir_no_dirigidos" eval="False"/>
+            <field name="emp_aviso_ultima_revision" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-1, hours=12, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="emp_aviso_ultimo_envio" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-1, hours=12, minutes=2)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="reserva_acepta" eval="True"/>
+            <field name="shrimp_account_state">approved</field>
+        </record>
+        <record id="demo_ms_emp_08" model="res.partner">
+            <field name="name">Procesadora Acuícola Machala S.A.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">empacadora</field>
+            <field name="vat_or_id">0794289034001</field>
+            <field name="email">compras@procesadoraacuicolamach.test</field>
+            <field name="phone">07-5582365</field>
+            <field name="street">Km 12 vía Puerto Bolívar</field>
+            <field name="city">Machala</field>
+            <field name="state_id" ref="base.state_ec_07"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Procesadora Acuícola Machala S.A.</field>
+            <field name="shrimp_representante">Blgo. José Macías Quimí</field>
+            <field name="emp_contacto_comercial">Fernanda Parrales Macías</field>
+            <field name="shrimp_telefono">07-5582365</field>
+            <field name="emp_codigo_exportador">EXP-8240</field>
+            <field name="emp_planta_nombre">Planta Machala</field>
+            <field name="shrimp_ubicacion">Machala, El Oro</field>
+            <field name="shrimp_capacity_value" eval="400000.0"/>
+            <field name="shrimp_capacity_unit">lb_day</field>
+            <field name="emp_cert_bap" eval="True"/>
+            <field name="emp_cert_asc" eval="True"/>
+            <field name="emp_cert_haccp" eval="True"/>
+            <field name="emp_aprobacion_sanitaria">ARCSA-PL-11398</field>
+            <field name="emp_mercado_asia" eval="True"/>
+            <field name="emp_mercado_europa" eval="False"/>
+            <field name="emp_mercado_norteamerica" eval="False"/>
+            <field name="emp_mercado_local" eval="True"/>
+            <field name="emp_aviso_frecuencia">diario</field>
+            <field name="emp_aviso_min_cantidad" eval="20000.0"/>
+            <field name="emp_aviso_incluir_no_dirigidos" eval="False"/>
+            <field name="emp_aviso_ultima_revision" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-1, hours=12, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="emp_aviso_ultimo_envio" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-1, hours=12, minutes=2)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="reserva_acepta" eval="True"/>
+            <field name="shrimp_account_state">approved</field>
+        </record>
+        <record id="demo_ms_emp_09" model="res.partner">
+            <field name="name">Seafood Chongón Cía. Ltda.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">empacadora</field>
+            <field name="vat_or_id">0993990639001</field>
+            <field name="email">compras@seafoodchongon.test</field>
+            <field name="phone">04-4450273</field>
+            <field name="street">Km 15 vía a la Costa</field>
+            <field name="city">Chongón</field>
+            <field name="state_id" ref="base.state_ec_09"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Seafood Chongón Cía. Ltda.</field>
+            <field name="shrimp_representante">Ing. Glenda Zambrano Tomalá</field>
+            <field name="emp_contacto_comercial">Elena Lindao Cabrera</field>
+            <field name="shrimp_telefono">04-4450273</field>
+            <field name="emp_codigo_exportador">EXP-8063</field>
+            <field name="emp_planta_nombre">Planta Chongón</field>
+            <field name="shrimp_ubicacion">Chongón, Guayas</field>
+            <field name="shrimp_capacity_value" eval="120000.0"/>
+            <field name="shrimp_capacity_unit">lb_day</field>
+            <field name="emp_cert_bap" eval="False"/>
+            <field name="emp_cert_asc" eval="False"/>
+            <field name="emp_cert_haccp" eval="True"/>
+            <field name="emp_aprobacion_sanitaria">ARCSA-PL-42961</field>
+            <field name="emp_mercado_asia" eval="True"/>
+            <field name="emp_mercado_europa" eval="True"/>
+            <field name="emp_mercado_norteamerica" eval="False"/>
+            <field name="emp_mercado_local" eval="False"/>
+            <field name="emp_aviso_frecuencia">diario</field>
+            <field name="emp_aviso_min_cantidad" eval="20000.0"/>
+            <field name="emp_aviso_incluir_no_dirigidos" eval="True"/>
+            <field name="emp_aviso_ultima_revision" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-1, hours=12, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="emp_aviso_ultimo_envio" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-1, hours=12, minutes=2)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="reserva_acepta" eval="True"/>
+            <field name="shrimp_account_state">approved</field>
+        </record>
+        <record id="demo_ms_emp_10" model="res.partner">
+            <field name="name">Empacadora Costa Verde Export S.A.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">empacadora</field>
+            <field name="vat_or_id">1393021736001</field>
+            <field name="email">compras@empacadoracostaverdeex.test</field>
+            <field name="phone">05-5325338</field>
+            <field name="street">Km 22 vía Durán-Tambo</field>
+            <field name="city">Manta</field>
+            <field name="state_id" ref="base.state_ec_13"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Empacadora Costa Verde Export S.A.</field>
+            <field name="shrimp_representante">Acuic. Doris Suárez Andrade</field>
+            <field name="emp_contacto_comercial">Karina Vera Loor</field>
+            <field name="shrimp_telefono">05-5325338</field>
+            <field name="emp_codigo_exportador">EXP-6927</field>
+            <field name="emp_planta_nombre">Planta Manta</field>
+            <field name="shrimp_ubicacion">Manta, Manabí</field>
+            <field name="shrimp_capacity_value" eval="120000.0"/>
+            <field name="shrimp_capacity_unit">lb_day</field>
+            <field name="emp_cert_bap" eval="True"/>
+            <field name="emp_cert_asc" eval="True"/>
+            <field name="emp_cert_haccp" eval="True"/>
+            <field name="emp_aprobacion_sanitaria">ARCSA-PL-72897</field>
+            <field name="emp_mercado_asia" eval="False"/>
+            <field name="emp_mercado_europa" eval="True"/>
+            <field name="emp_mercado_norteamerica" eval="False"/>
+            <field name="emp_mercado_local" eval="False"/>
+            <field name="emp_aviso_frecuencia">diario</field>
+            <field name="emp_aviso_min_cantidad" eval="0.0"/>
+            <field name="emp_aviso_incluir_no_dirigidos" eval="False"/>
+            <field name="emp_aviso_ultima_revision" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-1, hours=12, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="emp_aviso_ultimo_envio" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-1, hours=12, minutes=2)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="reserva_acepta" eval="True"/>
+            <field name="shrimp_account_state">approved</field>
+        </record>
+
+        <!-- ===== Empacadoras recién registradas, todavía sin aprobar (sin operaciones) ===== -->
+        <record id="demo_ms_emp_nueva_1" model="res.partner">
+            <field name="name">Exportadora Nuevo Horizonte S.A.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">empacadora</field>
+            <field name="vat_or_id">0991359036001</field>
+            <field name="email">compras@exportadoranuevohorizon.test</field>
+            <field name="phone">04-6708759</field>
+            <field name="city">Guayaquil</field>
+            <field name="state_id" ref="base.state_ec_09"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Exportadora Nuevo Horizonte S.A.</field>
+            <field name="shrimp_representante">Lcdo. Darwin Mite Aguilar</field>
+            <field name="emp_planta_nombre">Planta Guayaquil</field>
+            <field name="shrimp_ubicacion">Guayaquil</field>
+            <field name="shrimp_account_state">pending</field>
+            <field name="comment">Registro web pendiente de revisar la aprobación sanitaria.</field>
+        </record>
+        <record id="demo_ms_emp_nueva_2" model="res.partner">
+            <field name="name">Mariscos Isla Verde S.A.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">empacadora</field>
+            <field name="vat_or_id">0796570466001</field>
+            <field name="email">compras@mariscosislaverde.test</field>
+            <field name="phone">07-2153056</field>
+            <field name="city">Machala</field>
+            <field name="state_id" ref="base.state_ec_07"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Mariscos Isla Verde S.A.</field>
+            <field name="shrimp_representante">Ing. Rocío Murillo Torres</field>
+            <field name="emp_planta_nombre">Planta Machala</field>
+            <field name="shrimp_ubicacion">Machala</field>
+            <field name="shrimp_account_state">pending</field>
+            <field name="comment">Registro web pendiente de revisar la aprobación sanitaria.</field>
+        </record>
+        <record id="demo_ms_emp_nueva_3" model="res.partner">
+            <field name="name">Procesadora Delta Export S.A.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">empacadora</field>
+            <field name="vat_or_id">0991050590001</field>
+            <field name="email">compras@procesadoradeltaexport.test</field>
+            <field name="phone">04-6623202</field>
+            <field name="city">Durán</field>
+            <field name="state_id" ref="base.state_ec_09"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Procesadora Delta Export S.A.</field>
+            <field name="shrimp_representante">Acuic. Elena Yagual Ronquillo</field>
+            <field name="emp_planta_nombre">Planta Durán</field>
+            <field name="shrimp_ubicacion">Durán</field>
+            <field name="shrimp_account_state">rejected</field>
+            <field name="comment">Rechazada: el código de exportador no corresponde a la razón social.</field>
+        </record>
+
+        <!-- ===== Datos que la empacadora mira de cada camaronera ===== -->
+
+        <!-- ===== Cuentas de acceso de empacadoras y de las camaroneras de la demo de listas ===== -->
+        <record id="demo_ms_user_pk_aquagold" model="res.users">
+            <field name="partner_id" ref="demo_pk_aquagold"/>
+            <field name="login">empacadora.01@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_pk_ecuamarisco_s_a" model="res.users">
+            <field name="partner_id" ref="demo_pk_ecuamarisco_s_a"/>
+            <field name="login">empacadora.02@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_pk_empacadora_trazul" model="res.users">
+            <field name="partner_id" ref="demo_pk_empacadora_demo_trazul"/>
+            <field name="login">empacadora.03@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_pk_pesquera_del_golfo" model="res.users">
+            <field name="partner_id" ref="demo_pk_pesquera_del_golfo"/>
+            <field name="login">empacadora.04@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_pk_exportadora_manabi" model="res.users">
+            <field name="partner_id" ref="demo_pk_exportadora_manabi"/>
+            <field name="login">empacadora.05@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_ms_emp_01" model="res.users">
+            <field name="partner_id" ref="demo_ms_emp_01"/>
+            <field name="login">empacadora.06@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_ms_emp_02" model="res.users">
+            <field name="partner_id" ref="demo_ms_emp_02"/>
+            <field name="login">empacadora.07@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_ms_emp_03" model="res.users">
+            <field name="partner_id" ref="demo_ms_emp_03"/>
+            <field name="login">empacadora.08@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_ms_emp_04" model="res.users">
+            <field name="partner_id" ref="demo_ms_emp_04"/>
+            <field name="login">empacadora.09@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_ms_emp_05" model="res.users">
+            <field name="partner_id" ref="demo_ms_emp_05"/>
+            <field name="login">empacadora.10@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_ms_emp_06" model="res.users">
+            <field name="partner_id" ref="demo_ms_emp_06"/>
+            <field name="login">empacadora.11@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_ms_emp_07" model="res.users">
+            <field name="partner_id" ref="demo_ms_emp_07"/>
+            <field name="login">empacadora.12@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_ms_emp_08" model="res.users">
+            <field name="partner_id" ref="demo_ms_emp_08"/>
+            <field name="login">empacadora.13@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_ms_emp_09" model="res.users">
+            <field name="partner_id" ref="demo_ms_emp_09"/>
+            <field name="login">empacadora.14@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_ms_emp_10" model="res.users">
+            <field name="partner_id" ref="demo_ms_emp_10"/>
+            <field name="login">empacadora.15@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_pk_grupo_burgos" model="res.users">
+            <field name="partner_id" ref="demo_pk_grupo_burgos"/>
+            <field name="login">camaronera.39@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_pk_camaronera_escalante_s_a" model="res.users">
+            <field name="partner_id" ref="demo_pk_camaronera_escalante_s_a"/>
+            <field name="login">camaronera.40@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_pk_fimasa_fincas_marinas_s_a" model="res.users">
+            <field name="partner_id" ref="demo_pk_fimasa_fincas_marinas_s_a"/>
+            <field name="login">camaronera.41@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_pk_camaronera_rolesa" model="res.users">
+            <field name="partner_id" ref="demo_pk_camaronera_rolesa"/>
+            <field name="login">camaronera.42@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+
+        <!-- ===== Varios perfiles por cuenta: camaroneras que también son empacadoras ===== -->
+        <record id="demo_mp_demo_ms_cam_05_empacadora" model="shrimp.partner.role">
+            <field name="partner_id" ref="shrimp_user_registry.demo_ms_cam_05"/>
+            <field name="role">empacadora</field>
+            <field name="state">approved</field>
+            <field name="notes">Demo multiperfil: procesa su propia cosecha y compra a terceros.</field>
+        </record>
+        <record id="demo_mp_demo_ms_cam_07_empacadora" model="shrimp.partner.role">
+            <field name="partner_id" ref="shrimp_user_registry.demo_ms_cam_07"/>
+            <field name="role">empacadora</field>
+            <field name="state">pending</field>
+            <field name="notes">Demo multiperfil: solicitud pendiente de revisión de la planta.</field>
+        </record>
+    </data>
+    <!-- Escrituras idempotentes: se aplican al instalar y también en -u. -->
+    <data noupdate="0">
+        <function model="res.partner" name="write" eval="[obj().search([('id', 'in', [r.id for r in [obj().env.ref(x, False) for x in ['shrimp_user_registry.demo_ms_cam_grupo_1']] if r])] + [('shrimp_registro_acuicola', '=', False)]).ids, {'shrimp_registro_acuicola': 'GR-1200', 'farm_tasa_descuento_anual': 11.0, 'farm_publicar_historial': False}]"/>
+        <function model="res.partner" name="write" eval="[obj().search([('id', 'in', [r.id for r in [obj().env.ref(x, False) for x in ['shrimp_user_registry.demo_ms_cam_grupo_2']] if r])] + [('shrimp_registro_acuicola', '=', False)]).ids, {'shrimp_registro_acuicola': 'GR-1207', 'farm_tasa_descuento_anual': 12.5, 'farm_publicar_historial': False}]"/>
+        <function model="res.partner" name="write" eval="[obj().search([('id', 'in', [r.id for r in [obj().env.ref(x, False) for x in ['shrimp_user_registry.demo_ms_cam_grupo_3']] if r])] + [('shrimp_registro_acuicola', '=', False)]).ids, {'shrimp_registro_acuicola': 'GR-1214', 'farm_tasa_descuento_anual': 11.0, 'farm_publicar_historial': False}]"/>
+        <function model="res.partner" name="write" eval="[obj().search([('id', 'in', [r.id for r in [obj().env.ref(x, False) for x in ['shrimp_user_registry.demo_ms_cam_01']] if r])] + [('shrimp_registro_acuicola', '=', False)]).ids, {'shrimp_registro_acuicola': 'GR-1221', 'farm_publicar_historial': False}]"/>
+        <function model="res.partner" name="write" eval="[obj().search([('id', 'in', [r.id for r in [obj().env.ref(x, False) for x in ['shrimp_user_registry.demo_ms_cam_02']] if r])] + [('shrimp_registro_acuicola', '=', False)]).ids, {'shrimp_registro_acuicola': 'GR-1228', 'farm_publicar_historial': False}]"/>
+        <function model="res.partner" name="write" eval="[obj().search([('id', 'in', [r.id for r in [obj().env.ref(x, False) for x in ['shrimp_user_registry.demo_ms_cam_03']] if r])] + [('shrimp_registro_acuicola', '=', False)]).ids, {'shrimp_registro_acuicola': 'GR-1235', 'farm_tasa_descuento_anual': 9.5, 'farm_publicar_historial': True}]"/>
+        <function model="res.partner" name="write" eval="[obj().search([('id', 'in', [r.id for r in [obj().env.ref(x, False) for x in ['shrimp_user_registry.demo_ms_cam_04']] if r])] + [('shrimp_registro_acuicola', '=', False)]).ids, {'shrimp_registro_acuicola': 'GR-1242', 'farm_publicar_historial': True}]"/>
+        <function model="res.partner" name="write" eval="[obj().search([('id', 'in', [r.id for r in [obj().env.ref(x, False) for x in ['shrimp_user_registry.demo_ms_cam_05']] if r])] + [('shrimp_registro_acuicola', '=', False)]).ids, {'shrimp_registro_acuicola': 'GR-1249', 'farm_publicar_historial': False}]"/>
+        <function model="res.partner" name="write" eval="[obj().search([('id', 'in', [r.id for r in [obj().env.ref(x, False) for x in ['shrimp_user_registry.demo_ms_cam_06']] if r])] + [('shrimp_registro_acuicola', '=', False)]).ids, {'shrimp_registro_acuicola': 'GR-1256', 'farm_tasa_descuento_anual': 9.5, 'farm_publicar_historial': False}]"/>
+        <function model="res.partner" name="write" eval="[obj().search([('id', 'in', [r.id for r in [obj().env.ref(x, False) for x in ['shrimp_user_registry.demo_ms_cam_07']] if r])] + [('shrimp_registro_acuicola', '=', False)]).ids, {'shrimp_registro_acuicola': 'GR-1263', 'farm_publicar_historial': False}]"/>
+        <function model="res.partner" name="write" eval="[obj().search([('id', 'in', [r.id for r in [obj().env.ref(x, False) for x in ['shrimp_user_registry.demo_ms_cam_08']] if r])] + [('shrimp_registro_acuicola', '=', False)]).ids, {'shrimp_registro_acuicola': 'GR-1270', 'farm_tasa_descuento_anual': 9.5, 'farm_publicar_historial': True}]"/>
+        <function model="res.partner" name="write" eval="[obj().search([('id', 'in', [r.id for r in [obj().env.ref(x, False) for x in ['shrimp_user_registry.demo_ms_cam_09']] if r])] + [('shrimp_registro_acuicola', '=', False)]).ids, {'shrimp_registro_acuicola': 'GR-1277', 'farm_tasa_descuento_anual': 9.5, 'farm_publicar_historial': False}]"/>
+        <function model="res.partner" name="write" eval="[obj().search([('id', 'in', [r.id for r in [obj().env.ref(x, False) for x in ['shrimp_user_registry.demo_ms_cam_10']] if r])] + [('shrimp_registro_acuicola', '=', False)]).ids, {'shrimp_registro_acuicola': 'GR-1284', 'farm_tasa_descuento_anual': 9.5, 'farm_publicar_historial': False}]"/>
+        <function model="res.partner" name="write" eval="[obj().search([('id', 'in', [r.id for r in [obj().env.ref(x, False) for x in ['shrimp_user_registry.demo_ms_cam_11']] if r])] + [('shrimp_registro_acuicola', '=', False)]).ids, {'shrimp_registro_acuicola': 'GR-1291', 'farm_tasa_descuento_anual': 12.5, 'farm_publicar_historial': True}]"/>
+        <function model="res.partner" name="write" eval="[obj().search([('id', 'in', [r.id for r in [obj().env.ref(x, False) for x in ['shrimp_user_registry.demo_ms_cam_12']] if r])] + [('shrimp_registro_acuicola', '=', False)]).ids, {'shrimp_registro_acuicola': 'GR-1298', 'farm_tasa_descuento_anual': 11.0, 'farm_publicar_historial': True}]"/>
+        <function model="res.partner" name="write" eval="[obj().search([('id', 'in', [r.id for r in [obj().env.ref(x, False) for x in ['shrimp_user_registry.demo_ms_cam_13']] if r])] + [('shrimp_registro_acuicola', '=', False)]).ids, {'shrimp_registro_acuicola': 'GR-1305', 'farm_tasa_descuento_anual': 14.0, 'farm_publicar_historial': True}]"/>
+        <function model="res.partner" name="write" eval="[obj().search([('id', 'in', [r.id for r in [obj().env.ref(x, False) for x in ['shrimp_user_registry.demo_ms_cam_14']] if r])] + [('shrimp_registro_acuicola', '=', False)]).ids, {'shrimp_registro_acuicola': 'GR-1312', 'farm_publicar_historial': True}]"/>
+        <function model="res.partner" name="write" eval="[obj().search([('id', 'in', [r.id for r in [obj().env.ref(x, False) for x in ['shrimp_user_registry.demo_ms_cam_15']] if r])] + [('shrimp_registro_acuicola', '=', False)]).ids, {'shrimp_registro_acuicola': 'GR-1319', 'farm_publicar_historial': False}]"/>
+        <function model="res.partner" name="write" eval="[obj().search([('id', 'in', [r.id for r in [obj().env.ref(x, False) for x in ['shrimp_user_registry.demo_ms_cam_16']] if r])] + [('shrimp_registro_acuicola', '=', False)]).ids, {'shrimp_registro_acuicola': 'GR-1326', 'farm_publicar_historial': False}]"/>
+        <function model="res.partner" name="write" eval="[obj().search([('id', 'in', [r.id for r in [obj().env.ref(x, False) for x in ['shrimp_user_registry.demo_ms_cam_17']] if r])] + [('shrimp_registro_acuicola', '=', False)]).ids, {'shrimp_registro_acuicola': 'GR-1333', 'farm_tasa_descuento_anual': 9.5, 'farm_publicar_historial': False}]"/>
+        <function model="res.partner" name="write" eval="[obj().search([('id', 'in', [r.id for r in [obj().env.ref(x, False) for x in ['shrimp_user_registry.demo_ms_cam_18']] if r])] + [('shrimp_registro_acuicola', '=', False)]).ids, {'shrimp_registro_acuicola': 'GR-1340', 'farm_tasa_descuento_anual': 12.5, 'farm_publicar_historial': False}]"/>
+        <function model="res.partner" name="write" eval="[obj().search([('id', 'in', [r.id for r in [obj().env.ref(x, False) for x in ['shrimp_user_registry.demo_ms_cam_19']] if r])] + [('shrimp_registro_acuicola', '=', False)]).ids, {'shrimp_registro_acuicola': 'GR-1347', 'farm_tasa_descuento_anual': 14.0, 'farm_publicar_historial': False}]"/>
+        <function model="res.partner" name="write" eval="[obj().search([('id', 'in', [r.id for r in [obj().env.ref(x, False) for x in ['shrimp_user_registry.demo_ms_cam_20']] if r])] + [('shrimp_registro_acuicola', '=', False)]).ids, {'shrimp_registro_acuicola': 'GR-1354', 'farm_publicar_historial': False}]"/>
+        <function model="res.partner" name="write" eval="[obj().search([('id', 'in', [r.id for r in [obj().env.ref(x, False) for x in ['shrimp_user_registry.demo_ms_cam_21']] if r])] + [('shrimp_registro_acuicola', '=', False)]).ids, {'shrimp_registro_acuicola': 'GR-1361', 'farm_tasa_descuento_anual': 9.5, 'farm_publicar_historial': False}]"/>
+        <function model="res.partner" name="write" eval="[obj().search([('id', 'in', [r.id for r in [obj().env.ref(x, False) for x in ['shrimp_user_registry.demo_ms_cam_22']] if r])] + [('shrimp_registro_acuicola', '=', False)]).ids, {'shrimp_registro_acuicola': 'GR-1368', 'farm_tasa_descuento_anual': 16.5, 'farm_publicar_historial': False}]"/>
+        <function model="res.partner" name="write" eval="[obj().search([('id', 'in', [r.id for r in [obj().env.ref(x, False) for x in ['shrimp_user_registry.demo_ms_cam_23']] if r])] + [('shrimp_registro_acuicola', '=', False)]).ids, {'shrimp_registro_acuicola': 'GR-1375', 'farm_tasa_descuento_anual': 14.0, 'farm_publicar_historial': True}]"/>
+        <function model="res.partner" name="write" eval="[obj().search([('id', 'in', [r.id for r in [obj().env.ref(x, False) for x in ['shrimp_user_registry.demo_ms_cam_24']] if r])] + [('shrimp_registro_acuicola', '=', False)]).ids, {'shrimp_registro_acuicola': 'GR-1382', 'farm_publicar_historial': True}]"/>
+        <function model="res.partner" name="write" eval="[obj().search([('id', 'in', [r.id for r in [obj().env.ref(x, False) for x in ['shrimp_user_registry.demo_ms_cam_25']] if r])] + [('shrimp_registro_acuicola', '=', False)]).ids, {'shrimp_registro_acuicola': 'GR-1389', 'farm_publicar_historial': False}]"/>
+        <function model="res.partner" name="write" eval="[obj().search([('id', 'in', [r.id for r in [obj().env.ref(x, False) for x in ['shrimp_user_registry.demo_ms_cam_26']] if r])] + [('shrimp_registro_acuicola', '=', False)]).ids, {'shrimp_registro_acuicola': 'GR-1396', 'farm_tasa_descuento_anual': 14.0, 'farm_publicar_historial': False}]"/>
+        <function model="res.partner" name="write" eval="[obj().search([('id', 'in', [r.id for r in [obj().env.ref(x, False) for x in ['shrimp_user_registry.demo_ms_cam_27']] if r])] + [('shrimp_registro_acuicola', '=', False)]).ids, {'shrimp_registro_acuicola': 'GR-1403', 'farm_publicar_historial': False}]"/>
+        <function model="res.partner" name="write" eval="[obj().search([('id', 'in', [r.id for r in [obj().env.ref(x, False) for x in ['shrimp_user_registry.demo_ms_cam_28']] if r])] + [('shrimp_registro_acuicola', '=', False)]).ids, {'shrimp_registro_acuicola': 'GR-1410', 'farm_tasa_descuento_anual': 16.5, 'farm_publicar_historial': True}]"/>
+        <function model="res.partner" name="write" eval="[obj().search([('id', 'in', [r.id for r in [obj().env.ref(x, False) for x in ['shrimp_user_registry.demo_ms_cam_29']] if r])] + [('shrimp_registro_acuicola', '=', False)]).ids, {'shrimp_registro_acuicola': 'GR-1417', 'farm_tasa_descuento_anual': 14.0, 'farm_publicar_historial': False}]"/>
+        <function model="res.partner" name="write" eval="[obj().search([('id', 'in', [r.id for r in [obj().env.ref(x, False) for x in ['shrimp_user_registry.demo_ms_cam_30']] if r])] + [('shrimp_registro_acuicola', '=', False)]).ids, {'shrimp_registro_acuicola': 'GR-1424', 'farm_tasa_descuento_anual': 9.5, 'farm_publicar_historial': True}]"/>
+        <function model="res.partner" name="write" eval="[obj().search([('id', 'in', [r.id for r in [obj().env.ref(x, False) for x in ['shrimp_user_registry.demo_ms_cam_05']] if r])] + [('emp_planta_nombre', '=', False)]).ids, {'emp_planta_nombre': 'Planta propia de proceso', 'emp_codigo_exportador': 'EXP-MP01', 'emp_contacto_comercial': 'Econ. Jorge Muñoz Jaramillo'}]"/>
+        <function model="res.partner" name="write" eval="[obj().search([('id', 'in', [r.id for r in [obj().env.ref(x, False) for x in ['shrimp_user_registry.demo_ms_cam_07']] if r])] + [('emp_planta_nombre', '=', False)]).ids, {'emp_planta_nombre': 'Planta en habilitación', 'emp_codigo_exportador': False, 'emp_contacto_comercial': 'Blgo. Patricio León Aguilar'}]"/>
+    </data>
+</odoo>

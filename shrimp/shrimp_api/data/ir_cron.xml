@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ir_cron_webhook_send" model="ir.cron">
+        <field name="name">API externa: enviar webhooks pendientes</field>
+        <field name="model_id" ref="model_shrimp_webhook_delivery"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_send()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">minutes</field>
+        <field name="active" eval="True"/>
+    </record>
+    <record id="ir_cron_api_housekeeping" model="ir.cron">
+        <field name="name">API externa: contadores de uso e idempotencia (limpieza)</field>
+        <field name="model_id" ref="model_shrimp_api_rate_bucket"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_rollup()
+env['shrimp.api.idempotency']._cron_cleanup()
+env['shrimp.webhook.delivery']._cron_cleanup()</field>
+        <field name="interval_number">10</field>
+        <field name="interval_type">minutes</field>
+        <field name="active" eval="True"/>
+    </record>
+</odoo>

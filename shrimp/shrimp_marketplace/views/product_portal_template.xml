@@ -17,117 +17,58 @@
                 </div>
 
                 <div class="shrimp-page shrimp-page--full pb-4" id="listado">
-                    <div class="s-market-layout">
+                    <!-- Mismo patrón que el catálogo: lista a todo el ancho, filtros en
+                         un cajón lateral (plantillas reutilizables, contexto `fd`). Las
+                         opciones salen de los productos del vendedor: sin «Vendedor»
+                         (es uno mismo), estadíos y ubicaciones que tiene, «Perfil» solo
+                         en cuentas con varios perfiles que venden. -->
+                    <div class="s-market-main s-market-main--full">
 
-                        <!-- ===== SIDEBAR de filtros ===== -->
-                        <aside class="s-market-side">
-                            <form method="get" action="/marketplace/products" class="s-filter-panel">
-                                <div class="s-filter-head">
-                                    <div class="s-filter-head-title">
-                                        <span class="s-filter-icon"><i class="fa fa-sliders"></i></span>
-                                        <span>Filtros</span>
-                                    </div>
-                                    <a class="s-filter-clear" href="/marketplace/products">Limpiar</a>
-                                </div>
+                            <t t-call="shrimp_marketplace.s_filter_toolbar"/>
+                            <t t-call="shrimp_marketplace.s_filter_tags"/>
 
-                                <!-- Buscar -->
-                                <div class="s-filter-sec">
-                                    <div class="s-filter-sec-label"><i class="fa fa-search"></i> Buscar</div>
-                                    <input class="form-control" type="text" name="q"
-                                        t-att-value="filters.get('q') or ''"
-                                        placeholder="Nombre, especie o ubicación…" />
-                                </div>
-
-                                <!-- Ubicación -->
-                                <div class="s-filter-sec">
-                                    <div class="s-filter-sec-label"><i class="fa fa-map-marker"></i> Ubicación</div>
-                                    <t t-set="provinces" t-value="['Azuay','Bolívar','Cañar','Carchi','Chimborazo','Cotopaxi','El Oro','Esmeraldas','Galápagos','Guayas','Imbabura','Loja','Los Ríos','Manabí','Morona Santiago','Napo','Orellana','Pastaza','Pichincha','Santa Elena','Santo Domingo de los Tsáchilas','Sucumbíos','Tungurahua','Zamora Chinchipe']"/>
-                                    <select class="form-select" name="location">
-                                        <option value="">Todas las zonas</option>
-                                        <t t-foreach="provinces" t-as="loc">
-                                            <option t-att-value="loc" t-att-selected="(filters.get('location') or '') == loc"><t t-esc="loc" /></option>
-                                        </t>
-                                    </select>
-                                </div>
-
-                                <!-- Estado del producto -->
-                                <div class="s-filter-sec">
-                                    <div class="s-filter-sec-label"><i class="fa fa-flag"></i> Estado</div>
-                                    <t t-set="_ps" t-value="filters.get('pstate') or ''"/>
-                                    <select class="form-select" name="pstate">
-                                        <option value="" t-att-selected="not _ps">Todos</option>
-                                        <option value="published" t-att-selected="_ps == 'published'">Publicados</option>
-                                        <option value="draft" t-att-selected="_ps == 'draft'">Borradores</option>
-                                        <option value="sold" t-att-selected="_ps == 'sold'">Vendidos</option>
-                                        <option value="archived" t-att-selected="_ps == 'archived'">Archivados</option>
-                                    </select>
-                                </div>
-
-                                <!-- Rango de precio -->
-                                <div class="s-filter-sec">
-                                    <div class="s-filter-sec-label"><i class="fa fa-tag"></i> Precio (por unidad)</div>
-                                    <div class="s-price-range">
-                                        <div class="s-price-input">
-                                            <span>$</span>
-                                            <input type="number" step="0.01" min="0" name="price_min"
-                                                t-att-value="filters.get('price_min') or ''" placeholder="mín" />
-                                        </div>
-                                        <span class="s-price-sep">—</span>
-                                        <div class="s-price-input">
-                                            <span>$</span>
-                                            <input type="number" step="0.01" min="0" name="price_max"
-                                                t-att-value="filters.get('price_max') or ''" placeholder="máx" />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- conserva la etapa activa al aplicar otros filtros -->
-                                <input type="hidden" name="stage" t-att-value="filters.get('stage') or ''" />
-                                <button class="s-btn s-btn-primary s-btn-block" type="submit">
-                                    <i class="fa fa-search me-1"></i> Aplicar filtros
-                                </button>
-                            </form>
-                        </aside>
-
-                        <!-- ===== MAIN: chips de etapa + contador + grid ===== -->
-                        <div class="s-market-main">
-
-                            <!-- Chips de etapa -->
-                            <div class="s-cat-chips s-cat-chips--scroll mb-3">
-                                <a t-att-class="'s-cat-chip' + ('' if filters.get('stage') else ' active')" href="/marketplace/products">Todas</a>
-                                <t t-foreach="stage_options" t-as="opt">
-                                    <a t-att-class="'s-cat-chip' + (' active' if str(filters.get('stage') or '') == str(opt.id) else '')"
-                                       t-att-href="'/marketplace/products?stage=%s' % opt.id"><t t-esc="opt.name" /></a>
+                            <!-- Chips de estadío (solo los que tiene el vendedor; con uno no hay fila) -->
+                            <div t-if="stage_chips" class="s-cat-chips s-cat-chips--scroll mb-3" id="sMisProdStages">
+                                <t t-foreach="stage_chips" t-as="chip">
+                                    <a t-att-class="'s-cat-chip' + (' active' if chip['active'] else '')"
+                                       t-att-href="chip['url']" data-vista-link="1"><t t-esc="chip['label']" /></a>
                                 </t>
                             </div>
 
-                            <div class="s-sortbar mb-3">
+                            <div class="s-sortbar s-mkt-count mb-3">
                                 <div class="text-soft" style="font-size:var(--fs-sm);">
                                     <strong><t t-esc="products_count" /></strong> producto(s)
                                 </div>
-                                <div class="d-flex align-items-center gap-2">
-                                    <t t-if="request.env.user.partner_id.shrimp_user_type">
-                                        <a class="s-btn s-btn-primary btn-sm" href="/marketplace/products/new"><i class="fa fa-plus me-1"></i> Publicar</a>
-                                    </t>
-                                    <form method="get" action="/marketplace/products" class="s-sort">
-                                        <input type="hidden" name="q" t-att-value="filters.get('q') or ''" />
-                                        <input type="hidden" name="stage" t-att-value="filters.get('stage') or ''" />
-                                        <input type="hidden" name="location" t-att-value="filters.get('location') or ''" />
-                                        <input type="hidden" name="price_min" t-att-value="filters.get('price_min') or ''" />
-                                        <input type="hidden" name="price_max" t-att-value="filters.get('price_max') or ''" />
-                                        <label><i class="fa fa-sort-amount-asc me-1"></i> Ordenar</label>
-                                        <select class="form-select" name="order" onchange="this.form.submit()">
-                                            <option value="" t-att-selected="not filters.get('order')">Más recientes</option>
-                                            <option value="price_asc" t-att-selected="filters.get('order') == 'price_asc'">Precio: menor a mayor</option>
-                                            <option value="price_desc" t-att-selected="filters.get('order') == 'price_desc'">Precio: mayor a menor</option>
-                                            <option value="qty_desc" t-att-selected="filters.get('order') == 'qty_desc'">Cantidad ↓</option>
-                                        </select>
-                                    </form>
-                                </div>
+                                <t t-if="request.env.user.partner_id.shrimp_user_type">
+                                    <a class="s-btn s-btn-primary btn-sm" href="/marketplace/products/new"><i class="fa fa-plus me-1"></i> Publicar</a>
+                                </t>
                             </div>
 
                             <!-- Grid de productos -->
-                            <div class="s-prod-grid" t-if="products">
+                            <div t-att-class="'s-prod-grid' + (' s-products--list' if vista == 'lista' else '')" id="misProdGrid" t-if="products"
+                                 t-att-data-vista="vista or ''">
+                                <style>
+                                    /* Vista lista de «Mis productos»: botones de icono en fila y
+                                       separación entre cantidad y ubicación. */
+                                    #misProdGrid.s-products--list .s-prod-meta { gap: 2px 16px; }
+                                    #misProdGrid.s-products--list .s-prod-actions { flex-direction: row; flex-wrap: wrap; justify-content: flex-start; gap: 8px; }
+                                    #misProdGrid.s-products--list .s-prod-actions .s-btn { width: auto; min-width: 44px; flex: 0 0 auto; }
+                                    @media (min-width: 1200px) {
+                                        #misProdGrid.s-products--list .s-prod-actions { justify-content: flex-end; }
+                                    }
+                                </style>
+                                <!-- Sin ?vista= se aplica la última vista guardada ANTES de pintar
+                                     las tarjetas (sin parpadeo). El cambio de vista lo maneja
+                                     static/src/js/shrimp_filter_drawer.js. -->
+                                <script>
+                                    (function () {
+                                        var g = document.currentScript &amp;&amp; document.currentScript.parentNode;
+                                        if (!g || g.getAttribute('data-vista')) { return; }
+                                        try {
+                                            if (window.localStorage.getItem('shrimp_misprod_vista') === 'lista') { g.classList.add('s-products--list'); }
+                                        } catch (e) {}
+                                    })();
+                                </script>
                                 <t t-foreach="products" t-as="p">
                                     <t t-set="cover" t-value="p.photo_attachment_ids[:1]" />
                                     <t t-set="uom_label" t-value="p.uom_id.name" />
@@ -137,23 +78,22 @@
                                         <a class="s-prod-imgwrap" t-att-href="'/marketplace/product/%s' % p.uuid_ref">
                                             <t t-if="cover">
                                                 <img class="s-prod-img"
-                                                    t-att-src="'/web/content/%s?access_token=%s' % (cover[0].id, cover[0].access_token)"
+                                                    t-att-src="p.shrimp_photo_url(cover[0])"
                                                     t-att-alt="p.name" loading="lazy" />
                                             </t>
                                             <t t-else="">
                                                 <div class="s-prod-noimg"><i class="fa fa-image me-2"></i> Sin foto</div>
                                             </t>
+                                            <!-- Estado sobre la foto (esquina superior izquierda) -->
+                                            <t t-if="not p.active"><span class="s-prod-status s-prod-status--off"><i class="fa fa-ban"></i> Dada de baja</span></t>
+                                            <t t-elif="no_stock"><span class="s-prod-status s-prod-status--out"><i class="fa fa-circle"></i> Sin stock</span></t>
+                                            <t t-else=""><span class="s-prod-status s-prod-status--ok"><i class="fa fa-circle"></i> Disponible</span></t>
                                         </a>
 
                                         <div class="s-prod-body">
                                             <div class="s-badges">
-                                                <t t-if="not p.active"><span class="s-badge" style="background:rgba(108,117,125,.15); color:#5a636b;"><i class="fa fa-ban me-1"></i>Dada de baja</span></t>
                                                 <t t-if="p.stage_id"><span class="s-badge"><t t-esc="p.stage_id.name" /></span></t>
                                                 <t t-if="p.species_id"><span class="s-badge s-badge--teal"><t t-esc="p.species_id.name" /></span></t>
-                                                <t t-if="p.active">
-                                                    <t t-if="no_stock"><span class="s-badge" style="background:rgba(220,53,69,.10); color:#dc3545;">Sin stock</span></t>
-                                                    <t t-else=""><span class="s-badge s-badge--green">Disponible</span></t>
-                                                </t>
                                             </div>
 
                                             <a class="s-prod-title" style="text-decoration:none;"
@@ -162,7 +102,7 @@
                                             <div class="s-prod-meta">
                                                 <div><i class="fa fa-cubes me-1 text-faint"></i>
                                                     <t t-if="no_stock">Sin stock</t>
-                                                    <t t-else=""><b><t t-esc="p.available_qty" /></b> <t t-esc="uom_label" /> disp.</t>
+                                                    <t t-else=""><b><t t-esc="('{:,.0f}' if p.available_qty == int(p.available_qty) else '{:,.2f}').format(p.available_qty)" /></b> <t t-esc="uom_label" /> disp.</t>
                                                 </div>
                                                 <div><i class="fa fa-map-marker me-1 text-faint"></i> <t t-esc="p.location or '—'" /></div>
                                             </div>
@@ -189,7 +129,7 @@
                                                         <a class="s-btn s-btn-ghost btn-sm" style="flex:0 0 auto;" title="Editar"
                                                            t-att-href="'/marketplace/products/%s/edit' % p.uuid_ref"><i class="fa fa-pencil"></i></a>
                                                         <!-- Eliminar (solo icono) -->
-                                                        <form method="post" style="flex:0 0 auto;" t-att-action="'/marketplace/products/%s/eliminar' % p.uuid_ref">
+                                                        <form method="post" style="flex:0 0 auto;" t-att-action="'/marketplace/products/%s/delete' % p.uuid_ref">
                                                             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                                             <button type="button" class="s-btn s-btn-danger btn-sm prod-del-btn" title="Eliminar"
                                                                     data-modo="eliminar" t-att-data-nombre="p.name"><i class="fa fa-trash"></i></button>
@@ -197,7 +137,7 @@
                                                     </t>
                                                     <t t-else="">
                                                         <!-- Con venta: solo archivar (icono) -->
-                                                        <form method="post" style="flex:0 0 auto;" t-att-action="'/marketplace/products/%s/baja' % p.uuid_ref">
+                                                        <form method="post" style="flex:0 0 auto;" t-att-action="'/marketplace/products/%s/deactivate' % p.uuid_ref">
                                                             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                                             <button type="button" class="s-btn s-btn-ghost btn-sm prod-del-btn" title="Archivar"
                                                                     data-modo="archivar" t-att-data-nombre="p.name"><i class="fa fa-archive"></i></button>
@@ -208,12 +148,12 @@
                                                     <!-- Archivado: Ver · Reactivar · Eliminar (todos solo icono) -->
                                                     <a class="s-btn s-btn-ghost btn-sm" style="flex:0 0 auto;" title="Ver"
                                                        t-att-href="'/marketplace/product/%s' % p.uuid_ref"><i class="fa fa-eye"></i></a>
-                                                    <form method="post" style="flex:0 0 auto;" t-att-action="'/marketplace/products/%s/reactivar' % p.uuid_ref">
+                                                    <form method="post" style="flex:0 0 auto;" t-att-action="'/marketplace/products/%s/reactivate' % p.uuid_ref">
                                                         <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                                         <button type="submit" class="s-btn s-btn-primary btn-sm" title="Reactivar"><i class="fa fa-refresh"></i></button>
                                                     </form>
                                                     <t t-if="not p_vendido">
-                                                        <form method="post" style="flex:0 0 auto;" t-att-action="'/marketplace/products/%s/eliminar' % p.uuid_ref">
+                                                        <form method="post" style="flex:0 0 auto;" t-att-action="'/marketplace/products/%s/delete' % p.uuid_ref">
                                                             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                                             <button type="button" class="s-btn s-btn-danger btn-sm prod-del-btn" title="Eliminar"
                                                                     data-modo="eliminar" t-att-data-nombre="p.name"><i class="fa fa-trash"></i></button>
@@ -233,11 +173,72 @@
                                     <h3>Sin productos</h3>
                                     <p>No tienes productos con esos filtros. Publica un lote nuevo o limpia la búsqueda.</p>
                                     <a class="s-btn s-btn-primary" href="/marketplace/products/new">Publicar producto</a>
+                                    <a t-if="fd.get('active')" class="s-btn s-btn-ghost" t-att-href="fd['clear_url']">Quitar filtros</a>
                                 </div>
                             </t>
 
-                        </div>
                     </div>
+
+                    <!-- ===== Cajón de filtros ===== -->
+                    <t t-call="shrimp_marketplace.s_filter_drawer">
+                        <div t-if="fd_show.get('pstate')" class="s-filter-sec" id="sf_sec_pstate">
+                            <div class="s-filter-sec-label">Estado</div>
+                            <div class="s-choice-chips">
+                                <label class="s-choice">
+                                    <input type="radio" name="pstate" value="" t-att-checked="not filters.get('pstate')"/>
+                                    <span>Todos</span>
+                                </label>
+                                <t t-foreach="state_opts" t-as="opt">
+                                    <label class="s-choice">
+                                        <input type="radio" name="pstate" t-att-value="opt[0]"
+                                               t-att-checked="filters.get('pstate') == opt[0]"/>
+                                        <span><t t-esc="opt[1]"/></span>
+                                    </label>
+                                </t>
+                            </div>
+                        </div>
+                        <div t-if="fd_show.get('role')" class="s-filter-sec" id="sf_sec_role">
+                            <div class="s-filter-sec-label">Perfil que vende</div>
+                            <div class="s-choice-chips">
+                                <label class="s-choice">
+                                    <input type="radio" name="role" value="" t-att-checked="not filters.get('role')"/>
+                                    <span>Todos</span>
+                                </label>
+                                <t t-foreach="role_opts" t-as="opt">
+                                    <label class="s-choice">
+                                        <input type="radio" name="role" t-att-value="opt[0]"
+                                               t-att-checked="filters.get('role') == opt[0]"/>
+                                        <span><t t-esc="opt[1]"/></span>
+                                    </label>
+                                </t>
+                            </div>
+                        </div>
+                        <div t-if="fd_show.get('location')" class="s-filter-sec" id="sf_sec_location">
+                            <label class="s-filter-sec-label" for="fltLocation">Ubicación</label>
+                            <select class="form-select" name="location" id="fltLocation">
+                                <option value="">Todas las zonas</option>
+                                <t t-foreach="location_options" t-as="loc">
+                                    <option t-att-value="loc" t-att-selected="(filters.get('location') or '') == loc"><t t-esc="loc"/></option>
+                                </t>
+                            </select>
+                        </div>
+                        <div t-if="fd_show.get('price')" class="s-filter-sec" id="sf_sec_price">
+                            <div class="s-filter-sec-label">Precio (por unidad)</div>
+                            <div class="s-price-range">
+                                <div class="s-price-input">
+                                    <span>$</span>
+                                    <input type="number" step="0.01" min="0" name="price_min" aria-label="Precio mínimo"
+                                           t-att-value="filters.get('price_min') or ''" placeholder="mín"/>
+                                </div>
+                                <span class="s-price-sep">—</span>
+                                <div class="s-price-input">
+                                    <span>$</span>
+                                    <input type="number" step="0.01" min="0" name="price_max" aria-label="Precio máximo"
+                                           t-att-value="filters.get('price_max') or ''" placeholder="máx"/>
+                                </div>
+                            </div>
+                        </div>
+                    </t>
                 </div>
             </div>
 
@@ -304,358 +305,287 @@
         </script>
     </template>
 
+    <!-- ================================================================
+         Publicar / editar producto (rediseño 2026-10).
+
+         Dos columnas en escritorio: a la izquierda el formulario en cuatro
+         tarjetas (1 Información básica · 2 Producción y calidad · 3
+         Información comercial · 4 Certificados) con un paso a paso fijo que
+         dice qué falta; a la derecha, fija, la vista previa EN VIVO de la
+         tarjeta del marketplace, el checklist para publicar y las acciones
+         (Publicar · Guardar borrador · Cancelar). En móvil, una columna, la
+         vista previa plegable arriba y una barra fija abajo.
+
+         Los nombres de los campos del POST son los de siempre (el
+         controlador no cambia de contrato); lo nuevo es photo_order (orden y
+         portada de las fotos) y publish=1 (botón «Publicar»).
+
+         Anclas para otros módulos (no renombrar sin migración):
+           #pfPriceListSlot / #pfPriceSugSlot  shrimp_packer (lista y precio sugerido)
+           #pfVerifySlot + form[data-verif-roles]  shrimp_verification
+         Estilos: static/src/css/shrimp_product_form.css
+         Comportamiento: static/src/js/shrimp_product_form.js
+         ================================================================ -->
     <template id="product_new_form" name="Nuevo Producto">
         <t t-call="website.layout">
-            <div class="shrimp-bg">
-                <div class="shrimp-page shrimp-page--wide py-4">
+            <t t-set="p_stage" t-value="product.stage_id"/>
+            <t t-set="p_tipo" t-value="p_stage._shrimp_tipo() if p_stage else ''"/>
+            <t t-set="tipos_rol" t-value="stage_tipos_por_rol.get(form_role) or ()"/>
+            <t t-set="sel_species" t-value="product.species_id.id if is_edit else ((species_options.filtered(lambda s: (s.code or '').upper() == 'VANNAMEI') or species_options)[:1].id)"/>
+            <t t-set="sel_uom" t-value="product.uom_id.id if is_edit else default_uom_id"/>
+            <t t-set="sel_uom_rec" t-value="uom_options.filtered(lambda u: u.id == sel_uom)[:1]"/>
+            <t t-set="es_borrador" t-value="(not is_edit) or product.state == 'draft'"/>
+            <t t-set="err" t-value="request.params.get('error')"/>
+            <t t-set="err_msg" t-value="request.params.get('message')"/>
+            <div class="shrimp-bg pf-bg">
+                <div class="shrimp-page pf-page">
 
-                    <!-- Volver: arriba a la izquierda (lugar cómodo y consistente) -->
-                    <div class="mb-3">
-                        <t t-call="shrimp_marketplace.s_back_button"><t t-set="back_fallback" t-value="'/marketplace/products'"/></t>
-                    </div>
+                    <t t-call="shrimp_marketplace.s_back_button"><t t-set="back_fallback" t-value="back_url or '/marketplace/products'"/></t>
 
-                    <!-- Visor de certificado (modal) -->
+                    <!-- Visor de certificado (modal con iframe, reutilizable) -->
                     <t t-call="shrimp_marketplace.cert_viewer"/>
 
-                    <!-- Banner de encabezado -->
-                    <div class="sf-banner">
-                        <div class="sf-banner-row">
-                            <div class="sf-banner-txt">
-                                <h1><t t-esc="'Editar producto' if is_edit else 'Publica tu producto'"/></h1>
-                                <p t-if="not is_edit">Completa la ficha del lote, define precio y cantidad, y adjunta fotos y
-                                   certificados. Se guardará como borrador para que lo revises antes de publicarlo.</p>
-                                <p t-if="is_edit">Actualiza la información de tu producto. Puedes añadir fotos y
-                                   certificados nuevos; los cambios se guardan al confirmar.</p>
-                            </div>
-                            <span class="sf-kicker">
-                                <t t-if="is_edit"><i class="fa fa-pencil"></i> Edición</t>
-                                <t t-else=""><i class="fa fa-plus-circle"></i> Nueva publicación</t>
-                            </span>
+                    <div class="pf-ph">
+                        <div>
+                            <h1><t t-esc="'Editar producto' if is_edit else 'Publica tu producto'"/></h1>
+                            <p t-if="not is_edit">Completa la ficha del lote. Lo guardamos como <b>borrador</b> y lo publicas cuando el checklist esté en verde.</p>
+                            <p t-elif="es_borrador">Actualiza la ficha del lote. Sigue en <b>borrador</b>: publícalo cuando el checklist esté en verde.</p>
+                            <p t-else="">Actualiza la ficha del lote publicado. Los cambios se ven en el marketplace al guardar.</p>
+                        </div>
+                        <span class="pf-kicker">
+                            <t t-if="is_edit"><i class="fa fa-pencil" aria-hidden="true"/> Edición</t>
+                            <t t-else=""><i class="fa fa-plus" aria-hidden="true"/> Nueva publicación</t>
+                        </span>
+                    </div>
+
+                    <!-- Mensajes del servidor (códigos de la URL; el texto libre
+                         solo llega por la sesión, ver ir_http). -->
+                    <div t-if="err" class="pf-alert pf-a-bad" role="alert" id="pfServerError">
+                        <i class="fa fa-exclamation-triangle" aria-hidden="true"/>
+                        <div>
+                            <t t-if="err == 'publish'"><b>Guardamos el producto como borrador, pero no se pudo publicar.</b> <t t-esc="err_msg or ''"/> Corrige lo que falta y vuelve a pulsar «Publicar».</t>
+                            <t t-elif="err == 'name'">El nombre del producto es obligatorio.</t>
+                            <t t-elif="err == 'qty'">La cantidad disponible debe ser mayor a 0.</t>
+                            <t t-elif="err == 'price'">El precio no puede ser negativo.</t>
+                            <t t-elif="err == 'seller'">Elige un vendedor válido (semillero, laboratorio o camaronera).</t>
+                            <t t-elif="err == 'stage_required'">Elige la etapa del lote.</t>
+                            <t t-else=""><t t-esc="err_msg or 'No se pudo guardar. Revisa los datos e inténtalo de nuevo.'"/></t>
                         </div>
                     </div>
 
-                    <form id="product_create_form"
-                        class="sf"
-                        t-att-action="form_action"
-                        method="post"
-                        enctype="multipart/form-data">
-                        <t t-if="purchase_locked">
-                            <div class="d-flex align-items-start gap-2 mb-4" role="alert"
-                                 style="background:#fff4e5; border:1px solid #f3d19b; border-radius:14px; color:#8a5a00; padding:14px 16px;">
-                                <i class="fa fa-lock mt-1"></i>
-                                <div style="font-size:13px;">
-                                    <strong>Este producto ya tiene compras registradas.</strong>
-                                    Los campos críticos (especie, etapa, línea genética, presentación, talla,
-                                    unidad, precio y cantidad) están <strong>bloqueados</strong> para preservar
-                                    la trazabilidad. Sí puedes actualizar fotos, certificados, estado sanitario,
-                                    ubicación y fechas.
-                                </div>
-                            </div>
-                        </t>
-                        <div class="row g-4">
+                    <!-- Producto con compras: campos críticos bloqueados -->
+                    <div t-if="purchase_locked" class="pf-alert pf-a-warn" role="note">
+                        <i class="fa fa-lock" aria-hidden="true"/>
+                        <div><b>Este producto ya tiene compras registradas.</b> Especie, etapa, línea genética, presentación,
+                            talla, unidad, precio y cantidad están <b>bloqueados</b> para preservar la trazabilidad. Puedes
+                            actualizar fotos, certificados, estado sanitario, ubicación y fechas.</div>
+                    </div>
 
-                            <!-- =========================
-                            IZQUIERDA: GALERÍA + GUÍA
-                        ========================== -->
-                            <div class="col-lg-4">
+                    <form id="product_create_form" class="pf" t-att-action="form_action" method="post"
+                          enctype="multipart/form-data" novalidate="novalidate"
+                          t-att-data-role="form_role"
+                          t-att-data-internal="'1' if is_internal else '0'"
+                          t-att-data-edit="'1' if is_edit else '0'"
+                          t-att-data-draft="'1' if es_borrador else '0'"
+                          t-att-data-locked="'1' if purchase_locked else '0'"
+                          t-att-data-max-photos="max_photos"
+                          t-att-data-today="today"
+                          t-att-data-tipos="json.dumps(stage_tipos_por_rol)"
+                          t-att-data-uom-rol="json.dumps(uom_por_rol)"
+                          t-att-data-available="('%.2f' % product.available_qty) if is_edit else None"
+                          data-verif-roles="">
+                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
 
-                                <!-- GALERÍA (como otras vistas) -->
-                                <div class="card border-0 mb-4"
-                                    style="border-radius:16px; box-shadow: 0 10px 30px rgba(16,24,40,.06);">
-                                    <div class="card-body p-4">
+                        <div class="pf-layout">
+                            <!-- ============================ FORMULARIO ============================ -->
+                            <div class="pf-main">
 
-                                        <div
-                                            class="d-flex justify-content-between align-items-center mb-2">
-                                            <div>
-                                                <div class="text-muted" style="font-size:12px;">
-                                                    Recomendado</div>
-                                                <div style="font-weight:900;">Fotos del lote</div>
-                                            </div>
-                                            <span class="badge rounded-pill text-bg-light border"
-                                                style="font-weight:800;">
-                                                Múltiples
-                                            </span>
-                                        </div>
-
-                                        <div class="text-muted mb-3" style="font-size:12px;">
-                                            La primera imagen que selecciones será la portada.
-                                        </div>
-
-                                        <!-- Main image -->
-                                        <div class="rounded-4 overflow-hidden position-relative"
-                                            style="border:1px solid rgba(0,0,0,.06); background:#fff;">
-                                            <div id="np_main_placeholder"
-                                                class="d-flex flex-column align-items-center justify-content-center text-muted"
-                                                style="height:240px; gap:10px;">
-                                                <i class="fa fa-picture-o" style="font-size:56px; opacity:.5;"></i>
-                                                <span style="font-weight:700; font-size:15px;">Sin fotos</span>
-                                            </div>
-
-                                            <img id="np_main_img"
-                                                class="img-fluid"
-                                                style="display:none; width:100%; height:240px; object-fit:cover;"
-                                                src=""
-                                                data-index="0"
-                                                alt="Foto producto" />
-
-                                            <!-- Flechas -->
-                                            <button type="button" id="np_prev_btn"
-                                                class="np-arrow np-arrow-prev"
-                                                aria-label="Anterior" style="display:none;">
-                                                <i class="fa fa-chevron-left"></i>
-                                            </button>
-                                            <button type="button" id="np_next_btn"
-                                                class="np-arrow np-arrow-next"
-                                                aria-label="Siguiente" style="display:none;">
-                                                <i class="fa fa-chevron-right"></i>
-                                            </button>
-                                        </div>
-
-                                        <!-- Thumbnails: fotos ya cargadas + nuevas + Add, todo en la misma fila -->
-                                        <div class="mt-3 d-flex gap-2 flex-wrap align-items-center"
-                                            id="np_thumbs">
-                                            <!-- Fotos ya cargadas (edición): misma fila, con eliminar. -->
-                                            <t t-if="is_edit">
-                                                <t t-foreach="product.photo_attachment_ids" t-as="ph">
-                                                    <div class="np-exist"
-                                                         t-att-data-full="'/marketplace/producto/%s/foto/%s' % (product.uuid_ref, ph.id)">
-                                                        <img t-att-src="'/marketplace/producto/%s/foto/%s' % (product.uuid_ref, ph.id)" alt="Foto"/>
-                                                        <button type="button" class="np-exist-del" title="Eliminar foto"><i class="fa fa-times"></i></button>
-                                                        <input type="checkbox" class="d-none" t-att-name="'remove_photo_%s' % ph.id" value="1"/>
-                                                    </div>
-                                                </t>
-                                            </t>
-
-                                            <!-- Botón + -->
-                                            <button type="button" id="np_add_btn"
-                                                class="np-add-thumb"
-                                                aria-label="Agregar fotos">
-                                                <i class="fa fa-plus"></i>
-                                            </button>
-
-                                            <!-- input real (se envía con el form) -->
-                                            <input id="np_add_input"
-                                                class="form-control"
-                                                type="file"
-                                                name="photo_files"
-                                                multiple="multiple"
-                                                accept="image/*"
-                                                style="display:none;" />
-                                        </div>
-
-                                        <div class="text-muted mt-2" style="font-size:12px;">
-                                            Formatos recomendados: JPG/PNG. Puedes agregar varias.
-                                            <t t-if="is_edit"> Las fotos ya cargadas salen a la izquierda del <b>+</b>; usa la <b>×</b> para quitarlas.</t>
-                                        </div>
-
-                                    </div>
-                                </div>
-
-                                <!-- GUÍA RAPIDA -->
-                                <div class="card border-0"
-                                    style="border-radius:16px; box-shadow: 0 10px 30px rgba(16,24,40,.06); position:sticky; top:16px;">
-                                    <div class="card-body p-4">
-
-                                        <div class="mb-2" style="font-weight:900;">Guía rápida</div>
-                                        <ol class="mb-3 ps-3" style="font-size:13px;">
-                                            <li>Ingresa información básica</li>
-                                            <li>Define producción y calidad</li>
-                                            <li>Define precio y cantidad</li>
-                                            <li>Adjunta certificados y fotos</li>
-                                        </ol>
-
-                                        <div class="p-3 rounded-3 mb-3"
-                                            style="background:rgba(18,62,92,.06); border:1px solid rgba(18,62,92,.12);">
-                                            <div style="font-weight:900; font-size:13px;">Tips</div>
-                                            <ul class="mb-0 ps-3" style="font-size:13px;">
-                                                <li>Usa un nombre descriptivo (lote + fecha)</li>
-                                                <li>Completa la fecha estimada de entrega</li>
-                                                <li>Adjunta fotos nítidas y certificados</li>
-                                            </ul>
-                                        </div>
-
-                                        <div class="rounded-3 p-3"
-                                            style="border:1px solid rgba(0,0,0,.06); background:#fff;">
-                                            <div class="text-muted" style="font-size:12px;">
-                                                Publicación</div>
-                                            <div style="font-weight:900;">Se guardará como borrador</div>
-                                            <div class="text-muted" style="font-size:12px;">
-                                                Luego podrás publicar desde el detalle del producto.
-                                            </div>
-                                        </div>
-
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="col-lg-8">
-                                <input type="hidden" name="csrf_token"
-                                    t-att-value="request.csrf_token()" />
-
-                                <!-- Card: Básico -->
-                                <div class="card border-0 mb-4"
-                                    style="border-radius:16px; box-shadow: 0 10px 30px rgba(16,24,40,.06);">
-                                    <div class="card-body p-4">
-                                        <div
-                                            class="d-flex justify-content-between align-items-center mb-3">
-                                            <div>
-                                                <div class="text-muted" style="font-size:12px;">Paso
-                                                    1</div>
-                                                <h5 class="mb-0" style="font-weight:900;">Información
-                                                    básica</h5>
-                                            </div>
-                                            <span
-                                                class="badge rounded-pill text-bg-light border"
-                                                style="font-weight:800;">
-                                                Requerido</span>
-                                        </div>
-
-                                        <!-- Selector de vendedor: solo para usuarios internos/admin -->
-                                        <t t-if="is_internal">
-                                            <div class="mb-3">
-                                                <label class="form-label" style="font-weight:800;">Vendedor
-                                                    (semillero / laboratorio) <span class="text-danger">*</span></label>
-                                                <select class="form-select" name="seller_partner_id"
-                                                    required="required" style="border-radius:14px;">
-                                                    <option value="">Selecciona el vendedor…</option>
-                                                    <t t-foreach="seller_options" t-as="sp">
-                                                        <option t-att-value="sp.id" t-att-selected="sp.id == product.seller_partner_id.id">
-                                                            <t t-esc="sp.name"/>
-                                                            (<t t-esc="dict(sp._fields['shrimp_user_type'].selection).get(sp.shrimp_user_type)"/>)
-                                                        </option>
-                                                    </t>
-                                                </select>
-                                                <div class="form-text">Publicas en nombre de este vendedor.</div>
-                                            </div>
+                                <!-- Paso a paso fijo (barra segmentada en móvil) -->
+                                <div class="pf-stepper" id="pfStepper">
+                                    <nav class="pf-steps" aria-label="Pasos del formulario">
+                                        <t t-foreach="[(1, 'Información básica'), (2, 'Producción y calidad'), (3, 'Información comercial'), (4, 'Certificados')]" t-as="stp">
+                                            <a class="pf-step" t-att-href="'#pfSec%s' % stp[0]" t-att-data-step="stp[0]">
+                                                <span class="pf-step-n" aria-hidden="true"><span class="pf-step-num" t-esc="stp[0]"/><i class="fa fa-check pf-step-ok"/></span>
+                                                <span class="pf-step-txt"><span class="pf-step-t" t-esc="stp[1]"/><span class="pf-step-s">&#160;</span></span>
+                                                <span class="pf-seg-bar" aria-hidden="true"/>
+                                            </a>
                                         </t>
-
-                                        <div class="row g-3 mb-1">
-                                            <div class="col-md-8">
-                                                <label class="form-label" style="font-weight:800;">Nombre
-                                                    del producto <span
-                                                        class="text-danger">*</span></label>
-                                                <input class="form-control" type="text" name="name"
-                                                    required="required"
-                                                    t-att-value="product.name"
-                                                    style="border-radius:14px; padding:12px 12px;"
-                                                    placeholder="Ej: PL12 - Línea XYZ (Lote Enero)" />
-                                            </div>
-                                            <div class="col-md-4">
-                                                <label class="form-label" style="font-weight:800;">Lote del vendedor</label>
-                                                <input class="form-control" type="text" name="batch_code"
-                                                    t-att-value="product.batch_code or ''"
-                                                    style="border-radius:14px; padding:12px 12px;"
-                                                    placeholder="Tu código de lote" />
-                                                <div class="text-muted mt-2" style="font-size:12px;">Tu propio identificador de lote/producción.</div>
-                                            </div>
-                                        </div>
-
-                                        <div class="row g-3">
-                                            <div class="col-md-4">
-                                                <label class="form-label" style="font-weight:800;">
-                                                    Especie</label>
-                                                <select class="form-select" name="species_id"
-                                                    t-att-disabled="purchase_locked or None"
-                                                    style="border-radius:14px; padding:12px 12px;">
-                                                    <option value="">Seleccione…</option>
-                                                    <t t-foreach="species_options" t-as="sp">
-                                                        <option t-att-value="sp.id" t-att-selected="sp.id == product.species_id.id">
-                                                            <t t-esc="sp.name" />
-                                                        </option>
-                                                    </t>
-                                                </select>
-                                            </div>
-
-                                            <div class="col-md-4">
-                                                <label class="form-label" style="font-weight:800;">
-                                                    Etapa</label>
-                                                <select class="form-select" name="stage_id" id="prodStage"
-                                                    t-att-disabled="purchase_locked or None"
-                                                    style="border-radius:14px; padding:12px 12px;">
-                                                    <option value="">Seleccione…</option>
-                                                    <t t-foreach="stage_options" t-as="st">
-                                                        <!-- El código del estadío viaja al DOM porque presentación y talla
-                                                             solo se exigen en ENGORDE; el resto del formulario lo lee. -->
-                                                        <option t-att-value="st.id" t-att-data-code="st.code"
-                                                                t-att-selected="st.id == product.stage_id.id">
-                                                            <t t-esc="st.name" />
-                                                        </option>
-                                                    </t>
-                                                </select>
-                                            </div>
-
-                                            <div class="col-md-4">
-                                                <label class="form-label" style="font-weight:800;">Línea
-                                                    genética</label>
-                                                <select class="form-select" name="genetics_line_id"
-                                                    t-att-disabled="purchase_locked or None"
-                                                    style="border-radius:14px; padding:12px 12px;">
-                                                    <option value="">Seleccione…</option>
-                                                    <t t-foreach="genetics_options" t-as="gl">
-                                                        <option t-att-value="gl.id" t-att-selected="gl.id == product.genetics_line_id.id">
-                                                            <t t-esc="gl.name" />
-                                                        </option>
-                                                    </t>
-                                                </select>
-                                            </div>
-                                        </div>
-                                    </div>
+                                    </nav>
+                                    <div class="pf-m-steplabel" aria-live="polite"><span>Paso <b id="pfStepLabel">1 de 4 · Información básica</b></span><span id="pfStepPend" class="pf-step-pend"/></div>
+                                    <div class="pf-bar" aria-hidden="true"><i id="pfBar"/></div>
                                 </div>
 
-                                <!-- Card: Producción / calidad -->
-                                <div class="card border-0 mb-4"
-                                    style="border-radius:16px; box-shadow: 0 10px 30px rgba(16,24,40,.06);">
-                                    <div class="card-body p-4">
-                                        <div
-                                            class="d-flex justify-content-between align-items-center mb-3">
-                                            <div>
-                                                <div class="text-muted" style="font-size:12px;">Paso
-                                                    2</div>
-                                                <h5 class="mb-0" style="font-weight:900;">Producción
-                                                    y calidad</h5>
+                                <!-- ===================== PASO 1 · INFORMACIÓN BÁSICA ===================== -->
+                                <section class="pf-sec" id="pfSec1" data-step="1" aria-labelledby="pfSec1T">
+                                    <div class="pf-sec-h">
+                                        <span class="pf-step-n" aria-hidden="true"><span class="pf-step-num">1</span><i class="fa fa-check pf-step-ok"/></span>
+                                        <div><h2 id="pfSec1T">Información básica</h2><p>Qué vendes: fotos, nombre, especie y etapa.</p></div>
+                                        <span class="pf-chip-st" data-sec-status="1"/>
+                                    </div>
+                                    <div class="pf-sec-b">
+
+                                        <!-- Vendedor: solo usuarios internos/admin -->
+                                        <div t-if="is_internal" class="pf-blk pf-blk-first" id="pfSellerBlk">
+                                            <label class="pf-lbl" for="pfSeller">Vendedor <span class="pf-req" aria-hidden="true">*</span> <span class="pf-lk">Solo usuarios internos</span></label>
+                                            <select class="pf-sel" name="seller_partner_ref" id="pfSeller" t-att-required="'required' if not is_edit else None"
+                                                    t-att-disabled="'disabled' if is_edit else None" aria-describedby="pfSellerHelp">
+                                                <option value="" data-role="">Selecciona el vendedor…</option>
+                                                <t t-foreach="seller_options" t-as="sp">
+                                                    <option t-att-value="sp.uuid_ref" t-att-data-role="sp.shrimp_user_type or ''"
+                                                            t-att-data-name="sp.name"
+                                                            t-att-selected="'selected' if sp.id == product.seller_partner_id.id else None">
+                                                        <t t-esc="sp.name"/> (<t t-esc="dict(sp._fields['shrimp_user_type'].selection).get(sp.shrimp_user_type)"/>)
+                                                    </option>
+                                                </t>
+                                            </select>
+                                            <div class="pf-help" id="pfSellerHelp">
+                                                <t t-if="is_edit">El vendedor no se cambia al editar.</t>
+                                                <t t-else="">Publicas en nombre de este vendedor. Las etapas, la unidad y los certificados se ajustan a su perfil.</t>
                                             </div>
-                                            <span class="text-muted" style="font-size:12px;">
-                                                Opcional</span>
+                                            <div class="pf-emsg" data-err-for="seller" hidden="hidden"><i class="fa fa-exclamation-circle" aria-hidden="true"/> Elige el vendedor.</div>
                                         </div>
 
-                                        <div class="row g-3">
-                                            <div class="col-md-4">
-                                                <label class="form-label"
-                                                    style="font-weight:800;">Tamaño
-                                                    (mg)</label>
-                                                <input class="form-control" type="number"
-                                                    step="0.01" name="avg_size_mg"
-                                                    t-att-value="product.avg_size_mg or ''"
-                                                    style="border-radius:14px; padding:12px 12px;"
-                                                    placeholder="0.00" />
+                                        <!-- Fotos -->
+                                        <div class="pf-blk pf-blk-first" id="pfPhotosBlk">
+                                            <div class="pf-lbl" id="pfPhotosLbl">Fotos del lote <span class="pf-opt">· recomendado</span><span class="pf-lk" id="pfPhotoCount" aria-live="polite"/></div>
+                                            <div class="pf-drop" id="pfDrop">
+                                                <div class="pf-drop-ico" aria-hidden="true"><i class="fa fa-cloud-upload"/></div>
+                                                <div><b>Arrastra tus fotos aquí</b><span>JPG o PNG · hasta 5 MB c/u · máx. <t t-esc="max_photos"/>. La primera es la portada.</span></div>
+                                                <button type="button" class="s-btn s-btn-ghost pf-pick" id="pfPhotoPick" aria-describedby="pfPhotosLbl"><i class="fa fa-plus" aria-hidden="true"/> Elegir fotos</button>
+                                                <input type="file" id="pfPhotoPicker" class="pf-vh" tabindex="-1" aria-hidden="true"
+                                                       accept="image/jpeg,image/png,image/webp,image/gif" multiple="multiple"/>
                                             </div>
-                                            <div class="col-md-4">
-                                                <label class="form-label"
-                                                    style="font-weight:800;">Supervivencia
-                                                    (%)</label>
-                                                <input class="form-control" type="number"
-                                                    step="0.01" name="survival_rate"
-                                                    t-att-value="product.survival_rate or ''"
-                                                    style="border-radius:14px; padding:12px 12px;"
-                                                    placeholder="0.00" />
+                                            <!-- Lo que viaja con el formulario -->
+                                            <input type="file" name="photo_files" id="pfPhotoFiles" multiple="multiple" class="d-none" tabindex="-1" aria-hidden="true"/>
+                                            <input type="hidden" name="photo_order" id="pfPhotoOrder" value=""/>
+                                            <div class="d-none" id="pfPhotoRemovals">
+                                                <t t-if="is_edit">
+                                                    <t t-foreach="product.photo_attachment_ids" t-as="ph">
+                                                        <input type="checkbox" t-att-name="'remove_photo_%s' % ph.sudo().access_token" value="1" t-att-data-token="ph.sudo().access_token"/>
+                                                    </t>
+                                                </t>
                                             </div>
-                                            <div class="col-md-4">
-                                                <label class="form-label"
-                                                    style="font-weight:800;">
-                                                    Ubicación</label>
+                                            <div class="pf-thumbs" id="pfThumbs" role="list" aria-label="Fotos del lote (la primera es la portada)">
+                                                <t t-if="is_edit">
+                                                    <t t-foreach="product.photo_attachment_ids" t-as="ph">
+                                                        <div class="pf-th" role="listitem" tabindex="0" draggable="true" data-kind="e"
+                                                             t-att-data-token="ph.sudo().access_token">
+                                                            <img t-att-src="product.shrimp_photo_url(ph)" alt=""/>
+                                                        </div>
+                                                    </t>
+                                                </t>
+                                                <button type="button" class="pf-th pf-th-add" id="pfThumbAdd" aria-label="Agregar fotos"><i class="fa fa-plus" aria-hidden="true"/></button>
+                                            </div>
+                                            <div class="pf-emsg" id="pfPhotoErr" hidden="hidden" role="alert"/>
+                                            <div class="pf-help">Arrastra para reordenar (o usa las flechas del teclado sobre la foto). Fotos nítidas del lote venden más.</div>
+                                        </div>
+
+                                        <div class="pf-grid pf-g32 pf-blk">
+                                            <div class="pf-f" data-field="name">
+                                                <label class="pf-lbl" for="pfName">Nombre del producto <span class="pf-req" aria-hidden="true">*</span></label>
+                                                <input class="pf-inp" type="text" name="name" id="pfName" required="required" maxlength="200"
+                                                       t-att-value="product.name or ''" placeholder="Ej. Nauplios L. vannamei - Corrida 032"
+                                                       aria-describedby="pfNameHelp"/>
+                                                <div class="pf-help" id="pfNameHelp">Así lo verán los compradores.</div>
+                                                <div class="pf-emsg" data-err-for="name" hidden="hidden"><i class="fa fa-exclamation-circle" aria-hidden="true"/> Escribe el nombre del producto.</div>
+                                            </div>
+                                            <div class="pf-f">
+                                                <label class="pf-lbl" for="pfBatch">Lote del vendedor <span class="pf-opt">· opcional</span></label>
+                                                <input class="pf-inp" type="text" name="batch_code" id="pfBatch" maxlength="64"
+                                                       t-att-value="product.batch_code or ''" placeholder="Tu código de lote"/>
+                                                <div class="pf-help">Tu propio código de lote.</div>
+                                            </div>
+                                        </div>
+
+                                        <fieldset class="pf-blk" t-att-disabled="'disabled' if purchase_locked else None">
+                                            <legend class="pf-lbl">Especie <i t-if="purchase_locked" class="fa fa-lock pf-lk-ico" title="Bloqueado: el producto ya tiene compras"/></legend>
+                                            <div class="pf-chips">
+                                                <t t-foreach="species_options" t-as="sp">
+                                                    <label class="pf-chip"><input type="radio" class="pf-vh" name="species_id" t-att-value="sp.id"
+                                                                                  t-att-data-label="sp.name"
+                                                                                  t-att-checked="'checked' if sp.id == sel_species else None"/><span t-esc="sp.name"/></label>
+                                                </t>
+                                            </div>
+                                        </fieldset>
+
+                                        <fieldset class="pf-blk" id="pfStageBlk" data-field="stage" t-att-disabled="'disabled' if purchase_locked else None">
+                                            <legend class="pf-lbl">Etapa <span class="pf-req" aria-hidden="true">*</span> <i t-if="purchase_locked" class="fa fa-lock pf-lk-ico" title="Bloqueado: el producto ya tiene compras"/>
+                                                <span class="pf-lk" id="pfRoleLbl"><t t-if="form_role">Tu perfil: <t t-esc="request.env['res.partner']._shrimp_type_label(form_role)"/></t></span></legend>
+                                            <t t-foreach="[('nauplio', 'Nauplio', '', 'No disponible para tu perfil'), ('larva', 'Larva PL', 'Zoea · Mysis · Postlarva', 'No disponible para tu perfil'), ('camaron', 'Camarón', 'Juvenil · Engorde', 'Juvenil y engorde los publica una camaronera')]" t-as="grp">
+                                                <t t-set="grp_stages" t-value="stage_options.filtered(lambda s: s._shrimp_tipo() == grp[0])"/>
+                                                <t t-set="grp_off" t-value="bool(tipos_rol) and grp[0] not in tipos_rol and p_tipo != grp[0]"/>
+                                                <div t-if="grp_stages" t-attf-class="pf-cgrp#{' off' if grp_off else ''}" t-att-data-tipo="grp[0]">
+                                                    <div class="pf-cgrp-h"><t t-esc="grp[1]"/>
+                                                        <span class="pf-cgrp-sub" t-if="grp[2]" t-esc="grp[2]"/>
+                                                        <span class="pf-cgrp-off" t-esc="grp[3]"/></div>
+                                                    <div class="pf-chips">
+                                                        <t t-foreach="grp_stages" t-as="st">
+                                                            <label class="pf-chip"><input type="radio" class="pf-vh" name="stage_id" t-att-value="st.id"
+                                                                                          t-att-data-code="(st.code or '').strip().upper()" t-att-data-tipo="grp[0]"
+                                                                                          t-att-data-label="st.name"
+                                                                                          t-att-disabled="'disabled' if grp_off else None"
+                                                                                          t-att-checked="'checked' if st.id == p_stage.id else None"/><span t-esc="st.name"/></label>
+                                                        </t>
+                                                    </div>
+                                                </div>
+                                            </t>
+                                            <div class="pf-help" data-show-code="ENGORDE" hidden="hidden">Engorde exige presentación y talla para publicar (se cruzan con las listas de precios).</div>
+                                            <div class="pf-emsg" data-err-for="stage" hidden="hidden"><i class="fa fa-exclamation-circle" aria-hidden="true"/> Elige la etapa del lote.</div>
+                                        </fieldset>
+
+                                        <div class="pf-blk">
+                                            <label class="pf-lbl" for="pfGenetics">Línea genética <span class="pf-opt">· opcional</span> <i t-if="purchase_locked" class="fa fa-lock pf-lk-ico" title="Bloqueado: el producto ya tiene compras"/></label>
+                                            <select class="pf-sel" name="genetics_line_id" id="pfGenetics" t-att-disabled="'disabled' if purchase_locked else None">
+                                                <option value="">Sin especificar</option>
+                                                <t t-foreach="genetics_options" t-as="gl">
+                                                    <option t-att-value="gl.id" t-att-selected="'selected' if gl.id == product.genetics_line_id.id else None"><t t-esc="gl.name"/></option>
+                                                </t>
+                                            </select>
+                                            <div class="pf-help">Aparece como insignia en la tarjeta de larva y se usa en el filtro «Genética».</div>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <!-- ===================== PASO 2 · PRODUCCIÓN Y CALIDAD ===================== -->
+                                <section class="pf-sec" id="pfSec2" data-step="2" aria-labelledby="pfSec2T">
+                                    <div class="pf-sec-h">
+                                        <span class="pf-step-n" aria-hidden="true"><span class="pf-step-num">2</span><i class="fa fa-check pf-step-ok"/></span>
+                                        <div><h2 id="pfSec2T">Producción y calidad</h2><p>De dónde sale el lote y en qué estado está.</p></div>
+                                        <span class="pf-chip-st" data-sec-status="2"/>
+                                    </div>
+                                    <div class="pf-sec-b">
+                                        <div class="pf-grid pf-g2">
+                                            <div class="pf-f">
+                                                <label class="pf-lbl" for="pfSurv">Supervivencia <span class="pf-opt">· %</span></label>
+                                                <div class="pf-igrp"><input type="number" step="0.01" min="0" max="100" name="survival_rate" id="pfSurv" inputmode="decimal"
+                                                                            t-att-value="product.survival_rate or ''" placeholder="0"/><span class="pf-suf">%</span></div>
+                                                <div class="pf-help">Se publica como insignia «Superv. %» en nauplio y larva. Usa el valor del último conteo.</div>
+                                            </div>
+                                            <div class="pf-f">
+                                                <label class="pf-lbl" for="pfSize">Tamaño promedio <span class="pf-opt">· mg</span></label>
+                                                <div class="pf-igrp"><input type="number" step="0.01" min="0" name="avg_size_mg" id="pfSize" inputmode="decimal"
+                                                                            t-att-value="product.avg_size_mg or ''" placeholder="0.00"/><span class="pf-suf">mg</span></div>
+                                                <div class="pf-help">Peso promedio por individuo.</div>
+                                            </div>
+                                        </div>
+
+                                        <div class="pf-grid pf-g2 pf-blk">
+                                            <div class="pf-f">
+                                                <span class="pf-lbl" id="pfLocLbl">Ubicación <span class="pf-opt">· provincia</span></span>
                                                 <t t-set="provinces" t-value="['Azuay','Bolívar','Cañar','Carchi','Chimborazo','Cotopaxi','El Oro','Esmeraldas','Galápagos','Guayas','Imbabura','Loja','Los Ríos','Manabí','Morona Santiago','Napo','Orellana','Pastaza','Pichincha','Santa Elena','Santo Domingo de los Tsáchilas','Sucumbíos','Tungurahua','Zamora Chinchipe']"/>
-                                                <div class="sf-combo">
-                                                    <input type="hidden" name="location" t-att-value="product.location or ''"/>
-                                                    <button type="button" class="sf-combo-control">
+                                                <div class="sf-combo pf-combo" id="pfLocCombo">
+                                                    <input type="hidden" name="location" id="pfLocation" t-att-value="product.location or ''"/>
+                                                    <button type="button" class="sf-combo-control" aria-haspopup="listbox" aria-labelledby="pfLocLbl">
+                                                        <i class="fa fa-map-marker pf-combo-pin" aria-hidden="true"/>
                                                         <span t-attf-class="sf-combo-value #{'' if product.location else 'is-placeholder'}"><t t-esc="product.location or 'Selecciona provincia…'"/></span>
-                                                        <i class="fa fa-chevron-down sf-combo-caret"/>
+                                                        <i class="fa fa-chevron-down sf-combo-caret" aria-hidden="true"/>
                                                     </button>
                                                     <div class="sf-combo-panel">
                                                         <div class="sf-combo-search-wrap">
-                                                            <i class="fa fa-search"/>
-                                                            <input type="text" class="sf-combo-search" placeholder="Buscar provincia…" autocomplete="off"/>
+                                                            <i class="fa fa-search" aria-hidden="true"/>
+                                                            <input type="text" class="sf-combo-search" placeholder="Buscar provincia…" autocomplete="off" aria-label="Buscar provincia"/>
                                                         </div>
-                                                        <ul class="sf-combo-list" role="listbox">
+                                                        <ul class="sf-combo-list" role="listbox" aria-labelledby="pfLocLbl">
                                                             <t t-foreach="provinces" t-as="prov">
                                                                 <li class="sf-combo-opt" t-att-data-value="prov" role="option"><t t-esc="prov"/></li>
                                                             </t>
@@ -663,789 +593,431 @@
                                                         <div class="sf-combo-empty" style="display:none;">Sin coincidencias</div>
                                                     </div>
                                                 </div>
+                                                <div class="pf-help">Se muestra en la tarjeta del marketplace.</div>
+                                            </div>
+                                            <div class="pf-f">
+                                                <label class="pf-lbl" for="pfDelivery">Fecha estimada de entrega</label>
+                                                <input class="pf-inp" type="date" name="expected_delivery_date" id="pfDelivery"
+                                                       t-att-value="product.expected_delivery_date or ''"/>
+                                                <div class="pf-help">Cuándo estaría listo el lote para entregar.</div>
                                             </div>
                                         </div>
 
-                                        <div class="mt-3">
-                                            <label class="form-label" style="font-weight:800;">Fecha
-                                                estimada de entrega</label>
-                                            <input class="form-control" type="date"
-                                                name="expected_delivery_date"
-                                                t-att-value="product.expected_delivery_date or ''"
-                                                style="border-radius:14px; padding:12px 12px;" />
-                                            <div class="text-muted mt-2" style="font-size:12px;">
-                                                Fecha estimada en la que el lote estaría listo
-                                                para
-                                                entrega.
+                                        <!-- Origen (opcional): instalación y piscina del vendedor -->
+                                        <fieldset class="pf-blk" id="pfFacBlk">
+                                            <legend class="pf-lbl">Instalación de origen <span class="pf-opt">· opcional</span></legend>
+                                            <div class="pf-opt-cards" t-if="facility_options">
+                                                <t t-foreach="facility_options" t-as="fac">
+                                                    <label class="pf-oc">
+                                                        <input type="radio" class="pf-vh" name="origin_facility_ref" t-att-value="fac.uuid_ref"
+                                                               t-att-checked="'checked' if fac.id == product.origin_facility_id.id else None"/>
+                                                        <span class="pf-rd" aria-hidden="true"/>
+                                                        <span><b t-esc="fac.name"/>
+                                                            <span><t t-esc="fac.province or fac.city or dict(fac._fields['facility_type'].selection).get(fac.facility_type)"/> · <t t-esc="fac.pond_count"/> <t t-esc="'piscina' if fac.pond_count == 1 else 'piscinas'"/></span></span>
+                                                    </label>
+                                                </t>
+                                                <label class="pf-oc pf-oc-none">
+                                                    <input type="radio" class="pf-vh" name="origin_facility_ref" value=""
+                                                           t-att-checked="'checked' if not product.origin_facility_id else None"/>
+                                                    <span class="pf-rd" aria-hidden="true"/>
+                                                    <span><b>Sin instalación</b><span>No asociar el lote</span></span>
+                                                </label>
                                             </div>
+                                            <div class="pf-help" t-if="not facility_options">
+                                                <t t-if="is_internal and not is_edit">Las instalaciones son del vendedor: asócialas al editar el producto.</t>
+                                                <t t-else="">No tienes instalaciones registradas. Puedes publicar igual.</t>
+                                            </div>
+                                        </fieldset>
+                                        <div class="pf-blk" t-if="pond_options">
+                                            <label class="pf-lbl" for="originPond">Piscina de origen <span class="pf-opt">· opcional</span></label>
+                                            <select class="pf-sel" name="origin_pond_ref" id="originPond" aria-describedby="pfPondCtx">
+                                                <option value="">Sin piscina</option>
+                                                <t t-foreach="pond_options" t-as="pnd">
+                                                    <t t-set="pnd_size" t-value="('Volumen', '%s m³' % ('{:,.0f}'.format(pnd.volume_m3 or pnd.manual_volume_m3))) if pnd.pond_type in ('tank', 'raceway') else ('Área', '%s ha' % ('{:,.2f}'.format((pnd.area_m2 or 0) / 10000.0)))"/>
+                                                    <option t-att-value="pnd.uuid_ref" t-att-data-facility="pnd.facility_id.uuid_ref or ''"
+                                                            t-att-data-type="dict(pnd._fields['pond_type'].selection).get(pnd.pond_type) or ''"
+                                                            t-att-data-size-k="pnd_size[0]" t-att-data-size-v="pnd_size[1]"
+                                                            t-att-data-loc="pnd.location or pnd.facility_id.city or pnd.facility_id.province or ''"
+                                                            t-att-selected="'selected' if pnd.id == product.origin_pond_id.id else None"><t t-esc="pnd.display_name"/></option>
+                                                </t>
+                                            </select>
+                                            <div class="pf-ctx" id="pfPondCtx" hidden="hidden"/>
+                                            <div class="pf-help">Solo aparecen las piscinas de la instalación elegida.</div>
                                         </div>
 
-                                        <!-- Origen (opcional): instalación y piscina -->
-                                        <div class="row g-3 mt-1">
-                                            <div class="col-md-6">
-                                                <label class="form-label" style="font-weight:800;">Instalación de origen <span class="text-muted" style="font-weight:500;">(opcional)</span></label>
-                                                <select class="form-select" name="origin_facility_id" id="originFacility" style="border-radius:14px; padding:12px 12px;">
-                                                    <option value="">Sin instalación</option>
-                                                    <t t-foreach="facility_options" t-as="fac">
-                                                        <option t-att-value="fac.id" t-att-selected="fac.id == product.origin_facility_id.id"><t t-esc="fac.name"/></option>
-                                                    </t>
-                                                </select>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label class="form-label" style="font-weight:800;">Piscina de origen <span class="text-muted" style="font-weight:500;">(opcional)</span></label>
-                                                <select class="form-select" name="origin_pond_id" id="originPond" style="border-radius:14px; padding:12px 12px;">
-                                                    <option value="">Sin piscina</option>
-                                                    <t t-foreach="pond_options" t-as="pnd">
-                                                        <option t-att-value="pnd.id" t-att-data-facility="pnd.facility_id.id or ''" t-att-selected="pnd.id == product.origin_pond_id.id"><t t-esc="pnd.display_name"/></option>
-                                                    </t>
-                                                </select>
-                                                <div class="text-muted" style="font-size:12px; margin-top:4px;">Se filtran según la instalación seleccionada.</div>
-                                            </div>
+                                        <!-- Siembras de origen: enlazan la cosecha con la larva sembrada
+                                             (laboratorio y semillero) en la trazabilidad. -->
+                                        <t t-set="orig_allocs" t-value="request.env['shrimp.product']._shrimp_origin_allocation_options(product.seller_partner_id or seller_partner)"/>
+                                        <div class="pf-blk" t-if="orig_allocs" id="pfAllocBlk">
+                                            <input type="hidden" name="origin_allocation_present" value="1"/>
+                                            <details class="pf-acc" t-att-open="'open' if product.origin_allocation_ids else None">
+                                                <summary><i class="fa fa-tint pf-teal" aria-hidden="true"/> Siembras de origen <span class="pf-chip-st pf-st-info" id="pfAllocCount"/><i class="fa fa-chevron-down pf-chev" aria-hidden="true"/></summary>
+                                                <div class="pf-acc-b">
+                                                    <div class="pf-help pf-help-top">Enlazan la cosecha con la larva sembrada (laboratorio y semillero). Si no marcas ninguna, proponemos las de la piscina de origen anteriores a la fecha de producción.</div>
+                                                    <div class="pf-acc-list">
+                                                        <t t-foreach="orig_allocs" t-as="oa">
+                                                            <label class="pf-ck">
+                                                                <input type="checkbox" name="origin_allocation_ref" t-att-value="oa.uuid_ref"
+                                                                       t-att-checked="'checked' if oa in product.origin_allocation_ids else None"/>
+                                                                <span><t t-esc="oa.pond_id.display_name"/> · <t t-esc="request.env['shrimp.transaction'].shrimp_fmt_dt(oa.allocation_date)"/> · <t t-esc="oa.display_qty()"/>
+                                                                    <small t-esc="oa.product_id.name"/></span>
+                                                            </label>
+                                                        </t>
+                                                    </div>
+                                                </div>
+                                            </details>
                                         </div>
 
-                                        <div class="mt-3">
-                                            <label class="form-label" style="font-weight:800;">Estado
-                                                sanitario /
-                                                Observaciones</label>
-                                            <textarea class="form-control" name="health_status"
-                                                rows="3"
-                                                style="border-radius:14px; padding:12px 12px;"
-                                                placeholder="Ej: pruebas, laboratorio, notas, etc."><t t-esc="product.health_status or ''"/></textarea>
+                                        <div class="pf-blk">
+                                            <label class="pf-lbl" for="pfHealth">Estado sanitario / observaciones <span class="pf-opt">· opcional</span></label>
+                                            <textarea class="pf-ta" name="health_status" id="pfHealth" rows="3"
+                                                      placeholder="Ej. pruebas PCR, laboratorio, notas del lote…"><t t-esc="product.health_status or ''"/></textarea>
                                         </div>
                                     </div>
-                                </div>
+                                </section>
 
-                                <!-- Card: Comercial -->
-                                <div class="card border-0 mb-4"
-                                    style="border-radius:16px; box-shadow: 0 10px 30px rgba(16,24,40,.06);">
-                                    <div class="card-body p-4">
-                                        <div
-                                            class="d-flex justify-content-between align-items-center mb-3">
-                                            <div>
-                                                <div class="text-muted" style="font-size:12px;">Paso
-                                                    3</div>
-                                                <h5 class="mb-0" style="font-weight:900;">Información
-                                                    comercial</h5>
+                                <!-- ===================== PASO 3 · INFORMACIÓN COMERCIAL ===================== -->
+                                <section class="pf-sec" id="pfSec3" data-step="3" aria-labelledby="pfSec3T">
+                                    <div class="pf-sec-h">
+                                        <span class="pf-step-n" aria-hidden="true"><span class="pf-step-num">3</span><i class="fa fa-check pf-step-ok"/></span>
+                                        <div><h2 id="pfSec3T">Información comercial</h2><p>Cuánto tienes y a qué precio.</p></div>
+                                        <span class="pf-chip-st" data-sec-status="3"/>
+                                    </div>
+                                    <div class="pf-sec-b">
+
+                                        <!-- Presentación + talla: solo camarón (juvenil y engorde) -->
+                                        <div id="pfPresBlk" class="pf-pres-blk" t-att-hidden="'hidden' if p_tipo != 'camaron' else None">
+                                            <div class="pf-grid pf-g2">
+                                                <fieldset class="pf-f" data-field="presentation" t-att-disabled="'disabled' if purchase_locked else None">
+                                                    <legend class="pf-lbl">Presentación <span class="pf-req" data-show-code="ENGORDE" aria-hidden="true">*</span> <i t-if="purchase_locked" class="fa fa-lock pf-lk-ico" title="Bloqueado: el producto ya tiene compras"/></legend>
+                                                    <div class="pf-seg">
+                                                        <label><input type="radio" class="pf-vh" name="presentation" value="entero" data-label="Entero"
+                                                                      t-att-checked="'checked' if product.presentation == 'entero' else None"/><span>Entero</span></label>
+                                                        <label><input type="radio" class="pf-vh" name="presentation" value="cola" data-label="Cola"
+                                                                      t-att-checked="'checked' if product.presentation == 'cola' else None"/><span>Cola</span></label>
+                                                    </div>
+                                                    <div class="pf-emsg" data-err-for="presentation" hidden="hidden"><i class="fa fa-exclamation-circle" aria-hidden="true"/> Elige la presentación.</div>
+                                                </fieldset>
+                                                <fieldset class="pf-f" data-field="size_grade" t-att-disabled="'disabled' if purchase_locked else None">
+                                                    <legend class="pf-lbl">Talla <span class="pf-req" data-show-code="ENGORDE" aria-hidden="true">*</span> <i t-if="purchase_locked" class="fa fa-lock pf-lk-ico" title="Bloqueado: el producto ya tiene compras"/><span class="pf-lk">Filtrada por presentación</span></legend>
+                                                    <div class="pf-chips" id="pfSizes">
+                                                        <t t-foreach="size_grade_options" t-as="sg">
+                                                            <label class="pf-chip" t-att-data-presentation="sg.presentation"><input type="radio" class="pf-vh" name="size_grade_id" t-att-value="sg.id"
+                                                                                                                                 t-att-data-presentation="sg.presentation" t-att-data-label="sg.name"
+                                                                                                                                 t-att-checked="'checked' if sg.id == product.size_grade_id.id else None"/><span t-esc="sg.name"/></label>
+                                                        </t>
+                                                    </div>
+                                                    <div class="pf-help" id="pfSizesEmpty">Elige primero la presentación.</div>
+                                                    <div class="pf-emsg" data-err-for="size_grade" hidden="hidden"><i class="fa fa-exclamation-circle" aria-hidden="true"/> Elige la talla.</div>
+                                                </fieldset>
                                             </div>
-                                            <span
-                                                class="badge rounded-pill text-bg-light border"
-                                                style="font-weight:800;">
-                                                Requerido</span>
+                                            <div class="pf-help">Obligatorias para publicar camarón de engorde (en juvenil son opcionales).</div>
                                         </div>
 
-                                        <div class="row g-3">
-                                            <div class="col-md-4">
-                                                <label class="form-label" style="font-weight:800;">Presentación <span class="text-danger s-req-engorde">*</span></label>
-                                                <select class="form-select" name="presentation" id="prodPresentation"
-                                                        t-att-disabled="purchase_locked or None"
-                                                        style="border-radius:14px; padding:12px 12px;">
-                                                    <option value="">Sin especificar</option>
-                                                    <option value="entero" t-att-selected="product.presentation == 'entero'">Entero</option>
-                                                    <option value="cola" t-att-selected="product.presentation == 'cola'">Cola</option>
-                                                </select>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <label class="form-label" style="font-weight:800;">Talla <span class="text-danger s-req-engorde">*</span></label>
-                                                <select class="form-select" name="size_grade_id" id="prodSizeGrade"
-                                                        t-att-disabled="purchase_locked or None"
-                                                        style="border-radius:14px; padding:12px 12px;">
-                                                    <option value="">Seleccione…</option>
-                                                    <t t-foreach="size_grade_options" t-as="sg">
-                                                        <option t-att-value="sg.id" t-att-data-presentation="sg.presentation"
-                                                                t-att-selected="sg.id == product.size_grade_id.id"><t t-esc="sg.name"/></option>
-                                                    </t>
-                                                </select>
-                                                <div class="text-muted mt-2" style="font-size:12px;">Se filtra según la presentación.</div>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <label class="form-label" style="font-weight:800;">Unidad</label>
-                                                <select class="form-select" name="uom_id"
-                                                    t-att-disabled="uom_locked or None"
-                                                    style="border-radius:14px; padding:12px 12px;">
-                                                    <!-- En alta, la unidad marcada la decide el controlador según el
-                                                         eslabón del vendedor (millar en semillero/laboratorio, libra en
-                                                         camaronera): antes venía "Libras" fija y el semillero publicaba
-                                                         millares de larvas con precio leído como $/lb. -->
+                                        <div class="pf-grid pf-g2 pf-blk-sm">
+                                            <fieldset class="pf-f" t-att-disabled="'disabled' if uom_locked else None">
+                                                <legend class="pf-lbl">Unidad <i t-if="uom_locked" class="fa fa-lock pf-lk-ico" title="Bloqueado: el producto ya tiene compras"/></legend>
+                                                <div class="pf-seg" id="pfUomSeg">
                                                     <t t-foreach="uom_options" t-as="u">
-                                                        <option t-att-value="u.id"
-                                                            t-att-selected="(u.id == product.uom_id.id) if product else (u.id == default_uom_id)">
-                                                            <t t-esc="u.name"/></option>
+                                                        <label><input type="radio" class="pf-vh" name="uom_id" t-att-value="u.id" t-att-data-label="u.name"
+                                                                      t-att-checked="'checked' if u.id == sel_uom else None"/><span t-esc="u.name"/></label>
                                                     </t>
-                                                </select>
+                                                </div>
+                                                <!-- En alta, la unidad marcada la decide el controlador según el
+                                                     eslabón del vendedor (millar en semillero/laboratorio, libra en
+                                                     camaronera): antes venía "Libras" fija y el semillero publicaba
+                                                     millares de larvas con precio leído como $/lb. -->
+                                                <div class="pf-help" id="pfUomHelp">Por defecto en millares para semilleros y laboratorios, y en libras para camaroneras.</div>
                                                 <t t-if="uom_locked">
                                                     <input type="hidden" name="uom_id" t-att-value="product.uom_id.id"/>
-                                                    <div class="text-muted mt-2" style="font-size:12px;">
-                                                        <i class="fa fa-lock me-1"></i> La unidad no se puede cambiar porque el producto ya tiene compras.
+                                                    <div class="pf-lockmsg"><i class="fa fa-lock" aria-hidden="true"/> No se puede cambiar: el producto ya tiene compras.</div>
+                                                </t>
+                                            </fieldset>
+                                            <div class="pf-f" data-field="qty">
+                                                <label class="pf-lbl" for="pfQty">Cantidad disponible <span class="pf-req" aria-hidden="true">*</span> <i t-if="purchase_locked" class="fa fa-lock pf-lk-ico" title="Bloqueado: el producto ya tiene compras"/></label>
+                                                <div class="pf-igrp"><input type="number" step="0.01" min="0" name="initial_qty" id="pfQty" inputmode="decimal"
+                                                                            required="required" t-att-value="(('%.2f' % product.initial_qty).rstrip('0').rstrip('.')) if product.initial_qty else ''" placeholder="0"
+                                                                            t-att-disabled="'disabled' if purchase_locked else None"/><span class="pf-suf" data-uom-label="lower"><t t-esc="(sel_uom_rec.name or '').lower()"/></span></div>
+                                                <div class="pf-help">Debe ser mayor a 0.</div>
+                                                <div class="pf-emsg" data-err-for="qty" hidden="hidden"><i class="fa fa-exclamation-circle" aria-hidden="true"/> La cantidad debe ser mayor a 0.</div>
+                                            </div>
+                                        </div>
+
+                                        <!-- shrimp_packer: lista de precios -->
+                                        <div id="pfPriceListSlot" class="pf-slot"/>
+
+                                        <div class="pf-grid pf-g2 pf-blk">
+                                            <div class="pf-f" data-field="price">
+                                                <label class="pf-lbl" for="pfPrice">Precio <span class="pf-req" aria-hidden="true">*</span> <i t-if="purchase_locked" class="fa fa-lock pf-lk-ico" title="Bloqueado: el producto ya tiene compras"/></label>
+                                                <div class="pf-igrp"><span class="pf-pre">USD $</span><input type="number" step="0.01" min="0" name="price" id="pfPrice" inputmode="decimal"
+                                                                                                           required="required" t-att-value="('%.2f' % product.price) if (is_edit and product.price) else ''" placeholder="0.00"
+                                                                                                           t-att-disabled="'disabled' if purchase_locked else None"/><span class="pf-suf">/ <span data-uom-label="singular"><t t-esc="(sel_uom_rec.name or 'unidad').lower()"/></span></span></div>
+                                                <div class="pf-emsg" data-err-for="price" hidden="hidden"><i class="fa fa-exclamation-circle" aria-hidden="true"/> Ingresa el precio por <span data-uom-label="singular">unidad</span> para poder publicar.</div>
+                                                <!-- shrimp_packer: precio sugerido -->
+                                                <div id="pfPriceSugSlot" class="pf-slot"/>
+                                            </div>
+                                            <div class="pf-f">
+                                                <span class="pf-lbl pf-lbl-ghost" aria-hidden="true">Resumen</span>
+                                                <div class="pf-ctx pf-total" aria-live="polite">Total del lote <b id="pfTotal">—</b></div>
+                                            </div>
+                                        </div>
+
+                                        <!-- shrimp_verification: aviso de verificación en campo -->
+                                        <div id="pfVerifySlot" class="pf-slot"/>
+                                    </div>
+                                </section>
+
+                                <!-- ===================== PASO 4 · CERTIFICADOS ===================== -->
+                                <section class="pf-sec" id="pfSec4" data-step="4" aria-labelledby="pfSec4T">
+                                    <div class="pf-sec-h">
+                                        <span class="pf-step-n" aria-hidden="true"><span class="pf-step-num">4</span><i class="fa fa-check pf-step-ok"/></span>
+                                        <div><h2 id="pfSec4T">Certificados</h2><p>Solo los aprobados se muestran en el marketplace.</p></div>
+                                        <span class="pf-chip-st" data-sec-status="4"/>
+                                    </div>
+                                    <div class="pf-sec-b">
+                                        <t t-set="attached_src" t-value="product.certificate_line_ids.mapped('source_user_certificate_line_id').ids if is_edit else []"/>
+                                        <div class="pf-certs" id="pfCertList" aria-live="polite">
+                                            <!-- Ya adjuntos al producto (edición) -->
+                                            <t t-if="is_edit">
+                                                <t t-foreach="product.certificate_line_ids" t-as="pcl">
+                                                    <t t-set="es_user" t-value="bool(pcl.source_user_certificate_line_id)"/>
+                                                    <div class="pf-cert" t-att-data-kind="'usuario' if es_user else 'producto'"
+                                                         t-att-data-name="pcl.certificate_id.name"
+                                                         t-att-data-code="pcl.certificate_id.code or ''"
+                                                         t-att-data-issuer="pcl.issuer or pcl.certificate_id.issuer or ''"
+                                                         t-att-data-cert="pcl.certificate_id.uuid_ref"
+                                                         t-att-data-number="pcl.number or ''"
+                                                         t-att-data-issue="pcl.issue_date or ''"
+                                                         t-att-data-expiry="pcl.expiry_date or ''"
+                                                         t-att-data-status="pcl.status"
+                                                         t-att-data-url="product.shrimp_cert_url(pcl.attachment_id) if pcl.attachment_id else ''"
+                                                         t-att-data-fname="'edit_cert_%s_file' % pcl.uuid_ref">
+                                                        <input type="checkbox" t-att-name="'remove_cert_%s' % pcl.uuid_ref" value="1" class="pf-cert-remove d-none" tabindex="-1" aria-hidden="true"/>
+                                                        <t t-if="not es_user">
+                                                            <input type="hidden" class="pf-ci-number" t-att-name="'edit_cert_%s_number' % pcl.uuid_ref" t-att-value="pcl.number or ''"/>
+                                                            <input type="hidden" class="pf-ci-issue" t-att-name="'edit_cert_%s_issue_date' % pcl.uuid_ref" t-att-value="pcl.issue_date or ''"/>
+                                                            <input type="hidden" class="pf-ci-expiry" t-att-name="'edit_cert_%s_expiry_date' % pcl.uuid_ref" t-att-value="pcl.expiry_date or ''"/>
+                                                        </t>
                                                     </div>
                                                 </t>
-                                            </div>
+                                            </t>
+                                            <!-- Certificados del perfil aún no adjuntos: se adjuntan al guardar -->
+                                            <t t-set="cert_idx" t-value="0"/>
+                                            <t t-foreach="default_user_certificates" t-as="line">
+                                                <t t-if="line.id not in attached_src">
+                                                    <div class="pf-cert" data-kind="perfil"
+                                                         t-att-data-name="line.certificate_id.name"
+                                                         t-att-data-code="line.certificate_id.code or ''"
+                                                         t-att-data-issuer="line.issuer or line.certificate_id.issuer or ''"
+                                                         t-att-data-number="line.certificate_number or ''"
+                                                         t-att-data-issue="line.issue_date or ''"
+                                                         t-att-data-expiry="line.expiry_date or ''"
+                                                         data-status="approved"
+                                                         t-att-data-url="'/marketplace/my-certificate/%s/file' % line.uuid_ref">
+                                                        <input type="hidden" t-att-name="'prod_cert_%s_source_user_cert_line_id' % cert_idx" t-att-value="line.uuid_ref"/>
+                                                        <input type="hidden" t-att-name="'prod_cert_%s_certificate_id' % cert_idx" t-att-value="line.certificate_id.uuid_ref"/>
+                                                    </div>
+                                                    <t t-set="cert_idx" t-value="cert_idx + 1"/>
+                                                </t>
+                                            </t>
                                         </div>
+                                        <div class="pf-empty" id="pfCertEmpty" hidden="hidden">Aún no hay certificados. Agrega PCR, registros o análisis del lote.</div>
 
-                                        <div class="row g-3 mt-1">
-                                            <div class="col-md-4">
-                                                <label class="form-label" style="font-weight:800;">Cantidad disponible <span class="text-danger">*</span></label>
-                                                <input class="form-control" type="number"
-                                                    step="0.01" name="initial_qty"
-                                                    t-att-value="product.initial_qty or ''"
-                                                    t-att-disabled="purchase_locked or None"
-                                                    style="border-radius:14px; padding:12px 12px;"
-                                                    required="required" />
+                                        <button type="button" class="pf-addrow" id="pfCertAdd" aria-haspopup="dialog" aria-controls="pfCertModal">
+                                            <i class="fa fa-plus" aria-hidden="true"/> Agregar certificado <span>PDF o imagen · del catálogo</span>
+                                        </button>
+                                        <div class="pf-help pf-help-mt">Los certificados de tu perfil no se editan aquí (puedes quitarlos de este producto). Los que agregas son propios del producto y pasan por revisión.</div>
+                                    </div>
+                                </section>
+                            </div>
+
+                            <!-- ============================ DERECHA: VISTA PREVIA + CHECKLIST + ACCIONES ============================ -->
+                            <aside class="pf-aside" aria-label="Vista previa y publicación">
+                                <div class="pf-panel pf-panel-prev">
+                                    <div class="pf-panel-h pf-d-only"><i class="fa fa-eye pf-teal" aria-hidden="true"/> Vista previa en el marketplace <small>en vivo</small></div>
+                                    <details class="pf-mprev pf-m-only">
+                                        <summary>
+                                            <span class="pf-mprev-th" id="pfMprevTh"><i class="fa fa-image" aria-hidden="true"/></span>
+                                            <span class="pf-mprev-t"><b id="pfMprevName">Nombre del producto</b><span id="pfMprevSub">Vista previa</span></span>
+                                            <i class="fa fa-chevron-down pf-chev" aria-hidden="true"/>
+                                        </summary>
+                                        <div class="pf-prev-wrap" id="pfMprevSlot"/>
+                                    </details>
+                                    <div class="pf-prev-wrap pf-d-only" id="pfPrevSlot">
+                                        <!-- Copia del markup de la tarjeta del marketplace
+                                             (marketplace_product_cards + insignias de larva). -->
+                                        <article class="s-prod-card pf-prev-card" id="pfPrevCard" aria-label="Vista previa de la tarjeta">
+                                            <div class="s-prod-imgwrap">
+                                                <img class="s-prod-img" id="pfPrevImg" alt="" hidden="hidden"/>
+                                                <div class="s-prod-noimg" id="pfPrevNoImg"><i class="fa fa-image me-2" aria-hidden="true"/> Sin foto</div>
+                                                <span class="s-prod-status"><span t-attf-class="pf-dot#{' pf-dot-ok' if not es_borrador else ''}" aria-hidden="true"/> <t t-esc="'Borrador' if es_borrador else 'Publicado'"/></span>
+                                                <span class="s-prod-fav" aria-hidden="true"><i class="fa fa-heart-o"/></span>
                                             </div>
-                                            <div class="col-md-4">
-                                                <label class="form-label" style="font-weight:800;">Precio <span class="text-danger">*</span></label>
-                                                <input class="form-control" type="number"
-                                                    step="0.01" name="price"
-                                                    t-att-value="product.price or ''"
-                                                    t-att-disabled="purchase_locked or None"
-                                                    style="border-radius:14px; padding:12px 12px;"
-                                                    required="required" />
-                                                <div class="text-muted mt-2" style="font-size:12px;">Precio por unidad seleccionada.</div>
+                                            <div class="s-prod-body">
+                                                <div class="s-badges">
+                                                    <span class="s-badge" id="pfPrevStage" hidden="hidden"/>
+                                                    <span class="s-badge s-badge--teal" id="pfPrevSpecies" hidden="hidden"/>
+                                                    <span class="s-badge sp-badge-surv" id="pfPrevSurv" hidden="hidden"/>
+                                                    <span class="s-badge sp-badge-gen" id="pfPrevGen" hidden="hidden"/>
+                                                    <span class="s-badge sp-badge-pcr" id="pfPrevPcr" hidden="hidden"><i class="fa fa-shield me-1" aria-hidden="true"/>PCR vigente</span>
+                                                    <span class="s-badge pf-badge-ver" id="pfPrevVer" hidden="hidden"><i class="fa fa-shield me-1" aria-hidden="true"/>Con verificación</span>
+                                                </div>
+                                                <p class="s-prod-title" id="pfPrevName">Nombre del producto</p>
+                                                <div class="s-prod-seller"><i class="fa fa-user-circle-o me-1" aria-hidden="true"/> por <a href="#" tabindex="-1" id="pfPrevSeller" t-esc="seller_partner.name or 'Vendedor'"/></div>
+                                                <div class="s-prod-meta">
+                                                    <div id="pfPrevPres" hidden="hidden"><i class="fa fa-balance-scale me-1 text-faint" aria-hidden="true"/> <span/></div>
+                                                    <div><i class="fa fa-cubes me-1 text-faint" aria-hidden="true"/> <b id="pfPrevQty">—</b> <span id="pfPrevUom"/> disp.</div>
+                                                    <div><i class="fa fa-map-marker me-1 text-faint" aria-hidden="true"/> <span id="pfPrevLoc">—</span></div>
+                                                    <div id="pfPrevDate" hidden="hidden"><i class="fa fa-calendar me-1 text-faint" aria-hidden="true"/> Entrega <span/></div>
+                                                </div>
+                                                <div class="s-prod-foot">
+                                                    <div class="s-prod-price" id="pfPrevPrice">$<span class="pf-skel"/><span class="s-unit"> / <span data-uom-label="singular">unidad</span></span></div>
+                                                </div>
                                             </div>
-                                        </div>
+                                        </article>
+                                        <div class="pf-prev-note">Así se verá en el catálogo · <span id="pfPrevTab">pestaña —</span></div>
                                     </div>
                                 </div>
 
+                                <div class="pf-panel pf-panel-check">
+                                    <div class="pf-panel-h"><i class="fa fa-check-circle-o pf-brand" aria-hidden="true"/> Checklist para publicar</div>
+                                    <div class="pf-panel-b">
+                                        <div class="pf-prog"><div class="pf-bar"><i id="pfClBar"/></div><b id="pfClCount" aria-live="polite"/></div>
+                                        <div class="pf-cl-sub">Obligatorio</div>
+                                        <ul class="pf-cl" id="pfClReq">
+                                            <li t-if="is_internal and not is_edit" data-check="seller"><span class="pf-ci" aria-hidden="true"/><a href="#pfSeller">Vendedor</a></li>
+                                            <li data-check="name"><span class="pf-ci" aria-hidden="true"/><a href="#pfName">Nombre del producto</a></li>
+                                            <li data-check="stage"><span class="pf-ci" aria-hidden="true"/><a href="#pfStageBlk">Etapa</a></li>
+                                            <li data-check="qty"><span class="pf-ci" aria-hidden="true"/><a href="#pfQty">Cantidad mayor a 0</a></li>
+                                            <li data-check="price"><span class="pf-ci" aria-hidden="true"/><a href="#pfPrice">Precio</a></li>
+                                            <li data-check="presentation"><span class="pf-ci" aria-hidden="true"/><a href="#pfPresBlk">Presentación (engorde)</a></li>
+                                            <li data-check="size_grade"><span class="pf-ci" aria-hidden="true"/><a href="#pfSizes">Talla (engorde)</a></li>
+                                        </ul>
+                                        <div class="pf-cl-sub">Recomendado</div>
+                                        <ul class="pf-cl" id="pfClRec">
+                                            <li data-check="photos"><span class="pf-ci" aria-hidden="true"/><a href="#pfPhotosBlk">Fotos</a></li>
+                                            <li data-check="locdate"><span class="pf-ci" aria-hidden="true"/><a href="#pfDelivery">Ubicación y fecha de entrega</a></li>
+                                            <li data-check="survgen"><span class="pf-ci" aria-hidden="true"/><a href="#pfSurv">Supervivencia y genética</a></li>
+                                            <li data-check="origin"><span class="pf-ci" aria-hidden="true"/><a href="#pfFacBlk">Piscina y siembras de origen</a></li>
+                                            <li data-check="pcr"><span class="pf-ci" aria-hidden="true"/><a href="#pfSec4">Certificado PCR</a></li>
+                                            <li data-check="expired"><span class="pf-ci" aria-hidden="true"/><a href="#pfSec4">Renovar certificado vencido</a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+
+                                <div class="pf-panel pf-panel-actions">
+                                    <div class="pf-panel-b pf-actions">
+                                        <t t-if="es_borrador">
+                                            <button type="submit" class="s-btn s-btn-primary s-btn-block pf-btn-publish" name="publish" value="1"><i class="fa fa-paper-plane" aria-hidden="true"/> Publicar</button>
+                                            <button type="submit" class="s-btn s-btn-ghost s-btn-block pf-btn-draft"><i class="fa fa-floppy-o" aria-hidden="true"/> <t t-esc="'Guardar cambios' if is_edit else 'Guardar borrador'"/></button>
+                                        </t>
+                                        <t t-else="">
+                                            <button type="submit" class="s-btn s-btn-primary s-btn-block pf-btn-draft"><i class="fa fa-floppy-o" aria-hidden="true"/> Guardar cambios</button>
+                                        </t>
+                                        <div class="pf-act-note" id="pfActNote" aria-live="polite"/>
+                                        <a class="s-btn s-btn-link pf-cancel" t-att-href="back_url if is_edit else '/marketplace/products'">Cancelar</a>
+                                    </div>
+                                </div>
+                            </aside>
+                        </div>
+
+                        <!-- Barra de acciones fija (móvil) -->
+                        <div class="pf-mbar">
+                            <div class="pf-mbar-st" id="pfMbarSt"/>
+                            <t t-if="es_borrador">
+                                <button type="submit" class="s-btn s-btn-ghost pf-btn-draft"><i class="fa fa-floppy-o" aria-hidden="true"/> <t t-esc="'Guardar' if is_edit else 'Borrador'"/></button>
+                                <button type="submit" class="s-btn s-btn-primary pf-btn-publish" name="publish" value="1"><i class="fa fa-paper-plane" aria-hidden="true"/> Publicar</button>
+                            </t>
+                            <t t-else="">
+                                <button type="submit" class="s-btn s-btn-primary pf-btn-draft"><i class="fa fa-floppy-o" aria-hidden="true"/> Guardar cambios</button>
+                            </t>
+                        </div>
+
+                        <!-- ===================== MODAL: AGREGAR / EDITAR CERTIFICADO =====================
+                             Bootstrap modal (pantalla completa / hoja inferior en móvil).
+                             Sus campos NO tienen name: al pulsar «Agregar» se copian a
+                             inputs ocultos de la tarjeta y el archivo se mueve a ella,
+                             con los nombres que espera el controlador
+                             (prod_cert_<n>_* / edit_cert_<uuid>_*). -->
+                        <div class="modal fade pf-modal" id="pfCertModal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="pfCertModalT" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h3 class="modal-title" id="pfCertModalT"><i class="fa fa-plus pf-teal" aria-hidden="true"/> <span>Agregar certificado</span></h3>
+                                        <button type="button" class="pf-ib" data-pf-close="1" aria-label="Cerrar"><i class="fa fa-times" aria-hidden="true"/></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="pf-grid pf-g2">
+                                            <div class="pf-f pf-span2" data-mfield="cert">
+                                                <label class="pf-lbl" for="pfCeCert">Certificado <span class="pf-req" aria-hidden="true">*</span></label>
+                                                <select class="pf-sel" id="pfCeCert" aria-describedby="pfCeCertErr">
+                                                    <option value="" data-role="">Selecciona del catálogo…</option>
+                                                    <t t-foreach="cert_catalog" t-as="cc">
+                                                        <option t-att-value="cc.uuid_ref" t-att-data-issuer="cc.issuer or ''" t-att-data-code="cc.code or ''"
+                                                                t-att-data-role="cc.role" t-att-data-expires="'1' if cc.expires_required else '0'"><t t-esc="cc.name"/></option>
+                                                    </t>
+                                                </select>
+                                                <div class="pf-emsg" id="pfCeCertErr" hidden="hidden"><i class="fa fa-exclamation-circle" aria-hidden="true"/> <span>Elige el certificado del catálogo.</span></div>
+                                            </div>
+                                            <div class="pf-f">
+                                                <label class="pf-lbl" for="pfCeIssuer">Entidad</label>
+                                                <input class="pf-inp pf-ro" id="pfCeIssuer" type="text" readonly="readonly" placeholder="Se completa del catálogo"/>
+                                            </div>
+                                            <div class="pf-f">
+                                                <label class="pf-lbl" for="pfCeNumber">N° <span class="pf-opt">· opcional</span></label>
+                                                <input class="pf-inp" id="pfCeNumber" type="text" maxlength="64" placeholder="Ej. AM-1022"/>
+                                            </div>
+                                            <div class="pf-f" data-mfield="issue">
+                                                <label class="pf-lbl" for="pfCeIssue">Fecha de emisión</label>
+                                                <input class="pf-inp" id="pfCeIssue" type="date" aria-describedby="pfCeIssueErr"/>
+                                                <div class="pf-emsg" id="pfCeIssueErr" hidden="hidden"><i class="fa fa-exclamation-circle" aria-hidden="true"/> <span/></div>
+                                            </div>
+                                            <div class="pf-f" data-mfield="expiry">
+                                                <label class="pf-lbl" for="pfCeExpiry">Fecha de vencimiento</label>
+                                                <input class="pf-inp" id="pfCeExpiry" type="date" aria-describedby="pfCeExpiryErr"/>
+                                                <div class="pf-emsg" id="pfCeExpiryErr" hidden="hidden"><i class="fa fa-exclamation-circle" aria-hidden="true"/> <span/></div>
+                                            </div>
+                                            <div class="pf-f pf-span2" data-mfield="file">
+                                                <span class="pf-lbl" id="pfCeFileLbl">Archivo <span class="pf-req" id="pfCeFileReq" aria-hidden="true">*</span> <span class="pf-opt">· PDF o imagen, hasta 5 MB</span></span>
+                                                <div class="pf-fdrop" id="pfCeDrop" role="button" tabindex="0" aria-labelledby="pfCeFileLbl" aria-describedby="pfCeFileName pfCeFileErr">
+                                                    <i class="fa fa-cloud-upload pf-teal" aria-hidden="true"/>
+                                                    <span id="pfCeFileName">Arrastra el PDF aquí o <b>elige un archivo</b></span>
+                                                </div>
+                                                <span id="pfCeFileSlot" class="d-none"/>
+                                                <div class="pf-help" id="pfCeFileHint" hidden="hidden">Déjalo vacío para conservar el archivo actual.</div>
+                                                <div class="pf-emsg" id="pfCeFileErr" hidden="hidden" role="alert"><i class="fa fa-exclamation-circle" aria-hidden="true"/> <span/></div>
+                                            </div>
+                                        </div>
+                                        <div class="pf-help pf-help-mt">Se agrega a la lista y se guarda junto con el producto. Pasa por revisión antes de mostrarse en el marketplace.</div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="s-btn s-btn-ghost" data-pf-close="1">Cancelar</button>
+                                        <button type="button" class="s-btn s-btn-primary" id="pfCeSave"><i class="fa fa-check" aria-hidden="true"/> <span>Agregar</span></button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- Fila completa: certificados + footer -->
-                        <div class="row g-4 sf-cert-row">
-                            <div class="col-12">
-
-                                <!-- Card: Certificados -->
-                                <div class="card border-0 mb-4"
-                                    style="border-radius:16px; box-shadow: 0 10px 30px rgba(16,24,40,.06);">
-                                    <div class="card-body p-4">
-
-                                        <div
-                                            class="d-flex justify-content-between align-items-center mb-3">
-                                            <div>
-                                                <div class="text-muted" style="font-size:12px;">Paso
-                                                    4</div>
-                                                <h5 class="mb-0" style="font-weight:900;">Certificados
-                                                    del producto</h5>
-                                            </div>
-                                            <button type="button"
-                                                class="s-btn s-btn-primary btn-sm shrimpAddProdCert">
-                                                <i class="fa fa-plus me-1"></i> Agregar certificado
-                                            </button>
-                                        </div>
-
-                                        <div class="text-muted mb-3" style="font-size:12px;">
-                                            Selecciona el certificado del catálogo, completa los
-                                            datos y adjunta el
-                                            archivo.
-                                        </div>
-
-                                        <t t-set="attached_src" t-value="product.certificate_line_ids.mapped('source_user_certificate_line_id').ids if is_edit else []"/>
-                                        <div id="prodCertContainer" class="table-responsive">
-                                            <table class="table sv-table align-middle mb-0" id="prodCertTable">
-                                                <thead>
-                                                    <tr><th>Certificado</th><th>Entidad</th><th>N°</th><th>Emisión</th><th>Expira</th><th>Origen</th><th class="text-end">Acciones</th></tr>
-                                                </thead>
-                                                <tbody id="prodCertBody">
-                                                    <!-- Certificados ya adjuntos al producto (edición) -->
-                                                    <t t-if="is_edit">
-                                                        <t t-foreach="product.certificate_line_ids" t-as="pcl">
-                                                            <t t-set="es_user" t-value="bool(pcl.source_user_certificate_line_id)"/>
-                                                            <tr class="pcert-row" t-att-data-id="pcl.id"
-                                                                t-att-data-kind="'usuario' if es_user else 'producto'"
-                                                                t-att-data-cert="pcl.certificate_id.id"
-                                                                t-att-data-number="pcl.number or ''"
-                                                                t-att-data-issue="pcl.issue_date or ''"
-                                                                t-att-data-expiry="pcl.expiry_date or ''"
-                                                                t-att-data-fname="'edit_cert_%s_file' % pcl.id">
-                                                                <td class="pc-name"><t t-esc="pcl.certificate_id.name"/></td>
-                                                                <td class="pc-issuer"><t t-esc="pcl.issuer or '—'"/></td>
-                                                                <td class="pc-number"><t t-esc="pcl.number or '—'"/></td>
-                                                                <td class="pc-issue"><t t-esc="pcl.issue_date or '—'"/></td>
-                                                                <td class="pc-expiry"><t t-esc="pcl.expiry_date or '—'"/></td>
-                                                                <td><span t-attf-class="s-badge#{' s-badge--teal' if es_user else ''}"><t t-esc="'Usuario' if es_user else 'Producto'"/></span></td>
-                                                                <td class="text-end pcert-actions">
-                                                                    <input type="checkbox" t-att-name="'remove_cert_%s' % pcl.id" value="1" class="pcert-remove-flag d-none"/>
-                                                                    <t t-if="not es_user">
-                                                                        <input type="hidden" class="ei-number" t-att-name="'edit_cert_%s_number' % pcl.id" t-att-value="pcl.number or ''"/>
-                                                                        <input type="hidden" class="ei-issue" t-att-name="'edit_cert_%s_issue_date' % pcl.id" t-att-value="pcl.issue_date or ''"/>
-                                                                        <input type="hidden" class="ei-expiry" t-att-name="'edit_cert_%s_expiry_date' % pcl.id" t-att-value="pcl.expiry_date or ''"/>
-                                                                        <span class="ei-file-slot"></span>
-                                                                        <button type="button" class="s-btn s-btn-ghost btn-sm pcert-edit" title="Editar"><i class="fa fa-pencil"></i></button>
-                                                                    </t>
-                                                                    <t t-if="pcl.attachment_id">
-                                                                        <button type="button" class="s-btn s-btn-ghost btn-sm js-cert-view" title="Ver PDF" t-att-data-url="'/marketplace/product/%s/certificate/%s' % (product.uuid_ref, pcl.attachment_id.id)"><i class="fa fa-file-pdf-o"></i></button>
-                                                                    </t>
-                                                                    <button type="button" class="s-btn s-btn-danger btn-sm pcert-del" title="Eliminar"><i class="fa fa-trash"></i></button>
-                                                                </td>
-                                                            </tr>
-                                                        </t>
-                                                    </t>
-
-                                                    <!-- Certificados heredados del usuario aún no adjuntos (no editables) -->
-                                                    <t t-set="cert_idx" t-value="0"/>
-                                                    <t t-foreach="default_user_certificates" t-as="line">
-                                                        <t t-if="line.id not in attached_src">
-                                                            <tr class="pcert-row" data-kind="usuario">
-                                                                <td class="pc-name"><t t-esc="line.certificate_id.name"/></td>
-                                                                <td class="pc-issuer"><t t-esc="line.issuer or '—'"/></td>
-                                                                <td class="pc-number"><t t-esc="line.certificate_number or '—'"/></td>
-                                                                <td class="pc-issue"><t t-esc="line.issue_date or '—'"/></td>
-                                                                <td class="pc-expiry"><t t-esc="line.expiry_date or '—'"/></td>
-                                                                <td><span class="s-badge s-badge--teal">Usuario</span></td>
-                                                                <td class="text-end pcert-actions">
-                                                                    <input type="hidden" t-att-name="'prod_cert_%s_source_user_cert_line_id' % cert_idx" t-att-value="line.id"/>
-                                                                    <input type="hidden" t-att-name="'prod_cert_%s_certificate_id' % cert_idx" t-att-value="line.certificate_id.id"/>
-                                                                    <button type="button" class="s-btn s-btn-ghost btn-sm js-cert-view" title="Ver PDF" t-att-data-url="'/marketplace/my-certificate/%s/file' % line.id"><i class="fa fa-file-pdf-o"></i></button>
-                                                                    <button type="button" class="s-btn s-btn-danger btn-sm pcert-del" title="Quitar"><i class="fa fa-trash"></i></button>
-                                                                </td>
-                                                            </tr>
-                                                            <t t-set="cert_idx" t-value="cert_idx + 1"/>
-                                                        </t>
-                                                    </t>
-                                                </tbody>
-                                            </table>
-                                            <div id="prodCertEmpty" class="s-empty text-muted small mt-2">Sin certificados. Usa «Agregar certificado» para añadir uno.</div>
-                                        </div>
-
-                                        <!-- Modal editor de certificado (agregar / editar). Vive dentro del
-                                             form para que el archivo se envíe con el resto. -->
-                                        <div id="certEditorModal" class="sf-modal">
-                                            <div class="sf-modal-card" style="max-width:560px; text-align:left;">
-                                                <h3 class="sf-modal-title mb-3" id="certEditorTitle">Agregar certificado</h3>
-                                                <div class="row g-3">
-                                                    <div class="col-12">
-                                                        <label class="form-label">Certificado</label>
-                                                        <select id="ce_cert" class="form-select"></select>
-                                                    </div>
-                                                    <div class="col-md-6">
-                                                        <label class="form-label">Entidad</label>
-                                                        <input id="ce_issuer" class="form-control" type="text" readonly="readonly"/>
-                                                    </div>
-                                                    <div class="col-md-6">
-                                                        <label class="form-label">N°</label>
-                                                        <input id="ce_number" class="form-control" type="text" placeholder="Opcional"/>
-                                                    </div>
-                                                    <div class="col-md-6">
-                                                        <label class="form-label">Emisión</label>
-                                                        <input id="ce_issue" class="form-control" type="date"/>
-                                                    </div>
-                                                    <div class="col-md-6">
-                                                        <label class="form-label">Expira</label>
-                                                        <input id="ce_expiry" class="form-control" type="date"/>
-                                                    </div>
-                                                    <div class="col-12">
-                                                        <label class="form-label">Archivo (PDF/imagen) <span id="ce_file_req" class="text-danger">*</span></label>
-                                                        <div id="ce_file_wrap">
-                                                            <input id="ce_file" class="form-control" type="file" accept="image/*,application/pdf"/>
-                                                        </div>
-                                                        <div id="ce_file_hint" class="form-text"></div>
-                                                    </div>
-                                                </div>
-                                                <div id="ce_err" class="text-danger small mt-2" style="display:none;"></div>
-                                                <div class="sf-modal-actions mt-3">
-                                                    <button type="button" class="s-btn s-btn-ghost" id="ce_cancel">Cancelar</button>
-                                                    <button type="button" class="s-btn s-btn-primary" id="ce_save"><i class="fa fa-check me-1"></i> Guardar</button>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <!-- Modal de confirmación para eliminar un certificado -->
-                                        <div id="certDelModal" class="sf-modal">
-                                            <div class="sf-modal-card">
-                                                <div class="sf-modal-ico"><i class="fa fa-exclamation-triangle"></i></div>
-                                                <h3 class="sf-modal-title">Eliminar certificado</h3>
-                                                <p class="sf-modal-msg">¿Seguro que quieres quitar este certificado del producto? Se aplicará al guardar.</p>
-                                                <div class="sf-modal-actions">
-                                                    <button type="button" class="s-btn s-btn-ghost" id="cd_cancel">Cancelar</button>
-                                                    <button type="button" class="s-btn s-btn-danger" id="cd_ok"><i class="fa fa-trash me-1"></i> Eliminar</button>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <small class="text-muted d-block mt-2" style="font-size:12px;">
-                                            Los certificados heredados del usuario no son editables. Puedes agregar
-                                            certificados propios del producto con «Agregar certificado».
-                                        </small>
-
+                        <!-- Confirmación para quitar un certificado -->
+                        <div class="modal fade pf-modal pf-modal-sm" id="pfCertDelModal" tabindex="-1" role="alertdialog" aria-modal="true" aria-labelledby="pfCertDelT" aria-describedby="pfCertDelTxt" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-centered">
+                                <div class="modal-content">
+                                    <div class="modal-body pf-del-body">
+                                        <div class="pf-del-ico" aria-hidden="true"><i class="fa fa-exclamation-triangle"/></div>
+                                        <h3 id="pfCertDelT">Quitar certificado</h3>
+                                        <p id="pfCertDelTxt">¿Quitar este certificado del producto? Se aplica al guardar.</p>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="s-btn s-btn-ghost" data-pf-close="1">Cancelar</button>
+                                        <button type="button" class="s-btn s-btn-danger" id="pfCertDelOk"><i class="fa fa-trash" aria-hidden="true"/> Quitar</button>
                                     </div>
                                 </div>
-
-                                <!-- Footer sticky -->
-                                <div class="card border-0 sf-footer">
-                                    <div
-                                        class="card-body p-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
-                                        <div class="text-muted" style="font-size:13px;">
-                                            <i class="fa fa-info-circle me-1"></i> Revisa los datos antes de guardar.
-                                        </div>
-                                        <div class="d-flex gap-2">
-                                            <a class="btn btn-outline-secondary px-4"
-                                                href="/marketplace/products">
-                                                Cancelar
-                                            </a>
-                                            <button class="btn btn-primary px-4" type="submit"
-                                                style="font-weight:700;">
-                                                <i class="fa fa-check me-1"></i>
-                                                <t t-esc="'Guardar cambios' if is_edit else 'Guardar borrador'"/>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-
-
                             </div>
                         </div>
-
                     </form>
-
                 </div>
             </div>
         </t>
-
-        <!-- =========================
-            CSS: Galería (flechas, +)
-        ========================== -->
-        <style>
-            .np-arrow{
-            position:absolute;
-            top:50%;
-            transform:translateY(-50%);
-            width:42px;
-            height:42px;
-            border:1px solid rgba(255,255,255,.35);
-            background:rgba(255,255,255,.55);
-            backdrop-filter: blur(6px);
-            -webkit-backdrop-filter: blur(6px);
-            border-radius:999px;
-            box-shadow:0 12px 28px rgba(16,24,40,.22);
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            padding:0;
-            cursor:pointer;
-            z-index:5;
-            }
-            .np-arrow:hover{ background:rgba(255,255,255,.72); }
-            .np-arrow:active{ transform:translateY(-50%) scale(.98); }
-            .np-arrow-prev{ left:10px; }
-            .np-arrow-next{ right:10px; }
-
-            .np-thumb{
-            width:62px; height:62px;
-            object-fit:cover;
-            cursor:pointer;
-            border-radius:12px;
-            border:1px solid rgba(0,0,0,.12);
-            transition:.12s ease;
-            display:block;
-            }
-            .np-thumb:hover{ transform:translateY(-1px); }
-
-            .np-add-thumb{
-            width:62px; height:62px;
-            border-radius:12px;
-            border:1px dashed rgba(0,0,0,.22);
-            background:rgba(255,255,255,.9);
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            cursor:pointer;
-            transition:.12s ease;
-            flex:0 0 auto;
-            }
-            .np-add-thumb:hover{
-            background:#fff;
-            transform: translateY(-1px);
-            box-shadow:0 10px 22px rgba(16,24,40,.10);
-            }
-        </style>
-
-        <!-- =========================
-            JS: Galería + certificados
-        ========================== -->
-        <script type="text/javascript">
-<![CDATA[
-(function () {
-
-  // ======= GALERÍA (nuevo producto) =======
-  function initNewGallery(){
-    const addBtn = document.getElementById("np_add_btn");
-    const addInput = document.getElementById("np_add_input");
-    const thumbs = document.getElementById("np_thumbs");
-
-    const mainImg = document.getElementById("np_main_img");
-    const placeholder = document.getElementById("np_main_placeholder");
-
-    const prevBtn = document.getElementById("np_prev_btn");
-    const nextBtn = document.getElementById("np_next_btn");
-
-    if (!addBtn || !addInput || !thumbs || !mainImg || !placeholder) return;
-
-    function getThumbImgs(){
-      return Array.from(thumbs.querySelectorAll("img.np-thumb"));
-    }
-
-    function reindex(){
-      getThumbImgs().forEach((img, idx) => img.dataset.index = String(idx));
-    }
-
-    function showArrowsIfNeeded(){
-      const n = getThumbImgs().length;
-      if (!prevBtn || !nextBtn) return;
-      const show = n > 1;
-      prevBtn.style.display = show ? "flex" : "none";
-      nextBtn.style.display = show ? "flex" : "none";
-    }
-
-function setActive(idx){
-  const list = getThumbImgs();
-  const t = list[idx];
-  if (!t) return;
-
-  // ✅ poner imagen en main
-  mainImg.src = t.dataset.url;
-  mainImg.dataset.index = String(idx);
-
-  // ✅ mostrar img / ocultar placeholder SIEMPRE
-  
-  placeholder.style.setProperty("display", "none", "important");
-        mainImg.style.setProperty("display", "block", "important");
-
-
-  list.forEach((el, i) => {
-    if (i === idx) {
-      el.style.border = "2px solid rgba(18,62,92,.55)";
-      el.style.boxShadow = "0 8px 18px rgba(18,62,92,.15)";
-    } else {
-      el.style.border = "1px solid rgba(0,0,0,.12)";
-      el.style.boxShadow = "none";
-    }
-  });
-
-  showArrowsIfNeeded();
-}
-
-
- function go(delta) {
-      const thumbs = getThumbImgs();
-      const n = thumbs.length;
-      if (!n) return;
-
-      // si main es div "Sin fotos", no hay navegación
-      if (!mainImg.tagName || mainImg.tagName.toLowerCase() !== "img") return;
-
-      const current = parseInt((mainImg.dataset && mainImg.dataset.index) || "0", 10);
-      const next = (current + delta + n) % n;
-      setActive(next);
-    }
-
-    if (prevBtn) prevBtn.addEventListener("click", () => go(-1));
-    if (nextBtn) nextBtn.addEventListener("click", () => go(1));
-
-    addBtn.addEventListener("click", () => addInput.click());
-
-    addInput.addEventListener("change", () => {
-      const files = Array.from(addInput.files || []);
-      if (!files.length) return;
-
-      // Insertar thumbs antes del botón +
-      const beforeNode = addBtn;
-
-      files.forEach((f) => {
-        if (!f.type || !f.type.startsWith("image/")) return;
-        const url = URL.createObjectURL(f);
-
-        const img = document.createElement("img");
-        img.className = "np-thumb";
-        img.dataset.url = url;
-        img.alt = "Miniatura";
-        img.src = url;
-
-        thumbs.insertBefore(img, beforeNode);
-      });
-
-      reindex();
-
-      // activar la primera si no había ninguna
-      const list = getThumbImgs();
-      if (list.length) setActive(0);
-    });
-
-    // click miniaturas
-    thumbs.addEventListener("click", (e) => {
-      const t = e.target.closest("img.np-thumb");
-      if (!t) return;
-      const idx = parseInt(t.dataset.index || "0", 10);
-      setActive(idx);
-    });
-  }
-
-  // ======= CERTIFICADOS =======
-  let prodCertIndex = 5000;   // base alta: no choca con los índices de filas de usuario
-  let prodCertCache = null;
-
-  async function fetchProductCerts() {
-    if (prodCertCache) return prodCertCache;
-
-    const payload = { jsonrpc: "2.0", method: "call", params: {}, id: Date.now() };
-    const r = await fetch("/marketplace/certificados_producto", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      credentials: "same-origin",
-    });
-
-    const data = await r.json();
-    if (data.error) throw new Error(data.error.data?.message || data.error.message || "Error RPC");
-    prodCertCache = data.result || [];
-    return prodCertCache;
-  }
-
-  function buildOptions(certs) {
-    const out = ['<option value="">Seleccione…</option>'];
-    certs.forEach(c => {
-      const issuer = (c.issuer || "").replace(/"/g, "&quot;");
-      out.push(`<option value="${c.id}" data-issuer="${issuer}">${c.name}</option>`);
-    });
-    return out.join("");
-  }
-
-  function initCerts() {
-    var addBtn = document.querySelector(".shrimpAddProdCert");
-    var body = document.getElementById("prodCertBody");
-    var modal = document.getElementById("certEditorModal");
-    if (!modal || !body) { return; }
-
-    var certMode = "new";
-    var editingRow = null;
-
-    function refreshEmpty(){
-      var e = document.getElementById("prodCertEmpty");
-      if(!e) return;
-      var any=false;
-      body.querySelectorAll(".pcert-row").forEach(function(r){ if(r.style.display!=="none") any=true; });
-      e.style.display = any ? "none" : "";
-    }
-    function recreateFile(){
-      var wrap=document.getElementById("ce_file_wrap");
-      wrap.innerHTML="";
-      var f=document.createElement("input");
-      f.type="file"; f.id="ce_file"; f.className="form-control"; f.accept="image/*,application/pdf";
-      wrap.appendChild(f);
-      return f;
-    }
-    async function openModal(mode,row){
-      certMode=mode; editingRow=row||null;
-      var sel=document.getElementById("ce_cert");
-      var issuer=document.getElementById("ce_issuer");
-      try{ sel.innerHTML=buildOptions(await fetchProductCerts()); }catch(e){ sel.innerHTML='<option value="">(error)</option>'; }
-      function syncIssuer(){ var o=sel.selectedOptions[0]; issuer.value=o?(o.getAttribute("data-issuer")||""):""; }
-      sel.onchange=syncIssuer;
-      recreateFile();
-      document.getElementById("ce_err").style.display="none";
-      var req=document.getElementById("ce_file_req");
-      var hint=document.getElementById("ce_file_hint");
-      if(mode==="edit" && row){
-        document.getElementById("certEditorTitle").textContent="Editar certificado";
-        sel.value=row.getAttribute("data-cert")||""; sel.disabled=true; syncIssuer();
-        document.getElementById("ce_number").value=row.getAttribute("data-number")||"";
-        document.getElementById("ce_issue").value=row.getAttribute("data-issue")||"";
-        document.getElementById("ce_expiry").value=row.getAttribute("data-expiry")||"";
-        req.style.display="none"; hint.textContent="Deja vacío para conservar el archivo actual.";
-      } else {
-        document.getElementById("certEditorTitle").textContent="Agregar certificado";
-        sel.disabled=false; sel.value=""; syncIssuer();
-        document.getElementById("ce_number").value="";
-        document.getElementById("ce_issue").value="";
-        document.getElementById("ce_expiry").value="";
-        req.style.display=""; hint.textContent="";
-      }
-      modal.classList.add("open");
-    }
-    function closeModal(){ modal.classList.remove("open"); editingRow=null; }
-    function save(){
-      var sel=document.getElementById("ce_cert");
-      var num=document.getElementById("ce_number").value;
-      var iss=document.getElementById("ce_issue").value;
-      var exp=document.getElementById("ce_expiry").value;
-      var fileInp=document.getElementById("ce_file");
-      var err=document.getElementById("ce_err");
-      function showErr(m){ err.textContent=m; err.style.display=""; }
-      var hasFile=fileInp && fileInp.files && fileInp.files.length;
-      if(certMode==="new"){
-        if(!sel.value){ showErr("Elige un certificado."); return; }
-        if(!hasFile){ showErr("Adjunta el archivo."); return; }
-        var idx=prodCertIndex++;
-        var fname="prod_cert_"+idx+"_file";
-        var certName=sel.selectedOptions[0].textContent;
-        var issuerV=sel.selectedOptions[0].getAttribute("data-issuer")||"";
-        var tr=document.createElement("tr");
-        tr.className="pcert-row"; tr.setAttribute("data-kind","nuevo");
-        tr.setAttribute("data-cert",sel.value);
-        tr.setAttribute("data-number",num); tr.setAttribute("data-issue",iss); tr.setAttribute("data-expiry",exp);
-        tr.setAttribute("data-fname",fname);
-        tr.innerHTML='<td class="pc-name"></td><td class="pc-issuer"></td><td class="pc-number"></td><td class="pc-issue"></td><td class="pc-expiry"></td><td><span class="s-badge">Nuevo</span></td><td class="text-end pcert-actions"><input type="hidden" name="prod_cert_'+idx+'_id"/><input type="hidden" class="ei-number" name="prod_cert_'+idx+'_number"/><input type="hidden" class="ei-issue" name="prod_cert_'+idx+'_issue_date"/><input type="hidden" class="ei-expiry" name="prod_cert_'+idx+'_expiry_date"/><span class="ei-file-slot"></span><button type="button" class="s-btn s-btn-ghost btn-sm pcert-edit" title="Editar"><i class="fa fa-pencil"></i></button><button type="button" class="s-btn s-btn-danger btn-sm pcert-del" title="Quitar"><i class="fa fa-trash"></i></button></td>';
-        tr.querySelector(".pc-name").textContent=certName;
-        tr.querySelector(".pc-issuer").textContent=issuerV||"—";
-        tr.querySelector(".pc-number").textContent=num||"—";
-        tr.querySelector(".pc-issue").textContent=iss||"—";
-        tr.querySelector(".pc-expiry").textContent=exp||"—";
-        tr.querySelector('input[name="prod_cert_'+idx+'_id"]').value=sel.value;
-        tr.querySelector(".ei-number").value=num;
-        tr.querySelector(".ei-issue").value=iss;
-        tr.querySelector(".ei-expiry").value=exp;
-        fileInp.name=fname; fileInp.id=""; fileInp.classList.add("d-none");
-        tr.querySelector(".ei-file-slot").appendChild(fileInp);
-        body.appendChild(tr);
-      } else if(editingRow){
-        var row=editingRow;
-        row.setAttribute("data-number",num); row.setAttribute("data-issue",iss); row.setAttribute("data-expiry",exp);
-        row.querySelector(".pc-number").textContent=num||"—";
-        row.querySelector(".pc-issue").textContent=iss||"—";
-        row.querySelector(".pc-expiry").textContent=exp||"—";
-        var a=row.querySelector(".ei-number"); if(a) a.value=num;
-        var b=row.querySelector(".ei-issue"); if(b) b.value=iss;
-        var c=row.querySelector(".ei-expiry"); if(c) c.value=exp;
-        if(hasFile){
-          var slot=row.querySelector(".ei-file-slot");
-          if(slot){ slot.innerHTML=""; fileInp.name=row.getAttribute("data-fname")||fileInp.name; fileInp.id=""; fileInp.classList.add("d-none"); slot.appendChild(fileInp); }
-        }
-      }
-      closeModal(); refreshEmpty();
-    }
-    // Borrado con confirmación por modal (no inmediato).
-    var delModal=document.getElementById("certDelModal");
-    var pendingDel=null;
-    function aplicarBorrado(row){
-      var flag=row.querySelector(".pcert-remove-flag");
-      if(flag){ flag.checked=true; row.style.display="none"; } else { row.remove(); }
-      refreshEmpty();
-    }
-    if(addBtn){ addBtn.addEventListener("click", function(){ openModal("new"); }); }
-    body.addEventListener("click", function(e){
-      var ed=e.target.closest(".pcert-edit");
-      if(ed){ openModal("edit", ed.closest(".pcert-row")); return; }
-      var del=e.target.closest(".pcert-del");
-      if(del){
-        pendingDel=del.closest(".pcert-row");
-        if(delModal){ delModal.classList.add("open"); } else { aplicarBorrado(pendingDel); }
-        return;
-      }
-    });
-    var cdOk=document.getElementById("cd_ok");
-    if(cdOk){ cdOk.addEventListener("click", function(){ if(pendingDel){ aplicarBorrado(pendingDel); } if(delModal){ delModal.classList.remove("open"); } pendingDel=null; }); }
-    var cdCancel=document.getElementById("cd_cancel");
-    if(cdCancel){ cdCancel.addEventListener("click", function(){ if(delModal){ delModal.classList.remove("open"); } pendingDel=null; }); }
-    if(delModal){ delModal.addEventListener("click", function(e){ if(e.target===delModal){ delModal.classList.remove("open"); pendingDel=null; } }); }
-    var cancel=document.getElementById("ce_cancel"); if(cancel){ cancel.addEventListener("click", closeModal); }
-    var saveBtn=document.getElementById("ce_save"); if(saveBtn){ saveBtn.addEventListener("click", save); }
-    modal.addEventListener("click", function(e){ if(e.target===modal){ closeModal(); } });
-    refreshEmpty();
-  }
-
-  function initPondFilter(){
-    var fac = document.getElementById("originFacility");
-    var pond = document.getElementById("originPond");
-    if(!fac || !pond) return;
-    var opts = Array.prototype.slice.call(pond.querySelectorAll("option[value]")).filter(function(o){ return o.value; });
-    function apply(){
-      var f = fac.value;
-      var currentOk = false;
-      opts.forEach(function(o){
-        var of = o.getAttribute("data-facility") || "";
-        // Muestra piscinas de la instalación elegida; si no hay instalación, muéstralas todas.
-        var show = !f || of === f;
-        o.hidden = !show;
-        o.disabled = !show;
-        if(show && o.selected) currentOk = true;
-      });
-      if(!currentOk){ pond.value = ""; }
-    }
-    fac.addEventListener("change", apply);
-    apply();
-  }
-
-  function initSizeFilter(){
-    var pres = document.getElementById("prodPresentation");
-    var size = document.getElementById("prodSizeGrade");
-    if(!pres || !size) return;
-    var opts = Array.prototype.slice.call(size.querySelectorAll("option[value]")).filter(function(o){ return o.value; });
-    function apply(){
-      var p = pres.value;
-      var ok = false;
-      opts.forEach(function(o){
-        var op = o.getAttribute("data-presentation") || "";
-        var show = !!p && op === p;   // sin presentación no hay tallas válidas
-        o.hidden = !show; o.disabled = !show;
-        if(show && o.selected) ok = true;
-      });
-      if(!ok){ size.value = ""; }
-    }
-    pres.addEventListener("change", apply);
-    apply();
-  }
-
-  // El asterisco de Presentación y Talla mentía al semillero: esos dos campos
-  // solo se exigen para publicar camarón de engorde, que es el único con talla
-  // comercial. Se muestra según el estadío elegido, con el mismo criterio que
-  // aplica el servidor al publicar.
-  function initRequiredByStage(){
-    var stage = document.getElementById("prodStage");
-    var marks = document.querySelectorAll(".s-req-engorde");
-    if(!stage || !marks.length) return;
-    function apply(){
-      var opt = stage.options[stage.selectedIndex];
-      var code = (opt && opt.getAttribute("data-code") || "").trim().toUpperCase();
-      var req = code === "ENGORDE";
-      Array.prototype.forEach.call(marks, function(m){
-        m.style.display = req ? "" : "none";
-      });
-    }
-    stage.addEventListener("change", apply);
-    apply();
-  }
-
-  function initExistingPhotos(){
-    var wrap = document.getElementById("np_thumbs");
-    if(!wrap) return;
-    var mainImg = document.getElementById("np_main_img");
-    var ph = document.getElementById("np_main_placeholder");
-    function showMain(url){
-      if(mainImg){ mainImg.src = url; mainImg.style.display = "block"; }
-      if(ph){ ph.style.display = "none"; }
-    }
-    var exist = wrap.querySelectorAll(".np-exist");
-    // Al cargar, si no hay foto nueva en el visor, muestra la primera existente.
-    if(exist.length && mainImg && mainImg.style.display === "none"){
-      showMain(exist[0].getAttribute("data-full"));
-    }
-    wrap.addEventListener("click", function(e){
-      var del = e.target.closest(".np-exist-del");
-      if(del){
-        e.preventDefault();
-        var box = del.closest(".np-exist");
-        var cb = box.querySelector("input[type=checkbox]");
-        if(cb){ cb.checked = true; }
-        box.remove();
-        return;
-      }
-      var thumb = e.target.closest(".np-exist");
-      if(thumb){ showMain(thumb.getAttribute("data-full")); }
-    });
-  }
-
-  function init(){
-    initNewGallery();
-    initCerts();
-    initPondFilter();
-    initSizeFilter();
-    initRequiredByStage();
-    initExistingPhotos();
-  }
-
-  document.addEventListener("DOMContentLoaded", init);
-
-})();
-]]>
-        </script>
-
     </template>
 
     <template id="product_detail" name="Detalle de Producto - Marketplace">
@@ -1566,7 +1138,7 @@ function setActive(idx){
                                         <h1><t t-esc="product.name" /></h1>
                                         <p>
                                             <i class="fa fa-user-circle-o me-1"></i> Vendido por
-                                            <a t-att-href="'/marketplace/vendedor/%s' % product.seller_partner_id.uuid_ref"
+                                            <a t-att-href="'/marketplace/sellers/%s' % product.seller_partner_id.uuid_ref"
                                                style="color:#fff; font-weight:700; text-decoration:underline;">
                                                 <t t-esc="product.seller_partner_id.name" />
                                             </a>
@@ -1744,8 +1316,8 @@ function setActive(idx){
                                                       t-att-title="veto">No disponible</span>
                                             </t>
 
-                                            <!-- Especificaciones -->
-                                            <div class="mp-sec-head">
+                                            <!-- Especificaciones (id estable: ancla de herencias) -->
+                                            <div class="mp-sec-head" id="shrimp_product_specs_head">
                                                 <span class="mp-sec-ico"><i class="fa fa-list-ul"></i></span>
                                                 <h3 class="mp-sec-title">Especificaciones</h3>
                                             </div>
@@ -1849,7 +1421,7 @@ function setActive(idx){
                                                 <t t-if="is_owner and product.active">
                                                     <t t-if="p_vendido">
                                                         <form method="post" class="d-inline"
-                                                              t-att-action="'/marketplace/products/%s/baja' % product.uuid_ref">
+                                                              t-att-action="'/marketplace/products/%s/deactivate' % product.uuid_ref">
                                                             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                                             <button type="button" class="s-btn s-btn-ghost prod-del-btn"
                                                                     data-modo="archivar" t-att-data-nombre="product.name">
@@ -1858,7 +1430,7 @@ function setActive(idx){
                                                     </t>
                                                     <t t-else="">
                                                         <form method="post" class="d-inline"
-                                                              t-att-action="'/marketplace/products/%s/eliminar' % product.uuid_ref">
+                                                              t-att-action="'/marketplace/products/%s/delete' % product.uuid_ref">
                                                             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                                             <button type="button" class="s-btn s-btn-danger prod-del-btn"
                                                                     data-modo="eliminar" t-att-data-nombre="product.name">
@@ -1868,7 +1440,7 @@ function setActive(idx){
                                                 </t>
                                                 <t t-if="is_owner and not product.active">
                                                     <form method="post" class="d-inline"
-                                                          t-att-action="'/marketplace/products/%s/reactivar' % product.uuid_ref">
+                                                          t-att-action="'/marketplace/products/%s/reactivate' % product.uuid_ref">
                                                         <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                                         <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-refresh me-1"></i> Reactivar</button>
                                                     </form>
@@ -1973,7 +1545,7 @@ function setActive(idx){
                                                                 <t t-if="c.file_attachment_id">
                                                                     <button type="button"
                                                                         class="s-btn s-btn-ghost btn-sm js-cert-view"
-                                                                        t-att-data-url="'/marketplace/product/%s/user-certificate/%s' % (product.uuid_ref, c.id)">
+                                                                        t-att-data-url="'/marketplace/product/%s/user-certificate/%s' % (product.uuid_ref, c.uuid_ref)">
                                                                         Ver certificado
                                                                     </button>
                                                                 </t>
@@ -1999,14 +1571,17 @@ function setActive(idx){
                                     <div class="mp-sec-head">
                                         <span class="mp-sec-ico"><i class="fa fa-file-text-o"></i></span>
                                         <h3 class="mp-sec-title">Certificados del producto</h3>
-                                        <t t-if="product.certificate_line_ids">
+                                        <!-- Al público, solo los aprobados; el dueño ve también
+                                             los que están en revisión o rechazados. -->
+                                        <t t-set="vis_cert_lines" t-value="product.shrimp_visible_certificate_lines(owner_view=is_owner or is_internal)"/>
+                                        <t t-if="vis_cert_lines">
                                             <span class="s-badge s-badge--teal mp-sec-count">
-                                                <t t-esc="len(product.certificate_line_ids)" />
+                                                <t t-esc="len(vis_cert_lines)" />
                                             </span>
                                         </t>
                                     </div>
 
-                                    <t t-if="product.certificate_line_ids">
+                                    <t t-if="vis_cert_lines">
                                         <div class="table-responsive mp-table-wrap">
                                             <table class="table align-middle mb-0">
                                                 <thead class="text-muted" style="font-size:12px;">
@@ -2020,11 +1595,14 @@ function setActive(idx){
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    <t t-foreach="product.certificate_line_ids"
+                                                    <t t-foreach="vis_cert_lines"
                                                         t-as="line">
                                                         <tr>
                                                             <td class="fw-semibold">
                                                                 <t t-esc="line.certificate_id.name" />
+                                                                <span t-if="line.status != 'approved'" class="s-badge ms-1">
+                                                                    <t t-esc="'Rechazado' if line.status == 'rejected' else 'En revisión'"/>
+                                                                </span>
                                                             </td>
                                                             <td>
                                                                 <t
@@ -2043,7 +1621,7 @@ function setActive(idx){
                                                                 <t t-if="line.attachment_id">
                                                                     <button type="button"
                                                                         class="s-btn s-btn-ghost btn-sm js-cert-view"
-                                                                        t-att-data-url="'/marketplace/product/%s/certificate/%s' % (product.uuid_ref, line.attachment_id.id)">
+                                                                        t-att-data-url="product.shrimp_cert_url(line.attachment_id)">
                                                                         Ver certificado
                                                                     </button>
                                                                 </t>
@@ -2242,7 +1820,7 @@ function setActive(idx){
                                     <!-- Foto principal -->
                                     <t t-if="photos and len(photos) &gt; 0">
                                         <img class="img-fluid rounded-4 mb-3"
-                                            t-att-src="'/web/image/%s' % photos[0].id"
+                                            t-att-src="product.shrimp_photo_url(photos[0])"
                                             alt="Foto producto"
                                             style="width:100%; height:420px; object-fit:cover;" />
                                     </t>
@@ -2259,7 +1837,7 @@ function setActive(idx){
                                         <div class="d-flex gap-2 flex-wrap mt-2">
                                             <t t-foreach="photos" t-as="img">
                                                 <t t-if="img_index &gt; 0">
-                                                    <img t-att-src="'/web/image/%s' % img.id"
+                                                    <img t-att-src="product.shrimp_photo_url(img)"
                                                         class="rounded-3 border"
                                                         t-attf-alt="Foto #{img_index + 1} del lote"
                                                         style="width:80px; height:80px; object-fit:cover; cursor:pointer;" />
@@ -2282,7 +1860,7 @@ function setActive(idx){
 
                                     <!-- Header: título + badges -->
                                     <div
-                                        class="d-flex justify-content-between align-items-start gap-3 mb-2">
+                                        class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-2">
                                         <div>
                                             <h2 class="mb-1"
                                                 style="font-weight:900; letter-spacing:-.3px;">
@@ -2499,7 +2077,7 @@ function setActive(idx){
                                                                     </div>
                                                                     <button type="button"
                                                                         class="s-btn s-btn-ghost btn-sm js-cert-view"
-                                                                        t-att-data-url="'/marketplace/product/%s/certificate/%s' % (product.uuid_ref, cert.id)">
+                                                                        t-att-data-url="product.shrimp_cert_url(cert)">
                                                                         Ver certificado
                                                                     </button>
                                                                 </li>

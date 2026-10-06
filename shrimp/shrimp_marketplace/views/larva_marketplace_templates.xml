@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <!-- =====================================================================
+         Catálogo: pestañas Nauplio / Larva (PL) / Camarón, filtros de larva
+         (genética, supervivencia mínima, PCR vigente, SPF), insignias en las
+         tarjetas, «Laboratorios destacados» y «Avísame» en el estado vacío.
+         Todo por herencia: las plantillas base no se reescriben.
+         ===================================================================== -->
+
+    <!-- Insignias de calidad en cada tarjeta (página y «Cargar más») -->
+    <template id="marketplace_product_cards_larva" inherit_id="shrimp_marketplace.marketplace_product_cards"
+              name="Marketplace - Tarjetas: insignias de larva">
+        <xpath expr="//t[@t-foreach='products']" position="before">
+            <t t-set="shrimp_pcr_ids" t-value="products._shrimp_pcr_valid_ids() if products else set()"/>
+        </xpath>
+        <xpath expr="//div[hasclass('s-badges')]" position="inside">
+            <t t-if="p._shrimp_tipo() != 'camaron'">
+                <span t-if="p.survival_rate" class="s-badge sp-badge-surv" t-att-title="'Supervivencia publicada'">
+                    <i class="fa fa-heartbeat me-1"/>Superv. <t t-esc="'%.0f' % p.survival_rate"/> %
+                </span>
+                <span t-if="p.genetics_line_id" class="s-badge sp-badge-gen" t-att-title="'Línea genética'">
+                    <i class="fa fa-code-fork me-1"/><t t-esc="p.genetics_line_id.name"/>
+                </span>
+            </t>
+            <span t-if="p.id in shrimp_pcr_ids" class="s-badge sp-badge-pcr" title="Certificado PCR aprobado y vigente">
+                <i class="fa fa-shield me-1"/>PCR vigente
+            </span>
+        </xpath>
+    </template>
+
+    <template id="marketplace_list_larva" inherit_id="shrimp_marketplace.marketplace_list"
+              name="Marketplace - Filtros de larva">
+
+        <!-- Encabezado según la pestaña -->
+        <xpath expr="//div[hasclass('sf-banner-txt')]" position="replace">
+            <div class="sf-banner-txt">
+                <t t-if="larva_tipo == 'larva'">
+                    <h1>Larva para tu próxima siembra</h1>
+                    <p>Postlarva de laboratorios con PCR al día, supervivencia publicada y línea genética declarada.</p>
+                </t>
+                <t t-elif="larva_tipo == 'nauplio'">
+                    <h1>Nauplio de maduraciones certificadas</h1>
+                    <p>Nauplio directo del semillero, con su genética, sus reproductores y su certificado sanitario.</p>
+                </t>
+                <t t-elif="larva_tipo == 'camaron'">
+                    <h1>Camarón con trazabilidad</h1>
+                    <p>Cosechas de camaroneras con su historia: de qué laboratorio vino la larva y cómo creció.</p>
+                </t>
+                <t t-else="">
+                    <h1>Larvas y camarón con trazabilidad</h1>
+                    <p>Compra directo a semilleros, laboratorios y camaroneras. Cada lote con su historial verificado.</p>
+                </t>
+            </div>
+        </xpath>
+
+        <!-- Pestañas por tipo + chips de estadío (del tipo elegido) -->
+        <xpath expr="//div[hasclass('s-cat-chips')]" position="replace">
+            <nav t-if="larva_show_tabs" class="sp-tabs mb-2" aria-label="Tipo de producto" id="sp_tipo_tabs">
+                <t t-foreach="larva_tabs or []" t-as="tab">
+                    <a t-att-href="tab['url']" data-vista-link="1"
+                       t-att-class="'sp-tab' + (' is-active' if tab['active'] else '')"
+                       t-att-aria-current="'page' if tab['active'] else None"
+                       t-att-data-tipo="tab['code']"><t t-esc="tab['label']"/></a>
+                </t>
+            </nav>
+            <!-- Con un solo estadío posible («Todas» + 1) la fila no aporta nada. -->
+            <div t-if="len(stage_chips or []) &gt; 2" class="s-cat-chips s-cat-chips--scroll mb-3">
+                <t t-foreach="stage_chips or []" t-as="chip">
+                    <a t-att-class="'s-cat-chip' + (' active' if chip['active'] else '')"
+                       t-att-href="chip['url']" data-vista-link="1"><t t-esc="chip['label']"/></a>
+                </t>
+            </div>
+
+            <!-- Laboratorios / semilleros destacados -->
+            <div t-if="featured_sellers" class="sp-featured mb-3" id="sp_featured">
+                <div class="sp-featured-head">
+                    <h2 t-if="larva_tipo == 'larva'">Laboratorios destacados</h2>
+                    <h2 t-else="">Semilleros destacados</h2>
+                    <span class="text-soft">Mejor calificados y con más ventas cerradas</span>
+                </div>
+                <div class="sp-featured-row sp-featured-row--compact">
+                    <t t-foreach="featured_sellers" t-as="fs">
+                        <a class="sp-feat-card sp-feat-card--compact" t-att-href="'/marketplace/sellers/%s' % fs['partner'].uuid_ref">
+                            <span class="sp-feat-name"><t t-esc="fs['partner'].name"/></span>
+                            <span class="sp-feat-meta">
+                                <t t-if="fs['rating_count']"><i class="fa fa-star"/> <t t-esc="'%.1f' % fs['rating']"/> (<t t-esc="fs['rating_count']"/>)</t>
+                                <t t-else="">Sin reseñas</t>
+                                · <t t-esc="fs['sales']"/> ventas
+                            </span>
+                            <span class="sp-feat-meta sp-feat-loc" t-if="fs['location']"><i class="fa fa-map-marker"/> <t t-esc="fs['location']"/></span>
+                            <span class="sp-feat-line">
+                                <t t-if="fs['survival']">Superv. <t t-esc="'%.0f' % fs['survival']"/> % · </t>
+                                <t t-if="fs['pcr']">PCR <i class="fa fa-check" aria-label="vigente"/> · </t>
+                                <t t-esc="fs['lots']"/> lotes · desde $<t t-esc="'%.2f' % fs['price_from']"/> / <t t-esc="fs['uom']"/>
+                            </span>
+                            <span t-if="fs['genetics']" class="sp-feat-tags">
+                                <span class="s-badge sp-badge-gen"><t t-esc="fs['genetics'][0]"/></span>
+                                <t t-set="fs_mas" t-value="(fs.get('genetics_count') or len(fs['genetics'])) - 1"/>
+                                <span t-if="fs_mas &gt; 0" class="sp-feat-more" t-att-title="', '.join(fs['genetics'])">+<t t-esc="fs_mas"/></span>
+                            </span>
+                        </a>
+                    </t>
+                </div>
+            </div>
+
+            <div t-if="avisame_ok" class="sp-alert sp-alert--info mb-3" role="status" id="sp_avisame_ok">
+                <i class="fa fa-bell me-2"/>
+                Listo: guardamos tu búsqueda. Te contactaremos cuando un laboratorio publique un lote que encaje.
+            </div>
+        </xpath>
+
+        <!-- Presentación (entero/cola) y talla solo tienen sentido para camarón:
+             se ocultan si el perfil activo no puede comprar camarón (p. ej. el
+             semillero, que solo ve nauplio). -->
+        <xpath expr="//div[@id='sf_sec_presentation']" position="attributes">
+            <attribute name="t-if">not larva_allowed_tipos or 'camaron' in larva_allowed_tipos</attribute>
+        </xpath>
+        <xpath expr="//div[@id='sf_sec_size']" position="attributes">
+            <attribute name="t-if">not larva_allowed_tipos or 'camaron' in larva_allowed_tipos</attribute>
+        </xpath>
+
+        <!-- Cajón de filtros: «Tipo» (las pestañas) arriba del todo -->
+        <xpath expr="//div[@id='sf_sec_species']" position="before">
+            <div t-if="larva_show_tabs" class="s-filter-sec" id="sp_filter_tipo">
+                <div class="s-filter-sec-label">Tipo</div>
+                <div class="s-choice-chips">
+                    <t t-foreach="larva_tabs or []" t-as="tab">
+                        <label class="s-choice">
+                            <input type="radio" name="tipo" t-att-value="tab['code']" data-s-clears="stage"
+                                   t-att-checked="(filters.get('tipo') or '') == tab['code']"/>
+                            <span><t t-esc="tab['label']"/></span>
+                        </label>
+                    </t>
+                </div>
+            </div>
+        </xpath>
+
+        <!-- Cajón de filtros: línea genética, supervivencia y certificados
+             (antes del vendedor) -->
+        <xpath expr="//div[@id='sf_sec_seller']" position="before">
+            <div class="s-filter-sec" id="sp_filter_larva">
+                <label class="s-filter-sec-label" for="fltGenetics">Línea genética</label>
+                <select class="form-select" name="genetics" id="fltGenetics">
+                    <option value="">Todas las líneas</option>
+                    <t t-foreach="genetics_options or []" t-as="g">
+                        <option t-att-value="g.id" t-att-selected="str(filters.get('genetics') or '') == str(g.id)"><t t-esc="g.name"/></option>
+                    </t>
+                </select>
+            </div>
+            <div class="s-filter-sec" id="sp_filter_survival">
+                <div class="s-filter-sec-label">Supervivencia mínima</div>
+                <div class="s-choice-chips">
+                    <label class="s-choice">
+                        <input type="radio" name="survival_min" value="" t-att-checked="not filters.get('survival_min')"/>
+                        <span>Cualquiera</span>
+                    </label>
+                    <t t-foreach="survival_options or []" t-as="sv">
+                        <label class="s-choice">
+                            <input type="radio" name="survival_min" t-att-value="sv"
+                                   t-att-checked="str(filters.get('survival_min') or '') == str(sv)"/>
+                            <span><t t-esc="sv"/> %+</span>
+                        </label>
+                    </t>
+                </div>
+            </div>
+            <div class="s-filter-sec" id="sp_filter_certs">
+                <div class="s-filter-sec-label">Certificados</div>
+                <div class="s-choice-chips">
+                    <label class="s-choice" title="Certificado PCR aprobado y vigente (WSSV, AHPND…)">
+                        <input type="checkbox" name="pcr" value="1" t-att-checked="bool(filters.get('pcr'))"/>
+                        <span>PCR vigente</span>
+                    </label>
+                    <label class="s-choice" title="Libre de patógenos específicos">
+                        <input type="checkbox" name="spf" value="1" t-att-checked="bool(filters.get('spf'))"/>
+                        <span>SPF</span>
+                    </label>
+                </div>
+            </div>
+        </xpath>
+
+        <!-- La barra superior (s_filter_toolbar) conserva los filtros de larva y
+             ofrece «Mejor supervivencia»: lo pone el controlador en `fd`
+             (_toolbar_hidden_keys / _sort_options). -->
+
+        <!-- «Cargar más» lee los filtros de estos atributos -->
+        <xpath expr="//div[@id='prodGrid']" position="attributes">
+            <attribute name="t-att-data-tipo">filters.get('tipo') or ''</attribute>
+            <attribute name="t-att-data-genetics">filters.get('genetics') or ''</attribute>
+            <attribute name="t-att-data-survival_min">filters.get('survival_min') or ''</attribute>
+            <attribute name="t-att-data-pcr">filters.get('pcr') or ''</attribute>
+            <attribute name="t-att-data-spf">filters.get('spf') or ''</attribute>
+        </xpath>
+
+        <!-- Estado vacío útil: «Avísame» -->
+        <xpath expr="//div[hasclass('s-empty')]" position="inside">
+            <div t-if="larva_mode or larva_active" class="sp-avisame" id="sp_avisame">
+                <p class="mb-2">
+                    ¿Quieres que te avisemos cuando
+                    <t t-if="larva_tipo == 'nauplio'">un semillero</t><t t-else="">un laboratorio</t>
+                    publique un lote así?
+                </p>
+                <t t-if="request.env.user._is_public()">
+                    <a class="s-btn s-btn-ghost" t-att-href="avisame_login_url or '/web/login'">
+                        <i class="fa fa-bell me-1"/> Inicia sesión para recibir el aviso
+                    </a>
+                    <a class="s-btn s-btn-ghost" href="/register">Crear cuenta</a>
+                </t>
+                <form t-else="" method="post" action="/marketplace/notify-me" class="d-inline">
+                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                    <t t-foreach="['tipo', 'genetics', 'survival_min', 'pcr', 'spf', 'stage']" t-as="fk">
+                        <input type="hidden" t-att-name="fk" t-att-value="filters.get(fk) or ''"/>
+                    </t>
+                    <button type="submit" class="s-btn s-btn-teal"><i class="fa fa-bell me-1"/> Avísame</button>
+                </form>
+                <p class="sp-avisame-note">Guardamos tu búsqueda (tipo, estadío, genética, supervivencia y PCR).
+                    El aviso automático por correo llegará con los avisos de lotes de la próxima fase.</p>
+            </div>
+        </xpath>
+    </template>
+
+</odoo>

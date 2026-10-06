@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- ================================================================
+       Firmas de dos partes: historial de decisiones y «deshacer mi
+       decisión». Bloques comunes que usan la aceptación del informe de
+       verificación, el acta de empaque y la confirmación de cosecha, para
+       que las tres pantallas digan lo mismo con las mismas reglas.
+       ================================================================ -->
+
+  <!-- Historial. Parámetro: historial (shrimp.signoff.event, en sudo). -->
+  <template id="signoff_history" name="Firmas: historial de decisiones">
+    <t t-if="historial">
+      <div class="card mt-3 mb-4 sg-historial">
+        <div class="card-body">
+          <h6 class="text-uppercase text-muted small mb-2">
+            <i class="fa fa-history me-1"/>Historial de decisiones
+          </h6>
+          <div class="table-responsive">
+            <table class="table table-sm small mb-0">
+              <thead>
+                <tr><th>Fecha</th><th>Parte</th><th>Qué pasó</th><th>Lo hizo</th><th>Motivo</th></tr>
+              </thead>
+              <tbody>
+                <t t-foreach="historial" t-as="ev">
+                  <tr t-attf-class="#{'text-muted' if ev.undone else ''}">
+                    <td class="text-nowrap" t-esc="ev.date_local()"/>
+                    <td>
+                      <t t-esc="ev.role_label"/>
+                      <div class="text-muted" t-esc="ev.partner_id.name"/>
+                    </td>
+                    <td>
+                      <t t-if="ev.kind == 'undo'">
+                        <i class="fa fa-undo me-1"/>Deshizo «<t t-esc="ev.previous_label"/>»
+                        <span class="text-muted">→ <t t-esc="ev.decision_label"/></span>
+                      </t>
+                      <t t-else="">
+                        <t t-esc="ev.decision_label"/>
+                        <t t-if="ev.decision == 'counter' and ev.counter_price">
+                          (<t t-esc="'{:.2f}'.format(ev.counter_price)"/>)
+                        </t>
+                        <t t-if="ev.undone"><span class="badge text-bg-light ms-1">deshecha</span></t>
+                      </t>
+                    </td>
+                    <td t-esc="ev.actor_label()"/>
+                    <td t-esc="ev.reason or ''"/>
+                  </tr>
+                </t>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </t>
+  </template>
+
+  <!-- Deshacer. Parámetros: firma (la postura propia), undo_url (POST),
+       undo_info (dict de firma.signoff_undo_info()). Solo se pinta si se puede. -->
+  <template id="signoff_undo_form" name="Firmas: deshacer mi decisión">
+    <t t-if="firma and undo_info and undo_info.get('can')">
+      <div class="card border-secondary mt-3 mb-4 sg-deshacer">
+        <div class="card-body">
+          <h6 class="mb-1"><i class="fa fa-undo me-1"/>¿Te equivocaste?</h6>
+          <p class="small text-muted mb-2">
+            Puedes deshacer tu decisión y volver a dejarla pendiente
+            <t t-if="undo_info.get('until')"><t t-esc="undo_info['until']"/></t>.
+            La otra parte recibe un aviso y queda constancia en el historial.
+          </p>
+          <form method="post" t-att-action="undo_url"
+                onsubmit="return confirm('¿Deshacer tu decisión? Volverá a quedar pendiente y la otra parte será avisada.');">
+            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+            <input type="text" name="motivo" class="form-control form-control-sm mb-2"
+                   placeholder="Por qué la deshaces (recomendado)"/>
+            <button type="submit" class="btn btn-sm btn-outline-secondary">
+              <i class="fa fa-undo me-1"/>Deshacer mi decisión
+            </button>
+          </form>
+        </div>
+      </div>
+    </t>
+  </template>
+
+  <!-- Aviso a la otra parte cuando alguien deshace su decisión. -->
+  <record id="mail_template_signoff_reverted" model="mail.template">
+    <field name="name">Firmas: una parte deshizo su decisión</field>
+    <field name="model_id" ref="shrimp_marketplace.model_shrimp_signoff_event"/>
+    <field name="subject">{{ object.partner_id.name or '' }} deshizo su decisión - {{ object.parent_name or '' }}</field>
+    <field name="email_from">{{ user.company_id.email_formatted or user.email_formatted or '' }}</field>
+    <field name="body_html" type="html">
+      <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#243b45;max-width:560px;">
+        <p>Hola <t t-out="ctx.get('destinatario') or ''"/>,</p>
+        <p>
+          <strong t-out="object.partner_id.name or ''"/>
+          (<t t-out="object.role_label or ''"/>) deshizo su decisión
+          «<t t-out="object.previous_label or ''"/>» en
+          <strong t-out="object.parent_name or ''"/>. Su postura vuelve a estar
+          «<t t-out="object.decision_label or ''"/>».
+        </p>
+        <p t-if="object.reason">Motivo: <t t-out="object.reason"/></p>
+        <p t-if="object.on_behalf" style="color:#5A6B74;">
+          Lo registró un gestor de la plataforma en su nombre.
+        </p>
+        <p t-if="ctx.get('portal_url')">
+          <a t-att-href="ctx.get('portal_url')"
+             style="background:#14A0B0;color:#fff;padding:9px 16px;border-radius:6px;text-decoration:none;">
+            Ver el detalle
+          </a>
+        </p>
+      </div>
+    </field>
+    <field name="auto_delete" eval="True"/>
+  </record>
+
+  <!-- Asistente del gestor: deshacer en nombre de una parte, con motivo. -->
+  <record id="view_shrimp_signoff_undo_wizard_form" model="ir.ui.view">
+    <field name="name">shrimp.signoff.undo.wizard.form</field>
+    <field name="model">shrimp.signoff.undo.wizard</field>
+    <field name="arch" type="xml">
+      <form string="Deshacer la decisión de la parte">
+        <p class="text-muted">
+          La postura vuelve a como estaba antes de su última decisión, con las
+          mismas reglas que tiene la parte: no se deshace lo que ya surtió
+          efecto (compra cerrada o caída, acta cerrada, compromiso resuelto).
+          La otra parte recibe aviso.
+        </p>
+        <group>
+          <field name="posture_name" force_save="1"/>
+          <field name="reason" placeholder="Por qué se deshace (obligatorio)"/>
+          <field name="res_model" invisible="1" force_save="1"/>
+          <field name="res_id" invisible="1" force_save="1"/>
+        </group>
+        <footer>
+          <button name="action_confirm" type="object" string="Deshacer" class="btn-primary"/>
+          <button special="cancel" string="Cancelar"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_shrimp_signoff_event_list" model="ir.ui.view">
+    <field name="name">shrimp.signoff.event.list</field>
+    <field name="model">shrimp.signoff.event</field>
+    <field name="arch" type="xml">
+      <list create="0" edit="0" delete="0">
+        <field name="date"/>
+        <field name="parent_name"/>
+        <field name="kind"/>
+        <field name="role_label"/>
+        <field name="partner_id"/>
+        <field name="previous_label"/>
+        <field name="decision_label"/>
+        <field name="user_id"/>
+        <field name="on_behalf"/>
+        <field name="auto"/>
+        <field name="undone"/>
+        <field name="reason"/>
+        <button name="action_open_undo_wizard" type="object" string="Deshacer (gestor)"
+                icon="fa-undo" groups="shrimp_marketplace.group_shrimp_manager"
+                invisible="kind != 'decision' or undone or auto"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="action_shrimp_signoff_event" model="ir.actions.act_window">
+    <field name="name">Historial de decisiones de firmas</field>
+    <field name="res_model">shrimp.signoff.event</field>
+    <field name="view_mode">list</field>
+    <field name="help" type="html">
+      <p>Cada decisión de las partes (aceptación del informe de verificación,
+      acta de empaque, confirmación de cosecha) y cada vez que una parte la
+      deshace. Un gestor puede deshacer una decisión en nombre de la parte,
+      con motivo, mientras el proceso no haya terminado.</p>
+    </field>
+  </record>
+
+  <menuitem id="menu_shrimp_signoff_event"
+    name="Historial de firmas"
+    parent="shrimp_marketplace.menu_shrimp_catalog_root"
+    action="action_shrimp_signoff_event"
+    sequence="40"
+    groups="shrimp_marketplace.group_shrimp_manager"/>
+
+</odoo>

@@ -1,0 +1,62 @@
+<odoo>
+  <!-- ================================================================
+       Comprobante de compra (NO fiscal).
+
+       Lo que descarga el portal desde "Factura" cuando la compra todavía no
+       tiene una factura contabilizada. Antes ese GET creaba un pedido de
+       venta, lo confirmaba y CONTABILIZABA una factura —con impuestos en
+       cero— cada vez que alguien abría el enlace: un documento fiscal
+       emitido por un clic, sin revisión. Hoy la plataforma NO factura
+       mercadería: la factura la emite el vendedor desde su sistema y la
+       registra en la compra (número, clave de acceso, archivo). Este
+       comprobante resume la operación; la plataforma solo emite facturas por
+       sus servicios (shrimp.charge).
+       ================================================================ -->
+  <record id="action_report_shrimp_purchase_receipt" model="ir.actions.report">
+    <field name="name">Comprobante de compra (sin valor tributario)</field>
+    <field name="model">shrimp.transaction</field>
+    <field name="report_type">qweb-pdf</field>
+    <field name="report_name">shrimp_marketplace.report_shrimp_purchase_receipt</field>
+    <field name="report_file">shrimp_marketplace.report_shrimp_purchase_receipt</field>
+    <field name="print_report_name">'Comprobante - %s' % (object.name)</field>
+    <field name="paperformat_id" ref="paperformat_shrimp_trace"/>
+  </record>
+
+  <template id="report_shrimp_purchase_receipt">
+    <t t-call="web.html_container">
+      <t t-foreach="docs" t-as="doc">
+        <div class="page" style="font-family: Arial, sans-serif; font-size: 12px; color: #123e5c;">
+          <div style="border: 2px dashed #b45309; padding: 8px 12px; margin-bottom: 14px; color: #b45309; font-weight: bold; text-align: center;">
+            COMPROBANTE DE COMPRA — SIN VALOR TRIBUTARIO
+            <div style="font-weight: normal; font-size: 10px;">
+              Este documento no es una factura ni un comprobante electrónico autorizado por el SRI.
+            </div>
+          </div>
+          <h2 style="margin: 0 0 8px 0;">Compra <t t-esc="doc.name"/></h2>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr><td style="width: 35%; padding: 3px 0;"><strong>Fecha</strong></td>
+                <td><t t-esc="doc.shrimp_fmt_dt(doc.shrimp_operation_datetime(), doc.buyer_partner_id, with_time=False)"/></td></tr>
+            <tr><td style="padding: 3px 0;"><strong>Comprador</strong></td>
+                <td><t t-esc="doc.buyer_partner_id.name"/></td></tr>
+            <tr><td style="padding: 3px 0;"><strong>Vendedor</strong></td>
+                <td><t t-esc="doc.seller_partner_id.name"/></td></tr>
+            <tr><td style="padding: 3px 0;"><strong>Producto</strong></td>
+                <td><t t-esc="doc.product_id.name"/></td></tr>
+            <tr><td style="padding: 3px 0;"><strong>Cantidad</strong></td>
+                <td><t t-esc="doc.transaction_qty"/> <t t-esc="doc.product_id.uom_id.name or ''"/></td></tr>
+            <tr><td style="padding: 3px 0;"><strong>Precio unitario</strong></td>
+                <td><t t-esc="'%.2f' % (doc.price_unit or 0.0)"/></td></tr>
+            <tr><td style="padding: 3px 0;"><strong>Total</strong></td>
+                <td><strong><t t-esc="'%.2f' % (doc.amount_total or 0.0)"/></strong></td></tr>
+            <tr><td style="padding: 3px 0;"><strong>Estado</strong></td>
+                <td><t t-esc="dict(doc._fields['state']._description_selection(doc.env)).get(doc.state, doc.state)"/></td></tr>
+          </table>
+          <p style="margin-top: 18px; font-size: 10px; color: #5a6b74;">
+            La factura electrónica, cuando corresponda, la emite la administración de la
+            plataforma y se descarga desde este mismo enlace una vez contabilizada.
+          </p>
+        </div>
+      </t>
+    </t>
+  </template>
+</odoo>

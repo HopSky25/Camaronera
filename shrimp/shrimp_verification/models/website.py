@@ -1,52 +1,61 @@
-import base64
-
 from odoo import api, fields, models
-from odoo.tools import file_open
-from odoo.tools.image import image_process
 
 
 class Website(models.Model):
     _inherit = "website"
 
-    # Marcar el sitio con un campo, y no por id o por nombre, permite moverlo o
-    # renombrarlo sin romper nada.
+    # Alias de compatibilidad (una versión) de website.shrimp_platform ==
+    # "verifier". Lo siguen leyendo plantillas, tests y la portada de empaque.
     shrimp_is_verifier_site = fields.Boolean(
         string="Sitio de verificadores",
-        help="Marca este sitio como la plataforma de los verificadores: su "
-             "portada es la de verificación y las rutas del marketplace "
-             "redirigen al sitio principal.",
+        compute="_compute_shrimp_is_verifier_site",
+        inverse="_inverse_shrimp_is_verifier_site",
+        search="_search_shrimp_is_verifier_site",
+        help="Obsoleto: usar «Plataforma». Marca este sitio como CamaronMarket Verificadores, la "
+             "plataforma de los verificadores: su portada, su marca y su menú son "
+             "los del verificador y su registro solo admite verificadores. Las "
+             "rutas del verificador (/verifier/...) que entran por otro sitio "
+             "se redirigen aquí si el sitio tiene dominio.",
     )
 
+    @api.depends("shrimp_platform")
+    def _compute_shrimp_is_verifier_site(self):
+        for rec in self:
+            rec.shrimp_is_verifier_site = rec.shrimp_platform == "verifier"
+
+    def _inverse_shrimp_is_verifier_site(self):
+        for rec in self:
+            if rec.shrimp_is_verifier_site:
+                rec.shrimp_platform = "verifier"
+            elif rec.shrimp_platform == "verifier":
+                rec.shrimp_platform = "main"
+
+    def _search_shrimp_is_verifier_site(self, operator, value):
+        if operator in ("in", "not in"):
+            positivo = True in value
+            if operator == "not in":
+                positivo = not positivo
+        else:
+            positivo = bool(value) if operator in ("=", "==") else not bool(value)
+        return [("shrimp_platform", "=" if positivo else "!=", "verifier")]
+
     def _shrimp_verifier_site(self):
-        return self.sudo().search([("shrimp_is_verifier_site", "=", True)], limit=1)
+        return self.env["website"]._shrimp_platform_site("verifier")
 
-    def _shrimp_main_site(self):
-        """El sitio del marketplace: ni el de verificadores ni el de empaque.
-
-        La version anterior buscaba "el primero que no sea de verificadores", y
-        eso devolvia el sitio de maquiladores en cuanto alguien reordenara los
-        sitios: funcionaba solo porque el marketplace suele tener el id mas
-        bajo, que es apoyarse en una casualidad.
-
-        El flag de empaque lo define shrimp_copacking, que depende de este
-        modulo, asi que puede no existir todavia y hay que comprobarlo antes de
-        usarlo.
-
-        Ahora mismo no lo llama nadie. Se deja arreglado y no borrado porque la
-        pregunta que responde —cual es el sitio principal— es legitima, y un
-        ayudante equivocado que nadie usa es peor que ninguno: el dia que
-        alguien tire de el, se lleva el fallo puesto.
-        """
-        W = self.sudo()
-        dominio = [("shrimp_is_verifier_site", "=", False)]
-        if "shrimp_is_copacker_site" in W._fields:
-            dominio.append(("shrimp_is_copacker_site", "=", False))
-        return W.search(dominio, order="id", limit=1)
+    def _shrimp_login_landing(self, user):
+        """En el sitio de verificadores, el verificador (o su técnico) entra a
+        su bandeja tras el login en vez de a /my."""
+        destino = super()._shrimp_login_landing(user)
+        if (not destino and self.shrimp_platform == "verifier" and user
+                and not user._is_public() and not user._is_internal()
+                and user.partner_id.sudo().shrimp_verifier_company()):
+            return "/verifier/inbox"
+        return destino
 
     # ------------------------------------------------------------------
-    # Autoconfiguración de las dos plataformas (para "solo instalar").
-    # Se llama desde data/site_config.xml en cada install/update. Es
-    # IDEMPOTENTE y NO DESTRUCTIVA: solo crea lo que falta y no pisa la
+    # Autoconfiguración de la plataforma de verificadores (para "solo
+    # instalar"). Se llama desde data/site_config.xml en cada install/update.
+    # Es IDEMPOTENTE y NO DESTRUCTIVA: solo crea lo que falta y no pisa la
     # configuración del cliente (dominios ya puestos, menús ya armados).
     # ------------------------------------------------------------------
     # Dominios por defecto para una instalación nueva. En otro entorno se
@@ -55,23 +64,22 @@ class Website(models.Model):
     _SHRIMP_DOMINIO_PRINCIPAL = "http://localhost:8069"
     _SHRIMP_DOMINIO_VERIFICADORES = "http://verificadores.localhost:8069"
 
-    # Árbol de menús del sitio de verificadores. Los nombres 'Verificaciones' y
-    # 'Mi empresa' deben existir con hijos para que los dropdowns con estilo
-    # (navbar_dropdown_inherit) los reconozcan y reemplacen.
+    # Árbol de menús del sitio de verificadores. Los desplegables con estilo
+    # (navbar_dropdown_inherit) los reconocen por su CLAVE, no por el nombre.
     _SHRIMP_MENU_VERIFICADOR = [
-        ("Mi bandeja", "/verificador/bandeja", 10, []),
-        ("Verificaciones", "#", 20, [
-            ("Verificaciones abiertas", "/verificador/bandeja?state=open"),
-            ("En campo", "/verificador/bandeja?state=in_field"),
-            ("Por dictaminar", "/verificador/bandeja?state=done"),
-            ("Ya verificadas", "/verificador/bandeja?state=approved"),
-            ("Todas", "/verificador/bandeja"),
+        ("Mi bandeja", "/verifier/inbox", 10, False, []),
+        ("Verificaciones", "#", 20, "verifier_jobs", [
+            ("Verificaciones abiertas", "/verifier/inbox?state=open"),
+            ("En campo", "/verifier/inbox?state=in_field"),
+            ("Por dictaminar", "/verifier/inbox?state=done"),
+            ("Ya verificadas", "/verifier/inbox?state=approved"),
+            ("Todas", "/verifier/inbox"),
         ]),
-        ("Mi empresa", "#", 30, [
-            ("Perfil y cuenta bancaria", "/verificador/perfil"),
-            ("Mi equipo", "/verificador/tecnicos"),
-            ("Mi acreditación", "/marketplace/mis-certificados"),
-            ("Mis reportes", "/verificador/reportes"),
+        ("Mi empresa", "#", 30, "verifier_company", [
+            ("Perfil y cuenta bancaria", "/verifier/profile"),
+            ("Mi equipo", "/verifier/technicians"),
+            ("Mi acreditación", "/marketplace/my-certificates"),
+            ("Mis reportes", "/verifier/reports"),
         ]),
     ]
 
@@ -83,40 +91,49 @@ class Website(models.Model):
             return False
 
         # 1) Identificar (o crear) el sitio de verificadores.
-        verif = W.search([("shrimp_is_verifier_site", "=", True)], limit=1)
+        verif = W._shrimp_platform_site("verifier")
         if not verif:
-            # NUNCA robar el sitio del maquilador: si se lo quitáramos, esa
-            # plataforma se quedaría sin portada. Importa sobre todo en el
-            # último caso de abajo, donde se elegía sitios[-1] —el de id más
-            # alto— que por orden de instalación es justo el de empaque.
-            # El campo lo define shrimp_copacking, que depende de este módulo:
-            # puede no existir todavía, así que se comprueba antes de usarlo.
-            candidatos = sitios
-            if "shrimp_is_copacker_site" in W._fields:
-                candidatos = candidatos.filtered(
-                    lambda s: not s.shrimp_is_copacker_site)
+            # NUNCA robar el sitio de otra plataforma (empaque): se elige solo
+            # entre los del marketplace, y nunca el principal (el de id más
+            # bajo), que es el que sirve la compraventa.
+            principales = W.search([("shrimp_platform", "=", "main")], order="id")
+            candidatos = principales[1:]
             verif = candidatos.filtered(
-                lambda s: "verificador" in (s.name or "").lower())[:1]
+                lambda s: "verificador" in (s.name or "").lower()
+                or "verimar" in (s.name or "").lower())[:1]
             if not verif:
-                if len(candidatos) <= 1:
-                    verif = W.create({"name": "CamaronMarket Verificadores"})
+                if candidatos:
+                    verif = candidatos[-1:]
                 else:
-                    verif = candidatos[-1]
+                    verif = W.create({"name": "CamaronMarket Verificadores", "shrimp_platform": "verifier"})
+                    verif._shrimp_set_spanish_default()
+            # Solo en una instalación NUEVA (el sitio aún no era de
+            # verificadores): el nombre genérico de Odoo pasa a la marca. Una
+            # base existente ya tiene la plataforma puesta por la migración y
+            # conserva el nombre que le dio el usuario.
+            if verif.name in ("My Website 2", "Mi sitio web 2"):
+                verif.name = "CamaronMarket Verificadores"
 
-        # 2) Marcar el flag (uno y solo uno).
-        W.search([("id", "!=", verif.id)]).write({"shrimp_is_verifier_site": False})
-        if not verif.shrimp_is_verifier_site:
-            verif.shrimp_is_verifier_site = True
+        # 2) Plataforma: uno y solo uno.
+        W.search([("id", "!=", verif.id), ("shrimp_platform", "=", "verifier")]).write(
+            {"shrimp_platform": "main"})
+        if verif.shrimp_platform != "verifier":
+            verif.shrimp_platform = "verifier"
+        # La marca es «CamaronMarket Verificadores»: también en bases ya
+        # creadas, el nombre genérico de Odoo o el de la marca anterior
+        # (Verimar) se renombra. Un nombre puesto por el cliente no se toca.
+        if verif.name in ("My Website 2", "Mi sitio web 2", "Verimar"):
+            verif.name = "CamaronMarket Verificadores"
 
         # 3) Dominios: solo si faltan (no pisar la config del cliente).
-        principal = W.search([("id", "!=", verif.id)], order="id", limit=1)
+        principal = W._shrimp_main_site()
         if principal and not principal.domain:
             principal.domain = self._SHRIMP_DOMINIO_PRINCIPAL
         if not verif.domain:
             verif.domain = self._SHRIMP_DOMINIO_VERIFICADORES
 
         # 4) Menú propio del verificador.
-        self._shrimp_build_verifier_menu(verif)
+        W._shrimp_build_site_menu(verif, self._SHRIMP_MENU_VERIFICADOR, "verifier_jobs")
 
         # 5) Un tema a medio instalar tumba el bundle CSS del sitio: quitarlo.
         for s in W.search([]):
@@ -124,87 +141,41 @@ class Website(models.Model):
                 s.theme_id = False
         return True
 
-    def _shrimp_build_verifier_menu(self, verif):
-        M = self.env["website.menu"].sudo()
-        # Si ya está armado (existe 'Verificaciones'), no se toca: así se
-        # respetan personalizaciones posteriores y no se rehace en cada update.
-        if M.search_count([("website_id", "=", verif.id), ("name", "=", "Verificaciones")]):
-            return
-        raiz = M.search(
-            [("website_id", "=", verif.id), ("parent_id", "=", False)], limit=1)
-        if not raiz:
-            return
-        # Limpiar los menús por defecto que Odoo copió al crear el sitio.
-        M.search([("id", "child_of", raiz.id), ("id", "!=", raiz.id)]).unlink()
-
-        def crear(nombre, url, parent, seq):
-            return M.create({
-                "name": nombre, "url": url, "parent_id": parent,
-                "sequence": seq, "website_id": verif.id,
-            })
-
-        for nombre, url, seq, hijos in self._SHRIMP_MENU_VERIFICADOR:
-            padre = crear(nombre, url, raiz.id, seq)
-            for i, (hn, hu) in enumerate(hijos):
-                crear(hn, hu, padre.id, 10 + i * 10)
-
     # ------------------------------------------------------------------
-    # Marca CamaronMarket (logo y favicon)
+    # Marca CamaronMarket Verificadores (logo y favicon) del sitio de verificadores
     # ------------------------------------------------------------------
-    # Los archivos viven en el módulo, no sueltos en el disco de un equipo:
-    # así viajan con el código y una instalación nueva arranca con la marca
-    # puesta en vez de con el "Your Logo" de Odoo.
-    #   icon.png         icono del módulo en Aplicaciones (lo coge Odoo solo)
-    #   logo.png         el de la barra de título del sitio
-    #   icon_circle.png  el favicon de la pestaña del navegador
-    #   favicon.png      la marca sin fondo (no la usa Odoo directamente)
-    #
-    # Este hook se ocupa SOLO del sitio de verificadores. Antes recorría todos
-    # los sitios, de modo que la marca del marketplace dependía de tener
-    # instalado este módulo; ahora cada plataforma lleva la suya.
+    # Los archivos viven en el módulo: así viajan con el código y una
+    # instalación nueva arranca con la marca puesta. El sincronizador es el
+    # común (website._shrimp_sync_brand, en shrimp_marketplace).
     _SHRIMP_LOGO = "shrimp_verification/static/description/logo.png"
     _SHRIMP_FAVICON = "shrimp_verification/static/description/icon_circle.png"
 
     @api.model
     def _shrimp_ensure_brand(self):
-        """Sincroniza logo y favicon del sitio de verificadores.
+        return self._shrimp_sync_brand(
+            self._shrimp_verifier_site(), self._SHRIMP_LOGO, self._SHRIMP_FAVICON)
 
-        Los ficheros del módulo son la fuente de la verdad: al actualizar, el
-        sitio se resincroniza con ellos. Es idempotente, solo escribe cuando
-        hay diferencia.
-        """
-        def _leer(ruta):
-            try:
-                with file_open(ruta, "rb") as f:
-                    return base64.b64encode(f.read())
-            except Exception:
-                return False
 
-        logo = _leer(self._SHRIMP_LOGO)
-        favicon = _leer(self._SHRIMP_FAVICON)
-        if not logo and not favicon:
-            return False
+class WebsiteMenu(models.Model):
+    _inherit = "website.menu"
 
-        # website._handle_favicon() recorta a un ICO de 256x256 al escribir:
-        # hay que comparar contra ese resultado y no contra el PNG de partida,
-        # o se reescribiría en cada actualización.
-        favicon_final = False
-        if favicon:
-            try:
-                favicon_final = base64.b64encode(image_process(
-                    base64.b64decode(favicon), size=(256, 256),
-                    crop="center", output_format="ICO"))
-            except Exception:
-                favicon_final = False
+    # Entradas del menú del sitio de verificadores que solo puede usar la
+    # cuenta de la empresa (el técnico recibe 403 en el controlador). Se
+    # ocultan por visibilidad y no borrando el registro: así vale para las
+    # bases ya creadas y el menú sigue siendo editable desde el website.
+    _SHRIMP_URLS_SOLO_ADMIN_VERIFICADOR = ("/verifier/technicians", "/verificador/tecnicos")
 
-        cambiados = 0
-        for sitio in self._shrimp_verifier_site():
-            vals = {}
-            if logo and sitio.logo != logo:
-                vals["logo"] = logo
-            if favicon_final and sitio.favicon != favicon_final:
-                vals["favicon"] = favicon
-            if vals:
-                sitio.write(vals)
-                cambiados += 1
-        return cambiados
+    def _compute_visible(self):
+        super()._compute_visible()
+        partner = self.env.user.partner_id
+        es_admin = None
+        for menu in self:
+            if not menu.is_visible:
+                continue
+            url = (menu.url or "").split("?", 1)[0].rstrip("/")
+            if url not in self._SHRIMP_URLS_SOLO_ADMIN_VERIFICADOR:
+                continue
+            if es_admin is None:
+                es_admin = bool(partner) and partner.sudo().shrimp_is_verifier_admin()
+            if not es_admin:
+                menu.is_visible = False

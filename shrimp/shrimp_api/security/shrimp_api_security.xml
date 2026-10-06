@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- =================================================================
+         Reglas que hacen posible que la API lea SIN sudo.
+
+         Todas son de SOLO LECTURA y con los cuatro perm_* declarados: una
+         ir.rule que los calla vale para escribir y borrar también, y este
+         proyecto ya tropezó con eso. El portal no gana escritura sobre nada:
+         las escrituras siguen yendo por los métodos de negocio, en sudo, tras
+         comprobar la propiedad (igual que los controladores del portal).
+
+         El dominio es siempre user.partner_id, el mismo criterio que el resto
+         de reglas del proyecto (no commercial_partner_id): los técnicos de
+         campo son contactos hijos de su empresa verificadora y NO deben ver lo
+         que ve la empresa.
+         ================================================================= -->
+    <record id="rule_api_key_portal_own" model="ir.rule">
+        <field name="name">Claves de API: solo las propias (portal)</field>
+        <field name="model_id" ref="shrimp_marketplace.model_shrimp_api_key"/>
+        <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+        <field name="domain_force">[('user_id', '=', user.id)]</field>
+    </record>
+
+    <record id="rule_api_key_user_own" model="ir.rule">
+        <field name="name">Claves de API: solo las propias (internos)</field>
+        <field name="model_id" ref="shrimp_marketplace.model_shrimp_api_key"/>
+        <field name="groups" eval="[(4, ref('base.group_user'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+        <field name="domain_force">[('user_id', '=', user.id)]</field>
+    </record>
+
+    <record id="rule_api_key_system_all" model="ir.rule">
+        <field name="name">Claves de API: el administrador ve todas</field>
+        <field name="model_id" ref="shrimp_marketplace.model_shrimp_api_key"/>
+        <field name="groups" eval="[(4, ref('base.group_system'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+    </record>
+
+    <record id="rule_webhook_sub_portal_own" model="ir.rule">
+        <field name="name">Webhooks: suscripciones propias</field>
+        <field name="model_id" ref="model_shrimp_webhook_subscription"/>
+        <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+        <field name="domain_force">[('partner_id', '=', user.partner_id.id)]</field>
+    </record>
+
+    <record id="rule_webhook_delivery_portal_own" model="ir.rule">
+        <field name="name">Webhooks: entregas de mis suscripciones</field>
+        <field name="model_id" ref="model_shrimp_webhook_delivery"/>
+        <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+        <field name="domain_force">[('subscription_id.partner_id', '=', user.partner_id.id)]</field>
+    </record>
+
+    <record id="rule_api_facility_portal" model="ir.rule">
+        <field name="name">Instalaciones: lectura de las propias</field>
+        <field name="model_id" ref="shrimp_marketplace.model_shrimp_partner_facility"/>
+        <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+        <field name="domain_force">[('partner_id', '=', user.partner_id.id)]</field>
+    </record>
+
+    <record id="rule_api_pond_portal" model="ir.rule">
+        <field name="name">Piscinas: lectura de las propias</field>
+        <field name="model_id" ref="shrimp_marketplace.model_shrimp_partner_pond"/>
+        <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+        <field name="domain_force">[('partner_id', '=', user.partner_id.id)]</field>
+    </record>
+
+    <record id="rule_api_stock_lot_portal" model="ir.rule">
+        <field name="name">Lotes de inventario: lectura de los propios</field>
+        <field name="model_id" ref="shrimp_marketplace.model_shrimp_stock_lot"/>
+        <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+        <field name="domain_force">[('owner_id', '=', user.partner_id.id)]</field>
+    </record>
+
+    <record id="rule_api_stock_move_portal" model="ir.rule">
+        <field name="name">Movimientos: lectura de los que me tienen como origen o destino</field>
+        <field name="model_id" ref="shrimp_marketplace.model_shrimp_stock_move"/>
+        <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+        <field name="domain_force">['|', ('source_partner_id', '=', user.partner_id.id), ('dest_partner_id', '=', user.partner_id.id)]</field>
+    </record>
+
+    <record id="rule_api_lot_allocation_portal" model="ir.rule">
+        <field name="name">Siembras en piscina: lectura de las propias</field>
+        <field name="model_id" ref="shrimp_marketplace.model_shrimp_lot_allocation"/>
+        <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+        <field name="domain_force">[('partner_id', '=', user.partner_id.id)]</field>
+    </record>
+
+    <record id="rule_api_check_request_portal" model="ir.rule">
+        <field name="name">Solicitudes de chequeo: lectura de las partes</field>
+        <field name="model_id" ref="shrimp_marketplace.model_shrimp_check_request"/>
+        <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+        <field name="domain_force">['|', ('buyer_partner_id', '=', user.partner_id.id), ('seller_partner_id', '=', user.partner_id.id)]</field>
+    </record>
+
+    <record id="rule_api_charge_portal" model="ir.rule">
+        <field name="name">Cobros de la plataforma: lectura de quien paga</field>
+        <field name="model_id" ref="shrimp_marketplace.model_shrimp_charge"/>
+        <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+        <field name="domain_force">[('payer_partner_id', '=', user.partner_id.id)]</field>
+    </record>
+
+    <record id="rule_api_product_cert_line_portal" model="ir.rule">
+        <field name="name">Certificados del producto: lectura del vendedor</field>
+        <field name="model_id" ref="shrimp_marketplace.model_shrimp_product_certificate_line"/>
+        <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+        <field name="domain_force">[('product_id.seller_partner_id', '=', user.partner_id.id)]</field>
+    </record>
+
+    <record id="rule_api_verification_technician" model="ir.rule">
+        <field name="name">Verificación: también la lee el técnico asignado</field>
+        <field name="model_id" ref="shrimp_verification.model_shrimp_verification"/>
+        <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+        <field name="domain_force">[('technician_partner_id', '=', user.partner_id.id)]</field>
+    </record>
+
+    <record id="rule_api_verification_line_technician" model="ir.rule">
+        <field name="name">Clasificación por tallas: también la lee el técnico asignado</field>
+        <field name="model_id" ref="shrimp_verification.model_shrimp_verification_line"/>
+        <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+        <field name="domain_force">[('verification_id.technician_partner_id', '=', user.partner_id.id)]</field>
+    </record>
+
+    <record id="rule_api_verification_count_technician" model="ir.rule">
+        <field name="name">Conteos: también los lee el técnico asignado</field>
+        <field name="model_id" ref="shrimp_verification.model_shrimp_verification_count"/>
+        <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+        <field name="domain_force">[('verification_id.technician_partner_id', '=', user.partner_id.id)]</field>
+    </record>
+
+</odoo>

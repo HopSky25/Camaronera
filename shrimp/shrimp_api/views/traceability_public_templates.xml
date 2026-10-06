@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Página pública a la que apunta el QR del certificado. Solo pinta lo
+         que devuelve _public_traceability_data(): sin precios, comisiones,
+         GPS, teléfonos, técnicos ni archivos. -->
+    <template id="public_traceability" name="Trazabilidad pública">
+        <t t-call="website.layout">
+            <t t-set="title">Trazabilidad del lote</t>
+            <t t-set="F" t-value="request.env['shrimp.transaction'].sudo()"/>
+            <div id="wrap" class="container py-4" style="max-width: 960px;">
+                <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+                    <div>
+                        <div class="text-uppercase small text-muted">Trazabilidad verificada</div>
+                        <h1 class="h3 mb-1" t-esc="data['product']['name']"/>
+                        <div class="text-muted">
+                            <t t-esc="data['product']['species'] or ''"/>
+                            <i t-if="data['product']['scientific_name']"> (<t t-esc="data['product']['scientific_name']"/>)</i>
+                            <t t-if="data['product']['genetics_line']"> · Línea <t t-esc="data['product']['genetics_line']"/></t>
+                        </div>
+                    </div>
+                    <a class="btn btn-sm btn-outline-secondary" t-att-href="json_url">JSON</a>
+                </div>
+
+                <div class="card mb-3">
+                    <div class="card-header"><strong>Cadena de custodia</strong></div>
+                    <ol class="list-group list-group-numbered list-group-flush">
+                        <li t-foreach="data['chain']" t-as="link" class="list-group-item">
+                            <strong t-esc="link['company']"/> — <t t-esc="link['role']"/>
+                            <small class="text-muted" t-if="link['province'] or link['country']"> ·
+                                <t t-esc="F.shrimp_join(link['province'], link['country'])"/></small>
+                        </li>
+                    </ol>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-header"><strong>Producto</strong></div>
+                            <ul class="list-group list-group-flush small">
+                                <li class="list-group-item" t-if="data['product']['stage']">Estadío: <t t-esc="data['product']['stage']"/></li>
+                                <li class="list-group-item" t-if="data['product']['presentation']">Presentación: <t t-esc="data['product']['presentation']"/></li>
+                                <li class="list-group-item" t-if="data['product']['size_grade']">Talla: <t t-esc="data['product']['size_grade']"/></li>
+                                <li class="list-group-item" t-if="data['product']['batch_code']">Lote: <t t-esc="data['product']['batch_code']"/></li>
+                                <li class="list-group-item" t-if="data['product']['origin']">Origen:
+                                    <t t-esc="data['product']['origin']['facility'] or ''"/>
+                                    <t t-if="data['product']['origin']['province'] or data['product']['origin'].get('country')"> (<t t-esc="F.shrimp_join(data['product']['origin']['city'], data['product']['origin']['province'], data['product']['origin'].get('country'))"/>)</t>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-header"><strong>Fechas</strong></div>
+                            <ul class="list-group list-group-flush small">
+                                <li class="list-group-item" t-if="data['dates']['production']">Producción: <t t-esc="F.shrimp_fmt_iso(data['dates']['production'])"/></li>
+                                <li class="list-group-item" t-if="data['dates']['purchase']">Compra: <t t-esc="F.shrimp_fmt_iso(data['dates']['purchase'])"/></li>
+                                <li class="list-group-item" t-if="data['dates']['harvest']">Cosecha: <t t-esc="F.shrimp_fmt_iso(data['dates']['harvest'])"/></li>
+                                <li class="list-group-item" t-if="data['dates']['process']">Proceso: <t t-esc="F.shrimp_fmt_iso(data['dates']['process'])"/></li>
+                                <li class="list-group-item" t-if="data['dates']['delivery']"><t t-if="data['dates'].get('delivery_is_actual')">Recepción</t><t t-else="">Entrega prevista</t>: <t t-esc="F.shrimp_fmt_iso(data['dates']['delivery'])"/></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <t t-set="vdecl" t-value="data['verification'] and data['verification'].get('mode') == 'declared'"/>
+                <div t-attf-class="card mb-3 #{'border-warning' if vdecl else 'border-success'}" t-if="data['verification']">
+                    <div t-attf-class="card-header #{'bg-warning-subtle' if vdecl else 'bg-success-subtle'}">
+                        <strong t-if="vdecl"><i class="fa fa-handshake-o me-1"/>Verificación declarada por las partes</strong>
+                        <strong t-else=""><i class="fa fa-check-circle me-1"/>Verificación en campo por verificadora de la plataforma</strong>
+                    </div>
+                    <div class="card-body small">
+                        <!-- La distinción tiene que ser evidente: una declarada NO la hizo
+                             una verificadora acreditada de la plataforma. -->
+                        <p class="mb-2 fw-bold" t-esc="data['verification'].get('label')"/>
+                        <p class="mb-2 text-muted" t-if="vdecl">
+                            Esta verificación no la realizó una verificadora acreditada de la
+                            plataforma: el informe lo presentó una de las partes de la compra
+                            <t t-if="data['verification'].get('confirmed_by_both')">y la otra parte lo confirmó</t><t t-else="">y está pendiente de que la otra parte lo confirme</t>.
+                        </p>
+                        <p class="mb-1" t-if="vdecl">Informe declarado<t t-if="data['verification']['verdict_date']"> el <t t-esc="F.shrimp_fmt_iso(data['verification']['verdict_date'])"/></t></p>
+                        <p class="mb-1" t-else="">Resultado: <strong t-esc="{'approved': 'Aprobada', 'approved_obs': 'Aprobada con observaciones', 'rejected': 'Rechazada'}.get(data['verification']['result'], data['verification']['result'])"/>
+                            <t t-if="data['verification']['verdict_date']"> el <t t-esc="F.shrimp_fmt_iso(data['verification']['verdict_date'])"/></t>
+                            por <t t-esc="data['verification']['verifier']"/></p>
+                        <p class="mb-1" t-if="data['verification'].get('classes_pct')">Clases: A <t t-esc="F.shrimp_fmt_num(data['verification']['classes_pct']['a'], 2)"/> % ·
+                            B <t t-esc="F.shrimp_fmt_num(data['verification']['classes_pct']['b'], 2)"/> % · C <t t-esc="F.shrimp_fmt_num(data['verification']['classes_pct']['c'], 2)"/> %</p>
+                        <p class="mb-0" t-if="data['verification'].get('yield_pct')">Rendimiento: <t t-esc="F.shrimp_fmt_num(data['verification']['yield_pct'], 2)"/> %</p>
+                    </div>
+                </div>
+
+                <div class="card mb-3" t-if="data['evolution']">
+                    <div class="card-header"><strong>Evolución productiva</strong></div>
+                    <div class="card-body small">
+                        <t t-esc="data['evolution']['records']"/> mediciones entre
+                        <t t-esc="F.shrimp_fmt_iso(data['evolution']['first_date'])"/> y <t t-esc="F.shrimp_fmt_iso(data['evolution']['last_date'])"/>.
+                        <t t-if="data['evolution']['survival_rate_last']">Supervivencia final: <t t-esc="F.shrimp_fmt_num(data['evolution']['survival_rate_last'], 1)"/> %.</t>
+                    </div>
+                </div>
+
+                <div class="card mb-3" t-if="data['certificates']">
+                    <div class="card-header"><strong>Certificados vigentes</strong></div>
+                    <ul class="list-group list-group-flush small">
+                        <li t-foreach="data['certificates']" t-as="c" class="list-group-item">
+                            <strong t-esc="c['name']"/> — <t t-esc="c['issuer'] or ''"/>
+                            <t t-if="c['number']"> · N.º <t t-esc="c['number']"/></t>
+                            <t t-if="c['expiry_date']"> · vence <t t-esc="F.shrimp_fmt_iso(c['expiry_date'])"/></t>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="card mb-3" t-if="data.get('sowings')">
+                    <div class="card-header"><strong>Siembra de origen</strong></div>
+                    <ul class="list-group list-group-flush small">
+                        <li t-foreach="data['sowings']" t-as="sw" class="list-group-item">
+                            <t t-esc="F.shrimp_fmt_iso(sw['date'])"/> · <strong t-esc="sw['farm']"/> · <t t-esc="sw['pond']"/>
+                            · <t t-esc="F.shrimp_fmt_qty(sw['qty'], sw['uom'])"/> de <t t-esc="sw['larvae']"/>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="card mb-3" t-if="data.get('dispatch')">
+                    <div class="card-header"><strong>Despacho a planta</strong></div>
+                    <ul class="list-group list-group-flush small">
+                        <li class="list-group-item" t-if="data['dispatch']['harvest_date']">Pesca: <t t-esc="F.shrimp_fmt_iso(data['dispatch']['harvest_date'])"/></li>
+                        <li class="list-group-item" t-if="data['dispatch']['farm_departure']">Salida de la finca: <t t-esc="F.shrimp_fmt_iso(data['dispatch']['farm_departure'])"/></li>
+                        <li class="list-group-item" t-if="data['dispatch']['eta']">Cita en planta: <t t-esc="F.shrimp_fmt_iso(data['dispatch']['eta'])"/></li>
+                        <li class="list-group-item" t-if="data['dispatch']['actual_arrival']">Llegada real: <t t-esc="F.shrimp_fmt_iso(data['dispatch']['actual_arrival'])"/>
+                            <t t-if="data['dispatch']['on_time'] is not None"> ·
+                                <strong t-if="data['dispatch']['on_time']" class="text-success">a tiempo</strong>
+                                <strong t-else="" class="text-warning">con <t t-esc="abs(data['dispatch']['delay_minutes'])"/> min de <t t-esc="'retraso' if data['dispatch']['delay_minutes'] &gt; 0 else 'adelanto'"/></strong>
+                            </t>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="card mb-3" t-if="data['packing']">
+                    <div class="card-header"><strong>Servicio de empaque</strong></div>
+                    <ul class="list-group list-group-flush small">
+                        <li t-foreach="data['packing']" t-as="p" class="list-group-item">
+                            <div t-if="p.get('self_packing')" class="fw-bold"><t t-esc="p.get('label')"/></div>
+                            <strong t-esc="p['plant']"/>
+                            <t t-if="p['establishment_code']"> · Código <t t-esc="p['establishment_code']"/></t>
+                            <t t-if="p['packed_on']"> · empacado el <t t-esc="F.shrimp_fmt_iso(p['packed_on'])"/></t>
+                            <t t-if="p.get('packed_lb')"> · <t t-esc="F.shrimp_fmt_qty(p['packed_lb'], 'lb')"/> empacadas<t t-if="p.get('boxes')"> en <t t-esc="F.shrimp_fmt_num(p['boxes'], 0)"/> cajas</t></t>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="card mb-3" t-if="data.get('destination')">
+                    <div class="card-header"><strong t-esc="data['destination']['label']"/></div>
+                    <div class="card-body small">
+                        <strong t-esc="data['destination']['plant']"/>
+                        <t t-if="data['destination']['establishment_code']"> · Código <t t-esc="data['destination']['establishment_code']"/></t>
+                        <t t-if="data['destination']['province']"> · <t t-esc="data['destination']['province']"/></t>
+                        <t t-if="data['destination']['received_on']"> · recibido el <t t-esc="F.shrimp_fmt_iso(data['destination']['received_on'])"/></t>
+                    </div>
+                </div>
+
+                <div class="card mb-3" t-if="data.get('exports')">
+                    <div class="card-header"><strong>Salida / exportación</strong></div>
+                    <ul class="list-group list-group-flush small">
+                        <li t-foreach="data['exports']" t-as="ex" class="list-group-item">
+                            <t t-esc="F.shrimp_fmt_iso(ex['date'])"/> ·
+                            <strong t-esc="ex['country'] or 'Venta fuera de la plataforma'"/>
+                            <t t-if="ex['buyer']"> · <t t-esc="ex['buyer']"/></t>
+                            · <t t-esc="F.shrimp_fmt_qty(ex['qty'], ex['uom'])"/>
+                            <t t-if="ex['boxes']"> (<t t-esc="F.shrimp_fmt_num(ex['boxes'], 0)"/> cajas)</t>
+                        </li>
+                    </ul>
+                </div>
+
+                <p class="text-muted small">Datos publicados por la plataforma a partir de los registros de la cadena.
+                    No incluye precios ni datos personales. Horas en zona <t t-esc="data.get('timezone') or ''"/>.</p>
+            </div>
+        </t>
+    </template>
+</odoo>

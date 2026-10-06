@@ -1,17 +1,39 @@
 <odoo>
-  <!-- Productos: portal puede ver/editar solo los del semillero (su partner) -->
+  <!-- ================================================================
+       Portal: SOLO LECTURA sobre productos y compras.
+
+       Antes el portal tenía escritura y creación (ACL 1,1,1,0) y las reglas
+       no distinguían permiso, así que por RPC (/web/dataset/call_kw) un
+       comprador podía escribir el precio, el estado o las partes de SU
+       compra, y un vendedor publicar saltándose las validaciones. Todas las
+       acciones legítimas del portal pasan por controladores que trabajan en
+       sudo() después de comprobar quién es quién; aquí solo se deja leer lo
+       propio. Si en el futuro se vuelve a dar escritura al portal, estas
+       reglas NO la limitarían por dominio: habría que añadir reglas con
+       perm_write explícito.
+       ================================================================ -->
+
+  <!-- Productos: el vendedor lee los suyos -->
   <record id="rule_shrimp_product_own" model="ir.rule">
-    <field name="name">Shrimp Product: own</field>
+    <field name="name">Shrimp Product: own (lectura)</field>
     <field name="model_id" ref="model_shrimp_product"/>
     <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+    <field name="perm_read" eval="True"/>
+    <field name="perm_write" eval="False"/>
+    <field name="perm_create" eval="False"/>
+    <field name="perm_unlink" eval="False"/>
     <field name="domain_force">[('seller_partner_id', '=', user.partner_id.id)]</field>
   </record>
 
-  <!-- Transacciones: portal ve las donde es comprador o vendedor -->
+  <!-- Transacciones: portal LEE las suyas (comprador o vendedor) -->
   <record id="rule_shrimp_tx_own" model="ir.rule">
-    <field name="name">Shrimp Transaction: own</field>
+    <field name="name">Shrimp Transaction: own (lectura)</field>
     <field name="model_id" ref="model_shrimp_transaction"/>
     <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+    <field name="perm_read" eval="True"/>
+    <field name="perm_write" eval="False"/>
+    <field name="perm_create" eval="False"/>
+    <field name="perm_unlink" eval="False"/>
     <field name="domain_force">['|', ('seller_partner_id','=',user.partner_id.id), ('buyer_partner_id','=',user.partner_id.id)]</field>
   </record>
 </odoo>

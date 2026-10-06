@@ -1,6 +1,6 @@
 {
     "name": "Camaronera — Empacadora y listas de precios",
-    "version": "19.0.1.0.0",
+    "version": "19.0.1.8.0",
     "summary": "Rol de empacadora, su perfil y las listas de precios que publica",
     "description": """
 Reproduce la lista de precios que las empacadoras reparten cada semana a las
@@ -52,12 +52,25 @@ desarrollo que se hace en paralelo sobre ese módulo.
         "views/lote_historial_inherit.xml",
         "views/reserva_templates.xml",
         "views/reserva_navbar_inherit.xml",
+        # Ajustes › CamaronMarket › Reservas de cosecha y proveedores.
+        "views/res_config_settings_views.xml",
     ],
     "demo": [
         "demo/demo_01_partners.xml",
         "demo/demo_02_price_lists.xml",
         "demo/demo_03_listas_semana.xml",
-        "demo/demo_04_verificaciones_aquagold.xml",
+        # Demo masiva generada por
+        # shrimp_marketplace/scripts/demo_masivo/generar.py (no editar a mano).
+        "demo/demo_04_masivo_empacadoras.xml",
+        "demo/demo_05_masivo_listas.xml",
+        "demo/demo_06_masivo_compras_adulto.xml",
+        "demo/demo_07_masivo_reservas.xml",
+        "demo/demo_08_masivo_avisos.xml",
+        "demo/demo_09_masivo_coherencia_demo_original.xml",
+        # Compras entre camaroneras (adulto revendido y juveniles), mismo generador.
+        "demo/demo_10_masivo_mismo_nivel.xml",
+        # Verificaciones declaradas por las partes (mismo generador).
+        "demo/demo_11_masivo_verificacion_declarada.xml",
     ],
     "assets": {
         "web.assets_frontend": [

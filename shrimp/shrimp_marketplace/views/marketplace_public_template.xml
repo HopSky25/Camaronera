@@ -15,7 +15,7 @@
             <div class="cv-card">
                 <div class="cv-head">
                     <span class="cv-title"><i class="fa fa-certificate me-1"></i> Certificado</span>
-                    <div class="d-flex gap-2">
+                    <div class="d-flex flex-wrap gap-2">
                         <a id="certDownload" class="s-btn s-btn-ghost btn-sm" href="#" target="_blank"><i class="fa fa-download me-1"></i> Descargar</a>
                         <button type="button" class="s-btn s-btn-ghost btn-sm" id="certClose"><i class="fa fa-times me-1"></i> Cerrar</button>
                     </div>
@@ -64,7 +64,7 @@
                 <a class="s-prod-imgwrap" t-att-href="'/marketplace/product/%s' % p.uuid_ref">
                     <t t-if="cover">
                         <img class="s-prod-img"
-                            t-att-src="'/web/content/%s?access_token=%s' % (cover[0].id, cover[0].access_token)"
+                            t-att-src="p.shrimp_photo_url(cover[0])"
                             t-att-alt="p.name" loading="lazy" />
                     </t>
                     <t t-else="">
@@ -84,19 +84,20 @@
 
                     <div class="s-prod-seller">
                         <i class="fa fa-user-circle-o me-1"></i>
-                        <a t-att-href="'/marketplace/vendedor/%s' % p.seller_partner_id.uuid_ref"
+                        <a t-att-href="'/marketplace/sellers/%s' % p.seller_partner_id.uuid_ref"
                            t-esc="p.seller_partner_id.name" />
                     </div>
 
                     <div class="s-prod-meta">
                         <t t-if="p.presentation">
-                            <div><i class="fa fa-cutlery me-1 text-faint"></i> <t t-esc="'Entero' if p.presentation == 'entero' else 'Cola'" /></div>
+                            <div class="s-meta-spec"><i class="fa fa-cutlery me-1 text-faint"></i> <t t-esc="'Entero' if p.presentation == 'entero' else 'Cola'" /></div>
                         </t>
                         <t t-if="p.size_grade_id">
-                            <div><i class="fa fa-balance-scale me-1 text-faint"></i> Talla <b><t t-esc="p.size_grade_id.name" /></b></div>
+                            <div class="s-meta-spec"><i class="fa fa-balance-scale me-1 text-faint"></i> Talla <b><t t-esc="p.size_grade_id.name" /></b></div>
                         </t>
-                        <div><i class="fa fa-cubes me-1 text-faint"></i> <b><t t-esc="p.available_qty" /></b> <t t-esc="uom_label" /> disp.</div>
-                        <div><i class="fa fa-map-marker me-1 text-faint"></i> <t t-esc="p.location or '—'" /></div>
+                        <!-- Separador de miles como el resto de la plataforma ('{:,.0f}'); decimales solo si los hay -->
+                        <div class="s-meta-qty"><i class="fa fa-cubes me-1 text-faint"></i> <b><t t-esc="'{:,.0f}'.format(p.available_qty) if p.available_qty == int(p.available_qty) else '{:,.2f}'.format(p.available_qty)" /></b> <t t-esc="uom_label" /> <span class="s-only-grid">disp.</span><span class="s-only-list">disponibles</span></div>
+                        <div class="s-meta-spec"><i class="fa fa-map-marker me-1 text-faint"></i> <t t-esc="p.location or '—'" /></div>
                     </div>
 
                     <div class="s-prod-foot">
@@ -112,7 +113,9 @@
                         </div>
                         <t t-if="p.seller_partner_id.shrimp_rating_count">
                             <span class="s-rating" style="font-size:13px;">
-                                <i class="fa fa-star"></i> <t t-esc="'%.1f' % p.seller_partner_id.shrimp_rating_avg"/>
+                                <i class="fa fa-star s-only-grid"></i>
+                                <span class="s-only-list s-rating-stars" aria-hidden="true"><t t-foreach="range(1, 6)" t-as="i"><i t-att-class="'fa fa-star' + ('' if i &lt;= round(p.seller_partner_id.shrimp_rating_avg) else ' s-rating-empty')"></i></t></span>
+                                <t t-esc="'%.1f' % p.seller_partner_id.shrimp_rating_avg"/>
                                 <span class="text-faint" style="font-weight:500;"> (<t t-esc="p.seller_partner_id.shrimp_rating_count"/>)</span>
                             </span>
                         </t>
@@ -151,203 +154,32 @@
                 </div>
 
                 <div class="shrimp-page shrimp-page--full pb-4" id="listado">
-                    <div class="s-market-layout">
+                    <!-- ===== Catálogo a todo el ancho. Los filtros viven en un cajón
+                         lateral (#sFilterDrawer) que se abre con el botón «Filtros»
+                         de la barra superior; arriba solo quedan la búsqueda, el
+                         botón, la vista, el orden y las etiquetas de filtros activos. ===== -->
+                    <div class="s-market-main s-market-main--full">
 
-                        <!-- ===== SIDEBAR de filtros (izquierda en desktop) ===== -->
-                        <aside class="s-market-side">
-                            <form method="get" action="/marketplace" class="s-filter-panel">
-                                <!-- Cabecera con acento -->
-                                <div class="s-filter-head">
-                                    <div class="s-filter-head-title">
-                                        <span class="s-filter-icon"><i class="fa fa-sliders"></i></span>
-                                        <span>Filtros</span>
-                                        <t t-if="active_filters">
-                                            <span class="s-filter-count"><t t-esc="active_filters" /></span>
-                                        </t>
-                                    </div>
-                                    <a class="s-filter-clear" href="/marketplace">Limpiar</a>
-                                </div>
+                            <!-- Barra superior: buscar · Filtros (N) · Lista/Cuadrícula · Ordenar
+                                 (plantilla reutilizable; la arma el controlador en `fd`). -->
+                            <t t-call="shrimp_marketplace.s_filter_toolbar"/>
 
-                                <!-- Buscar -->
-                                <div class="s-filter-sec">
-                                    <div class="s-filter-sec-label"><i class="fa fa-search"></i> Buscar</div>
-                                    <input class="form-control" type="text" name="q"
-                                        t-att-value="filters.get('q') or ''"
-                                        placeholder="Nombre, especie o ubicación…" />
-                                </div>
-
-                                <!-- Especie (chips seleccionables) -->
-                                <div class="s-filter-sec">
-                                    <div class="s-filter-sec-label"><i class="fa fa-flask"></i> Especie</div>
-                                    <div class="s-choice-chips">
-                                        <label class="s-choice">
-                                            <input type="radio" name="species" value=""
-                                                t-att-checked="not filters.get('species')" />
-                                            <span>Todas</span>
-                                        </label>
-                                        <t t-foreach="species_options" t-as="sp">
-                                            <label class="s-choice">
-                                                <input type="radio" name="species" t-att-value="sp.name"
-                                                    t-att-checked="(filters.get('species') or '') == sp.name" />
-                                                <span><t t-esc="sp.name" /></span>
-                                            </label>
-                                        </t>
-                                    </div>
-                                </div>
-
-                                <!-- Presentación (Entero / Cola) -->
-                                <div class="s-filter-sec">
-                                    <div class="s-filter-sec-label"><i class="fa fa-cutlery"></i> Presentación</div>
-                                    <div class="s-choice-chips">
-                                        <label class="s-choice">
-                                            <input type="radio" name="presentation" value="" id="fltPresAll"
-                                                t-att-checked="not filters.get('presentation')" />
-                                            <span>Todas</span>
-                                        </label>
-                                        <label class="s-choice">
-                                            <input type="radio" name="presentation" value="entero"
-                                                t-att-checked="(filters.get('presentation') or '') == 'entero'" />
-                                            <span>Entero</span>
-                                        </label>
-                                        <label class="s-choice">
-                                            <input type="radio" name="presentation" value="cola"
-                                                t-att-checked="(filters.get('presentation') or '') == 'cola'" />
-                                            <span>Cola</span>
-                                        </label>
-                                    </div>
-                                </div>
-
-                                <!-- Talla (se filtra según la presentación) -->
-                                <div class="s-filter-sec">
-                                    <div class="s-filter-sec-label"><i class="fa fa-balance-scale"></i> Talla</div>
-                                    <select class="form-select" name="size_grade" id="fltSizeGrade">
-                                        <option value="">Todas las tallas</option>
-                                        <t t-foreach="size_grade_options" t-as="sg">
-                                            <option t-att-value="sg.id" t-att-data-presentation="sg.presentation"
-                                                    t-att-selected="str(filters.get('size_grade') or '') == str(sg.id)">
-                                                <t t-esc="'Entero' if sg.presentation == 'entero' else 'Cola'" /> · <t t-esc="sg.name" />
-                                            </option>
-                                        </t>
-                                    </select>
-                                </div>
-
-                                <!-- Ubicación -->
-                                <div class="s-filter-sec">
-                                    <div class="s-filter-sec-label"><i class="fa fa-map-marker"></i> Ubicación</div>
-                                    <select class="form-select" name="location">
-                                        <option value="">Todas las zonas</option>
-                                        <t t-foreach="location_options" t-as="loc">
-                                            <option t-att-value="loc" t-att-selected="(filters.get('location') or '') == loc">
-                                                <t t-esc="loc" />
-                                            </option>
-                                        </t>
-                                    </select>
-                                </div>
-
-                                <!-- Rango de precio -->
-                                <div class="s-filter-sec">
-                                    <div class="s-filter-sec-label"><i class="fa fa-tag"></i> Precio (por unidad)</div>
-                                    <div class="s-price-range">
-                                        <div class="s-price-input">
-                                            <span>$</span>
-                                            <input type="number" step="0.01" min="0" name="price_min"
-                                                t-att-value="filters.get('price_min') or ''" placeholder="mín" />
-                                        </div>
-                                        <span class="s-price-sep">—</span>
-                                        <div class="s-price-input">
-                                            <span>$</span>
-                                            <input type="number" step="0.01" min="0" name="price_max"
-                                                t-att-value="filters.get('price_max') or ''" placeholder="máx" />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Vendedor -->
-                                <div class="s-filter-sec">
-                                    <div class="s-filter-sec-label"><i class="fa fa-user-circle-o"></i> Vendedor</div>
-                                    <input class="form-control" type="text" name="seller"
-                                        t-att-value="filters.get('seller') or ''" placeholder="Nombre del vendedor" />
-                                </div>
-
-                                <!-- conserva la etapa activa al aplicar otros filtros -->
-                                <input type="hidden" name="stage" t-att-value="filters.get('stage') or ''" />
-                                <button class="s-btn s-btn-primary s-btn-block" type="submit">
-                                    <i class="fa fa-search me-1"></i> Aplicar filtros
-                                </button>
-                                <button class="s-btn s-btn-ghost s-btn-block" type="submit" name="best" value="1"
-                                        style="margin-top:8px;">
-                                    <i class="fa fa-star me-1"></i> Top 10 mejores opciones
-                                </button>
-                                <div class="text-soft" style="font-size:12px; margin-top:6px; text-align:center;">
-                                    Las mejor calificadas y más económicas según tus filtros.
-                                </div>
-                            </form>
-                            <script type="text/javascript">
-                                (function () {
-                                    var sel = document.getElementById('fltSizeGrade');
-                                    if (!sel) { return; }
-                                    var radios = document.querySelectorAll('input[name="presentation"]');
-                                    function currentPres() {
-                                        for (var i = 0; i &lt; radios.length; i++) {
-                                            if (radios[i].checked) { return radios[i].value; }
-                                        }
-                                        return '';
-                                    }
-                                    function syncTallas() {
-                                        var pres = currentPres();
-                                        var opts = sel.options;
-                                        for (var i = 0; i &lt; opts.length; i++) {
-                                            var op = opts[i];
-                                            if (!op.value) { op.hidden = false; continue; }
-                                            var match = !pres || op.getAttribute('data-presentation') === pres;
-                                            op.hidden = !match;
-                                            op.disabled = !match;
-                                            if (!match &amp;&amp; op.selected) { sel.value = ''; }
-                                        }
-                                    }
-                                    for (var i = 0; i &lt; radios.length; i++) {
-                                        radios[i].addEventListener('change', syncTallas);
-                                    }
-                                    syncTallas();
-                                })();
-                            </script>
-                        </aside>
-
-                        <!-- ===== MAIN: chips de etapa + contador + grid ===== -->
-                        <div class="s-market-main">
+                            <!-- Filtros activos: cada etiqueta lleva a la misma URL sin ese filtro -->
+                            <t t-call="shrimp_marketplace.s_filter_tags"/>
 
                             <!-- Chips de etapa (scroll horizontal en mobile) -->
                             <div class="s-cat-chips s-cat-chips--scroll mb-3">
-                                <a t-att-class="'s-cat-chip' + ('' if filters.get('stage') else ' active')" href="/marketplace">Todas</a>
+                                <a t-att-class="'s-cat-chip' + ('' if filters.get('stage') else ' active')" t-att-href="'/marketplace' + (vista_qs or '')" data-vista-link="1">Todas</a>
                                 <t t-foreach="stage_options" t-as="opt">
                                     <a t-att-class="'s-cat-chip' + (' active' if str(filters.get('stage') or '') == str(opt.id) else '')"
-                                       t-att-href="'/marketplace?stage=%s' % opt.id"><t t-esc="opt.name" /></a>
+                                       t-att-href="'/marketplace?stage=%s' % opt.id + (vista_amp or '')" data-vista-link="1"><t t-esc="opt.name" /></a>
                                 </t>
                             </div>
 
-                            <div class="s-sortbar mb-3">
+                            <div class="s-sortbar s-mkt-count mb-3">
                                 <div class="text-soft" style="font-size:var(--fs-sm);">
                                     <strong><t t-esc="products_count" /></strong> producto(s) disponibles
                                 </div>
-                                <form method="get" action="/marketplace" class="s-sort">
-                                    <input type="hidden" name="q" t-att-value="filters.get('q') or ''" />
-                                    <input type="hidden" name="stage" t-att-value="filters.get('stage') or ''" />
-                                    <input type="hidden" name="species" t-att-value="filters.get('species') or ''" />
-                                    <input type="hidden" name="presentation" t-att-value="filters.get('presentation') or ''" />
-                                    <input type="hidden" name="size_grade" t-att-value="filters.get('size_grade') or ''" />
-                                    <input type="hidden" name="location" t-att-value="filters.get('location') or ''" />
-                                    <input type="hidden" name="seller" t-att-value="filters.get('seller') or ''" />
-                                    <input type="hidden" name="price_min" t-att-value="filters.get('price_min') or ''" />
-                                    <input type="hidden" name="price_max" t-att-value="filters.get('price_max') or ''" />
-                                    <label><i class="fa fa-sort-amount-asc me-1"></i> Ordenar</label>
-                                    <select class="form-select" name="sort" onchange="this.form.submit()">
-                                        <option value="recommended" t-att-selected="sort == 'recommended'">Recomendados</option>
-                                        <option value="price_asc" t-att-selected="sort == 'price_asc'">Precio: menor a mayor</option>
-                                        <option value="price_desc" t-att-selected="sort == 'price_desc'">Precio: mayor a menor</option>
-                                        <option value="rating" t-att-selected="sort == 'rating'">Mejor calificados</option>
-                                        <option value="recent" t-att-selected="sort == 'recent'">Más recientes</option>
-                                    </select>
-                                </form>
                             </div>
 
                             <!-- Aviso: modo Top 10 mejores opciones -->
@@ -359,14 +191,15 @@
                                         Mostrando las <strong>10 mejores opciones</strong> de compra según tus filtros
                                         (mejor calificación y menor precio).
                                     </div>
-                                    <a class="s-btn s-btn-ghost btn-sm" t-att-href="all_url">
+                                    <a class="s-btn s-btn-ghost btn-sm" t-att-href="all_url" data-vista-link="1">
                                         <i class="fa fa-times me-1"></i> Quitar Top 10
                                     </a>
                                 </div>
                             </t>
 
                             <!-- Grid de productos -->
-                            <div class="s-prod-grid" id="prodGrid" t-if="products"
+                            <div t-att-class="'s-prod-grid' + (' s-products--list' if vista == 'lista' else '')" id="prodGrid" t-if="products"
+                                 t-att-data-vista="vista or ''"
                                  t-att-data-sort="sort"
                                  t-att-data-q="filters.get('q') or ''"
                                  t-att-data-stage="filters.get('stage') or ''"
@@ -377,8 +210,23 @@
                                  t-att-data-seller="filters.get('seller') or ''"
                                  t-att-data-price_min="filters.get('price_min') or ''"
                                  t-att-data-price_max="filters.get('price_max') or ''">
+                                <!-- Sin ?vista= en la URL se aplica la última vista guardada.
+                                     Corre como primer hijo del grid, ANTES de que se lean las
+                                     tarjetas: no hay parpadeo de cuadrícula a lista. -->
+                                <script>
+                                    (function () {
+                                        var g = document.currentScript &amp;&amp; document.currentScript.parentNode;
+                                        if (!g || g.getAttribute('data-vista')) { return; }
+                                        try {
+                                            if (window.localStorage.getItem('shrimp_mkt_vista') === 'lista') { g.classList.add('s-products--list'); }
+                                        } catch (e) {}
+                                    })();
+                                </script>
                                 <t t-call="shrimp_marketplace.marketplace_product_cards"/>
                             </div>
+
+                            <!-- El selector de vista (cambio al instante, localStorage) vive en
+                                 static/src/js/shrimp_filter_drawer.js. -->
 
                             <!-- Cargar más (AJAX, sin recargar ni saltar arriba) -->
                             <t t-if="products">
@@ -400,12 +248,116 @@
                                     <div class="s-empty-ico"><i class="fa fa-search"></i></div>
                                     <h3>Sin resultados</h3>
                                     <p>No encontramos productos con esos filtros. Prueba ampliar la búsqueda o límpiala.</p>
-                                    <a class="s-btn s-btn-primary" href="/marketplace">Ver todo el catálogo</a>
+                                    <a class="s-btn s-btn-primary" t-att-href="'/marketplace' + (vista_qs or '')" data-vista-link="1">Ver todo el catálogo</a>
                                 </div>
                             </t>
 
-                        </div>
                     </div>
+
+                    <!-- ===== Cajón de filtros (offcanvas a la derecha) =====
+                         Plantilla reutilizable: aquí solo van las secciones. -->
+                    <t t-call="shrimp_marketplace.s_filter_drawer">
+                                    <!-- Especie -->
+                                    <div class="s-filter-sec" id="sf_sec_species">
+                                        <div class="s-filter-sec-label">Especie</div>
+                                        <div class="s-choice-chips">
+                                            <label class="s-choice">
+                                                <input type="radio" name="species" value=""
+                                                    t-att-checked="not filters.get('species')" />
+                                                <span>Todas</span>
+                                            </label>
+                                            <t t-foreach="species_options" t-as="sp">
+                                                <label class="s-choice">
+                                                    <input type="radio" name="species" t-att-value="sp.name"
+                                                        t-att-checked="(filters.get('species') or '') == sp.name" />
+                                                    <span><t t-esc="sp.name" /></span>
+                                                </label>
+                                            </t>
+                                        </div>
+                                    </div>
+
+                                    <!-- Presentación (Entero / Cola) -->
+                                    <div class="s-filter-sec" id="sf_sec_presentation">
+                                        <div class="s-filter-sec-label">Presentación</div>
+                                        <div class="s-choice-chips">
+                                            <label class="s-choice">
+                                                <input type="radio" name="presentation" value="" id="fltPresAll"
+                                                    t-att-checked="not filters.get('presentation')" />
+                                                <span>Todas</span>
+                                            </label>
+                                            <label class="s-choice">
+                                                <input type="radio" name="presentation" value="entero"
+                                                    t-att-checked="(filters.get('presentation') or '') == 'entero'" />
+                                                <span>Entero</span>
+                                            </label>
+                                            <label class="s-choice">
+                                                <input type="radio" name="presentation" value="cola"
+                                                    t-att-checked="(filters.get('presentation') or '') == 'cola'" />
+                                                <span>Cola</span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <!-- Talla (se filtra según la presentación) -->
+                                    <div class="s-filter-sec" id="sf_sec_size">
+                                        <label class="s-filter-sec-label" for="fltSizeGrade">Talla</label>
+                                        <select class="form-select" name="size_grade" id="fltSizeGrade" data-s-dep="presentation">
+                                            <option value="">Todas las tallas</option>
+                                            <t t-foreach="size_grade_options" t-as="sg">
+                                                <option t-att-value="sg.id" t-att-data-dep="sg.presentation"
+                                                        t-att-selected="str(filters.get('size_grade') or '') == str(sg.id)">
+                                                    <t t-esc="'Entero' if sg.presentation == 'entero' else 'Cola'" /> · <t t-esc="sg.name" />
+                                                </option>
+                                            </t>
+                                        </select>
+                                    </div>
+
+                                    <!-- Ubicación -->
+                                    <div class="s-filter-sec" id="sf_sec_location">
+                                        <label class="s-filter-sec-label" for="fltLocation">Ubicación</label>
+                                        <select class="form-select" name="location" id="fltLocation">
+                                            <option value="">Todas las zonas</option>
+                                            <t t-foreach="location_options" t-as="loc">
+                                                <option t-att-value="loc" t-att-selected="(filters.get('location') or '') == loc">
+                                                    <t t-esc="loc" />
+                                                </option>
+                                            </t>
+                                        </select>
+                                    </div>
+
+                                    <!-- Rango de precio -->
+                                    <div class="s-filter-sec" id="sf_sec_price">
+                                        <div class="s-filter-sec-label">Precio (por unidad)</div>
+                                        <div class="s-price-range">
+                                            <div class="s-price-input">
+                                                <span>$</span>
+                                                <input type="number" step="0.01" min="0" name="price_min" aria-label="Precio mínimo"
+                                                    t-att-value="filters.get('price_min') or ''" placeholder="mín" />
+                                            </div>
+                                            <span class="s-price-sep">—</span>
+                                            <div class="s-price-input">
+                                                <span>$</span>
+                                                <input type="number" step="0.01" min="0" name="price_max" aria-label="Precio máximo"
+                                                    t-att-value="filters.get('price_max') or ''" placeholder="máx" />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Vendedor -->
+                                    <div class="s-filter-sec" id="sf_sec_seller">
+                                        <label class="s-filter-sec-label" for="fltSeller">Vendedor</label>
+                                        <input class="form-control" type="text" name="seller" id="fltSeller"
+                                            t-att-value="filters.get('seller') or ''" placeholder="Nombre del vendedor" />
+                                    </div>
+
+                                    <!-- Top 10 con la selección actual -->
+                                    <div class="s-drawer-best">
+                                        <button class="s-btn s-btn-ghost s-btn-block" type="submit" name="best" value="1">
+                                            <i class="fa fa-star me-1"></i> Top 10 mejores opciones
+                                        </button>
+                                        <div class="text-soft">Las mejor calificadas y más económicas según tus filtros.</div>
+                                    </div>
+                    </t>
                 </div>
             </div>
             <script type="text/javascript">
@@ -423,9 +375,23 @@
       var original = btn.innerHTML;
       btn.innerHTML = '<i class="fa fa-spinner fa-spin me-1"></i> Cargando…';
       btn.disabled = true;
+      // Tarjetas "esqueleto" mientras llega la respuesta: el usuario ve
+      // dónde aparecerán los productos en lugar de un salto brusco.
+      var skels = [];
+      for(var s = 0; s < 4; s++){
+        var sk = document.createElement("div");
+        sk.className = "s-skel-card";
+        sk.setAttribute("aria-hidden", "true");
+        sk.innerHTML = '<div class="s-skel-img"></div><div class="s-skel-body">'
+          + '<div class="s-skel-line s-skel-line--short"></div><div class="s-skel-line"></div>'
+          + '<div class="s-skel-line"></div><div class="s-skel-line s-skel-line--price"></div></div>';
+        grid.appendChild(sk);
+        skels.push(sk);
+      }
+      function quitarSkels(){ skels.forEach(function(sk){ sk.remove(); }); skels = []; }
       var params = new URLSearchParams();
       params.set("offset", wrap.getAttribute("data-next-offset") || "0");
-      ["sort","q","stage","species","presentation","size_grade","location","seller","price_min","price_max"].forEach(function(k){
+      ["sort","q","stage","species","presentation","size_grade","location","seller","price_min","price_max","tipo","genetics","survival_min","pcr","spf"].forEach(function(k){
         var v = grid.getAttribute("data-" + k);
         if(v) params.set(k, v);
       });
@@ -433,9 +399,26 @@
         headers: {"X-Requested-With": "XMLHttpRequest"}
       }).then(function(r){ return r.json(); }).then(function(data){
         // Inserta las nuevas tarjetas SIN mover el scroll.
+        quitarSkels();
         var tmp = document.createElement("div");
         tmp.innerHTML = data.html;
-        while(tmp.firstChild){ grid.appendChild(tmp.firstChild); }
+        // Cada tarjeta entra con un fundido y un leve ascenso, escalonado.
+        var i = 0;
+        while(tmp.firstChild){
+          var nodo = tmp.firstChild;
+          if(nodo.nodeType === 1){
+            nodo.classList.add("s-card-in");
+            nodo.style.animationDelay = Math.min(i, 11) * 55 + "ms";
+            // Al terminar se quita: si no, la animación «congela» el
+            // transform y la tarjeta pierde su efecto al pasar el ratón.
+            nodo.addEventListener("animationend", function(){
+              this.classList.remove("s-card-in");
+              this.style.animationDelay = "";
+            }, {once: true});
+            i++;
+          }
+          grid.appendChild(nodo);
+        }
         wrap.setAttribute("data-next-offset", data.next_offset);
         var shown = document.getElementById("shownCount");
         if(shown){ shown.textContent = data.shown_count; }
@@ -447,6 +430,7 @@
           btn.remove();
         }
       }).catch(function(){
+        quitarSkels();
         btn.innerHTML = original;
         btn.disabled = false;
         loading = false;
@@ -526,7 +510,7 @@
                             <div class="buy-media mb-4">
                                 <t t-if="product.photo_attachment_ids">
                                     <img id="buyMainImg" class="buy-media-img"
-                                        t-att-src="'/marketplace/producto/%s/foto/%s' % (product.uuid_ref, product.photo_attachment_ids[0].id)"
+                                        t-att-src="product.shrimp_photo_url(product.photo_attachment_ids[0])"
                                         alt="Foto producto" />
                                 </t>
                                 <t t-else="">
@@ -538,8 +522,8 @@
                                     <div class="buy-thumbs">
                                         <t t-foreach="product.photo_attachment_ids" t-as="img">
                                             <img t-attf-class="js-buy-thumb#{' is-active' if img_index == 0 else ''}"
-                                                 t-att-data-src="'/marketplace/producto/%s/foto/%s' % (product.uuid_ref, img.id)"
-                                                 t-att-src="'/marketplace/producto/%s/foto/%s' % (product.uuid_ref, img.id)"
+                                                 t-att-data-src="product.shrimp_photo_url(img)"
+                                                 t-att-src="product.shrimp_photo_url(img)"
                                                  t-attf-alt="Foto #{img_index + 1} de #{product.name}" />
                                         </t>
                                     </div>
@@ -664,7 +648,7 @@
                                                 t-att-value="request.csrf_token()" />
                                             <input type="hidden" name="qty" id="qty_hidden_buy" />
 
-                                            <div class="d-flex gap-2">
+                                            <div class="d-flex flex-wrap gap-2">
                                                 <button class="s-btn s-btn-primary" style="flex:1;"
                                                     type="submit"
                                                     id="btn_buy">
@@ -731,7 +715,7 @@
                                                 id="btn_check">
                                                 <i class="fa fa-search me-1"></i> Solicitar chequeo </button>
                                         </form>
-                                        <div class="text-faint mt-2" style="font-size:12px;">
+                                        <div class="text-faint mt-2" style="font-size:12px;" id="checkFormHint">
                                             <i class="fa fa-shield me-1"></i> Reserva la cantidad y envía un equipo a verificar el producto.
                                         </div>
 
@@ -758,7 +742,7 @@
                                                     <span>Total a pagar</span>
                                                     <span>$<span id="chkTotal">0.00</span></span>
                                                 </div>
-                                                <div class="d-flex gap-2 mt-3">
+                                                <div class="d-flex flex-wrap gap-2 mt-3">
                                                     <button type="button" class="s-btn s-btn-ghost" id="chkCancel" style="flex:1;">Cancelar</button>
                                                     <button type="button" class="s-btn s-btn-primary" id="chkPay" style="flex:1;"><i class="fa fa-lock me-1"></i> Pagar y solicitar</button>
                                                 </div>
@@ -866,7 +850,7 @@
                                             <h3 class="mp-sec-title"><t t-esc="product.name" /></h3>
                                             <div style="font-size:13px; color:var(--shrimp-ink-soft);">
                                                 <i class="fa fa-user me-1"></i> Vendedor:
-                                                <a t-att-href="'/marketplace/vendedor/%s' % product.seller_partner_id.uuid_ref"
+                                                <a t-att-href="'/marketplace/sellers/%s' % product.seller_partner_id.uuid_ref"
                                                     style="font-weight:800; text-decoration:none; color:var(--shrimp-brand);">
                                                     <t t-esc="product.seller_partner_id.name" />
                                                 </a>
@@ -1009,12 +993,13 @@
                                     <div class="mp-sec-head">
                                         <span class="mp-sec-ico"><i class="fa fa-file-text-o"></i></span>
                                         <h3 class="mp-sec-title">Certificados</h3>
-                                        <t t-if="product.certificate_line_ids">
-                                            <span class="s-badge mp-sec-count"><t t-esc="len(product.certificate_line_ids)" /></span>
+                                        <t t-set="pub_cert_lines" t-value="product.shrimp_visible_certificate_lines()"/>
+                                        <t t-if="pub_cert_lines">
+                                            <span class="s-badge mp-sec-count"><t t-esc="len(pub_cert_lines)" /></span>
                                         </t>
                                     </div>
 
-                                                    <t t-if="product.certificate_line_ids">
+                                                    <t t-if="pub_cert_lines">
                                                         <div class="mp-table-wrap table-responsive">
                                                             <table class="table align-middle mb-0" style="min-width:720px;">
                                                                 <thead>
@@ -1028,7 +1013,7 @@
                                                                     </tr>
                                                                 </thead>
                                                                 <tbody>
-                                                                    <t t-foreach="product.certificate_line_ids" t-as="line">
+                                                                    <t t-foreach="pub_cert_lines" t-as="line">
                                                                         <tr>
                                                                             <td style="font-weight:800;"><t t-esc="line.certificate_id.name" /></td>
                                                                             <td><t t-esc="line.certificate_id.issuer" /></td>
@@ -1038,7 +1023,7 @@
                                                                             <td class="text-end">
                                                                                 <t t-if="line.attachment_id">
                                                                                     <button type="button" class="s-btn s-btn-ghost btn-sm js-cert-view"
-                                                                                        t-att-data-url="'/marketplace/product/%s/certificate/%s' % (product.uuid_ref, line.attachment_id.id)">
+                                                                                        t-att-data-url="product.shrimp_cert_url(line.attachment_id)">
                                                                                         Ver certificado
                                                                                     </button>
                                                                                 </t>
@@ -1065,7 +1050,7 @@
                                     <div class="mp-sec-head">
                                         <span class="mp-sec-ico"><i class="fa fa-star"></i></span>
                                         <h3 class="mp-sec-title">Reseñas del vendedor</h3>
-                                        <a class="s-btn s-btn-ghost btn-sm mp-sec-count" t-att-href="'/marketplace/vendedor/%s' % seller.uuid_ref">Ver perfil</a>
+                                        <a class="s-btn s-btn-ghost btn-sm mp-sec-count" t-att-href="'/marketplace/sellers/%s' % seller.uuid_ref">Ver perfil</a>
                                     </div>
 
                                     <div class="d-flex align-items-center gap-3 mb-3">
@@ -1196,15 +1181,30 @@
                             <i class="fa fa-check"></i>
                         </div>
                         <div class="s-eyebrow">Marketplace</div>
-                        <h1 class="s-list-title">¡Compra realizada!</h1>
-                        <p class="s-list-sub" style="max-width:560px; margin:6px auto 0;">
-                            Tu operación ya quedó registrada en el marketplace.
-                        </p>
+                        <t t-if="tx.state in ('confirmed', 'done')">
+                            <h1 class="s-list-title">¡Compra realizada!</h1>
+                            <p class="s-list-sub" style="max-width:560px; margin:6px auto 0;">
+                                Tu operación ya quedó registrada en el marketplace.
+                            </p>
+                        </t>
+                        <t t-elif="tx.state == 'cancel'">
+                            <h1 class="s-list-title">Compra cancelada</h1>
+                            <p class="s-list-sub" style="max-width:560px; margin:6px auto 0;">
+                                Esta operación no se concretó.
+                            </p>
+                        </t>
+                        <t t-else="">
+                            <h1 class="s-list-title">Compra en curso</h1>
+                            <p class="s-list-sub" style="max-width:560px; margin:6px auto 0;">
+                                La operación todavía no se cerró: falta la verificación en
+                                campo o la firma de las partes.
+                            </p>
+                        </t>
                         <div class="s-badges mt-3" style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
                             <!-- El comprobante también se abre desde "Mis compras" para
                                  operaciones que aún no se cobran: anunciar "pago confirmado"
                                  ahí sería mentir sobre el estado de la compra. -->
-                            <span t-if="tx.state in ('confirmed', 'done')" class="s-badge s-badge--green"><i class="fa fa-lock me-1"></i> Pago confirmado</span>
+                            <span t-if="tx.state in ('confirmed', 'done')" class="s-badge s-badge--green"><i class="fa fa-lock me-1"></i> Compra confirmada</span>
                             <span class="s-badge s-badge--teal"><i class="fa fa-check-circle me-1"></i> <t t-esc="dict(tx._fields['state'].selection).get(tx.state)"/></span>
                             <span class="s-badge"><i class="fa fa-hashtag me-1"></i> <t t-esc="tx.name"/></span>
                         </div>
@@ -1314,8 +1314,10 @@
                                          y el PDF se generaría al vuelo sin motivo. -->
                                     <t t-if="tx.state in ('confirmed', 'done')">
                                         <a class="s-btn s-btn-primary s-btn-block mt-3"
-                                           t-att-href="'/marketplace/compras/%s/factura/pdf?download=1' % tx.uuid_ref">
-                                            <i class="fa fa-file-pdf-o me-1"></i> Descargar factura
+                                           t-att-href="'/marketplace/purchases/%s/invoice/pdf?download=1' % tx.uuid_ref">
+                                            <i class="fa fa-file-pdf-o me-1"></i>
+                                            <t t-if="tx.sudo().invoice_id.state == 'posted'">Descargar factura</t>
+                                            <t t-else="">Descargar comprobante (sin valor tributario)</t>
                                         </a>
                                     </t>
                                     <t t-else="">
@@ -1334,8 +1336,8 @@
                                         <h3 class="mp-sec-title">¿Qué sigue?</h3>
                                     </div>
                                     <div class="d-flex flex-column gap-2">
-                                        <a class="s-btn s-btn-ghost s-btn-block" t-att-href="'/marketplace/compras/%s/trazabilidad' % tx.uuid_ref"><i class="fa fa-sitemap me-1"></i> Ver trazabilidad</a>
-                                        <a class="s-btn s-btn-ghost s-btn-block" href="/marketplace/compras"><i class="fa fa-list me-1"></i> Mis compras</a>
+                                        <a class="s-btn s-btn-ghost s-btn-block" t-att-href="'/marketplace/purchases/%s/traceability' % tx.uuid_ref"><i class="fa fa-sitemap me-1"></i> Ver trazabilidad</a>
+                                        <a class="s-btn s-btn-ghost s-btn-block" href="/marketplace/purchases"><i class="fa fa-list me-1"></i> Mis compras</a>
                                         <a class="s-btn s-btn-ghost s-btn-block" href="/marketplace"><i class="fa fa-shopping-bag me-1"></i> Seguir comprando</a>
                                     </div>
                                 </div>
@@ -1355,14 +1357,14 @@
                                 <t t-if="can_rate">
                                     <h4 style="font-weight:800; margin:0 0 4px;">¿Cómo fue tu experiencia con <t t-esc="tx.seller_partner_id.name"/>?</h4>
                                     <p class="text-soft" style="margin:0 0 14px; font-size:var(--fs-sm);">Tu calificación ayuda a otros compradores.</p>
-                                    <form method="post" t-att-action="'/marketplace/compras/%s/calificar' % tx.uuid_ref"
+                                    <form method="post" t-att-action="'/marketplace/purchases/%s/rate' % tx.uuid_ref"
                                           style="width:100%;">
                                         <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                         <div class="s-star-input" style="justify-content:center;">
                                             <t t-foreach="[5,4,3,2,1]" t-as="star">
                                                 <input type="radio" name="rating" t-att-value="star"
-                                                       t-att-id="'ts_%s_%s' % (tx.id, star)" t-att-checked="star == 5"/>
-                                                <label t-att-for="'ts_%s_%s' % (tx.id, star)"><i class="fa fa-star"></i></label>
+                                                       t-att-id="'ts_%s_%s' % (tx.uuid_ref, star)" t-att-checked="star == 5"/>
+                                                <label t-att-for="'ts_%s_%s' % (tx.uuid_ref, star)"><i class="fa fa-star"></i></label>
                                             </t>
                                         </div>
                                         <textarea class="form-control mt-3" name="comment" rows="3"
@@ -1527,7 +1529,7 @@
 
                             <!-- Toolbar: alternar vista + navegación -->
                             <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                                <div class="d-flex gap-2">
+                                <div class="d-flex flex-wrap gap-2">
                                     <button id="viewCal" type="button" class="s-btn s-btn-primary btn-sm">
                                         <i class="fa fa-calendar me-1"></i> Calendario
                                     </button>
@@ -1552,8 +1554,8 @@
                             <div class="rounded-4 overflow-hidden"
                                 style="border:1px solid rgba(0,0,0,.06); background:#fff;">
                                 <!-- encabezado días -->
-                                <div class="d-grid"
-                                    style="grid-template-columns: repeat(7, 1fr); background:rgba(0,0,0,.02); border-bottom:1px solid rgba(0,0,0,.06);">
+                                <div class="d-grid s-cal-head"
+                                    style="grid-template-columns: repeat(7, minmax(0, 1fr)); background:rgba(0,0,0,.02); border-bottom:1px solid rgba(0,0,0,.06);">
                                     <t t-foreach="['Lun','Mar','Mié','Jue','Vie','Sáb','Dom']"
                                         t-as="d">
                                         <div class="p-2 text-muted"
@@ -1564,8 +1566,8 @@
                                 </div>
 
                                 <!-- body -->
-                                <div id="calGrid" class="d-grid"
-                                    style="grid-template-columns: repeat(7, 1fr);"></div>
+                                <div id="calGrid" class="d-grid s-cal-grid"
+                                    style="grid-template-columns: repeat(7, minmax(0, 1fr));"></div>
                             </div>
                             </div>
 
@@ -1622,6 +1624,28 @@
                 html + '</div>';
             }
 
+            // ---- Seguridad: los datos de los eventos los escribe cualquier
+            // vendedor (nombre del lote, ubicación, razón social). Antes se
+            // concatenaban en innerHTML y un lote llamado
+            // "<img src=x onerror=...>" ejecutaba JavaScript a todo visitante
+            // del calendario público. Ahora todo valor entra como texto
+            // (textContent) y la URL solo se acepta si es una ruta relativa
+            // del propio sitio.
+            function safeUrl(u){
+              u = String(u || "");
+              return (/^\/(?!\/)[^\s\\]*$/.test(u)) ? u : "#";
+            }
+            function el(tag, opts, children){
+              const n = document.createElement(tag);
+              opts = opts || {};
+              if (opts.className) n.className = opts.className;
+              if (opts.style) n.setAttribute("style", opts.style);
+              if (opts.href !== undefined) n.setAttribute("href", safeUrl(opts.href));
+              if (opts.text !== undefined) n.textContent = String(opts.text == null ? "" : opts.text);
+              (children || []).forEach(function(c){ if (c) n.appendChild(c); });
+              return n;
+            }
+
             function buildIndex(events){
               const byDate = {};
               (events || []).forEach(e => {
@@ -1659,7 +1683,7 @@
                 const dateStr = inMonth ? ymd(cellDate) : "";
 
                 const wrap = document.createElement("div");
-                wrap.className = "p-2";
+                wrap.className = "p-2 s-cal-cell";
                 wrap.style.minHeight = "110px";
                 wrap.style.borderRight = "1px solid rgba(0,0,0,.06)";
                 wrap.style.borderBottom = "1px solid rgba(0,0,0,.06)";
@@ -1678,8 +1702,7 @@
 
                 const header = document.createElement("div");
                 header.className = "d-flex justify-content-between align-items-center mb-1";
-                header.innerHTML =
-                  '<div style="font-weight:900; font-size:13px;">' + dayNum + '</div>';
+                header.appendChild(el("div", {style: "font-weight:900; font-size:13px;", text: dayNum}));
 
                 const items = byDate[dateStr] || [];
                 if (items.length){
@@ -1694,27 +1717,22 @@
 
                 // lista eventos (máx 3 + "ver más")
                 const list = document.createElement("div");
-                list.className = "d-grid gap-1";
+                list.className = "d-grid gap-1 s-cal-events";
+                list.style.gridTemplateColumns = "minmax(0, 1fr)";
 
                 const maxShow = 3;
                 items.slice(0, maxShow).forEach(ev => {
-                  const a = document.createElement("a");
-                  a.href = ev.url || "#";
-                  a.className = "text-decoration-none";
-                  a.style.display = "block";
-
-                  a.innerHTML =
-                    '<div class="px-2 py-1 rounded-3" ' +
-                      'style="border:1px solid rgba(18,62,92,.12); background:rgba(18,62,92,.06); font-size:12px;">' +
-                      '<div style="font-weight:900; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' +
-                        (ev.meta?.name || ev.title || 'Producto') +
-                      '</div>' +
-                      '<div class="text-muted" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' +
-                        (ev.meta?.stage ? (ev.meta.stage + ' • ') : '') +
-                        (ev.meta?.seller || '') +
-                      '</div>' +
-                    '</div>';
-
+                  const m = ev.meta || {};
+                  const a = el("a", {href: ev.url, className: "text-decoration-none", style: "display:block;"}, [
+                    el("div", {className: "px-2 py-1 rounded-3",
+                               style: "border:1px solid rgba(18,62,92,.12); background:rgba(18,62,92,.06); font-size:12px;"}, [
+                      el("div", {style: "font-weight:900; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;",
+                                 text: m.name || ev.title || "Producto"}),
+                      el("div", {className: "text-muted",
+                                 style: "white-space:nowrap; overflow:hidden; text-overflow:ellipsis;",
+                                 text: (m.stage ? (m.stage + " • ") : "") + (m.seller || "")}),
+                    ]),
+                  ]);
                   list.appendChild(a);
                 });
 
@@ -1740,22 +1758,27 @@
                 const items = byDate[d];
                 const sec = document.createElement("div");
                 sec.className = "mb-3";
-                let html = '<div class="s-filter-sec-label" style="margin-bottom:8px;"><i class="fa fa-calendar"></i> ' + d + ' · ' + items.length + ' producto(s)</div>';
+                const label = el("div", {className: "s-filter-sec-label", style: "margin-bottom:8px;"});
+                const ico = document.createElement("i");
+                ico.className = "fa fa-calendar";
+                label.appendChild(ico);
+                label.appendChild(document.createTextNode(" " + d + " · " + items.length + " producto(s)"));
+                sec.appendChild(label);
                 items.forEach(function(ev){
                   const m = ev.meta || {};
-                  html +=
-                    '<a href="' + (ev.url || '#') + '" class="mp-table-card" style="display:flex; justify-content:space-between; gap:12px; align-items:center; padding:12px 16px; margin-bottom:8px; text-decoration:none;">' +
-                      '<div style="min-width:0;">' +
-                        '<div style="font-weight:800; color:var(--shrimp-ink);">' + (m.name || ev.title || 'Producto') + '</div>' +
-                        '<div class="text-faint" style="font-size:13px;">' + (m.stage ? (m.stage + ' • ') : '') + (m.seller || '') + (m.location ? (' • ' + m.location) : '') + '</div>' +
-                      '</div>' +
-                      '<div class="text-end" style="white-space:nowrap;">' +
-                        '<div style="font-weight:800;">' + (m.qty != null ? m.qty : '') + ' ' + (m.uom || '') + '</div>' +
-                        '<div class="text-faint" style="font-size:13px;">' + (m.price != null ? ('$' + m.price) : '') + '</div>' +
-                      '</div>' +
-                    '</a>';
+                  sec.appendChild(el("a", {href: ev.url, className: "mp-table-card",
+                      style: "display:flex; justify-content:space-between; gap:12px; align-items:center; padding:12px 16px; margin-bottom:8px; text-decoration:none;"}, [
+                    el("div", {style: "min-width:0;"}, [
+                      el("div", {style: "font-weight:800; color:var(--shrimp-ink);", text: m.name || ev.title || "Producto"}),
+                      el("div", {className: "text-faint", style: "font-size:13px;",
+                                 text: (m.stage ? (m.stage + " • ") : "") + (m.seller || "") + (m.location ? (" • " + m.location) : "")}),
+                    ]),
+                    el("div", {className: "text-end", style: "white-space:nowrap;"}, [
+                      el("div", {style: "font-weight:800;", text: (m.qty != null ? m.qty : "") + " " + (m.uom || "")}),
+                      el("div", {className: "text-faint", style: "font-size:13px;", text: m.price != null ? ("$" + m.price) : ""}),
+                    ]),
+                  ]));
                 });
-                sec.innerHTML = html;
                 host.appendChild(sec);
               });
             }

@@ -7,9 +7,6 @@ from odoo.exceptions import ValidationError
 LB_POR_KG = 2.2046226218
 
 
-from odoo.addons.shrimp_marketplace.models.shrimp_product import (
-    ShrimpProduct as ShrimpProductBase)
-
 from .res_partner import TASA_DESCUENTO_DEFECTO
 
 
@@ -142,12 +139,35 @@ class ShrimpProduct(models.Model):
     # ------------------------------------------------------------------
     # Quién puede comprar este lote
     # ------------------------------------------------------------------
-    # La última pata de la cadena: el camarón adulto solo lo compra una
-    # empacadora. El módulo base no la incluye porque el rol no existía allí.
-    # Se amplía el diccionario y no se reimplementa el método: la cadena tiene
-    # que estar descrita en un solo sitio o las dos copias se separan.
-    _COMPRADOR_ESPERADO = dict(
-        ShrimpProductBase._COMPRADOR_ESPERADO, camaronera="empacadora")
+    # La última pata de la cadena (el adulto solo lo compra una empacadora)
+    # está en la matriz de capacidades (res_partner.py de este módulo:
+    # buy_from_camaronera = empacadora). Aquí solo se añade la aprobación de
+    # la cuenta.
+    def motivo_no_comprable(self, partner, role=None):
+        motivo = super().motivo_no_comprable(partner, role=role)
+        if motivo or not partner:
+            return motivo
+        # Un rol que nace pendiente (la empacadora) no compra hasta que la
+        # administración aprueba ese perfil.
+        rol = role or self.env.context.get("shrimp_buyer_role") or partner._shrimp_effective_type()
+        if partner._shrimp_can("requires_approval", role=rol) \
+                and not partner.shrimp_is_operational(role=rol):
+            return _("Tu cuenta de %s está pendiente de aprobación.") % (
+                partner._shrimp_type_label(rol).lower())
+        return ""
+
+    @api.constrains("price_list_id", "seller_partner_id")
+    def _check_price_list_visible(self):
+        """La lista de la que el lote toma su precio tiene que ser una que el
+        vendedor puede ver (emitida para él o su grupo, publicada). Antes se
+        aceptaba cualquier id y el precio se sincronizaba con ella: atando un
+        lote a la lista confidencial de otro productor se leían sus precios."""
+        for rec in self:
+            lista = rec.price_list_id.sudo()
+            if lista and not lista.visible_para(rec.seller_partner_id):
+                raise ValidationError(_(
+                    "La lista de precios «%s» no está disponible para este vendedor.")
+                    % (lista.name or ""))
 
     # ------------------------------------------------------------------
     # Cruce con las listas de precios

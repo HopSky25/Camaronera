@@ -1,5 +1,5 @@
 {
-    "name": "Verificación de Camarón",
+    "name": "CamaronMarket Verificadores — Verificación de camarón",
     "summary": "Verificación obligatoria en campo antes de concluir la compra de camarón adulto",
     "description": """
 Introduce la figura del VERIFICADOR: un tercero acreditado que inspecciona el
@@ -17,9 +17,9 @@ Flujo:
 Calcula automáticamente rendimientos, sobrepeso y porcentajes por clase, y
 genera el parte en el mismo formato de texto que el equipo ya usa por WhatsApp.
     """,
-    "author": "Camaronera",
+    "author": "Carlos Carballo",
     "category": "Sales/Marketplace",
-    "version": "19.0.1.1.0",
+    "version": "19.0.1.10.0",
     "license": "LGPL-3",
     "depends": ["shrimp_marketplace"],
     "data": [
@@ -36,16 +36,19 @@ genera el parte en el mismo formato de texto que el equipo ya usa por WhatsApp.
         "views/res_config_settings_views.xml",
         "views/verifier_approval_views.xml",
         "views/shrimp_verification_views.xml",
+        "views/declared_views.xml",
         "views/shrimp_dispatch_views.xml",
         "views/registry_form_inherit.xml",
         "views/registry_form_verifier.xml",
-        "views/website_settings_views.xml",
         "views/verifier_website.xml",
-        "views/marca_website.xml",
         "views/verifier_profile_templates.xml",
         "views/portal_templates.xml",
+        # Aviso de verificación en el formulario de publicar producto.
+        "views/product_form_inherit.xml",
         "views/verifier_full_detail.xml",
         "views/acceptance_templates.xml",
+        # Verificación declarada por las partes (formulario y avisos).
+        "views/declared_templates.xml",
         "views/technicians_templates.xml",
         "views/purchases_list_inherit.xml",
         # Después de portal_templates.xml y de las listas del marketplace:
@@ -72,12 +75,15 @@ genera el parte en el mismo formato de texto que el equipo ya usa por WhatsApp.
         "demo/demo_05_verifications_larvae.xml",
         "demo/demo_06_acceptances.xml",
         "demo/demo_07_verifier_reviews.xml",
+        # Demo masiva generada por
+        # shrimp_marketplace/scripts/demo_masivo/generar.py (no editar a mano).
+        "demo/demo_08_masivo_verificadores.xml",
+        "demo/demo_09_masivo_verificaciones_larva.xml",
     ],
     "assets": {
         "web.assets_frontend": [
             "shrimp_verification/static/src/css/verification.css",
         ],
     },
-    "application": True,
     "installable": True,
 }

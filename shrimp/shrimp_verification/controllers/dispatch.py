@@ -1,6 +1,6 @@
 """Pantallas del seguimiento del despacho.
 
-Una sola página, ``/marketplace/despacho/<compra>``, que ven las cuatro partes
+Una sola página, ``/marketplace/dispatch/<compra>``, que ven las cuatro partes
 y que enseña un formulario distinto según quién entre:
 
   * el VENDEDOR la llena y la corrige (fecha de pesca, salida, cita, transporte);
@@ -23,6 +23,9 @@ from odoo.http import request
 from odoo.exceptions import UserError, ValidationError
 from werkzeug.exceptions import NotFound, Forbidden
 
+from odoo.addons.shrimp_user_registry.controllers.main import flash_message
+from odoo.addons.shrimp_marketplace.controllers.utils import current_partner
+
 
 class ShrimpDispatchPortal(http.Controller):
 
@@ -30,9 +33,9 @@ class ShrimpDispatchPortal(http.Controller):
     # Helpers
     # ------------------------------------------------------------------
     def _partner(self):
-        return request.env.user.partner_id
+        return current_partner()
 
-    def _despacho(self, tx_ref):
+    def _despacho(self, tx_ref, crear=True):
         """(despacho, papel) del usuario, o 403.
 
         El papel es lo único que decide qué puede hacer en la pantalla, así que
@@ -53,7 +56,7 @@ class ShrimpDispatchPortal(http.Controller):
         elif yo == tx.buyer_partner_id:
             papel = "comprador"
         else:
-            verificacion = tx.verification_id[:1]
+            verificacion = tx.verification_ids[:1]
             if verificacion and yo in (verificacion.technician_partner_id,
                                        verificacion.verifier_partner_id):
                 papel = "verificador"
@@ -62,22 +65,27 @@ class ShrimpDispatchPortal(http.Controller):
                 # cuándo va a estar un camión cargado de camarón.
                 raise Forbidden()
 
+        if not crear and not tx.dispatch_ids:
+            # GET sin efectos: si la compra todavía no tiene despacho (compras
+            # anteriores a esta pantalla), se muestra uno en memoria y se crea
+            # de verdad al primer guardado (POST con CSRF).
+            return request.env["shrimp.dispatch"].sudo().new({"transaction_id": tx.id}), papel
         return tx._ensure_dispatch(), papel
 
     def _volver(self, despacho, **kw):
         partes = "&".join(
             "%s=%s" % (clave, quote(str(valor)))
             for clave, valor in kw.items() if valor)
-        destino = "/marketplace/despacho/%s" % despacho.transaction_id.uuid_ref
+        destino = "/marketplace/dispatch/%s" % despacho.transaction_id.uuid_ref
         return request.redirect(destino + ("?" + partes if partes else ""))
 
     # ==================================================================
     # La página
     # ==================================================================
-    @http.route("/marketplace/despacho/<tx_ref>", type="http", auth="user",
+    @http.route("/marketplace/dispatch/<tx_ref>", type="http", auth="user",
                 website=True)
     def dispatch_page(self, tx_ref, **kw):
-        despacho, papel = self._despacho(tx_ref)
+        despacho, papel = self._despacho(tx_ref, crear=False)
         return request.render("shrimp_verification.dispatch_page", {
             "page_name": "dispatch_page",
             "d": despacho,
@@ -94,7 +102,7 @@ class ShrimpDispatchPortal(http.Controller):
     # ==================================================================
     # El vendedor llena o corrige el despacho
     # ==================================================================
-    @http.route("/marketplace/despacho/<tx_ref>/guardar", type="http",
+    @http.route("/marketplace/dispatch/<tx_ref>/save", type="http",
                 auth="user", website=True, methods=["POST"], csrf=True)
     def dispatch_save(self, tx_ref, **post):
         despacho, papel = self._despacho(tx_ref)
@@ -121,14 +129,14 @@ class ShrimpDispatchPortal(http.Controller):
                 aviso = despacho.registrar_plan(self._partner(), vals)
         except (UserError, ValidationError) as e:
             msg = e.args[0] if e.args else _("No se pudo guardar el despacho.")
-            return self._volver(despacho, error="1", message=msg)
+            return self._volver(despacho, error="1", message=flash_message(msg))
 
         return self._volver(despacho, saved="avisado" if aviso else "1")
 
     # ==================================================================
     # El técnico estampa la llegada real
     # ==================================================================
-    @http.route("/marketplace/despacho/<tx_ref>/llegada", type="http",
+    @http.route("/marketplace/dispatch/<tx_ref>/arrival", type="http",
                 auth="user", website=True, methods=["POST"], csrf=True)
     def dispatch_arrival(self, tx_ref, **post):
         despacho, papel = self._despacho(tx_ref)
@@ -149,6 +157,6 @@ class ShrimpDispatchPortal(http.Controller):
                 despacho.registrar_llegada(self._partner(), cuando)
         except (UserError, ValidationError) as e:
             msg = e.args[0] if e.args else _("No se pudo registrar la llegada.")
-            return self._volver(despacho, error="1", message=msg)
+            return self._volver(despacho, error="1", message=flash_message(msg))
 
         return self._volver(despacho, saved="llegada")

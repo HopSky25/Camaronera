@@ -18,6 +18,7 @@
          agota (999.999) y a partir de ahí la secuencia desborda el padding y
          deja de ordenar alfabéticamente. -->
     <field name="padding">10</field>
+    <field name="company_id" eval="False"/>
   </record>
 
   <record id="seq_shrimp_check_request" model="ir.sequence">
@@ -25,13 +26,18 @@
         <field name="code">shrimp.check.request</field>
         <field name="prefix">CHK/</field>
         <field name="padding">5</field>
+        <field name="company_id" eval="False"/>
     </record>
 
   <record id="seq_shrimp_charge" model="ir.sequence">
-        <field name="name">Cobro de comisión</field>
+        <field name="name">Cobro de la plataforma</field>
         <field name="code">shrimp.charge</field>
         <field name="prefix">CHG/</field>
         <field name="padding">5</field>
+        <!-- Sin compañía: los cobros se numeran igual en cualquier compañía
+             (antes, en una compañía distinta de la principal el cobro se
+             quedaba como «Nuevo»). -->
+        <field name="company_id" eval="False"/>
     </record>
 
 </odoo>

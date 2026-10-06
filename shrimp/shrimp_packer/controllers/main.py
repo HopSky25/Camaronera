@@ -4,27 +4,28 @@ from odoo.exceptions import ValidationError, UserError
 from werkzeug.exceptions import NotFound, Forbidden
 from urllib.parse import quote
 
-from odoo.addons.shrimp_user_registry.controllers.main import ShrimpRegistryController
+from odoo.addons.shrimp_user_registry.controllers.main import (
+    ShrimpRegistryController, flash_message, read_upload, require_operational)
 from odoo.addons.shrimp_marketplace.controllers.account_portal import (
     ShrimpAccountPortalController)
 from odoo.addons.shrimp_marketplace.controllers.transaction_portal import (
     ShrimpTransactionPortalController,
 )
+from odoo.addons.shrimp_marketplace.controllers.utils import current_partner
+from odoo.addons.shrimp_marketplace.controllers.filter_drawer import (
+    fd_context, fd_date_label, fd_json_count, fd_tags, fd_url)
 
 
 class ShrimpPackerPurchase(ShrimpTransactionPortalController):
-    """Cierra la última pata de la cadena en la pantalla de compra.
-
-    El modelo ya lo impide, pero dejar que el usuario llene la cantidad y
-    reviente al confirmar es mal trato: se corta antes, igual que ya se hace
-    con las otras dos patas.
-    """
+    """Quién compra a quién ya lo decide la matriz de capacidades (la regla
+    del modelo que aplica el controlador base). Aquí solo se añade que una
+    cuenta que nace pendiente de aprobación (la empacadora) no compra hasta
+    que la administración la aprueba."""
 
     def _check_buyer_can_buy_product(self, buyer_partner, product):
         res = super()._check_buyer_can_buy_product(buyer_partner, product)
-        if product.seller_partner_id.shrimp_user_type == "camaronera" \
-                and buyer_partner.shrimp_user_type != "empacadora":
-            raise Forbidden()
+        if buyer_partner._shrimp_can("requires_approval"):
+            require_operational(buyer_partner)
         return res
 
 
@@ -37,10 +38,18 @@ class ShrimpPackerRegistry(ShrimpRegistryController):
     los productores llenaría ese formulario de campos que no aplican.
     """
 
-    @http.route("/registro/empacadora", type="http", auth="public",
+    @http.route("/register/packer", type="http", auth="public",
                 website=True, sitemap=True)
     def registro_empacadora(self, **kw):
         return request.render("shrimp_packer.registry_form_packer", {"values": {}})
+
+    def _allowed_user_types(self):
+        tipos = super()._allowed_user_types()
+        # Solo donde se registran los roles del marketplace (no en las
+        # plataformas propias de verificadores o maquiladores).
+        if tipos & self._signup_types():
+            tipos = tipos | {"empacadora"}
+        return tipos
 
     def _registro_form_template(self, user_type):
         if user_type == "empacadora":
@@ -62,14 +71,16 @@ class ShrimpPackerRegistry(ShrimpRegistryController):
                 return 0.0
 
         vals.update({
-            "emp_razon_social": _t("emp_razon_social"),
-            "emp_representante": _t("emp_representante"),
+            # Perfil común (los nombres del formulario siguen siendo emp_*).
+            "shrimp_razon_social": _t("emp_razon_social"),
+            "shrimp_representante": _t("emp_representante"),
+            "shrimp_telefono": _t("emp_telefono"),
+            "shrimp_ubicacion": _t("emp_planta_ubicacion"),
+            "shrimp_capacity_value": _f("emp_capacidad_lb_dia"),
+            "shrimp_capacity_unit": "lb_day",
             "emp_contacto_comercial": _t("emp_contacto_comercial"),
-            "emp_telefono": _t("emp_telefono"),
             "emp_codigo_exportador": _t("emp_codigo_exportador"),
             "emp_planta_nombre": _t("emp_planta_nombre"),
-            "emp_planta_ubicacion": _t("emp_planta_ubicacion"),
-            "emp_capacidad_lb_dia": _f("emp_capacidad_lb_dia"),
             "emp_cert_bap": bool(post.get("emp_cert_bap")),
             "emp_cert_asc": bool(post.get("emp_cert_asc")),
             "emp_cert_haccp": bool(post.get("emp_cert_haccp")),
@@ -93,7 +104,7 @@ class ShrimpPriceListPortal(http.Controller):
     """
 
     def _partner(self):
-        return request.env.user.partner_id
+        return current_partner()
 
     def _solo_empacadora(self):
         """Corta el paso a quien no emite listas.
@@ -104,8 +115,10 @@ class ShrimpPriceListPortal(http.Controller):
         camaronera: 200, formulario entero, y el error solo al guardar. Una
         pantalla que no lleva a ningun sitio es peor que no tenerla.
         """
-        if self._partner().shrimp_user_type != "empacadora":
+        if not self._partner()._shrimp_can("issue_price_lists"):
             raise Forbidden()
+        # Y además aprobada por la administración (M4).
+        require_operational(self._partner())
 
     def _mi_lista(self, ref, editable=False):
         lista = request.env["shrimp.price.list"].sudo().resolve_ref(ref)
@@ -113,6 +126,8 @@ class ShrimpPriceListPortal(http.Controller):
             raise NotFound()
         if editable and lista.issuer_partner_id != self._partner():
             raise Forbidden()
+        if editable:
+            require_operational(self._partner())
         if not editable and not lista.visible_para(self._partner()):
             raise Forbidden()
         return lista
@@ -120,11 +135,12 @@ class ShrimpPriceListPortal(http.Controller):
     # ==================================================================
     # La oferta disponible de lo que compra la empacadora
     # ==================================================================
-    @http.route("/marketplace/oferta", type="http", auth="user", website=True)
+    @http.route("/marketplace/supply", type="http", auth="user", website=True)
     def packer_supply(self, **kw):
         partner = self._partner()
         if partner.shrimp_user_type != "empacadora":
             raise Forbidden()
+        require_operational(partner)
         L = request.env["shrimp.price.list"].sudo()
         lista = L.search([
             ("issuer_partner_id", "=", partner.id),
@@ -138,7 +154,7 @@ class ShrimpPriceListPortal(http.Controller):
     # ==================================================================
     # Precio sugerido al publicar un lote
     # ==================================================================
-    @http.route("/marketplace/precio-sugerido", type="jsonrpc", auth="user")
+    @http.route("/marketplace/suggested-price", type="jsonrpc", auth="user")
     def suggested_price(self, presentation=None, size_grade_id=None, **kw):
         """Qué le pagan hoy por esa talla, para proponerlo al publicar el lote.
 
@@ -175,21 +191,24 @@ class ShrimpPriceListPortal(http.Controller):
             "cuantas": len({l.price_list_id.issuer_partner_id.id for l in lineas}),
         }
 
-    @http.route("/marketplace/precio-de-lista", type="jsonrpc", auth="user")
-    def list_price(self, price_list_id=None, presentation=None, size_grade_id=None, **kw):
+    @http.route("/marketplace/list-price", type="jsonrpc", auth="user")
+    def list_price(self, price_list_ref=None, presentation=None, size_grade_id=None, **kw):
         """Precio de una lista concreta para una talla/presentación, ya
         convertido a $/Lb (la unidad del lote). Para autocompletar al asignar
-        una lista al producto."""
+        una lista al producto.
+
+        La lista llega por su código (uuid_ref) y solo responde si el usuario
+        puede VERLA (visible_para): antes bastaba un id correlativo para leer
+        los precios confidenciales de cualquier lista de la base."""
         from odoo.addons.shrimp_packer.models.shrimp_product import LB_POR_KG
         try:
-            plid = int(price_list_id or 0)
             talla_id = int(size_grade_id or 0)
         except (TypeError, ValueError):
             return {}
-        if not plid or not talla_id or not presentation:
+        if not price_list_ref or not talla_id or not presentation:
             return {}
-        pl = request.env["shrimp.price.list"].sudo().browse(plid)
-        if not pl.exists():
+        pl = request.env["shrimp.price.list"].sudo().resolve_ref(price_list_ref)
+        if not pl or not pl.visible_para(self._partner()):
             return {}
         lineas = pl.line_ids.filtered(
             lambda l: l.size_grade_id.id == talla_id
@@ -209,25 +228,112 @@ class ShrimpPriceListPortal(http.Controller):
     # Es público a propósito: la camaronera quiere saber a quién le está
     # vendiendo antes de decidir, y a la empacadora le conviene que la
     # encuentren. Lo confidencial son los precios, no las certificaciones.
-    @http.route("/marketplace/empacadoras", type="http", auth="public", website=True)
-    def packers_directory(self, **kw):
-        P = request.env["res.partner"].sudo()
-        empacadoras = P.empacadoras_activas()
-        busca = (kw.get("q") or "").strip().lower()
+    # ------------------------------------------------------------------
+    # Directorio de empacadoras: búsqueda + cajón de filtros
+    # ------------------------------------------------------------------
+    PACKER_CERTS = [("bap", "BAP", "emp_cert_bap"), ("asc", "ASC", "emp_cert_asc"),
+                    ("haccp", "HACCP", "emp_cert_haccp")]
+    PACKER_MARKETS = [("asia", "Asia", "emp_mercado_asia"), ("europa", "Europa", "emp_mercado_europa"),
+                      ("norteamerica", "Norteamérica", "emp_mercado_norteamerica"),
+                      ("local", "Mercado local", "emp_mercado_local")]
+    PACKER_ORDERS = [("", "Nombre (A–Z)"), ("capacidad", "Mayor capacidad")]
+
+    def _packers_search(self, kw):
+        """(empacadoras, filtros, todas). Parámetros: q, cert (repetible),
+        mercado (repetible), ubicacion, orden. La usan la página y el conteo."""
+        todas = request.env["res.partner"].sudo().empacadoras_activas()
+        args = request.httprequest.args
+        certs_ok = {c for c, _l, _f in self.PACKER_CERTS}
+        mercados_ok = {m for m, _l, _f in self.PACKER_MARKETS}
+        f = {
+            "q": (kw.get("q") or "").strip(),
+            "cert": [c for c in args.getlist("cert") if c in certs_ok],
+            "mercado": [m for m in args.getlist("mercado") if m in mercados_ok],
+            "ubicacion": (kw.get("ubicacion") or "").strip(),
+            "orden": (kw.get("orden") or "").strip(),
+        }
+        if f["orden"] not in dict(self.PACKER_ORDERS):
+            f["orden"] = ""
+        empacadoras = todas
+        busca = f["q"].lower()
         if busca:
             empacadoras = empacadoras.filtered(
                 lambda e: busca in (e.name or "").lower()
-                or busca in (e.emp_planta_ubicacion or "").lower())
+                or busca in (e.shrimp_ubicacion or "").lower())
+        campos = {c: fld for c, _l, fld in self.PACKER_CERTS + self.PACKER_MARKETS}
+        for code in f["cert"] + f["mercado"]:
+            empacadoras = empacadoras.filtered(lambda e, fld=campos[code]: e[fld])
+        if f["ubicacion"]:
+            empacadoras = empacadoras.filtered(
+                lambda e: (e.shrimp_ubicacion or "").strip().lower() == f["ubicacion"].lower())
+        if f["orden"] == "capacidad":
+            empacadoras = empacadoras.sorted(lambda e: -(e.shrimp_capacity_value or 0.0))
+        return empacadoras, f, todas
+
+    @http.route("/marketplace/packers", type="http", auth="public", website=True)
+    def packers_directory(self, **kw):
+        empacadoras, f, todas = self._packers_search(kw)
+        # Solo se ofrece lo que distingue a las empacadoras que HAY: una
+        # certificación que ninguna declara o una única ubicación no filtran nada.
+        certs = [(c, l) for c, l, fld in self.PACKER_CERTS if any(todas.mapped(fld)) or c in f["cert"]]
+        mercados = [(m, l) for m, l, fld in self.PACKER_MARKETS if any(todas.mapped(fld)) or m in f["mercado"]]
+        ubicaciones = sorted({(e.shrimp_ubicacion or "").strip() for e in todas} - {""})
+        show = {"cert": bool(certs), "mercado": bool(mercados), "ubicacion": len(ubicaciones) > 1}
+        nombres = {c: l for c, l, _f in self.PACKER_CERTS + self.PACKER_MARKETS}
+
+        def label(group, vals):
+            key, val = group[0], vals.get(group[0])
+            if not val:
+                return None
+            if key == "cert":
+                return "Certificación: %s" % nombres.get(val, val)
+            if key == "mercado":
+                return "Exporta a: %s" % nombres.get(val, val)
+            if key == "ubicacion":
+                return "Ubicación: %s" % val
+            return None
+
+        url = "/marketplace/packers"
+        tags, clear_url = fd_tags(url, f, [("cert",), ("mercado",), ("ubicacion",)], label,
+                                  keep={"q": f["q"], "orden": f["orden"]}, anchor="#listado")
+        fd = fd_context(
+            url, len(empacadoras), tags, clear_url,
+            search={"name": "q", "value": f["q"], "label": "Buscar empacadoras",
+                    "placeholder": "Buscar por nombre o ubicación de la planta…"},
+            toolbar_label="Buscar y filtrar empacadoras",
+            hidden=[("cert", c) for c in f["cert"]] + [("mercado", m) for m in f["mercado"]]
+            + [("ubicacion", f["ubicacion"])],
+            sort={"name": "orden", "value": f["orden"], "options": self.PACKER_ORDERS},
+            count_url="/marketplace/packers/count",
+            noun=("empacadora", "empacadoras"),
+            drawer_hidden=[("q", f["q"]), ("orden", f["orden"])],
+            keep=["q", "orden"],
+            has_drawer=any(show.values()),
+        )
         return request.render("shrimp_packer.packers_directory", {
             "empacadoras": empacadoras,
-            "q": kw.get("q") or "",
+            "q": f["q"],
+            "filters": f,
+            "fd": fd,
+            "fd_show": show,
+            "cert_opts": certs,
+            "mercado_opts": mercados,
+            "ubicacion_opts": ubicaciones,
+            "total_empacadoras": len(todas),
         })
 
-    @http.route("/marketplace/empacadora/<partner_ref>", type="http", auth="public",
+    @http.route("/marketplace/packers/count", type="http", auth="public", website=True,
+                methods=["GET"], sitemap=False)
+    def packers_directory_count(self, **kw):
+        """«Ver N empacadoras» del cajón: mismo filtro que el directorio."""
+        empacadoras, _f, _todas = self._packers_search(kw)
+        return fd_json_count(len(empacadoras))
+
+    @http.route("/marketplace/packers/<partner_ref>", type="http", auth="public",
                 website=True)
     def packer_profile(self, partner_ref, **kw):
         emp = request.env["res.partner"].sudo().resolve_ref(partner_ref)
-        if not emp or emp.shrimp_user_type != "empacadora":
+        if not emp or not emp._shrimp_has_role("empacadora"):
             raise NotFound()
 
         # Si quien mira tiene una lista vigente de esta empacadora, se le
@@ -246,7 +352,7 @@ class ShrimpPriceListPortal(http.Controller):
     # ==================================================================
     # Consulta
     # ==================================================================
-    @http.route("/marketplace/listas-de-precios", type="http", auth="user", website=True)
+    @http.route("/marketplace/price-lists", type="http", auth="user", website=True)
     def price_lists(self, **kw):
         L = request.env["shrimp.price.list"].sudo()
         # Solo las que le tocan: publicadas, vigentes y dirigidas a él o a su
@@ -271,9 +377,67 @@ class ShrimpPriceListPortal(http.Controller):
             "error": kw.get("error"),
         })
 
-    @http.route("/marketplace/listas-de-precios/comparar", type="http", auth="user",
+    def _compare_fd(self, values):
+        """Barra («Qué comparar» + Filtros), etiquetas y cajón del comparador.
+
+        La combinación es lo que se compara (va a la vista en la barra, como
+        el orden en otras listas); empacadoras, cantidad y fecha de cosecha
+        afinan el resultado y viven en el cajón. No hay conteo en vivo (el
+        resultado es una tabla comparativa, no una lista): el botón dice
+        «Aplicar»."""
+        args = request.httprequest.args
+        empacadoras = values.get("empacadoras") or request.env["res.partner"].browse()
+        por_ref = {e.uuid_ref: e.name for e in empacadoras if e.uuid_ref}
+        elegidas_url = [x for x in args.getlist("emp") if x in por_ref]
+        sel = values.get("sel")
+        combo = sel["clave"] if sel else ""
+        cantidad = values.get("cantidad") or 0.0
+        fecha = values.get("fecha") or ""
+        f = {"emp": elegidas_url,
+             "cantidad": ("{:.0f}".format(cantidad) if cantidad else ""),
+             "fecha": fecha}
+
+        def label(group, vals):
+            key, val = group[0], vals.get(group[0])
+            if not val:
+                return None
+            if key == "emp":
+                return "Empacadora: %s" % por_ref.get(val, val)
+            if key == "cantidad":
+                return "Cantidad: {:,.0f}".format(float(val))
+            if key == "fecha":
+                return "Cosecha: %s" % fd_date_label(val)
+            return None
+
+        url = "/marketplace/price-lists/compare"
+        tags, clear_url = fd_tags(url, f, [("emp",), ("cantidad",), ("fecha",)], label,
+                                  keep={"combo": combo})
+        show = {"emp": len(empacadoras) > 1}
+        return {
+            "fd": fd_context(
+                url, 0, tags, clear_url,
+                toolbar_label="Qué comparar",
+                hidden=[("emp", e) for e in elegidas_url]
+                + [("filtrar", "1" if "filtrar" in args else ""),
+                   ("cantidad", f["cantidad"]), ("fecha", fecha)],
+                drawer_hidden=[("combo", combo)],
+                keep=["combo"],
+                apply_label="Aplicar",
+                anchor="#comparativa",
+            ),
+            "fd_show": show,
+        }
+
+    @http.route("/marketplace/price-lists/compare", type="http", auth="user",
                 website=True)
     def price_list_compare(self, **kw):
+        response = self._price_list_compare(**kw)
+        qcontext = getattr(response, "qcontext", None)
+        if qcontext is not None and qcontext.get("combinaciones"):
+            qcontext.update(self._compare_fd(qcontext))
+        return response
+
+    def _price_list_compare(self, **kw):
         """El comparador: qué paga cada empacadora por la misma talla.
 
         Va antes que la ruta de detalle en el archivo por claridad, pero no por
@@ -316,8 +480,9 @@ class ShrimpPriceListPortal(http.Controller):
         tope = L.MAX_COMPARAR
         crudas = request.httprequest.args.getlist("emp")
         if crudas:
-            elegidas = [int(x) for x in crudas
-                        if str(x).isdigit() and int(x) in empacadoras.ids]
+            # Las empacadoras viajan en la URL por su código, nunca por id.
+            por_ref = {e.uuid_ref: e.id for e in empacadoras if e.uuid_ref}
+            elegidas = [por_ref[x] for x in crudas if x in por_ref]
         elif "filtrar" in request.httprequest.args:
             elegidas = []
         else:
@@ -361,7 +526,7 @@ class ShrimpPriceListPortal(http.Controller):
             "sin_seleccion": False,
         })
 
-    @http.route("/marketplace/listas-de-precios/<ref>", type="http", auth="user",
+    @http.route("/marketplace/price-lists/<ref>", type="http", auth="user",
                 website=True)
     def price_list_detail(self, ref, **kw):
         lista = self._mi_lista(ref)
@@ -377,7 +542,7 @@ class ShrimpPriceListPortal(http.Controller):
     # ==================================================================
     # Publicación
     # ==================================================================
-    @http.route("/marketplace/listas-de-precios/nueva", type="http", auth="user",
+    @http.route("/marketplace/price-lists/new", type="http", auth="user",
                 website=True)
     def price_list_new(self, **kw):
         self._solo_empacadora()
@@ -387,10 +552,10 @@ class ShrimpPriceListPortal(http.Controller):
         # una vez. El borrador no lo ven los destinatarios hasta publicar.
         L = request.env["shrimp.price.list"].sudo()
         partner = self._partner()
-        # Evita borradores fantasma: si dio "Nueva", no tocó nada y volvió
-        # atrás, reutilizamos ese mismo borrador vacío en lugar de crear otro
-        # cada vez. Vacío = borrador, con el nombre por defecto todavía, sin
-        # precios, sin bonificaciones y sin destinatarios.
+        # Un GET no crea nada (antes creaba un borrador en cada visita, también
+        # por un prefetch o un bot). Si ya hay un borrador vacío se reutiliza;
+        # si no, se muestra el formulario sin lista y el borrador nace en el
+        # primer "Guardar" (POST con CSRF a /guardar).
         predet = _("Lista de precios")
         borrador = L.search([
             ("issuer_partner_id", "=", partner.id),
@@ -400,17 +565,21 @@ class ShrimpPriceListPortal(http.Controller):
             ("bonus_ids", "=", False),
             ("recipient_ids", "=", False),
         ], limit=1)
-        if not borrador:
-            borrador = L.create({
-                "name": predet,
-                "issuer_partner_id": partner.id,
-                "issue_date": fields.Date.context_today(request.env.user),
-                "open_ended": True,
-            })
-        return request.redirect(
-            "/marketplace/listas-de-precios/%s/editar" % borrador.uuid_ref)
+        if borrador:
+            return request.redirect(
+                "/marketplace/price-lists/%s/edit" % borrador.uuid_ref)
+        return request.render("shrimp_packer.price_list_form", {
+            "lista": None,
+            "es_nueva": True,
+            # El aguaje en curso y los próximos; los pasados nunca.
+            "aguajes": request.env["shrimp.aguaje"].sudo().seleccionables(),
+            "tallas": request.env["shrimp.size.grade"].sudo().search(
+                [("active", "=", True)], order="presentation, sequence, name"),
+            "mensaje": kw.get("mensaje"),
+            "error": kw.get("error"),
+        })
 
-    @http.route("/marketplace/listas-de-precios/guardar", type="http", auth="user",
+    @http.route("/marketplace/price-lists/save", type="http", auth="user",
                 website=True, methods=["POST"], csrf=True)
     def price_list_save(self, **post):
         L = request.env["shrimp.price.list"].sudo()
@@ -447,14 +616,27 @@ class ShrimpPriceListPortal(http.Controller):
             "advance_days": _i("advance_days"),
             "balance_days": _i("balance_days"),
             "payment_notes": (post.get("payment_notes") or "").strip() or False,
-            # Puede venir vacio a proposito: hay listas que cubren dos aguajes
-            # o que se emiten fuera de calendario.
-            "aguaje_id": int(post["aguaje_id"]) if (post.get("aguaje_id") or "").isdigit() else False,
         }
+        # El aguaje se elige del calendario de la plataforma y llega por su
+        # código. Es obligatorio al crear la lista; en una lista que ya lo
+        # tiene no se puede quitar. Solo una lista vieja que nunca lo tuvo se
+        # puede seguir guardando sin él. Que no haya pasado lo valida el
+        # modelo (y su mensaje es el que ve la empacadora).
+        aguaje = request.env["shrimp.aguaje"].sudo().resolve_ref(post.get("aguaje_ref"))
+        if aguaje:
+            vals["aguaje_id"] = aguaje.id
+        elif not lista or lista.aguaje_id:
+            destino = "/marketplace/price-lists/%s/edit" % lista.uuid_ref if lista \
+                else "/marketplace/price-lists/new"
+            return request.redirect("%s?error=%s" % (destino, flash_message(
+                _("Elige el aguaje al que rige la lista: el actual o uno próximo."))))
         # Destinatarios: se fija siempre (incluso vacío) para que desmarcar
-        # todas las camaroneras realmente las quite.
-        destinatarios = [int(x) for x in request.httprequest.form.getlist("recipient_ids")
-                         if str(x).isdigit()]
+        # todas las camaroneras realmente las quite. Llegan por su código
+        # (uuid_ref) y solo pueden ser camaroneras.
+        refs = [x for x in request.httprequest.form.getlist("recipient_refs") if x]
+        Partner = request.env["res.partner"].sudo()
+        destinatarios = Partner.search([
+            ("uuid_ref", "in", refs)] + Partner._shrimp_role_domain("camaronera")).ids if refs else []
         vals["recipient_ids"] = [(6, 0, destinatarios)]
 
         # Precios por talla: llegan como columnas paralelas (una entrada por
@@ -479,17 +661,17 @@ class ShrimpPriceListPortal(http.Controller):
                     continue
                 precio_raw = (precios_in[i] if i < len(precios_in) else "").strip()
                 if precio_raw == "":
-                    destino = "/marketplace/listas-de-precios/%s/editar" % lista.uuid_ref \
-                        if lista else "/marketplace/listas-de-precios/nueva"
+                    destino = "/marketplace/price-lists/%s/edit" % lista.uuid_ref \
+                        if lista else "/marketplace/price-lists/new"
                     return request.redirect("%s?error=%s" % (
-                        destino, quote(_("Toda talla agregada debe tener un precio."))))
+                        destino, flash_message(_("Toda talla agregada debe tener un precio."))))
                 try:
                     precio = float(precio_raw.replace(",", "."))
                 except ValueError:
-                    destino = "/marketplace/listas-de-precios/%s/editar" % lista.uuid_ref \
-                        if lista else "/marketplace/listas-de-precios/nueva"
+                    destino = "/marketplace/price-lists/%s/edit" % lista.uuid_ref \
+                        if lista else "/marketplace/price-lists/new"
                     return request.redirect("%s?error=%s" % (
-                        destino, quote(_("Hay un precio que no es un número válido."))))
+                        destino, flash_message(_("Hay un precio que no es un número válido."))))
                 pres = talla.presentation
                 canal = (canales_in[i] if i < len(canales_in) else "") or False
                 if pres == "entero":
@@ -513,20 +695,25 @@ class ShrimpPriceListPortal(http.Controller):
             vals["line_ids"] = [(5, 0, 0)] + [(0, 0, orden[c]) for c in secuencia]
 
         try:
-            if lista:
-                lista.write(vals)
-            else:
-                vals["issuer_partner_id"] = self._partner().id
-                lista = L.create(vals)
+            # En un savepoint: si una regla del modelo rechaza la lista (p. ej.
+            # un aguaje que ya pasó), no queda nada a medias en la base aunque
+            # aquí se capture el error para mostrarlo.
+            with request.env.cr.savepoint():
+                if lista:
+                    lista.write(vals)
+                else:
+                    vals["issuer_partner_id"] = self._partner().id
+                    lista = L.create(vals)
         except (ValidationError, UserError) as e:
-            destino = "/marketplace/listas-de-precios/%s/editar" % lista.uuid_ref if lista \
-                else "/marketplace/listas-de-precios/nueva"
-            return request.redirect("%s?error=%s" % (destino, quote(e.args[0] if e.args else "")))
+            lista = lista.exists() if lista else None
+            destino = "/marketplace/price-lists/%s/edit" % lista.uuid_ref if lista \
+                else "/marketplace/price-lists/new"
+            return request.redirect("%s?error=%s" % (destino, flash_message(e.args[0] if e.args else "")))
 
         return request.redirect(
-            "/marketplace/listas-de-precios/%s/editar?mensaje=guardada" % lista.uuid_ref)
+            "/marketplace/price-lists/%s/edit?mensaje=guardada" % lista.uuid_ref)
 
-    @http.route("/marketplace/listas-de-precios/<ref>/editar", type="http", auth="user",
+    @http.route("/marketplace/price-lists/<ref>/edit", type="http", auth="user",
                 website=True)
     def price_list_edit(self, ref, **kw):
         lista = self._mi_lista(ref, editable=True)
@@ -537,23 +724,21 @@ class ShrimpPriceListPortal(http.Controller):
         es_nueva = (lista.state == "draft" and lista.name == _("Lista de precios")
                     and not lista.line_ids and not lista.bonus_ids
                     and not lista.recipient_ids)
-        hoy = fields.Date.context_today(self._partner())
         return request.render("shrimp_packer.price_list_form", {
             "lista": lista,
             "es_nueva": es_nueva,
             # Vigentes y proximos. Los pasados no se ofrecen —una lista para un
             # aguaje que ya termino no sirve— pero se conserva el que ya tenga
             # asignado para no borrarselo al guardar.
-            "aguajes": request.env["shrimp.aguaje"].sudo().search(
-                ["|", ("date_to", ">=", hoy), ("id", "=", lista.aguaje_id.id or 0)],
-                order="date_from", limit=30),
+            "aguajes": request.env["shrimp.aguaje"].sudo().seleccionables(
+                incluir=lista.aguaje_id),
             "tallas": request.env["shrimp.size.grade"].sudo().search(
                 [("active", "=", True)], order="presentation, sequence, name"),
             "mensaje": kw.get("mensaje"),
             "error": kw.get("error"),
         })
 
-    @http.route("/marketplace/listas-de-precios/<ref>/renglon", type="http", auth="user",
+    @http.route("/marketplace/price-lists/<ref>/lines", type="http", auth="user",
                 website=True, methods=["POST"], csrf=True)
     def price_list_add_line(self, ref, **post):
         lista = self._mi_lista(ref, editable=True)
@@ -562,8 +747,8 @@ class ShrimpPriceListPortal(http.Controller):
             int(post.get("size_grade_id") or 0))
         if not talla.exists():
             return request.redirect(
-                "/marketplace/listas-de-precios/%s/editar?error=%s"
-                % (ref, _("Elige una talla.")))
+                "/marketplace/price-lists/%s/edit?error=%s"
+                % (ref, flash_message(_("Elige una talla."))))
         canal = post.get("channel") or False
         if talla.presentation == "entero":
             canal = False
@@ -571,8 +756,8 @@ class ShrimpPriceListPortal(http.Controller):
             precio = float((post.get("price") or "0").replace(",", "."))
         except ValueError:
             return request.redirect(
-                "/marketplace/listas-de-precios/%s/editar?error=%s"
-                % (ref, _("El precio no es un número válido.")))
+                "/marketplace/price-lists/%s/edit?error=%s"
+                % (ref, flash_message(_("El precio no es un número válido."))))
 
         # La unidad NO se toma del formulario: la fija la presentación. El
         # entero se cotiza en $/Kg y la cola en $/Lb, y un renglón de entero
@@ -610,26 +795,26 @@ class ShrimpPriceListPortal(http.Controller):
                 else Line.create(vals)
         except (ValidationError, UserError) as e:
             return request.redirect(
-                "/marketplace/listas-de-precios/%s/editar?error=%s"
-                % (ref, (e.args[0] if e.args else "")))
-        return request.redirect("/marketplace/listas-de-precios/%s/editar?mensaje=renglon" % ref)
+                "/marketplace/price-lists/%s/edit?error=%s"
+                % (ref, flash_message(e.args[0] if e.args else "")))
+        return request.redirect("/marketplace/price-lists/%s/edit?mensaje=renglon" % ref)
 
-    @http.route("/marketplace/listas-de-precios/<ref>/renglon/<int:line_id>/borrar",
+    @http.route("/marketplace/price-lists/<ref>/lines/<line_ref>/delete",
                 type="http", auth="user", website=True, methods=["POST"], csrf=True)
-    def price_list_del_line(self, ref, line_id, **post):
+    def price_list_del_line(self, ref, line_ref, **post):
         lista = self._mi_lista(ref, editable=True)
-        linea = request.env["shrimp.price.list.line"].sudo().browse(line_id)
-        if linea.exists() and linea.price_list_id == lista:
+        linea = request.env["shrimp.price.list.line"].sudo().resolve_ref(line_ref)
+        if linea and linea.price_list_id == lista:
             linea.unlink()
-        return request.redirect("/marketplace/listas-de-precios/%s/editar" % ref)
+        return request.redirect("/marketplace/price-lists/%s/edit" % ref)
 
-    @http.route("/marketplace/listas-de-precios/<ref>/bonificacion", type="http",
+    @http.route("/marketplace/price-lists/<ref>/bonuses", type="http",
                 auth="user", website=True, methods=["POST"], csrf=True)
     def price_list_add_bonus(self, ref, **post):
         lista = self._mi_lista(ref, editable=True)
         nombre = (post.get("name") or "").strip()
         if not nombre:
-            return request.redirect("/marketplace/listas-de-precios/%s/editar" % ref)
+            return request.redirect("/marketplace/price-lists/%s/edit" % ref)
         try:
             importe = float((post.get("amount") or "0").replace(",", "."))
         except ValueError:
@@ -638,21 +823,21 @@ class ShrimpPriceListPortal(http.Controller):
             "price_list_id": lista.id, "name": nombre, "amount": importe,
             "note": (post.get("note") or "").strip() or False,
         })
-        return request.redirect("/marketplace/listas-de-precios/%s/editar?mensaje=bono" % ref)
+        return request.redirect("/marketplace/price-lists/%s/edit?mensaje=bono" % ref)
 
-    @http.route("/marketplace/listas-de-precios/<ref>/bonificacion/<int:bonus_id>/borrar",
+    @http.route("/marketplace/price-lists/<ref>/bonuses/<bonus_ref>/delete",
                 type="http", auth="user", website=True, methods=["POST"], csrf=True)
-    def price_list_del_bonus(self, ref, bonus_id, **post):
+    def price_list_del_bonus(self, ref, bonus_ref, **post):
         lista = self._mi_lista(ref, editable=True)
-        bono = request.env["shrimp.price.list.bonus"].sudo().browse(bonus_id)
-        if bono.exists() and bono.price_list_id == lista:
+        bono = request.env["shrimp.price.list.bonus"].sudo().resolve_ref(bonus_ref)
+        if bono and bono.price_list_id == lista:
             bono.unlink()
-        return request.redirect("/marketplace/listas-de-precios/%s/editar" % ref)
+        return request.redirect("/marketplace/price-lists/%s/edit" % ref)
 
     # ==================================================================
     # Carga por Excel
     # ==================================================================
-    @http.route("/marketplace/listas-de-precios/<ref>/plantilla", type="http",
+    @http.route("/marketplace/price-lists/<ref>/template", type="http",
                 auth="user", website=True)
     def price_list_template(self, ref, **kw):
         lista = self._mi_lista(ref, editable=True)
@@ -662,24 +847,47 @@ class ShrimpPriceListPortal(http.Controller):
             ("Content-Type",
              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
             ("Content-Length", str(len(contenido))),
-            ("Content-Disposition", 'attachment; filename="%s"' % nombre),
+            ("Content-Disposition", 'attachment; filename="%s"' % nombre.replace('"', "")),
+            ("X-Content-Type-Options", "nosniff"),
         ])
 
-    @http.route("/marketplace/listas-de-precios/<ref>/cargar", type="http",
+    @http.route("/marketplace/price-lists/<ref>/upload", type="http",
                 auth="user", website=True, methods=["POST"], csrf=True)
     def price_list_upload(self, ref, **post):
         lista = self._mi_lista(ref, editable=True)
+        # El aguaje también se elige al cargar por Excel: la planilla trae los
+        # precios, pero para qué marea rigen lo dice la empacadora aquí.
+        aguaje = request.env["shrimp.aguaje"].sudo().resolve_ref(post.get("aguaje_ref"))
+        if not aguaje and not lista.aguaje_id:
+            return request.redirect(
+                "/marketplace/price-lists/%s/edit?error=%s"
+                % (ref, flash_message(_("Elige el aguaje al que rige la lista: el actual o uno próximo."))))
+        if aguaje and aguaje != lista.aguaje_id:
+            try:
+                with request.env.cr.savepoint():
+                    lista.write({"aguaje_id": aguaje.id})
+            except (ValidationError, UserError) as e:
+                return request.redirect(
+                    "/marketplace/price-lists/%s/edit?error=%s"
+                    % (ref, flash_message(e.args[0] if e.args else "")))
         archivo = post.get("archivo")
         if not archivo:
             return request.redirect(
-                "/marketplace/listas-de-precios/%s/editar?error=%s"
-                % (ref, quote(_("Elige un archivo."))))
+                "/marketplace/price-lists/%s/edit?error=%s"
+                % (ref, flash_message(_("Elige un archivo."))))
         try:
-            contenido = archivo.read()
-        except Exception:
+            # Solo .xlsx real (contenido, no extensión) y hasta 5 MB.
+            contenido, _mime, _n = read_upload(archivo, allowed={
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "application/zip"})
+        except ValidationError:
             return request.redirect(
-                "/marketplace/listas-de-precios/%s/editar?error=%s"
-                % (ref, quote(_("No se pudo leer el archivo."))))
+                "/marketplace/price-lists/%s/edit?error=%s"
+                % (ref, flash_message(_("El archivo debe ser una planilla Excel (.xlsx) de hasta 5 MB."))))
+        except Exception:  # noqa: BLE001
+            return request.redirect(
+                "/marketplace/price-lists/%s/edit?error=%s"
+                % (ref, flash_message(_("No se pudo leer el archivo."))))
 
         resumen, errores = lista.cargar_excel(contenido)
         if errores:
@@ -689,14 +897,14 @@ class ShrimpPriceListPortal(http.Controller):
             if len(errores) > 5:
                 texto += _(" (y %s más)") % (len(errores) - 5)
             return request.redirect(
-                "/marketplace/listas-de-precios/%s/editar?error=%s" % (ref, quote(texto)))
+                "/marketplace/price-lists/%s/edit?error=%s" % (ref, flash_message(texto)))
 
         detalle = _("%(total)s precios cargados: %(nuevos)s nuevos, "
                     "%(cambiados)s con cambio de precio, %(quitados)s quitados.") % resumen
         return request.redirect(
-            "/marketplace/listas-de-precios/%s/editar?mensaje=%s" % (ref, quote(detalle)))
+            "/marketplace/price-lists/%s/edit?mensaje=%s" % (ref, flash_message(detalle)))
 
-    @http.route("/marketplace/listas-de-precios/<ref>/publicar", type="http",
+    @http.route("/marketplace/price-lists/<ref>/publish", type="http",
                 auth="user", website=True, methods=["POST"], csrf=True)
     def price_list_publish(self, ref, **post):
         lista = self._mi_lista(ref, editable=True)
@@ -704,61 +912,66 @@ class ShrimpPriceListPortal(http.Controller):
             lista.action_publish()
         except (ValidationError, UserError) as e:
             return request.redirect(
-                "/marketplace/listas-de-precios/%s/editar?error=%s"
-                % (ref, (e.args[0] if e.args else "")))
-        return request.redirect("/marketplace/listas-de-precios/%s?mensaje=publicada" % ref)
+                "/marketplace/price-lists/%s/edit?error=%s"
+                % (ref, flash_message(e.args[0] if e.args else "")))
+        return request.redirect("/marketplace/price-lists/%s?mensaje=publicada" % ref)
 
-    @http.route("/marketplace/listas-de-precios/<ref>/duplicar", type="http",
+    @http.route("/marketplace/price-lists/<ref>/duplicate", type="http",
                 auth="user", website=True, methods=["POST"], csrf=True)
     def price_list_duplicate(self, ref, **post):
         """Parte de la lista anterior para armar la siguiente.
 
         Es como se trabaja de verdad: nadie escribe sesenta precios de cero
         cada semana, se toma la de la semana pasada y se mueven tres o cuatro.
-        La copia nace en borrador y sin fechas de despacho, para que no se
-        publique por descuido con la vigencia vieja.
+        La copia nace en borrador y para el aguaje SIGUIENTE al de la lista de
+        partida, con las fechas de despacho que salen de él: así no se publica
+        por descuido con la vigencia vieja.
         """
         lista = self._mi_lista(ref, editable=True)
-        nueva = lista.copy({
-            "name": _("%s (copia)") % lista.name,
-            "state": "draft",
-            "issue_date": fields.Date.context_today(request.env.user),
-            "dispatch_from": False,
-            "dispatch_to": False,
-        })
+        try:
+            with request.env.cr.savepoint():
+                nueva = lista.copy(lista._valores_copia_siguiente())
+        except (ValidationError, UserError) as e:
+            return request.redirect("/marketplace/price-lists?error=%s"
+                                    % flash_message(e.args[0] if e.args else ""))
+        if nueva.aguaje_id:
+            aviso = _("Copia creada para el %s. Revisa la referencia, las fechas y "
+                      "los precios antes de publicar.") % nueva.aguaje_id.etiqueta
+        else:
+            aviso = _("Copia creada. Elige el aguaje, cambia la referencia y las "
+                      "fechas antes de publicar.")
         return request.redirect(
-            "/marketplace/listas-de-precios/%s/editar?mensaje=%s"
-            % (nueva.uuid_ref,
-               quote(_("Copia creada. Cambia la referencia y las fechas antes de publicar."))))
+            "/marketplace/price-lists/%s/edit?mensaje=%s"
+            % (nueva.uuid_ref, flash_message(aviso)))
 
-    @http.route("/marketplace/listas-de-precios/<ref>/archivar", type="http",
+    @http.route("/marketplace/price-lists/<ref>/archive", type="http",
                 auth="user", website=True, methods=["POST"], csrf=True)
     def price_list_archive(self, ref, **post):
         lista = self._mi_lista(ref, editable=True)
         lista.action_archive_list()
-        return request.redirect("/marketplace/listas-de-precios?mensaje=archivada")
+        return request.redirect("/marketplace/price-lists?mensaje=archivada")
 
-    @http.route("/marketplace/listas-de-precios/<ref>/despublicar", type="http",
+    @http.route("/marketplace/price-lists/<ref>/unpublish", type="http",
                 auth="user", website=True, methods=["POST"], csrf=True)
     def price_list_unpublish(self, ref, **post):
         """Quita la lista de la vista de los destinatarios devolviéndola a
         borrador, para corregirla y volver a publicar."""
         lista = self._mi_lista(ref, editable=True)
         lista.action_back_to_draft()
-        return request.redirect("/marketplace/listas-de-precios?mensaje=despublicada")
+        return request.redirect("/marketplace/price-lists?mensaje=despublicada")
 
-    @http.route("/marketplace/listas-de-precios/<ref>/eliminar", type="http",
+    @http.route("/marketplace/price-lists/<ref>/delete", type="http",
                 auth="user", website=True, methods=["POST"], csrf=True)
     def price_list_delete(self, ref, **post):
         lista = self._mi_lista(ref, editable=True)
         lista.unlink()
-        return request.redirect("/marketplace/listas-de-precios?mensaje=eliminada")
+        return request.redirect("/marketplace/price-lists?mensaje=eliminada")
 
 
     # ==================================================================
     # A quién le compro: el rendimiento real de cada proveedor
     # ==================================================================
-    @http.route("/marketplace/proveedores", type="http", auth="user", website=True)
+    @http.route("/marketplace/suppliers", type="http", auth="user", website=True)
     def packer_suppliers(self, orden=None, **kw):
         """Lo verificado en planta, ordenado por conveniencia de compra.
 
@@ -818,14 +1031,15 @@ class ShrimpPackerAccount(ShrimpAccountPortalController):
             return res
 
         res.update({
-            "emp_razon_social": post.get("emp_razon_social") or False,
-            "emp_representante": post.get("emp_representante") or False,
+            "shrimp_razon_social": post.get("emp_razon_social") or False,
+            "shrimp_representante": post.get("emp_representante") or False,
             "emp_contacto_comercial": post.get("emp_contacto_comercial") or False,
-            "emp_telefono": post.get("emp_telefono") or False,
+            "shrimp_telefono": post.get("emp_telefono") or False,
             "emp_codigo_exportador": post.get("emp_codigo_exportador") or False,
             "emp_planta_nombre": post.get("emp_planta_nombre") or False,
-            "emp_planta_ubicacion": post.get("emp_planta_ubicacion") or False,
-            "emp_capacidad_lb_dia": _f(post.get("emp_capacidad_lb_dia")),
+            "shrimp_ubicacion": post.get("emp_planta_ubicacion") or False,
+            "shrimp_capacity_value": _f(post.get("emp_capacidad_lb_dia")),
+            "shrimp_capacity_unit": "lb_day",
             "emp_aprobacion_sanitaria": post.get("emp_aprobacion_sanitaria") or False,
             # Certificaciones: son booleanos, así que hay que escribir también
             # el False cuando se desmarcan. Si solo se escribieran las marcadas
@@ -855,7 +1069,7 @@ class ShrimpHarvestSimulator(http.Controller):
     """
 
     def _partner(self):
-        return request.env.user.partner_id
+        return current_partner()
 
     def _solo_camaronera(self):
         """Corta el paso a quien no cosecha.
@@ -885,7 +1099,7 @@ class ShrimpHarvestSimulator(http.Controller):
             ("size_grade_id", "!=", False),
         ], order="name")
 
-    @http.route(["/marketplace/simulador", "/marketplace/simulador/<ref>"],
+    @http.route(["/marketplace/simulator", "/marketplace/simulator/<ref>"],
                 type="http", auth="user", website=True)
     def harvest_simulator(self, ref=None, **kw):
         self._solo_camaronera()
@@ -934,7 +1148,7 @@ class ShrimpFarmerTrackRecord(ShrimpHarvestSimulator):
     cambie de nombre.
     """
 
-    @http.route("/marketplace/mi-historial", type="http", auth="user", website=True)
+    @http.route("/marketplace/my-track-record", type="http", auth="user", website=True)
     def farmer_track_record(self, **kw):
         """Su propia trayectoria, con la misma cuenta que ve su comprador.
 
@@ -942,7 +1156,7 @@ class ShrimpFarmerTrackRecord(ShrimpHarvestSimulator):
         —cada quien puede ver su propio historial— sino de sentido. Para una
         empacadora esta pantalla saldría vacía para siempre, porque ella no
         vende camarón que se verifique en planta, y ya tiene la mitad que le
-        toca en /marketplace/proveedores.
+        toca en /marketplace/suppliers.
         """
         self._solo_camaronera()
         partner = self._partner()

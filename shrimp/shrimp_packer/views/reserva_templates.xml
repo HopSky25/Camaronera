@@ -66,7 +66,7 @@
       <div class="shrimp-bg">
         <div class="shrimp-page py-4">
 
-          <div class="d-flex justify-content-between align-items-center mb-3">
+          <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
             <div>
               <h2 class="mb-1">Reservas anticipadas</h2>
               <p class="text-muted mb-0">
@@ -74,7 +74,7 @@
                 y deja que las empacadoras se comprometan a un precio.
               </p>
             </div>
-            <a href="/marketplace/reservas/nueva" class="btn btn-primary">
+            <a href="/marketplace/reservations/new" class="btn btn-primary">
               Declarar una cosecha
             </a>
           </div>
@@ -101,7 +101,7 @@
                   <div class="card-body">
                     <div class="d-flex justify-content-between">
                       <h5 class="card-title mb-1">
-                        <a t-attf-href="/marketplace/reservas/#{d.uuid_ref}">
+                        <a t-attf-href="/marketplace/reservations/#{d.uuid_ref}">
                           <t t-esc="d.name"/>
                         </a>
                       </h5>
@@ -150,7 +150,7 @@
       <div class="shrimp-bg">
         <div class="shrimp-page py-4">
 
-          <a href="/marketplace/reservas" class="btn btn-sm btn-link mb-2">&#8592; Volver</a>
+          <a href="/marketplace/reservations" class="btn btn-sm btn-link mb-2">&#8592; Volver</a>
           <h2 class="mb-1">Declarar la cosecha que viene</h2>
           <p class="text-muted">
             Lo que declares aquí lo van a leer como una promesa, así que declara
@@ -172,7 +172,7 @@
             </div>
           </t>
 
-          <form method="post" action="/marketplace/reservas/nueva" class="card">
+          <form method="post" action="/marketplace/reservations/new" class="card">
             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
             <div class="card-body">
 
@@ -180,11 +180,11 @@
               <div class="row g-3 mb-4">
                 <div class="col-md-6">
                   <label class="form-label">Piscina *</label>
-                  <select name="pond_id" class="form-select" required="required">
+                  <select name="pond_ref" class="form-select" required="required">
                     <option value="">— elige —</option>
                     <t t-foreach="piscinas" t-as="p">
-                      <option t-att-value="p.id"
-                              t-att-selected="'selected' if datos.get('pond_id') == p.id else None">
+                      <option t-att-value="p.uuid_ref"
+                              t-att-selected="'selected' if datos.get('pond_ref') == p.uuid_ref else None">
                         <t t-esc="p.display_name"/>
                       </option>
                     </t>
@@ -192,11 +192,11 @@
                 </div>
                 <div class="col-md-6">
                   <label class="form-label">Instalación</label>
-                  <select name="facility_id" class="form-select">
+                  <select name="facility_ref" class="form-select">
                     <option value="">— sin especificar —</option>
                     <t t-foreach="instalaciones" t-as="f">
-                      <option t-att-value="f.id"
-                              t-att-selected="'selected' if datos.get('facility_id') == f.id else None">
+                      <option t-att-value="f.uuid_ref"
+                              t-att-selected="'selected' if datos.get('facility_ref') == f.uuid_ref else None">
                         <t t-esc="f.display_name"/>
                       </option>
                     </t>
@@ -289,8 +289,8 @@
                 <t t-foreach="empacadoras" t-as="e">
                   <div class="col-md-4">
                     <label class="form-check-label small">
-                      <input type="checkbox" name="recipient_ids"
-                             t-att-value="e.id" class="form-check-input me-1"/>
+                      <input type="checkbox" name="recipient_refs"
+                             t-att-value="e.uuid_ref" class="form-check-input me-1"/>
                       <t t-esc="e.name"/>
                     </label>
                   </div>
@@ -305,7 +305,7 @@
             </div>
             <div class="card-footer bg-transparent">
               <button type="submit" class="btn btn-primary">Publicar la declaración</button>
-              <a href="/marketplace/reservas" class="btn btn-link">Cancelar</a>
+              <a href="/marketplace/reservations" class="btn btn-link">Cancelar</a>
             </div>
           </form>
 
@@ -322,7 +322,7 @@
       <div class="shrimp-bg">
         <div class="shrimp-page py-4">
 
-          <a href="/marketplace/reservas" class="btn btn-sm btn-link mb-2">&#8592; Mis reservas</a>
+          <a href="/marketplace/reservations" class="btn btn-sm btn-link mb-2">&#8592; Mis reservas</a>
 
           <t t-if="error">
             <div class="alert alert-danger"><t t-esc="error"/></div>
@@ -339,8 +339,13 @@
           <t t-if="mensaje == 'cosechada'">
             <div class="alert alert-success">Cosecha registrada.</div>
           </t>
+          <t t-if="mensaje == 'deshecha'">
+            <div class="alert alert-info">
+              Deshiciste tu firma: vuelve a estar pendiente y la otra parte fue avisada.
+            </div>
+          </t>
 
-          <div class="d-flex justify-content-between align-items-start mb-2">
+          <div class="d-flex flex-wrap gap-2 justify-content-between align-items-start mb-2">
             <h2 class="mb-0"><t t-esc="d.name"/></h2>
             <span class="badge text-bg-secondary">
               <t t-esc="dict(d._fields['state'].selection).get(d.state)"/>
@@ -382,7 +387,7 @@
                       Al registrarla nace el lote y se resuelve el compromiso.
                     </p>
                     <form method="post"
-                          t-attf-action="/marketplace/reservas/#{d.uuid_ref}/cosecha">
+                          t-attf-action="/marketplace/reservations/#{d.uuid_ref}/harvest">
                       <input type="hidden" name="csrf_token"
                              t-att-value="request.csrf_token()"/>
                       <div class="mb-2">
@@ -423,7 +428,7 @@
                       queda registrado a tu nombre con el motivo que escribas.
                     </p>
                     <form method="post"
-                          t-attf-action="/marketplace/reservas/#{d.uuid_ref}/cancelar">
+                          t-attf-action="/marketplace/reservations/#{d.uuid_ref}/cancel">
                       <input type="hidden" name="csrf_token"
                              t-att-value="request.csrf_token()"/>
                       <textarea name="motivo" class="form-control mb-2" rows="2"
@@ -466,9 +471,9 @@
                     </t>
 
                     <t t-if="c.state == 'sent'">
-                      <div class="d-flex gap-2 mt-3">
+                      <div class="d-flex flex-wrap gap-2 mt-3">
                         <form method="post"
-                              t-attf-action="/marketplace/reservas/compromiso/#{c.uuid_ref}/aceptar">
+                              t-attf-action="/marketplace/reservations/commitments/#{c.uuid_ref}/accept">
                           <input type="hidden" name="csrf_token"
                                  t-att-value="request.csrf_token()"/>
                           <button type="submit" class="btn btn-sm btn-primary">
@@ -476,7 +481,7 @@
                           </button>
                         </form>
                         <form method="post"
-                              t-attf-action="/marketplace/reservas/compromiso/#{c.uuid_ref}/descartar">
+                              t-attf-action="/marketplace/reservations/commitments/#{c.uuid_ref}/discard">
                           <input type="hidden" name="csrf_token"
                                  t-att-value="request.csrf_token()"/>
                           <button type="submit" class="btn btn-sm btn-outline-secondary">
@@ -488,7 +493,7 @@
 
                     <t t-if="c.state == 'accepted'">
                       <form method="post" class="mt-3"
-                            t-attf-action="/marketplace/reservas/compromiso/#{c.uuid_ref}/desistir">
+                            t-attf-action="/marketplace/reservations/commitments/#{c.uuid_ref}/desist">
                         <input type="hidden" name="csrf_token"
                                t-att-value="request.csrf_token()"/>
                         <textarea name="motivo" class="form-control mb-2" rows="2"
@@ -551,10 +556,11 @@
                       Nadie incumplió: lo que salió no es lo que se vendió. Si
                       aceptas, el compromiso se cumple sobre estas cifras; si no,
                       queda liberado y el lote es tuyo para venderlo a quien
-                      quieras.
+                      quieras (durante unos minutos puedes deshacer el rechazo
+                      si te equivocaste, mientras el lote siga sin publicarse).
                     </p>
                     <form method="post"
-                          t-attf-action="/marketplace/reservas/confirmacion/#{mi_firma.uuid_ref}/firmar">
+                          t-attf-action="/marketplace/reservations/confirmations/#{mi_firma.uuid_ref}/sign">
                       <input type="hidden" name="csrf_token"
                              t-att-value="request.csrf_token()"/>
                       <textarea name="motivo" class="form-control mb-2" rows="2"
@@ -567,6 +573,12 @@
                   </div>
                 </div>
               </t>
+
+              <!-- Deshacer mi firma e historial de decisiones (firmas de dos partes). -->
+              <t t-call="shrimp_marketplace.signoff_undo_form">
+                <t t-set="firma" t-value="firma_deshacer"/>
+              </t>
+              <t t-call="shrimp_marketplace.signoff_history"/>
             </div>
           </div>
 
@@ -598,7 +610,7 @@
 
           <!-- El interruptor vive aquí, en la bandeja, y no en «Mi cuenta»:
                es una decisión sobre esta pantalla y se toma mirándola. -->
-          <form method="post" action="/empacadora/reservas/preferencia"
+          <form method="post" action="/packer/reservations/preference"
                 class="card card-body mb-3">
             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
             <label class="form-check-label">
@@ -630,7 +642,7 @@
                 <div class="card h-100">
                   <div class="card-body">
                     <h6 class="card-title mb-1">
-                      <a t-attf-href="/empacadora/reserva/#{d.uuid_ref}">
+                      <a t-attf-href="/packer/reservations/#{d.uuid_ref}">
                         <t t-esc="d.farmer_partner_id.name"/>
                       </a>
                     </h6>
@@ -672,7 +684,7 @@
                   <tr>
                     <td><t t-esc="c.farmer_partner_id.name"/></td>
                     <td>
-                      <a t-attf-href="/empacadora/reserva/#{c.forecast_id.uuid_ref}">
+                      <a t-attf-href="/packer/reservations/#{c.forecast_id.uuid_ref}">
                         <t t-esc="c.forecast_id.name"/>
                       </a>
                     </td>
@@ -709,7 +721,7 @@
       <div class="shrimp-bg">
         <div class="shrimp-page py-4">
 
-          <a href="/empacadora/reservas" class="btn btn-sm btn-link mb-2">&#8592; Bandeja</a>
+          <a href="/packer/reservations" class="btn btn-sm btn-link mb-2">&#8592; Bandeja</a>
 
           <t t-if="error">
             <div class="alert alert-danger"><t t-esc="error"/></div>
@@ -717,6 +729,11 @@
           <t t-if="mensaje == 'comprometida'">
             <div class="alert alert-success">
               Compromiso enviado. La camaronera decide si lo acepta.
+            </div>
+          </t>
+          <t t-if="mensaje == 'deshecha'">
+            <div class="alert alert-info">
+              Deshiciste tu firma: vuelve a estar pendiente y la otra parte fue avisada.
             </div>
           </t>
 
@@ -796,7 +813,7 @@
 
                     <t t-if="mio.state == 'sent'">
                       <form method="post" class="mt-3"
-                            t-attf-action="/empacadora/compromiso/#{mio.uuid_ref}/retirar">
+                            t-attf-action="/packer/commitments/#{mio.uuid_ref}/withdraw">
                         <input type="hidden" name="csrf_token"
                                t-att-value="request.csrf_token()"/>
                         <button type="submit" class="btn btn-sm btn-outline-secondary">
@@ -810,7 +827,7 @@
 
                     <t t-if="mio.state == 'accepted'">
                       <form method="post" class="mt-3"
-                            t-attf-action="/empacadora/compromiso/#{mio.uuid_ref}/desistir">
+                            t-attf-action="/packer/commitments/#{mio.uuid_ref}/desist">
                         <input type="hidden" name="csrf_token"
                                t-att-value="request.csrf_token()"/>
                         <textarea name="motivo" class="form-control mb-2" rows="2"
@@ -831,19 +848,55 @@
                         a $ <t t-esc="round(mio.settled_price_per_lb, 4)"/> / lb
                         = $ <t t-esc="round(mio.settled_total, 2)"/>
                       </div>
-                      <t t-if="not mio.transaction_id and mio.product_id">
+                      <t t-if="(not mio.transaction_id or mio.transaction_id.state == 'cancel') and mio.product_id">
+                        <!-- El camarón adulto se compra con verificación en campo,
+                             también cuando viene de una reserva: la reserva fija
+                             precio y libras, pero nadie vio todavía el producto. -->
                         <form method="post" class="mt-2"
-                              t-attf-action="/empacadora/compromiso/#{mio.uuid_ref}/comprar">
+                              t-attf-action="/packer/commitments/#{mio.uuid_ref}/buy">
                           <input type="hidden" name="csrf_token"
                                  t-att-value="request.csrf_token()"/>
+                          <t t-set="exige_verif" t-value="mio.product_id.sudo()._shrimp_requires_verification()"/>
+                          <t t-if="exige_verif">
+                            <t t-set="verificadores" t-value="request.env['res.partner'].sudo().available_verifiers()"/>
+                            <label class="form-label small mb-1" t-attf-for="modo_#{mio.uuid_ref}">
+                              ¿Cómo se verifica?
+                            </label>
+                            <select class="form-select form-select-sm mb-1" name="verification_mode"
+                                    t-attf-id="modo_#{mio.uuid_ref}" required="required">
+                              <option value="platform">Verificadora de la plataforma (acreditada, con honorario)</option>
+                              <option value="declared">Declarada por las partes (verificadora externa o propia; sin honorario)</option>
+                            </select>
+                            <div class="small text-muted mb-2">
+                              Declarada: tú o la camaronera cargan el informe y la otra parte lo confirma.
+                            </div>
+                            <label class="form-label small mb-1" t-attf-for="verif_#{mio.uuid_ref}">
+                              Verificador que inspecciona el lote (solo verificadora de la plataforma)
+                            </label>
+                            <select class="form-select form-select-sm mb-2" name="verifier_ref"
+                                    t-attf-id="verif_#{mio.uuid_ref}">
+                              <option value="">Elige un verificador acreditado…</option>
+                              <t t-foreach="verificadores" t-as="vf">
+                                <option t-att-value="vf.uuid_ref"><t t-esc="vf.name"/></option>
+                              </t>
+                            </select>
+                            <div class="small text-muted mb-2">
+                              Honorario estimado: $ <t t-esc="'{:,.2f}'.format(request.env['shrimp.verification.fee'].sudo().compute(mio.settled_lb))"/>
+                              (lo factura la plataforma al iniciar la compra).
+                            </div>
+                          </t>
                           <button type="submit" class="btn btn-sm btn-primary">
-                            Comprar las libras reservadas
+                            <t t-if="exige_verif">Comprar con verificación</t>
+                            <t t-else="">Comprar las libras reservadas</t>
                           </button>
                         </form>
                       </t>
-                      <t t-if="mio.transaction_id">
+                      <t t-if="mio.transaction_id and mio.transaction_id.state != 'cancel'">
                         <div class="small text-success mt-2">
-                          Compra ejecutada.
+                          <t t-if="mio.transaction_id.state in ('pending_verification', 'pending_acceptance')">
+                            Compra iniciada: pendiente de la verificación en campo.
+                          </t>
+                          <t t-else="">Compra ejecutada.</t>
                         </div>
                       </t>
                     </t>
@@ -879,7 +932,7 @@
                       sigue en pie si las dos partes dicen que sí.
                     </p>
                     <form method="post"
-                          t-attf-action="/marketplace/reservas/confirmacion/#{mi_firma.uuid_ref}/firmar">
+                          t-attf-action="/marketplace/reservations/confirmations/#{mi_firma.uuid_ref}/sign">
                       <input type="hidden" name="csrf_token"
                              t-att-value="request.csrf_token()"/>
                       <textarea name="motivo" class="form-control mb-2" rows="2"
@@ -893,6 +946,12 @@
                 </div>
               </t>
 
+              <!-- Deshacer mi firma e historial de decisiones (firmas de dos partes). -->
+              <t t-call="shrimp_marketplace.signoff_undo_form">
+                <t t-set="firma" t-value="firma_deshacer"/>
+              </t>
+              <t t-call="shrimp_marketplace.signoff_history"/>
+
               <t t-if="d.admite_compromisos and (not mio or mio.state in ('sent', 'withdrawn'))">
                 <div class="card">
                   <div class="card-body">
@@ -901,7 +960,7 @@
                       <t t-else="">Comprometerme con esta cosecha</t>
                     </h6>
                     <form method="post"
-                          t-attf-action="/empacadora/reserva/#{d.uuid_ref}/comprometer">
+                          t-attf-action="/packer/reservations/#{d.uuid_ref}/commit">
                       <input type="hidden" name="csrf_token"
                              t-att-value="request.csrf_token()"/>
                       <div class="row g-3">

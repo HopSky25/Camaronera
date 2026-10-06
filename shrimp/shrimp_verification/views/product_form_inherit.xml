@@ -1,0 +1,39 @@
+<odoo>
+
+  <!-- ================================================================
+       Formulario de publicar/editar producto (shrimp_marketplace):
+       aviso de verificación en campo.
+
+       La verificación es OBLIGATORIA en el camarón adulto (lotes de una
+       camaronera: requires_verification se calcula por seller_role) y
+       OPCIONAL en larva y nauplio, solo si el comprador la pide. El perfil
+       con el que se publica puede cambiar en el propio formulario (usuario
+       interno que elige vendedor): los dos avisos se pintan y el JS del
+       formulario muestra el que toca según data-pf-role-show / -hide. La
+       misma lista de roles va en data-verif-roles para la insignia «Con
+       verificación» de la vista previa.
+       ================================================================ -->
+  <template id="product_form_verification_notice"
+            inherit_id="shrimp_marketplace.product_new_form"
+            name="Publicar producto - aviso de verificación">
+    <xpath expr="//form[@id='product_create_form']" position="attributes">
+      <attribute name="data-verif-roles">camaronera</attribute>
+    </xpath>
+    <xpath expr="//div[@id='pfVerifySlot']" position="inside">
+      <div class="pf-alert pf-a-warn" data-pf-role-show="camaronera"
+           t-att-hidden="None if form_role == 'camaronera' else 'hidden'">
+        <i class="fa fa-shield" aria-hidden="true"/>
+        <div><b>Este lote requiere verificación en campo.</b> Todo camarón adulto se compra con
+          verificación: un verificador revisa cantidad y calidad antes de cerrar la venta. La
+          cantidad en verificación queda reservada.</div>
+      </div>
+      <div class="pf-alert pf-a-info" data-pf-role-hide="camaronera"
+           t-att-hidden="None if (form_role and form_role != 'camaronera') else 'hidden'">
+        <i class="fa fa-shield" aria-hidden="true"/>
+        <div>En larva y nauplio la verificación en campo es <b>opcional</b>: solo se hace si el
+          comprador la solicita.</div>
+      </div>
+    </xpath>
+  </template>
+
+</odoo>

@@ -1,6 +1,6 @@
 {
     "name": "Camaronera — Servicio de empaque (co-packing)",
-    "version": "19.0.1.0.0",
+    "version": "19.0.1.8.0",
     "summary": "Maquiladores que empacan camaron ajeno, y el acta que cuadra las libras",
     "description": """
 Hay plantas que no compran camaron: lo empacan para otros. La camaronera o la
@@ -24,8 +24,10 @@ sitio y sus propias bandejas.
     "author": "Carlos Carballo",
     "license": "LGPL-3",
     "category": "Industries",
-    "depends": ["shrimp_marketplace", "shrimp_user_registry", "shrimp_packer",
-                "shrimp_verification", "website"],
+    # shrimp_verification ya no figura: este módulo no usa nada suyo (llega
+    # igual, a través de shrimp_packer). Sí se usan el marketplace, el
+    # registro y la empacadora (grupos de socios, menú de listas de precios).
+    "depends": ["shrimp_marketplace", "shrimp_user_registry", "shrimp_packer", "website"],
     "data": [
         "data/sequences.xml",
         "security/ir.model.access.csv",
@@ -33,14 +35,32 @@ sitio y sus propias bandejas.
         "views/copack_client_templates.xml",
         "views/copack_request_templates.xml",
         "views/copack_order_templates.xml",
+        "views/copack_self_templates.xml",
         "views/copacker_templates.xml",
         "views/copacker_tariff_templates.xml",
         "views/registry_form_maquilador.xml",
         "views/res_partner_views.xml",
         "views/traceability_pdf_inherit.xml",
+        "views/traceability_screen_inherit.xml",
         "views/navbar_inherit.xml",
         "views/menus.xml",
+        "views/copack_landing_templates.xml",
+        # Ajustes › CamaronMarket › Empaque (co-packing).
+        "views/res_config_settings_views.xml",
         "data/site_config.xml",
+        "data/brand_config.xml",
     ],
+    # Datos de ejemplo: generados por
+    # shrimp_marketplace/scripts/demo_masivo/generar.py (no editar a mano).
+    "demo": [
+        "demo/demo_01_maquiladores.xml",
+        "demo/demo_02_tarifas.xml",
+        "demo/demo_03_solicitudes_ordenes.xml",
+    ],
+    "assets": {
+        "web.assets_frontend": [
+            "shrimp_copacking/static/src/css/copacking_landing.css",
+        ],
+    },
     "installable": True,
 }

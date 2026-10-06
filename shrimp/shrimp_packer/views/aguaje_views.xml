@@ -1,21 +1,70 @@
 <odoo>
 
+  <!-- =================================================================
+       Calendario de aguajes.
+
+       Lo mantiene la PLATAFORMA, no los usuarios: las empacadoras solo eligen
+       de él al cargar su lista de precios (el aguaje en curso o uno próximo).
+       Gestor: alta, edición, baja y generación de un año. Operador interno:
+       solo lectura. Portal/público: solo lectura (para el selector).
+       ================================================================= -->
+
+  <!-- Asistente: generar un año (sin duplicar ni tocar lo existente). -->
+  <record id="view_aguaje_generar_form" model="ir.ui.view">
+    <field name="name">shrimp.aguaje.generar.form</field>
+    <field name="model">shrimp.aguaje.generar</field>
+    <field name="arch" type="xml">
+      <form string="Generar aguajes">
+        <p class="text-muted">
+          Calcula los aguajes del año a partir de las fases de la luna (del día
+          anterior a la fase hasta tres días después). Nacen como «Calculado
+          (borrador)»: corrígelos contra el calendario del INOCAR. Nunca se
+          duplica ni se modifica un aguaje que ya exista.
+        </p>
+        <group>
+          <field name="year" options="{'format': false}"/>
+          <field name="completar"/>
+        </group>
+        <footer>
+          <button name="action_generar" type="object" string="Generar" class="btn-primary"/>
+          <button string="Cancelar" special="cancel" class="btn-secondary"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <record id="action_aguaje_generar" model="ir.actions.act_window">
+    <field name="name">Generar aguajes de un año</field>
+    <field name="res_model">shrimp.aguaje.generar</field>
+    <field name="view_mode">form</field>
+    <field name="target">new</field>
+    <field name="group_ids" eval="[(6, 0, [ref('shrimp_marketplace.group_shrimp_manager')])]"/>
+  </record>
+
   <record id="view_aguaje_list" model="ir.ui.view">
     <field name="name">shrimp.aguaje.list</field>
     <field name="model">shrimp.aguaje</field>
     <field name="arch" type="xml">
       <list string="Calendario de aguajes"
-            decoration-success="es_actual" decoration-muted="origen == 'calculado'">
+            decoration-success="estado == 'actual'" decoration-muted="estado == 'pasado'"
+            decoration-info="origen == 'calculado' and estado == 'proximo'">
+        <header>
+          <button name="%(shrimp_packer.action_aguaje_generar)d" type="action"
+                  string="Generar aguajes de un año" class="btn-secondary"
+                  display="always" groups="shrimp_marketplace.group_shrimp_manager"/>
+        </header>
         <field name="year"/>
-        <field name="numero"/>
+        <field name="numero" optional="show"/>
         <field name="name"/>
         <field name="date_from"/>
         <field name="date_to"/>
         <field name="peak_from" string="Máximo desde"/>
         <field name="peak_to" string="Máximo hasta"/>
         <field name="fase"/>
-        <field name="origen"/>
-        <field name="es_actual" string="En curso"/>
+        <field name="origen" optional="show"/>
+        <field name="estado" widget="badge"
+               decoration-success="estado == 'actual'" decoration-info="estado == 'proximo'"
+               decoration-muted="estado == 'pasado'"/>
       </list>
     </field>
   </record>
@@ -25,6 +74,9 @@
     <field name="model">shrimp.aguaje</field>
     <field name="arch" type="xml">
       <form string="Aguaje">
+        <header>
+          <field name="estado" widget="statusbar"/>
+        </header>
         <sheet>
           <div class="oe_title">
             <h1><field name="name" placeholder="Aguaje 1 de 2026"/></h1>
@@ -41,7 +93,7 @@
               <field name="peak_from"/>
               <field name="peak_to"/>
               <field name="origen"/>
-              <field name="es_actual" readonly="1"/>
+              <field name="etiqueta" string="Se ofrece como"/>
             </group>
           </group>
           <div class="alert alert-info" role="status"
@@ -49,7 +101,8 @@
             Este aguaje está <b>calculado a partir de la luna</b> y es solo una
             aproximación. El calendario bueno lo publica el INOCAR cada año y lo
             reparte la Cámara Nacional de Acuacultura: al corregirlo contra ese
-            documento, marca el origen como «Calendario INOCAR».
+            documento, marca el origen como «Calendario INOCAR». Si cambias sus
+            fechas pasa a «Ajustado a mano» y el generador ya no lo toca.
           </div>
           <group string="Observaciones">
             <field name="notes" nolabel="1" placeholder="Por ejemplo: coincide con feriado."/>
@@ -59,20 +112,46 @@
     </field>
   </record>
 
+  <record id="view_aguaje_search" model="ir.ui.view">
+    <field name="name">shrimp.aguaje.search</field>
+    <field name="model">shrimp.aguaje</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="name"/>
+        <field name="year"/>
+        <filter name="f_vigentes" string="En curso y próximos"
+                domain="[('date_to', '&gt;=', context_today().strftime('%Y-%m-%d'))]"/>
+        <filter name="f_pasados" string="Pasados"
+                domain="[('date_to', '&lt;', context_today().strftime('%Y-%m-%d'))]"/>
+        <separator/>
+        <filter name="f_calculado" string="Calculados (borrador)" domain="[('origen', '=', 'calculado')]"/>
+        <filter name="f_manual" string="Ajustados a mano o INOCAR" domain="[('origen', '!=', 'calculado')]"/>
+        <group>
+          <filter name="g_year" string="Año" context="{'group_by': 'year'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
   <record id="action_aguaje" model="ir.actions.act_window">
     <field name="name">Calendario de aguajes</field>
     <field name="res_model">shrimp.aguaje</field>
     <field name="view_mode">list,form</field>
+    <field name="search_view_id" ref="view_aguaje_search"/>
+    <field name="context">{'search_default_f_vigentes': 1}</field>
     <field name="help" type="html">
       <p class="o_view_nocontent_smiling_face">Todavía no hay aguajes cargados</p>
-      <p>El calendario se siembra solo al instalar, calculado a partir de las
-         fases de la luna. Corrígelo una vez al año contra el calendario del
-         INOCAR que publica la Cámara Nacional de Acuacultura.</p>
+      <p>El calendario se siembra solo al instalar y un proceso diario cuida que
+         siempre haya aguajes próximos, calculados a partir de las fases de la
+         luna. Corrígelo una vez al año contra el calendario del INOCAR que
+         publica la Cámara Nacional de Acuacultura.</p>
     </field>
   </record>
 
+  <!-- Lo configura la plataforma: va en Camaronera › Configuración (solo
+       gestores). El operador interno puede leerlo (ACL) pero no lo edita. -->
   <menuitem id="menu_aguaje" name="Calendario de aguajes"
-            parent="shrimp_packer.menu_price_list_root"
-            action="action_aguaje" groups="base.group_user" sequence="20"/>
+            parent="shrimp_marketplace.menu_shrimp_config_root"
+            action="action_aguaje" groups="shrimp_marketplace.group_shrimp_manager" sequence="50"/>
 
 </odoo>

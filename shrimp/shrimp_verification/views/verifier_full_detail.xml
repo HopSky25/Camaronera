@@ -11,7 +11,7 @@
       <div class="shrimp-bg">
         <div class="shrimp-page shrimp-page--full py-4">
 
-          <a t-attf-href="/verificador/verificacion/#{v.uuid_ref}" class="s-back mb-3">
+          <a t-attf-href="/verifier/verifications/#{v.uuid_ref}" class="s-back mb-3">
             <i class="fa fa-arrow-left"></i><span>Volver a la verificación</span>
           </a>
 
@@ -100,6 +100,7 @@
             <div class="mp-table-card mb-4"><div class="card-body p-4">
               <div class="mp-sec-head"><span class="mp-sec-ico"><i class="fa fa-sort-amount-desc"></i></span><h3 class="mp-sec-title">4 · Clasificación por talla</h3></div>
               <t t-if="v.line_ids">
+                <div class="table-responsive">
                 <table class="table sv-table mb-3">
                   <thead><tr><th>Clase</th><th>Talla</th><th class="text-end">Libras</th></tr></thead>
                   <tbody>
@@ -112,6 +113,7 @@
                     </t>
                   </tbody>
                 </table>
+                </div>
               </t>
               <div class="sv-datos">
                 <div><span>Total procesado</span><strong><t t-esc="'%.2f' % v.total_processed_lb"/> lb</strong></div>
@@ -179,8 +181,9 @@
             <t t-if="v.photo_ids">
               <div class="sv-fotos">
                 <t t-foreach="v.photo_ids" t-as="f">
-                  <a t-attf-href="/verificador/verificacion/#{v.uuid_ref}/foto/#{f.id}" target="_blank">
-                    <img t-attf-src="/verificador/verificacion/#{v.uuid_ref}/foto/#{f.id}" alt="Foto de campo"/>
+                  <t t-set="ftok" t-value="v.photo_token(f)"/>
+                  <a t-attf-href="/verifier/verifications/#{v.uuid_ref}/photos/#{ftok}" target="_blank">
+                    <img t-attf-src="/verifier/verifications/#{v.uuid_ref}/photos/#{ftok}" alt="Foto de campo"/>
                   </a>
                 </t>
               </div>

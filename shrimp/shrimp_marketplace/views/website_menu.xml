@@ -1,31 +1,47 @@
 <odoo>
-  <!-- Enlaces del marketplace en la barra superior del sitio -->
+  <!-- Barra del marketplace: Mi panel · Marketplace · Vender ▾ · Comprar ▾ ·
+       Servicios ▾. Son las PLANTILLAS (sin sitio) que Odoo copia al crear un
+       sitio; las copias de los sitios existentes las alinea
+       website._shrimp_alinear_menus_portal() (data/menu_config.xml y la
+       migración 19.0.1.9.0). shrimp_key es lo que reconoce la barra (no el
+       nombre). «Mi panel» no se declara aquí a propósito: un website.menu
+       nuevo en XML se copiaría a TODOS los sitios (también al de
+       verificadores y al de empaque); lo crea esa misma función, solo en los
+       sitios del marketplace. El contenido de los desplegables está en
+       models/website_navbar.py. -->
   <record id="menu_marketplace_page" model="website.menu">
     <field name="name">Marketplace</field>
     <field name="url">/marketplace</field>
     <field name="parent_id" ref="website.main_menu"/>
     <field name="sequence" eval="20"/>
+    <field name="shrimp_key">marketplace</field>
   </record>
 
-  <!-- Tres menús independientes (antes eran secciones de "Mi panel") -->
+  <!-- Antes «Productos» (products). -->
   <record id="menu_panel_root" model="website.menu">
-    <field name="name">Productos</field>
+    <field name="name">Vender</field>
     <field name="url">/marketplace/products</field>
     <field name="parent_id" ref="website.main_menu"/>
     <field name="sequence" eval="25"/>
+    <field name="shrimp_key">sell</field>
   </record>
 
+  <!-- Antes «Operaciones» (operations). -->
   <record id="menu_panel_operaciones" model="website.menu">
-    <field name="name">Operaciones</field>
-    <field name="url">/marketplace/compras</field>
+    <field name="name">Comprar</field>
+    <field name="url">/marketplace/purchases</field>
     <field name="parent_id" ref="website.main_menu"/>
     <field name="sequence" eval="26"/>
+    <field name="shrimp_key">buy</field>
   </record>
 
+  <!-- Antes «Mi cuenta» (account), que pasó al menú de usuario de la
+       derecha. -->
   <record id="menu_panel_cuenta" model="website.menu">
-    <field name="name">Mi cuenta</field>
-    <field name="url">/marketplace/mi-cuenta</field>
+    <field name="name">Servicios</field>
+    <field name="url">/marketplace/copacking</field>
     <field name="parent_id" ref="website.main_menu"/>
     <field name="sequence" eval="27"/>
+    <field name="shrimp_key">services</field>
   </record>
 </odoo>

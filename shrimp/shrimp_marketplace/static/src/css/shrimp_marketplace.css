@@ -18,241 +18,10 @@
     src: url("/shrimp_marketplace/static/src/fonts/inter-var-latin.woff2") format("woff2");
 }
 
-:root {
-    /* Marca */
-    --shrimp-brand: #123e5c;        /* navy profundo (marca) */
-    --shrimp-brand-ink: #0c2e45;    /* navy hover */
-    --shrimp-brand-soft: #e7eef3;   /* navy 8% para fondos suaves */
-    --shrimp-teal: #0e8ea0;         /* teal acento (moderado) */
-    --shrimp-teal-soft: #e2f3f5;
-
-    /* Tinta / neutrales */
-    --shrimp-ink: #0d1b26;          /* texto principal */
-    --shrimp-ink-soft: #55636d;     /* texto secundario */
-    --shrimp-ink-faint: #7c8794;    /* texto terciario */
-    --shrimp-surface: #ffffff;
-    --shrimp-bg: #f6f8fa;           /* fondo plano, sin gradiente */
-    --shrimp-bg-alt: #eef1f4;
-    --shrimp-border: #e4e8ec;       /* borde 1px sólido y fino */
-    --shrimp-border-strong: #d3d9df;
-
-    /* Semánticos */
-    --shrimp-success: #1f8f5f;
-    --shrimp-success-soft: #e4f4ec;
-    --shrimp-warning: #b7791f;
-    --shrimp-warning-soft: #fbf1de;
-    --shrimp-danger: #c0392b;
-    --shrimp-danger-soft: #fbe9e7;
-
-    /* Estados de operación (compra/venta) */
-    --shrimp-state-pending: #b7791f;
-    --shrimp-state-progress: #0e8ea0;
-    --shrimp-state-done: #1f8f5f;
-    --shrimp-state-cancel: #7c8794;
-
-    /* Degradado de marca (navy → azul medio, como la identidad AGRICOMINSA) */
-    --shrimp-grad: linear-gradient(135deg, #123e5c 0%, #2e7da6 100%);
-    --shrimp-grad-soft: linear-gradient(135deg, #1b4a6b 0%, #2e7da6 100%);
-
-    /* Radios (con profundidad, estilo corporativo) */
-    --shrimp-radius-sm: 10px;
-    --shrimp-radius: 16px;
-    --shrimp-radius-lg: 22px;
-    --shrimp-radius-pill: 999px;
-
-    /* Sombras suaves pero presentes (dan profundidad a las tarjetas) */
-    --shrimp-shadow: 0 2px 6px rgba(13, 27, 38, .05), 0 12px 28px rgba(13, 27, 38, .07);
-    --shrimp-shadow-hover: 0 8px 18px rgba(13, 27, 38, .10), 0 24px 50px rgba(18, 62, 92, .14);
-
-    /* Espaciado (escala 4px) */
-    --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
-    --sp-5: 24px; --sp-6: 32px; --sp-7: 48px; --sp-8: 64px;
-
-    /* Escala tipográfica */
-    --fs-caption: 12.5px;
-    --fs-sm: 13.5px;
-    --fs-body: 15px;
-    --fs-lg: 17px;
-    --fs-h3: clamp(19px, 2vw, 22px);
-    --fs-h2: clamp(24px, 3vw, 32px);
-    --fs-h1: clamp(30px, 4vw, 44px);
-    --fs-display: clamp(40px, 6vw, 72px);
-
-    /* Layout */
-    --shrimp-maxw: 1280px;
-    --shrimp-maxw-wide: 1440px;
-    --shrimp-font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-}
-
-/* ---- Layout base -------------------------------------------------------- */
-.shrimp-bg {
-    background-color: var(--shrimp-bg);   /* plano, sin degradados */
-    min-height: calc(100vh - 120px);
-    color: var(--shrimp-ink);
-    font-family: var(--shrimp-font);
-    font-size: var(--fs-body);
-    line-height: 1.55;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    /* La navbar flotante tiene margen inferior negativo (-34px) para que las
-       LANDING sangren por detrás. En las páginas de contenido eso taparía el
-       banner superior, así que se compensa con espacio arriba para que el
-       contenido quede por debajo de la barra. */
-    padding-top: 40px;
-}
-.shrimp-page {
-    width: 100%;
-    max-width: var(--shrimp-maxw);
-    margin-inline: auto;
-    padding-inline: clamp(16px, 4vw, 40px);
-}
-.shrimp-page--wide { max-width: var(--shrimp-maxw-wide); }
-.shrimp-page--full { max-width: 1920px; padding-inline: clamp(16px, 3vw, 56px); }
-.shrimp-narrow {
-    width: 100%;
-    max-width: 680px;
-    margin-inline: auto;
-    padding-inline: clamp(16px, 4vw, 24px);
-}
-
-/* ---- Tipografía --------------------------------------------------------- */
-.shrimp-bg h1, .shrimp-bg h2, .shrimp-bg h3, .shrimp-bg h4 {
-    color: var(--shrimp-ink);
-    letter-spacing: -.01em;
-    font-weight: 700;
-    line-height: 1.2;
-}
-.shrimp-title, .s-h2 { font-weight: 700; letter-spacing: -.015em; color: var(--shrimp-ink); }
-.shrimp-subtitle, .s-sub { color: var(--shrimp-ink-soft); font-weight: 400; }
-.s-eyebrow {
-    text-transform: uppercase;
-    letter-spacing: .1em;
-    font-size: var(--fs-caption);
-    font-weight: 700;
-    color: var(--shrimp-teal);
-    margin-bottom: var(--sp-2);
-}
-.s-display { font-weight: 800; letter-spacing: -.03em; line-height: 1.05; font-size: var(--fs-display); color: var(--shrimp-ink); }
-.s-lead { font-size: var(--fs-lg); line-height: 1.5; color: var(--shrimp-ink-soft); font-weight: 400; }
-.text-soft { color: var(--shrimp-ink-soft); }
-.text-faint { color: var(--shrimp-ink-faint); }
-
-/* ---- Encabezado de página homogéneo ------------------------------------ */
-.s-page-header {
-    display: flex; align-items: flex-end; justify-content: space-between;
-    flex-wrap: wrap; gap: var(--sp-3); margin-bottom: var(--sp-5);
-    padding-bottom: var(--sp-4); border-bottom: 1px solid var(--shrimp-border);
-}
-.s-page-header h1 { font-size: var(--fs-h1); font-weight: 700; letter-spacing: -.02em; margin: 0; }
-.s-page-header .s-page-sub { color: var(--shrimp-ink-soft); font-size: var(--fs-body); margin-top: var(--sp-1); }
-
-/* ---- Botón "Volver" ----------------------------------------------------- */
-.s-back {
-    display: inline-flex; align-items: center; gap: var(--sp-2);
-    padding: 6px 12px; border-radius: var(--shrimp-radius-sm);
-    background: transparent; color: var(--shrimp-ink-soft) !important;
-    font-size: var(--fs-sm); font-weight: 500; text-decoration: none !important;
-    border: 1px solid var(--shrimp-border); cursor: pointer;
-    transition: background .15s ease, color .15s ease;
-}
-.s-back:hover { background: var(--shrimp-bg-alt); color: var(--shrimp-ink) !important; }
-.s-back i { font-size: 12px; }
-
-/* ---- Botones ------------------------------------------------------------ */
-.shrimp-bg .btn, .s-btn {
-    border-radius: var(--shrimp-radius-sm);
-    font-weight: 600;
-    font-size: var(--fs-body);
-    letter-spacing: 0;
-    padding: 9px 18px;
-    transition: background .15s ease, border-color .15s ease, transform .1s ease, box-shadow .15s ease;
-}
-.shrimp-bg .btn:active, .s-btn:active { transform: translateY(1px); }
-.shrimp-bg .btn-primary, .s-btn-primary {
-    background: var(--shrimp-brand); border: 1px solid var(--shrimp-brand); color: #fff !important;
-}
-.shrimp-bg .btn-primary:hover, .s-btn-primary:hover {
-    background: var(--shrimp-brand-ink); border-color: var(--shrimp-brand-ink);
-}
-.shrimp-bg .btn-secondary, .s-btn-ghost {
-    background: var(--shrimp-surface); border: 1px solid var(--shrimp-border-strong); color: var(--shrimp-ink) !important;
-}
-.shrimp-bg .btn-secondary:hover, .s-btn-ghost:hover { background: var(--shrimp-bg-alt); }
-.s-btn-teal { background: var(--shrimp-teal); border: 1px solid var(--shrimp-teal); color: #fff !important; }
-.s-btn-teal:hover { filter: brightness(.93); }
-/* Botón de acción destructiva (outline que se rellena al hover) */
-.s-btn-danger { background: var(--shrimp-surface); border: 1px solid var(--shrimp-danger); color: var(--shrimp-danger) !important; }
-.s-btn-danger:hover { background: var(--shrimp-danger); border-color: var(--shrimp-danger); color: #fff !important; }
-
-/* Tarjeta de "Nuevo certificado" (fila dinámica): panel gris con campos blancos */
-.mp-cert-row { background: #f2f5f8; border: 1px solid var(--shrimp-border) !important; border-radius: 16px; }
-.mp-cert-row .form-control, .mp-cert-row .form-select {
-    background-color: #fff !important;
-    border: 1px solid var(--shrimp-border) !important;
-    border-radius: 12px !important;
-}
-.mp-cert-row .form-control:focus, .mp-cert-row .form-select:focus {
-    border-color: var(--shrimp-teal) !important;
-    box-shadow: 0 0 0 3px var(--shrimp-teal-soft) !important;
-}
-.s-btn {
-    display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2);
-    text-decoration: none !important;
-}
-.s-btn-lg { padding: 12px 24px; font-size: var(--fs-lg); }
-.s-btn-block { width: 100%; }
-
-.shrimp-link-arrow { color: var(--shrimp-teal); text-decoration: none; font-weight: 600; }
-.shrimp-link-arrow:hover { text-decoration: underline; }
-.shrimp-link-arrow::after { content: " \203A"; }
-
-/* ---- Formularios (FormField) ------------------------------------------- */
-.shrimp-bg .form-control,
-.shrimp-bg .form-select,
-.shrimp-bg textarea.form-control {
-    border-radius: var(--shrimp-radius-sm);
-    border: 1px solid var(--shrimp-border-strong);
-    font-size: var(--fs-body);
-    color: var(--shrimp-ink);
-    padding: 10px 12px;
-    transition: border-color .15s ease, box-shadow .15s ease;
-}
-.shrimp-bg .form-control:focus,
-.shrimp-bg .form-select:focus {
-    border-color: var(--shrimp-teal);
-    box-shadow: 0 0 0 3px var(--shrimp-teal-soft);
-    outline: none;
-}
-.shrimp-bg label, .s-label {
-    font-weight: 600; font-size: var(--fs-sm); color: var(--shrimp-ink); margin-bottom: 6px; display: inline-block;
-}
-.s-help { font-size: var(--fs-caption); color: var(--shrimp-ink-faint); margin-top: 4px; }
-.s-field-error { font-size: var(--fs-caption); color: var(--shrimp-danger); margin-top: 4px; }
-.shrimp-bg .is-invalid, .shrimp-bg .form-control.is-invalid { border-color: var(--shrimp-danger) !important; }
-
-/* Focus visible accesible en toda interacción */
-.shrimp-bg a:focus-visible,
-.shrimp-bg .btn:focus-visible,
-.shrimp-bg button:focus-visible,
-.s-btn:focus-visible {
-    outline: 2px solid var(--shrimp-teal);
-    outline-offset: 2px;
-}
-
-/* ---- Superficies / tarjetas -------------------------------------------- */
-.shrimp-bg .card, .s-card {
-    border: 1px solid var(--shrimp-border);
-    border-radius: var(--shrimp-radius);
-    box-shadow: var(--shrimp-shadow);
-    background: var(--shrimp-surface);
-}
-.s-card--pad { padding: var(--sp-5); }
-.s-panel {                            /* bloque plano con borde, sin sombra */
-    background: var(--shrimp-surface);
-    border: 1px solid var(--shrimp-border);
-    border-radius: var(--shrimp-radius);
-}
-.s-divider { border: 0; border-top: 1px solid var(--shrimp-border); margin: var(--sp-5) 0; }
+/* Los TOKENS (:root) y los componentes base (shrimp-bg, shrimp-page,
+   s-eyebrow, botones, formularios, tarjetas, s-badge, sf-banner) están en
+   shrimp_user_registry/static/src/css/shrimp_base.css, que se carga antes.
+   Esta hoja los extiende con lo propio del marketplace. */
 
 /* ==========================================================================
    NAVEGACIÓN DE MARKETPLACE (global)
@@ -326,37 +95,19 @@
 .s-cat-chip:hover { border-color: var(--shrimp-border-strong); color: var(--shrimp-ink); }
 .s-cat-chip.active { background: var(--shrimp-brand); border-color: var(--shrimp-brand); color: #fff; }
 
-/* ---- Layout de marketplace: sidebar de filtros + grid ------------------ */
-.s-market-layout { display: grid; grid-template-columns: 300px 1fr; gap: var(--sp-5); align-items: start; }
-.s-market-side { position: sticky; top: 88px; }
+/* ---- Listas a todo el ancho (los filtros viven en el cajón lateral) ----- */
+/* min-width:0: sin esto la columna crece hasta el min-content de su contenido
+   —la fila de chips nowrap—, el grid se hace más ancho que la pantalla y el
+   móvil "aleja" toda la página. (La barra lateral de filtros y su versión
+   plegable en móvil se retiraron: todas las páginas usan el cajón.) */
+.s-market-main { min-width: 0; }
 
-/* ---- Panel de filtros enriquecido -------------------------------------- */
-.s-filter-panel {
-    background: var(--shrimp-surface);
-    border: 1px solid var(--shrimp-border);
-    border-radius: var(--shrimp-radius);
-    overflow: hidden;
-    box-shadow: var(--shrimp-shadow);
-}
-/* Cabecera con banda de degradado de marca */
-.s-filter-head {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 16px;
-    background: var(--shrimp-grad);
-    color: #fff;
-}
-.s-filter-head-title { display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: var(--fs-lg); }
-.s-filter-icon {
-    width: 30px; height: 30px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center;
-    background: rgba(255,255,255,.18); font-size: 14px;
-}
+/* Contador de filtros activos (botón «Filtros») */
 .s-filter-count {
     background: var(--shrimp-teal); color: #fff; font-size: 12px; font-weight: 700;
     min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px;
     display: inline-flex; align-items: center; justify-content: center;
 }
-.s-filter-head .s-filter-clear { color: rgba(255,255,255,.85); font-size: var(--fs-sm); text-decoration: none; }
-.s-filter-head .s-filter-clear:hover { color: #fff; text-decoration: underline; }
 
 /* Secciones del panel con separadores finos */
 .s-filter-sec { padding: 16px; border-bottom: 1px solid var(--shrimp-border); }
@@ -371,7 +122,6 @@
     display: inline-flex; align-items: center; justify-content: center;
     background: var(--shrimp-grad);
 }
-.s-filter-panel .s-btn-block { margin: 16px; width: calc(100% - 32px); }
 
 /* Chips de opción (radios estilizados) */
 .s-choice-chips { display: flex; flex-wrap: wrap; gap: 7px; }
@@ -396,40 +146,173 @@
 .s-price-sep { color: var(--shrimp-ink-faint); }
 /* Barra de orden (recomendaciones) */
 .s-sortbar { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; }
-.s-sort { display: flex; align-items: center; gap: 8px; }
+.s-sort { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; }
 .s-sort label { margin: 0; font-size: var(--fs-sm); font-weight: 600; color: var(--shrimp-ink-soft); white-space: nowrap; }
 .s-sort .form-select { width: auto; min-width: 190px; padding: 7px 32px 7px 12px; font-size: var(--fs-sm); }
 
 /* Chips con scroll horizontal (útil en mobile) */
-.s-cat-chips--scroll { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+.s-cat-chips--scroll { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; -webkit-overflow-scrolling: touch; max-width: 100%; min-width: 0; overscroll-behavior-x: contain; scroll-snap-type: x proximity; }
 .s-cat-chips--scroll::-webkit-scrollbar { height: 0; }
-.s-cat-chips--scroll .s-cat-chip { white-space: nowrap; flex: 0 0 auto; }
-@media (max-width: 991.98px) {
-    .s-market-layout { grid-template-columns: 1fr; }
-    .s-market-side { position: static; order: 2; }   /* filtros bajan tras el grid en mobile */
+.s-cat-chips--scroll .s-cat-chip { white-space: nowrap; flex: 0 0 auto; scroll-snap-align: start; }
+@media (max-width: 767.98px) {
+    /* Orden: debajo del contador, ocupando todo el ancho */
+    .s-sortbar { flex-direction: column; align-items: stretch; gap: var(--sp-2); }
+    .s-sort { width: 100%; }
+    .s-sort .form-select { flex: 1 1 auto; width: 100%; min-width: 0; min-height: 40px; }
+    .s-cat-chip { display: inline-flex; align-items: center; min-height: 38px; }
 }
 
-/* Panel de filtros (legacy) */
-.s-filters { position: sticky; top: 88px; }
-.s-filters .card-body { padding: var(--sp-4); }
-.s-filterbar { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
-.s-filter-toggle {
-    display: inline-flex; align-items: center; gap: 8px;
-    border: 1px solid var(--shrimp-border-strong); background: var(--shrimp-surface);
-    border-radius: var(--shrimp-radius-sm); padding: 9px 16px; font-weight: 600; color: var(--shrimp-ink);
-    cursor: pointer; transition: background .15s ease;
+/* ==========================================================================
+   CATÁLOGO PÚBLICO (/marketplace): a todo el ancho, filtros en un cajón
+   ========================================================================== */
+.s-market-main--full { min-width: 0; }
+
+/* Barra superior: buscar · Filtros (N) · Lista/Cuadrícula · Ordenar */
+.s-mkt-toolbar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+    background: var(--shrimp-surface); border: 1px solid var(--shrimp-border);
+    border-radius: var(--shrimp-radius); padding: 10px 12px; margin-bottom: 12px;
+    max-width: none;
 }
-.s-filter-toggle:hover { background: var(--shrimp-bg-alt); }
-.s-filter-toggle[aria-expanded="true"] .s-filter-caret { transform: rotate(180deg); }
-.s-filter-caret { transition: transform .2s ease; font-size: 11px; }
-.s-filter-clear { color: var(--shrimp-ink-soft); text-decoration: none; font-size: var(--fs-sm); }
-.s-filter-clear:hover { color: var(--shrimp-teal); }
-.s-filters-card { border: 1px solid var(--shrimp-border); border-radius: var(--shrimp-radius); }
+.s-mkt-search { position: relative; flex: 1 1 280px; min-width: 0; }
+.s-mkt-search > .fa {
+    position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+    color: var(--shrimp-ink-faint); pointer-events: none; font-size: 14px;
+}
+.s-mkt-search .form-control { padding-left: 36px; min-height: 40px; background: var(--shrimp-bg-alt, #f6f8fa); }
+.s-mkt-search .form-control:focus { background: var(--shrimp-surface); }
+.s-mkt-filter-btn {
+    display: inline-flex; align-items: center; gap: 8px; flex: 0 0 auto;
+    min-height: 40px; padding: 7px 16px; border-radius: var(--shrimp-radius-sm);
+    background: var(--shrimp-brand); color: #fff !important; font-weight: 700; font-size: var(--fs-sm);
+    text-decoration: none !important; border: 1px solid var(--shrimp-brand);
+    transition: filter .15s ease;
+}
+.s-mkt-filter-btn:hover { filter: brightness(1.12); }
+.s-mkt-filter-btn:focus-visible { outline: 2px solid var(--shrimp-teal); outline-offset: 2px; }
+.s-mkt-filter-btn .s-filter-count { background: #fff; color: var(--shrimp-brand); }
+.s-mkt-toolbar .s-view-toggle { margin-right: 0; }
+.s-mkt-sortsel { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; min-width: 0; }
+.s-mkt-sortsel label { margin: 0; font-size: var(--fs-sm); font-weight: 600; color: var(--shrimp-ink-soft); white-space: nowrap; }
+.s-mkt-sortsel .form-select { width: auto; min-width: 190px; min-height: 40px; padding: 7px 32px 7px 12px; font-size: var(--fs-sm); }
+@media (max-width: 767.98px) {
+    .s-mkt-toolbar { padding: 8px; gap: 8px; }
+    .s-mkt-search { flex: 1 1 100%; }
+    .s-mkt-sortsel { flex: 1 1 0; }
+    .s-mkt-sortsel .form-select { flex: 1 1 auto; width: 100%; min-width: 0; }
+    .s-mkt-sortsel label { display: none; }   /* el select ya dice «Ordenar» (aria-label) */
+}
+
+/* Etiquetas de filtros activos (removibles) */
+.s-active-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 12px; }
+.s-active-tag {
+    display: inline-flex; align-items: center; gap: 7px; max-width: 100%;
+    padding: 5px 10px 5px 12px; border-radius: var(--shrimp-radius-pill);
+    background: var(--shrimp-brand-soft, #e8f0f6); color: var(--shrimp-brand) !important;
+    font-size: 13px; font-weight: 600; text-decoration: none !important;
+    border: 1px solid transparent; transition: border-color .15s ease, background .15s ease;
+}
+.s-active-tag span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.s-active-tag .fa { font-size: 11px; opacity: .65; }
+.s-active-tag:hover { border-color: var(--shrimp-brand); }
+.s-active-tag:hover .fa { opacity: 1; }
+.s-active-tag:focus-visible, .s-active-clear:focus-visible { outline: 2px solid var(--shrimp-teal); outline-offset: 2px; }
+.s-active-clear { color: var(--shrimp-teal) !important; font-size: 13px; font-weight: 600; padding: 5px 6px; text-decoration: none; }
+.s-active-clear:hover { text-decoration: underline; }
+.s-mkt-count { margin-top: -4px; }
+
+/* Cajón (offcanvas) de filtros. Sin JS se abre con :target (#sFilterDrawer). */
+.s-drawer { position: fixed; inset: 0; z-index: 1060; visibility: hidden; pointer-events: none; }
+.s-drawer.is-open, html:not(.s-js) .s-drawer:target { visibility: visible; pointer-events: auto; }
+.s-drawer-backdrop {
+    position: absolute; inset: 0; background: rgba(10, 30, 45, .45);
+    opacity: 0; transition: opacity .2s ease; cursor: default;
+}
+.s-drawer.is-open .s-drawer-backdrop, html:not(.s-js) .s-drawer:target .s-drawer-backdrop { opacity: 1; }
+.s-drawer-panel {
+    position: absolute; top: 0; right: 0; bottom: 0; width: 400px; max-width: 100%;
+    background: var(--shrimp-surface, #fff); box-shadow: -12px 0 30px rgba(0, 0, 0, .18);
+    transform: translateX(100%); transition: transform .25s cubic-bezier(.16, 1, .3, 1);
+    display: flex; flex-direction: column; outline: none;
+}
+.s-drawer.is-open .s-drawer-panel, html:not(.s-js) .s-drawer:target .s-drawer-panel { transform: none; }
+.s-drawer-form { display: flex; flex-direction: column; height: 100%; min-height: 0; margin: 0; }
+.s-drawer-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 16px 18px; border-bottom: 1px solid var(--shrimp-border); flex: 0 0 auto;
+}
+.s-drawer-head h2 { margin: 0; font-size: 19px; font-weight: 800; color: var(--shrimp-ink); display: flex; align-items: center; }
+.s-drawer-close {
+    width: 38px; height: 38px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center;
+    color: var(--shrimp-ink-soft) !important; text-decoration: none !important; font-size: 17px;
+}
+.s-drawer-close:hover { background: var(--shrimp-bg-alt, #f1f4f7); color: var(--shrimp-ink) !important; }
+.s-drawer-close:focus-visible { outline: 2px solid var(--shrimp-teal); outline-offset: 1px; }
+.s-drawer-body { flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; padding: 4px 18px 12px; -webkit-overflow-scrolling: touch; }
+.s-drawer-body .s-filter-sec { padding: 14px 0; }
+.s-drawer-body .s-filter-sec:last-of-type { border-bottom: 0; }
+.s-drawer-body .s-filter-sec-label { margin-bottom: 8px; font-size: var(--fs-caption); font-weight: 700; color: var(--shrimp-ink-soft); }
+.s-drawer-body .s-choice span { padding: 5px 11px; }
+.s-drawer-best { padding: 14px 0 4px; text-align: center; }
+.s-drawer-best .s-btn-block { width: 100%; }
+.s-drawer-best .text-soft { font-size: 12px; margin-top: 6px; }
+.s-drawer-foot {
+    flex: 0 0 auto; display: flex; gap: 10px; padding: 12px 18px calc(12px + env(safe-area-inset-bottom, 0));
+    border-top: 1px solid var(--shrimp-border); background: var(--shrimp-surface, #fff);
+}
+.s-drawer-foot .s-btn { flex: 1 1 0; justify-content: center; text-align: center; min-height: 44px; }
+.s-drawer-foot .s-btn-primary { flex: 1.6 1 0; }
+.s-drawer-foot .s-btn-primary[aria-busy="true"] { opacity: .75; }
+.s-drawer-foot .s-btn-primary.is-zero { background: var(--shrimp-ink-soft); border-color: var(--shrimp-ink-soft); }
+html.s-drawer-lock, html.s-drawer-lock body { overflow: hidden !important; }
+@media (max-width: 575.98px) {
+    .s-drawer-panel { width: 100%; box-shadow: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .s-drawer-panel, .s-drawer-backdrop { transition: none; }
+}
 
 /* ---- ProductCard (grid) — compacta, densa ------------------------------ */
 .s-prod-grid {
     display: grid; gap: var(--sp-3);
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+.s-prod-grid > * { min-width: 0; }
+
+/* ---- «Cargar más»: esqueletos mientras carga y entrada suave ------------ */
+.s-skel-card {
+    background: var(--shrimp-surface); border: 1px solid var(--shrimp-border);
+    border-radius: var(--shrimp-radius); overflow: hidden;
+    display: flex; flex-direction: column;
+}
+.s-skel-img { aspect-ratio: 4 / 3; }
+.s-skel-body { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.s-skel-line { height: 12px; border-radius: 6px; }
+.s-skel-line--short { width: 45%; }
+.s-skel-line--price { width: 35%; height: 18px; margin-top: 6px; }
+.s-skel-img, .s-skel-line {
+    background: linear-gradient(90deg, #eef2f5 0%, #f7f9fb 40%, #eef2f5 80%);
+    background-size: 200% 100%;
+    animation: s-skel-brillo 1.2s ease-in-out infinite;
+}
+@keyframes s-skel-brillo { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+.s-products--list .s-skel-card { flex-direction: row; }
+.s-products--list .s-skel-img { flex: 0 0 240px; margin: 16px 0 16px 16px; border-radius: var(--shrimp-radius-sm); }
+.s-products--list .s-skel-body { flex: 1; padding: 18px; }
+@media (max-width: 575.98px) {
+    .s-products--list .s-skel-img { flex-basis: 112px; aspect-ratio: 1; margin: 12px 0 12px 12px; }
+}
+.s-card-in { animation: s-card-entra .45s cubic-bezier(.16, 1, .3, 1) both; }
+@keyframes s-card-entra { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+    .s-card-in, .s-skel-img, .s-skel-line { animation: none !important; }
+}
+/* Móvil/tablet vertical: 2 columnas fluidas; teléfonos pequeños: 1 columna */
+@media (max-width: 767.98px) {
+    .s-prod-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+}
+@media (max-width: 399.98px) {
+    .s-prod-grid { grid-template-columns: minmax(0, 1fr); }
 }
 .s-prod-card {
     position: relative;
@@ -445,7 +328,22 @@
     background: var(--shrimp-grad); z-index: 2;
 }
 .s-prod-card:hover { box-shadow: var(--shrimp-shadow-hover); transform: translateY(-4px); }
-.s-prod-imgwrap { display: block; position: relative; height: 180px; background: var(--shrimp-bg-alt); }  /* altura fija homogénea */
+.s-prod-imgwrap { display: block; position: relative; height: auto; aspect-ratio: 4 / 3; overflow: hidden; background: var(--shrimp-bg-alt); }  /* proporción fija homogénea */
+/* Estado del producto (Mis productos) sobre la foto: píldora blanca con un
+   punto de color, legible sobre cualquier imagen. */
+.s-prod-status {
+    position: absolute; top: 10px; left: 10px; z-index: 2;
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 11px; border-radius: 999px;
+    background: rgba(255, 255, 255, .94); color: var(--shrimp-ink);
+    font-size: 12px; font-weight: 700; line-height: 1;
+    box-shadow: 0 2px 8px rgba(13, 27, 38, .18);
+}
+.s-prod-status .fa-circle { font-size: 8px; }
+.s-prod-status--ok .fa { color: #2e9e6b; }
+.s-prod-status--out { color: #b42318; }
+.s-prod-status--out .fa { color: #dc3545; }
+.s-prod-status--off { color: #5a636b; }
 .s-prod-img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .s-prod-noimg {
     width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
@@ -459,7 +357,7 @@
 }
 .s-prod-fav:hover, .s-prod-fav.active { color: var(--shrimp-danger); background: #fff; }
 /* Cuerpo compacto: gaps consistentes, sin alturas forzadas ni hueco muerto */
-.s-prod-body { padding: 12px 13px 13px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+.s-prod-body { padding: 12px 13px 13px; display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .s-badges { display: flex; flex-wrap: wrap; gap: 5px; margin: 0; }
 .s-prod-title {
     font-weight: 600; font-size: var(--fs-body); letter-spacing: -.01em; margin: 0; color: var(--shrimp-ink);
@@ -476,12 +374,12 @@
 .s-prod-foot {
     margin-top: auto; padding-top: 10px;
     border-top: 1px solid var(--shrimp-border);
-    display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+    display: flex; align-items: baseline; justify-content: space-between; gap: 4px 8px; flex-wrap: wrap;
 }
 .s-prod-price { font-size: 19px; font-weight: 800; letter-spacing: -.02em; color: var(--shrimp-ink); line-height: 1.1; }
 .s-prod-price .s-unit { font-size: var(--fs-caption); font-weight: 500; color: var(--shrimp-ink-soft); }
-.s-prod-actions { display: flex; gap: 6px; margin-top: 8px; }
-.s-prod-actions .s-btn, .s-prod-actions .btn { flex: 1; padding: 7px 12px; font-size: var(--fs-sm); }
+.s-prod-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.s-prod-actions .s-btn, .s-prod-actions .btn { flex: 1; padding: 7px 12px; font-size: var(--fs-sm); min-height: 40px; justify-content: center; }
 .s-prod-actions .s-btn-ghost { flex: 0 0 auto; }   /* "Ver" compacto, "Comprar" ocupa el resto */
 
 /* Lista "Mis productos": Ver/Editar/Eliminar del MISMO tamaño. Cada acción
@@ -493,31 +391,108 @@
 
 /* Variante lista */
 .s-prod-card--row { flex-direction: row; }
-.s-prod-card--row .s-prod-imgwrap { width: 180px; min-width: 180px; aspect-ratio: auto; }
+.s-prod-card--row .s-prod-imgwrap { width: 180px; min-width: 180px; aspect-ratio: auto; height: auto; }
 @media (max-width: 575.98px) {
     .s-prod-card--row { flex-direction: column; }
     .s-prod-card--row .s-prod-imgwrap { width: 100%; aspect-ratio: 4/3; }
+}
+
+/* ---- Selector de vista del marketplace (Lista / Cuadrícula) -------------- */
+.s-view-toggle {
+    display: inline-flex; flex: 0 0 auto; margin-right: 6px;
+    border: 1px solid var(--shrimp-border-strong); border-radius: var(--shrimp-radius-sm);
+    overflow: hidden; background: var(--shrimp-surface);
+}
+.s-view-btn {
+    display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; min-height: 38px;
+    font-size: var(--fs-sm); font-weight: 600; line-height: 1; white-space: nowrap;
+    color: var(--shrimp-ink-soft); text-decoration: none; transition: background .15s ease, color .15s ease;
+}
+.s-view-btn + .s-view-btn { border-left: 1px solid var(--shrimp-border-strong); }
+.s-view-btn:hover { background: var(--shrimp-bg-alt); color: var(--shrimp-ink); }
+.s-view-btn.is-active, .s-view-btn.is-active:hover { background: var(--shrimp-brand); color: #fff; }
+.s-view-btn:focus-visible { outline: 2px solid var(--shrimp-teal); outline-offset: -2px; }
+@media (max-width: 767.98px) {
+    .s-view-txt { display: none; }            /* en móvil solo iconos */
+    .s-view-btn { min-height: 40px; }
+}
+
+/* Textos que solo aplican a una de las dos vistas */
+.s-only-list { display: none; }
+.s-products--list .s-only-list { display: inline; }
+.s-products--list .s-only-grid { display: none; }
+
+/* ---- Vista LISTA (estilo resultados de búsqueda): una fila por producto,
+   imagen a la izquierda y texto a la derecha. Es la MISMA tarjeta del grid
+   con el modificador .s-products--list en el contenedor. ---------------- */
+.s-prod-grid.s-products--list { grid-template-columns: minmax(0, 1fr); gap: var(--sp-3); }
+.s-products--list .s-prod-card { flex-direction: row; align-items: stretch; height: auto; }
+.s-products--list .s-prod-card:hover { transform: translateY(-2px); }
+.s-products--list .s-prod-imgwrap {
+    flex: 0 0 240px; width: 240px; aspect-ratio: 4 / 3; height: auto; align-self: flex-start;
+    margin: 16px 0 16px 16px; border-radius: var(--shrimp-radius-sm);
+}
+.s-products--list .s-prod-body { padding: 16px 18px; gap: 6px; }
+/* El pie (precio + calificación) se "disuelve" para reordenar sus piezas */
+.s-products--list .s-prod-foot { display: contents; }
+.s-products--list .s-badges { order: 1; }
+.s-products--list .s-prod-title { order: 2; font-size: 19px; font-weight: 700; line-height: 1.25; }
+.s-products--list .s-prod-title:hover { color: var(--shrimp-brand); text-decoration: underline !important; }
+.s-products--list .s-prod-seller { order: 3; }
+.s-products--list .s-rating { order: 4; font-size: 14px !important; }
+.s-products--list .s-rating-stars { display: inline-flex; gap: 1px; }
+.s-products--list .s-prod-meta { order: 5; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 2px 0; }
+.s-products--list .s-meta-spec ~ .s-meta-spec::before { content: "·"; margin: 0 8px; color: var(--shrimp-ink-faint); }
+.s-products--list .s-meta-qty { order: 10; flex-basis: 100%; margin-top: 2px; color: var(--shrimp-ink); }
+.s-products--list .s-prod-price { order: 6; font-size: 26px; margin-top: 4px; }
+.s-products--list .s-prod-price .s-unit { font-size: var(--fs-sm); }
+.s-products--list .s-prod-actions { order: 7; margin-top: 6px; }
+.s-products--list .s-prod-actions .s-btn { flex: 0 0 auto; min-width: 120px; }
+/* Pantallas anchas: el texto a la izquierda y una columna de compra a la
+   derecha (precio arriba, botones debajo), como en un listado de tienda.
+   .s-prod-foot es display:contents, así que precio y botones son hijos
+   directos del cuerpo y se pueden colocar en la segunda columna. */
+@media (min-width: 1200px) {
+    .s-products--list .s-prod-body {
+        display: grid; grid-template-columns: minmax(0, 1fr) 210px;
+        grid-auto-flow: row dense; column-gap: 28px; align-content: start;
+    }
+    .s-products--list .s-prod-body > * { grid-column: 1; }
+    .s-products--list .s-prod-price,
+    .s-products--list .s-prod-actions {
+        grid-column: 2;
+    }
+    .s-products--list .s-prod-price { grid-row: 1 / span 3; align-self: end; margin: 0; text-align: right; }
+    .s-products--list .s-prod-actions {
+        grid-row: 4 / span 4; align-self: start; margin-top: 10px;
+        flex-direction: column; align-items: stretch; gap: 8px;
+    }
+    .s-products--list .s-prod-actions .s-btn { min-width: 0; width: 100%; }
+}
+@media (max-width: 767.98px) {
+    .s-products--list .s-prod-imgwrap { flex-basis: 180px; width: 180px; margin: 12px 0 12px 12px; }
+    .s-products--list .s-prod-body { padding: 12px 14px; }
+}
+@media (max-width: 575.98px) {
+    /* Teléfono: miniatura cuadrada a la izquierda, texto compacto y los
+       botones a todo el ancho de la columna de texto. */
+    .s-products--list .s-prod-imgwrap { flex-basis: 112px; width: 112px; aspect-ratio: 1 / 1; margin: 10px 0 10px 10px; }
+    .s-products--list .s-prod-noimg { font-size: 11px; text-align: center; }
+    .s-products--list .s-prod-body { padding: 10px 10px 10px 12px; gap: 4px; }
+    .s-products--list .s-badges .s-badge { font-size: 10.5px; }
+    .s-products--list .s-prod-title { font-size: 15.5px; }
+    .s-products--list .s-prod-seller, .s-products--list .s-prod-meta { font-size: 12.5px; }
+    .s-products--list .s-rating { font-size: 12.5px !important; }
+    .s-products--list .s-meta-spec ~ .s-meta-spec::before { margin: 0 5px; }
+    .s-products--list .s-meta-spec .fa { display: none; }   /* línea de specs compacta */
+    .s-products--list .s-prod-price { font-size: 20px; margin-top: 2px; }
+    .s-products--list .s-prod-actions .s-btn { flex: 1 1 0; min-width: 0; min-height: 38px; padding: 6px 8px; }
 }
 
 /* ---- Price component (reusable) ---------------------------------------- */
 .s-price { font-size: 28px; font-weight: 800; letter-spacing: -.02em; color: var(--shrimp-ink); }
 .s-price .s-unit { font-size: var(--fs-body); font-weight: 500; color: var(--shrimp-ink-soft); }
 
-/* ==========================================================================
-   BADGES / ESTADOS
-   ========================================================================== */
-.s-badge {
-    display: inline-flex; align-items: center; gap: 5px;
-    font-size: var(--fs-caption); font-weight: 600; padding: 3px 10px;
-    border-radius: var(--shrimp-radius-pill); background: var(--shrimp-brand-soft); color: var(--shrimp-brand);
-    line-height: 1.4;
-}
-.s-badge--teal { background: var(--shrimp-teal-soft); color: var(--shrimp-teal); }
-.s-badge--success { background: var(--shrimp-success-soft); color: var(--shrimp-success); }
-.s-badge--warning { background: var(--shrimp-warning-soft); color: var(--shrimp-warning); }
-.s-badge--danger { background: var(--shrimp-danger-soft); color: var(--shrimp-danger); }
-.s-badge--muted { background: var(--shrimp-bg-alt); color: var(--shrimp-ink-soft); }
-.s-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: var(--sp-3); }
 /* Estado con punto de color (StatusBadge, no depende solo del color) */
 .s-status { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; font-size: var(--fs-sm); }
 .s-status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
@@ -741,14 +716,42 @@
    ========================================================================== */
 /* Header transparente + navbar flotante con esquinas redondas, "sobre el color" */
 #wrapwrap header#top { background: transparent !important; border: 0 !important; position: relative; z-index: 30; }
+/* En las portadas (o_header_overlay) el header flota SOBRE el hero, como hace
+   Odoo: si se queda en el flujo, el hero empieza más abajo y arriba asoma una
+   franja con el fondo claro de la página. */
+#wrapwrap.o_header_overlay header#top { position: absolute; top: 0; left: 0; right: 0; }
 #wrapwrap header#top .navbar {
     background-color: #fff !important; background-image: none !important;
     margin: 14px clamp(12px, 3vw, 28px) -34px !important;   /* margen inferior negativo: el contenido de abajo queda detrás */
     border-radius: 18px !important;
-    border: 1px solid rgba(255,255,255,.7) !important;
-    box-shadow: 0 14px 34px rgba(15,58,77,.20) !important;
+    /* Sin sombra (diseño plano): un borde de 1px navy al 10% basta para
+       separar la píldora blanca de los fondos claros; sobre el hero oscuro
+       de las portadas apenas se nota. Gana también a .shadow-sm de Odoo. */
+    border: 1px solid rgba(18,62,92,.10) !important;
+    box-shadow: none !important;
     padding-left: clamp(10px, 1.4vw, 18px) !important; padding-right: clamp(10px, 1.4vw, 18px) !important;
 }
+/* --- Header sin franja (todas las páginas) -------------------------------
+   El header es transparente, así que alrededor de la píldora asoma el fondo
+   del #wrapwrap (blanco del tema). Las páginas de contenido pintan su gris
+   (.shrimp-bg = var(--shrimp-bg)) solo dentro de <main>, que empieza debajo
+   del header: arriba quedaba una banda blanca de otro color. Se pinta ese
+   mismo fondo en el #wrapwrap cuando la página empieza con .shrimp-bg (cada
+   plataforma lo tiñe con sus tokens); las páginas de Odoo sin envoltorio
+   propio (login, /my) ya son blancas como el #wrapwrap.
+   :first-of-type (no :first-child): algunas plantillas ponen un <style>
+   antes del div.shrimp-bg (p. ej. trazabilidad). */
+#wrapwrap:has(> main > .shrimp-bg:first-of-type) { background-color: var(--shrimp-bg); }
+/* Scroll: Odoo pone .o_header_affixed (header fijo) y le suma a <main> un
+   padding-top del alto del header. El position:relative/absolute de arriba
+   anulaba el fixed: el header se iba con la página y ese padding abría un
+   hueco (salto de 36px). Fijo como en Odoo: al bajar solo queda visible la
+   píldora flotando sobre el contenido. */
+#wrapwrap header#top.o_header_affixed { position: fixed; top: 0; left: 0; right: 0; }
+/* Estado "oculto" del header fijo (translateY(-100%) del alto del header):
+   la píldora sobresale 34px por debajo (margen negativo) y quedaría un trozo
+   pegado arriba; se oculta entera hasta que Odoo la vuelve a mostrar. */
+#wrapwrap header#top.o_header_affixed:not(.o_top_fixed_element) { visibility: hidden; }
 header#top .navbar-brand, header#top .nav-link { color: var(--shrimp-ink) !important; }
 header#top #top_menu .nav-link { font-weight: 500; }
 header#top #top_menu .nav-link:hover, header#top #top_menu .nav-link.active { color: var(--shrimp-brand) !important; }
@@ -786,7 +789,6 @@ header#top #top_menu .show > .dropdown-toggle::after { transform: rotate(180deg)
     .s-feature--rev .s-feature-media { order: 0; }
     .s-grid-3, .s-stats, .s-benefits { grid-template-columns: 1fr; }
     .s-steps { grid-template-columns: 1fr 1fr; }
-    .s-filters { position: static; }
 }
 @media (max-width: 560px) {
     .s-steps { grid-template-columns: 1fr; }
@@ -1012,6 +1014,15 @@ header#top #top_menu .show > .dropdown-toggle::after { transform: rotate(180deg)
 .sl-ico--teal { background: linear-gradient(135deg, #0e8ea0, #46c9d4); box-shadow: 0 10px 24px rgba(14,142,160,.3); }
 .sl-ico--green { background: linear-gradient(135deg, #1f7d56, #2e9e6b); box-shadow: 0 10px 24px rgba(31,125,86,.3); }
 .sl-ico--coral { background: linear-gradient(135deg, #d99a06, #eab308); box-shadow: 0 10px 24px rgba(217,154,6,.3); }
+/* Los otros tres actores, cada uno con el color de su plataforma: empacadora
+   (navy del marketplace), verificadora (teal de CamaronMarket Verificadores) y planta maquiladora
+   (coral de CamaronMarket Empaque). */
+.sl-accent--navy { background: linear-gradient(90deg, #0a2a40, #123e5c); }
+.sl-accent--verimar { background: linear-gradient(90deg, #0a5f68, #0d7c88); }
+.sl-accent--copack { background: linear-gradient(90deg, #9f3717, #bf431d); }
+.sl-ico--navy { background: linear-gradient(135deg, #0a2a40, #123e5c); box-shadow: 0 10px 24px rgba(10,42,64,.3); }
+.sl-ico--verimar { background: linear-gradient(135deg, #0a5f68, #0d7c88); box-shadow: 0 10px 24px rgba(13,124,136,.3); }
+.sl-ico--copack { background: linear-gradient(135deg, #9f3717, #bf431d); box-shadow: 0 10px 24px rgba(191,67,29,.3); }
 .sl-role h4 { font-weight: 800; font-size: 20px; letter-spacing: -.02em; margin: 0 0 .5em; color: var(--sl-ink); }
 .sl-role p { color: var(--sl-ink-soft); margin: 0; font-size: 14.5px; line-height: 1.6; }
 
@@ -1084,30 +1095,6 @@ header#top #top_menu .show > .dropdown-toggle::after { transform: rotate(180deg)
    FORMULARIO DE PRODUCTO (.sf) — publicar / editar. Renueva el look sin tocar
    los hooks de JS (galería np-*, certificados) ni los name= del formulario.
    ========================================================================== */
-.sf-banner {
-    position: relative; overflow: hidden; color: #fff;
-    border-radius: var(--shrimp-radius-lg); margin-bottom: 24px;
-    padding: clamp(22px, 3vw, 34px) clamp(24px, 3vw, 38px);
-    background:
-        radial-gradient(560px 280px at 92% -30%, rgba(70,201,212,.4), transparent 60%),
-        linear-gradient(135deg, #0b2f47 0%, #123e5c 55%, #2e7da6 120%);
-    box-shadow: var(--shrimp-shadow);
-}
-.sf-banner-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
-.sf-banner-txt { min-width: 0; }
-.sf-banner .sf-kicker {
-    display: inline-flex; align-items: center; gap: 8px; text-transform: uppercase;
-    letter-spacing: .14em; font-size: 11.5px; font-weight: 800; color: #cfeaef;
-    margin: 4px 0 0; padding: 7px 14px; border-radius: var(--shrimp-radius-pill);
-    background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2);
-    white-space: nowrap; flex: 0 0 auto;
-}
-.sf-banner h1 { font-size: clamp(24px, 3vw, 34px); font-weight: 800; letter-spacing: -.025em; margin: 0 0 .25em; color: #fff; }
-.sf-banner p { margin: 0; color: #c6dde8; font-size: 15px; max-width: 62ch; line-height: 1.5; }
-@media (max-width: 575.98px) {
-    .sf-banner-row { flex-direction: column-reverse; align-items: flex-start; gap: 14px; }
-}
-
 /* Tarjetas del formulario (solo las de primer nivel, no las anidadas de certificados) */
 .sf .card {
     position: relative; overflow: hidden;
@@ -1404,23 +1391,6 @@ header#top #top_menu .show > .dropdown-toggle::after { transform: rotate(180deg)
 /* No pisar el input-group-text (ícono de búsqueda) */
 .sf-fields .input-group-text { background:#f2f5f8 !important; border:1.5px solid transparent !important; }
 
-/* Campos de las tarjetas de filtros (compras/ventas/planificación): mismo fondo */
-.s-filters-card .form-control,
-.s-filters-card .form-select,
-.s-filters-card .input-group-text {
-    border: 1.5px solid transparent !important;
-    background-color: #f2f5f8 !important;
-    border-radius: 12px !important;
-    box-shadow: none !important;
-}
-.s-filters-card .form-control:hover:not(:focus),
-.s-filters-card .form-select:hover:not(:focus) { background-color: #eaeff4 !important; }
-.s-filters-card .form-control:focus,
-.s-filters-card .form-select:focus {
-    border-color: var(--shrimp-teal) !important; background-color: #fff !important;
-    box-shadow: 0 0 0 3px rgba(14,142,160,.16) !important;
-}
-
 /* ==========================================================================
    DISEÑO PLANO: sin sombras en todos los templates (marketplace y verificador)
    Se conservan los anillos de foco (:focus/:focus-visible) por accesibilidad.
@@ -1428,3 +1398,261 @@ header#top #top_menu .show > .dropdown-toggle::after { transform: rotate(180deg)
    ========================================================================== */
 #wrapwrap *:not(:focus):not(:focus-visible) { box-shadow: none !important; }
 #wrapwrap .dropdown-menu { border: 1px solid var(--shrimp-border) !important; }
+
+/* ==========================================================================
+   RESPONSIVE GLOBAL (móvil) — red de seguridad + ajustes compartidos.
+   Las causas reales de desborde se corrigen en cada componente; esto solo
+   evita que un elemento suelto (tabla, texto sin cortes) ensanche la página
+   y haga que el móvil "aleje" todo. Igual que hace Odoo con
+   .o_wanim_overflow_xy_hidden: clip en #wrapwrap (no en body, que los
+   navegadores móviles ignoran; clip no rompe position:sticky).
+   ========================================================================== */
+#wrapwrap { overflow-x: clip; }
+@supports not (overflow-x: clip) { #wrapwrap { overflow-x: hidden; } }
+.shrimp-bg img, .shrimp-bg video, .shrimp-bg iframe { max-width: 100%; }
+/* Columnas flex/grid de Bootstrap: que el contenido largo no ensanche la fila */
+.shrimp-bg .row > [class*="col"] { min-width: 0; }
+.shrimp-bg .card-body, .s-panel, .mp-table-card { overflow-wrap: break-word; }
+/* Tablas dentro de .table-responsive: celdas legibles con scroll interno */
+.shrimp-bg .table-responsive { -webkit-overflow-scrolling: touch; }
+
+@media (max-width: 991.98px) {
+    /* Menú "Mi panel" dentro del offcanvas: sin ancho mínimo fijo */
+    .mp-menu { min-width: 0; width: 100%; }
+    .mp-menu-item { white-space: normal; }
+}
+@media (max-width: 767.98px) {
+    /* Botones cómodos al tacto */
+    .s-btn, .shrimp-bg .btn:not(.btn-close):not(.btn-link) { min-height: 40px; }
+    .s-btn.btn-sm, .shrimp-bg .btn.btn-sm { min-height: 38px; }
+    .s-page-header { align-items: flex-start; }
+    .sf-banner { padding: 20px 18px; border-radius: var(--shrimp-radius); }
+    .sf-banner p { font-size: 14px; }
+    /* Tarjetas con tabla: menos padding horizontal en pantallas chicas */
+    .mp-table-card .card-body.p-4 { padding: 18px 14px !important; }
+    .shrimp-bg .table { font-size: 13.5px; }
+}
+
+/* Calendario de entregas (/marketplace/calendar): en teléfono las 7 columnas
+   miden ~45px; se muestran solo número de día + contador (la vista "Lista"
+   tiene el detalle). */
+.s-cal-cell { min-width: 0; }
+@media (max-width: 575.98px) {
+    .s-cal-cell { min-height: 58px !important; padding: 4px !important; }
+    .s-cal-cell .badge { font-size: 10px; padding: 2px 5px; }
+    .s-cal-events { display: none !important; }
+    .s-cal-head > div { padding: 6px 2px !important; text-align: center; font-size: 11px !important; }
+}
+
+/* Modales propios (.sf-modal / .buy-modal): en pantallas bajas el contenido
+   largo (formularios de certificados, resumen de pago) debe poder
+   desplazarse en vez de quedar cortado fuera de la pantalla. */
+.sf-modal-card, .buy-modal-card { max-height: calc(100vh - 40px); max-height: calc(100dvh - 40px); overflow-y: auto; }
+@media (max-width: 575.98px) {
+    .sf-modal, .buy-modal { padding: 12px; }
+    .sf-modal-card, .buy-modal-card { padding: 20px 16px; }
+    .sf-modal-actions { flex-wrap: wrap; }
+    .buy-sticky { position: static; }
+}
+
+/* ==========================================================================
+   MARCA GLOBAL DE LOS TRES SITIOS (antes en shrimp_verification, que la
+   imponía a todos). Usa los tokens: cada plataforma la tiñe con su tema.
+   ========================================================================== */
+/* Botones de las páginas de Odoo que quedan fuera de .shrimp-bg (contacto,
+   agradecimiento): color de marca de la plataforma en vez del morado. */
+#wrap .btn-primary,
+#wrap .btn-primary:focus {
+  background-color: var(--shrimp-brand); border-color: var(--shrimp-brand); color: #fff;
+}
+#wrap .btn-primary:hover { background-color: var(--shrimp-brand-ink); border-color: var(--shrimp-brand-ink); color: #fff; }
+
+/* Sin subrayado en la barra de navegación */
+#wrapwrap header#top a,
+#wrapwrap header#top a:hover,
+#wrapwrap header#top .nav-link,
+#wrapwrap header#top .nav-link:hover {
+  text-decoration: none !important;
+}
+
+/* ==================================================================
+   Menú desplegable: opción seleccionada / hover en color de marca
+   (antes salía MORADA, el primario del tema)
+   ================================================================== */
+#wrapwrap #top_menu .dropdown-menu .dropdown-item:hover,
+#wrapwrap #top_menu .dropdown-menu .dropdown-item:focus,
+#wrapwrap #top_menu .dropdown-menu .dropdown-item.active,
+#wrapwrap #top_menu .dropdown-menu .dropdown-item:active{
+  background-color:var(--shrimp-brand-soft) !important;
+  color:var(--shrimp-brand) !important;
+}
+
+/* ==================================================================
+   FOOTER: fondo oscuro branded con texto claro (reemplaza el beige)
+   ================================================================== */
+#wrapwrap footer#bottom.o_footer{
+  background:#0f2b3a !important; color:#b9ccd5 !important; border-top:0 !important;
+}
+#wrapwrap footer#bottom.o_footer h1,
+#wrapwrap footer#bottom.o_footer h2,
+#wrapwrap footer#bottom.o_footer h3,
+#wrapwrap footer#bottom.o_footer h4,
+#wrapwrap footer#bottom.o_footer h5,
+#wrapwrap footer#bottom.o_footer strong{ color:#fff !important; }
+#wrapwrap footer#bottom.o_footer p,
+#wrapwrap footer#bottom.o_footer li,
+#wrapwrap footer#bottom.o_footer span{ color:#b9ccd5 !important; }
+#wrapwrap footer#bottom.o_footer a{ color:#cddee6 !important; text-decoration:none !important; }
+#wrapwrap footer#bottom.o_footer a:hover{ color:#fff !important; }
+#wrapwrap footer#bottom.o_footer .fa{ color:#cddee6 !important; }
+#wrapwrap .o_footer_copyright{ background:#0a2230 !important; }
+#wrapwrap .o_footer_copyright,
+#wrapwrap .o_footer_copyright *{ color:#8fa8b3 !important; }
+
+/* ==========================================================================
+   TEMAS POR PLATAFORMA sobre los tokens comunes (shrimp_base.css).
+   El marketplace es el tema por defecto (navy, :root). CamaronMarket Verificadores (teal) y
+   empaque (coral) reescriben los tokens en verification.css y
+   copacking_landing.css respectivamente, bajo su clase del #wrapwrap.
+   ========================================================================== */
+#wrapwrap.o_shrimp_platform_main {
+  --shrimp-platform-accent: var(--shrimp-teal);
+}
+/* Botón de alta de la cabecera (visitante sin sesión). */
+#wrapwrap .shrimp-header-cta { white-space: nowrap; }
+@media (max-width: 575.98px) {
+  #wrapwrap .shrimp-header-cta { padding: 6px 12px; font-size: 13.5px; }
+}
+
+/* ==========================================================================
+   BARRA NUEVA (Mi panel · Marketplace · Vender · Comprar · Servicios) y
+   «Mi cuenta ▾» — models/website_navbar.py + views/navbar_dropdown.xml
+   ========================================================================== */
+.mp-menu .mp-menu-header {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--shrimp-muted, #6e6e73); padding: 8px 10px 4px;
+}
+.mp-menu-new {
+    margin-left: auto; font-size: 10px; font-weight: 700; border-radius: 6px;
+    padding: 1px 6px; color: #1f7d56; background: #e6f6ee;
+}
+.js_usermenu .shrimp-account-name {
+    font-size: 12px; font-weight: 700; color: var(--shrimp-ink, #1d1d1f);
+    max-width: 260px; overflow: hidden; text-overflow: ellipsis;
+}
+.js_usermenu .shrimp-account-item { font-weight: 600; }
+
+/* ==========================================================================
+   /my — tarjetas por perfil (antes un <style> dentro de la plantilla).
+   También las usa el bloque del verificador (shrimp_verification).
+   ========================================================================== */
+.mp-panel-head{ margin-bottom: 22px; }
+.mp-eyebrow{ text-transform:uppercase; letter-spacing:.12em; font-size:12px; font-weight:700; color:#123e5c; margin-bottom:6px; }
+.mp-panel-title{ font-weight:800; letter-spacing:-.02em; font-size:28px; margin:0; color:#1d1d1f; }
+.mp-panel-sub{ color:#6e6e73; font-size:15px; margin-top:4px; }
+.mp-my-section{ margin-bottom: 22px; }
+.mp-my-section-title{ font-size:15px; font-weight:800; color:#123e5c; text-transform:uppercase; letter-spacing:.08em; margin:0 0 12px; }
+.mp-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:16px; }
+.mp-tile{ position:relative; display:block; background:#fff; border:1px solid rgba(0,0,0,.10); border-radius:18px; padding:22px 22px 20px; text-decoration:none !important; box-shadow:0 1px 3px rgba(0,0,0,.05), 0 8px 24px rgba(0,0,0,.04); transition:transform .22s ease, box-shadow .22s ease; overflow:hidden; }
+.mp-tile::before{ content:""; position:absolute; top:0; left:0; right:0; height:4px; background:linear-gradient(90deg,#123e5c,#14a0b0); opacity:.55; transition:opacity .22s ease; }
+.mp-tile:hover{ transform:translateY(-4px); box-shadow:0 10px 24px rgba(0,0,0,.10), 0 24px 60px rgba(0,0,0,.08); text-decoration:none !important; }
+.mp-tile:hover::before{ opacity:1; }
+.mp-tile--accent{ background:linear-gradient(180deg, rgba(46,158,107,.06), #fff); }
+.mp-tile-ico{ width:52px; height:52px; border-radius:15px; display:flex; align-items:center; justify-content:center; font-size:22px; margin-bottom:16px; color:#fff !important; box-shadow:0 8px 18px rgba(18,62,92,.20); }
+.mp-tile-ico i{ color:#fff; }
+.mp-ico-blue { background:linear-gradient(135deg,#123e5c,#2e7da6); }
+.mp-ico-teal { background:linear-gradient(135deg,#0e8ea0,#46c9d4); box-shadow:0 8px 18px rgba(14,142,160,.24); }
+.mp-ico-coral{ background:linear-gradient(135deg,#c0562e,#e0894f); box-shadow:0 8px 18px rgba(192,86,45,.24); }
+.mp-ico-green{ background:linear-gradient(135deg,#1f7d56,#2e9e6b); box-shadow:0 8px 18px rgba(31,125,86,.24); }
+.mp-ico-amber{ background:linear-gradient(135deg,#a87700,#e0a106); box-shadow:0 8px 18px rgba(217,154,6,.24); }
+.mp-tile-title{ color:#1d1d1f; font-size:17px; font-weight:800; letter-spacing:-.01em; margin-bottom:5px; }
+.mp-tile-desc{ color:#6e6e73; font-size:14px; line-height:1.5; }
+@media (max-width: 575.98px){ .mp-grid{ grid-template-columns:1fr; } }
+
+/* ==========================================================================
+   CAJÓN DE FILTROS REUTILIZABLE (todas las páginas con filtros)
+   ========================================================================== */
+/* Rango de fechas: Desde / Hasta lado a lado (se apilan en pantallas muy
+   estrechas). */
+.s-date-range { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.s-date-range label { display: flex; flex-direction: column; gap: 4px; margin: 0; font-size: 12px; font-weight: 600; color: var(--shrimp-ink-soft); }
+.s-date-range .form-control { min-height: 40px; font-size: var(--fs-sm); }
+@media (max-width: 340px) { .s-date-range { grid-template-columns: 1fr; } }
+.s-drawer-shortcuts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+/* Número suelto en la barra (p. ej. «Qué comparar», «Situación») */
+.s-mkt-extra { display: flex; align-items: center; gap: 8px; flex: 0 1 auto; min-width: 0; }
+.s-mkt-extra label { margin: 0; font-size: var(--fs-sm); font-weight: 600; color: var(--shrimp-ink-soft); white-space: nowrap; }
+.s-mkt-extra .form-select { width: auto; min-width: 200px; max-width: 100%; min-height: 40px; font-size: var(--fs-sm); }
+@media (max-width: 767.98px) {
+    .s-mkt-extra { flex: 1 1 100%; }
+    .s-mkt-extra .form-select { flex: 1 1 auto; min-width: 0; width: 100%; }
+}
+/* Segmentos rápidos (una sola dimensión, p. ej. estados de una bandeja) */
+.s-seg { display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto; padding-bottom: 2px; margin-bottom: 12px; scrollbar-width: none; }
+.s-seg::-webkit-scrollbar { height: 0; }
+
+/* ==========================================================================
+   LISTAS DE TRANSACCIONES: tabla en escritorio, tarjetas en móvil
+   ========================================================================== */
+/* Las fechas no se parten («2027-\n02-02»). */
+.s-tx-date { white-space: nowrap; }
+.s-txc-list { display: none; }
+@media (max-width: 767.98px) {
+    .s-tx-table { display: none !important; }
+    .s-txc-list { display: flex; flex-direction: column; gap: 12px; }
+    .s-tx-results > .card-body { padding: 14px !important; }
+}
+.s-txc {
+    border: 1px solid var(--shrimp-border); border-radius: var(--shrimp-radius);
+    background: var(--shrimp-surface, #fff); padding: 14px; display: flex; flex-direction: column; gap: 10px;
+}
+.s-txc-title { font-weight: 800; font-size: 16px; line-height: 1.3; color: var(--shrimp-ink); overflow-wrap: anywhere; }
+.s-txc-sub { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 12px; margin-top: 4px; font-size: 13px; color: var(--shrimp-ink-soft); }
+.s-txc-sub strong { color: var(--shrimp-ink); font-weight: 700; }
+.s-txc-date { white-space: nowrap; }
+.s-txc-ref { margin-top: 2px; font-size: 12px; color: var(--shrimp-ink-faint); }
+.s-txc-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.s-txc-rating { font-size: 12px; }
+.s-txc-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; margin: 0;
+    background: var(--shrimp-bg-alt, #f6f8fa); border-radius: var(--shrimp-radius-sm); padding: 10px 12px;
+}
+.s-txc-grid > div { min-width: 0; }
+.s-txc-grid dt { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--shrimp-ink-faint); margin: 0; }
+.s-txc-grid dd { margin: 2px 0 0; font-weight: 700; font-size: 14px; color: var(--shrimp-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.s-txc-grid dd small { font-weight: 500; color: var(--shrimp-ink-soft); }
+.s-txc-net dd { color: #1f7d56; }
+.s-txc-actions { display: flex; flex-direction: column; gap: 8px; }
+.s-txc-actions .s-btn { width: 100%; justify-content: center; text-align: center; min-height: 42px; }
+.s-txc-actions:empty { display: none; }
+
+/* «Mis compras»: datos en dos columnas y acciones a todo el ancho en móvil */
+.s-pc-actions { max-width: 340px; }
+@media (max-width: 767.98px) {
+    .s-pc-card > .card-body { padding: 14px !important; }
+    .s-pc-data { --bs-gutter-y: .6rem; }
+    .s-pc-actions { max-width: none; width: 100%; justify-content: stretch !important; }
+    .s-pc-actions > form, .s-pc-actions > .dropdown, .s-pc-actions > .s-badge { flex: 1 1 100%; }
+    .s-pc-actions .s-btn, .s-pc-actions .dropdown-toggle { width: 100%; justify-content: center; min-height: 42px; }
+}
+
+/* Tablas genéricas del portal que en móvil pasan a tarjetas (.s-stack-table):
+   cada fila es una tarjeta y cada celda muestra su rótulo (data-label). */
+@media (max-width: 767.98px) {
+    .s-stack-table thead { display: none; }
+    .s-stack-table, .s-stack-table tbody, .s-stack-table tr, .s-stack-table td { display: block; width: 100%; }
+    .s-stack-table tr {
+        border: 1px solid var(--shrimp-border); border-radius: var(--shrimp-radius);
+        background: var(--shrimp-surface, #fff); padding: 10px 12px; margin-bottom: 10px;
+        display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px;
+    }
+    .s-stack-table td { border: 0 !important; padding: 0 !important; text-align: left !important; min-width: 0; }
+    .s-stack-table td[data-label]::before {
+        content: attr(data-label); display: block; font-size: 11px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: .04em; color: var(--shrimp-ink-faint);
+    }
+    .s-stack-table td.s-stack-wide { grid-column: 1 / -1; }
+    .s-stack-table td.s-stack-title { grid-column: 1 / -1; font-weight: 800; font-size: 15px; }
+    .s-stack-table td.s-stack-actions { grid-column: 1 / -1; }
+    .s-stack-table td.s-stack-actions .btn, .s-stack-table td.s-stack-actions .s-btn { width: 100%; min-height: 42px; }
+}

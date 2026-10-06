@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- ================================================================
+       Portada pública del sitio de empaque (co-packing).
+
+       Misma estructura que la de CamaronMarket Verificadores (shrimp_verification.
+       verifier_landing) con la paleta "Coral Camarón". Las clases cl-* y
+       todo su CSS (static/src/css/copacking_landing.css) van bajo
+       #wrapwrap.o_shrimp_copacking: no tocan el marketplace ni CamaronMarket Verificadores.
+
+       La sirve "/" en el sitio de empaque a quien NO es maquilador
+       (controllers/website_home.py); el maquilador con sesión entra
+       directo a su bandeja.
+       ================================================================ -->
+
+  <!-- Marca el sitio de empaque (paleta coral) y añade Open Graph a la
+       portada. El og:* solo se emite si el controlador pasa
+       shrimp_copack_og: una página sin seo_object no trae los de Odoo, así
+       que no se duplican. -->
+  <template id="layout_sitio_empaque" inherit_id="website.layout" name="Sitio de empaque - marca coral">
+    <xpath expr="//div[@id='wrapwrap']" position="attributes">
+      <attribute name="t-attf-class" add="#{'o_shrimp_copacking' if website and website.sudo().shrimp_platform == 'copacker' else ''}" separator=" "/>
+    </xpath>
+    <xpath expr="//head/meta[last()]" position="after">
+      <t t-if="shrimp_copack_og">
+        <t t-foreach="shrimp_copack_og" t-as="og_prop">
+          <meta t-att-property="og_prop" t-att-content="shrimp_copack_og[og_prop]"/>
+        </t>
+        <meta name="twitter:card" content="summary"/>
+        <meta name="twitter:title" t-att-content="shrimp_copack_og.get('og:title')"/>
+        <meta name="twitter:image" t-att-content="shrimp_copack_og.get('og:image')"/>
+        <meta name="theme-color" content="#3d150c"/>
+      </t>
+    </xpath>
+  </template>
+
+  <!-- El botón de la cabecera para el visitante («Registrar mi planta» en
+       este sitio) lo pone ahora la plantilla común de las tres plataformas
+       (shrimp_marketplace.header_cta_plataforma), con la misma clase
+       cl-header-cta que usa esta portada. -->
+
+  <template id="copack_landing" name="Empaque - Portada">
+    <t t-call="website.layout">
+      <t t-set="es_publico" t-value="request.env.user._is_public()"/>
+      <div class="cl-page">
+
+        <!-- ================= HERO ================= -->
+        <section class="cl-hero" aria-labelledby="cl-hero-title">
+          <div class="cl-wrap">
+            <div class="cl-hero-grid">
+
+              <div class="cl-hero-copy">
+                <span class="cl-hero-badge"><span class="cl-dot" aria-hidden="true"></span> Servicio de empaque · <b>co-packing</b></span>
+                <h1 id="cl-hero-title">Tu planta empaca.<br/>Las libras <span>cuadran solas</span>.</h1>
+                <p class="cl-hero-lead">
+                  Recibe solicitudes de camaroneras y empacadoras que necesitan
+                  empacar, oferta con tu tarifa y cierra cada trabajo con un acta
+                  que cuadra las libras que entraron con las que salieron, firmada
+                  por las dos partes.
+                </p>
+                <div class="cl-hero-cta">
+                  <t t-if="es_publico">
+                    <a href="/register/copacker" class="cl-btn cl-btn--primary cl-btn--lg"><i class="fa fa-industry" aria-hidden="true"/>Registrar mi planta</a>
+                    <a href="/web/login?redirect=/copacker/inbox" class="cl-btn cl-btn--ghost cl-btn--lg"><i class="fa fa-sign-in" aria-hidden="true"/>Entrar</a>
+                  </t>
+                  <t t-else="">
+                    <a t-att-href="url_buscar_planta" class="cl-btn cl-btn--primary cl-btn--lg"><i class="fa fa-search" aria-hidden="true"/>Buscar planta</a>
+                    <a href="/my" class="cl-btn cl-btn--ghost cl-btn--lg"><i class="fa fa-user-o" aria-hidden="true"/>Mi cuenta</a>
+                  </t>
+                </div>
+                <ul class="cl-hero-trust">
+                  <li><span class="n">Acta</span><span class="t">firmada por ambas partes</span></li>
+                  <li><span class="n">lb</span><span class="t">cuadre entrada-salida</span></li>
+                  <li><span class="n">Trazable</span><span class="t">hasta el certificado</span></li>
+                </ul>
+              </div>
+
+              <!-- Ilustración: un acta de empaque de ejemplo (decorativa). -->
+              <div class="cl-mock" role="img" aria-label="Ejemplo de acta de empaque: 12.400 libras recibidas, talla 16/20, 1.240 cajas, diferencia 0,3 por ciento dentro de tolerancia, acta firmada">
+                <div class="cl-float cl-float--tl" aria-hidden="true">
+                  <span class="cl-float-ico ok"><i class="fa fa-handshake-o"/></span>
+                  <div><div class="cl-float-t">Oferta aceptada</div><div class="cl-float-s">hace 5 min</div></div>
+                </div>
+                <div class="cl-card" aria-hidden="true">
+                  <div class="cl-card-top">
+                    <span class="ttl"><i class="fa fa-file-text-o me-2"/>Acta de empaque</span>
+                    <span class="ref">#OEM-000214</span>
+                  </div>
+                  <div class="cl-card-body">
+                    <div class="cl-row"><span class="cl-row-ico"><i class="fa fa-truck"/></span><span class="cl-row-name">Recepción</span><span class="cl-row-val">12.400 lb</span></div>
+                    <div class="cl-row"><span class="cl-row-ico"><i class="fa fa-sort-amount-desc"/></span><span class="cl-row-name">Talla</span><span class="cl-row-val">16/20</span></div>
+                    <div class="cl-row"><span class="cl-row-ico"><i class="fa fa-archive"/></span><span class="cl-row-name">Empaque</span><span class="cl-row-val">1.240 cajas</span></div>
+                    <div class="cl-row"><span class="cl-row-ico"><i class="fa fa-balance-scale"/></span><span class="cl-row-name">Diferencia</span><span class="cl-row-val">0,3 % · en tolerancia</span></div>
+                    <div class="cl-row"><span class="cl-row-ico"><i class="fa fa-pencil"/></span><span class="cl-row-name">Firmas</span><span class="cl-row-val">Cliente ✓ · Planta ✓</span></div>
+                  </div>
+                  <div class="cl-card-foot">
+                    <span class="cl-stamp"><i class="fa fa-check-circle"/> ACTA FIRMADA</span>
+                    <div class="cl-total"><div class="n">12.363 lb</div><div class="t">empacadas</div></div>
+                  </div>
+                </div>
+                <div class="cl-float cl-float--br" aria-hidden="true">
+                  <span class="cl-float-ico money"><i class="fa fa-money"/></span>
+                  <div><div class="cl-float-t">Liquidación</div><div class="cl-float-s">$1.854 por el servicio</div></div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= CÓMO FUNCIONA ================= -->
+        <section class="cl-section" aria-labelledby="cl-como">
+          <div class="cl-wrap">
+            <div class="cl-head">
+              <span class="cl-eyebrow">Cómo funciona</span>
+              <h2 id="cl-como">De la solicitud al acta firmada en cuatro pasos</h2>
+              <p>El camarón nunca cambia de dueño: tu planta presta el servicio y cobra por libra empacada.</p>
+            </div>
+            <ol class="cl-steps">
+              <li class="cl-step">
+                <div class="cl-step-num" aria-hidden="true">1</div>
+                <h3>El cliente publica la solicitud</h3>
+                <p>Una camaronera o empacadora indica cuántas libras, talla, presentación y fechas. Puede dirigirla a tu planta o abrirla a todas.</p>
+              </li>
+              <li class="cl-step">
+                <div class="cl-step-num" aria-hidden="true">2</div>
+                <h3>Tu planta oferta con su tarifa</h3>
+                <p>Respondes desde tu bandeja con precio por libra, capacidad y fechas. El cliente compara y acepta la oferta que le sirve.</p>
+              </li>
+              <li class="cl-step">
+                <div class="cl-step-num" aria-hidden="true">3</div>
+                <h3>Recibes y empacas</h3>
+                <p>Registras las libras recibidas y los insumos del cliente; al terminar, las libras empacadas, las cajas y la presentación.</p>
+              </li>
+              <li class="cl-step">
+                <div class="cl-step-num" aria-hidden="true">4</div>
+                <h3>Acta firmada y liquidación</h3>
+                <p>El acta cuadra entrada contra salida y la firman las dos partes. El trabajo pasa a tu liquidación.</p>
+              </li>
+            </ol>
+          </div>
+        </section>
+
+        <!-- ================= PARA QUIÉN ================= -->
+        <section class="cl-section cl-section--alt" aria-labelledby="cl-quien">
+          <div class="cl-wrap">
+            <div class="cl-head">
+              <span class="cl-eyebrow">Para quién</span>
+              <h2 id="cl-quien">Un mismo trabajo, las dos partes en la misma página</h2>
+            </div>
+            <div class="cl-audience">
+              <div class="cl-aud cl-aud--a">
+                <span class="cl-aud-ico" aria-hidden="true"><i class="fa fa-industry"/></span>
+                <h3>Para la planta maquiladora</h3>
+                <p>Llena tu capacidad ociosa con trabajos de empaque y lleva cada orden en orden, con números que nadie discute.</p>
+                <ul class="cl-aud-list">
+                  <li><i class="fa fa-check" aria-hidden="true"/> Bandeja de solicitudes abiertas y dirigidas</li>
+                  <li><i class="fa fa-check" aria-hidden="true"/> Tarifas «desde» públicas y tarifas firmes confidenciales</li>
+                  <li><i class="fa fa-check" aria-hidden="true"/> Órdenes, recepción, empaque y actas</li>
+                  <li><i class="fa fa-check" aria-hidden="true"/> Liquidaciones por libra empacada</li>
+                </ul>
+                <t t-if="es_publico">
+                  <a href="/register/copacker" class="cl-btn cl-btn--light"><i class="fa fa-industry" aria-hidden="true"/>Registrar mi planta</a>
+                </t>
+              </div>
+              <div class="cl-aud cl-aud--b">
+                <span class="cl-aud-ico" aria-hidden="true"><i class="fa fa-ship"/></span>
+                <h3>Para el cliente (camaronera o empacadora)</h3>
+                <p>¿Te quedaste sin capacidad de empaque? Encuentra una planta habilitada y sigue tu camarón hasta que vuelve empacado.</p>
+                <ul class="cl-aud-list">
+                  <li><i class="fa fa-check" aria-hidden="true"/> Directorio de plantas con capacidad y precios «desde»</li>
+                  <li><i class="fa fa-check" aria-hidden="true"/> Compara ofertas antes de adjudicar</li>
+                  <li><i class="fa fa-check" aria-hidden="true"/> Sigue la orden y firma el acta</li>
+                  <li><i class="fa fa-check" aria-hidden="true"/> El empaque sale en el certificado de trazabilidad</li>
+                </ul>
+                <a t-att-href="url_buscar_planta" class="cl-btn cl-btn--primary"><i class="fa fa-search" aria-hidden="true"/>Buscar planta</a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= CONFIANZA / TRAZABILIDAD ================= -->
+        <section class="cl-trust" aria-labelledby="cl-confianza">
+          <div class="cl-wrap">
+            <div class="cl-head cl-head--light">
+              <span class="cl-eyebrow cl-eyebrow--light">Confianza</span>
+              <h2 id="cl-confianza">El paso por tu planta queda escrito</h2>
+            </div>
+            <div class="cl-trust-grid">
+              <div class="cl-trust-item">
+                <span class="cl-trust-ico" aria-hidden="true"><i class="fa fa-certificate"/></span>
+                <h3>En el certificado del lote</h3>
+                <p>Si la orden va ligada a un lote, el certificado de trazabilidad muestra en qué planta se empacó y con qué código de establecimiento.</p>
+              </div>
+              <div class="cl-trust-item">
+                <span class="cl-trust-ico" aria-hidden="true"><i class="fa fa-pencil-square-o"/></span>
+                <h3>Acta con dos firmas</h3>
+                <p>Cliente y planta firman sobre las mismas cifras. Cada firma congela los números que aceptó, con fecha y responsable.</p>
+              </div>
+              <div class="cl-trust-item">
+                <span class="cl-trust-ico" aria-hidden="true"><i class="fa fa-balance-scale"/></span>
+                <h3>Disputas con salida</h3>
+                <p>Si una parte no está conforme, el acta queda en disputa y se puede reabrir para rectificar. Las firmas anteriores se archivan, no se borran.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= FAQ ================= -->
+        <section class="cl-section" aria-labelledby="cl-faq">
+          <div class="cl-wrap">
+            <div class="cl-head">
+              <span class="cl-eyebrow">Preguntas frecuentes</span>
+              <h2 id="cl-faq">Lo que pregunta cada planta</h2>
+            </div>
+            <div class="cl-faq">
+              <details>
+                <summary>¿Cuánto cobra CamaronMarket?</summary>
+                <p>Una comisión por libra empacada que se calcula sobre las libras del acta, no sobre las declaradas. La ves en cada orden y en tu liquidación. Las órdenes con el acta en disputa no se liquidan hasta que las dos partes la cierren.</p>
+              </details>
+              <details>
+                <summary>¿Quién pone la tarifa?</summary>
+                <p>Tú. En tu perfil publicas precios «desde» por presentación (entero, cola, valor agregado) y puedes emitir tarifas firmes dirigidas a clientes concretos: solo ellos las ven. En cada solicitud ofertas tu precio por libra.</p>
+              </details>
+              <details>
+                <summary>¿Y si las libras no cuadran?</summary>
+                <p>El acta compara libras recibidas con libras empacadas contra la tolerancia pactada. Cada parte firma conforme o no conforme con su motivo; si alguien rechaza, el acta queda en disputa, no se factura y cualquiera de las dos puede reabrirla para corregir.</p>
+              </details>
+              <details>
+                <summary>¿Quién pone los insumos?</summary>
+                <p>El cliente: empaque, etiquetas y aditivos. Queda escrito qué lleva y si llegó completo, para que una línea parada por falta de cajas no se discuta después.</p>
+              </details>
+              <details>
+                <summary>¿Quién ve mi planta en el directorio?</summary>
+                <p>Las camaroneras y empacadoras con cuenta en CamaronMarket ven tu ubicación, capacidad y precios «desde». Puedes salir del directorio desde tu perfil y seguir recibiendo las solicitudes abiertas a todas las plantas.</p>
+              </details>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= CTA FINAL ================= -->
+        <section class="cl-cta" aria-labelledby="cl-cta-title">
+          <div class="cl-wrap cl-cta-inner">
+            <span class="cl-eyebrow cl-eyebrow--light">Empieza hoy</span>
+            <h2 id="cl-cta-title">Pon tu planta a trabajar con números claros</h2>
+            <p>Registra tu planta con su capacidad y tus precios «desde», y empieza a recibir solicitudes de empaque.</p>
+            <div class="cl-cta-btns">
+              <t t-if="es_publico">
+                <a href="/register/copacker" class="cl-btn cl-btn--primary cl-btn--lg"><i class="fa fa-industry" aria-hidden="true"/>Registrar mi planta</a>
+                <a href="/web/login?redirect=/copacker/inbox" class="cl-btn cl-btn--ghost cl-btn--lg"><i class="fa fa-sign-in" aria-hidden="true"/>Ya tengo cuenta</a>
+              </t>
+              <t t-else="">
+                <a t-att-href="url_buscar_planta" class="cl-btn cl-btn--primary cl-btn--lg"><i class="fa fa-search" aria-hidden="true"/>Buscar planta</a>
+              </t>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </t>
+  </template>
+
+</odoo>

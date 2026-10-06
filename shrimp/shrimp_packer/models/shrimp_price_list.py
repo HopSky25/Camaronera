@@ -1,5 +1,5 @@
 import logging
-from odoo import api, fields, models, _
+from odoo import SUPERUSER_ID, api, fields, models, _
 from odoo.exceptions import ValidationError
 
 from .res_partner import TASA_DESCUENTO_DEFECTO
@@ -21,7 +21,7 @@ class ShrimpPriceList(models.Model):
 
     _name = "shrimp.price.list"
     _description = "Lista de precios de compra"
-    _inherit = ["shrimp.uuid.mixin", "mail.thread"]
+    _inherit = ["shrimp.uuid.mixin", "mail.thread", "shrimp.notify.mixin"]
     _order = "issue_date desc, id desc"
 
     name = fields.Char(
@@ -110,9 +110,18 @@ class ShrimpPriceList(models.Model):
     # piscinas, asi que la empacadora reparte su lista "para el aguaje del 5 al
     # 11" y no "para la semana 41". Decir a que aguaje rige es lo que hace que
     # el productor sepa si esa lista le sirve para la cosecha que tiene encima.
+    #
+    # El calendario lo mantiene la plataforma (no los usuarios) y la lista
+    # tiene que elegir un aguaje de ese calendario: el que está en curso o uno
+    # próximo, nunca uno que ya pasó. Es obligatorio al publicar y al crear
+    # desde el portal, la API o la carga por Excel. Las listas históricas con
+    # aguaje pasado o sin aguaje siguen valiendo tal cual: la regla se aplica
+    # al crear, al cambiar el aguaje y al publicar (ver _regla_aguaje_activa).
     aguaje_id = fields.Many2one(
-        "shrimp.aguaje", string="Aguaje", ondelete="set null", index=True,
-        help="Período de mareas vivas al que corresponde esta lista.")
+        "shrimp.aguaje", string="Aguaje", ondelete="restrict", index=True,
+        copy=False, tracking=True,
+        help="Período de mareas vivas al que corresponde esta lista. Se elige "
+             "del calendario de la plataforma: el aguaje en curso o uno próximo.")
     aguaje_txt = fields.Char(
         string="Rige para", compute="_compute_aguaje_txt", store=True)
 
@@ -210,6 +219,28 @@ class ShrimpPriceList(models.Model):
             and (r.open_ended or not r.dispatch_to or r.dispatch_to >= hoy))
         return [("id", "in" if quiere else "not in", vigentes.ids)]
 
+    @api.model
+    def _shrimp_link_aguaje(self, ids=None):
+        """Pone a las listas indicadas (sin aguaje) el aguaje de su fecha de
+        despacho. Es lo que el formulario propone; lo usa la demo, que crea
+        las listas sin pasar por el formulario. No toca listas que ya tienen
+        aguaje ni las que despachan entre dos aguajes."""
+        listas = self.browse(ids or []).exists().filtered(
+            lambda l: not l.aguaje_id and l.dispatch_from)
+        Aguaje = self.env["shrimp.aguaje"]
+        hoy = fields.Date.context_today(self)
+        for lista in listas:
+            aguaje = Aguaje.aguaje_de(lista.dispatch_from)
+            if not aguaje and lista.dispatch_from >= hoy:
+                # Una lista que todavía no despacha (borrador o próxima) no
+                # puede quedarse sin aguaje: no se podría publicar. Se le pone
+                # el primero que empieza después de su fecha.
+                aguaje = Aguaje.search([("date_from", ">=", lista.dispatch_from)],
+                                       order="date_from", limit=1)
+            if aguaje:
+                lista.aguaje_id = aguaje
+        return True
+
     @api.depends("aguaje_id", "aguaje_id.date_from", "aguaje_id.date_to",
                  "dispatch_from", "dispatch_to")
     def _compute_aguaje_txt(self):
@@ -218,7 +249,8 @@ class ShrimpPriceList(models.Model):
             a = rec.aguaje_id
             if a:
                 rec.aguaje_txt = _("%(n)s · del %(d)s al %(h)s") % {
-                    "n": a.name, "d": a.date_from, "h": a.date_to}
+                    "n": a.name, "d": a.date_from.strftime("%d/%m/%Y"),
+                    "h": a.date_to.strftime("%d/%m/%Y")}
             else:
                 rec.aguaje_txt = False
 
@@ -231,7 +263,134 @@ class ShrimpPriceList(models.Model):
         el campo vacio.
         """
         if self.dispatch_from and not self.aguaje_id:
-            self.aguaje_id = self.env["shrimp.aguaje"].aguaje_de(self.dispatch_from)
+            aguaje = self.env["shrimp.aguaje"].aguaje_de(self.dispatch_from)
+            if aguaje and aguaje.date_to >= fields.Date.context_today(self):
+                self.aguaje_id = aguaje
+
+    @api.onchange("aguaje_id")
+    def _onchange_aguaje_despacho(self):
+        """Al elegir el aguaje se proponen las fechas de despacho que faltan."""
+        if self.aguaje_id:
+            propuesta = self._despacho_propuesto(self.aguaje_id, self.open_ended)
+            if not self.dispatch_from:
+                self.dispatch_from = propuesta["dispatch_from"]
+            if not self.open_ended and not self.dispatch_to:
+                self.dispatch_to = propuesta["dispatch_to"]
+
+    # ==================================================================
+    # Regla del aguaje
+    # ==================================================================
+    def _regla_aguaje_activa(self):
+        """¿Se aplica la regla del aguaje en esta operación?
+
+        Sí para todo lo que hace una persona o una integración: portal, API,
+        backoffice, aunque el controlador trabaje en sudo (sudo no cambia el
+        usuario). No para la carga de datos y demo del propio módulo
+        (install_mode), las migraciones y lo que corre como superusuario del
+        sistema, que es como se conserva y se reconstruye la historia: una
+        lista de hace tres meses rige, con razón, para un aguaje pasado.
+        El cron de publicación automática corre como superusuario, así que la
+        pide explícitamente con ``shrimp_aguaje_estricto``.
+        """
+        ctx = self.env.context
+        if ctx.get("install_mode") or ctx.get("shrimp_aguaje_historico"):
+            return False
+        if ctx.get("shrimp_aguaje_estricto"):
+            return True
+        return self.env.uid != SUPERUSER_ID
+
+    @api.model
+    def _despacho_propuesto(self, aguaje, open_ended=True):
+        """Las fechas de despacho que se proponen para un aguaje: desde que
+        empieza (o desde hoy, si ya está en curso) y, si la lista no es
+        «hasta segunda orden», hasta que termina."""
+        hoy = fields.Date.context_today(self)
+        if not aguaje:
+            return {"dispatch_from": False, "dispatch_to": False}
+        return {"dispatch_from": max(aguaje.date_from, hoy),
+                "dispatch_to": False if open_ended else aguaje.date_to}
+
+    def _validar_aguaje(self, exigir=False):
+        """El aguaje elegido no puede haber pasado, y el despacho no puede
+        contradecirlo (empezar después de que termine, o terminar antes de
+        que empiece). Con ``exigir`` además tiene que haber aguaje."""
+        hoy = fields.Date.context_today(self)
+        for rec in self:
+            a = rec.aguaje_id
+            if not a:
+                if exigir:
+                    raise ValidationError(_(
+                        "Elige el aguaje al que rige la lista (el actual o uno próximo)."))
+                continue
+            if a.date_to < hoy:
+                raise ValidationError(_(
+                    "El aguaje seleccionado ya pasó; elige el aguaje actual o uno "
+                    "próximo. («%(n)s» terminó el %(f)s.)") % {
+                    "n": a.name, "f": a.date_to.strftime("%d/%m/%Y")})
+            rec._validar_despacho_aguaje()
+
+    def _validar_despacho_aguaje(self):
+        """Solo las contradicciones claras. No se obliga a que el despacho
+        quepa dentro del aguaje: las listas reales rigen dos semanas o «hasta
+        segunda orden», mucho más que los cuatro o cinco días de un aguaje."""
+        for rec in self:
+            a = rec.aguaje_id
+            if not a:
+                continue
+            if rec.dispatch_from and rec.dispatch_from > a.date_to:
+                raise ValidationError(_(
+                    "El despacho empieza el %(d)s, cuando el %(n)s ya terminó (el "
+                    "%(h)s). Elige el aguaje que corresponde a esa fecha o "
+                    "cambia el inicio del despacho.") % {
+                    "d": rec.dispatch_from.strftime("%d/%m/%Y"), "n": a.name,
+                    "h": a.date_to.strftime("%d/%m/%Y")})
+            if (not rec.open_ended and rec.dispatch_to
+                    and rec.dispatch_to < a.date_from):
+                raise ValidationError(_(
+                    "El despacho termina el %(h)s, antes de que empiece el %(n)s "
+                    "(el %(d)s). Elige el aguaje que corresponde o cambia las "
+                    "fechas de despacho.") % {
+                    "h": rec.dispatch_to.strftime("%d/%m/%Y"), "n": a.name,
+                    "d": a.date_from.strftime("%d/%m/%Y")})
+
+    def _completar_despacho_desde_aguaje(self):
+        """Si la lista tiene aguaje y no fechas de despacho, se toman del
+        aguaje. Se escribe en el propio registro, sin pasar por write()."""
+        for rec in self:
+            if rec.aguaje_id and not rec.dispatch_from:
+                prop = rec._despacho_propuesto(rec.aguaje_id, rec.open_ended)
+                vals = {"dispatch_from": prop["dispatch_from"]}
+                if not rec.open_ended and not rec.dispatch_to:
+                    vals["dispatch_to"] = prop["dispatch_to"]
+                super(ShrimpPriceList, rec).write(vals)
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        recs = super().create(vals_list)
+        if recs._regla_aguaje_activa():
+            recs._completar_despacho_desde_aguaje()
+            recs._validar_aguaje()
+        return recs
+
+    def copy_data(self, default=None):
+        """Copiar es armar la lista del PRÓXIMO aguaje: se propone el aguaje
+        siguiente al de la lista de partida (o el de ahora, si aquella era
+        vieja) y las fechas de despacho salen de él."""
+        default = dict(default or {})
+        vals_list = super().copy_data(default)
+        for rec, vals in zip(self, vals_list):
+            if "aguaje_id" in default:
+                continue
+            siguiente = rec.aguaje_id.siguiente() if rec.aguaje_id \
+                else self.env["shrimp.aguaje"].siguiente()
+            vals["aguaje_id"] = siguiente.id or False
+            if siguiente:
+                prop = self._despacho_propuesto(siguiente, vals.get("open_ended", rec.open_ended))
+                if "dispatch_from" not in default:
+                    vals["dispatch_from"] = prop["dispatch_from"]
+                if "dispatch_to" not in default:
+                    vals["dispatch_to"] = prop["dispatch_to"]
+        return vals_list
 
     @api.constrains("issuer_partner_id", "recipient_ids")
     def _check_partes(self):
@@ -243,12 +402,12 @@ class ShrimpPriceList(models.Model):
         talla: una lista así no les dice nada.
         """
         for rec in self:
-            if rec.issuer_partner_id.shrimp_user_type != "empacadora":
+            if not rec.issuer_partner_id._shrimp_has_role("empacadora"):
                 raise ValidationError(_(
                     "Las listas de precios de compra las publica una "
                     "empacadora. «%s» no lo es.") % (rec.issuer_partner_id.name or ""))
             ajenos = rec.recipient_ids.filtered(
-                lambda p: p.shrimp_user_type != "camaronera")
+                lambda p: not p._shrimp_has_role("camaronera"))
             if ajenos:
                 raise ValidationError(_(
                     "Esta lista es de camarón adulto, así que va dirigida a "
@@ -278,6 +437,11 @@ class ShrimpPriceList(models.Model):
     # Acciones
     # ==================================================================
     def action_publish(self):
+        if self._regla_aguaje_activa():
+            # Obligatorio y vigente: el productor tiene que saber para qué
+            # marea es el precio, y una lista para un aguaje que ya pasó no le
+            # sirve a nadie.
+            self._validar_aguaje(exigir=True)
         for rec in self:
             if not rec.line_ids:
                 raise ValidationError(_(
@@ -400,23 +564,18 @@ class ShrimpPriceList(models.Model):
             "shrimp_packer.mail_template_precios_cambiaron", raise_if_not_found=False)
         if not plantilla:
             return
-        if not self.env["ir.mail_server"].sudo().search_count([]):
-            # Sin servidor SMTP intentar el envío deja la página colgada
-            # esperando el timeout por cada destinatario.
-            self.sudo()._message_log(body=_(
-                "No se avisó a %s del cambio de precios: no hay servidor de "
-                "correo saliente configurado.") % destinatario.name)
-            return
-        try:
-            plantilla.sudo().with_context(
-                destinatario=destinatario.name, cambios=cambios,
-            ).send_mail(self.id, force_send=True,
-                        email_values={"email_to": destinatario.email})
+        # Mismo envío y misma constancia que el resto de avisos de la
+        # plataforma (shrimp.notify.mixin): sin SMTP no se intenta (la página
+        # se quedaría colgada esperando el timeout) y el fallo queda escrito.
+        enviado = self._send_template(
+            "shrimp_packer.mail_template_precios_cambiaron", destinatario.email,
+            ctx={"destinatario": destinatario.name, "cambios": cambios})
+        if enviado:
             self.sudo()._message_log(body=_(
                 "Avisado a %(quien)s de %(n)s cambio(s) de precio en tallas que "
                 "tiene en stock.") % {"quien": destinatario.name, "n": len(cambios)})
-        except Exception:  # noqa: BLE001 - el correo no debe romper la publicación
-            pass
+        else:
+            self._log_notificacion([(destinatario, False)])
 
     def action_archive_list(self):
         self.write({"state": "archived"})
@@ -434,7 +593,20 @@ class ShrimpPriceList(models.Model):
             prods._sync_precio_lista()
 
     def write(self, vals):
+        regla = self._regla_aguaje_activa() and any(
+            k in vals for k in ("aguaje_id", "dispatch_from", "dispatch_to", "open_ended"))
+        antes = {r.id: r.aguaje_id.id for r in self} if regla else {}
         res = super().write(vals)
+        if regla:
+            # Cambiar el aguaje: el nuevo no puede haber pasado. Dejar el que
+            # ya tenía (una lista histórica que se corrige) no se revalida.
+            cambiadas = self.filtered(lambda r: r.aguaje_id.id != antes.get(r.id))
+            if cambiadas:
+                cambiadas._completar_despacho_desde_aguaje()
+                cambiadas._validar_aguaje()
+            # Mover las fechas de despacho: que no contradigan el aguaje.
+            if any(k in vals for k in ("dispatch_from", "dispatch_to", "open_ended")):
+                (self - cambiadas)._validar_despacho_aguaje()
         if any(k in vals for k in ("line_ids", "state")):
             self._resync_productos_vinculados()
         return res
@@ -464,26 +636,38 @@ class ShrimpPriceList(models.Model):
         for rec in pendientes:
             try:
                 with self.env.cr.savepoint():
-                    rec.action_publish()
+                    # El cron corre como superusuario, pero publicar es
+                    # publicar: la regla del aguaje se aplica igual.
+                    rec.with_context(shrimp_aguaje_estricto=True).action_publish()
                     # Se apaga la bandera: ya cumplió, y así no reintenta cada día.
                     rec.auto_publish = False
-            except Exception:  # noqa: BLE001
+            except Exception as e:  # noqa: BLE001
                 _logger.exception(
                     "Publicación automática fallida para la lista %s (id=%s)",
                     rec.name, rec.id)
+                if isinstance(e, ValidationError):
+                    # Que la empacadora vea por qué no salió su lista.
+                    rec.sudo()._message_log(body=_(
+                        "No se pudo publicar automáticamente: %s") % (e.args[0] if e.args else ""))
         return True
+
+    def _valores_copia_siguiente(self):
+        """Lo que cambia al copiar para el próximo aguaje. El aguaje siguiente
+        y las fechas de despacho que salen de él los pone copy_data."""
+        self.ensure_one()
+        return {
+            "name": _("%s (copia)") % self.name,
+            "state": "draft",
+            "issue_date": fields.Date.context_today(self),
+            "auto_publish": False,
+            "auto_publish_date": False,
+        }
 
     def action_duplicate_for_next(self):
         """Copia la lista para la semana siguiente: es como se trabaja de verdad,
         se parte de la anterior y se mueven dos o tres renglones."""
         self.ensure_one()
-        nueva = self.copy({
-            "name": _("%s (copia)") % self.name,
-            "state": "draft",
-            "issue_date": fields.Date.context_today(self),
-            "dispatch_from": False,
-            "dispatch_to": False,
-        })
+        nueva = self.copy(self._valores_copia_siguiente())
         return {
             "type": "ir.actions.act_window",
             "res_model": "shrimp.price.list",
@@ -1135,6 +1319,7 @@ class ShrimpPriceListLine(models.Model):
     """Un renglón de la matriz: talla × canal × calidad = precio."""
 
     _name = "shrimp.price.list.line"
+    _inherit = "shrimp.uuid.mixin"
     _description = "Precio por talla"
     _order = "price_list_id, size_grade_id"
 
@@ -1270,6 +1455,7 @@ class ShrimpPriceListBonus(models.Model):
     """
 
     _name = "shrimp.price.list.bonus"
+    _inherit = "shrimp.uuid.mixin"
     _description = "Bonificación de la lista de precios"
     _order = "price_list_id, sequence, id"
 

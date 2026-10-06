@@ -21,64 +21,44 @@
           <!-- KPIs -->
           <div class="row g-3 mb-4">
             <div class="col-6 col-lg-3">
-              <a t-att-class="'vw-kpi vw-kpi--new' + (' is-active' if filter_state=='pending' else '')" href="/verificador/bandeja?state=pending">
+              <a t-att-class="'vw-kpi vw-kpi--new' + (' is-active' if filter_state=='pending' else '')" href="/verifier/inbox?state=pending">
                 <span class="vw-kpi-ico"><i class="fa fa-hourglass-start"></i></span>
                 <span class="vw-kpi-body"><span class="vw-kpi-num"><t t-esc="counters['pending']"/></span><span class="vw-kpi-lbl">Por iniciar</span></span>
               </a>
             </div>
             <div class="col-6 col-lg-3">
-              <a t-att-class="'vw-kpi vw-kpi--field' + (' is-active' if filter_state=='in_field' else '')" href="/verificador/bandeja?state=in_field">
+              <a t-att-class="'vw-kpi vw-kpi--field' + (' is-active' if filter_state=='in_field' else '')" href="/verifier/inbox?state=in_field">
                 <span class="vw-kpi-ico"><i class="fa fa-map-marker"></i></span>
                 <span class="vw-kpi-body"><span class="vw-kpi-num"><t t-esc="counters['in_field']"/></span><span class="vw-kpi-lbl">En campo</span></span>
               </a>
             </div>
             <div class="col-6 col-lg-3">
-              <a t-att-class="'vw-kpi vw-kpi--done' + (' is-active' if filter_state=='done' else '')" href="/verificador/bandeja?state=done">
+              <a t-att-class="'vw-kpi vw-kpi--done' + (' is-active' if filter_state=='done' else '')" href="/verifier/inbox?state=done">
                 <span class="vw-kpi-ico"><i class="fa fa-gavel"></i></span>
                 <span class="vw-kpi-body"><span class="vw-kpi-num"><t t-esc="counters['done']"/></span><span class="vw-kpi-lbl">Por dictaminar</span></span>
               </a>
             </div>
             <div class="col-6 col-lg-3">
-              <a t-att-class="'vw-kpi' + (' is-active' if not filter_state else '')" href="/verificador/bandeja">
+              <a t-att-class="'vw-kpi' + (' is-active' if not filter_state else '')" href="/verifier/inbox">
                 <span class="vw-kpi-ico"><i class="fa fa-th-list"></i></span>
                 <span class="vw-kpi-body"><span class="vw-kpi-num"><t t-esc="counters['total']"/></span><span class="vw-kpi-lbl">Ver todas</span></span>
               </a>
             </div>
           </div>
 
-          <!-- Filtros -->
-          <div class="card s-filters-card mb-4">
-            <div class="card-body p-3">
-              <form method="get" action="/verificador/bandeja" class="row g-2 align-items-center">
-                <div class="col-md-6">
-                  <div class="input-group">
-                    <span class="input-group-text"><i class="fa fa-search"></i></span>
-                    <input type="text" name="q" class="form-control" t-att-value="q"
-                           placeholder="Buscar por referencia, lote o producto..."/>
-                  </div>
-                </div>
-                <div class="col-md-4">
-                  <select name="state" class="form-select">
-                    <option value="">Todos los estados</option>
-                    <option value="open" t-att-selected="filter_state == 'open' or None">Abiertas</option>
-                    <t t-foreach="state_options" t-as="opt">
-                      <option t-att-value="opt[0]" t-att-selected="filter_state == opt[0] or None">
-                        <t t-esc="opt[1]"/>
-                      </option>
-                    </t>
-                  </select>
-                </div>
-                <div class="col-md-2">
-                  <button class="s-btn s-btn-primary w-100" type="submit"><i class="fa fa-filter me-1"></i> Filtrar</button>
-                </div>
-              </form>
-            </div>
+          <!-- Barra (buscar · Filtros (N)) + etiquetas + cajón: las plantillas
+               reutilizables del marketplace. Los KPI de arriba siguen siendo
+               atajos de estado; el cajón añade el resto de estados que hay en
+               la bandeja y, solo para el admin, el técnico. -->
+          <div id="listado">
+            <t t-call="shrimp_marketplace.s_filter_toolbar"/>
+            <t t-call="shrimp_marketplace.s_filter_tags"/>
           </div>
 
           <t t-if="verifications">
             <div class="vstack gap-3">
               <t t-foreach="verifications" t-as="v">
-                <a t-attf-class="vw-order vw-order--#{v.state}" t-att-href="'/verificador/verificacion/{}'.format(v.uuid_ref)">
+                <a t-attf-class="vw-order vw-order--#{v.state}" t-att-href="'/verifier/verifications/{}'.format(v.uuid_ref)">
                   <div class="vw-order-main">
                     <div class="d-flex align-items-center gap-2 mb-1" style="flex-wrap:wrap;">
                       <strong style="color:var(--vw-ink); font-size:15px;"><t t-esc="v.name"/></strong>
@@ -115,6 +95,35 @@
               <div class="s-empty-ico"><i class="fa fa-clipboard"></i></div>
               <h3>Sin verificaciones</h3>
               <p>No tienes verificaciones con ese filtro.</p>
+              <a t-if="fd.get('active') or q" class="s-btn s-btn-ghost" href="/verifier/inbox">Quitar filtros</a>
+            </div>
+          </t>
+
+          <!-- ===== Cajón de filtros ===== -->
+          <t t-call="shrimp_marketplace.s_filter_drawer">
+            <div t-if="fd_show.get('state')" class="s-filter-sec" id="sf_sec_state">
+              <div class="s-filter-sec-label">Estado</div>
+              <div class="s-choice-chips">
+                <label class="s-choice">
+                  <input type="radio" name="state" value="" t-att-checked="not filter_state"/>
+                  <span>Todas</span>
+                </label>
+                <t t-foreach="estado_opts" t-as="opt">
+                  <label class="s-choice">
+                    <input type="radio" name="state" t-att-value="opt[0]" t-att-checked="filter_state == opt[0]"/>
+                    <span><t t-esc="opt[1]"/></span>
+                  </label>
+                </t>
+              </div>
+            </div>
+            <div t-if="fd_show.get('tech')" class="s-filter-sec" id="sf_sec_tech">
+              <label class="s-filter-sec-label" for="fltTech">Técnico</label>
+              <select class="form-select" name="tech" id="fltTech">
+                <option value="">Todos</option>
+                <t t-foreach="tech_opts" t-as="opt">
+                  <option t-att-value="opt[0]" t-att-selected="filters['tech'] == opt[0]"><t t-esc="opt[1]"/></option>
+                </t>
+              </select>
             </div>
           </t>
 
@@ -136,7 +145,7 @@
       <div class="shrimp-bg">
         <div class="shrimp-page shrimp-page--full py-4 sf-fields">
 
-          <a href="/verificador/bandeja" class="s-back mb-3">
+          <a href="/verifier/inbox" class="s-back mb-3">
             <i class="fa fa-arrow-left"></i>
             <span>Volver a la bandeja</span>
           </a>
@@ -160,7 +169,7 @@
                   <span class="mp-sec-ico"><i class="fa fa-file-text-o"></i></span>
                   <h3 class="mp-sec-title">Resumen</h3>
                 </div>
-                <a t-attf-href="/verificador/verificacion/#{v.uuid_ref}/detalle" class="s-btn s-btn-ghost btn-sm">
+                <a t-attf-href="/verifier/verifications/#{v.uuid_ref}/detail" class="s-btn s-btn-ghost btn-sm">
                   <i class="fa fa-expand me-1"/> Ver detalle completo
                 </a>
               </div>
@@ -200,19 +209,19 @@
                   Elige quién irá a campo. Al asignar, esa persona podrá iniciar la
                   verificación y registrar los valores. También puedes atenderla tú mismo.
                 </p>
-                <form method="post" t-attf-action="/verificador/verificacion/#{v.uuid_ref}/asignar"
+                <form method="post" t-attf-action="/verifier/verifications/#{v.uuid_ref}/assign"
                       class="row g-2 align-items-end">
                   <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                   <div class="col-md-6">
                     <label class="form-label">Técnico</label>
-                    <select name="technician_id" class="form-select" required="required">
+                    <select name="technician_ref" class="form-select" required="required">
                       <option value="">— Elegir técnico —</option>
-                      <option t-att-value="v.verifier_partner_id.id"
+                      <option t-att-value="v.verifier_partner_id.uuid_ref"
                               t-att-selected="v.technician_partner_id == v.verifier_partner_id or None">
                         Yo mismo (<t t-esc="v.verifier_partner_id.name"/>)
                       </option>
                       <t t-foreach="tecnicos" t-as="t">
-                        <option t-att-value="t.id"
+                        <option t-att-value="t.uuid_ref"
                                 t-att-selected="v.technician_partner_id == t or None">
                           <t t-esc="t.name"/>
                         </option>
@@ -242,117 +251,16 @@
     </t>
   </template>
 
-  <template id="verifier_detail" name="Verificador - Informe de campo">
-    <t t-call="website.layout">
-      <div class="shrimp-bg">
-        <div class="shrimp-page py-4 sf-fields">
-
-          <a href="/verificador/bandeja" class="s-back mb-3">
-            <i class="fa fa-arrow-left"></i>
-            <span>Volver a la bandeja</span>
-          </a>
-
-          <div class="sf-banner mb-4">
-            <div class="sf-banner-row">
-              <div class="sf-banner-txt">
-                <h1><t t-esc="v.name"/></h1>
-                <p>Informe de campo · <t t-esc="v.product_id.name"/></p>
-              </div>
-              <span t-attf-class="sf-kicker sv-badge--#{v.state}" style="border:none;">
-                <i class="fa fa-shield"></i> <t t-esc="dict(v._fields['state'].selection).get(v.state)"/>
-              </span>
-            </div>
-          </div>
-
-          <div class="mp-table-card mb-4">
-            <div class="card-body p-4">
-              <div class="mp-sec-head" style="justify-content:space-between;">
-                <div style="display:flex; align-items:center; gap:12px;">
-                  <span class="mp-sec-ico"><i class="fa fa-file-text-o"></i></span>
-                  <h3 class="mp-sec-title">Resumen</h3>
-                </div>
-                <a t-attf-href="/verificador/verificacion/#{v.uuid_ref}/detalle" class="s-btn s-btn-ghost btn-sm">
-                  <i class="fa fa-expand me-1"/> Ver detalle completo
-                </a>
-              </div>
-              <div class="mp-spec-grid">
-                <div class="mp-spec" style="grid-column:1 / -1;">
-                  <span class="mp-spec-ico"><i class="fa fa-cube"></i></span>
-                  <div class="mp-spec-body"><div class="mp-spec-label">Producto</div><div class="mp-spec-value"><t t-esc="v.product_id.name"/></div></div>
-                </div>
-                <div class="mp-spec">
-                  <span class="mp-spec-ico"><i class="fa fa-user-o"></i></span>
-                  <div class="mp-spec-body"><div class="mp-spec-label">Vendedor</div><div class="mp-spec-value"><t t-esc="v.seller_partner_id.name"/></div></div>
-                </div>
-                <div class="mp-spec">
-                  <span class="mp-spec-ico"><i class="fa fa-shopping-cart"></i></span>
-                  <div class="mp-spec-body"><div class="mp-spec-label">Comprador</div><div class="mp-spec-value"><t t-esc="v.buyer_partner_id.name"/></div></div>
-                </div>
-                <div class="mp-spec">
-                  <span class="mp-spec-ico"><i class="fa fa-cubes"></i></span>
-                  <div class="mp-spec-body"><div class="mp-spec-label">Cantidad comprada</div><div class="mp-spec-value"><t t-esc="'%.2f' % (v.transaction_id.transaction_qty or 0)"/> lb</div></div>
-                </div>
-                <div class="mp-spec">
-                  <span class="mp-spec-ico"><i class="fa fa-wrench"></i></span>
-                  <div class="mp-spec-body"><div class="mp-spec-label">Técnico de campo</div><div class="mp-spec-value"><t t-esc="v.technician_partner_id.name or 'sin asignar'"/></div></div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <t t-if="saved">
-            <div class="alert alert-success">Informe guardado.</div>
-          </t>
-          <t t-if="error">
-            <div class="alert alert-danger"><t t-esc="message or 'No se pudo guardar.'"/></div>
-          </t>
-
-          <t t-if="warnings">
-            <div class="alert alert-warning">
-              <strong>Revisa antes de dictaminar:</strong>
-              <ul class="mb-0 mt-2">
-                <t t-foreach="warnings" t-as="w"><li t-esc="w"/></t>
-              </ul>
-            </div>
-          </t>
-
-          <!-- Técnico asignado (la asignación es el paso 1, en su pantalla). -->
-          <t t-if="es_admin and not v.is_final">
-            <div class="alert alert-light d-flex justify-content-between align-items-center flex-wrap gap-2"
-                 style="border:1px solid var(--shrimp-border);">
-              <span><i class="fa fa-wrench me-2"/>Técnico de campo:
-                <strong t-esc="v.technician_partner_id.name or 'sin asignar'"/></span>
-              <a t-attf-href="/verificador/verificacion/#{v.uuid_ref}/asignar-tecnico"
-                 class="s-btn s-btn-ghost btn-sm">
-                <i class="fa fa-exchange me-1"/> Reasignar
-              </a>
-            </div>
-          </t>
-
-          <!-- Iniciar la verificación: la puede iniciar el técnico asignado o
-               el administrador de la empresa. -->
-          <t t-if="v.state == 'assigned'">
-            <t t-set="soy_el_tecnico" t-value="v.technician_partner_id == request.env.user.partner_id"/>
-            <form t-if="soy_el_tecnico or es_admin" method="post"
-                  t-att-action="'/verificador/verificacion/{}/iniciar'.format(v.uuid_ref)" class="mb-4">
-              <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-              <button class="s-btn s-btn-primary" type="submit">
-                <i class="fa fa-play me-1"/> Iniciar verificación
-              </button>
-            </form>
-            <div t-else="" class="alert alert-info mb-4">
-              Esperando a que <strong t-esc="v.technician_partner_id.name or 'el técnico asignado'"/>
-              o el administrador inicien la verificación.
-            </div>
-          </t>
-
-          <!-- Los campos del informe (y el veredicto) solo aparecen una vez
-               iniciada la verificación (estado 'in_field' o 'done'). -->
-          <t t-if="v.state in ('in_field', 'done')">
-            <form method="post" enctype="multipart/form-data"
-                  t-att-action="'/verificador/verificacion/{}/guardar'.format(v.uuid_ref)">
-              <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-
+  <!-- ================================================================
+       Campos del informe de verificación (parcial). Lo usan el informe de
+       campo del técnico (verifier_detail) y el informe DECLARADO por las
+       partes (declared_report): mismos datos, mismo formulario.
+       Variables: v, taste_criteria; opcionales photo_view_base y
+       photo_del_base (rutas de las fotos; por defecto, las del verificador).
+       ================================================================ -->
+  <template id="verification_report_fields" name="Verificación - campos del informe">
+    <t t-set="photo_view_base" t-value="photo_view_base or ('/verifier/verifications/%s' % v.uuid_ref)"/>
+    <t t-set="photo_del_base" t-value="photo_del_base or ('/verifier/verifications/%s' % v.uuid_ref)"/>
               <div class="sv-section">
                 <h3>Datos del parte</h3>
 
@@ -382,7 +290,9 @@
                 </div>
 
                 <div class="sv-muted small" style="margin-top:12px; margin-bottom:6px;">
-                  <strong>Dónde y cuándo se verifica</strong> — esto lo registra el técnico.
+                  <strong>Dónde y cuándo se verifica</strong> —
+                  <t t-if="v.verification_mode == 'declared'">lo registra la parte que carga el informe.</t>
+                  <t t-else="">esto lo registra el técnico.</t>
                 </div>
                 <div class="row g-3">
                   <div class="col-md-4"><label>Planta procesadora</label>
@@ -494,6 +404,7 @@
                 <t t-set="la" t-value="v.line_ids.filtered(lambda l: l.quality_class == 'a')[:1]"/>
                 <t t-set="lb" t-value="v.line_ids.filtered(lambda l: l.quality_class == 'b')[:1]"/>
                 <t t-set="lc" t-value="v.line_ids.filtered(lambda l: l.quality_class == 'c')[:1]"/>
+                <div class="table-responsive">
                 <table class="table sv-table" id="svLines">
                   <thead>
                     <tr><th class="w-25">Clase</th><th>Talla</th><th>Libras</th></tr>
@@ -516,6 +427,7 @@
                     </tr>
                   </tbody>
                 </table>
+                </div>
                 <div class="sv-calc">
                   Total procesado <strong id="svTotal"><t t-esc="'{:.2f} lb'.format(v.total_processed_lb)"/></strong> ·
                   Rendimiento <strong id="svYield"><t t-esc="'{:.2f} %'.format(v.yield_pct)"/></strong>
@@ -672,16 +584,18 @@
                      Las ya adjuntas salen a la derecha del +, en la misma galería. -->
                 <input type="file" name="photo_files" multiple="multiple" accept="image/*"
                        capture="environment" id="svPhotoInput" class="d-none"/>
-                <div class="sv-photo-gallery" id="svPhotoGallery" t-att-data-ref="v.uuid_ref">
+                <div class="sv-photo-gallery" id="svPhotoGallery" t-att-data-ref="v.uuid_ref"
+                     t-att-data-del-base="photo_del_base">
                   <button type="button" class="sv-photo-add" id="svPhotoAdd" title="Agregar fotos">
                     <i class="fa fa-plus"></i>
                   </button>
                   <t t-foreach="v.photo_ids" t-as="f">
-                    <div class="sv-photo-thumb" t-att-data-id="f.id">
-                      <a t-attf-href="/verificador/verificacion/#{v.uuid_ref}/foto/#{f.id}" target="_blank">
-                        <img t-attf-src="/verificador/verificacion/#{v.uuid_ref}/foto/#{f.id}" alt="Foto"/>
+                    <t t-set="ftok" t-value="v.photo_token(f)"/>
+                    <div class="sv-photo-thumb" t-att-data-id="ftok">
+                      <a t-attf-href="#{photo_view_base}/photos/#{ftok}" target="_blank">
+                        <img t-attf-src="#{photo_view_base}/photos/#{ftok}" alt="Foto"/>
                       </a>
-                      <button type="button" class="sv-photo-del" data-remove-attached="1" t-att-data-id="f.id" title="Eliminar">×</button>
+                      <button type="button" class="sv-photo-del" data-remove-attached="1" t-att-data-id="ftok" title="Eliminar">×</button>
                     </div>
                   </t>
                 </div>
@@ -726,7 +640,7 @@
                         openModal(function(){
                           var id=btn.getAttribute('data-id');
                           var fd=new FormData(); fd.append('csrf_token', token);
-                          fetch('/verificador/verificacion/'+ref+'/foto/'+id+'/eliminar', {method:'POST', body:fd})
+                          fetch((gallery.getAttribute('data-del-base')||('/verifier/verifications/'+ref))+'/photos/'+id+'/delete', {method:'POST', body:fd})
                             .then(function(r){ if(r.ok){ var t=btn.closest('.sv-photo-thumb'); if(t) t.remove(); }
                                                else { window.alert('No se pudo eliminar la foto.'); } });
                         });
@@ -760,12 +674,126 @@
                   })();
                 </script>
               </div>
+  </template>
 
-              <div class="d-flex gap-2 mb-4">
+  <template id="verifier_detail" name="Verificador - Informe de campo">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page py-4 sf-fields">
+
+          <a href="/verifier/inbox" class="s-back mb-3">
+            <i class="fa fa-arrow-left"></i>
+            <span>Volver a la bandeja</span>
+          </a>
+
+          <div class="sf-banner mb-4">
+            <div class="sf-banner-row">
+              <div class="sf-banner-txt">
+                <h1><t t-esc="v.name"/></h1>
+                <p>Informe de campo · <t t-esc="v.product_id.name"/></p>
+              </div>
+              <span t-attf-class="sf-kicker sv-badge--#{v.state}" style="border:none;">
+                <i class="fa fa-shield"></i> <t t-esc="dict(v._fields['state'].selection).get(v.state)"/>
+              </span>
+            </div>
+          </div>
+
+          <div class="mp-table-card mb-4">
+            <div class="card-body p-4">
+              <div class="mp-sec-head" style="justify-content:space-between;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                  <span class="mp-sec-ico"><i class="fa fa-file-text-o"></i></span>
+                  <h3 class="mp-sec-title">Resumen</h3>
+                </div>
+                <a t-attf-href="/verifier/verifications/#{v.uuid_ref}/detail" class="s-btn s-btn-ghost btn-sm">
+                  <i class="fa fa-expand me-1"/> Ver detalle completo
+                </a>
+              </div>
+              <div class="mp-spec-grid">
+                <div class="mp-spec" style="grid-column:1 / -1;">
+                  <span class="mp-spec-ico"><i class="fa fa-cube"></i></span>
+                  <div class="mp-spec-body"><div class="mp-spec-label">Producto</div><div class="mp-spec-value"><t t-esc="v.product_id.name"/></div></div>
+                </div>
+                <div class="mp-spec">
+                  <span class="mp-spec-ico"><i class="fa fa-user-o"></i></span>
+                  <div class="mp-spec-body"><div class="mp-spec-label">Vendedor</div><div class="mp-spec-value"><t t-esc="v.seller_partner_id.name"/></div></div>
+                </div>
+                <div class="mp-spec">
+                  <span class="mp-spec-ico"><i class="fa fa-shopping-cart"></i></span>
+                  <div class="mp-spec-body"><div class="mp-spec-label">Comprador</div><div class="mp-spec-value"><t t-esc="v.buyer_partner_id.name"/></div></div>
+                </div>
+                <div class="mp-spec">
+                  <span class="mp-spec-ico"><i class="fa fa-cubes"></i></span>
+                  <div class="mp-spec-body"><div class="mp-spec-label">Cantidad comprada</div><div class="mp-spec-value"><t t-esc="'%.2f' % (v.transaction_id.transaction_qty or 0)"/> lb</div></div>
+                </div>
+                <div class="mp-spec">
+                  <span class="mp-spec-ico"><i class="fa fa-wrench"></i></span>
+                  <div class="mp-spec-body"><div class="mp-spec-label">Técnico de campo</div><div class="mp-spec-value"><t t-esc="v.technician_partner_id.name or 'sin asignar'"/></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <t t-if="saved">
+            <div class="alert alert-success">Informe guardado.</div>
+          </t>
+          <t t-if="error">
+            <div class="alert alert-danger"><t t-esc="message or 'No se pudo guardar.'"/></div>
+          </t>
+
+          <t t-if="warnings">
+            <div class="alert alert-warning">
+              <strong>Revisa antes de dictaminar:</strong>
+              <ul class="mb-0 mt-2">
+                <t t-foreach="warnings" t-as="w"><li t-esc="w"/></t>
+              </ul>
+            </div>
+          </t>
+
+          <!-- Técnico asignado (la asignación es el paso 1, en su pantalla). -->
+          <t t-if="es_admin and not v.is_final">
+            <div class="alert alert-light d-flex justify-content-between align-items-center flex-wrap gap-2"
+                 style="border:1px solid var(--shrimp-border);">
+              <span><i class="fa fa-wrench me-2"/>Técnico de campo:
+                <strong t-esc="v.technician_partner_id.name or 'sin asignar'"/></span>
+              <a t-attf-href="/verifier/verifications/#{v.uuid_ref}/assign-technician"
+                 class="s-btn s-btn-ghost btn-sm">
+                <i class="fa fa-exchange me-1"/> Reasignar
+              </a>
+            </div>
+          </t>
+
+          <!-- Iniciar la verificación: la puede iniciar el técnico asignado o
+               el administrador de la empresa. -->
+          <t t-if="v.state == 'assigned'">
+            <t t-set="soy_el_tecnico" t-value="v.technician_partner_id == request.env.user.partner_id"/>
+            <form t-if="soy_el_tecnico or es_admin" method="post"
+                  t-att-action="'/verifier/verifications/{}/start'.format(v.uuid_ref)" class="mb-4">
+              <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+              <button class="s-btn s-btn-primary" type="submit">
+                <i class="fa fa-play me-1"/> Iniciar verificación
+              </button>
+            </form>
+            <div t-else="" class="alert alert-info mb-4">
+              Esperando a que <strong t-esc="v.technician_partner_id.name or 'el técnico asignado'"/>
+              o el administrador inicien la verificación.
+            </div>
+          </t>
+
+          <!-- Los campos del informe (y el veredicto) solo aparecen una vez
+               iniciada la verificación (estado 'in_field' o 'done'). -->
+          <t t-if="v.state in ('in_field', 'done')">
+            <form method="post" enctype="multipart/form-data"
+                  t-att-action="'/verifier/verifications/{}/save'.format(v.uuid_ref)">
+              <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+
+              <t t-call="shrimp_verification.verification_report_fields"/>
+
+              <div class="d-flex flex-wrap gap-2 mb-4">
                 <button class="s-btn s-btn-primary" type="submit">
                   <i class="fa fa-save me-1"/> Guardar informe
                 </button>
-                <a class="s-btn s-btn-ghost" href="/verificador/bandeja">Guardar y salir</a>
+                <a class="s-btn s-btn-ghost" href="/verifier/inbox">Guardar y salir</a>
               </div>
               <div class="sv-muted small mb-4">
                 Puedes guardar por partes: el informe no tiene que completarse de una sola vez.
@@ -776,7 +804,7 @@
             <t t-if="v.state in ('in_field', 'done')">
               <div class="sv-section sv-section--verdict">
                 <h3>Veredicto</h3>
-                <form method="post" t-att-action="'/verificador/verificacion/{}/veredicto'.format(v.uuid_ref)">
+                <form method="post" t-att-action="'/verifier/verifications/{}/verdict'.format(v.uuid_ref)">
                   <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                   <textarea class="form-control mb-3" name="verdict_notes" rows="2"
                             placeholder="Conclusión del verificador..."/>
@@ -934,6 +962,7 @@
 
                 <t t-if="v.line_ids">
                   <h4 class="sv-h4 mt-3">Clasificación por tallas</h4>
+                  <div class="table-responsive">
                   <table class="sv-tabla">
                     <thead>
                       <tr><th>Clase</th><th>Talla</th><th class="text-end">Libras</th><th class="text-end">% del total</th></tr>
@@ -949,6 +978,7 @@
                       </t>
                     </tbody>
                   </table>
+                  </div>
                 </t>
               </t>
 
@@ -965,8 +995,9 @@
                 <h3>Fotos de campo <span class="sv-muted">(<t t-esc="len(v.photo_ids)"/>)</span></h3>
                 <div class="sv-fotos">
                   <t t-foreach="v.photo_ids" t-as="f">
-                    <a t-attf-href="/verificador/verificacion/#{v.uuid_ref}/foto/#{f.id}" target="_blank">
-                      <img t-attf-src="/verificador/verificacion/#{v.uuid_ref}/foto/#{f.id}" alt="Foto de campo"/>
+                    <t t-set="ftok" t-value="v.photo_token(f)"/>
+                    <a t-attf-href="/verifier/verifications/#{v.uuid_ref}/photos/#{ftok}" target="_blank">
+                      <img t-attf-src="/verifier/verifications/#{v.uuid_ref}/photos/#{ftok}" alt="Foto de campo"/>
                     </a>
                   </t>
                 </div>
@@ -1091,8 +1122,8 @@
                     <div class="mp-spec">
                       <span class="mp-spec-ico"><i class="fa fa-shield"></i></span>
                       <div class="mp-spec-body">
-                        <div class="mp-spec-label">Verificador</div>
-                        <div class="mp-spec-value"><t t-esc="v.verifier_partner_id.name if v else '—'"/></div>
+                        <div class="mp-spec-label">Verificación</div>
+                        <div class="mp-spec-value"><t t-esc="v.verification_label() if v else '—'"/></div>
                       </div>
                     </div>
                     <div class="mp-spec">
@@ -1145,7 +1176,7 @@
           </div>
 
           <div class="d-flex justify-content-center gap-2 mt-4" style="flex-wrap:wrap;">
-            <a class="s-btn s-btn-primary" href="/marketplace/compras"><i class="fa fa-shopping-cart me-1"></i> Ver mis compras</a>
+            <a class="s-btn s-btn-primary" href="/marketplace/purchases"><i class="fa fa-shopping-cart me-1"></i> Ver mis compras</a>
             <a class="s-btn s-btn-ghost" href="/marketplace">Seguir explorando</a>
           </div>
 
@@ -1186,7 +1217,7 @@
          el total y de rellenarse qty_hidden_buy, y la compra fallaría pidiendo
          "una cantidad válida". El otro script, el del modal de chequeo, sí se
          desactiva solo: exige checkForm y chkModal, y ambos ya no están. -->
-    <xpath expr="//form[@id='checkForm']/following-sibling::div[1]" position="replace"/>
+    <xpath expr="//div[@id='checkFormHint']" position="replace"/>
     <xpath expr="//div[@id='chkModal']" position="replace"/>
     <xpath expr="//form[@id='checkForm']" position="replace">
       <span id="btn_check" class="d-none" aria-hidden="true"/>
@@ -1207,21 +1238,84 @@
               Esta compra requiere verificación en campo
             </div>
             <p class="sv-muted small">
-              El camarón adulto se inspecciona antes de cerrar la operación. Elige un
-              verificador acreditado: revisará peso, cuerpo o cola, metabisulfito,
-              clasificación y sabor.
+              El camarón adulto se verifica antes de cerrar la operación (peso, cuerpo
+              o cola, metabisulfito, clasificación y sabor). Elige cómo: con una
+              verificadora acreditada de la plataforma, o con una verificación
+              declarada por las partes.
+            </p>
+          </t>
+          <t t-else="">
+            <p class="sv-muted small mb-2">
+              Opcional: puedes pedir que esta compra se verifique antes de cerrarla.
             </p>
           </t>
 
-          <t t-if="verifiers">
+          <t>
             <form method="post"
-                  t-att-action="'/marketplace/buy/{}/verificar'.format(product.uuid_ref)">
+                  t-att-action="'/marketplace/buy/{}/verify'.format(product.uuid_ref)">
               <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
               <input type="hidden" name="qty" id="qty_hidden_verify"/>
 
               <div id="svMsg" class="sv-msg" style="display:none;" role="alert"></div>
 
-              <label class="fw-bold mb-2">Verificador</label>
+              <!-- MODO DE VERIFICACIÓN: dos opciones, sin «no aplica». -->
+              <label class="fw-bold mb-2">¿Cómo se verifica esta compra?</label>
+              <div class="sv-modes mb-3" id="sv_modes">
+                <label class="sv-mode">
+                  <input type="radio" name="verification_mode" value="platform"
+                         class="sv-mode-radio" t-att-disabled="None if verifiers else 'disabled'"/>
+                  <span class="sv-mode-title"><i class="fa fa-shield me-1"/> Verificadora de la plataforma</span>
+                  <span class="sv-mode-txt">
+                    Un verificador <strong>acreditado</strong> por la plataforma va a planta,
+                    registra el informe y emite el veredicto; comprador y vendedor lo
+                    aceptan. Tiene <strong>honorario de verificación</strong> (lo ves antes
+                    de confirmar).
+                  </span>
+                </label>
+                <label class="sv-mode">
+                  <input type="radio" name="verification_mode" value="declared" class="sv-mode-radio"/>
+                  <span class="sv-mode-title"><i class="fa fa-handshake-o me-1"/> Verificación declarada por las partes</span>
+                  <span class="sv-mode-txt">
+                    Ustedes ya tienen una verificadora <strong>fuera de la plataforma</strong>
+                    (por convenio o no registrada aquí) o verifican por su cuenta. Tú o el
+                    vendedor cargan el informe (los mismos datos, fotos y el PDF) y la
+                    <strong>otra parte lo confirma</strong>. Sin honorario de verificación;
+                    la comisión de la venta se cobra igual. En la trazabilidad figura como
+                    «declarada por las partes», no como verificación acreditada.
+                  </span>
+                </label>
+              </div>
+
+              <div id="sv_declared_box" class="sv-declared-box mb-3" style="display:none;">
+                <div class="fw-bold mb-1">¿Quién verificó? <span class="sv-muted small">(se puede completar después)</span></div>
+                <div class="d-flex flex-wrap gap-3 mb-2">
+                  <label class="small"><input type="radio" name="declared_source" value="external" checked="checked"/> Una verificadora externa</label>
+                  <label class="small"><input type="radio" name="declared_source" value="self"/> Lo verificamos nosotros mismos</label>
+                </div>
+                <div class="row g-2">
+                  <div class="col-md-7">
+                    <input type="text" class="form-control" name="external_verifier_name" maxlength="200"
+                           placeholder="Nombre de la verificadora externa (opcional)"/>
+                  </div>
+                  <div class="col-md-5">
+                    <input type="text" class="form-control" name="external_verifier_vat" maxlength="20"
+                           placeholder="RUC (opcional)"/>
+                  </div>
+                </div>
+                <div class="sv-muted small mt-2">
+                  Al confirmar se reserva la cantidad y se abre el formulario del informe
+                  declarado. Cualquiera de las dos partes puede cargarlo; quien lo presenta
+                  lo suscribe y la otra parte lo acepta, lo rechaza o (el comprador)
+                  propone otro precio.
+                </div>
+              </div>
+
+              <div id="sv_platform_box" style="display:none;">
+              <div t-if="not verifiers" class="alert alert-warning mb-3">
+                No hay ningún verificador con acreditación aprobada y vigente en este
+                momento. Puedes usar la verificación declarada por las partes.
+              </div>
+              <label class="fw-bold mb-2" t-if="verifiers">Verificador</label>
 
               <!-- Buscador: con muchas verificadoras la lista se vuelve larga.
                    Se filtra en el navegador porque están todas en la página;
@@ -1251,7 +1345,7 @@
                            dice mucho: el comprador necesita saber a quién le está
                            confiando la inspección, no solo que tiene un papel. -->
                       <button type="button" class="sv-eye js-verif-info"
-                              t-attf-data-verif="verif_#{ver.id}"
+                              t-attf-data-verif="verif_#{ver.uuid_ref}"
                               title="Ver la ficha de la verificadora"
                               onclick="event.preventDefault(); event.stopPropagation();">
                         <i class="fa fa-eye"/>
@@ -1293,13 +1387,13 @@
                      botones al cargar la página, así que tienen que existir ya
                      en el DOM para que el PDF funcione desde dentro del modal. -->
                 <t t-foreach="verifiers" t-as="ver">
-                  <div class="sv-info-modal" t-attf-id="verif_#{ver.id}">
+                  <div class="sv-info-modal" t-attf-id="verif_#{ver.uuid_ref}">
                     <div class="sv-info-card">
                       <div class="sv-info-head">
                         <div>
                           <div class="sv-info-nombre"><t t-esc="ver.name"/></div>
-                          <div class="sv-info-sub" t-if="ver.ver_razon_social and ver.ver_razon_social != ver.name"
-                               t-esc="ver.ver_razon_social"/>
+                          <div class="sv-info-sub" t-if="ver.shrimp_razon_social and ver.shrimp_razon_social != ver.name"
+                               t-esc="ver.shrimp_razon_social"/>
                         </div>
                         <button type="button" class="sv-info-cerrar js-verif-cerrar"
                                 aria-label="Cerrar">
@@ -1333,7 +1427,7 @@
                                  como imagen y un icono de PDF ahí engañaría. -->
                             <t t-set="es_pdf" t-value="(doc.mimetype or '') == 'application/pdf'"/>
                             <button type="button" class="sv-info-pdf js-cert-view"
-                                    t-attf-data-url="/marketplace/verificador/#{ver.uuid_ref}/acreditacion"
+                                    t-attf-data-url="/marketplace/verifiers/#{ver.uuid_ref}/accreditation"
                                     title="Abrir el certificado de acreditación">
                               <i t-attf-class="fa fa-file-#{'pdf' if es_pdf else 'image'}-o"/>
                               <span>Ver certificado</span>
@@ -1372,25 +1466,25 @@
 
                         <!-- Quién es y dónde opera -->
                         <div class="sv-info-datos">
-                          <div t-if="ver.ver_representante">
+                          <div t-if="ver.shrimp_representante">
                             <span>Responsable técnico</span>
-                            <strong t-esc="ver.ver_representante"/>
+                            <strong t-esc="ver.shrimp_representante"/>
                           </div>
                           <div t-if="ver.ver_registro_num">
                             <span>Registro</span>
                             <strong t-esc="ver.ver_registro_num"/>
                           </div>
-                          <div t-if="ver.ver_ubicacion or ver.city">
+                          <div t-if="ver.shrimp_ubicacion or ver.city">
                             <span>Base de operaciones</span>
-                            <strong t-esc="ver.ver_ubicacion or ver.city"/>
+                            <strong t-esc="ver.shrimp_ubicacion or ver.city"/>
                           </div>
                           <div t-if="ver.ver_cobertura">
                             <span>Zonas que cubre</span>
                             <strong t-esc="ver.ver_cobertura"/>
                           </div>
-                          <div t-if="ver.ver_telefono or ver.phone">
+                          <div t-if="ver.shrimp_telefono or ver.phone">
                             <span>Teléfono</span>
-                            <strong t-esc="ver.ver_telefono or ver.phone"/>
+                            <strong t-esc="ver.shrimp_telefono or ver.phone"/>
                           </div>
                           <div t-if="ver.email">
                             <span>Correo</span>
@@ -1470,6 +1564,7 @@
                   Ver las <span id="sv_restantes">0</span> verificadoras restantes
                 </a>
               </div>
+              </div>
 
               <t t-set="tarifa" t-value="request.env['shrimp.verification.fee'].sudo()"/>
               <t t-set="params" t-value="request.env['ir.config_parameter'].sudo()"/>
@@ -1490,7 +1585,7 @@
                     <span class="mp-sec-ico"><i class="fa fa-shield"/></span>
                     <h3 class="mp-sec-title">Enviar a verificación</h3>
                   </div>
-                  <p class="text-soft" style="font-size:13px; margin-bottom:14px;">
+                  <p class="text-soft" style="font-size:13px; margin-bottom:14px;" id="svModalTxt">
                     Un verificador acreditado irá a campo a inspeccionar el lote.
                     Al confirmar se <strong>reserva la cantidad</strong> indicada.
                   </p>
@@ -1499,7 +1594,7 @@
                     <span>Producto (<span id="svQty">0</span> <t t-esc="product.uom_id.name or ''"/>)</span>
                     <span>$<span id="svProd">0.00</span></span>
                   </div>
-                  <div class="buy-modal-row">
+                  <div class="buy-modal-row" id="svFeeRow">
                     <span>
                       Verificación en campo
                       <span class="sv-fee-detail" id="svFeeDetail"/>
@@ -1522,11 +1617,11 @@
                       apruebe. Si rechaza, la reserva se libera y no pagas el lote.
                     </div>
                     <div class="mt-2">
-                      Verificador elegido: <strong id="svVerif">—</strong>
+                      <span id="svVerifLbl">Verificador elegido:</span> <strong id="svVerif">—</strong>
                     </div>
                   </div>
 
-                  <div class="d-flex gap-2 mt-3">
+                  <div class="d-flex flex-wrap gap-2 mt-3">
                     <button type="button" class="s-btn s-btn-ghost" id="svCancel" style="flex:1;">
                       Cancelar
                     </button>
@@ -1538,17 +1633,18 @@
               </div>
               <div class="sv-muted small mt-2">
                 La cantidad queda reservada. No se cobra ni se transfiere el producto
-                hasta que el verificador apruebe y tú concluyas la compra.
+                hasta que el informe (del verificador o declarado) quede aceptado por
+                las dos partes y tú concluyas la compra.
               </div>
               <div t-if="not es_adulto" class="mt-2" id="sv_undo" style="display:none;">
                 <a href="#" class="sv-muted small">
-                  <i class="fa fa-arrow-left me-1"/> Quitar el verificador y comprar directo
+                  <i class="fa fa-arrow-left me-1"/> Quitar la verificación y comprar directo
                 </a>
               </div>
             </form>
             <script type="text/javascript">
               (function(){
-                var f = document.querySelector('form[action$="/verificar"]');
+                var f = document.querySelector('form[action$="/verify"]');
                 if(!f){ return; }
 
                 var qtyInput  = document.getElementById('qty_input');
@@ -1611,21 +1707,41 @@
 
                 function dinero(n){ return (isNaN(n) ? 0 : n).toFixed(2); }
 
+                function modo(){
+                  var m = f.querySelector('input[name="verification_mode"]:checked');
+                  return m ? m.value : '';
+                }
+
                 function abrirDesglose(){
                   var q = qty();
                   var elegido = f.querySelector('input[name="verifier_ref"]:checked');
+                  var declarada = modo() === 'declared';
                   if(q &lt;= 0 || q &gt; available){
                     mostrarMensaje('Ingresa una cantidad válida (entre 1 y ' + available + ') antes de continuar.');
                     return;
                   }
-                  if(!elegido){
+                  if(!modo()){
+                    mostrarMensaje('Elige cómo se verifica la compra: verificadora de la plataforma o verificación declarada por las partes.');
+                    return;
+                  }
+                  if(!declarada &amp;&amp; !elegido){
                     mostrarMensaje('Elige un verificador antes de continuar.');
                     return;
                   }
                   limpiarMensaje();
-                  var nombre = elegido.closest('label')
-                                      .querySelector('.sv-verifier-name');
-                  var hon = honorarioDe(q);
+                  var nombre = elegido ? elegido.closest('label')
+                                      .querySelector('.sv-verifier-name') : null;
+                  var hon = declarada ? {total: 0, bruto: 0} : honorarioDe(q);
+                  var feeRow = document.getElementById('svFeeRow');
+                  if(feeRow){ feeRow.style.display = declarada ? 'none' : ''; }
+                  var txt = document.getElementById('svModalTxt');
+                  if(txt){
+                    txt.innerHTML = declarada
+                      ? 'Verificación <strong>declarada por las partes</strong>: tú o el vendedor cargan el informe y la otra parte lo confirma. Sin honorario de verificación. Al confirmar se <strong>reserva la cantidad</strong> indicada.'
+                      : 'Un verificador acreditado irá a campo a inspeccionar el lote. Al confirmar se <strong>reserva la cantidad</strong> indicada.';
+                  }
+                  var lbl = document.getElementById('svVerifLbl');
+                  if(lbl){ lbl.textContent = declarada ? 'Modo:' : 'Verificador elegido:'; }
                   document.getElementById('svQty').textContent = q;
                   document.getElementById('svProd').textContent = dinero(q * precio);
                   document.getElementById('svFee').textContent = dinero(hon.total);
@@ -1637,8 +1753,9 @@
                   if(hon.total &lt; hon.bruto){ detalle += ' (tope $' + dinero(cfg.max) + ')'; }
                   if(hon.total &gt; hon.bruto){ detalle += ' (mínimo $' + dinero(cfg.min) + ')'; }
                   document.getElementById('svFeeDetail').textContent = detalle;
-                  document.getElementById('svVerif').textContent =
-                    nombre ? nombre.textContent.trim() : '—';
+                  document.getElementById('svVerif').textContent = declarada
+                    ? 'Verificación declarada por las partes'
+                    : (nombre ? nombre.textContent.trim() : '—');
                   if(modal){ modal.style.display = 'flex'; }
                 }
 
@@ -1685,16 +1802,30 @@
                   var q = qty();
                   var valido = q &gt; 0 &amp;&amp; q &lt;= available;
 
-                  // Con verificador elegido la compra directa deja de aplicar.
-                  if(buyForm){ buyForm.style.display = elegido ? 'none' : ''; }
-                  if(undo){ undo.style.display = elegido ? '' : 'none'; }
+                  // Con un modo elegido la compra directa deja de aplicar.
+                  var m = modo();
+                  var pBox = document.getElementById('sv_platform_box');
+                  var dBox = document.getElementById('sv_declared_box');
+                  if(pBox){ pBox.style.display = m === 'platform' ? '' : 'none'; }
+                  if(dBox){ dBox.style.display = m === 'declared' ? '' : 'none'; }
+                  f.querySelectorAll('input[name="verifier_ref"]').forEach(function(r){
+                    if(m === 'platform'){ r.setAttribute('required', 'required'); }
+                    else { r.removeAttribute('required'); }
+                  });
+                  f.querySelectorAll('label.sv-mode').forEach(function(el){
+                    var r = el.querySelector('input[name="verification_mode"]');
+                    el.classList.toggle('is-selected', !!(r &amp;&amp; r.checked));
+                  });
+                  var conModo = !!m;
+                  if(buyForm){ buyForm.style.display = conModo ? 'none' : ''; }
+                  if(undo){ undo.style.display = conModo ? '' : 'none'; }
                   if(btnVerify){
                     if(valido){ btnVerify.removeAttribute('disabled'); }
                     else { btnVerify.setAttribute('disabled', 'disabled'); }
                   }
                 }
 
-                f.querySelectorAll('input[name="verifier_ref"]').forEach(function(r){
+                f.querySelectorAll('input[name="verifier_ref"], input[name="verification_mode"]').forEach(function(r){
                   r.addEventListener('change', sync);
                 });
                 if(qtyInput){ qtyInput.addEventListener('input', sync); }
@@ -1755,25 +1886,14 @@
                     ev.preventDefault();
                     var c = f.querySelector('input[name="verifier_ref"]:checked');
                     if(c){ c.checked = false; }
+                    var mm = f.querySelector('input[name="verification_mode"]:checked');
+                    if(mm){ mm.checked = false; }
                     sync();
                   });
                 }
                 sync();
               })();
             </script>
-          </t>
-          <t t-else="">
-            <div class="alert alert-warning mb-0">
-              <t t-if="es_adulto">
-                No hay ningún verificador con acreditación aprobada y vigente, así que
-                esta compra no se puede completar todavía. El administrador debe
-                aprobar acreditaciones en <b>Verificación → Acreditaciones por aprobar</b>.
-              </t>
-              <t t-else="">
-                Todavía no hay verificadores acreditados disponibles, así que de momento
-                solo puedes comprar directo.
-              </t>
-            </div>
           </t>
         </div>
         <script type="text/javascript">
@@ -1802,7 +1922,7 @@
             inherit_id="shrimp_marketplace.marketplace_purchased_products"
             name="Compras - aviso de verificación">
     <xpath expr="//div[hasclass('sf-banner')]" position="after">
-      <t t-set="pending_txs" t-value="transactions.filtered(lambda t: t.state == 'pending_verification')"/>
+      <t t-set="pending_txs" t-value="transactions.filtered(lambda t: t.state in ('pending_verification', 'pending_acceptance'))"/>
       <t t-if="pending_txs">
         <div class="vstack gap-3 mb-4">
           <t t-foreach="pending_txs" t-as="ptx">
@@ -1816,6 +1936,18 @@
                       Ya puedes concluir tu compra.
                     </div>
                   </t>
+                  <t t-elif="ptx.state == 'pending_acceptance'">
+                    <strong><i class="fa fa-pencil-square-o me-1"/> Pendiente de firmas</strong>
+                    <div class="small mt-1">
+                      <t t-esc="ptx.product_id.name"/> · <t t-esc="ptx.name"/>.
+                      <t t-if="ptx.verification_mode == 'declared'">Se presentó el informe
+                        declarado: la compra se cierra cuando la otra parte lo confirme.</t>
+                      <t t-else="">El veredicto fue favorable: la compra se cierra cuando
+                      comprador y vendedor acepten el informe.</t>
+                      <a t-if="ptx.sudo().verification_ids[:1]"
+                         t-attf-href="/marketplace/verifications/#{ptx.sudo().verification_ids[:1].uuid_ref}/acceptance">Revisar y firmar</a>
+                    </div>
+                  </t>
                   <t t-else="">
                     <strong><i class="fa fa-hourglass-half me-1"/> Pendiente de verificación</strong>
                     <div class="small mt-1">
@@ -1823,11 +1955,15 @@
                       <t t-if="ptx.verifier_partner_id">
                         Asignada a <t t-esc="ptx.verifier_partner_id.name"/>.
                       </t>
+                      <t t-if="ptx.verification_mode == 'declared' and ptx.sudo().verification_ids[:1]">
+                        Verificación declarada por las partes:
+                        <a t-attf-href="/marketplace/verifications/#{ptx.sudo().verification_ids[:1].uuid_ref}/declare">carga o revisa el informe</a>.
+                      </t>
                     </div>
                   </t>
                 </div>
                 <t t-if="ptx.can_be_completed">
-                  <form method="post" t-att-action="'/marketplace/compras/{}/concluir'.format(ptx.uuid_ref)">
+                  <form method="post" t-att-action="'/marketplace/purchases/{}/complete'.format(ptx.uuid_ref)">
                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                     <button class="s-btn s-btn-primary" type="submit">Concluir compra</button>
                   </form>
@@ -1835,7 +1971,7 @@
               </div>
 
               <!-- Calificar el trabajo de verificación -->
-              <t t-set="verif" t-value="ptx.verification_id[:1]"/>
+              <t t-set="verif" t-value="ptx.verification_ids[:1]"/>
               <t t-if="verif and verif.state in ('approved', 'approved_obs', 'rejected')">
                 <t t-set="ya" t-value="request.env['shrimp.verifier.review'].sudo().search([('verification_id','=',verif.id)], limit=1)"/>
                 <div class="sv-rate-box mt-3">
@@ -1848,7 +1984,7 @@
                   </t>
                   <t t-else="">
                     <form method="post"
-                          t-attf-action="/marketplace/verificacion/#{verif.uuid_ref}/calificar">
+                          t-attf-action="/marketplace/verifications/#{verif.uuid_ref}/rate">
                       <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                       <div class="fw-bold mb-2">
                         ¿Qué tal el trabajo de
@@ -1933,7 +2069,7 @@
         <strong>Esta pantalla es solo histórico.</strong>
         El chequeo por encargo se reemplazó por la <strong>verificación en campo</strong>:
         ahora se elige un verificador acreditado al comprar el lote, y el resultado
-        se sigue desde <a href="/marketplace/compras">Mis compras</a>. Aquí ya no se
+        se sigue desde <a href="/marketplace/purchases">Mis compras</a>. Aquí ya no se
         crean solicitudes nuevas; las que ves abajo siguen siendo gestionables.
       </div>
     </xpath>

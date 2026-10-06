@@ -68,6 +68,9 @@ class ShrimpLotAlert(models.Model):
     """
 
     _name = "shrimp.lot.alert"
+    # shrimp.notify.mixin: la misma comprobación de SMTP que el resto de
+    # avisos de la plataforma.
+    _inherit = ["shrimp.uuid.mixin", "shrimp.notify.mixin"]
     _description = "Aviso de lote nuevo a una empacadora"
     _order = "sent_date desc, id desc"
 
@@ -255,8 +258,7 @@ class ShrimpLotAlert(models.Model):
         hoy = fields.Date.context_today(self)
         Partner = self.env["res.partner"].sudo()
 
-        empacadoras = Partner.search([
-            ("shrimp_user_type", "=", "empacadora"),
+        empacadoras = Partner.search(Partner._shrimp_role_domain("empacadora") + [
             ("active", "=", True),
             ("emp_aviso_frecuencia", "!=", "off"),
         ])
@@ -312,7 +314,7 @@ class ShrimpLotAlert(models.Model):
             "shrimp_packer.mail_template_aviso_lotes_nuevos", raise_if_not_found=False)
         if not plantilla:
             return False
-        if not self.env["ir.mail_server"].sudo().search_count([]):
+        if not self._hay_servidor_de_correo():
             _logger.warning(
                 "Avisos de lotes: no hay servidor de correo saliente; "
                 "%s se queda sin su resumen de %s lote(s).",

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_shrimp_transaction_form_trace_token" model="ir.ui.view">
+        <field name="name">shrimp.transaction.form.trace_token</field>
+        <field name="model">shrimp.transaction</field>
+        <field name="inherit_id" ref="shrimp_marketplace.view_shrimp_transaction_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button name="action_rotate_trace_token" type="object" string="Rotar QR público"
+                        groups="base.group_system"
+                        confirm="Los QR ya impresos dejarán de funcionar. ¿Continuar?"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

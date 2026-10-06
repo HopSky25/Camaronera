@@ -15,6 +15,12 @@
        Los controladores del portal trabajan con sudo(), así que cerrar la
        escritura aquí no le quita ninguna acción legítima a nadie: la
        aceptación, la contraoferta y el rechazo siguen funcionando.
+
+       Desde 19.0.1.2.0 la ACL del portal es de SOLO LECTURA sobre la
+       verificación, sus líneas, sus conteos y las posturas; las antiguas
+       reglas "solo la escribe el verificador" se retiraron porque ya no hay
+       escritura que acotar (el informe se guarda por el controlador, que
+       valida técnico/empresa y que la verificación no esté cerrada).
        ================================================================ -->
 
   <!-- === Cabecera de la verificación === -->
@@ -32,16 +38,6 @@
         ('seller_partner_id','=',user.partner_id.id)]</field>
   </record>
 
-  <record id="rule_shrimp_verification_portal_write" model="ir.rule">
-    <field name="name">Verificación: solo la escribe el verificador</field>
-    <field name="model_id" ref="model_shrimp_verification"/>
-    <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
-    <field name="perm_read" eval="False"/>
-    <field name="perm_write" eval="True"/>
-    <field name="perm_create" eval="True"/>
-    <field name="perm_unlink" eval="True"/>
-    <field name="domain_force">[('verifier_partner_id','=',user.partner_id.id)]</field>
-  </record>
 
   <!-- === Clasificación por tallas (líneas del informe) === -->
   <record id="rule_shrimp_verification_line_portal" model="ir.rule">
@@ -58,16 +54,6 @@
         ('verification_id.seller_partner_id','=',user.partner_id.id)]</field>
   </record>
 
-  <record id="rule_shrimp_verification_line_portal_write" model="ir.rule">
-    <field name="name">Clasificación por tallas: solo la escribe el verificador</field>
-    <field name="model_id" ref="model_shrimp_verification_line"/>
-    <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
-    <field name="perm_read" eval="False"/>
-    <field name="perm_write" eval="True"/>
-    <field name="perm_create" eval="True"/>
-    <field name="perm_unlink" eval="True"/>
-    <field name="domain_force">[('verification_id.verifier_partner_id','=',user.partner_id.id)]</field>
-  </record>
 
   <!-- === Conteos de campo: la evidencia primaria === -->
   <!-- Este modelo NO tenía ninguna regla de registro, y el portal tiene
@@ -89,25 +75,22 @@
         ('verification_id.seller_partner_id','=',user.partner_id.id)]</field>
   </record>
 
-  <record id="rule_shrimp_verification_count_portal_write" model="ir.rule">
-    <field name="name">Conteos de campo: solo los escribe el verificador</field>
-    <field name="model_id" ref="model_shrimp_verification_count"/>
-    <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
-    <field name="perm_read" eval="False"/>
-    <field name="perm_write" eval="True"/>
-    <field name="perm_create" eval="True"/>
-    <field name="perm_unlink" eval="True"/>
-    <field name="domain_force">[('verification_id.verifier_partner_id','=',user.partner_id.id)]</field>
-  </record>
 
   <!-- === Postura de cada parte === -->
-  <!-- Aquí sí escriben comprador y vendedor: es su propia decisión. El corte
-       de "ninguna parte decide por la otra" lo hace el controlador, que
-       resuelve la postura por rol antes de tocarla. -->
+  <!-- SOLO LECTURA. Antes la regla no declaraba perm_* (valía para leer,
+       escribir, crear y borrar) e incluía al verificador: por RPC el vendedor
+       podía escribir "accepted" en la postura del comprador, o el verificador
+       firmar por los dos. Ahora el portal solo lee, y la firma pasa por el
+       controlador → action_accept/action_reject/action_counter, que exigen
+       que quien firma sea el titular de la postura (ver _check_actor). -->
   <record id="rule_shrimp_verification_acceptance_portal" model="ir.rule">
-    <field name="name">Aceptación de verificación: propias</field>
+    <field name="name">Aceptación de verificación: lectura de las partes</field>
     <field name="model_id" ref="model_shrimp_verification_acceptance"/>
     <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+    <field name="perm_read" eval="True"/>
+    <field name="perm_write" eval="False"/>
+    <field name="perm_create" eval="False"/>
+    <field name="perm_unlink" eval="False"/>
     <field name="domain_force">['|','|',
         ('verification_id.verifier_partner_id','=',user.partner_id.id),
         ('verification_id.buyer_partner_id','=',user.partner_id.id),

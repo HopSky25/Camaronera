@@ -22,7 +22,13 @@
                         </div>
                     </div>
 
-                    <t t-if="saved">
+                    <t t-if="saved == 'perfil'">
+                        <div class="alert alert-success" style="border-radius:14px;">Perfil agregado. Ya puedes elegirlo en «Perfil», en la barra superior.</div>
+                    </t>
+                    <t t-elif="saved == 'perfil_pendiente'">
+                        <div class="alert alert-success" style="border-radius:14px;">Solicitud enviada: el nuevo perfil queda pendiente de aprobación. Te avisaremos por correo cuando puedas usarlo.</div>
+                    </t>
+                    <t t-elif="saved">
                         <div class="alert alert-success" style="border-radius:14px;">Cambios guardados correctamente.</div>
                     </t>
                     <t t-if="error == 'email'">
@@ -47,7 +53,126 @@
                         <div class="alert alert-danger" style="border-radius:14px;"><t t-esc="error"/></div>
                     </t>
 
-                    <form method="post" action="/marketplace/mi-cuenta/guardar">
+                    <!-- ===== Mis perfiles (varios roles por cuenta) ===== -->
+                    <div class="mp-table-card mb-4" id="perfiles" t-if="shrimp_role_lines or shrimp_addable_roles">
+                        <div class="card-body p-4">
+                            <div class="mp-sec-head">
+                                <span class="mp-sec-ico"><i class="fa fa-id-badge"></i></span>
+                                <h3 class="mp-sec-title">Mis perfiles</h3>
+                            </div>
+                            <p class="small text-muted mb-3">
+                                Tu empresa puede operar con varios perfiles (por ejemplo laboratorio y camaronera).
+                                Elige con cuál actúas en «Perfil», en la barra superior: los menús, lo que puedes
+                                comprar y el rol con el que publicas siguen al perfil activo.
+                            </p>
+                            <table class="table table-sm align-middle mb-3 shrimp-roles-table">
+                                <thead><tr><th>Perfil</th><th>Estado</th><th class="text-end"></th></tr></thead>
+                                <tbody>
+                                    <tr t-foreach="shrimp_role_lines" t-as="rl" t-att-data-role="rl.role">
+                                        <td>
+                                            <t t-esc="shrimp_role_label(rl.role)"/>
+                                            <span t-if="rl.role == shrimp_active_role" class="badge text-bg-primary ms-1">Activo</span>
+                                        </td>
+                                        <td>
+                                            <span t-if="rl.state == 'approved'" class="badge text-bg-success">Aprobado</span>
+                                            <span t-elif="rl.state == 'pending'" class="badge text-bg-warning">Pendiente de aprobación</span>
+                                            <span t-else="" class="badge text-bg-danger">Rechazado</span>
+                                        </td>
+                                        <td class="text-end">
+                                            <form t-if="rl.state == 'approved' and rl.role != shrimp_active_role"
+                                                  method="post" action="/my/profile/activate" class="d-inline">
+                                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                <input type="hidden" name="role" t-att-value="rl.role"/>
+                                                <input type="hidden" name="next" value="/marketplace/my-account"/>
+                                                <button type="submit" class="btn btn-sm btn-outline-primary">
+                                                    Actuar como <t t-esc="shrimp_role_label(rl.role)"/>
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <details t-if="shrimp_addable_roles" class="shrimp-add-profile">
+                                <summary class="fw-semibold mb-2"><i class="fa fa-plus-circle"></i> Agregar un perfil</summary>
+                                <form method="post" action="/my/profile/add" enctype="multipart/form-data"
+                                      class="row g-3 mt-1" id="shrimpAddProfileForm">
+                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                    <input type="hidden" name="next" value="/marketplace/my-account"/>
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted">Perfil</label>
+                                        <select name="role" class="form-select" required="required" id="shrimpAddRole">
+                                            <option value="">Elige un perfil…</option>
+                                            <t t-foreach="shrimp_addable_roles" t-as="ar">
+                                                <option t-att-value="ar[0]">
+                                                    <t t-esc="ar[1]"/><t t-if="ar[2]"> (requiere aprobación)</t>
+                                                </option>
+                                            </t>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted">Razón social</label>
+                                        <input class="form-control" type="text" name="shrimp_razon_social" t-att-value="partner.shrimp_razon_social or ''"/>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small text-muted">Representante legal</label>
+                                        <input class="form-control" type="text" name="shrimp_representante" t-att-value="partner.shrimp_representante or ''"/>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small text-muted">Teléfono</label>
+                                        <input class="form-control" type="text" name="shrimp_telefono" t-att-value="partner.shrimp_telefono or ''"/>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small text-muted">Ubicación (planta, finca o laboratorio)</label>
+                                        <input class="form-control" type="text" name="shrimp_ubicacion" t-att-value="partner.shrimp_ubicacion or ''"/>
+                                    </div>
+                                    <div class="col-12">
+                                        <div class="small text-muted mb-1">Certificados de ese perfil (opcional; quedan en revisión)</div>
+                                        <t t-foreach="range(3)" t-as="ci">
+                                            <div class="row g-2 mb-2">
+                                                <div class="col-md-5">
+                                                    <select class="form-select form-select-sm shrimp-add-cert" t-att-name="'cert_line_%s_id' % ci">
+                                                        <option value="">— Certificado —</option>
+                                                        <t t-foreach="shrimp_addable_certs" t-as="c">
+                                                            <option t-att-value="c.uuid_ref" t-att-data-role="c.role"><t t-esc="c.name"/></option>
+                                                        </t>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <input class="form-control form-control-sm" type="text" placeholder="N.º" t-att-name="'cert_line_%s_number' % ci"/>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <input class="form-control form-control-sm" type="file" accept=".pdf,.jpg,.jpeg,.png" t-att-name="'cert_line_%s_file' % ci"/>
+                                                </div>
+                                            </div>
+                                        </t>
+                                    </div>
+                                    <div class="col-12">
+                                        <button type="submit" class="btn btn-primary">Agregar perfil</button>
+                                        <span class="small text-muted ms-2">Empacadora y maquilador quedan pendientes hasta que la administración los aprueba.</span>
+                                    </div>
+                                </form>
+                                <script>
+                                    (function () {
+                                        var sel = document.getElementById("shrimpAddRole");
+                                        if (!sel) { return; }
+                                        function filtrar() {
+                                            var rol = sel.value;
+                                            document.querySelectorAll(".shrimp-add-cert option[data-role]").forEach(function (o) {
+                                                var ok = !rol || o.dataset.role === rol || o.dataset.role === "all";
+                                                o.hidden = !ok;
+                                                if (!ok &amp;&amp; o.selected) { o.parentNode.value = ""; }
+                                            });
+                                        }
+                                        sel.addEventListener("change", filtrar);
+                                        filtrar();
+                                    })();
+                                </script>
+                            </details>
+                        </div>
+                    </div>
+
+                    <form method="post" action="/marketplace/my-account/save">
                         <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
 
                         <div class="mp-table-card mb-4">
@@ -78,7 +203,7 @@
                                         <input class="form-control" type="text" name="city" t-att-value="partner.city or ''"/>
                                     </div>
                                     <div class="col-md-6">
-                                        <label class="form-label small text-muted">Tipo de usuario</label>
+                                        <label class="form-label small text-muted">Perfil activo</label>
                                         <input class="form-control" type="text"
                                             t-att-value="dict(partner._fields['shrimp_user_type'].selection).get(partner.shrimp_user_type) or '—'"
                                             readonly="readonly"/>
@@ -98,13 +223,13 @@
                                     <div class="row g-3">
                                         <div class="col-md-6">
                                             <label class="form-label small text-muted">Razón social</label>
-                                            <input class="form-control" type="text" name="lab_razon_social" t-att-value="partner.lab_razon_social or ''"/>
+                                            <input class="form-control" type="text" name="lab_razon_social" t-att-value="partner.shrimp_razon_social or ''"/>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label small text-muted">Ubicación</label>
-                                            <input class="form-control" type="text" name="lab_ubicacion" t-att-value="partner.lab_ubicacion or ''"/>
+                                            <input class="form-control" type="text" name="lab_ubicacion" t-att-value="partner.shrimp_ubicacion or ''"/>
                                         </div>
-                                        <div class="col-md-6 d-flex gap-4 align-items-center mt-3">
+                                        <div class="col-md-6 d-flex flex-wrap gap-4 align-items-center mt-3">
                                             <div class="form-check">
                                                 <input class="form-check-input" type="checkbox" name="lab_global_gap" id="lab_global_gap"
                                                     t-att-checked="partner.lab_global_gap and 'checked' or None"/>
@@ -132,23 +257,23 @@
                                     <div class="row g-3">
                                         <div class="col-md-6">
                                             <label class="form-label small text-muted">Razón social</label>
-                                            <input class="form-control" type="text" name="farm_razon_social" t-att-value="partner.farm_razon_social or ''"/>
+                                            <input class="form-control" type="text" name="farm_razon_social" t-att-value="partner.shrimp_razon_social or ''"/>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label small text-muted">Representante legal</label>
-                                            <input class="form-control" type="text" name="farm_representante" t-att-value="partner.farm_representante or ''"/>
+                                            <input class="form-control" type="text" name="farm_representante" t-att-value="partner.shrimp_representante or ''"/>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label small text-muted">Teléfono</label>
-                                            <input class="form-control" type="text" name="farm_telefono" t-att-value="partner.farm_telefono or ''"/>
+                                            <input class="form-control" type="text" name="farm_telefono" t-att-value="partner.shrimp_telefono or ''"/>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label small text-muted">Ubicación</label>
-                                            <input class="form-control" type="text" name="farm_ubicacion" t-att-value="partner.farm_ubicacion or ''"/>
+                                            <input class="form-control" type="text" name="farm_ubicacion" t-att-value="partner.shrimp_ubicacion or ''"/>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label small text-muted">Capacidad (ton/año)</label>
-                                            <input class="form-control" type="number" step="0.01" min="0" name="farm_capacidad" t-att-value="partner.farm_capacidad or ''"/>
+                                            <input class="form-control" type="number" step="0.01" min="0" name="farm_capacidad" t-att-value="partner.shrimp_capacity_value or ''"/>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label small text-muted">Área (ha)</label>
@@ -178,7 +303,8 @@
                     </form>
 
                     <!-- ===== Certificados (unificados aquí) ===== -->
-                    <div class="mp-table-card mt-4">
+                    <!-- id: destino de «Mi cuenta ▾ > Certificados» en la barra. -->
+                    <div class="mp-table-card mt-4" id="certificados">
                         <div class="card-body p-4">
                             <div class="mp-sec-head">
                                 <span class="mp-sec-ico"><i class="fa fa-certificate"></i></span>
@@ -222,8 +348,8 @@
                                                     </td>
                                                     <td class="text-end">
                                                         <button type="button" class="s-btn s-btn-ghost btn-sm uc-edit-btn" title="Editar / renovar"
-                                                                t-att-data-id="line.id"
-                                                                t-att-data-cert="line.certificate_id.id"
+                                                                t-att-data-id="line.uuid_ref"
+                                                                t-att-data-cert="line.certificate_id.uuid_ref"
                                                                 t-att-data-certname="line.certificate_id.name"
                                                                 t-att-data-number="line.certificate_number or ''"
                                                                 t-att-data-issue="line.issue_date or ''"
@@ -233,11 +359,11 @@
                                                         <!-- Ruta propia: sirve el PDF en línea para que el visor lo
                                                              muestre. La compartida fuerza descarga y el iframe queda vacío. -->
                                                         <button type="button" class="s-btn s-btn-ghost btn-sm js-cert-view" title="Ver PDF"
-                                                                t-att-data-url="'/marketplace/mi-cuenta/certificado/%s/archivo' % line.id">
+                                                                t-att-data-url="'/marketplace/my-account/certificates/%s/file' % line.uuid_ref">
                                                             <i class="fa fa-file-pdf-o"></i>
                                                         </button>
                                                         <button type="button" class="s-btn s-btn-danger btn-sm uc-del-btn" title="Eliminar"
-                                                                t-att-data-id="line.id" t-att-data-name="line.certificate_id.name">
+                                                                t-att-data-id="line.uuid_ref" t-att-data-name="line.certificate_id.name">
                                                             <i class="fa fa-trash"></i>
                                                         </button>
                                                     </td>
@@ -254,14 +380,14 @@
                     <div id="ucModal" class="sf-modal">
                         <div class="sf-modal-card" style="max-width:560px; text-align:left;">
                             <h3 class="sf-modal-title mb-3" id="ucModalTitle">Agregar certificado</h3>
-                            <form method="post" id="ucForm" enctype="multipart/form-data" class="row g-3" action="/marketplace/mis-certificados/agregar">
+                            <form method="post" id="ucForm" enctype="multipart/form-data" class="row g-3" action="/marketplace/my-certificates/add">
                                 <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                 <div class="col-12" id="ucCertSelectWrap">
                                     <label class="form-label">Certificado <span class="text-danger">*</span></label>
                                     <select class="form-select" name="certificate_id" id="ucCert">
                                         <option value="">Selecciona…</option>
                                         <t t-foreach="certificates" t-as="c">
-                                            <option t-att-value="c.id"><t t-esc="c.name"/></option>
+                                            <option t-att-value="c.uuid_ref"><t t-esc="c.name"/></option>
                                         </t>
                                     </select>
                                     <div class="form-text" id="ucCertFixed" style="display:none;"></div>
@@ -275,7 +401,7 @@
                                 <div class="col-12"><label class="form-label">Archivo (PDF/JPG/PNG) <span id="ucFileReq" class="text-danger">*</span></label>
                                     <input class="form-control" type="file" name="file" id="ucFile" accept=".pdf,.jpg,.jpeg,.png"/>
                                     <div class="form-text" id="ucFileHint"></div></div>
-                                <div class="col-12 d-flex justify-content-end gap-2">
+                                <div class="col-12 d-flex flex-wrap justify-content-end gap-2">
                                     <button type="button" class="s-btn s-btn-ghost" data-close-modal="ucModal">Cancelar</button>
                                     <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-check me-1"></i> Guardar</button>
                                 </div>
@@ -314,7 +440,7 @@
                             var addBtn=document.querySelector(".uc-add-btn");
                             if(addBtn&amp;&amp;form){ addBtn.addEventListener("click", function(){
                                 document.getElementById("ucModalTitle").textContent="Agregar certificado";
-                                form.action="/marketplace/mis-certificados/agregar";
+                                form.action="/marketplace/my-certificates/add";
                                 document.getElementById("ucCertSelectWrap").style.display="";
                                 document.getElementById("ucCert").disabled=false;
                                 document.getElementById("ucCert").value="";
@@ -329,7 +455,7 @@
                             }); }
                             document.querySelectorAll(".uc-edit-btn").forEach(function(b){ if(!form) return; b.addEventListener("click", function(){
                                 document.getElementById("ucModalTitle").textContent="Editar / renovar certificado";
-                                form.action="/marketplace/mis-certificados/"+b.getAttribute("data-id")+"/renovar";
+                                form.action="/marketplace/my-certificates/"+b.getAttribute("data-id")+"/renew";
                                 // El tipo de certificado no cambia al renovar: se muestra fijo.
                                 var sel=document.getElementById("ucCert");
                                 sel.value=b.getAttribute("data-cert")||""; sel.disabled=true;
@@ -345,7 +471,7 @@
                             }); });
                             var delForm=document.getElementById("ucDelForm");
                             document.querySelectorAll(".uc-del-btn").forEach(function(b){ if(!delForm) return; b.addEventListener("click", function(){
-                                delForm.action="/marketplace/mis-certificados/"+b.getAttribute("data-id")+"/eliminar";
+                                delForm.action="/marketplace/my-certificates/"+b.getAttribute("data-id")+"/delete";
                                 document.getElementById("ucDelName").textContent=b.getAttribute("data-name")||"";
                                 openM("ucDelModal");
                             }); });
@@ -484,7 +610,7 @@
                                         <div class="sf-fac-list">
                                             <t t-foreach="facilities" t-as="f">
                                                 <div t-attf-class="sf-fac-item #{'active' if (not is_new and sel_facility and f.id == sel_facility.id) else ''}">
-                                                    <a class="sf-fac-main" t-att-href="'/marketplace/mis-instalaciones?facility=%s' % f.id">
+                                                    <a class="sf-fac-main" t-att-href="'/marketplace/my-facilities?facility=%s' % f.uuid_ref">
                                                         <span class="sf-fac-name"><t t-esc="f.name"/></span>
                                                         <span class="sf-fac-meta">
                                                             <t t-esc="dict(f._fields['facility_type'].selection).get(f.facility_type)"/>
@@ -492,7 +618,7 @@
                                                         </span>
                                                     </a>
                                                     <button type="button" class="sf-fac-del sf-del-btn" title="Eliminar"
-                                                        t-att-data-url="'/marketplace/mis-instalaciones/facility/%s/eliminar' % f.id"
+                                                        t-att-data-url="'/marketplace/my-facilities/facility/%s/delete' % f.uuid_ref"
                                                         data-msg="Se eliminará la instalación (y sus piscinas). Esta acción no se puede deshacer.">
                                                         <i class="fa fa-trash-o"></i>
                                                     </button>
@@ -517,7 +643,7 @@
                                             <span class="mp-sec-ico"><i class="fa fa-building"></i></span>
                                             <h3 class="mp-sec-title"><t t-esc="sel_facility.name"/></h3>
                                             <button type="button" class="s-btn s-btn-ghost btn-sm mp-sec-count fac-edit-btn"
-                                                    t-att-data-id="sel_facility.id"
+                                                    t-att-data-id="sel_facility.uuid_ref"
                                                     t-att-data-name="sel_facility.name"
                                                     t-att-data-type="sel_facility.facility_type"
                                                     t-att-data-city="sel_facility.city or ''"
@@ -574,14 +700,14 @@
                                             <div class="table-responsive mp-table-wrap">
                                                 <table class="table align-middle mb-0">
                                                     <thead>
-                                                        <tr><th>Foto</th><th>Piscina</th><th>Tipo</th><th>Área</th><th>Volumen</th><th></th></tr>
+                                                        <tr><th>Foto</th><th>Piscina</th><th>Tipo</th><th>Área</th><th>Volumen</th><th t-if="can_sow">Sembrado</th><th></th></tr>
                                                     </thead>
                                                     <tbody>
                                                         <t t-foreach="sel_ponds" t-as="p">
                                                             <tr>
                                                                 <td>
                                                                     <t t-if="p.image">
-                                                                        <img t-att-src="'/marketplace/mis-instalaciones/pond/%s/imagen' % p.id"
+                                                                        <img t-att-src="'/marketplace/my-facilities/pond/%s/image' % p.uuid_ref"
                                                                              alt="Foto piscina" class="sf-pond-thumb"/>
                                                                     </t>
                                                                     <t t-else="">
@@ -592,9 +718,19 @@
                                                                 <td><t t-esc="dict(p._fields['pond_type'].selection).get(p.pond_type) if p.pond_type else '—'"/></td>
                                                                 <td><t t-esc="round(p.area_m2, 1)"/> m²</td>
                                                                 <td><t t-esc="round(p.volume_m3, 1)"/> m³</td>
+                                                                <td t-if="can_sow">
+                                                                    <t t-set="p_sows" t-value="allocations.filtered(lambda a: a.pond_id == p and a.state in ('allocated', 'released'))"/>
+                                                                    <t t-if="p_sows"><span class="s-badge s-badge--teal"><t t-esc="len(p_sows)"/> siembra(s)</span></t>
+                                                                    <t t-else=""><span class="text-muted small">—</span></t>
+                                                                </td>
                                                                 <td class="text-end">
+                                                                    <a t-if="can_sow" class="s-btn s-btn-primary btn-sm me-1 shrimp-pond-sow-btn"
+                                                                       t-att-href="'/marketplace/sowings/new?piscina=%s' % p.uuid_ref"
+                                                                       title="Registrar siembra en esta piscina">
+                                                                        <i class="fa fa-tint me-1"></i> Registrar siembra
+                                                                    </a>
                                                                     <button type="button" class="sf-fac-del pond-edit-btn" style="text-decoration:none;" title="Editar"
-                                                                        t-att-data-id="p.id"
+                                                                        t-att-data-id="p.uuid_ref"
                                                                         t-att-data-name="p.name or ''"
                                                                         t-att-data-type="p.pond_type or 'earth'"
                                                                         t-att-data-mode="p.capacity_mode or 'dimensions'"
@@ -606,7 +742,7 @@
                                                                         <i class="fa fa-pencil"></i>
                                                                     </button>
                                                                     <button type="button" class="sf-fac-del sf-del-btn" title="Eliminar"
-                                                                        t-att-data-url="'/marketplace/mis-instalaciones/pond/%s/eliminar' % p.id"
+                                                                        t-att-data-url="'/marketplace/my-facilities/pond/%s/delete' % p.uuid_ref"
                                                                         data-msg="Se eliminará la piscina. Esta acción no se puede deshacer.">
                                                                         <i class="fa fa-trash-o"></i>
                                                                     </button>
@@ -619,6 +755,66 @@
                                         </t>
                                         <t t-else="">
                                             <div class="text-muted" style="font-size:13px; padding:4px 2px 12px;">Esta instalación aún no tiene piscinas.</div>
+                                        </t>
+                                    </div>
+                                </div>
+
+                                <!-- Siembras de las piscinas de esta instalación -->
+                                <t t-set="fac_sows" t-value="allocations.filtered(lambda a: a.pond_id in sel_ponds)"/>
+                                <div t-if="can_sow and sel_ponds" class="mp-table-card mt-3" id="shrimp_sowings">
+                                    <div class="card-body p-4">
+                                        <div class="mp-sec-head">
+                                            <span class="mp-sec-ico"><i class="fa fa-leaf"></i></span>
+                                            <h3 class="mp-sec-title">Siembras</h3>
+                                            <a class="s-btn s-btn-primary btn-sm mp-sec-count" href="/marketplace/sowings/new"
+                                               t-if="lots">
+                                                <i class="fa fa-plus me-1"></i> Registrar siembra
+                                            </a>
+                                        </div>
+                                        <t t-if="fac_sows">
+                                            <div class="table-responsive mp-table-wrap">
+                                                <table class="table align-middle mb-0">
+                                                    <thead>
+                                                        <tr><th>Fecha</th><th>Piscina</th><th>Lote</th><th class="text-end">Cantidad</th><th>Estado</th><th>Observaciones</th><th></th></tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <t t-foreach="fac_sows" t-as="a">
+                                                            <tr>
+                                                                <td><t t-esc="request.env['shrimp.transaction'].shrimp_fmt_dt(a.allocation_date)"/></td>
+                                                                <td class="fw-semibold"><t t-esc="a.pond_id.name"/></td>
+                                                                <td><t t-esc="a.stock_lot_id.product_id.name"/>
+                                                                    <t t-if="a.stock_lot_id.product_id.stage_id"><small class="text-muted"> · <t t-esc="a.stock_lot_id.product_id.stage_id.name"/></small></t></td>
+                                                                <td class="text-end"><t t-esc="a.display_qty()"/></td>
+                                                                <td>
+                                                                    <span t-if="a.state == 'allocated'" class="s-badge s-badge--green">Sembrada</span>
+                                                                    <span t-elif="a.state == 'cancelled'" class="s-badge">Cancelada</span>
+                                                                    <span t-else="" class="s-badge"><t t-esc="dict(a._fields['state'].selection).get(a.state)"/></span>
+                                                                </td>
+                                                                <td class="small text-muted" style="max-width:240px;"><t t-esc="a.notes or ''"/></td>
+                                                                <td class="text-end text-nowrap">
+                                                                    <t t-if="not a._shrimp_portal_edit_block()">
+                                                                        <a class="sf-fac-del" style="text-decoration:none;" title="Editar siembra"
+                                                                           t-att-href="'/marketplace/sowings/%s/edit' % a.uuid_ref"><i class="fa fa-pencil"></i></a>
+                                                                        <form method="post" class="d-inline"
+                                                                              t-att-action="'/marketplace/sowings/%s/cancel' % a.uuid_ref"
+                                                                              onsubmit="return confirm('¿Cancelar la siembra? La cantidad vuelve al lote.');">
+                                                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                                            <button type="submit" class="sf-fac-del" title="Cancelar siembra"><i class="fa fa-undo"></i></button>
+                                                                        </form>
+                                                                    </t>
+                                                                    <t t-elif="a.state == 'allocated'">
+                                                                        <i class="fa fa-lock text-muted" title="Origen de una cosecha: ya no se modifica"></i>
+                                                                    </t>
+                                                                </td>
+                                                            </tr>
+                                                        </t>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </t>
+                                        <t t-else="">
+                                            <div class="text-muted" style="font-size:13px; padding:4px 2px 12px;">Todavía no registras siembras en estas piscinas.
+                                                <t t-if="not lots"> Para sembrar necesitas un lote de larva o juvenil con saldo en <a href="/marketplace/my-lots">Mi inventario</a>.</t></div>
                                         </t>
                                     </div>
                                 </div>
@@ -641,7 +837,7 @@
                     <div id="facModal" class="sf-modal">
                         <div class="sf-modal-card" style="max-width:560px; text-align:left;">
                             <h3 class="sf-modal-title mb-3" id="facModalTitle">Nueva instalación</h3>
-                            <form method="post" id="facForm" class="row g-3 sf" action="/marketplace/mis-instalaciones/facility/crear">
+                            <form method="post" id="facForm" class="row g-3 sf" action="/marketplace/my-facilities/facility/create">
                                 <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                 <div class="col-md-6"><label class="form-label" style="font-weight:800;">Nombre <span class="text-danger">*</span></label>
                                     <input class="form-control" name="name" id="facName" required="required"/></div>
@@ -660,7 +856,7 @@
                                     <input class="form-control" name="code" id="facCode"/></div>
                                 <div class="col-12"><label class="form-label" style="font-weight:800;">Dirección</label>
                                     <input class="form-control" name="address" id="facAddress"/></div>
-                                <div class="col-12 d-flex justify-content-end gap-2">
+                                <div class="col-12 d-flex flex-wrap justify-content-end gap-2">
                                     <button type="button" class="s-btn s-btn-ghost" data-close-modal="facModal">Cancelar</button>
                                     <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-check me-1"></i> Guardar</button>
                                 </div>
@@ -673,10 +869,10 @@
                         <div id="pondModal" class="sf-modal">
                             <div class="sf-modal-card" style="max-width:640px; text-align:left;">
                                 <h3 class="sf-modal-title mb-3" id="pondModalTitle">Nueva piscina</h3>
-                                <form method="post" id="pondForm" enctype="multipart/form-data" class="row g-2 sf" action="/marketplace/mis-instalaciones/pond/crear">
+                                <form method="post" id="pondForm" enctype="multipart/form-data" class="row g-2 sf" action="/marketplace/my-facilities/pond/create">
                                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                    <input type="hidden" name="redirect_facility" t-att-value="sel_facility.id"/>
-                                    <input type="hidden" name="facility_id" id="pondFacilityId" t-att-value="sel_facility.id"/>
+                                    <input type="hidden" name="redirect_facility" t-att-value="sel_facility.uuid_ref"/>
+                                    <input type="hidden" name="facility_ref" id="pondFacilityId" t-att-value="sel_facility.uuid_ref"/>
                                     <div class="col-md-6"><label class="form-label" style="font-weight:800;">Nombre <span class="text-danger">*</span></label>
                                         <input class="form-control" name="name" id="pondName" required="required"/></div>
                                     <div class="col-md-6"><label class="form-label" style="font-weight:800;">Tipo</label>
@@ -702,7 +898,7 @@
                                         <input class="form-control" name="location" id="pondLoc"/></div>
                                     <div class="col-md-6"><label class="form-label" style="font-weight:800;">Foto <span id="pondImgHint" class="text-muted" style="font-weight:500;"></span></label>
                                         <input class="form-control" type="file" name="image" accept="image/*"/></div>
-                                    <div class="col-12 d-flex justify-content-end gap-2">
+                                    <div class="col-12 d-flex flex-wrap justify-content-end gap-2">
                                         <button type="button" class="s-btn s-btn-ghost" data-close-modal="pondModal">Cancelar</button>
                                         <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-check me-1"></i> Guardar</button>
                                     </div>
@@ -758,7 +954,7 @@
     var facNew=document.querySelector(".fac-new-btn");
     if(facNew&&facForm){ facNew.addEventListener("click", function(){
       document.getElementById("facModalTitle").textContent="Nueva instalación";
-      facForm.action="/marketplace/mis-instalaciones/facility/crear";
+      facForm.action="/marketplace/my-facilities/facility/create";
       document.getElementById("facName").value="";
       document.getElementById("facType").value="farm";
       document.getElementById("facCity").value="";
@@ -769,7 +965,7 @@
     var facEdit=document.querySelector(".fac-edit-btn");
     if(facEdit&&facForm){ facEdit.addEventListener("click", function(){
       document.getElementById("facModalTitle").textContent="Editar instalación";
-      facForm.action="/marketplace/mis-instalaciones/facility/"+facEdit.getAttribute("data-id")+"/actualizar";
+      facForm.action="/marketplace/my-facilities/facility/"+facEdit.getAttribute("data-id")+"/update";
       document.getElementById("facName").value=facEdit.getAttribute("data-name")||"";
       document.getElementById("facType").value=facEdit.getAttribute("data-type")||"farm";
       document.getElementById("facCity").value=facEdit.getAttribute("data-city")||"";
@@ -782,7 +978,7 @@
     var pondNew=document.querySelector(".pond-new-btn");
     if(pondNew&&pondForm){ pondNew.addEventListener("click", function(){
       document.getElementById("pondModalTitle").textContent="Nueva piscina";
-      pondForm.action="/marketplace/mis-instalaciones/pond/crear";
+      pondForm.action="/marketplace/my-facilities/pond/create";
       document.getElementById("pondName").value="";
       document.getElementById("pondType").value="earth";
       ["pondLen","pondWid","pondDep","pondVol","pondLoc"].forEach(function(i){ var el=document.getElementById(i); if(el) el.value=""; });
@@ -792,7 +988,7 @@
     }); }
     document.querySelectorAll(".pond-edit-btn").forEach(function(b){ if(!pondForm) return; b.addEventListener("click", function(){
       document.getElementById("pondModalTitle").textContent="Editar piscina";
-      pondForm.action="/marketplace/mis-instalaciones/pond/"+b.getAttribute("data-id")+"/actualizar";
+      pondForm.action="/marketplace/my-facilities/pond/"+b.getAttribute("data-id")+"/update";
       document.getElementById("pondName").value=b.getAttribute("data-name")||"";
       document.getElementById("pondType").value=b.getAttribute("data-type")||"earth";
       document.getElementById("pondLen").value=b.getAttribute("data-length")||"";
@@ -865,11 +1061,11 @@
                     </t>
 
                     <!-- Filtro por estado -->
-                    <div class="s-cat-chips s-cat-chips--scroll mb-3">
-                        <a t-att-class="'s-cat-chip' + ('' if filter_state else ' active')" href="/marketplace/solicitudes">Todas</a>
+                    <div t-if="len(state_options) &gt; 1 or filter_state" class="s-cat-chips s-cat-chips--scroll mb-3" id="sSolicitudesEstados">
+                        <a t-att-class="'s-cat-chip' + ('' if filter_state else ' active')" href="/marketplace/check-requests">Todas</a>
                         <t t-foreach="state_options" t-as="opt">
                             <a t-att-class="'s-cat-chip' + (' active' if filter_state == opt[0] else '')"
-                               t-att-href="'/marketplace/solicitudes?state=%s' % opt[0]"><t t-esc="opt[1]"/></a>
+                               t-att-href="'/marketplace/check-requests?state=%s' % opt[0]"><t t-esc="opt[1]"/></a>
                         </t>
                     </div>
 
@@ -919,7 +1115,7 @@
                                                         <t t-else=""><span class="s-badge"><t t-esc="state_label"/></span></t>
                                                     </td>
                                                     <td class="text-end">
-                                                        <a class="s-btn s-btn-ghost btn-sm" t-att-href="'/marketplace/solicitudes/%s/detalle' % r.id">
+                                                        <a class="s-btn s-btn-ghost btn-sm" t-att-href="'/marketplace/check-requests/%s/detail' % r.uuid_ref">
                                                             <i class="fa fa-eye me-1"></i> Ver solicitud
                                                         </a>
                                                     </td>
@@ -941,7 +1137,7 @@
         <t t-call="website.layout">
             <div class="shrimp-bg">
                 <div class="shrimp-page py-4 sf-fields" style="max-width:1000px;">
-                    <a class="s-back mb-3" href="/marketplace/solicitudes"><i class="fa fa-arrow-left"></i><span>Volver a solicitudes</span></a>
+                    <a class="s-back mb-3" href="/marketplace/check-requests"><i class="fa fa-arrow-left"></i><span>Volver a solicitudes</span></a>
                     <div class="sf-banner mb-4"><div class="sf-banner-row">
                         <div class="sf-banner-txt"><h1>Solicitud <t t-esc="cr.name"/></h1>
                             <p>Detalle del chequeo solicitado.</p></div>
@@ -1020,11 +1216,11 @@
 
                     <t t-if="is_seller and cr.state in ('requested','under_review')">
                         <div class="d-flex flex-wrap gap-2">
-                            <form method="post" class="d-inline" t-att-action="'/marketplace/solicitudes/%s/aprobar' % cr.id">
+                            <form method="post" class="d-inline" t-att-action="'/marketplace/check-requests/%s/approve' % cr.uuid_ref">
                                 <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                 <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-check me-1"></i> Aprobar</button>
                             </form>
-                            <form method="post" class="d-inline" t-att-action="'/marketplace/solicitudes/%s/rechazar' % cr.id">
+                            <form method="post" class="d-inline" t-att-action="'/marketplace/check-requests/%s/reject' % cr.uuid_ref">
                                 <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                 <button type="submit" class="s-btn s-btn-danger"><i class="fa fa-times me-1"></i> Rechazar</button>
                             </form>
@@ -1045,6 +1241,11 @@
               .trz .mp-spec-ico{ background: #fff; }
             </style>
             <div class="shrimp-bg">
+                <!-- Datos de la cadena: los pasa el controlador (trace); si otra
+                     ruta renderiza la plantilla sin ellos, se calculan aquí. -->
+                <t t-set="trz" t-value="trace or tx.get_full_traceability_data()"/>
+                <t t-set="trz_own_lots" t-value="trz['own_lots']"/>
+                <t t-set="trz_viewer" t-value="request.env.user.partner_id"/>
                 <div class="shrimp-page trz py-4" style="max-width:1100px;">
 
                     <!-- Banner -->
@@ -1056,37 +1257,54 @@
                             </div>
                             <button type="button" class="s-btn s-btn-ghost js-cert-view"
                                     style="background:rgba(255,255,255,.16); color:#fff; border-color:rgba(255,255,255,.35);"
-                                    t-att-data-url="'/marketplace/compras/%s/trazabilidad/pdf' % tx.uuid_ref">
+                                    t-att-data-url="'/marketplace/purchases/%s/traceability/pdf' % tx.uuid_ref">
                                 <i class="fa fa-file-pdf-o me-1"></i> Ver certificado PDF
                             </button>
                         </div>
                     </div>
 
-                    <!-- Resumen -->
-                    <div class="mp-table-card mb-4">
+                    <!-- Resumen (id estable: ancla de herencias) -->
+                    <div class="mp-table-card mb-4" id="shrimp_trace_summary">
                         <div class="card-body p-4">
                             <div class="mp-sec-head">
                                 <span class="mp-sec-ico"><i class="fa fa-info-circle"></i></span>
                                 <h3 class="mp-sec-title"><t t-esc="tx.product_id.name or 'Producto'"/></h3>
                             </div>
                             <div class="mp-spec-grid">
-                                <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-user-o"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Vendedor</div><div class="mp-spec-value"><t t-esc="tx.seller_partner_id.name"/></div></div></div>
-                                <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-user"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Comprador</div><div class="mp-spec-value"><t t-esc="tx.buyer_partner_id.name"/></div></div></div>
-                                <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-cubes"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Cantidad</div><div class="mp-spec-value"><t t-esc="tx.transaction_qty"/> <t t-esc="tx.product_id.uom_id.name or ''"/></div></div></div>
+                                <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-user-o"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Vendedor</div><div class="mp-spec-value"><t t-esc="tx.seller_partner_id.name"/><small t-if="tx.seller_role" class="text-muted shrimp-tx-role"> (<t t-esc="tx.shrimp_role_label(tx.seller_role)"/>)</small></div></div></div>
+                                <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-user"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Comprador</div><div class="mp-spec-value"><t t-esc="tx.buyer_partner_id.name"/><small t-if="tx.buyer_role" class="text-muted shrimp-tx-role"> (<t t-esc="tx.shrimp_role_label(tx.buyer_role)"/>)</small></div></div></div>
+                                <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-cubes"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Cantidad</div><div class="mp-spec-value"><t t-esc="tx.shrimp_fmt_qty(tx.transaction_qty, tx.product_id.uom_id)"/></div></div></div>
                                 <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-tag"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Etapa</div><div class="mp-spec-value"><t t-esc="tx.product_id.stage_id.name or '—'"/></div></div></div>
                                 <t t-if="tx.product_id.origin_facility_id"><div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-building"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Instalación de origen</div><div class="mp-spec-value"><t t-esc="tx.product_id.origin_facility_id.name"/></div></div></div></t>
                                 <t t-if="tx.product_id.origin_pond_id"><div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-tint"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Piscina de origen</div><div class="mp-spec-value"><t t-esc="tx.product_id.origin_pond_id.display_name"/></div></div></div></t>
                                 <t t-if="tx.product_id.batch_code"><div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-hashtag"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Código de lote</div><div class="mp-spec-value"><t t-esc="tx.product_id.batch_code"/></div></div></div></t>
-                                <t t-if="tx.product_id.production_date"><div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-calendar"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Fecha de producción</div><div class="mp-spec-value"><t t-esc="tx.product_id.production_date"/></div></div></div></t>
+                                <t t-if="tx.product_id.production_date"><div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-calendar"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Fecha de producción</div><div class="mp-spec-value"><t t-esc="tx.shrimp_fmt_dt(tx.product_id.production_date)"/></div></div></div></t>
                             </div>
                             <t t-if="tx.product_id.traceability_notes">
                                 <div class="mt-3"><div class="mp-spec-label">Notas de trazabilidad</div><p class="mb-0"><t t-esc="tx.product_id.traceability_notes"/></p></div>
                             </t>
+                            <!-- Cadena de custodia completa: del semillero a la salida. -->
+                            <t t-set="trz_chain" t-value="tx.traceability_chain()"/>
+                            <div class="mt-3" t-if="trz_chain" id="shrimp_trace_chain">
+                                <div class="mp-spec-label mb-2">Cadena de custodia</div>
+                                <div class="d-flex flex-wrap align-items-center gap-2">
+                                    <t t-foreach="trz_chain" t-as="node">
+                                        <span class="s-badge" style="white-space:normal; text-align:left;">
+                                            <small class="d-block text-uppercase" style="opacity:.75;"><t t-esc="node_index + 1"/>. <t t-esc="node['role']"/></small>
+                                            <strong><t t-esc="node['name']"/></strong>
+                                        </span>
+                                        <i t-if="not node_last" class="fa fa-long-arrow-right text-muted"></i>
+                                    </t>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Certificados del producto -->
-                    <t t-set="trz_certs" t-value="tx.product_id.certificate_line_ids"/>
+                    <!-- Certificados de toda la cadena (semillero, laboratorio, finca...),
+                         aprobados y sin repetir: el mismo certificado se copia al
+                         producto que nace en manos del comprador. -->
+                    <t t-set="trz_certs" t-value="tx.shrimp_trace_certificates(trz)"/>
                     <t t-if="trz_certs">
                         <div class="mp-table-card mb-4">
                             <div class="card-body p-4">
@@ -1097,19 +1315,20 @@
                                 </div>
                                 <div class="table-responsive">
                                     <table class="table sv-table align-middle mb-0">
-                                        <thead><tr><th>Certificado</th><th>Entidad</th><th>N°</th><th>Emisión</th><th>Expira</th><th class="text-end">Ver</th></tr></thead>
+                                        <thead><tr><th>Certificado</th><th>Entidad</th><th>N°</th><th>Producto</th><th>Emisión</th><th>Expira</th><th class="text-end">Ver</th></tr></thead>
                                         <tbody>
                                             <t t-foreach="trz_certs" t-as="pcl">
                                                 <tr>
                                                     <td class="fw-semibold"><t t-esc="pcl.certificate_id.name"/></td>
                                                     <td><t t-esc="pcl.issuer or '—'"/></td>
                                                     <td><t t-esc="pcl.number or '—'"/></td>
-                                                    <td><t t-esc="pcl.issue_date or '—'"/></td>
-                                                    <td><t t-esc="pcl.expiry_date or '—'"/></td>
+                                                    <td class="small"><t t-esc="pcl.product_id.name or '—'"/></td>
+                                                    <td><t t-esc="tx.shrimp_fmt_dt(pcl.issue_date)"/></td>
+                                                    <td><t t-esc="tx.shrimp_fmt_dt(pcl.expiry_date)"/></td>
                                                     <td class="text-end">
                                                         <t t-if="pcl.attachment_id">
                                                             <button type="button" class="s-btn s-btn-ghost btn-sm js-cert-view" title="Ver PDF"
-                                                                    t-att-data-url="'/marketplace/product/%s/certificate/%s' % (tx.product_id.uuid_ref, pcl.attachment_id.id)">
+                                                                    t-att-data-url="pcl.product_id.shrimp_cert_url(pcl.attachment_id)">
                                                                 <i class="fa fa-file-pdf-o"></i>
                                                             </button>
                                                         </t>
@@ -1135,16 +1354,16 @@
                             <t t-if="evolutions">
                                 <div class="mp-table-wrap table-responsive">
                                     <table class="table align-middle mb-0">
-                                        <thead><tr><th>Fecha</th><th>Etapa</th><th>Tamaño (mg)</th><th>Superv. (%)</th><th>Disponible</th><th>Nota</th></tr></thead>
+                                        <thead><tr><th>Fecha</th><th>Producto</th><th>Etapa</th><th class="text-end">Tamaño (mg)</th><th class="text-end">Superv. (%)</th><th>Nota</th></tr></thead>
                                         <tbody>
                                             <t t-foreach="evolutions" t-as="e">
                                                 <tr>
-                                                    <td><t t-esc="e.date"/></td>
+                                                    <td><t t-esc="tx.shrimp_fmt_dt(e.date)"/></td>
+                                                    <td class="small"><t t-esc="e.product_id.name"/></td>
                                                     <td><span class="s-badge"><t t-esc="e.stage_id.name or '—'"/></span></td>
-                                                    <td><t t-esc="e.avg_size_mg"/></td>
-                                                    <td><t t-esc="e.survival_rate"/></td>
-                                                    <td><t t-esc="e.available_qty"/></td>
-                                                    <td class="text-faint"><t t-esc="e.note or '—'"/></td>
+                                                    <td class="text-end"><t t-esc="tx.shrimp_fmt_num(e.avg_size_mg, 2)"/></td>
+                                                    <td class="text-end"><t t-esc="tx.shrimp_fmt_num(e.survival_rate, 1)"/></td>
+                                                    <td class="text-faint"><t t-esc="e.shrimp_observation()"/></td>
                                                 </tr>
                                             </t>
                                         </tbody>
@@ -1165,15 +1384,16 @@
                             <t t-if="moves">
                                 <div class="mp-table-wrap table-responsive">
                                     <table class="table align-middle mb-0">
-                                        <thead><tr><th>Fecha</th><th>Producto</th><th>Origen</th><th>Destino</th><th>Cantidad</th></tr></thead>
+                                        <thead><tr><th>Fecha</th><th>Tipo</th><th>Producto</th><th>Origen</th><th>Destino / detalle</th><th class="text-end">Cantidad</th></tr></thead>
                                         <tbody>
                                             <t t-foreach="moves" t-as="m">
                                                 <tr>
-                                                    <td><t t-esc="m.date or m.create_date"/></td>
+                                                    <td><t t-esc="tx.shrimp_fmt_dt(m.date or m.create_date)"/></td>
+                                                    <td><span class="s-badge"><t t-esc="m.move_type_label()"/></span></td>
                                                     <td><t t-esc="m.product_id.name"/></td>
-                                                    <td><t t-esc="m.source_partner_id.name or '—'"/></td>
-                                                    <td><t t-esc="m.dest_partner_id.name or '—'"/></td>
-                                                    <td><t t-esc="m.qty"/></td>
+                                                    <td><t t-esc="m.source_partner_id.name or '—'"/><small t-if="m.transaction_id.seller_role" class="text-muted"> (<t t-esc="tx.shrimp_role_label(m.transaction_id.seller_role)"/>)</small></td>
+                                                    <td><t t-esc="m.dest_partner_id.name or m.reason or '—'"/><small t-if="m.transaction_id.buyer_role" class="text-muted"> (<t t-esc="tx.shrimp_role_label(m.transaction_id.buyer_role)"/>)</small></td>
+                                                    <td class="text-end"><t t-if="m.move_type in ('production', 'adjustment') and m.direction == 'in'">+</t><t t-elif="m.move_type != 'transfer'">−</t><t t-esc="tx.shrimp_fmt_qty(m.qty, m.product_id.uom_id)"/></td>
                                                 </tr>
                                             </t>
                                         </tbody>
@@ -1192,10 +1412,10 @@
                                     <t t-if="lots">
                                         <div class="mp-table-wrap table-responsive">
                                             <table class="table align-middle mb-0">
-                                                <thead><tr><th>Producto</th><th>Propietario</th><th class="text-end">Disponible</th></tr></thead>
+                                                <thead><tr><th>Producto</th><th>Propietario</th><th class="text-end">Inicial</th><th class="text-end">Disponible</th></tr></thead>
                                                 <tbody>
                                                     <t t-foreach="lots" t-as="l">
-                                                        <tr><td><t t-esc="l.product_id.name"/></td><td><t t-esc="l.owner_id.name"/></td><td class="text-end"><t t-esc="l.available_qty"/></td></tr>
+                                                        <tr><td><t t-esc="l.product_id.name"/></td><td><t t-esc="l.owner_id.name"/></td><td class="text-end"><t t-esc="tx.shrimp_fmt_qty(l.initial_qty, l.uom_id)"/></td><td class="text-end"><t t-if="l in trz_own_lots and l.owner_id == trz_viewer" t-esc="tx.shrimp_fmt_qty(l.available_qty, l.uom_id)"/><t t-else="">—</t></td></tr>
                                                     </t>
                                                 </tbody>
                                             </table>
@@ -1215,7 +1435,7 @@
                                                 <thead><tr><th>Piscina</th><th class="text-end">Cantidad</th><th>Fecha</th></tr></thead>
                                                 <tbody>
                                                     <t t-foreach="allocations" t-as="a">
-                                                        <tr><td><t t-esc="a.pond_id.display_name"/></td><td class="text-end"><t t-esc="a.allocated_qty"/></td><td><t t-esc="a.allocation_date"/></td></tr>
+                                                        <tr><td><t t-esc="a.pond_id.display_name"/><div class="small text-muted"><t t-esc="a.partner_id.name"/></div></td><td class="text-end"><t t-esc="tx.shrimp_fmt_qty(a.allocated_qty, a.stock_lot_id.uom_id)"/></td><td><t t-esc="tx.shrimp_fmt_dt(a.allocation_date)"/></td></tr>
                                                     </t>
                                                 </tbody>
                                             </table>
@@ -1227,39 +1447,43 @@
                         </div>
                     </div>
 
-                    <!-- Certificados del producto -->
-                    <div class="mp-table-card mt-4" t-if="tx.product_id.certificate_line_ids">
+                    <!-- Último paso: salida / exportación registrada por el comprador.
+                         (El bloque «Certificados del producto» que había aquí repetía
+                         el de arriba: se quitó.) -->
+                    <t t-set="trz_exports" t-value="trz['exports'].filtered(lambda e: e.state == 'registered')"/>
+                    <div class="mp-table-card mt-4" id="shrimp_trace_exports">
                         <div class="card-body p-4">
                             <div class="mp-sec-head">
-                                <span class="mp-sec-ico"><i class="fa fa-file-text-o"></i></span>
-                                <h3 class="mp-sec-title">Certificados del producto</h3>
-                                <span class="s-badge s-badge--teal mp-sec-count"><t t-esc="len(tx.product_id.certificate_line_ids)"/></span>
+                                <span class="mp-sec-ico"><i class="fa fa-ship"></i></span>
+                                <h3 class="mp-sec-title">Salida / exportación</h3>
+                                <span t-if="trz_exports" class="s-badge s-badge--teal mp-sec-count"><t t-esc="len(trz_exports)"/></span>
                             </div>
-                            <div class="mp-table-wrap table-responsive">
-                                <table class="table align-middle mb-0">
-                                    <thead><tr><th>Certificado</th><th>Entidad</th><th>N°</th><th>Emisión</th><th>Expira</th><th class="text-end">Archivo</th></tr></thead>
-                                    <tbody>
-                                        <t t-foreach="tx.product_id.certificate_line_ids" t-as="line">
-                                            <tr>
-                                                <td style="font-weight:800;"><t t-esc="line.certificate_id.name"/></td>
-                                                <td><t t-esc="line.certificate_id.issuer or '—'"/></td>
-                                                <td><t t-esc="line.number or '—'"/></td>
-                                                <td><t t-esc="line.issue_date or '—'"/></td>
-                                                <td><t t-esc="line.expiry_date or '—'"/></td>
-                                                <td class="text-end">
-                                                    <t t-if="line.attachment_id">
-                                                        <button type="button" class="s-btn s-btn-ghost btn-sm js-cert-view"
-                                                            t-att-data-url="'/marketplace/product/%s/certificate/%s' % (tx.product_id.uuid_ref, line.attachment_id.id)">
-                                                            Ver certificado
-                                                        </button>
-                                                    </t>
-                                                    <t t-else=""><span class="text-muted">—</span></t>
-                                                </td>
-                                            </tr>
-                                        </t>
-                                    </tbody>
-                                </table>
-                            </div>
+                            <t t-if="trz_exports">
+                                <div class="mp-table-wrap table-responsive">
+                                    <table class="table align-middle mb-0">
+                                        <thead><tr><th>Ref.</th><th>Fecha</th><th>Destino</th><th>Comprador</th><th>DAE / factura</th><th>Contenedor</th><th class="text-end">Cantidad</th></tr></thead>
+                                        <tbody>
+                                            <t t-foreach="trz_exports" t-as="exp">
+                                                <tr>
+                                                    <td class="fw-semibold"><t t-esc="exp.name"/></td>
+                                                    <td><t t-esc="tx.shrimp_fmt_dt(exp.date)"/></td>
+                                                    <td><t t-esc="exp.destination_country_id.name or '—'"/><t t-if="exp.destination_place"> · <t t-esc="exp.destination_place"/></t></td>
+                                                    <td><t t-esc="exp.buyer_label(trz_viewer)"/></td>
+                                                    <td><t t-esc="exp.dae_number or '—'"/><t t-if="exp.invoice_number"> / <t t-esc="exp.invoice_number"/></t></td>
+                                                    <td><t t-esc="exp.container or '—'"/></td>
+                                                    <td class="text-end"><t t-esc="exp.qty_label()"/></td>
+                                                </tr>
+                                            </t>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </t>
+                            <t t-else=""><div class="text-muted">Todavía no se registró la salida de este producto (exportación o venta fuera de la plataforma).</div></t>
+                            <t t-set="trz_lote_salida" t-value="trz_own_lots.filtered(lambda l: l.owner_id == trz_viewer and l.state == 'available' and l.available_qty &gt; 0)[-1:]"/>
+                            <a t-if="trz_lote_salida" class="s-btn s-btn-primary btn-sm mt-3"
+                               t-att-href="'/marketplace/exports/new?lot=%s' % trz_lote_salida.uuid_ref">
+                                <i class="fa fa-ship me-1"></i> Registrar salida
+                            </a>
                         </div>
                     </div>
 
@@ -1301,7 +1525,7 @@
                         <div class="s-vhero-row">
                             <div class="s-avatar">
                                 <t t-if="seller.image_128">
-                                    <img t-att-src="'/web/image/res.partner/%s/image_128' % seller.id" t-att-alt="seller.name"/>
+                                    <img t-att-src="'/marketplace/sellers/%s/avatar' % seller.uuid_ref" t-att-alt="seller.name"/>
                                 </t>
                                 <t t-else=""><t t-esc="(seller.name or '?')[:1].upper()"/></t>
                             </div>
@@ -1310,7 +1534,7 @@
                                 <div class="s-vhero-meta">
                                     <span class="s-badge">
                                         <i class="fa fa-tag me-1"></i>
-                                        <t t-esc="dict(seller._fields['shrimp_user_type'].selection).get(seller.shrimp_user_type)"/>
+                                        <t t-esc="' · '.join(seller._shrimp_type_label(r) for r in seller.sudo()._shrimp_roles_with('sell_products')) or dict(seller._fields['shrimp_user_type'].selection).get(seller.shrimp_user_type)"/>
                                     </span>
                                     <t t-if="seller.city"><span><i class="fa fa-map-marker me-1"></i><t t-esc="seller.city"/></span></t>
                                     <t t-if="certificate_lines"><span><i class="fa fa-certificate me-1"></i><t t-esc="len(certificate_lines)"/> certificación(es)</span></t>
@@ -1348,7 +1572,7 @@
                                     <div class="s-prod-card">
                                         <a class="s-prod-imgwrap" t-att-href="'/marketplace/product/%s' % p.uuid_ref">
                                             <t t-if="cover">
-                                                <img class="s-prod-img" t-att-src="'/web/content/%s?access_token=%s' % (cover[0].id, cover[0].access_token)" t-att-alt="p.name"/>
+                                                <img class="s-prod-img" t-att-src="p.shrimp_photo_url(cover[0])" t-att-alt="p.name"/>
                                             </t>
                                             <t t-else=""><div class="s-prod-noimg"><i class="fa fa-image me-2"></i> Sin foto</div></t>
                                         </a>
@@ -1401,4 +1625,55 @@
         </t>
     </template>
 
+
+    <!-- La factura de la mercadería registrada por el vendedor (paso 2 de la
+         facturación). Solo en la trazabilidad PRIVADA de las partes: la
+         pública (/t/<token>) no la muestra. -->
+    <template id="traceability_screen_seller_invoice" inherit_id="shrimp_marketplace.traceability_screen"
+              priority="20" name="Trazabilidad - factura del vendedor">
+        <xpath expr="//div[@id='shrimp_trace_summary']" position="after">
+            <t t-set="_txs" t-value="tx.sudo()"/>
+            <div t-if="_txs.state in ('confirmed', 'done')" class="mp-table-card mb-4" id="shrimp_trace_seller_invoice">
+                <div class="card-body p-4">
+                    <div class="mp-sec-head">
+                        <span class="mp-sec-ico"><i class="fa fa-file-text"></i></span>
+                        <h3 class="mp-sec-title">Factura del vendedor</h3>
+                    </div>
+                    <t t-if="_txs.has_seller_invoice">
+                        <div class="mp-spec-grid">
+                            <div class="mp-spec" t-if="_txs.seller_invoice_number">
+                                <span class="mp-spec-ico"><i class="fa fa-hashtag"></i></span>
+                                <div class="mp-spec-body">
+                                    <div class="mp-spec-label">Número</div>
+                                    <div class="mp-spec-value"><t t-esc="_txs.seller_invoice_number"/></div>
+                                </div>
+                            </div>
+                            <div class="mp-spec" t-if="_txs.seller_invoice_date">
+                                <span class="mp-spec-ico"><i class="fa fa-calendar"></i></span>
+                                <div class="mp-spec-body">
+                                    <div class="mp-spec-label">Fecha</div>
+                                    <div class="mp-spec-value"><t t-esc="_txs.seller_invoice_date.strftime('%d/%m/%Y')"/></div>
+                                </div>
+                            </div>
+                            <div class="mp-spec" t-if="_txs.seller_invoice_access_key" style="grid-column:1 / -1;">
+                                <span class="mp-spec-ico"><i class="fa fa-key"></i></span>
+                                <div class="mp-spec-body">
+                                    <div class="mp-spec-label">Clave de acceso (SRI)</div>
+                                    <div class="mp-spec-value" style="word-break:break-all;"><t t-esc="_txs.seller_invoice_access_key"/></div>
+                                </div>
+                            </div>
+                        </div>
+                        <a t-if="_txs.seller_invoice_attachment_id" class="s-btn s-btn-ghost btn-sm mt-3"
+                           t-att-href="'/marketplace/purchases/%s/seller-invoice?download=1' % tx.uuid_ref">
+                            <i class="fa fa-download me-1"></i> Descargar la factura
+                        </a>
+                    </t>
+                    <p t-else="" class="text-muted mb-0">
+                        La factura de la mercadería la emite el vendedor desde su sistema;
+                        todavía no la registró aquí.
+                    </p>
+                </div>
+            </div>
+        </xpath>
+    </template>
 </odoo>

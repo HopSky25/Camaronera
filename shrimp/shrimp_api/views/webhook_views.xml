@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_webhook_subscription_list" model="ir.ui.view">
+        <field name="name">shrimp.webhook.subscription.list</field>
+        <field name="model">shrimp.webhook.subscription</field>
+        <field name="arch" type="xml">
+            <list decoration-muted="not active" decoration-danger="failure_count &gt; 0">
+                <field name="name"/>
+                <field name="partner_id"/>
+                <field name="url"/>
+                <field name="event_types"/>
+                <field name="active"/>
+                <field name="failure_count"/>
+                <field name="last_success_at"/>
+                <field name="last_error" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_webhook_subscription_form" model="ir.ui.view">
+        <field name="name">shrimp.webhook.subscription.form</field>
+        <field name="model">shrimp.webhook.subscription</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_ping" type="object" string="Enviar ping"/>
+                    <button name="action_reactivate" type="object" string="Reactivar" invisible="active"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="partner_id"/>
+                            <field name="user_id"/>
+                            <field name="url"/>
+                            <field name="event_types"/>
+                            <field name="active"/>
+                        </group>
+                        <group>
+                            <field name="uuid_ref" readonly="1"/>
+                            <field name="failure_count"/>
+                            <field name="last_success_at"/>
+                            <field name="last_failure_at"/>
+                            <field name="last_error"/>
+                            <field name="disabled_reason"/>
+                        </group>
+                    </group>
+                    <field name="delivery_ids" readonly="1">
+                        <list limit="20">
+                            <field name="occurred_at"/>
+                            <field name="event_type"/>
+                            <field name="resource_type"/>
+                            <field name="state"/>
+                            <field name="attempts"/>
+                            <field name="last_status_code"/>
+                            <field name="last_error"/>
+                        </list>
+                    </field>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_webhook_delivery_list" model="ir.ui.view">
+        <field name="name">shrimp.webhook.delivery.list</field>
+        <field name="model">shrimp.webhook.delivery</field>
+        <field name="arch" type="xml">
+            <list create="false" decoration-danger="state == 'dead'" decoration-success="state == 'success'"
+                  decoration-warning="state == 'retrying'">
+                <field name="occurred_at"/>
+                <field name="subscription_id"/>
+                <field name="partner_id"/>
+                <field name="event_type"/>
+                <field name="resource_type"/>
+                <field name="resource_uuid" optional="hide"/>
+                <field name="state"/>
+                <field name="attempts"/>
+                <field name="next_attempt_at"/>
+                <field name="last_status_code"/>
+                <field name="last_error"/>
+                <button name="action_retry" type="object" string="Reintentar" icon="fa-repeat"
+                        invisible="state not in ('dead', 'retrying')"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_webhook_delivery_form" model="ir.ui.view">
+        <field name="name">shrimp.webhook.delivery.form</field>
+        <field name="model">shrimp.webhook.delivery</field>
+        <field name="arch" type="xml">
+            <form create="false" edit="false">
+                <header>
+                    <button name="action_retry" type="object" string="Reintentar"
+                            invisible="state not in ('dead', 'retrying')"/>
+                    <field name="state" widget="statusbar"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="uuid_ref"/>
+                            <field name="subscription_id"/>
+                            <field name="event_type"/>
+                            <field name="resource_type"/>
+                            <field name="resource_uuid"/>
+                        </group>
+                        <group>
+                            <field name="occurred_at"/>
+                            <field name="attempts"/>
+                            <field name="next_attempt_at"/>
+                            <field name="delivered_at"/>
+                            <field name="last_status_code"/>
+                            <field name="last_error"/>
+                            <field name="duration_ms"/>
+                        </group>
+                    </group>
+                    <field name="payload"/>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_webhook_delivery_search" model="ir.ui.view">
+        <field name="name">shrimp.webhook.delivery.search</field>
+        <field name="model">shrimp.webhook.delivery</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="event_type"/>
+                <field name="partner_id"/>
+                <field name="resource_uuid"/>
+                <filter name="f_dead" string="Fallidas" domain="[('state', '=', 'dead')]"/>
+                <filter name="f_pending" string="Pendientes" domain="[('state', 'in', ('pending', 'retrying'))]"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_webhook_subscriptions" model="ir.actions.act_window">
+        <field name="name">Suscripciones a webhooks</field>
+        <field name="res_model">shrimp.webhook.subscription</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'active_test': False}</field>
+    </record>
+
+    <record id="action_webhook_deliveries" model="ir.actions.act_window">
+        <field name="name">Entregas de webhooks</field>
+        <field name="res_model">shrimp.webhook.delivery</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

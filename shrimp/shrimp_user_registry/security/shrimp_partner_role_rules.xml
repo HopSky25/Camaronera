@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Perfiles de las cuentas, vistos desde el portal y el sitio público.
+
+       Que una cuenta es empacadora o maquiladora es información pública (los
+       directorios lo muestran), así que se puede leer el perfil APROBADO de
+       cualquiera: lo necesitan los dominios que buscan contrapartes por rol
+       (res.partner._shrimp_role_domain). Los pendientes y rechazados solo los
+       ve la propia cuenta. Las notas internas tienen groups="base.group_user". -->
+  <record id="rule_shrimp_partner_role_portal" model="ir.rule">
+    <field name="name">Perfiles: aprobados de cualquiera, todos los propios</field>
+    <field name="model_id" ref="model_shrimp_partner_role"/>
+    <field name="groups" eval="[(4, ref('base.group_portal')), (4, ref('base.group_public'))]"/>
+    <field name="perm_read" eval="True"/>
+    <field name="perm_write" eval="False"/>
+    <field name="perm_create" eval="False"/>
+    <field name="perm_unlink" eval="False"/>
+    <field name="domain_force">['|', ('state', '=', 'approved'), ('partner_id', '=', user.partner_id.commercial_partner_id.id)]</field>
+  </record>
+</odoo>

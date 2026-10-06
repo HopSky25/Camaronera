@@ -1,0 +1,28 @@
+<odoo>
+  <!-- Qué plataforma sirve cada sitio (marketplace, CamaronMarket Verificadores, empaque).
+       Sustituye a las casillas «Sitio de verificadores» y «Sitio de
+       maquiladores» de cada módulo. -->
+  <record id="view_website_form_shrimp_platform" model="ir.ui.view">
+    <field name="name">website.form.shrimp.platform</field>
+    <field name="model">website</field>
+    <field name="inherit_id" ref="website.view_website_form"/>
+    <field name="arch" type="xml">
+      <field name="domain" position="after">
+        <field name="shrimp_platform"/>
+      </field>
+    </field>
+  </record>
+
+  <!-- Clave estable del menú: la usa la barra superior para pintar los
+       desplegables de cada plataforma sin depender del nombre del menú. -->
+  <record id="website_menus_form_view_shrimp_key" model="ir.ui.view">
+    <field name="name">website.menu.form.shrimp.key</field>
+    <field name="model">website.menu</field>
+    <field name="inherit_id" ref="website.website_menus_form_view"/>
+    <field name="arch" type="xml">
+      <field name="parent_id" position="after">
+        <field name="shrimp_key"/>
+      </field>
+    </field>
+  </record>
+</odoo>

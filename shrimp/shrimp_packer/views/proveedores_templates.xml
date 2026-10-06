@@ -43,7 +43,7 @@
                   del proveedor, para siempre.
                 </t>
               </p>
-              <a class="s-btn s-btn-primary mt-3" href="/marketplace/oferta">
+              <a class="s-btn s-btn-primary mt-3" href="/marketplace/supply">
                 <i class="fa fa-cubes me-1"/> Ver la oferta disponible
               </a>
             </div>
@@ -113,7 +113,7 @@
                     ('metabisulfito', 'Metabisulfito'),
                     ('lotes', 'Lotes')]"/>
               <t t-foreach="ordenes" t-as="o">
-                <a t-attf-href="/marketplace/proveedores?orden=#{o[0]}"
+                <a t-attf-href="/marketplace/suppliers?orden=#{o[0]}"
                    t-attf-class="pk-prov-chip#{' pk-prov-chip--on' if r['orden'] == o[0] else ''}"
                    t-esc="o[1]"/>
               </t>
@@ -141,7 +141,7 @@
 
                       <td>
                         <a class="pk-rep-ganador pk-prov-nombre"
-                           t-attf-href="/marketplace/vendedor/#{f['proveedor'].uuid_ref}"
+                           t-attf-href="/marketplace/sellers/#{f['proveedor'].uuid_ref}"
                            t-esc="f['proveedor'].name"/>
                         <div class="pk-prov-sub">
                           <t t-esc="f['lotes']"/> lote<t t-if="f['lotes'] != 1">s</t>
@@ -220,7 +220,7 @@
 
                       <td class="text-end">
                         <a t-if="f['ofertas']" class="s-btn s-btn-primary pk-prov-btn"
-                           t-attf-href="/marketplace/vendedor/#{f['proveedor'].uuid_ref}">
+                           t-attf-href="/marketplace/sellers/#{f['proveedor'].uuid_ref}">
                           <t t-esc="f['ofertas']"/> lote<t t-if="f['ofertas'] != 1">s</t> a la venta
                         </a>
                         <span t-else="" class="pk-muted">sin oferta</span>

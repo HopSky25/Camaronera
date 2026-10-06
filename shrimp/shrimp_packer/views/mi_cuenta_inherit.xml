@@ -28,12 +28,12 @@
               <div class="col-md-6">
                 <label class="form-label small text-muted">Razón social</label>
                 <input class="form-control" type="text" name="emp_razon_social"
-                       t-att-value="partner.emp_razon_social or ''"/>
+                       t-att-value="partner.shrimp_razon_social or ''"/>
               </div>
               <div class="col-md-6">
                 <label class="form-label small text-muted">Representante legal</label>
                 <input class="form-control" type="text" name="emp_representante"
-                       t-att-value="partner.emp_representante or ''"/>
+                       t-att-value="partner.shrimp_representante or ''"/>
               </div>
               <div class="col-md-6">
                 <label class="form-label small text-muted">Contacto comercial</label>
@@ -44,7 +44,7 @@
               <div class="col-md-6">
                 <label class="form-label small text-muted">Teléfono</label>
                 <input class="form-control" type="text" name="emp_telefono"
-                       t-att-value="partner.emp_telefono or ''"/>
+                       t-att-value="partner.shrimp_telefono or ''"/>
               </div>
               <div class="col-md-6">
                 <label class="form-label small text-muted">Código de exportador</label>
@@ -75,7 +75,7 @@
               <div class="col-md-6">
                 <label class="form-label small text-muted">Ubicación</label>
                 <input class="form-control" type="text" name="emp_planta_ubicacion"
-                       t-att-value="partner.emp_planta_ubicacion or ''"/>
+                       t-att-value="partner.shrimp_ubicacion or ''"/>
                 <div class="form-text">
                   Dónde entrega el productor. Pesa tanto como el precio.
                 </div>
@@ -84,7 +84,7 @@
                 <label class="form-label small text-muted">Capacidad (lb/día)</label>
                 <input class="form-control" type="number" step="1" min="0"
                        name="emp_capacidad_lb_dia"
-                       t-att-value="partner.emp_capacidad_lb_dia or ''"/>
+                       t-att-value="partner.shrimp_capacity_value or ''"/>
                 <div class="form-text">
                   Le dice al productor si puedes recibirle una cosecha grande de una vez.
                 </div>
@@ -217,7 +217,7 @@
     <xpath expr="//div[@id='mpAccountActions']" position="inside">
       <a t-if="partner.shrimp_user_type == 'empacadora'"
          class="s-btn s-btn-ghost"
-         t-attf-href="/marketplace/empacadora/#{partner.uuid_ref}">
+         t-attf-href="/marketplace/packers/#{partner.uuid_ref}">
         <i class="fa fa-eye me-1"/> Ver mi ficha pública
       </a>
     </xpath>

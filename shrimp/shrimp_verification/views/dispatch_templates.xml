@@ -20,17 +20,17 @@
         <div class="shrimp-page py-4 sf-fields" style="max-width:1040px;">
 
           <t t-if="papel == 'verificador'">
-            <a href="/verificador/bandeja" class="s-back mb-3">
+            <a href="/verifier/inbox" class="s-back mb-3">
               <i class="fa fa-arrow-left"></i><span>Volver a la bandeja</span>
             </a>
           </t>
           <t t-elif="papel == 'vendedor'">
-            <a href="/marketplace/ventas" class="s-back mb-3">
+            <a href="/marketplace/sales" class="s-back mb-3">
               <i class="fa fa-arrow-left"></i><span>Volver a mis ventas</span>
             </a>
           </t>
           <t t-else="">
-            <a href="/marketplace/compras" class="s-back mb-3">
+            <a href="/marketplace/purchases" class="s-back mb-3">
               <i class="fa fa-arrow-left"></i><span>Volver a mis compras</span>
             </a>
           </t>
@@ -235,7 +235,7 @@
                   empacadora. Déjala vacía para usar la hora de ahora mismo.
                 </p>
                 <form method="post"
-                      t-attf-action="/marketplace/despacho/#{tx.uuid_ref}/llegada"
+                      t-attf-action="/marketplace/dispatch/#{tx.uuid_ref}/arrival"
                       class="row g-3 align-items-end">
                   <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                   <div class="col-md-5">
@@ -279,7 +279,7 @@
                 </p>
 
                 <form method="post"
-                      t-attf-action="/marketplace/despacho/#{tx.uuid_ref}/guardar"
+                      t-attf-action="/marketplace/dispatch/#{tx.uuid_ref}/save"
                       class="row g-3">
                   <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
 
@@ -484,7 +484,7 @@
               </div>
             </t>
           </div>
-          <a t-attf-href="/marketplace/despacho/#{v.transaction_id.uuid_ref}"
+          <a t-attf-href="/marketplace/dispatch/#{v.transaction_id.uuid_ref}"
              class="s-btn s-btn-primary btn-sm">
             <i class="fa fa-truck me-1"/> Ver el despacho
           </a>
@@ -508,18 +508,32 @@
         <t t-set="desp" t-value="tx.dispatch_id"/>
         <div class="mt-1">
           <t t-if="desp.eta">
-            <a t-attf-href="/marketplace/despacho/#{tx.uuid_ref}"
+            <a t-attf-href="/marketplace/dispatch/#{tx.uuid_ref}"
                class="s-badge s-badge--teal" style="text-decoration:none;">
               <i class="fa fa-truck me-1"/><t t-esc="desp.fmt_hora('eta')"/>
             </a>
           </t>
           <t t-else="">
-            <a t-attf-href="/marketplace/despacho/#{tx.uuid_ref}"
+            <a t-attf-href="/marketplace/dispatch/#{tx.uuid_ref}"
                class="s-badge" style="text-decoration:none; background:#fdf3e3; color:#a8510d;">
               <i class="fa fa-exclamation-triangle me-1"/> Declarar despacho
             </a>
           </t>
         </div>
+      </t>
+    </xpath>
+    <!-- En móvil la venta es una tarjeta: el despacho va primero entre sus
+         acciones, como botón a todo el ancho. -->
+    <xpath expr="//div[@data-s-tx-actions]/*[1]" position="before">
+      <t t-if="mode == 'sales' and tx.dispatch_id and tx.state != 'cancel'">
+        <a t-if="tx.dispatch_id.eta" t-attf-href="/marketplace/dispatch/#{tx.uuid_ref}"
+           class="s-btn s-btn-ghost s-txc-dispatch">
+          <i class="fa fa-truck me-1"/> Despacho: <t t-esc="tx.dispatch_id.fmt_hora('eta')"/>
+        </a>
+        <a t-else="" t-attf-href="/marketplace/dispatch/#{tx.uuid_ref}"
+           class="s-btn s-btn-primary s-txc-dispatch">
+          <i class="fa fa-exclamation-triangle me-1"/> Declarar despacho
+        </a>
       </t>
     </xpath>
   </template>
@@ -536,7 +550,7 @@
       <t t-if="tx.dispatch_id">
         <li><hr class="dropdown-divider"/></li>
         <li>
-          <a class="dropdown-item" t-attf-href="/marketplace/despacho/#{tx.uuid_ref}">
+          <a class="dropdown-item" t-attf-href="/marketplace/dispatch/#{tx.uuid_ref}">
             <i class="fa fa-truck me-2"/> Seguimiento del despacho
           </a>
         </li>
@@ -573,7 +587,7 @@
                 </div>
               </t>
             </div>
-            <a t-attf-href="/marketplace/despacho/#{tx.uuid_ref}" class="s-btn s-btn-ghost">
+            <a t-attf-href="/marketplace/dispatch/#{tx.uuid_ref}" class="s-btn s-btn-ghost">
               Ver el seguimiento
             </a>
           </div>

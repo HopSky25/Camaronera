@@ -79,9 +79,9 @@
     <field name="arch" type="xml">
       <list string="Verificadores" decoration-muted="not verifier_is_accredited">
         <field name="name"/>
-        <field name="ver_razon_social" string="Razón social"/>
-        <field name="ver_representante" string="Responsable"/>
-        <field name="ver_telefono" string="Teléfono"/>
+        <field name="shrimp_razon_social" string="Razón social"/>
+        <field name="shrimp_representante" string="Responsable"/>
+        <field name="shrimp_telefono" string="Teléfono"/>
         <field name="ver_cobertura" string="Cobertura"/>
         <field name="ver_registro_num" string="N.º registro"/>
         <field name="verifier_is_accredited" string="Acreditado" widget="boolean_toggle" readonly="1"/>
@@ -113,15 +113,15 @@
           <group>
             <group string="Datos del verificador">
               <field name="shrimp_user_type" readonly="1"/>
-              <field name="ver_razon_social"/>
-              <field name="ver_representante"/>
-              <field name="ver_telefono"/>
+              <field name="shrimp_razon_social"/>
+              <field name="shrimp_representante" string="Responsable técnico"/>
+              <field name="shrimp_telefono"/>
               <field name="ver_registro_num"/>
             </group>
             <group string="Operación">
               <field name="email"/>
               <field name="vat_or_id"/>
-              <field name="ver_ubicacion"/>
+              <field name="shrimp_ubicacion" string="Base de operaciones"/>
               <field name="ver_cobertura"/>
               <field name="verifier_is_accredited" readonly="1"/>
               <field name="verifier_accreditation_line_id" readonly="1"/>
@@ -173,7 +173,7 @@
     <field name="arch" type="xml">
       <search string="Verificadores">
         <field name="name"/>
-        <field name="ver_razon_social"/>
+        <field name="shrimp_razon_social"/>
         <field name="ver_cobertura"/>
         <filter name="f_accredited" string="Acreditados"
                 domain="[('verifier_is_accredited','=',True)]"/>

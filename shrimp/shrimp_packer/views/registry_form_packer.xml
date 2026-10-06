@@ -1,7 +1,7 @@
 <odoo>
 
   <!-- ================================================================
-       REGISTRO DE LA EMPACADORA (/registro/empacadora)
+       REGISTRO DE LA EMPACADORA (/register/packer)
 
        Formulario propio y no un paso más del registro compartido: la
        empacadora no publica productos ni maneja lotes. Lo que necesita
@@ -31,7 +31,9 @@
             </div>
           </t>
 
-          <form method="post" action="/registro/submit" class="pk-caja">
+          <form method="post" action="/register/submit" class="pk-caja"
+                t-att-data-captcha="'shrimp_signup' if request.env['ir.config_parameter'].sudo().get_param('recaptcha_public_key') else None">
+            <t t-call="shrimp_user_registry.signup_honeypot"/>
             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
             <input type="hidden" name="shrimp_user_type" value="empacadora"/>
 

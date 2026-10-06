@@ -7,8 +7,11 @@
         <field name="name"/>
         <field name="transaction_type"/>
         <field name="seller_partner_id"/>
+        <field name="seller_role" optional="show"/>
         <field name="buyer_partner_id"/>
-        <field name="state"/>
+        <field name="buyer_role" optional="show"/>
+        <field name="state" widget="badge"/>
+        <field name="has_seller_invoice" optional="hide"/>
         <field name="sold_date"/>
         <field name="desired_date"/>
       </list>
@@ -29,7 +32,9 @@
             <field name="transaction_type"/>
             <field name="product_id"/>
             <field name="seller_partner_id"/>
+            <field name="seller_role" readonly="1"/>
             <field name="buyer_partner_id"/>
+            <field name="buyer_role" readonly="1"/>
             <field name="location"/>
           </group>
 
@@ -49,6 +54,37 @@
                 <field name="desired_date"/>
                 <field name="code"/>
               </group>
+            </page>
+
+            <!-- La factura de la mercadería la emite el VENDEDOR desde su
+                 sistema; aquí solo se registra. La plataforma factura solo
+                 sus servicios (pestaña Cobros). -->
+            <page string="Factura del vendedor" name="seller_invoice">
+              <group>
+                <group>
+                  <field name="seller_invoice_number" placeholder="001-001-000000001"/>
+                  <field name="seller_invoice_access_key"/>
+                  <field name="seller_invoice_date"/>
+                </group>
+                <group>
+                  <field name="seller_invoice_attachment_id"/>
+                  <field name="seller_invoice_registered_at"/>
+                  <field name="invoice_id" invisible="not invoice_id"/>
+                </group>
+              </group>
+            </page>
+            <page string="Cobros de la plataforma" name="platform_charges">
+              <field name="charge_ids" readonly="1">
+                <list>
+                  <field name="name"/>
+                  <field name="charge_type"/>
+                  <field name="payer_partner_id"/>
+                  <field name="currency_id" column_invisible="1"/>
+                  <field name="amount" widget="monetary"/>
+                  <field name="state" widget="badge"/>
+                  <field name="invoice_id"/>
+                </list>
+              </field>
             </page>
           </notebook>
         </sheet>

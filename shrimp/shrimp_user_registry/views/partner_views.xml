@@ -13,31 +13,68 @@
         <page string="Información Camaronera" name="shrimp_tab" groups="base.group_user">
 
           <group string="Perfil" col="2">
-            <field name="shrimp_user_type" widget="radio"/>
+            <field name="shrimp_user_type" widget="radio" string="Perfil activo"
+                   help="Rol con el que la cuenta opera ahora. Elegir uno que la cuenta no tiene se lo agrega."/>
             <field name="vat_or_id" placeholder="RUC o Cédula"/>
+            <field name="shrimp_account_state" readonly="1" string="Estado del perfil activo"/>
+            <field name="shrimp_role_codes" invisible="1"/>
           </group>
+          <!-- Varios perfiles por cuenta: cada uno con su aprobación. -->
+          <group string="Perfiles de la cuenta" name="shrimp_roles">
+            <field name="shrimp_role_ids" nolabel="1" colspan="2"
+                   context="{'default_partner_id': id}">
+              <list editable="bottom" decoration-warning="state == 'pending'"
+                    decoration-muted="state == 'rejected'">
+                <field name="role"/>
+                <field name="state" readonly="1" widget="badge"
+                       decoration-success="state == 'approved'"
+                       decoration-warning="state == 'pending'"
+                       decoration-danger="state == 'rejected'"/>
+                <field name="is_active_profile" string="Activo"/>
+                <field name="request_date" optional="show"/>
+                <field name="decision_date" optional="hide"/>
+                <field name="decided_by_id" optional="hide"/>
+                <field name="notes" optional="hide"/>
+                <button name="action_approve" type="object" string="Aprobar" icon="fa-check"
+                        class="btn-link" invisible="state == 'approved'" groups="base.group_system"/>
+                <button name="action_reject" type="object" string="Rechazar" icon="fa-times"
+                        class="btn-link" invisible="state == 'rejected'" groups="base.group_system"/>
+              </list>
+            </field>
+          </group>
+          <div class="mb-3" invisible="shrimp_account_state == 'approved'" groups="base.group_system">
+            <button name="action_shrimp_approve_account" type="object" string="Aprobar cuenta"
+                    class="btn-primary" icon="fa-check"
+                    confirm="¿Aprobar esta cuenta? Podrá operar en el portal con su rol."/>
+            <button name="action_shrimp_reject_account" type="object" string="Rechazar cuenta"
+                    class="btn-secondary ms-2" icon="fa-times"
+                    invisible="shrimp_account_state == 'rejected'"/>
+          </div>
 
-          <group col="2">
-
-            <group string="Datos de Laboratorio" invisible="shrimp_user_type != 'laboratorio'">
-              <field name="lab_razon_social" placeholder="Ej. Laboratorio XYZ S.A."/>
-              <field name="lab_ubicacion" placeholder="Ej. Durán, Guayas"/>
+          <!-- Perfil de empresa común a todos los roles (los campos lab_*,
+               farm_*, emp_*, ver_*, pack_* son alias obsoletos de estos). -->
+          <group col="2" name="shrimp_common_profile">
+            <group string="Datos de la empresa" name="shrimp_company_data">
+              <field name="shrimp_razon_social" placeholder="Ej. Camaronera ABC S.A."/>
+              <field name="shrimp_representante"/>
+              <field name="shrimp_telefono"/>
+              <field name="shrimp_ubicacion" placeholder="Ej. Durán, Guayas"/>
+              <label for="shrimp_capacity_value" string="Capacidad"/>
+              <div class="o_row">
+                <field name="shrimp_capacity_value" class="oe_inline"/>
+                <field name="shrimp_capacity_unit" class="oe_inline"/>
+              </div>
+            </group>
+            <group string="Datos de Laboratorio" invisible="'laboratorio' not in (shrimp_role_codes or '')">
               <field name="lab_global_gap"/>
               <field name="lab_social_ship_partner"/>
             </group>
-
-            <group string="Datos de Camaronera" invisible="shrimp_user_type != 'camaronera'">
-              <field name="farm_razon_social" placeholder="Ej. Camaronera ABC S.A."/>
-              <field name="farm_representante"/>
-              <field name="farm_telefono"/>
-              <field name="farm_ubicacion" placeholder="Ej. Santa Elena"/>
-              <field name="farm_capacidad"/>
+            <group string="Datos de Camaronera" invisible="'camaronera' not in (shrimp_role_codes or '')">
               <field name="farm_area_ha"/>
             </group>
-
           </group>
 
-          <group string="Datos de Semillero" invisible="shrimp_user_type != 'semillero'">
+          <group string="Datos de Semillero" invisible="'semillero' not in (shrimp_role_codes or '')">
             <group col="2">
               <field name="sem_photo_attachment_ids" widget="many2many_binary" string="Fotos"/>
               <field name="sem_facility_photo_attachment_ids" widget="many2many_binary" string="Fotos de instalaciones"/>
@@ -115,6 +152,45 @@
 
       </xpath>
 
+    </field>
+  </record>
+
+  <!-- Cuentas pendientes de aprobación (empacadoras y maquiladores que se
+       registran por la web). El menú lo cuelga shrimp_marketplace. -->
+  <record id="view_partner_shrimp_account_approval_list" model="ir.ui.view">
+    <field name="name">res.partner.shrimp.account.approval.list</field>
+    <field name="model">res.partner</field>
+    <field name="priority">90</field>
+    <field name="arch" type="xml">
+      <list string="Cuentas por aprobar" create="0">
+        <field name="name"/>
+        <field name="shrimp_user_type" string="Perfil activo"/>
+        <field name="shrimp_roles_display" string="Perfiles"/>
+        <field name="email"/>
+        <field name="vat_or_id"/>
+        <field name="create_date" string="Registrada"/>
+        <field name="shrimp_account_state"/>
+        <button name="action_shrimp_approve_account" type="object" string="Aprobar"
+                icon="fa-check" class="btn-link" invisible="shrimp_account_state == 'approved'"
+                groups="base.group_system"/>
+        <button name="action_shrimp_reject_account" type="object" string="Rechazar"
+                icon="fa-times" class="btn-link" invisible="shrimp_account_state == 'rejected'"
+                groups="base.group_system"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="action_shrimp_account_approval" model="ir.actions.act_window">
+    <field name="name">Cuentas por aprobar</field>
+    <field name="res_model">res.partner</field>
+    <field name="view_mode">list,form</field>
+    <field name="view_id" ref="view_partner_shrimp_account_approval_list"/>
+    <field name="domain">[('shrimp_account_state', '!=', 'approved')]</field>
+    <field name="context">{'active_test': False}</field>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">No hay cuentas pendientes de aprobación.</p>
+      <p>Las empacadoras y los maquiladores que se registran por la web quedan aquí
+         hasta que un administrador los aprueba.</p>
     </field>
   </record>
 </odoo>

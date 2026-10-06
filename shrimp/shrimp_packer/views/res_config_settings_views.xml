@@ -1,0 +1,48 @@
+<odoo>
+  <record id="res_config_settings_view_form_packer" model="ir.ui.view">
+    <field name="name">res.config.settings.form.shrimp.packer</field>
+    <field name="model">res.config.settings</field>
+    <field name="inherit_id" ref="shrimp_marketplace.res_config_settings_view_form_shrimp"/>
+    <field name="arch" type="xml">
+      <xpath expr="//block[@name='shrimp_marketplace_block']" position="before">
+        <block title="Reservas de cosecha y proveedores" name="shrimp_packer_block">
+          <setting string="Deshacer el rechazo de una cosecha"
+                   help="Quien rechaza la confirmación de una cosecha (y con eso libera el compromiso) puede deshacerlo durante esta ventana, si el lote sigue en borrador.">
+            <div class="content-group">
+              <div class="row mt16">
+                <label for="shrimp_signoff_undo_minutes" class="col-lg-6 o_light_label"/>
+                <field name="shrimp_signoff_undo_minutes"/>
+                <span class="text-muted">minutos</span>
+              </div>
+            </div>
+          </setting>
+          <setting string="Ranking de proveedores"
+                   help="Puntaje de conveniencia = rendimiento × peso + clase A × peso + cumplimiento × peso (los tres pesos suman 100 %). Un proveedor con menos lotes verificados que el mínimo se muestra aparte, lote a lote.">
+            <div class="content-group">
+              <div class="row mt16">
+                <label for="shrimp_ranking_min_lots" class="col-lg-6 o_light_label"/>
+                <field name="shrimp_ranking_min_lots"/>
+                <span class="text-muted">lotes verificados</span>
+              </div>
+              <div class="row">
+                <label for="shrimp_ranking_weight_yield" class="col-lg-6 o_light_label"/>
+                <field name="shrimp_ranking_weight_yield"/>
+                <span class="text-muted">%</span>
+              </div>
+              <div class="row">
+                <label for="shrimp_ranking_weight_class_a" class="col-lg-6 o_light_label"/>
+                <field name="shrimp_ranking_weight_class_a"/>
+                <span class="text-muted">%</span>
+              </div>
+              <div class="row">
+                <label for="shrimp_ranking_weight_compliance" class="col-lg-6 o_light_label"/>
+                <field name="shrimp_ranking_weight_compliance"/>
+                <span class="text-muted">%</span>
+              </div>
+            </div>
+          </setting>
+        </block>
+      </xpath>
+    </field>
+  </record>
+</odoo>

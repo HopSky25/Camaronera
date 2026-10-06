@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <!-- =====================================================================
+         Cajón de filtros reutilizable (patrón aprobado en /marketplace).
+
+         Tres piezas que leen un único diccionario `fd` (lo arma el
+         controlador con controllers/filter_drawer.py → fd_context):
+
+           s_filter_toolbar  barra superior: búsqueda · «Filtros (N)» ·
+                             Lista/Cuadrícula · Ordenar. Un solo formulario GET:
+                             Enter en la búsqueda o cambiar el orden conserva
+                             los filtros (campos ocultos fd['hidden']).
+                             El cuerpo del t-call (opcional) va entre el botón
+                             y el orden (p. ej. «Qué comparar»).
+           s_filter_tags     etiquetas de los filtros activos + «Limpiar todo».
+           s_filter_drawer   el cajón (role=dialog). El cuerpo del t-call son
+                             las secciones (.s-filter-sec con id sf_sec_*);
+                             pie fijo «Limpiar» + «Ver N …» (conteo en vivo
+                             con fd['count_url']) o «Aplicar».
+
+         El comportamiento (abrir/cerrar, foco atrapado, Esc, bloqueo del
+         scroll, conteo con 250 ms de espera, vista recordada) está en
+         static/src/js/shrimp_filter_drawer.js. Sin JS el cajón se abre como
+         ancla (:target) y el formulario funciona igual.
+         ===================================================================== -->
+
+    <template id="s_filter_toolbar" name="Filtros: barra superior">
+        <form method="get" t-att-action="fd['action']" class="s-sort s-mkt-toolbar" role="search"
+              t-att-aria-label="fd.get('toolbar_label') or 'Buscar y filtrar'" id="sMktToolbar">
+            <div t-if="fd.get('search')" class="s-mkt-search">
+                <i class="fa fa-search" aria-hidden="true"></i>
+                <input class="form-control" type="search" t-att-name="fd['search'].get('name') or 'q'" id="sMktSearch"
+                       t-att-value="fd['search'].get('value') or ''"
+                       t-att-placeholder="fd['search'].get('placeholder') or 'Buscar…'"
+                       t-att-aria-label="fd['search'].get('label') or 'Buscar'" />
+            </div>
+            <t t-foreach="fd.get('hidden') or []" t-as="fd_h">
+                <input type="hidden" t-att-name="fd_h[0]" t-att-value="fd_h[1] or ''"
+                       t-att-class="'js-vista-input' if fd_h[0] == 'vista' else None" />
+            </t>
+            <button t-if="fd.get('search')" type="submit" class="visually-hidden" tabindex="-1">Buscar</button>
+
+            <!-- Sin JS es un ancla: el cajón se muestra con :target. -->
+            <a t-if="fd.get('has_drawer', True)" href="#sFilterDrawer" role="button" id="sFilterOpen"
+               t-att-class="'s-mkt-filter-btn js-filter-open' + (' has-active' if fd.get('active') else '')"
+               aria-haspopup="dialog" aria-controls="sFilterDrawer" aria-expanded="false"
+               t-att-aria-label="'Filtros, %s activos' % fd['active'] if fd.get('active') else 'Filtros'">
+                <i class="fa fa-sliders" aria-hidden="true"></i>
+                <span>Filtros</span>
+                <span t-if="fd.get('active')" class="s-filter-count" aria-hidden="true"><t t-esc="fd['active']" /></span>
+            </a>
+
+            <t t-out="0"/>
+
+            <!-- Vista: lista (filas) o cuadrícula (tarjetas). Enlaces (sin JS
+                 funcionan); con JS cambia al instante y se recuerda. -->
+            <div t-if="fd.get('view')" class="s-view-toggle" role="group"
+                 t-att-aria-label="fd['view'].get('label') or 'Vista de la lista'"
+                 t-att-data-view-key="fd['view'].get('key')"
+                 t-att-data-view-target="fd['view'].get('target')"
+                 t-att-data-view-path="fd['view'].get('path') or fd['action']">
+                <t t-set="fd_vista" t-value="fd['view'].get('current') or ''"/>
+                <a t-att-href="fd['view'].get('lista_url')" data-vista="lista" role="button"
+                   t-att-class="'s-view-btn js-vista-btn' + (' is-active' if fd_vista == 'lista' else '')"
+                   t-att-aria-pressed="'true' if fd_vista == 'lista' else 'false'"
+                   title="Ver como lista" aria-label="Ver como lista">
+                    <i class="fa fa-list" aria-hidden="true"></i><span class="s-view-txt">Lista</span>
+                </a>
+                <a t-att-href="fd['view'].get('grid_url')" data-vista="grid" role="button"
+                   t-att-class="'s-view-btn js-vista-btn' + ('' if fd_vista == 'lista' else ' is-active')"
+                   t-att-aria-pressed="'false' if fd_vista == 'lista' else 'true'"
+                   title="Ver como cuadrícula" aria-label="Ver como cuadrícula">
+                    <i class="fa fa-th-large" aria-hidden="true"></i><span class="s-view-txt">Cuadrícula</span>
+                </a>
+            </div>
+            <div t-if="fd.get('sort')" class="s-mkt-sortsel">
+                <label for="sSortSelect"><i class="fa fa-sort-amount-asc me-1"></i><span class="s-mkt-sort-txt"><t t-esc="fd['sort'].get('label') or 'Ordenar'"/></span></label>
+                <select class="form-select" t-att-name="fd['sort'].get('name') or 'sort'" id="sSortSelect"
+                        t-att-aria-label="fd['sort'].get('label') or 'Ordenar'" onchange="this.form.submit()">
+                    <t t-foreach="fd['sort'].get('options') or []" t-as="fd_o">
+                        <option t-att-value="fd_o[0]" t-att-selected="(fd['sort'].get('value') or '') == fd_o[0]"><t t-esc="fd_o[1]"/></option>
+                    </t>
+                </select>
+            </div>
+        </form>
+    </template>
+
+    <template id="s_filter_tags" name="Filtros: etiquetas activas">
+        <!-- Cada etiqueta lleva a la misma URL sin ese filtro (conserva la
+             búsqueda, el orden, la vista y el resto de filtros). -->
+        <div t-if="fd.get('tags')" class="s-active-tags" id="sActiveTags" role="list" aria-label="Filtros activos">
+            <t t-foreach="fd['tags']" t-as="tag">
+                <a class="s-active-tag" role="listitem" t-att-href="tag['url']"
+                   t-att-data-vista-link="'1' if fd.get('view') else None"
+                   t-att-data-filter="tag['key']"
+                   t-att-aria-label="'Quitar filtro: %s' % tag['label']"
+                   t-att-title="'Quitar filtro'">
+                    <span><t t-esc="tag['label']" /></span><i class="fa fa-times" aria-hidden="true"></i>
+                </a>
+            </t>
+            <a class="s-active-clear" t-att-href="fd['clear_url']"
+               t-att-data-vista-link="'1' if fd.get('view') else None">Limpiar todo</a>
+        </div>
+    </template>
+
+    <template id="s_filter_drawer" name="Filtros: cajón lateral">
+        <div t-if="fd.get('has_drawer', True)" class="s-drawer" id="sFilterDrawer">
+            <a class="s-drawer-backdrop js-filter-close" t-att-href="fd.get('anchor') or '#listado'" tabindex="-1" aria-hidden="true"></a>
+            <div class="s-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="sFilterDrawerTitle" tabindex="-1">
+                <form method="get" t-att-action="fd['action']" class="s-drawer-form" id="sFilterPanel"
+                      t-att-data-keep="','.join(fd.get('keep') or [])">
+                    <div class="s-drawer-head">
+                        <h2 id="sFilterDrawerTitle"><i class="fa fa-sliders me-2" aria-hidden="true"></i>Filtros</h2>
+                        <a t-att-href="fd.get('anchor') or '#listado'" role="button" class="s-drawer-close js-filter-close" aria-label="Cerrar filtros">
+                            <i class="fa fa-times" aria-hidden="true"></i>
+                        </a>
+                    </div>
+
+                    <div class="s-drawer-body" id="sFilterBody">
+                        <t t-out="0"/>
+                        <!-- conserva búsqueda, orden y vista al aplicar -->
+                        <t t-foreach="fd.get('drawer_hidden') or []" t-as="fd_h">
+                            <input type="hidden" t-att-name="fd_h[0]" t-att-value="fd_h[1] or ''"
+                                   t-att-class="'js-vista-input' if fd_h[0] == 'vista' else None" />
+                        </t>
+                    </div>
+
+                    <div class="s-drawer-foot">
+                        <a class="s-btn s-btn-ghost js-filter-reset" t-att-href="fd['clear_url']"
+                           t-att-data-vista-link="'1' if fd.get('view') else None">Limpiar</a>
+                        <button type="submit" class="s-btn s-btn-primary" id="sFilterApply"
+                                t-att-data-total="fd.get('total')"
+                                t-att-data-count-url="fd.get('count_url') or None"
+                                t-att-data-one="fd.get('one')" t-att-data-many="fd.get('many')"
+                                t-att-data-label="fd.get('apply_label')"><t t-esc="fd.get('apply_label')"/></button>
+                    </div>
+                    <span class="visually-hidden" aria-live="polite" id="sFilterLive"></span>
+                </form>
+            </div>
+        </div>
+    </template>
+
+</odoo>

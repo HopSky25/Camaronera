@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- =================================================================
+       Separación entre usuarios internos (backoffice).
+
+       Antes cualquier usuario interno tenía CRUD completo —borrado incluido—
+       sobre compras, cobros, verificaciones y órdenes de empaque. Ahora:
+
+       - Operador (group_shrimp_user): lee, crea y edita; NO borra compras,
+         cobros, verificaciones ni órdenes de empaque.
+       - Administrador (group_shrimp_manager): control total. Lo tienen
+         automáticamente los administradores del sistema (base.group_system
+         lo implica).
+
+       Los usuarios internos que ya existían reciben el grupo de operador en
+       la migración 19.0.1.4.0, para que nadie pierda acceso al actualizar.
+       Los usuarios internos nuevos NO lo tienen por defecto: hay que
+       asignárselo (así un usuario de contabilidad no ve el marketplace).
+       ================================================================= -->
+  <record id="res_groups_privilege_shrimp" model="res.groups.privilege">
+    <field name="name">Camaronera (marketplace)</field>
+    <field name="sequence">60</field>
+  </record>
+
+  <record id="group_shrimp_user" model="res.groups">
+    <field name="name">Operador</field>
+    <field name="sequence">10</field>
+    <field name="privilege_id" ref="res_groups_privilege_shrimp"/>
+    <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+    <field name="comment">Opera el backoffice del marketplace: lee, crea y edita, sin borrar compras, cobros, verificaciones ni órdenes.</field>
+  </record>
+
+  <record id="group_shrimp_manager" model="res.groups">
+    <field name="name">Administrador</field>
+    <field name="sequence">20</field>
+    <field name="privilege_id" ref="res_groups_privilege_shrimp"/>
+    <field name="implied_ids" eval="[(4, ref('group_shrimp_user'))]"/>
+    <field name="user_ids" eval="[(4, ref('base.user_root')), (4, ref('base.user_admin'))]"/>
+    <field name="comment">Control total del marketplace, incluido el borrado y la configuración.</field>
+  </record>
+
+  <!-- Todo administrador del sistema es administrador del marketplace. -->
+  <record id="base.group_system" model="res.groups">
+    <field name="implied_ids" eval="[(4, ref('group_shrimp_manager'))]"/>
+  </record>
+</odoo>

@@ -13,14 +13,10 @@
     <field name="inherit_id" ref="shrimp_user_registry.view_partner_form_inherit_shrimp"/>
     <field name="arch" type="xml">
       <xpath expr="//notebook" position="inside">
-        <page string="Maquilador" invisible="shrimp_user_type != 'maquilador'">
+        <page string="Maquilador" invisible="'maquilador' not in (shrimp_role_codes or '')">
           <group>
-            <group string="Identificación">
-              <field name="pack_razon_social" placeholder="Ej. Empacadora del Golfo S.A."/>
-              <field name="pack_representante"/>
-              <field name="pack_telefono"/>
-              <field name="pack_ubicacion" placeholder="Ej. Machala, El Oro"/>
-            </group>
+            <!-- Razón social, representante, teléfono, ubicación y capacidad
+                 están en el perfil común (pestaña «Información Camaronera»). -->
             <group string="Habilitación">
               <!-- Es el dato que da valor de exportación al certificado del lote:
                    quien escanea el QR ve en qué planta habilitada se empacó. -->
@@ -32,7 +28,6 @@
           </group>
           <group>
             <group string="Capacidad">
-              <field name="pack_capacidad_lb_semana"/>
               <field name="pack_lote_minimo_lb"/>
               <field name="pack_presentaciones"
                      placeholder="Entero, cola, valor agregado..."/>

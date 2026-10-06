@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Secuencia de las salidas (EXP-000001) -->
+    <record id="seq_shrimp_export" model="ir.sequence">
+        <field name="name">Salida / exportación</field>
+        <field name="code">shrimp.export</field>
+        <field name="prefix">EXP-</field>
+        <field name="padding">6</field>
+        <field name="company_id" eval="False"/>
+    </record>
+
+    <!-- Portal: SOLO LECTURA de las salidas propias (lo usan la API y los
+         webhooks para decidir a quién avisar). Se registran en sudo desde el
+         controlador tras comprobar el dueño del lote. -->
+    <record id="rule_shrimp_export_own" model="ir.rule">
+        <field name="name">Shrimp Export: own (lectura)</field>
+        <field name="model_id" ref="model_shrimp_export"/>
+        <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+        <field name="domain_force">[('partner_id', '=', user.partner_id.id)]</field>
+    </record>
+    <record id="rule_shrimp_export_line_own" model="ir.rule">
+        <field name="name">Shrimp Export line: own (lectura)</field>
+        <field name="model_id" ref="model_shrimp_export_line"/>
+        <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+        <field name="domain_force">[('export_id.partner_id', '=', user.partner_id.id)]</field>
+    </record>
+
+    <!-- Movimientos: tipo, lote, motivo y saldos -->
+    <record id="view_shrimp_stock_move_tree_trz" model="ir.ui.view">
+        <field name="name">shrimp.stock.move.tree.trazabilidad</field>
+        <field name="model">shrimp.stock.move</field>
+        <field name="inherit_id" ref="shrimp_marketplace.view_shrimp_stock_move_tree"/>
+        <field name="arch" type="xml">
+            <field name="product_id" position="after">
+                <field name="move_type"/>
+                <field name="lot_id" optional="hide"/>
+                <field name="reason" optional="show"/>
+            </field>
+        </field>
+    </record>
+    <record id="view_shrimp_stock_move_form_trz" model="ir.ui.view">
+        <field name="name">shrimp.stock.move.form.trazabilidad</field>
+        <field name="model">shrimp.stock.move</field>
+        <field name="inherit_id" ref="shrimp_marketplace.view_shrimp_stock_move_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='parent_move_id']" position="after">
+                <field name="move_type" readonly="1"/>
+                <field name="direction" readonly="1" invisible="move_type == 'transfer'"/>
+                <field name="lot_id" readonly="1"/>
+                <field name="allocation_id" readonly="1" invisible="not allocation_id"/>
+                <field name="export_id" readonly="1" invisible="not export_id"/>
+            </xpath>
+            <xpath expr="//field[@name='qty']" position="after">
+                <field name="reason" readonly="1" invisible="not reason"/>
+                <field name="qty_before" readonly="1" invisible="move_type == 'transfer'"/>
+                <field name="qty_after" readonly="1" invisible="move_type == 'transfer'"/>
+            </xpath>
+        </field>
+    </record>
+    <record id="view_shrimp_stock_move_search_trz" model="ir.ui.view">
+        <field name="name">shrimp.stock.move.search.trazabilidad</field>
+        <field name="model">shrimp.stock.move</field>
+        <field name="inherit_id" ref="shrimp_marketplace.view_shrimp_stock_move_search"/>
+        <field name="arch" type="xml">
+            <field name="parent_move_id" position="after">
+                <field name="move_type"/>
+                <field name="lot_id"/>
+            </field>
+        </field>
+    </record>
+
+    <!-- Producto: siembras de origen -->
+    <record id="view_shrimp_product_form_origin_alloc" model="ir.ui.view">
+        <field name="name">shrimp.product.form.siembras.origen</field>
+        <field name="model">shrimp.product</field>
+        <field name="inherit_id" ref="shrimp_marketplace.view_shrimp_product_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Origen y siembras" name="origin_sowings">
+                    <group>
+                        <group>
+                            <field name="origin_facility_id"/>
+                            <field name="origin_pond_id"/>
+                            <field name="production_date"/>
+                            <field name="batch_code"/>
+                        </group>
+                    </group>
+                    <field name="origin_allocation_ids"
+                           domain="[('partner_id', '=', seller_partner_id), ('state', 'in', ('allocated', 'released'))]">
+                        <list>
+                            <field name="allocation_date"/>
+                            <field name="pond_id"/>
+                            <field name="product_id"/>
+                            <field name="allocated_qty"/>
+                            <field name="state"/>
+                        </list>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Salidas / exportaciones -->
+    <record id="view_shrimp_export_tree" model="ir.ui.view">
+        <field name="name">shrimp.export.list</field>
+        <field name="model">shrimp.export</field>
+        <field name="arch" type="xml">
+            <list string="Salidas / exportaciones">
+                <field name="name"/>
+                <field name="date"/>
+                <field name="partner_id"/>
+                <field name="destination_country_id"/>
+                <field name="destination_buyer"/>
+                <field name="dae_number"/>
+                <field name="container"/>
+                <field name="qty"/>
+                <field name="uom_id"/>
+                <field name="state" widget="badge"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_shrimp_export_form" model="ir.ui.view">
+        <field name="name">shrimp.export.form</field>
+        <field name="model">shrimp.export</field>
+        <field name="arch" type="xml">
+            <form string="Salida / exportación">
+                <header>
+                    <button name="action_register" type="object" string="Registrar salida"
+                            class="btn-primary" invisible="state != 'draft'"/>
+                    <button name="action_cancel" type="object" string="Anular"
+                            invisible="state == 'cancelled'"
+                            confirm="Se devolverá la cantidad a los lotes. ¿Continuar?"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,registered"/>
+                </header>
+                <sheet>
+                    <div class="oe_title"><h1><field name="name" readonly="1"/></h1></div>
+                    <group>
+                        <group string="Salida">
+                            <field name="partner_id" readonly="state != 'draft'"/>
+                            <field name="date"/>
+                            <field name="qty"/>
+                            <field name="uom_id"/>
+                            <field name="boxes"/>
+                            <field name="container"/>
+                        </group>
+                        <group string="Destino y documentos">
+                            <field name="destination_buyer"/>
+                            <field name="confidential"/>
+                            <field name="destination_country_id"/>
+                            <field name="destination_place"/>
+                            <field name="dae_number"/>
+                            <field name="invoice_number"/>
+                            <field name="price_unit"/>
+                            <field name="currency_id" invisible="1"/>
+                            <field name="amount_total"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Lotes">
+                            <field name="line_ids" readonly="state != 'draft'">
+                                <list editable="bottom">
+                                    <field name="lot_id" domain="[('owner_id', '=', parent.partner_id), ('available_qty', '>', 0)]"/>
+                                    <field name="product_id"/>
+                                    <field name="qty"/>
+                                    <field name="move_id" readonly="1"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Documentos">
+                            <field name="attachment_ids" widget="many2many_binary"/>
+                        </page>
+                        <page string="Observaciones">
+                            <field name="notes"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_shrimp_export" model="ir.actions.act_window">
+        <field name="name">Salidas / exportaciones</field>
+        <field name="res_model">shrimp.export</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_shrimp_export"
+              name="Salidas / exportaciones"
+              parent="menu_shrimp_inventory_root"
+              action="action_shrimp_export"
+              sequence="40"
+              groups="shrimp_marketplace.group_shrimp_user"/>
+</odoo>

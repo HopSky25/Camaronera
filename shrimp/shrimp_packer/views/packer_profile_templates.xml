@@ -19,20 +19,27 @@
             </div>
           </div>
 
-          <form method="get" class="pk-buscar mb-3">
-            <i class="fa fa-search"/>
-            <input type="text" name="q" class="form-control" t-att-value="q"
-                   placeholder="Buscar por nombre o ubicación de la planta..."/>
-          </form>
+          <!-- Barra + etiquetas + cajón de filtros (plantillas reutilizables del
+               marketplace). Las secciones solo aparecen si distinguen a las
+               empacadoras que hay (certificaciones, mercados, ubicación). -->
+          <div id="listado">
+            <t t-call="shrimp_marketplace.s_filter_toolbar"/>
+            <t t-call="shrimp_marketplace.s_filter_tags"/>
+            <div class="s-sortbar s-mkt-count mb-3">
+              <div class="text-soft" style="font-size:var(--fs-sm);">
+                <strong><t t-esc="len(empacadoras)"/></strong> empacadora(s)
+              </div>
+            </div>
+          </div>
 
           <t t-if="empacadoras">
             <div class="pk-cards">
               <t t-foreach="empacadoras" t-as="e">
                 <a class="pk-card pk-card--emp"
-                   t-attf-href="/marketplace/empacadora/#{e.uuid_ref}">
+                   t-attf-href="/marketplace/packers/#{e.uuid_ref}">
                   <div class="pk-card-nombre" t-esc="e.name"/>
-                  <div class="pk-card-meta" t-if="e.emp_planta_ubicacion">
-                    <i class="fa fa-map-marker me-1"/><t t-esc="e.emp_planta_ubicacion"/>
+                  <div class="pk-card-meta" t-if="e.shrimp_ubicacion">
+                    <i class="fa fa-map-marker me-1"/><t t-esc="e.shrimp_ubicacion"/>
                   </div>
                   <div class="pk-sellos mt-2">
                     <t t-if="e.emp_cert_bap"><span class="pk-sello">BAP</span></t>
@@ -44,8 +51,8 @@
                   </div>
                   <div class="pk-card-pie">
                     <span>
-                      <t t-if="e.emp_capacidad_lb_dia">
-                        <t t-esc="'{:,.0f}'.format(e.emp_capacidad_lb_dia)"/> lb/día
+                      <t t-if="e.shrimp_capacity_value">
+                        <t t-esc="'{:,.0f}'.format(e.shrimp_capacity_value)"/> lb/día
                       </t>
                     </span>
                     <span class="pk-ver">Ver ficha <i class="fa fa-chevron-right"/></span>
@@ -57,7 +64,44 @@
           <t t-else="">
             <div class="pk-vacio">
               <i class="fa fa-industry fa-2x mb-2"/>
-              <p class="mb-0">Todavía no hay empacadoras registradas.</p>
+              <p t-if="total_empacadoras" class="mb-0">Ninguna empacadora cumple esos filtros.
+                <a t-att-href="fd['clear_url']">Quitar filtros</a></p>
+              <p t-else="" class="mb-0">Todavía no hay empacadoras registradas.</p>
+            </div>
+          </t>
+
+          <!-- ===== Cajón de filtros ===== -->
+          <t t-call="shrimp_marketplace.s_filter_drawer">
+            <div t-if="fd_show.get('cert')" class="s-filter-sec" id="sf_sec_cert">
+              <div class="s-filter-sec-label">Certificaciones</div>
+              <div class="s-choice-chips">
+                <t t-foreach="cert_opts" t-as="opt">
+                  <label class="s-choice">
+                    <input type="checkbox" name="cert" t-att-value="opt[0]" t-att-checked="opt[0] in filters['cert']"/>
+                    <span><t t-esc="opt[1]"/></span>
+                  </label>
+                </t>
+              </div>
+            </div>
+            <div t-if="fd_show.get('mercado')" class="s-filter-sec" id="sf_sec_mercado">
+              <div class="s-filter-sec-label">Exporta a</div>
+              <div class="s-choice-chips">
+                <t t-foreach="mercado_opts" t-as="opt">
+                  <label class="s-choice">
+                    <input type="checkbox" name="mercado" t-att-value="opt[0]" t-att-checked="opt[0] in filters['mercado']"/>
+                    <span><t t-esc="opt[1]"/></span>
+                  </label>
+                </t>
+              </div>
+            </div>
+            <div t-if="fd_show.get('ubicacion')" class="s-filter-sec" id="sf_sec_location">
+              <label class="s-filter-sec-label" for="fltUbicacion">Ubicación de la planta</label>
+              <select class="form-select" name="ubicacion" id="fltUbicacion">
+                <option value="">Todas</option>
+                <t t-foreach="ubicacion_opts" t-as="loc">
+                  <option t-att-value="loc" t-att-selected="filters['ubicacion'].lower() == loc.lower()"><t t-esc="loc"/></option>
+                </t>
+              </select>
             </div>
           </t>
 
@@ -73,7 +117,7 @@
     <t t-call="website.layout">
       <div class="shrimp-bg">
         <div class="shrimp-page py-4">
-          <a class="pk-volver" href="/marketplace/empacadoras">
+          <a class="pk-volver" href="/marketplace/packers">
             <i class="fa fa-arrow-left me-1"/> Volver a las empacadoras
           </a>
 
@@ -82,8 +126,8 @@
               <div>
                 <div class="pk-perfil-kicker">Empacadora</div>
                 <h1 class="pk-perfil-nombre" t-esc="emp.name"/>
-                <div class="pk-perfil-razon" t-if="emp.emp_razon_social and emp.emp_razon_social != emp.name"
-                     t-esc="emp.emp_razon_social"/>
+                <div class="pk-perfil-razon" t-if="emp.shrimp_razon_social and emp.shrimp_razon_social != emp.name"
+                     t-esc="emp.shrimp_razon_social"/>
               </div>
               <div class="pk-sellos">
                 <t t-if="emp.emp_cert_bap"><span class="pk-sello pk-sello--claro">BAP</span></t>
@@ -99,7 +143,7 @@
                   <div class="pk-muted small" t-esc="mi_lista.texto_ventana()"/>
                 </div>
                 <a class="s-btn s-btn-primary"
-                   t-attf-href="/marketplace/listas-de-precios/#{mi_lista.uuid_ref}">
+                   t-attf-href="/marketplace/price-lists/#{mi_lista.uuid_ref}">
                   Ver sus precios
                 </a>
               </div>
@@ -111,12 +155,12 @@
               <div t-if="emp.emp_planta_nombre">
                 <span>Planta de proceso</span><strong t-esc="emp.emp_planta_nombre"/>
               </div>
-              <div t-if="emp.emp_planta_ubicacion">
-                <span>Dónde se entrega</span><strong t-esc="emp.emp_planta_ubicacion"/>
+              <div t-if="emp.shrimp_ubicacion">
+                <span>Dónde se entrega</span><strong t-esc="emp.shrimp_ubicacion"/>
               </div>
-              <div t-if="emp.emp_capacidad_lb_dia">
+              <div t-if="emp.shrimp_capacity_value">
                 <span>Capacidad</span>
-                <strong t-esc="'{:,.0f} lb/día'.format(emp.emp_capacidad_lb_dia)"/>
+                <strong t-esc="'{:,.0f} lb/día'.format(emp.shrimp_capacity_value)"/>
               </div>
               <div t-if="emp.emp_aprobacion_sanitaria">
                 <span>Aprobación sanitaria</span><strong t-esc="emp.emp_aprobacion_sanitaria"/>
@@ -176,17 +220,17 @@
             </t>
 
             <!-- Contacto -->
-            <t t-if="emp.emp_contacto_comercial or emp.emp_telefono or emp.email">
+            <t t-if="emp.emp_contacto_comercial or emp.shrimp_telefono or emp.email">
               <h3 class="pk-seccion">Contacto comercial</h3>
               <div class="pk-datos">
                 <div t-if="emp.emp_contacto_comercial">
                   <span>Contacto</span><strong t-esc="emp.emp_contacto_comercial"/>
                 </div>
-                <div t-if="emp.emp_representante">
-                  <span>Representante legal</span><strong t-esc="emp.emp_representante"/>
+                <div t-if="emp.shrimp_representante">
+                  <span>Representante legal</span><strong t-esc="emp.shrimp_representante"/>
                 </div>
-                <div t-if="emp.emp_telefono or emp.phone">
-                  <span>Teléfono</span><strong t-esc="emp.emp_telefono or emp.phone"/>
+                <div t-if="emp.shrimp_telefono or emp.phone">
+                  <span>Teléfono</span><strong t-esc="emp.shrimp_telefono or emp.phone"/>
                 </div>
                 <div t-if="emp.email">
                   <span>Correo</span><strong t-esc="emp.email"/>

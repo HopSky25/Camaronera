@@ -20,219 +20,22 @@
                         </div>
                     </div>
 
-                    <!-- Filtros. Se mantienen ARRIBA de la tabla y no en una barra
-                         lateral a propósito: esta pantalla es una tabla de 9-10 columnas
-                         y el ancho es lo que la hace legible; un sidebar le quitaría ~300px.
-                         Lo que se mejora es el manejo, no el sitio. -->
-                    <t t-set="f_activos" t-value="[v for v in [filters.get('q'), filters.get('tx_state'), filters.get('stage'), filters.get('location'), filters.get('date_from'), filters.get('date_to'), filters.get('delivery_from'), filters.get('delivery_to')] if v]"/>
-                    <t t-set="etapas_por_id" t-value="dict([(str(o.id), o.name) for o in stage_options])"/>
-                    <!-- (clave, etiqueta, valor legible). La clave es la del querystring:
-                         es lo que permite construir el enlace que quita ESE filtro. -->
-                    <t t-set="chips" t-value="[
-                        ('q', 'Buscar', filters.get('q')),
-                        ('tx_state', 'Estado', dict(state_options).get(filters.get('tx_state') or '', '') or filters.get('tx_state')),
-                        ('stage', 'Etapa', etapas_por_id.get(filters.get('stage') or '', '') or filters.get('stage')),
-                        ('location', 'Ubicación', filters.get('location')),
-                        ('date_from', 'Compra desde', filters.get('date_from')),
-                        ('date_to', 'Compra hasta', filters.get('date_to')),
-                        ('delivery_from', 'Entrega desde', filters.get('delivery_from')),
-                        ('delivery_to', 'Entrega hasta', filters.get('delivery_to')),
-                    ]"/>
-
-                    <div class="s-filterbar mb-3">
-                        <button class="s-filter-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#txFilters1" aria-expanded="false" aria-controls="txFilters1">
-                            <i class="fa fa-sliders me-2"></i> Filtros
-                            <!-- Con el panel plegado no había forma de saber si la lista
-                                 estaba filtrada; el contador lo dice sin desplegarlo. -->
-                            <t t-if="f_activos"><span class="s-filter-count"><t t-esc="len(f_activos)"/></span></t>
-                            <i class="fa fa-chevron-down ms-2 s-filter-caret"></i>
-                        </button>
-                        <t t-if="f_activos">
-                            <a class="s-filter-clear" t-att-href="base_url">Limpiar filtros</a>
-                        </t>
+                    <div t-if="saved == 'invoice'" class="alert alert-success" style="border-radius:var(--shrimp-radius-sm);">
+                        <i class="fa fa-check-circle me-1"></i> Factura registrada. Tu comprador ya la ve en sus compras.
                     </div>
 
-                    <!-- Filtros aplicados: cada uno se quita por separado. Antes solo
-                         existía "Limpiar", que obliga a rehacer los demás. -->
-                    <t t-if="f_activos">
-                        <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
-                            <t t-foreach="chips" t-as="chip">
-                                <t t-if="chip[2]">
-                                    <span class="s-badge s-badge--teal">
-                                        <t t-esc="chip[1]"/>: <t t-esc="chip[2]"/>
-                                        <a t-att-href="base_url + '?' + '&amp;'.join(k + '=' + quote_plus(v) for k, v in filters.items() if v and k != chip[0])"
-                                           class="ms-2" style="color:inherit; text-decoration:none;"
-                                           t-att-title="'Quitar el filtro ' + chip[1]">
-                                            <i class="fa fa-times"></i>
-                                        </a>
-                                    </span>
-                                </t>
-                            </t>
-                        </div>
-                    </t>
-
-                    <!-- Panel colapsable de filtros -->
-                    <div t-att-class="'collapse mb-4' + (' show' if f_activos else '')" id="txFilters1">
-                        <div class="card s-filters-card">
-                            <div class="card-body p-4">
-                                <form method="get" t-att-action="base_url" class="row g-3 align-items-end">
-
-                                    <div class="col-sm-6 col-lg-4">
-                                        <label class="form-label small text-muted mb-1">Buscar</label>
-                                        <div class="input-group">
-                                            <span class="input-group-text">
-                                                <i class="fa fa-search"></i>
-                                            </span>
-                                            <input class="form-control"
-                                                type="text"
-                                                name="q"
-                                                placeholder="Referencia, producto, partner..."
-                                                t-att-value="filters.get('q') or ''" />
-                                        </div>
-                                    </div>
-
-                                    <div class="col-sm-6 col-lg-2">
-                                        <label class="form-label small text-muted mb-1">Estado</label>
-                                        <select class="form-select" name="tx_state">
-                                            <option value="">Todos</option>
-                                            <t t-foreach="state_options" t-as="opt">
-                                                <!-- Planificación solo lista confirmadas y completadas
-                                                     (lo impone el dominio del controlador). Ofrecer
-                                                     "Borrador" o "Cancelada" era ofrecer un filtro que
-                                                     siempre devuelve cero resultados. -->
-                                                <t t-if="mode != 'planning' or opt[0] in ('confirmed', 'done')">
-                                                    <option t-att-value="opt[0]"
-                                                        t-att-selected="filters.get('tx_state') == opt[0] and 'selected' or None">
-                                                        <t t-esc="opt[1]" />
-                                                    </option>
-                                                </t>
-                                            </t>
-                                        </select>
-                                    </div>
-
-                                    <div class="col-sm-6 col-lg-2">
-                                        <label class="form-label small text-muted mb-1">Etapa</label>
-                                        <select class="form-select" name="stage">
-                                            <option value="">Todas</option>
-                                            <t t-foreach="stage_options" t-as="opt">
-                                                <option t-att-value="opt.id"
-                                                    t-att-selected="str(filters.get('stage') or '') == str(opt.id) and 'selected' or None">
-                                                    <t t-esc="opt.name" />
-                                                </option>
-                                            </t>
-                                        </select>
-                                    </div>
-
-                                    <div class="col-sm-6 col-lg-4">
-                                        <label class="form-label small text-muted mb-1">Ubicación</label>
-                                        <input class="form-control"
-                                            type="text"
-                                            name="location"
-                                            placeholder="Ej: Guayas"
-                                            t-att-value="filters.get('location') or ''" />
-                                    </div>
-
-                                    <!-- "Desde/Hasta" a secas, pegado a "Entrega desde/hasta",
-                                         no decía sobre qué fecha filtraba. -->
-                                    <div class="col-sm-6 col-lg-2">
-                                        <label class="form-label small text-muted mb-1">Compra desde</label>
-                                        <input class="form-control"
-                                            type="date"
-                                            name="date_from"
-                                            t-att-value="filters.get('date_from') or ''" />
-                                    </div>
-
-                                    <div class="col-sm-6 col-lg-2">
-                                        <label class="form-label small text-muted mb-1">Compra hasta</label>
-                                        <input class="form-control"
-                                            type="date"
-                                            name="date_to"
-                                            t-att-value="filters.get('date_to') or ''" />
-                                    </div>
-
-                                    <t t-if="mode == 'planning'">
-                                        <div class="col-sm-6 col-lg-2">
-                                            <label class="form-label small text-muted mb-1">Entrega desde</label>
-                                            <input class="form-control"
-                                                type="date"
-                                                name="delivery_from"
-                                                t-att-value="filters.get('delivery_from') or ''" />
-                                        </div>
-                                        <div class="col-sm-6 col-lg-2">
-                                            <label class="form-label small text-muted mb-1">Entrega hasta</label>
-                                            <input class="form-control"
-                                                type="date"
-                                                name="delivery_to"
-                                                t-att-value="filters.get('delivery_to') or ''" />
-                                        </div>
-                                    </t>
-
-                                    <div class="col-sm-6 col-lg-3">
-                                        <label class="form-label small text-muted mb-1">Orden</label>
-                                        <select class="form-select" name="order">
-                                            <option value=""
-                                                t-att-selected="not filters.get('order')">Más
-                                                recientes</option>
-                                            <option value="oldest"
-                                                t-att-selected="filters.get('order') == 'oldest' and 'selected' or None">
-                                                Más antiguos
-                                            </option>
-                                            <option value="qty_desc"
-                                                t-att-selected="filters.get('order') == 'qty_desc' and 'selected' or None">
-                                                Mayor cantidad
-                                            </option>
-                                            <option value="price_desc"
-                                                t-att-selected="filters.get('order') == 'price_desc' and 'selected' or None">
-                                                Mayor precio
-                                            </option>
-                                            <option value="price_asc"
-                                                t-att-selected="filters.get('order') == 'price_asc' and 'selected' or None">
-                                                Menor precio
-                                            </option>
-                                            <option value="delivery_asc"
-                                                t-att-selected="filters.get('order') == 'delivery_asc' and 'selected' or None">
-                                                Entrega más próxima
-                                            </option>
-                                            <option value="delivery_desc"
-                                                t-att-selected="filters.get('order') == 'delivery_desc' and 'selected' or None">
-                                                Entrega más lejana
-                                            </option>
-                                        </select>
-                                    </div>
-
-                                    <!-- Atajos de entrega: lo que de verdad se consulta aquí es
-                                         "qué me llega pronto" y "qué debía haber llegado ya", y
-                                         eso obligaba a teclear dos fechas a mano cada vez. -->
-                                    <t t-if="mode == 'planning'">
-                                        <t t-set="hoy" t-value="datetime.date.today()"/>
-                                        <div class="col-12 d-flex flex-wrap gap-2 align-items-center">
-                                            <span class="text-muted small">Atajos de entrega:</span>
-                                            <a class="s-btn s-btn-ghost btn-sm"
-                                               t-att-href="base_url + '?delivery_from=' + hoy.isoformat() + '&amp;delivery_to=' + (hoy + datetime.timedelta(days=7)).isoformat()">
-                                                <i class="fa fa-calendar-o me-1"></i> Próximos 7 días
-                                            </a>
-                                            <a class="s-btn s-btn-ghost btn-sm"
-                                               t-att-href="base_url + '?delivery_from=' + hoy.isoformat() + '&amp;delivery_to=' + (hoy + datetime.timedelta(days=30)).isoformat()">
-                                                <i class="fa fa-calendar me-1"></i> Próximos 30 días
-                                            </a>
-                                            <a class="s-btn s-btn-ghost btn-sm"
-                                               t-att-href="base_url + '?delivery_to=' + (hoy - datetime.timedelta(days=1)).isoformat() + '&amp;order=delivery_asc'">
-                                                <i class="fa fa-exclamation-triangle me-1"></i> Entregas atrasadas
-                                            </a>
-                                        </div>
-                                    </t>
-
-                                    <div class="col-12 d-flex gap-2">
-                                        <button class="s-btn s-btn-primary" type="submit"><i class="fa fa-search me-1"></i> Aplicar filtros</button>
-                                        <a class="s-btn s-btn-ghost" t-att-href="base_url">Limpiar</a>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
+                    <!-- Barra superior (buscar · Filtros (N) · Ordenar), etiquetas de los
+                         filtros activos y cajón lateral: las plantillas reutilizables del
+                         catálogo. Las opciones del cajón salen de las transacciones que la
+                         cuenta tiene en ESTA lista (estadíos, estados, ubicaciones,
+                         perfiles): lo que no aplica a su perfil no aparece. -->
+                    <div id="listado">
+                        <t t-call="shrimp_marketplace.s_filter_toolbar"/>
+                        <t t-call="shrimp_marketplace.s_filter_tags"/>
                     </div>
 
                     <!-- Resultados -->
-                    <div class="mp-table-card">
+                    <div class="mp-table-card s-tx-results">
                         <div class="card-body p-4">
                             <div class="mp-sec-head">
                                 <span class="mp-sec-ico"><i class="fa fa-list-ul"></i></span>
@@ -241,7 +44,10 @@
                             </div>
 
                                     <t t-if="transactions">
-                                        <div class="mp-table-wrap table-responsive">
+                                        <!-- Escritorio: tabla. En móvil (&lt; 768 px) se oculta y se
+                                             muestran las tarjetas de abajo (.s-txc-list): las dos
+                                             vistas van en el HTML y el CSS elige. -->
+                                        <div class="mp-table-wrap table-responsive s-tx-table">
                                             <table class="table align-middle mb-0">
                                                 <thead>
                                                     <tr>
@@ -267,7 +73,7 @@
                                                     <t t-foreach="transactions" t-as="tx">
                                                         <tr>
                                                             <td>
-                                                                <div class="fw-semibold">
+                                                                <div class="fw-semibold text-nowrap">
                                                                     <t t-esc="tx.name" />
                                                                 </div>
                                                                 <div class="text-muted small">
@@ -277,28 +83,23 @@
                                                                 </div>
                                                             </td>
 
-                                                            <td>
-                                                                <t
-                                                                    t-esc="tx.create_date and tx.create_date.strftime('%Y-%m-%d') or '—'" />
+                                                            <td class="s-tx-date">
+                                                                <t t-esc="tx.create_date and tx.create_date.strftime('%d/%m/%Y') or '—'" />
                                                             </td>
 
                                                             <td>
                                                                 <div class="fw-semibold">
-                                                                    <t
-                                                                        t-esc="tx.product_id.name or '—'" />
+                                                                    <t t-esc="tx.product_id.name or '—'" />
                                                                 </div>
                                                                 <div class="text-muted small">
                                                                     <i class="fa fa-map-marker me-1"></i>
-                                                                    <t
-                                                                        t-esc="tx.product_id.location or tx.location or '—'" />
+                                                                    <t t-esc="tx.product_id.location or tx.location or '—'" />
                                                                 </div>
                                                             </td>
 
                                                             <td>
-                                                                <t
-                                                                    t-if="mode in ['purchase', 'planning']">
-                                                                    <t
-                                                                        t-esc="tx.seller_partner_id.name or '—'" />
+                                                                <t t-if="mode in ['purchase', 'planning']">
+                                                                    <t t-esc="tx.seller_partner_id.name or '—'" />
                                                                 </t>
                                                                 <t t-if="mode == 'sales'">
                                                                     <div style="font-weight:700;">
@@ -314,90 +115,70 @@
                                                                         </t>
                                                                         <t t-else="">
                                                                             <button type="button" class="s-btn s-btn-ghost btn-sm mt-1"
-                                                                                    data-bs-toggle="modal" t-att-data-bs-target="'#rateBuyerModal%s' % tx.id">
+                                                                                    data-bs-toggle="modal" t-att-data-bs-target="'#rateBuyerModal%s' % tx.uuid_ref">
                                                                                 <i class="fa fa-star me-1"></i> Calificar comprador
                                                                             </button>
-                                                                            <!-- Modal calificar comprador -->
-                                                                            <div class="modal fade" t-att-id="'rateBuyerModal%s' % tx.id" tabindex="-1" aria-hidden="true">
-                                                                                <div class="modal-dialog modal-dialog-centered">
-                                                                                    <div class="modal-content">
-                                                                                        <form method="post" t-att-action="'/marketplace/ventas/%s/calificar-comprador' % tx.uuid_ref">
-                                                                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                                                                            <div class="modal-header">
-                                                                                                <h5 class="modal-title">Calificar a <t t-esc="tx.buyer_partner_id.name"/></h5>
-                                                                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                                                                                            </div>
-                                                                                            <div class="modal-body">
-                                                                                                <p class="text-soft" style="font-size:var(--fs-sm);">¿Cómo fue tu experiencia con este comprador?</p>
-                                                                                                <div class="s-star-input">
-                                                                                                    <t t-foreach="[5,4,3,2,1]" t-as="star">
-                                                                                                        <input type="radio" name="rating" t-att-value="star"
-                                                                                                               t-att-id="'bstar_%s_%s' % (tx.id, star)" t-att-checked="star == 5"/>
-                                                                                                        <label t-att-for="'bstar_%s_%s' % (tx.id, star)"><i class="fa fa-star"></i></label>
-                                                                                                    </t>
-                                                                                                </div>
-                                                                                                <textarea class="form-control mt-3" name="comment" rows="3"
-                                                                                                          placeholder="Deja un comentario (opcional)"></textarea>
-                                                                                            </div>
-                                                                                            <div class="modal-footer">
-                                                                                                <button type="button" class="s-btn s-btn-ghost" data-bs-dismiss="modal">Cancelar</button>
-                                                                                                <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-paper-plane me-1"></i> Enviar reseña</button>
-                                                                                            </div>
-                                                                                        </form>
-                                                                                    </div>
-                                                                                </div>
-                                                                            </div>
                                                                         </t>
+                                                                    </t>
+                                                                    <!-- Paso 2 de la facturación: la factura de la
+                                                                         mercadería la emite el VENDEDOR y aquí solo la
+                                                                         registra (número, clave de acceso, archivo). -->
+                                                                    <t t-if="tx.state in ('confirmed', 'done')">
+                                                                        <div class="mt-1 small">
+                                                                            <t t-if="tx.sudo().has_seller_invoice">
+                                                                                <span class="s-badge s-badge--green" title="Factura registrada">
+                                                                                    <i class="fa fa-file-text me-1"></i>
+                                                                                    <t t-esc="tx.sudo().seller_invoice_number or 'Factura registrada'"/>
+                                                                                </span>
+                                                                                <a class="ms-1" t-att-href="'/marketplace/sales/%s/invoice' % tx.uuid_ref">editar</a>
+                                                                            </t>
+                                                                            <a t-else="" class="s-btn s-btn-ghost btn-sm"
+                                                                               t-att-href="'/marketplace/sales/%s/invoice' % tx.uuid_ref">
+                                                                                <i class="fa fa-file-text-o me-1"></i> Registrar mi factura
+                                                                            </a>
+                                                                        </div>
                                                                     </t>
                                                                 </t>
                                                             </td>
 
                                                             <td>
                                                                 <span class="s-badge s-badge--teal">
-                                                                    <t
-                                                                        t-esc="tx.product_id.stage_id.name if tx.product_id and tx.product_id.stage_id else '—'" />
+                                                                    <t t-esc="tx.product_id.stage_id.name if tx.product_id and tx.product_id.stage_id else '—'" />
                                                                 </span>
                                                             </td>
 
-                                                            <td class="text-end">
-                                                                <t t-set="qty"
-                                                                    t-value="tx.transaction_qty or 0.0" />
+                                                            <td class="text-end text-nowrap">
+                                                                <t t-set="qty" t-value="tx.transaction_qty or 0.0" />
                                                                 <div class="fw-semibold">
-                                                                    <t t-esc="qty" />
+                                                                    <t t-esc="('{:,.0f}' if qty == int(qty) else '{:,.2f}').format(qty)" />
                                                                 </div>
                                                                 <div class="text-muted small">
-                                                                    <t
-                                                                        t-esc="tx.product_id.uom_id.name or '—'" />
+                                                                    <t t-esc="tx.product_id.uom_id.name or '—'" />
                                                                 </div>
                                                             </td>
 
-                                                            <td class="text-end">
+                                                            <td class="text-end text-nowrap">
                                                                 <t t-set="pu" t-value="tx.price_unit or (tx.product_id.price if tx.product_id else 0.0)"/>
-                                                                <!-- El importe salía de un "$" escrito a mano pegado a un
-                                                                     '%.2f': no es el signo de la moneda, es un carácter
-                                                                     suelto que ni sale del registro ni respeta su posición
-                                                                     ni sus decimales, y desaparece en cuanto el número se
-                                                                     formatea de otra forma. El widget monetary lo toma de
-                                                                     la moneda de la compañía, igual que "Mis reportes". -->
+                                                                <!-- El signo sale de la moneda (widget monetary), no de
+                                                                     un "$" escrito a mano. -->
                                                                 <span class="fw-semibold" t-esc="pu or 0.0"
-                                                                      t-options="{'widget': 'monetary', 'display_currency': request.env.company.currency_id}"/>
+                                                                      t-options="{'widget': 'monetary', 'display_currency': currency}"/>
                                                                 <div class="text-muted small">/ <t t-esc="tx.product_id.uom_id.name or 'u'"/></div>
                                                             </td>
 
                                                             <t t-if="mode == 'sales'">
-                                                                <td class="text-end">
-                                                                    <t t-set="cobro"
-                                                                        t-value="request.env['shrimp.charge'].sudo().search([('transaction_id','=',tx.id)], limit=1)"/>
+                                                                <td class="text-end text-nowrap">
+                                                                    <t t-set="cobro" t-value="charges_by_tx.get(tx.id)"/>
                                                                     <div class="fw-semibold">
-                                                                        <t t-esc="'{:.2f}'.format(tx.amount_total or 0.0)"/>
+                                                                        <t t-esc="'{:,.2f}'.format(tx.amount_total or 0.0)"/>
                                                                     </div>
                                                                     <t t-if="cobro">
                                                                         <div class="text-muted small">
-                                                                            − <t t-esc="'{:.2f}'.format(cobro.amount)"/> comisión
-                                                                            (<t t-esc="'{:.0f}'.format(cobro.rate_cents)"/>¢/<t t-esc="cobro.uom_id.name or 'u'"/>)
+                                                                            − <t t-esc="'{:,.2f}'.format(cobro.amount)"/> comisión
+                                                                            (<t t-esc="'{:g}'.format(cobro.rate_cents)"/>¢/<t t-esc="cobro.uom_id.name or 'u'"/>)
                                                                         </div>
                                                                         <div class="fw-semibold" style="color:#1f7d56;">
-                                                                            = <t t-esc="'{:.2f}'.format((tx.amount_total or 0.0) - cobro.amount)"/>
+                                                                            = <t t-esc="'{:,.2f}'.format((tx.amount_total or 0.0) - cobro.amount)"/>
                                                                         </div>
                                                                         <div t-if="cobro.invoice_id" class="text-muted small">
                                                                             <t t-esc="cobro.invoice_id.name"/>
@@ -407,24 +188,139 @@
                                                                 </td>
                                                             </t>
 
-                                                            <td>
-                                                                <t
-                                                                    t-esc="tx.product_id.expected_delivery_date or '—'" />
+                                                            <td class="s-tx-date">
+                                                                <t t-set="entrega" t-value="tx.product_id.expected_delivery_date"/>
+                                                                <t t-esc="entrega and entrega.strftime('%d/%m/%Y') or '—'" />
                                                             </td>
 
                                                             <td>
                                                                 <t t-set="state_label"
                                                                     t-value="dict(tx._fields['state'].selection).get(tx.state)" />
-                                                                <t t-if="tx.state == 'done'"><span class="s-badge s-badge--green"><t t-esc="state_label"/></span></t>
-                                                                <t t-elif="tx.state == 'confirmed'"><span class="s-badge s-badge--teal"><t t-esc="state_label"/></span></t>
-                                                                <t t-elif="tx.state == 'cancel'"><span class="s-badge" style="background:rgba(220,53,69,.10); color:#dc3545;"><t t-esc="state_label"/></span></t>
-                                                                <t t-else=""><span class="s-badge"><t t-esc="state_label"/></span></t>
+                                                                <t t-call="shrimp_marketplace.s_tx_state_badge"/>
                                                             </td>
                                                         </tr>
                                                     </t>
                                                 </tbody>
                                             </table>
                                         </div>
+
+                                        <!-- Móvil: una tarjeta por transacción. Arriba producto,
+                                             contraparte y fecha; luego el estado; después un bloque
+                                             de dos columnas con las cifras y, al final, las acciones
+                                             a todo el ancho. -->
+                                        <div class="s-txc-list" id="sTxCards">
+                                            <t t-foreach="transactions" t-as="tx">
+                                                <t t-set="c_pu" t-value="tx.price_unit or (tx.product_id.price if tx.product_id else 0.0)"/>
+                                                <t t-set="c_qty" t-value="tx.transaction_qty or 0.0"/>
+                                                <t t-set="c_uom" t-value="tx.product_id.uom_id.name or 'u'"/>
+                                                <t t-set="c_cobro" t-value="charges_by_tx.get(tx.id) if mode == 'sales' else False"/>
+                                                <t t-set="c_entrega" t-value="tx.product_id.expected_delivery_date"/>
+                                                <article class="s-txc" t-att-data-tx="tx.uuid_ref">
+                                                    <div class="s-txc-head">
+                                                        <div class="s-txc-title"><t t-esc="tx.product_id.name or '—'"/></div>
+                                                        <div class="s-txc-sub">
+                                                            <span class="s-txc-party">
+                                                                <t t-if="mode == 'sales'">Comprador: </t><t t-else="">Vendedor: </t>
+                                                                <strong t-esc="(tx.buyer_partner_id.name if mode == 'sales' else tx.seller_partner_id.name) or '—'"/>
+                                                            </span>
+                                                            <span class="s-txc-date"><i class="fa fa-calendar-o me-1" aria-hidden="true"></i><t t-esc="tx.create_date and tx.create_date.strftime('%d/%m/%Y') or '—'"/></span>
+                                                        </div>
+                                                        <div class="s-txc-ref"><t t-esc="tx.name"/> · <t t-esc="tx.product_id.stage_id.name or '—'"/></div>
+                                                    </div>
+                                                    <div class="s-txc-badges">
+                                                        <t t-call="shrimp_marketplace.s_tx_state_badge"/>
+                                                        <t t-if="mode == 'sales' and buyer_reviews_by_tx.get(tx.id)">
+                                                            <t t-set="c_brv" t-value="buyer_reviews_by_tx.get(tx.id)"/>
+                                                            <span class="s-rating s-txc-rating" t-att-title="c_brv.comment or 'Tu calificación al comprador'">
+                                                                <t t-foreach="range(1,6)" t-as="i"><i t-att-class="'fa fa-star' + ('' if i &lt;= c_brv.rating else ' s-rating-empty')"></i></t>
+                                                            </span>
+                                                        </t>
+                                                        <span t-if="mode == 'sales' and tx.state in ('confirmed', 'done') and tx.sudo().has_seller_invoice"
+                                                              class="s-badge s-badge--green" title="Factura registrada">
+                                                            <i class="fa fa-file-text me-1"></i><t t-esc="tx.sudo().seller_invoice_number or 'Factura registrada'"/>
+                                                        </span>
+                                                    </div>
+                                                    <dl class="s-txc-grid">
+                                                        <div><dt>Precio unitario</dt>
+                                                            <dd><span t-esc="c_pu or 0.0" t-options="{'widget': 'monetary', 'display_currency': currency}"/> <small>/ <t t-esc="c_uom"/></small></dd></div>
+                                                        <div><dt>Cantidad</dt>
+                                                            <dd><t t-esc="('{:,.0f}' if c_qty == int(c_qty) else '{:,.2f}').format(c_qty)"/> <small><t t-esc="c_uom"/></small></dd></div>
+                                                        <t t-if="mode == 'sales'">
+                                                            <div><dt>Total</dt><dd><t t-esc="'{:,.2f}'.format(tx.amount_total or 0.0)"/></dd></div>
+                                                            <div><dt>Comisión</dt>
+                                                                <dd t-if="c_cobro">− <t t-esc="'{:,.2f}'.format(c_cobro.amount)"/>
+                                                                    <small>(<t t-esc="'{:g}'.format(c_cobro.rate_cents)"/>¢/<t t-esc="c_cobro.uom_id.name or 'u'"/>)</small></dd>
+                                                                <dd t-else="" class="text-muted">sin comisión</dd></div>
+                                                            <div class="s-txc-net"><dt>Neto</dt>
+                                                                <dd><t t-esc="'{:,.2f}'.format((tx.amount_total or 0.0) - (c_cobro.amount if c_cobro else 0.0))"/></dd></div>
+                                                        </t>
+                                                        <t t-else="">
+                                                            <div><dt>Total</dt><dd><t t-esc="'{:,.2f}'.format(tx.amount_total or 0.0)"/></dd></div>
+                                                        </t>
+                                                        <div><dt>Entrega</dt><dd><t t-esc="c_entrega and c_entrega.strftime('%d/%m/%Y') or '—'"/></dd></div>
+                                                    </dl>
+                                                    <!-- Acciones a todo el ancho. Los módulos añaden las suyas
+                                                         aquí (p. ej. «Declarar despacho», shrimp_verification). -->
+                                                    <div class="s-txc-actions" data-s-tx-actions="1">
+                                                        <t t-if="mode == 'sales' and tx.state in ('confirmed', 'done')">
+                                                            <a class="s-btn s-btn-ghost" t-att-href="'/marketplace/sales/%s/invoice' % tx.uuid_ref">
+                                                                <i class="fa fa-file-text-o me-1"></i>
+                                                                <t t-if="tx.sudo().has_seller_invoice">Editar mi factura</t>
+                                                                <t t-else="">Registrar mi factura</t>
+                                                            </a>
+                                                            <button t-if="tx.buyer_partner_id and not buyer_reviews_by_tx.get(tx.id)" type="button" class="s-btn s-btn-ghost"
+                                                                    data-bs-toggle="modal" t-att-data-bs-target="'#rateBuyerModal%s' % tx.uuid_ref">
+                                                                <i class="fa fa-star me-1"></i> Calificar comprador
+                                                            </button>
+                                                        </t>
+                                                        <a t-if="tx.state in ('confirmed', 'done')" class="s-btn s-btn-ghost"
+                                                           t-att-href="'/marketplace/thanks/%s' % tx.uuid_ref">
+                                                            <i class="fa fa-eye me-1"></i> Ver comprobante
+                                                        </a>
+                                                        <a class="s-btn s-btn-ghost" t-att-href="'/marketplace/purchases/%s/traceability' % tx.uuid_ref">
+                                                            <i class="fa fa-sitemap me-1"></i> Trazabilidad
+                                                        </a>
+                                                    </div>
+                                                </article>
+                                            </t>
+                                        </div>
+
+                                        <!-- Modales de «Calificar comprador» (uno por venta, fuera de
+                                             la tabla y de las tarjetas: los abren las dos vistas). -->
+                                        <t t-if="mode == 'sales'">
+                                            <t t-foreach="transactions" t-as="tx">
+                                                <div t-if="tx.state in ('confirmed', 'done') and tx.buyer_partner_id and not buyer_reviews_by_tx.get(tx.id)"
+                                                     class="modal fade" t-att-id="'rateBuyerModal%s' % tx.uuid_ref" tabindex="-1" aria-hidden="true">
+                                                    <div class="modal-dialog modal-dialog-centered">
+                                                        <div class="modal-content">
+                                                            <form method="post" t-att-action="'/marketplace/sales/%s/rate-buyer' % tx.uuid_ref">
+                                                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                                <div class="modal-header">
+                                                                    <h5 class="modal-title">Calificar a <t t-esc="tx.buyer_partner_id.name"/></h5>
+                                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                                                                </div>
+                                                                <div class="modal-body">
+                                                                    <p class="text-soft" style="font-size:var(--fs-sm);">¿Cómo fue tu experiencia con este comprador?</p>
+                                                                    <div class="s-star-input">
+                                                                        <t t-foreach="[5,4,3,2,1]" t-as="star">
+                                                                            <input type="radio" name="rating" t-att-value="star"
+                                                                                   t-att-id="'bstar_%s_%s' % (tx.uuid_ref, star)" t-att-checked="star == 5"/>
+                                                                            <label t-att-for="'bstar_%s_%s' % (tx.uuid_ref, star)"><i class="fa fa-star"></i></label>
+                                                                        </t>
+                                                                    </div>
+                                                                    <textarea class="form-control mt-3" name="comment" rows="3"
+                                                                              placeholder="Deja un comentario (opcional)"></textarea>
+                                                                </div>
+                                                                <div class="modal-footer">
+                                                                    <button type="button" class="s-btn s-btn-ghost" data-bs-dismiss="modal">Cancelar</button>
+                                                                    <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-paper-plane me-1"></i> Enviar reseña</button>
+                                                                </div>
+                                                            </form>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </t>
+                                        </t>
                                     </t>
 
                                     <t t-else="">
@@ -432,14 +328,125 @@
                                             <div class="s-empty-ico"><i class="fa fa-inbox"></i></div>
                                             <h3>Sin resultados</h3>
                                             <p>No encontramos registros con los filtros actuales.</p>
+                                            <a t-if="fd.get('active') or filters.get('q')" class="s-btn s-btn-ghost" t-att-href="base_url">Quitar filtros</a>
                                         </div>
                                     </t>
 
                         </div>
                     </div>
+
+                    <!-- ===== Cajón de filtros ===== -->
+                    <t t-call="shrimp_marketplace.s_filter_drawer">
+                        <t t-call="shrimp_marketplace.s_tx_filter_sections"/>
+                    </t>
                 </div>
             </div>
         </t>
+    </template>
+
+    <!-- Insignia del estado de una transacción (`tx`). La usan la tabla, las
+         tarjetas móviles y «Mis compras». -->
+    <template id="s_tx_state_badge" name="Transacción: insignia de estado">
+        <t t-set="s_tx_label" t-value="dict(tx._fields['state'].selection).get(tx.state)"/>
+        <t t-if="tx.state == 'done'"><span class="s-badge s-badge--green"><t t-esc="s_tx_label"/></span></t>
+        <t t-elif="tx.state == 'confirmed'"><span class="s-badge s-badge--teal"><t t-esc="s_tx_label"/></span></t>
+        <t t-elif="tx.state == 'pending_acceptance'"><span class="s-badge s-badge--amber" title="El veredicto fue favorable: falta que comprador y vendedor firmen el informe">Pendiente de firmas</span></t>
+        <t t-elif="tx.state == 'pending_verification'"><span class="s-badge s-badge--amber"><t t-esc="s_tx_label"/></span></t>
+        <t t-elif="tx.state == 'cancel'"><span class="s-badge" style="background:rgba(220,53,69,.10); color:#dc3545;"><t t-esc="s_tx_label"/></span></t>
+        <t t-else=""><span class="s-badge"><t t-esc="s_tx_label"/></span></t>
+    </template>
+
+    <!-- Secciones del cajón de filtros de las listas de transacciones
+         (ventas, compras, planificación). Cada una solo aparece si en los
+         datos de la cuenta hay más de una opción (fd_show, del controlador). -->
+    <template id="s_tx_filter_sections" name="Filtros: secciones de transacciones">
+        <div t-if="fd_show.get('state')" class="s-filter-sec" id="sf_sec_state">
+            <div class="s-filter-sec-label">Estado</div>
+            <div class="s-choice-chips">
+                <label class="s-choice">
+                    <input type="radio" name="tx_state" value="" t-att-checked="not filters.get('tx_state')"/>
+                    <span>Todos</span>
+                </label>
+                <t t-foreach="state_opts" t-as="opt">
+                    <label class="s-choice">
+                        <input type="radio" name="tx_state" t-att-value="opt[0]" t-att-checked="filters.get('tx_state') == opt[0]"/>
+                        <span><t t-esc="'Pendiente de firmas' if opt[0] == 'pending_acceptance' else opt[1]"/></span>
+                    </label>
+                </t>
+            </div>
+        </div>
+        <div t-if="fd_show.get('stage')" class="s-filter-sec" id="sf_sec_stage">
+            <div class="s-filter-sec-label">Estadío</div>
+            <div class="s-choice-chips">
+                <label class="s-choice">
+                    <input type="radio" name="stage" value="" t-att-checked="not filters.get('stage')"/>
+                    <span>Todos</span>
+                </label>
+                <t t-foreach="stage_opts" t-as="st">
+                    <label class="s-choice">
+                        <input type="radio" name="stage" t-att-value="st.id" t-att-checked="str(filters.get('stage') or '') == str(st.id)"/>
+                        <span><t t-esc="st.name"/></span>
+                    </label>
+                </t>
+            </div>
+        </div>
+        <div t-if="fd_show.get('role')" class="s-filter-sec" id="sf_sec_role">
+            <div class="s-filter-sec-label"><t t-if="mode == 'sales'">Vendí como</t><t t-else="">Compré como</t></div>
+            <div class="s-choice-chips">
+                <label class="s-choice">
+                    <input type="radio" name="role" value="" t-att-checked="not filters.get('role')"/>
+                    <span>Todos mis perfiles</span>
+                </label>
+                <t t-foreach="role_opts" t-as="opt">
+                    <label class="s-choice">
+                        <input type="radio" name="role" t-att-value="opt[0]" t-att-checked="filters.get('role') == opt[0]"/>
+                        <span><t t-esc="opt[1]"/></span>
+                    </label>
+                </t>
+            </div>
+        </div>
+        <div t-if="fd_show.get('location')" class="s-filter-sec" id="sf_sec_location">
+            <label class="s-filter-sec-label" for="fltLocation">Ubicación</label>
+            <select class="form-select" name="location" id="fltLocation">
+                <option value="">Todas las zonas</option>
+                <t t-foreach="location_opts" t-as="loc">
+                    <option t-att-value="loc" t-att-selected="(filters.get('location') or '') == loc"><t t-esc="loc"/></option>
+                </t>
+                <!-- Un valor escrito a mano en un enlace guardado sigue visible. -->
+                <option t-if="filters.get('location') and filters.get('location') not in location_opts"
+                        t-att-value="filters.get('location')" selected="selected"><t t-esc="filters.get('location')"/></option>
+            </select>
+        </div>
+        <div t-if="fd_show.get('dates')" class="s-filter-sec" id="sf_sec_dates">
+            <div class="s-filter-sec-label"><t t-if="mode == 'sales'">Fecha de la venta</t><t t-else="">Fecha de la compra</t></div>
+            <div class="s-date-range">
+                <label>Desde <input class="form-control" type="date" name="date_from" t-att-value="filters.get('date_from') or ''"/></label>
+                <label>Hasta <input class="form-control" type="date" name="date_to" t-att-value="filters.get('date_to') or ''"/></label>
+            </div>
+        </div>
+        <div t-if="fd_show.get('delivery')" class="s-filter-sec" id="sf_sec_delivery">
+            <div class="s-filter-sec-label">Fecha de entrega</div>
+            <div class="s-date-range">
+                <label>Desde <input class="form-control" type="date" name="delivery_from" t-att-value="filters.get('delivery_from') or ''"/></label>
+                <label>Hasta <input class="form-control" type="date" name="delivery_to" t-att-value="filters.get('delivery_to') or ''"/></label>
+            </div>
+            <!-- Atajos: «qué me llega pronto» y «qué debía haber llegado ya». -->
+            <t t-set="hoy" t-value="datetime.date.today()"/>
+            <div class="s-drawer-shortcuts">
+                <a class="s-btn s-btn-ghost btn-sm"
+                   t-att-href="base_url + '?delivery_from=' + hoy.isoformat() + '&amp;delivery_to=' + (hoy + datetime.timedelta(days=7)).isoformat() + '#listado'">
+                    <i class="fa fa-calendar-o me-1"></i> Próximos 7 días
+                </a>
+                <a class="s-btn s-btn-ghost btn-sm"
+                   t-att-href="base_url + '?delivery_from=' + hoy.isoformat() + '&amp;delivery_to=' + (hoy + datetime.timedelta(days=30)).isoformat() + '#listado'">
+                    <i class="fa fa-calendar me-1"></i> Próximos 30 días
+                </a>
+                <a class="s-btn s-btn-ghost btn-sm"
+                   t-att-href="base_url + '?delivery_to=' + (hoy - datetime.timedelta(days=1)).isoformat() + '&amp;order=delivery_asc#listado'">
+                    <i class="fa fa-exclamation-triangle me-1"></i> Entregas atrasadas
+                </a>
+            </div>
+        </div>
     </template>
 
     <template id="marketplace_purchased_products" name="Marketplace - Productos comprados">
@@ -479,75 +486,21 @@
                             Debes seleccionar una calificación de 1 a 5 estrellas.
                         </div>
                     </t>
+                    <t t-if="request.params.get('error') == 'rating_state'">
+                        <div class="alert alert-warning" style="border-radius:var(--shrimp-radius-sm);">
+                            Solo se pueden calificar compras confirmadas o completadas.
+                        </div>
+                    </t>
 
-                    <!-- Layout: filtros a la izquierda + lista a la derecha -->
-                    <t t-set="active_n" t-value="len([v for v in [filters.get('q'), filters.get('tx_state'), filters.get('stage'), filters.get('location'), filters.get('date_from'), filters.get('date_to')] if v])"/>
-                    <div class="s-market-layout">
-
-                        <!-- Filtros (sidebar izquierdo, estilo marketplace) -->
-                        <aside class="s-market-side">
-                            <form method="get" action="/marketplace/compras" class="s-filter-panel">
-                                <div class="s-filter-head">
-                                    <div class="s-filter-head-title">
-                                        <span class="s-filter-icon"><i class="fa fa-sliders"></i></span>
-                                        <span>Filtros</span>
-                                        <t t-if="active_n"><span class="s-filter-count"><t t-esc="active_n"/></span></t>
-                                    </div>
-                                    <a class="s-filter-clear" href="/marketplace/compras">Limpiar</a>
-                                </div>
-                                <div class="s-filter-sec">
-                                    <div class="s-filter-sec-label"><i class="fa fa-search"></i> Buscar</div>
-                                    <input class="form-control" type="text" name="q"
-                                        placeholder="Referencia, producto, vendedor…"
-                                        t-att-value="filters.get('q') or ''" />
-                                </div>
-                                <div class="s-filter-sec">
-                                    <div class="s-filter-sec-label"><i class="fa fa-flag"></i> Estado</div>
-                                    <select class="form-select" name="tx_state">
-                                        <option value="">Todos</option>
-                                        <t t-foreach="state_options" t-as="opt">
-                                            <option t-att-value="opt[0]"
-                                                t-att-selected="filters.get('tx_state') == opt[0] and 'selected' or None">
-                                                <t t-esc="opt[1]" />
-                                            </option>
-                                        </t>
-                                    </select>
-                                </div>
-                                <div class="s-filter-sec">
-                                    <div class="s-filter-sec-label"><i class="fa fa-tag"></i> Etapa</div>
-                                    <select class="form-select" name="stage">
-                                        <option value="">Todas</option>
-                                        <t t-foreach="stage_options" t-as="opt">
-                                            <option t-att-value="opt.id"
-                                                t-att-selected="str(filters.get('stage') or '') == str(opt.id) and 'selected' or None">
-                                                <t t-esc="opt.name" />
-                                            </option>
-                                        </t>
-                                    </select>
-                                </div>
-                                <div class="s-filter-sec">
-                                    <div class="s-filter-sec-label"><i class="fa fa-map-marker"></i> Ubicación</div>
-                                    <input class="form-control" type="text" name="location"
-                                        placeholder="Ej: Guayas"
-                                        t-att-value="filters.get('location') or ''" />
-                                </div>
-                                <div class="s-filter-sec">
-                                    <div class="s-filter-sec-label"><i class="fa fa-calendar"></i> Desde</div>
-                                    <input class="form-control" type="date" name="date_from"
-                                        t-att-value="filters.get('date_from') or ''" />
-                                </div>
-                                <div class="s-filter-sec">
-                                    <div class="s-filter-sec-label"><i class="fa fa-calendar"></i> Hasta</div>
-                                    <input class="form-control" type="date" name="date_to"
-                                        t-att-value="filters.get('date_to') or ''" />
-                                </div>
-                                <button class="s-btn s-btn-primary s-btn-block" type="submit"><i class="fa fa-search me-1"></i> Aplicar filtros</button>
-                            </form>
-                        </aside>
-
-                        <!-- Lista (columna principal) -->
-                        <div class="s-market-main">
-                            <div class="s-sortbar mb-3">
+                    <!-- Barra superior + etiquetas + cajón (plantillas reutilizables): la
+                         lista ocupa todo el ancho. Opciones del cajón según las compras
+                         que la cuenta tiene (estadíos, estados, perfiles comprador). -->
+                    <div id="listado">
+                        <t t-call="shrimp_marketplace.s_filter_toolbar"/>
+                        <t t-call="shrimp_marketplace.s_filter_tags"/>
+                    </div>
+                    <div class="s-market-main s-market-main--full">
+                            <div class="s-sortbar s-mkt-count mb-3">
                                 <div class="text-soft" style="font-size:var(--fs-sm);">
                                     <strong><t t-esc="len(transactions)" /></strong> compra(s)
                                 </div>
@@ -561,7 +514,7 @@
                                              el CSS y recortaría el menú de acciones. Solo se relaja en estas
                                              tarjetas; la franja degradada del ::before vive dentro del borde
                                              (top/bottom 22px), así que no depende de ese recorte. -->
-                                        <div class="mp-table-card" style="overflow:visible;">
+                                        <div class="mp-table-card s-pc-card" style="overflow:visible;">
                                             <div class="card-body p-4">
 
                                                 <div class="d-flex flex-wrap justify-content-between gap-3">
@@ -582,24 +535,24 @@
                                                             <t t-esc="tx.name" />
                                                         </div>
 
-                                                        <div class="row g-3" style="font-size:14px;">
-                                                            <div class="col-md-4">
+                                                        <div class="row g-3 s-pc-data" style="font-size:14px;">
+                                                            <div class="col-12 col-md-4">
                                                                 <div class="text-muted small">
                                                                     Vendedor</div>
                                                                 <div class="fw-semibold">
-                                                                    <a t-att-href="'/marketplace/vendedor/%s' % tx.seller_partner_id.uuid_ref"
+                                                                    <a t-att-href="'/marketplace/sellers/%s' % tx.seller_partner_id.uuid_ref"
                                                                        style="color:var(--shrimp-brand); text-decoration:none;">
                                                                         <t t-esc="tx.seller_partner_id.name or '—'" />
                                                                     </a>
                                                                 </div>
                                                             </div>
 
-                                                            <div class="col-md-2">
+                                                            <div class="col-6 col-md-2">
                                                                 <div class="text-muted small">
                                                                     Cantidad</div>
                                                                 <div class="fw-semibold">
-                                                                    <t
-                                                                        t-esc="tx.sold_qty or tx.desired_qty or 0.0" />
+                                                                    <t t-set="pc_qty" t-value="tx.sold_qty or tx.desired_qty or 0.0"/>
+                                                                    <t t-esc="('{:,.0f}' if pc_qty == int(pc_qty) else '{:,.2f}').format(pc_qty)" />
                                                                     <span class="text-muted">
                                                                         <t
                                                                             t-esc="tx.product_id.uom_id.name or ''" />
@@ -607,7 +560,7 @@
                                                                 </div>
                                                             </div>
 
-                                                            <div class="col-md-2">
+                                                            <div class="col-6 col-md-2">
                                                                 <div class="text-muted small">
                                                                     Precio</div>
                                                                 <div class="fw-semibold">
@@ -615,29 +568,24 @@
                                                                     <!-- Mismo caso que la tabla de transacciones: el signo
                                                                          venía escrito a mano, no de la moneda. -->
                                                                     <span t-esc="pu2 or 0.0"
-                                                                          t-options="{'widget': 'monetary', 'display_currency': request.env.company.currency_id}"/>
+                                                                          t-options="{'widget': 'monetary', 'display_currency': currency}"/>
                                                                 </div>
                                                             </div>
 
-                                                            <div class="col-md-2">
+                                                            <div class="col-6 col-md-2">
                                                                 <div class="text-muted small">
                                                                     Fecha</div>
-                                                                <div class="fw-semibold">
+                                                                <div class="fw-semibold text-nowrap">
                                                                     <t
-                                                                        t-esc="tx.create_date and tx.create_date.strftime('%Y-%m-%d') or '—'" />
+                                                                        t-esc="tx.create_date and tx.create_date.strftime('%d/%m/%Y') or '—'" />
                                                                 </div>
                                                             </div>
 
-                                                            <div class="col-md-2">
+                                                            <div class="col-6 col-md-2">
                                                                 <div class="text-muted small">
                                                                     Estado</div>
                                                                 <div>
-                                                                    <t t-set="state_label"
-                                                                        t-value="dict(tx._fields['state'].selection).get(tx.state)" />
-                                                                    <t t-if="tx.state == 'done'"><span class="s-badge s-badge--green"><t t-esc="state_label"/></span></t>
-                                                                    <t t-elif="tx.state == 'confirmed'"><span class="s-badge s-badge--teal"><t t-esc="state_label"/></span></t>
-                                                                    <t t-elif="tx.state == 'cancel'"><span class="s-badge" style="background:rgba(220,53,69,.10); color:#dc3545;"><t t-esc="state_label"/></span></t>
-                                                                    <t t-else=""><span class="s-badge"><t t-esc="state_label"/></span></t>
+                                                                    <t t-call="shrimp_marketplace.s_tx_state_badge"/>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -656,15 +604,14 @@
                                                          Fuera del menú queda únicamente lo que no es "abrir un
                                                          documento": confirmar la recepción, que es una decisión con
                                                          efecto en el inventario, o el aviso de cuándo podrá tomarse. -->
-                                                    <div class="d-flex flex-wrap gap-2 align-items-center justify-content-end"
-                                                        style="max-width: 340px;">
+                                                    <div class="d-flex flex-wrap gap-2 align-items-center justify-content-end s-pc-actions">
 
                                                         <!-- Confirmar recepción: sube el inventario del comprador (borrador),
                                                              respetando la fecha de entrega -->
                                                         <t t-if="tx.state == 'confirmed'">
                                                             <t t-set="deliv" t-value="tx._delivery_date()"/>
                                                             <t t-if="deliv &lt;= today">
-                                                                <form method="post" t-att-action="'/marketplace/compras/%s/recibir' % tx.uuid_ref" class="m-0">
+                                                                <form method="post" t-att-action="'/marketplace/purchases/%s/receive' % tx.uuid_ref" class="m-0">
                                                                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                                                     <button type="submit" class="s-btn s-btn-primary btn-sm"
                                                                             onclick="return confirm('¿Confirmar la recepción? Se subirá el producto a tu inventario en estado borrador.');">
@@ -686,13 +633,29 @@
                                                                 <i class="fa fa-ellipsis-h me-1"></i> Acciones
                                                             </button>
                                                             <ul class="dropdown-menu dropdown-menu-end">
-                                                                <li>
+                                                                <li t-if="tx.state in ('confirmed', 'done')">
                                                                     <a class="dropdown-item"
-                                                                       t-att-href="'/marketplace/compras/%s/factura/pdf?download=1' % tx.uuid_ref">
-                                                                        <i class="fa fa-file-text me-2"></i> Descargar factura
+                                                                       t-att-href="'/marketplace/purchases/%s/invoice/pdf?download=1' % tx.uuid_ref">
+                                                                        <i class="fa fa-file-text me-2"></i>
+                                                                        <t t-if="tx.sudo().invoice_id.state == 'posted'">Descargar factura (histórica)</t>
+                                                                        <t t-else="">Descargar comprobante (sin valor tributario)</t>
                                                                     </a>
                                                                 </li>
-                                                                <li>
+                                                                <!-- Factura de la MERCADERÍA: la emite el vendedor y la
+                                                                     registra en la compra (la plataforma no la emite). -->
+                                                                <li t-if="tx.state in ('confirmed', 'done') and tx.sudo().has_seller_invoice">
+                                                                    <span class="dropdown-item-text small text-muted">
+                                                                        Factura del vendedor:
+                                                                        <strong t-esc="tx.sudo().seller_invoice_number or (tx.sudo().seller_invoice_access_key and ('clave ' + tx.sudo().seller_invoice_access_key[:10] + '…')) or 'registrada'"/>
+                                                                    </span>
+                                                                </li>
+                                                                <li t-if="tx.state in ('confirmed', 'done') and tx.sudo().seller_invoice_attachment_id">
+                                                                    <a class="dropdown-item"
+                                                                       t-att-href="'/marketplace/purchases/%s/seller-invoice?download=1' % tx.uuid_ref">
+                                                                        <i class="fa fa-download me-2"></i> Descargar factura del vendedor
+                                                                    </a>
+                                                                </li>
+                                                                <li t-if="tx.state in ('confirmed', 'done')">
                                                                     <a class="dropdown-item"
                                                                        t-att-href="'/marketplace/thanks/%s' % tx.uuid_ref">
                                                                         <i class="fa fa-file-text-o me-2"></i> Ver comprobante
@@ -701,13 +664,15 @@
                                                                 <li><hr class="dropdown-divider"/></li>
                                                                 <li>
                                                                     <a class="dropdown-item"
-                                                                       t-att-href="'/marketplace/compras/%s/trazabilidad' % tx.uuid_ref">
+                                                                       t-att-href="'/marketplace/purchases/%s/traceability' % tx.uuid_ref">
                                                                         <i class="fa fa-sitemap me-2"></i> Ver trazabilidad
                                                                     </a>
                                                                 </li>
-                                                                <li>
+                                                                <!-- El certificado acredita una cadena de custodia que solo
+                                                                     existe cuando la compra se cerró. -->
+                                                                <li t-if="tx.state in ('confirmed', 'done')">
                                                                     <a class="dropdown-item"
-                                                                       t-att-href="'/marketplace/compras/%s/trazabilidad/pdf?download=1' % tx.uuid_ref">
+                                                                       t-att-href="'/marketplace/purchases/%s/traceability/pdf?download=1' % tx.uuid_ref">
                                                                         <i class="fa fa-file-pdf-o me-2"></i> Trazabilidad en PDF
                                                                     </a>
                                                                 </li>
@@ -717,7 +682,7 @@
                                                                     <li><hr class="dropdown-divider"/></li>
                                                                     <li>
                                                                         <button type="button" class="dropdown-item"
-                                                                                data-bs-toggle="modal" t-att-data-bs-target="'#rateModal%s' % tx.id">
+                                                                                data-bs-toggle="modal" t-att-data-bs-target="'#rateModal%s' % tx.uuid_ref">
                                                                             <i class="fa fa-star me-2"></i> Calificar vendedor
                                                                         </button>
                                                                     </li>
@@ -745,10 +710,10 @@
 
                                                 <!-- Modal de calificación -->
                                                 <t t-if="tx.state in ('confirmed', 'done') and tx.id not in reviewed_tx_ids">
-                                                    <div class="modal fade" t-att-id="'rateModal%s' % tx.id" tabindex="-1" aria-hidden="true">
+                                                    <div class="modal fade" t-att-id="'rateModal%s' % tx.uuid_ref" tabindex="-1" aria-hidden="true">
                                                         <div class="modal-dialog modal-dialog-centered">
                                                             <div class="modal-content">
-                                                                <form method="post" t-att-action="'/marketplace/compras/%s/calificar' % tx.uuid_ref">
+                                                                <form method="post" t-att-action="'/marketplace/purchases/%s/rate' % tx.uuid_ref">
                                                                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                                                     <div class="modal-header">
                                                                         <h5 class="modal-title">Calificar a <t t-esc="tx.seller_partner_id.name"/></h5>
@@ -759,8 +724,8 @@
                                                                         <div class="s-star-input">
                                                                             <t t-foreach="[5,4,3,2,1]" t-as="star">
                                                                                 <input type="radio" name="rating" t-att-value="star"
-                                                                                       t-att-id="'star_%s_%s' % (tx.id, star)" t-att-checked="star == 5"/>
-                                                                                <label t-att-for="'star_%s_%s' % (tx.id, star)"><i class="fa fa-star"></i></label>
+                                                                                       t-att-id="'star_%s_%s' % (tx.uuid_ref, star)" t-att-checked="star == 5"/>
+                                                                                <label t-att-for="'star_%s_%s' % (tx.uuid_ref, star)"><i class="fa fa-star"></i></label>
                                                                             </t>
                                                                         </div>
                                                                         <textarea class="form-control mt-3" name="comment" rows="3"
@@ -790,12 +755,17 @@
                                             <h3>Sin compras registradas</h3>
                                             <p>Aún no tienes productos comprados con los filtros actuales.</p>
                                             <a class="s-btn s-btn-primary" href="/marketplace">Ir al marketplace</a>
+                                            <a t-if="fd.get('active') or filters.get('q')" class="s-btn s-btn-ghost" href="/marketplace/purchases">Quitar filtros</a>
                                         </div>
                                     </div>
                                 </div>
                             </t>
-                        </div>
                     </div>
+
+                    <!-- ===== Cajón de filtros ===== -->
+                    <t t-call="shrimp_marketplace.s_filter_drawer">
+                        <t t-call="shrimp_marketplace.s_tx_filter_sections"/>
+                    </t>
                 </div>
             </div>
         </t>
@@ -846,6 +816,17 @@
                                 <span t-esc="kpi['commission_total']" t-options="{'widget': 'monetary', 'display_currency': currency}"/>
                             </div>
                             <div class="s-kpi-foot">Comisión del marketplace sobre tus ventas</div>
+                            <!-- Otros cobros de la plataforma, por separado: no son
+                                 comisiones de venta ni se restan del ingreso neto. -->
+                            <div class="s-kpi-foot" id="shrimp_rep_other_charges"
+                                 t-if="kpi.get('verification_fees_total') or kpi.get('copack_fees_total') or kpi.get('check_fees_total')">
+                                <div t-if="kpi.get('verification_fees_total')">Honorarios de verificación:
+                                    <span t-esc="kpi['verification_fees_total']" t-options="{'widget': 'monetary', 'display_currency': currency}"/></div>
+                                <div t-if="kpi.get('copack_fees_total')">Cuotas de empaque:
+                                    <span t-esc="kpi['copack_fees_total']" t-options="{'widget': 'monetary', 'display_currency': currency}"/></div>
+                                <div t-if="kpi.get('check_fees_total')">Chequeos de producto:
+                                    <span t-esc="kpi['check_fees_total']" t-options="{'widget': 'monetary', 'display_currency': currency}"/></div>
+                            </div>
                         </div>
 
                         <div class="s-kpi s-kpi--teal">
@@ -940,6 +921,78 @@
                         </div>
                     </div>
 
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <!-- ================================================================
+         Registrar la factura del VENDEDOR (paso 2 de la facturación).
+         La plataforma no factura mercadería: el vendedor emite su factura
+         en su sistema y aquí deja constancia (opcional). La ve el comprador
+         en «Mis compras»; no sale en la trazabilidad pública.
+         ================================================================ -->
+    <template id="seller_invoice_form" name="Marketplace - Registrar factura del vendedor">
+        <t t-call="website.layout">
+            <div class="shrimp-bg">
+                <div class="shrimp-page py-4" style="max-width:760px;">
+                    <div class="sf-banner mb-4">
+                        <div class="sf-banner-row">
+                            <div class="sf-banner-txt">
+                                <div class="s-eyebrow">Ventas · <t t-esc="tx.name"/></div>
+                                <h1>Factura de tu venta</h1>
+                                <p>La factura de la mercadería la emites tú desde tu sistema de
+                                facturación. Regístrala aquí para que tu comprador la tenga a
+                                mano: con el número basta; la clave de acceso y el archivo
+                                (XML o PDF) son opcionales.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div t-if="error" class="alert alert-danger" role="alert"><t t-esc="error"/></div>
+                    <div class="mp-table-card">
+                        <div class="card-body p-4">
+                            <div class="small text-muted mb-3">
+                                <t t-esc="tx.product_id.name"/> ·
+                                comprador <strong t-esc="tx.buyer_partner_id.name"/> ·
+                                <t t-esc="'{:,.2f}'.format(tx.transaction_qty)"/> <t t-esc="tx.product_id.uom_id.name"/>
+                            </div>
+                            <form method="post" enctype="multipart/form-data"
+                                  t-att-action="'/marketplace/sales/%s/invoice' % tx.uuid_ref">
+                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label" for="seller_invoice_number">N.º de factura</label>
+                                        <input class="form-control" id="seller_invoice_number" name="seller_invoice_number"
+                                               placeholder="001-001-000000001" pattern="\d{3}-\d{3}-\d{9}"
+                                               t-att-value="tx.sudo().seller_invoice_number"/>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label" for="seller_invoice_date">Fecha</label>
+                                        <input class="form-control" type="date" id="seller_invoice_date" name="seller_invoice_date"
+                                               t-att-value="tx.sudo().seller_invoice_date"/>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label" for="seller_invoice_access_key">Clave de acceso (49 dígitos, opcional)</label>
+                                        <input class="form-control" id="seller_invoice_access_key" name="seller_invoice_access_key"
+                                               inputmode="numeric" maxlength="60"
+                                               t-att-value="tx.sudo().seller_invoice_access_key"/>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label" for="seller_invoice_file">Archivo (XML o PDF, opcional, máx. 5 MB)</label>
+                                        <input class="form-control" type="file" id="seller_invoice_file" name="seller_invoice_file"
+                                               accept=".xml,.pdf,application/xml,text/xml,application/pdf"/>
+                                        <div t-if="tx.sudo().seller_invoice_attachment_id" class="form-text">
+                                            Ya hay un archivo cargado; si subes otro, lo reemplaza.
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="d-flex gap-2 mt-4">
+                                    <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-save me-1"></i> Guardar</button>
+                                    <a href="/marketplace/sales" class="s-btn s-btn-ghost">Volver a mis ventas</a>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
                 </div>
             </div>
         </t>

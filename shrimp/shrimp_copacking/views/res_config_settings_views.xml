@@ -1,0 +1,37 @@
+<odoo>
+  <record id="res_config_settings_view_form_copacking" model="ir.ui.view">
+    <field name="name">res.config.settings.form.shrimp.copacking</field>
+    <field name="model">res.config.settings</field>
+    <field name="inherit_id" ref="shrimp_marketplace.res_config_settings_view_form_shrimp"/>
+    <field name="arch" type="xml">
+      <xpath expr="//block[@name='shrimp_marketplace_block']" position="before">
+        <block title="Empaque (co-packing)" name="shrimp_copacking_block">
+          <setting string="Cuota de la plataforma"
+                   help="Lo que CamaronMarket factura al maquilador por libra empacada al firmarse el acta. Se fija en cada orden al crearla; el empaque propio no paga cuota.">
+            <div class="content-group">
+              <div class="row mt16">
+                <label for="shrimp_copack_platform_rate" class="col-lg-6 o_light_label"/>
+                <field name="shrimp_copack_platform_rate"/>
+                <span class="text-muted">USD por libra</span>
+              </div>
+            </div>
+          </setting>
+          <setting string="Tolerancia del acta"
+                   help="Merma (recibidas menos empacadas) que se da por normal en las órdenes nuevas. Cada orden puede ajustarla.">
+            <div class="content-group">
+              <div class="row mt16">
+                <label for="shrimp_copack_default_tolerance" class="col-lg-6 o_light_label"/>
+                <field name="shrimp_copack_default_tolerance"/>
+                <span class="text-muted">%</span>
+              </div>
+            </div>
+          </setting>
+          <setting id="shrimp_copack_require_license_setting"
+                   help="Activado, una planta (maquilador o empaque propio) con la habilitación vencida o sin fecha no puede registrar la recepción ni el empaque. Apagado, todo sigue como siempre.">
+            <field name="shrimp_copack_require_license"/>
+          </setting>
+        </block>
+      </xpath>
+    </field>
+  </record>
+</odoo>

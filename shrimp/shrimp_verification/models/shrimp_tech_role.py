@@ -7,6 +7,7 @@ class ShrimpTechRole(models.Model):
     cargo al dar de alta o editar a cada técnico."""
 
     _name = "shrimp.tech.role"
+    _inherit = "shrimp.uuid.mixin"
     _description = "Cargo de técnico de campo"
     _order = "sequence, name"
 

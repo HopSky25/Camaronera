@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Transferencias internas entre perfiles de una misma cuenta (back-office).
+     Por herencia: no toca las vistas base de lotes ni productos. -->
+<odoo>
+
+    <record id="view_shrimp_profile_transfer_list" model="ir.ui.view">
+        <field name="name">shrimp.profile.transfer.list</field>
+        <field name="model">shrimp.profile.transfer</field>
+        <field name="arch" type="xml">
+            <list string="Transferencias entre perfiles" create="0" edit="0" delete="0">
+                <field name="date"/>
+                <field name="partner_id"/>
+                <field name="kind"/>
+                <field name="from_role" widget="badge"/>
+                <field name="to_role" widget="badge"/>
+                <field name="product_id"/>
+                <field name="target_product_id"/>
+                <field name="qty"/>
+                <field name="uom_id"/>
+                <field name="user_id"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_shrimp_profile_transfer_form" model="ir.ui.view">
+        <field name="name">shrimp.profile.transfer.form</field>
+        <field name="model">shrimp.profile.transfer</field>
+        <field name="arch" type="xml">
+            <form string="Transferencia entre perfiles" create="0" edit="0" delete="0">
+                <sheet>
+                    <div class="oe_title"><h1><field name="display_name" readonly="1"/></h1></div>
+                    <group>
+                        <group>
+                            <field name="partner_id"/>
+                            <field name="kind"/>
+                            <field name="from_role"/>
+                            <field name="to_role"/>
+                            <field name="date"/>
+                            <field name="user_id"/>
+                        </group>
+                        <group>
+                            <field name="product_id"/>
+                            <field name="target_product_id"/>
+                            <field name="lot_id"/>
+                            <field name="qty"/>
+                            <field name="uom_id"/>
+                            <field name="uuid_ref"/>
+                        </group>
+                    </group>
+                    <group string="Motivo"><field name="reason" nolabel="1" colspan="2"/></group>
+                    <notebook>
+                        <page string="Lotes del perfil destino">
+                            <field name="new_lot_ids"/>
+                        </page>
+                        <page string="Movimientos">
+                            <field name="move_ids"/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_shrimp_profile_transfer_search" model="ir.ui.view">
+        <field name="name">shrimp.profile.transfer.search</field>
+        <field name="model">shrimp.profile.transfer</field>
+        <field name="arch" type="xml">
+            <search string="Transferencias entre perfiles">
+                <field name="partner_id"/>
+                <field name="product_id"/>
+                <field name="lot_id"/>
+                <filter string="Lotes" name="kind_lot" domain="[('kind','=','lot')]"/>
+                <filter string="Productos completos" name="kind_product" domain="[('kind','=','product')]"/>
+                <filter string="Cuenta" name="grp_partner" context="{'group_by': 'partner_id'}"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_shrimp_profile_transfer" model="ir.actions.act_window">
+        <field name="name">Transferencias entre perfiles</field>
+        <field name="res_model">shrimp.profile.transfer</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_shrimp_profile_transfer_search"/>
+    </record>
+
+    <menuitem id="menu_shrimp_profile_transfer"
+              name="Transferencias entre perfiles"
+              parent="shrimp_marketplace.menu_shrimp_inventory_root"
+              action="shrimp_marketplace.action_shrimp_profile_transfer"
+              sequence="25"
+              groups="shrimp_marketplace.group_shrimp_user"/>
+
+    <!-- Lote: perfil que lo tiene, lote padre, transferencias y chatter. -->
+    <record id="view_shrimp_stock_lot_form_profile" model="ir.ui.view">
+        <field name="name">shrimp.stock.lot.form.profile</field>
+        <field name="model">shrimp.stock.lot</field>
+        <field name="inherit_id" ref="shrimp_marketplace.view_shrimp_stock_lot_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='owner_id']" position="after">
+                <field name="held_role" readonly="1"/>
+                <field name="parent_lot_id" readonly="1" invisible="not parent_lot_id"/>
+            </xpath>
+            <xpath expr="//sheet" position="inside">
+                <notebook>
+                    <page string="Transferencias entre perfiles" name="profile_transfers">
+                        <field name="profile_transfer_ids" readonly="1"/>
+                        <field name="child_lot_ids" readonly="1" invisible="not child_lot_ids"/>
+                    </page>
+                </notebook>
+            </xpath>
+            <xpath expr="//sheet" position="after">
+                <chatter/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_shrimp_stock_lot_tree_profile" model="ir.ui.view">
+        <field name="name">shrimp.stock.lot.tree.profile</field>
+        <field name="model">shrimp.stock.lot</field>
+        <field name="inherit_id" ref="shrimp_marketplace.view_shrimp_stock_lot_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='owner_id']" position="after">
+                <field name="held_role" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Producto: de qué producto nació (transferencia interna). -->
+    <record id="view_shrimp_product_form_profile" model="ir.ui.view">
+        <field name="name">shrimp.product.form.profile</field>
+        <field name="model">shrimp.product</field>
+        <field name="inherit_id" ref="shrimp_marketplace.view_shrimp_product_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet//field[@name='seller_role']" position="after">
+                <field name="profile_origin_product_id" readonly="1" invisible="not profile_origin_product_id"/>
+            </xpath>
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_view_profile_transfers" type="object" class="oe_stat_button"
+                        icon="fa-exchange" string="Entre perfiles"/>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

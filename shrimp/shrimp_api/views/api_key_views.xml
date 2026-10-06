@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Vistas con prioridad 1: sustituyen como vista por defecto a las del
+         marketplace, que enseñaban la clave en claro y ofrecían "regenerar". -->
+    <record id="view_api_key_list" model="ir.ui.view">
+        <field name="name">shrimp.api.key.list.api</field>
+        <field name="model">shrimp.api.key</field>
+        <field name="priority">1</field>
+        <field name="arch" type="xml">
+            <list string="Claves de API" decoration-muted="status != 'active'">
+                <field name="name"/>
+                <field name="display_key"/>
+                <field name="user_id"/>
+                <field name="partner_id"/>
+                <field name="scope_ids" widget="many2many_tags"/>
+                <field name="expires_at"/>
+                <field name="status"/>
+                <field name="last_used"/>
+                <field name="call_count"/>
+                <field name="is_legacy" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_api_key_form" model="ir.ui.view">
+        <field name="name">shrimp.api.key.form.api</field>
+        <field name="model">shrimp.api.key</field>
+        <field name="priority">1</field>
+        <field name="arch" type="xml">
+            <form string="Clave de API" create="false">
+                <header>
+                    <button name="action_revoke" type="object" string="Revocar"
+                            class="btn-danger" invisible="revoked_at"
+                            confirm="La integración que use esta clave dejará de funcionar. ¿Revocar?"/>
+                    <field name="status" widget="statusbar"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1"/></h1>
+                        <field name="display_key" readonly="1"/>
+                    </div>
+                    <group>
+                        <group string="Dueño">
+                            <field name="user_id" readonly="1"/>
+                            <field name="partner_id" readonly="1"/>
+                            <field name="is_legacy" readonly="1"/>
+                        </group>
+                        <group string="Uso">
+                            <field name="last_used"/>
+                            <field name="last_ip"/>
+                            <field name="call_count"/>
+                            <field name="revoked_at"/>
+                            <field name="revoked_by_id"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Permisos">
+                            <field name="scope_ids" widget="many2many_tags"/>
+                            <field name="expires_at"/>
+                            <field name="rate_read_per_min"/>
+                            <field name="rate_write_per_min"/>
+                        </group>
+                        <group string="Restricciones de red">
+                            <field name="ip_allowlist" placeholder="203.0.113.10&#10;198.51.100.0/24"/>
+                            <field name="allowed_origins" placeholder="https://erp.ejemplo.com"/>
+                        </group>
+                    </group>
+                    <div class="alert alert-info" role="alert">
+                        El secreto no se guarda: solo un hash PBKDF2. Los socios crean y
+                        revocan sus claves en <code>/my/api-keys</code>; el secreto se les
+                        muestra una única vez. Documentación: <code>/api/v1/docs</code>.
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_api_key_search" model="ir.ui.view">
+        <field name="name">shrimp.api.key.search.api</field>
+        <field name="model">shrimp.api.key</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="key_prefix"/>
+                <field name="partner_id"/>
+                <filter name="f_active" string="Activas" domain="[('active', '=', True), ('revoked_at', '=', False)]"/>
+                <filter name="f_revoked" string="Revocadas" domain="[('revoked_at', '!=', False)]"/>
+                <filter name="f_legacy" string="Heredadas" domain="[('is_legacy', '=', True)]"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_api_keys" model="ir.actions.act_window">
+        <field name="name">Claves de API</field>
+        <field name="res_model">shrimp.api.key</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'active_test': False}</field>
+        <field name="domain">[('key_prefix', '!=', False)]</field>
+    </record>
+
+    <record id="view_api_scope_list" model="ir.ui.view">
+        <field name="name">shrimp.api.scope.list</field>
+        <field name="model">shrimp.api.scope</field>
+        <field name="arch" type="xml">
+            <list create="false" delete="false">
+                <field name="sequence" widget="handle"/>
+                <field name="code"/>
+                <field name="name"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_api_scopes" model="ir.actions.act_window">
+        <field name="name">Scopes de la API</field>
+        <field name="res_model">shrimp.api.scope</field>
+        <field name="view_mode">list</field>
+    </record>
+</odoo>

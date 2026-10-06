@@ -1,103 +1,16 @@
 <odoo>
 
   <!-- ================================================================
-       Entradas del mundo empacadora dentro del desplegable Operaciones.
+       Las entradas del mundo empacadora en la barra superior (listas de
+       precios, oferta disponible, empacadoras, rendimiento de proveedores,
+       simulador...) ya no se inyectan aquí con xpath sobre el desplegable
+       «Operaciones», que desapareció.
 
-       Antes eran menús sueltos al final de la barra: estaban, pero nadie
-       los encontraba. Van donde el usuario los busca, junto al historial
-       de compras y los reportes.
-
-       Cada una se muestra SOLO al eslabón al que le sirve. Sin esto las
-       cuatro se ofrecían a todo el mundo, y para un semillero o un
-       laboratorio eran cuatro caminos muertos: "Oferta disponible" le
-       devolvía un 403, y las otras tres una página vacía para siempre
-       —"Todavía no hay ninguna lista dirigida a ti"— porque una lista de
-       precios va dirigida a camaroneras por definición. Un menú que no
-       lleva a ningún sitio no es un detalle: es una promesa incumplida
-       cada vez que se abre la barra.
+       Ahora se declaran, con la capacidad que las habilita, en
+       models/website_navbar.py (website._shrimp_nav_entries), dentro de la
+       barra nueva: Vender ▾ para la camaronera y Comprar ▾ para la
+       empacadora. La vista vieja (navbar_listas_de_precios) se elimina al
+       actualizar el módulo.
        ================================================================ -->
-  <template id="navbar_listas_de_precios"
-            inherit_id="shrimp_marketplace.submenu_mi_panel_dropdown"
-            name="Operaciones - listas de precios">
-    <!-- Al final del desplegable Operaciones, después de "Calendario de
-         entregas". Se ancla por el href, que es estable, y no por posición. -->
-    <xpath expr="//a[@href='/marketplace/calendar']/.." position="after">
-      <t t-set="shrimp_tipo"
-         t-value="request.env.user.partner_id.shrimp_user_type if request else False"/>
-
-      <!-- Una sola opción "Lista de precios" que engloba el índice, el
-           detalle, la creación/edición y el comparador: todo se alcanza desde
-           esa pantalla (botones "Nueva lista", "Comparar precios", "Editar",
-           y las tarjetas llevan al detalle). La camaronera las recibe; la
-           empacadora las publica. -->
-      <li t-if="not shrimp_tipo or shrimp_tipo in ('camaronera', 'empacadora')">
-        <a role="menuitem" class="dropdown-item mp-menu-item"
-           href="/marketplace/listas-de-precios">
-          <span class="mp-menu-ico mp-mi-blue"><i class="fa fa-list-alt"/></span>
-          <span>Lista de precios</span>
-        </a>
-      </li>
-
-      <!-- Los lotes que hay a la venta cruzados con los precios propios:
-           es la pantalla de compra de la empacadora. -->
-      <li t-if="shrimp_tipo == 'empacadora'">
-        <a role="menuitem" class="dropdown-item mp-menu-item"
-           href="/marketplace/oferta">
-          <span class="mp-menu-ico mp-mi-green"><i class="fa fa-cubes"/></span>
-          <span>Oferta disponible</span>
-        </a>
-      </li>
-
-      <!-- El directorio: a quién le puede despachar la camaronera. -->
-      <li t-if="shrimp_tipo == 'camaronera'">
-        <a role="menuitem" class="dropdown-item mp-menu-item"
-           href="/marketplace/empacadoras">
-          <span class="mp-menu-ico mp-mi-amber"><i class="fa fa-industry"/></span>
-          <span>Empacadoras</span>
-        </a>
-      </li>
-
-      <!-- El rendimiento verificado de sus proveedores. Va aquí, junto a la
-           oferta disponible, porque son las dos mitades de la misma decisión:
-           qué hay para comprar y a quién conviene comprárselo. -->
-      <li t-if="shrimp_tipo == 'empacadora'">
-        <a role="menuitem" class="dropdown-item mp-menu-item"
-           href="/marketplace/proveedores">
-          <span class="mp-menu-ico mp-mi-amber"><i class="fa fa-trophy"/></span>
-          <span>Rendimiento de proveedores</span>
-        </a>
-      </li>
-
-      <!-- La otra mitad de esa misma tabla, para el que la produjo. El
-           rendimiento verificado de una camaronera lo leía únicamente su
-           comprador: quien lo consiguió no lo veía, y por tanto no podía
-           usarlo para vender. Misma regla de rol que las demás entradas y
-           por el mismo motivo práctico: a una empacadora esta pantalla le
-           saldría vacía para siempre —no vende camarón que se verifique en
-           planta— y ya tiene su mitad en "Rendimiento de proveedores".
-           Los otros eslabones (semillero, laboratorio) tampoco: sus ventas
-           son de larva, y la larva no lleva rendimiento ni clase A. -->
-      <li t-if="shrimp_tipo == 'camaronera'">
-        <a role="menuitem" class="dropdown-item mp-menu-item"
-           href="/marketplace/mi-historial">
-          <span class="mp-menu-ico mp-mi-green"><i class="fa fa-certificate"/></span>
-          <span>Mi historial verificado</span>
-        </a>
-      </li>
-
-      <!-- El simulador de cosecha. Es la decisión semanal de la camaronera
-           —cosechar o esperar— y va junto a las empacadoras y a las listas
-           porque se resuelve con lo mismo: quién paga qué por cada talla.
-           Misma condición de rol que las demás entradas: a una empacadora no
-           le sirve, porque no tiene lotes que cosechar. -->
-      <li t-if="shrimp_tipo == 'camaronera'">
-        <a role="menuitem" class="dropdown-item mp-menu-item"
-           href="/marketplace/simulador">
-          <span class="mp-menu-ico mp-mi-blue"><i class="fa fa-line-chart"/></span>
-          <span>Simulador de cosecha</span>
-        </a>
-      </li>
-    </xpath>
-  </template>
 
 </odoo>

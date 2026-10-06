@@ -2,7 +2,22 @@ from . import controllers
 from . import models
 
 
+def _shrimp_bautizar_sitio_principal(env):
+    """Solo en instalaciones nuevas: el sitio por defecto de Odoo («My
+    Website») pasa a llamarse como la plataforma y se sirve en español. En
+    una base existente no se toca el nombre que haya puesto el cliente."""
+    principal = env["website"].sudo()._shrimp_main_site()
+    if principal and principal.name in ("My Website", "Mi sitio web"):
+        principal.name = "CamaronMarket"
+    env["website"].sudo().search([])._shrimp_set_spanish_default()
+
+
 def post_init_hook(env):
+    _shrimp_bautizar_sitio_principal(env)
+    _shrimp_asignar_portal_demo(env)
+
+
+def _shrimp_asignar_portal_demo(env):
     """Asigna el grupo Portal a los usuarios de datos de ejemplo.
 
     El campo de grupos del usuario cambió de nombre entre versiones de Odoo

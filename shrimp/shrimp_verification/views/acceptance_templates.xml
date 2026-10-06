@@ -11,7 +11,7 @@
       <div class="shrimp-bg">
         <div class="shrimp-page py-4 sf-fields" style="max-width:980px;">
 
-          <a class="s-back mb-3" t-attf-href="/marketplace/#{'compras' if postura.role == 'buyer' else 'ventas'}">
+          <a class="s-back mb-3" t-attf-href="/marketplace/#{'purchases' if postura.role == 'buyer' else 'sales'}">
             <i class="fa fa-arrow-left"></i>
             <span>Volver a mis <t t-if="postura.role == 'buyer'">compras</t><t t-else="">ventas</t></span>
           </a>
@@ -26,7 +26,8 @@
                 </t>
                 <t t-elif="v.acceptance_state == 'broken'">
                   <h1>El trato no se concretó</h1>
-                  <p>El honorario de la verificación lo asume <strong t-esc="v.fee_payer_partner_id.name or '—'"/>.</p>
+                  <p t-if="v.verification_mode == 'declared'">Verificación declarada por las partes: no hay honorario de verificación.</p>
+                  <p t-else="">El honorario de la verificación lo asume <strong t-esc="v.fee_payer_partner_id.name or '—'"/>.</p>
                 </t>
                 <t t-else="">
                   <h1>Aceptación del informe</h1>
@@ -46,6 +47,21 @@
             <div class="alert alert-danger"><i class="fa fa-exclamation-triangle me-1"/><t t-esc="error"/></div>
           </t>
 
+          <!-- Modo de verificación: que nadie confunda un informe declarado
+               por una de las partes con el de una verificadora acreditada. -->
+          <div t-if="v.verification_mode == 'declared'" class="sv-mode-note mb-4">
+            <i class="fa fa-handshake-o me-1"/>
+            <strong t-esc="v.verification_label()"/>.
+            No es el informe de una verificadora de la plataforma: lo presentó
+            <strong t-esc="v.declarant_partner_id.name or 'una de las partes'"/>
+            y la compra se cierra cuando la otra parte lo confirma.
+            <t t-if="v.declared_report_file">
+              <a t-attf-href="/marketplace/verifications/#{v.uuid_ref}/declare/report" target="_blank" class="ms-1">
+                <i class="fa fa-file-pdf-o me-1"/>Ver el informe en PDF
+              </a>
+            </t>
+          </div>
+
           <!-- Postura de cada parte -->
           <div class="mp-table-card mb-4"><div class="card-body p-4">
             <div class="mp-sec-head"><span class="mp-sec-ico"><i class="fa fa-handshake-o"></i></span><h3 class="mp-sec-title">Postura de cada parte</h3></div>
@@ -56,13 +72,14 @@
                     <t t-if="a.role == 'buyer'">Comprador</t>
                     <t t-else="">Vendedor</t>
                     <t t-if="a == postura"> (tú)</t>
+                    <t t-if="v.verification_mode == 'declared' and a.role == v.declarant_role"> · presentó el informe</t>
                   </div>
                   <div class="sv-parte-nombre" t-esc="a.partner_id.name"/>
                   <div class="sv-parte-estado">
                     <t t-if="a.decision == 'pending'"><i class="fa fa-clock-o me-1"/>Sin responder</t>
                     <t t-elif="a.decision == 'accepted'"><i class="fa fa-check me-1"/>Aceptó<t t-if="a.auto"> (por vencimiento del plazo)</t></t>
                     <t t-elif="a.decision == 'counter'"><i class="fa fa-exchange me-1"/>Propuso otro precio</t>
-                    <t t-else=""><i class="fa fa-times me-1"/>Rechazó</t>
+                    <t t-else=""><i class="fa fa-times me-1"/>Rechazó<t t-if="v.acceptance_state == 'waiting'"> (surte efecto al cerrarse la ronda)</t></t>
                   </div>
                   <div class="sv-parte-motivo" t-if="a.reason" t-esc="a.reason"/>
                 </div>
@@ -97,14 +114,20 @@
               <div><span>Cantidad</span><strong t-esc="'{:.2f} lb'.format(tx.transaction_qty or 0)"/></div>
               <div><span>Precio unitario</span><strong t-esc="'{:.2f}'.format(tx.price_unit or 0)"/></div>
               <div><span>Total</span><strong t-esc="'{:.2f}'.format(tx.amount_total or 0)"/></div>
-              <div><span>Verificadora</span><strong t-esc="v.verifier_partner_id.name or '—'"/></div>
-              <div><span>Técnico</span><strong t-esc="v.technician_partner_id.name or '—'"/></div>
+              <t t-if="v.verification_mode == 'declared'">
+                <div><span>Modo de verificación</span><strong>Declarada por las partes</strong></div>
+                <div><span>Quién verificó</span><strong t-esc="v.declared_origin_text()"/></div>
+              </t>
+              <t t-else="">
+                <div><span>Verificadora</span><strong t-esc="v.verifier_partner_id.name or '—'"/></div>
+                <div><span>Técnico</span><strong t-esc="v.technician_partner_id.name or '—'"/></div>
+              </t>
             </div>
           </div></div>
 
           <!-- Informe del verificador (estructurado, no texto plano) -->
           <div class="mp-table-card mb-4"><div class="card-body p-4">
-            <div class="mp-sec-head"><span class="mp-sec-ico"><i class="fa fa-clipboard-list"></i></span><h3 class="mp-sec-title">Informe del verificador</h3></div>
+            <div class="mp-sec-head"><span class="mp-sec-ico"><i class="fa fa-clipboard-list"></i></span><h3 class="mp-sec-title"><t t-if="v.verification_mode == 'declared'">Informe declarado</t><t t-else="">Informe del verificador</t></h3></div>
 
             <t t-if="v.scope != 'larvae'">
               <h4 class="sv-h4 mt-1">Peso</h4>
@@ -192,8 +215,9 @@
               <label class="mt-3 d-block">Fotos de campo</label>
               <div class="sv-fotos">
                 <t t-foreach="v.photo_ids" t-as="f">
-                  <a t-attf-href="/marketplace/verificacion/#{v.uuid_ref}/foto/#{f.id}" target="_blank">
-                    <img t-attf-src="/marketplace/verificacion/#{v.uuid_ref}/foto/#{f.id}" alt="Foto de campo"/>
+                  <t t-set="ftok" t-value="v.photo_token(f)"/>
+                  <a t-attf-href="/marketplace/verifications/#{v.uuid_ref}/photos/#{ftok}" target="_blank">
+                    <img t-attf-src="/marketplace/verifications/#{v.uuid_ref}/photos/#{ftok}" alt="Foto de campo"/>
                   </a>
                 </t>
               </div>
@@ -221,7 +245,7 @@
                 <div class="mp-sec-head"><span class="mp-sec-ico"><i class="fa fa-gavel"></i></span><h3 class="mp-sec-title">Tu decisión</h3></div>
                 <div class="sv-acciones">
 
-                  <form method="post" t-attf-action="/marketplace/verificacion/#{v.uuid_ref}/aceptar">
+                  <form method="post" t-attf-action="/marketplace/verifications/#{v.uuid_ref}/accept">
                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                     <button type="submit" class="s-btn s-btn-primary">
                       <i class="fa fa-check me-1"/>
@@ -232,12 +256,12 @@
 
                   <t t-if="postura.role == 'buyer' and not cumple">
                     <form method="post" class="sv-caja"
-                          t-attf-action="/marketplace/verificacion/#{v.uuid_ref}/contraoferta">
+                          t-attf-action="/marketplace/verifications/#{v.uuid_ref}/counter-offer">
                       <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                       <label class="fw-bold">¿Prefieres seguir, pero a otro precio?</label>
                       <p class="sv-muted small mb-2">
                         En vez de tumbar la compra, propón un precio por libra acorde
-                        a lo que el verificador encontró. El vendedor lo acepta o lo
+                        a lo que muestra el informe. El vendedor lo acepta o lo
                         rechaza. Debe ser menor a
                         <strong t-esc="'{:.2f}'.format(tx.price_unit or 0)"/>.
                       </p>
@@ -254,12 +278,18 @@
                   </t>
 
                   <form method="post" class="sv-caja sv-caja--ko"
-                        t-attf-action="/marketplace/verificacion/#{v.uuid_ref}/rechazar">
+                        t-attf-action="/marketplace/verifications/#{v.uuid_ref}/reject">
                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                     <label class="fw-bold">Rechazar el informe</label>
                     <p class="sv-muted small mb-2">
-                      La compra se cancela y el producto vuelve a quedar disponible.
-                      <t t-if="cumple">
+                      El rechazo surte efecto cuando la otra parte responde o vence
+                      el plazo: entonces la compra se cancela y el producto vuelve a
+                      quedar disponible. Hasta ese momento puedes deshacerlo.
+                      <t t-if="v.verification_mode == 'declared'">
+                        Verificación declarada por las partes: no hay honorario de
+                        verificación en juego.
+                      </t>
+                      <t t-elif="cumple">
                         <strong>Ojo:</strong> como el informe confirmó lo publicado,
                         el honorario de la verificación lo pagas tú.
                       </t>
@@ -284,8 +314,13 @@
               <div class="alert alert-success">
                 <i class="fa fa-check me-1"/> Ya respondiste. Falta la otra parte para cerrar la compra.
               </div>
+              <t t-call="shrimp_marketplace.signoff_undo_form">
+                <t t-set="firma" t-value="postura"/>
+              </t>
             </t>
           </t>
+
+          <t t-call="shrimp_marketplace.signoff_history"/>
 
         </div>
       </div>
@@ -315,7 +350,7 @@
         </p>
         <t t-foreach="sv_pendientes" t-as="sv">
           <a class="sv-banner-aceptar-item"
-             t-attf-href="/marketplace/verificacion/#{sv.uuid_ref}/aceptacion">
+             t-attf-href="/marketplace/verifications/#{sv.uuid_ref}/acceptance">
             <span>
               <strong t-esc="sv.product_id.name or sv.name"/>
               <span class="sv-muted"> · compra <t t-esc="sv.transaction_id.name"/></span>

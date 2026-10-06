@@ -22,7 +22,7 @@
             <div class="alert alert-warning">
               <b>No apareces en el directorio.</b> Los clientes no te encuentran cuando
               buscan quién empaca. Se activa en
-              <a href="/maquilador/perfil">Perfil y capacidad</a>.
+              <a href="/copacker/profile">Perfil y capacidad</a>.
             </div>
           </t>
 
@@ -33,6 +33,7 @@
             </div>
           </t>
           <t t-else="">
+            <div class="table-responsive">
             <table class="table table-hover bg-white align-middle">
               <thead>
                 <tr>
@@ -43,7 +44,7 @@
               <tbody>
                 <t t-foreach="solicitudes" t-as="s">
                   <tr>
-                    <td><a t-attf-href="/maquilador/solicitud/#{s.uuid_ref}"><t t-esc="s.name"/></a></td>
+                    <td><a t-attf-href="/copacker/requests/#{s.uuid_ref}"><t t-esc="s.name"/></a></td>
                     <td><t t-esc="s.client_partner_id.name"/></td>
                     <td class="text-end fw-bold"><t t-esc="int(s.quantity_lb)"/></td>
                     <td><t t-esc="dict(s._fields['presentation'].selection).get(s.presentation)"/></td>
@@ -57,7 +58,7 @@
                         <span class="badge text-bg-success">Ya ofertaste</span>
                       </t>
                       <t t-else="">
-                        <a t-attf-href="/maquilador/solicitud/#{s.uuid_ref}"
+                        <a t-attf-href="/copacker/requests/#{s.uuid_ref}"
                            class="btn btn-sm btn-primary">Ofertar</a>
                       </t>
                     </td>
@@ -65,18 +66,19 @@
                 </t>
               </tbody>
             </table>
+            </div>
             <!-- Sin el t-if salia "Tu capacidad declarada es de 0 lb por
                  semana" a quien todavia no ha rellenado el perfil: un dato
                  falso en vez del aviso de que falta ponerlo. -->
             <p class="text-muted small">
-              <t t-if="maq.pack_capacidad_lb_semana">
+              <t t-if="maq.shrimp_capacity_value">
                 Tu capacidad declarada es de
-                <t t-esc="int(maq.pack_capacidad_lb_semana)"/> lb por semana. Ofertar por
+                <t t-esc="int(maq.shrimp_capacity_value)"/> lb por semana. Ofertar por
                 encima de lo que puedes cumplir es la forma más rápida de perder un cliente.
               </t>
               <t t-else="">
                 Todavía no has declarado tu capacidad semanal. Ponla en
-                <a href="/maquilador/perfil">Perfil y capacidad</a>: es lo que te recuerda
+                <a href="/copacker/profile">Perfil y capacidad</a>: es lo que te recuerda
                 hasta dónde puedes comprometerte antes de ofertar.
               </t>
             </p>
@@ -95,7 +97,7 @@
       <div class="shrimp-bg">
         <div class="shrimp-page py-4">
 
-          <a href="/maquilador/bandeja" class="btn btn-sm btn-link mb-2">&#8592; Mi bandeja</a>
+          <a href="/copacker/inbox" class="btn btn-sm btn-link mb-2">&#8592; Mi bandeja</a>
           <h2 class="mb-1"><t t-esc="sol.name"/></h2>
           <p class="text-muted">
             <t t-esc="sol.client_partner_id.name"/> ·
@@ -145,7 +147,7 @@
                   reactiva.
                 </div>
               </t>
-              <form method="post" t-attf-action="/maquilador/solicitud/#{sol.uuid_ref}/ofertar">
+              <form method="post" t-attf-action="/copacker/requests/#{sol.uuid_ref}/offer">
                 <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                 <div class="row g-3">
                   <div class="col-md-4">
@@ -187,7 +189,7 @@
                    boton, la planta que se quedaba sin cupo no podia mas que
                    dejar la oferta viva y esperar que no se la aceptaran. -->
               <t t-if="mi_oferta and mi_oferta.state == 'sent'">
-                <form method="post" t-attf-action="/maquilador/solicitud/#{sol.uuid_ref}/retirar"
+                <form method="post" t-attf-action="/copacker/requests/#{sol.uuid_ref}/withdraw"
                       class="mt-3 border-top pt-3">
                   <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                   <button type="submit" class="btn btn-sm btn-outline-danger">
@@ -216,7 +218,7 @@
                     Te la adjudicaron a ti. El trabajo se sigue desde la orden.
                   </p>
                   <t t-if="sol.order_id">
-                    <a t-attf-href="/marketplace/empaque/orden/#{sol.order_id.uuid_ref}"
+                    <a t-attf-href="/marketplace/copacking/orders/#{sol.order_id.uuid_ref}"
                        class="btn btn-primary">Ver la orden</a>
                   </t>
                 </t>
@@ -250,13 +252,14 @@
       <div class="shrimp-bg">
         <div class="shrimp-page shrimp-page--full py-4">
 
-          <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-            <h2 class="mb-0">Órdenes en curso</h2>
-            <div class="btn-group">
-              <a href="/maquilador/ordenes" t-att-class="'btn btn-sm ' + ('btn-primary' if not filtro else 'btn-outline-primary')">Todas</a>
-              <a href="/maquilador/ordenes?f=firmar" t-att-class="'btn btn-sm ' + ('btn-primary' if filtro == 'firmar' else 'btn-outline-primary')">Actas por firmar</a>
-              <a href="/maquilador/ordenes?f=cerradas" t-att-class="'btn btn-sm ' + ('btn-primary' if filtro == 'cerradas' else 'btn-outline-primary')">Cerradas</a>
-            </div>
+          <h2 class="mb-3">Órdenes en curso</h2>
+
+          <!-- Barra (búsqueda por referencia o cliente) + etiquetas + cajón:
+               «Situación» (lo que antes eran los tres botones; ?f= se conserva)
+               y «Cliente» (solo si trabaja para más de uno). -->
+          <div id="listado">
+            <t t-call="shrimp_marketplace.s_filter_toolbar"/>
+            <t t-call="shrimp_marketplace.s_filter_tags"/>
           </div>
 
           <t t-if="error"><div class="alert alert-danger"><t t-esc="error"/></div></t>
@@ -265,7 +268,9 @@
             <div class="alert alert-light border">No hay órdenes con ese filtro.</div>
           </t>
           <t t-else="">
-            <table class="table bg-white align-middle">
+            <!-- En móvil (&lt; 768 px) cada fila pasa a tarjeta (.s-stack-table). -->
+            <div class="table-responsive">
+            <table class="table bg-white align-middle s-stack-table">
               <thead>
                 <tr>
                   <th>Referencia</th><th>Cliente</th><th class="text-end">Acordadas</th>
@@ -276,18 +281,18 @@
               <tbody>
                 <t t-foreach="ordenes" t-as="o">
                   <tr>
-                    <td><a t-attf-href="/marketplace/empaque/orden/#{o.uuid_ref}"><t t-esc="o.name"/></a></td>
-                    <td><t t-esc="o.client_partner_id.name"/></td>
-                    <td class="text-end"><t t-esc="int(o.agreed_qty_lb)"/></td>
-                    <td class="text-end"><t t-esc="int(o.received_lb)"/></td>
-                    <td class="text-end"><t t-esc="int(o.packed_lb)"/></td>
-                    <td>
+                    <td class="s-stack-title"><a t-attf-href="/marketplace/copacking/orders/#{o.uuid_ref}"><t t-esc="o.name"/></a></td>
+                    <td class="s-stack-wide" data-label="Cliente"><t t-esc="o.client_partner_id.name"/></td>
+                    <td class="text-end" data-label="Acordadas (lb)"><t t-esc="'{:,.0f}'.format(o.agreed_qty_lb or 0)"/></td>
+                    <td class="text-end" data-label="Recibidas (lb)"><t t-esc="'{:,.0f}'.format(o.received_lb or 0)"/></td>
+                    <td class="text-end" data-label="Empacadas (lb)"><t t-esc="'{:,.0f}'.format(o.packed_lb or 0)"/></td>
+                    <td data-label="Estado">
                       <span class="badge text-bg-secondary">
                         <t t-esc="dict(o._fields['state'].selection).get(o.state)"/>
                       </span>
                     </td>
-                    <td class="text-end">
-                      <a t-attf-href="/marketplace/empaque/orden/#{o.uuid_ref}"
+                    <td class="text-end s-stack-actions">
+                      <a t-attf-href="/marketplace/copacking/orders/#{o.uuid_ref}"
                          class="btn btn-sm btn-outline-primary">
                         <t t-if="o.state == 'confirmed'">Registrar recepción</t>
                         <t t-elif="o.state == 'received'">Registrar empaque</t>
@@ -299,6 +304,35 @@
                 </t>
               </tbody>
             </table>
+            </div>
+          </t>
+
+          <!-- ===== Cajón de filtros ===== -->
+          <t t-call="shrimp_marketplace.s_filter_drawer">
+            <div t-if="fd_show.get('f')" class="s-filter-sec" id="sf_sec_situacion">
+              <div class="s-filter-sec-label">Situación</div>
+              <div class="s-choice-chips">
+                <label class="s-choice">
+                  <input type="radio" name="f" value="" t-att-checked="not filters['f']"/>
+                  <span>Todas</span>
+                </label>
+                <t t-foreach="situacion_opts" t-as="opt">
+                  <label class="s-choice">
+                    <input type="radio" name="f" t-att-value="opt[0]" t-att-checked="filters['f'] == opt[0]"/>
+                    <span><t t-esc="opt[1]"/></span>
+                  </label>
+                </t>
+              </div>
+            </div>
+            <div t-if="fd_show.get('cliente')" class="s-filter-sec" id="sf_sec_cliente">
+              <label class="s-filter-sec-label" for="fltCliente">Cliente</label>
+              <select class="form-select" name="cliente" id="fltCliente">
+                <option value="">Todos</option>
+                <t t-foreach="cliente_opts" t-as="opt">
+                  <option t-att-value="opt[0]" t-att-selected="filters['cliente'] == opt[0]"><t t-esc="opt[1]"/></option>
+                </t>
+              </select>
+            </div>
           </t>
 
         </div>
@@ -341,6 +375,7 @@
             <div class="alert alert-light border">Todavía no hay trabajos empacados.</div>
           </t>
           <t t-else="">
+            <div class="table-responsive">
             <table class="table bg-white">
               <thead>
                 <tr>
@@ -352,7 +387,7 @@
               <tbody>
                 <t t-foreach="ordenes" t-as="o">
                   <tr>
-                    <td><a t-attf-href="/marketplace/empaque/orden/#{o.uuid_ref}"><t t-esc="o.name"/></a></td>
+                    <td><a t-attf-href="/marketplace/copacking/orders/#{o.uuid_ref}"><t t-esc="o.name"/></a></td>
                     <td><t t-esc="o.client_partner_id.name"/></td>
                     <td class="small"><t t-esc="o.packed_date or '—'"/></td>
                     <td class="text-end"><t t-esc="int(o.packed_lb)"/></td>
@@ -363,6 +398,7 @@
                 </t>
               </tbody>
             </table>
+            </div>
             <p class="text-muted small">
               La comisión se calcula sobre las libras del acta, no sobre las declaradas.
               Las órdenes con el acta en disputa no aparecen aquí: no se liquidan hasta

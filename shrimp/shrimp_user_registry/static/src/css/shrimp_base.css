@@ -1,0 +1,296 @@
+/* ==========================================================================
+   CamaronMarket — estilos BASE compartidos por las tres plataformas
+   (marketplace, CamaronMarket Verificadores, empaque) y por las pantallas de registro.
+
+   Viven en shrimp_user_registry porque el registro es la primera pantalla de
+   todas y antes dependía de la hoja del marketplace (s-eyebrow, sf-banner,
+   shrimp-page...). Aquí están los TOKENS (variables shrimp y sp/fs) con el
+   tema del marketplace (navy) y los componentes base. Cada plataforma
+   reescribe los tokens de color bajo su clase del #wrapwrap:
+     #wrapwrap.o_shrimp_platform_main      navy   (shrimp_marketplace)
+     #wrapwrap.o_shrimp_platform_verifier  teal   (shrimp_verification, CamaronMarket Verificadores)
+     #wrapwrap.o_shrimp_platform_copacker  coral  (shrimp_copacking)
+   La tipografía Inter la sirve shrimp_marketplace (@font-face); sin él se
+   usa la fuente del sistema.
+   ========================================================================== */
+
+:root {
+    /* Marca */
+    --shrimp-brand: #123e5c;        /* navy profundo (marca) */
+    --shrimp-brand-ink: #0c2e45;    /* navy hover */
+    --shrimp-brand-soft: #e7eef3;   /* navy 8% para fondos suaves */
+    --shrimp-teal: #0e8ea0;         /* teal acento (moderado) */
+    --shrimp-teal-soft: #e2f3f5;
+
+    /* Tinta / neutrales */
+    --shrimp-ink: #0d1b26;          /* texto principal */
+    --shrimp-ink-soft: #55636d;     /* texto secundario */
+    --shrimp-ink-faint: #7c8794;    /* texto terciario */
+    --shrimp-surface: #ffffff;
+    --shrimp-bg: #f6f8fa;           /* fondo plano, sin gradiente */
+    --shrimp-bg-alt: #eef1f4;
+    --shrimp-border: #e4e8ec;       /* borde 1px sólido y fino */
+    --shrimp-border-strong: #d3d9df;
+
+    /* Semánticos */
+    --shrimp-success: #1f8f5f;
+    --shrimp-success-soft: #e4f4ec;
+    --shrimp-warning: #b7791f;
+    --shrimp-warning-soft: #fbf1de;
+    --shrimp-danger: #c0392b;
+    --shrimp-danger-soft: #fbe9e7;
+
+    /* Estados de operación (compra/venta) */
+    --shrimp-state-pending: #b7791f;
+    --shrimp-state-progress: #0e8ea0;
+    --shrimp-state-done: #1f8f5f;
+    --shrimp-state-cancel: #7c8794;
+
+    /* Degradado de marca (navy → azul medio, como la identidad AGRICOMINSA) */
+    --shrimp-grad: linear-gradient(135deg, #123e5c 0%, #2e7da6 100%);
+    --shrimp-grad-soft: linear-gradient(135deg, #1b4a6b 0%, #2e7da6 100%);
+
+    /* Radios (con profundidad, estilo corporativo) */
+    --shrimp-radius-sm: 10px;
+    --shrimp-radius: 16px;
+    --shrimp-radius-lg: 22px;
+    --shrimp-radius-pill: 999px;
+
+    /* Sombras suaves pero presentes (dan profundidad a las tarjetas) */
+    --shrimp-shadow: 0 2px 6px rgba(13, 27, 38, .05), 0 12px 28px rgba(13, 27, 38, .07);
+    --shrimp-shadow-hover: 0 8px 18px rgba(13, 27, 38, .10), 0 24px 50px rgba(18, 62, 92, .14);
+
+    /* Espaciado (escala 4px) */
+    --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
+    --sp-5: 24px; --sp-6: 32px; --sp-7: 48px; --sp-8: 64px;
+
+    /* Escala tipográfica */
+    --fs-caption: 12.5px;
+    --fs-sm: 13.5px;
+    --fs-body: 15px;
+    --fs-lg: 17px;
+    --fs-h3: clamp(19px, 2vw, 22px);
+    --fs-h2: clamp(24px, 3vw, 32px);
+    --fs-h1: clamp(30px, 4vw, 44px);
+    --fs-display: clamp(40px, 6vw, 72px);
+
+    /* Layout */
+    --shrimp-maxw: 1280px;
+    --shrimp-maxw-wide: 1440px;
+    --shrimp-font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* ---- Layout base -------------------------------------------------------- */
+.shrimp-bg {
+    background-color: var(--shrimp-bg);   /* plano, sin degradados */
+    min-height: calc(100vh - 120px);
+    color: var(--shrimp-ink);
+    font-family: var(--shrimp-font);
+    font-size: var(--fs-body);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* La navbar flotante tiene margen inferior negativo (-34px) para que las
+       LANDING sangren por detrás. En las páginas de contenido eso taparía el
+       banner superior, así que se compensa con espacio arriba para que el
+       contenido quede por debajo de la barra. */
+    padding-top: 40px;
+}
+.shrimp-page {
+    width: 100%;
+    max-width: var(--shrimp-maxw);
+    margin-inline: auto;
+    padding-inline: clamp(16px, 4vw, 40px);
+}
+.shrimp-page--wide { max-width: var(--shrimp-maxw-wide); }
+.shrimp-page--full { max-width: 1920px; padding-inline: clamp(16px, 3vw, 56px); }
+.shrimp-narrow {
+    width: 100%;
+    max-width: 680px;
+    margin-inline: auto;
+    padding-inline: clamp(16px, 4vw, 24px);
+}
+
+/* ---- Tipografía --------------------------------------------------------- */
+.shrimp-bg h1, .shrimp-bg h2, .shrimp-bg h3, .shrimp-bg h4 {
+    color: var(--shrimp-ink);
+    letter-spacing: -.01em;
+    font-weight: 700;
+    line-height: 1.2;
+}
+.shrimp-title, .s-h2 { font-weight: 700; letter-spacing: -.015em; color: var(--shrimp-ink); }
+.shrimp-subtitle, .s-sub { color: var(--shrimp-ink-soft); font-weight: 400; }
+.s-eyebrow {
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    font-size: var(--fs-caption);
+    font-weight: 700;
+    color: var(--shrimp-teal);
+    margin-bottom: var(--sp-2);
+}
+.s-display { font-weight: 800; letter-spacing: -.03em; line-height: 1.05; font-size: var(--fs-display); color: var(--shrimp-ink); }
+.s-lead { font-size: var(--fs-lg); line-height: 1.5; color: var(--shrimp-ink-soft); font-weight: 400; }
+.text-soft { color: var(--shrimp-ink-soft); }
+.text-faint { color: var(--shrimp-ink-faint); }
+
+/* ---- Encabezado de página homogéneo ------------------------------------ */
+.s-page-header {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    flex-wrap: wrap; gap: var(--sp-3); margin-bottom: var(--sp-5);
+    padding-bottom: var(--sp-4); border-bottom: 1px solid var(--shrimp-border);
+}
+.s-page-header h1 { font-size: var(--fs-h1); font-weight: 700; letter-spacing: -.02em; margin: 0; }
+.s-page-header .s-page-sub { color: var(--shrimp-ink-soft); font-size: var(--fs-body); margin-top: var(--sp-1); }
+
+/* ---- Botón "Volver" ----------------------------------------------------- */
+.s-back {
+    display: inline-flex; align-items: center; gap: var(--sp-2);
+    padding: 6px 12px; border-radius: var(--shrimp-radius-sm);
+    background: transparent; color: var(--shrimp-ink-soft) !important;
+    font-size: var(--fs-sm); font-weight: 500; text-decoration: none !important;
+    border: 1px solid var(--shrimp-border); cursor: pointer;
+    transition: background .15s ease, color .15s ease;
+}
+.s-back:hover { background: var(--shrimp-bg-alt); color: var(--shrimp-ink) !important; }
+.s-back i { font-size: 12px; }
+
+/* ---- Botones ------------------------------------------------------------ */
+.shrimp-bg .btn, .s-btn {
+    border-radius: var(--shrimp-radius-sm);
+    font-weight: 600;
+    font-size: var(--fs-body);
+    letter-spacing: 0;
+    padding: 9px 18px;
+    transition: background .15s ease, border-color .15s ease, transform .1s ease, box-shadow .15s ease;
+}
+.shrimp-bg .btn:active, .s-btn:active { transform: translateY(1px); }
+.shrimp-bg .btn-primary, .s-btn-primary {
+    background: var(--shrimp-brand); border: 1px solid var(--shrimp-brand); color: #fff !important;
+}
+.shrimp-bg .btn-primary:hover, .s-btn-primary:hover {
+    background: var(--shrimp-brand-ink); border-color: var(--shrimp-brand-ink);
+}
+.shrimp-bg .btn-secondary, .s-btn-ghost {
+    background: var(--shrimp-surface); border: 1px solid var(--shrimp-border-strong); color: var(--shrimp-ink) !important;
+}
+.shrimp-bg .btn-secondary:hover, .s-btn-ghost:hover { background: var(--shrimp-bg-alt); }
+.s-btn-teal { background: var(--shrimp-teal); border: 1px solid var(--shrimp-teal); color: #fff !important; }
+.s-btn-teal:hover { filter: brightness(.93); }
+/* Botón de acción destructiva (outline que se rellena al hover) */
+.s-btn-danger { background: var(--shrimp-surface); border: 1px solid var(--shrimp-danger); color: var(--shrimp-danger) !important; }
+.s-btn-danger:hover { background: var(--shrimp-danger); border-color: var(--shrimp-danger); color: #fff !important; }
+
+/* Tarjeta de "Nuevo certificado" (fila dinámica): panel gris con campos blancos */
+.mp-cert-row { background: #f2f5f8; border: 1px solid var(--shrimp-border) !important; border-radius: 16px; }
+.mp-cert-row .form-control, .mp-cert-row .form-select {
+    background-color: #fff !important;
+    border: 1px solid var(--shrimp-border) !important;
+    border-radius: 12px !important;
+}
+.mp-cert-row .form-control:focus, .mp-cert-row .form-select:focus {
+    border-color: var(--shrimp-teal) !important;
+    box-shadow: 0 0 0 3px var(--shrimp-teal-soft) !important;
+}
+.s-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2);
+    text-decoration: none !important;
+}
+.s-btn-lg { padding: 12px 24px; font-size: var(--fs-lg); }
+.s-btn-block { width: 100%; }
+
+.shrimp-link-arrow { color: var(--shrimp-teal); text-decoration: none; font-weight: 600; }
+.shrimp-link-arrow:hover { text-decoration: underline; }
+.shrimp-link-arrow::after { content: " \203A"; }
+
+/* ---- Formularios (FormField) ------------------------------------------- */
+.shrimp-bg .form-control,
+.shrimp-bg .form-select,
+.shrimp-bg textarea.form-control {
+    border-radius: var(--shrimp-radius-sm);
+    border: 1px solid var(--shrimp-border-strong);
+    font-size: var(--fs-body);
+    color: var(--shrimp-ink);
+    padding: 10px 12px;
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+.shrimp-bg .form-control:focus,
+.shrimp-bg .form-select:focus {
+    border-color: var(--shrimp-teal);
+    box-shadow: 0 0 0 3px var(--shrimp-teal-soft);
+    outline: none;
+}
+.shrimp-bg label, .s-label {
+    font-weight: 600; font-size: var(--fs-sm); color: var(--shrimp-ink); margin-bottom: 6px; display: inline-block;
+}
+.s-help { font-size: var(--fs-caption); color: var(--shrimp-ink-faint); margin-top: 4px; }
+.s-field-error { font-size: var(--fs-caption); color: var(--shrimp-danger); margin-top: 4px; }
+.shrimp-bg .is-invalid, .shrimp-bg .form-control.is-invalid { border-color: var(--shrimp-danger) !important; }
+
+/* Focus visible accesible en toda interacción */
+.shrimp-bg a:focus-visible,
+.shrimp-bg .btn:focus-visible,
+.shrimp-bg button:focus-visible,
+.s-btn:focus-visible {
+    outline: 2px solid var(--shrimp-teal);
+    outline-offset: 2px;
+}
+
+/* ---- Superficies / tarjetas -------------------------------------------- */
+.shrimp-bg .card, .s-card {
+    border: 1px solid var(--shrimp-border);
+    border-radius: var(--shrimp-radius);
+    box-shadow: var(--shrimp-shadow);
+    background: var(--shrimp-surface);
+}
+.s-card--pad { padding: var(--sp-5); }
+.s-panel {                            /* bloque plano con borde, sin sombra */
+    background: var(--shrimp-surface);
+    border: 1px solid var(--shrimp-border);
+    border-radius: var(--shrimp-radius);
+}
+.s-divider { border: 0; border-top: 1px solid var(--shrimp-border); margin: var(--sp-5) 0; }
+
+
+/* ==========================================================================
+   BADGES / ESTADOS
+   ========================================================================== */
+.s-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: var(--fs-caption); font-weight: 600; padding: 3px 10px;
+    border-radius: var(--shrimp-radius-pill); background: var(--shrimp-brand-soft); color: var(--shrimp-brand);
+    line-height: 1.4;
+}
+.s-badge--teal { background: var(--shrimp-teal-soft); color: var(--shrimp-teal); }
+.s-badge--success { background: var(--shrimp-success-soft); color: var(--shrimp-success); }
+.s-badge--warning { background: var(--shrimp-warning-soft); color: var(--shrimp-warning); }
+.s-badge--danger { background: var(--shrimp-danger-soft); color: var(--shrimp-danger); }
+.s-badge--muted { background: var(--shrimp-bg-alt); color: var(--shrimp-ink-soft); }
+.s-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: var(--sp-3); }
+
+/* Estado ámbar (pendiente de verificación / de firmas). */
+.s-badge--amber { background: var(--shrimp-warning-soft); color: var(--shrimp-warning); }
+
+.sf-banner {
+    position: relative; overflow: hidden; color: #fff;
+    border-radius: var(--shrimp-radius-lg); margin-bottom: 24px;
+    padding: clamp(22px, 3vw, 34px) clamp(24px, 3vw, 38px);
+    background:
+        radial-gradient(560px 280px at 92% -30%, rgba(70,201,212,.4), transparent 60%),
+        linear-gradient(135deg, #0b2f47 0%, #123e5c 55%, #2e7da6 120%);
+    box-shadow: var(--shrimp-shadow);
+}
+.sf-banner-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+.sf-banner-txt { min-width: 0; }
+.sf-banner .sf-kicker {
+    display: inline-flex; align-items: center; gap: 8px; text-transform: uppercase;
+    letter-spacing: .14em; font-size: 11.5px; font-weight: 800; color: #cfeaef;
+    margin: 4px 0 0; padding: 7px 14px; border-radius: var(--shrimp-radius-pill);
+    background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2);
+    white-space: nowrap; flex: 0 0 auto;
+}
+.sf-banner h1 { font-size: clamp(24px, 3vw, 34px); font-weight: 800; letter-spacing: -.025em; margin: 0 0 .25em; color: #fff; }
+.sf-banner p { margin: 0; color: #c6dde8; font-size: 15px; max-width: 62ch; line-height: 1.5; }
+@media (max-width: 575.98px) {
+    .sf-banner-row { flex-direction: column-reverse; align-items: flex-start; gap: 14px; }
+}
+

@@ -12,7 +12,7 @@
           <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
             <h2 class="mb-0">Órdenes de empaque</h2>
             <t t-if="not soy_maquilador">
-              <a href="/marketplace/empaque" class="btn btn-outline-secondary">Directorio</a>
+              <a href="/marketplace/copacking" class="btn btn-outline-secondary">Directorio</a>
             </t>
           </div>
 
@@ -22,6 +22,7 @@
             <div class="alert alert-light border">Todavía no hay órdenes de empaque.</div>
           </t>
           <t t-else="">
+            <div class="table-responsive">
             <table class="table table-hover bg-white align-middle">
               <thead>
                 <tr>
@@ -38,7 +39,7 @@
                 <t t-foreach="ordenes" t-as="o">
                   <tr>
                     <td>
-                      <a t-attf-href="/marketplace/empaque/orden/#{o.uuid_ref}"><t t-esc="o.name"/></a>
+                      <a t-attf-href="/marketplace/copacking/orders/#{o.uuid_ref}"><t t-esc="o.name"/></a>
                     </td>
                     <td>
                       <t t-if="soy_maquilador"><t t-esc="o.client_partner_id.name"/></t>
@@ -76,6 +77,7 @@
                 </t>
               </tbody>
             </table>
+            </div>
           </t>
 
         </div>
@@ -120,6 +122,11 @@
           </t>
           <t t-elif="mensaje == 'cerrada'">
             <div class="alert alert-success mt-3">Trabajo cerrado.</div>
+          </t>
+          <t t-elif="mensaje == 'deshecha'">
+            <div class="alert alert-info mt-3">
+              Deshiciste tu firma: vuelve a estar pendiente y la otra parte fue avisada.
+            </div>
           </t>
           <t t-elif="mensaje"><div class="alert alert-success mt-3">Listo.</div></t>
           <t t-if="error"><div class="alert alert-danger mt-3"><t t-esc="error"/></div></t>
@@ -180,7 +187,10 @@
                     <dt class="col-6">Cajas / masters</dt>
                     <dd class="col-6 text-end"><t t-esc="orden.boxes or '—'"/></dd>
                     <dt class="col-6">Presentación empacada</dt>
-                    <dd class="col-6 text-end"><t t-esc="orden.packed_presentation or '—'"/></dd>
+                    <dd class="col-6 text-end">
+                      <t t-esc="dict(orden._fields['packed_presentation'].selection).get(orden.packed_presentation) or '—'"/>
+                      <t t-if="orden.packed_presentation_note"> · <t t-esc="orden.packed_presentation_note"/></t>
+                    </dd>
                     <dt class="col-6">Recepción</dt>
                     <dd class="col-6 text-end"><t t-esc="orden.received_date or '—'"/></dd>
                     <dt class="col-6">Entrega</dt>
@@ -222,7 +232,7 @@
             <div class="card mt-3 border-primary">
               <div class="card-body">
                 <h6 class="text-uppercase text-muted small mb-3">Registrar la recepción</h6>
-                <form method="post" t-attf-action="/maquilador/orden/#{orden.uuid_ref}/recepcion">
+                <form method="post" t-attf-action="/copacker/orders/#{orden.uuid_ref}/reception">
                   <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                   <div class="row g-3">
                     <div class="col-md-4">
@@ -252,7 +262,7 @@
             <div class="card mt-3 border-primary">
               <div class="card-body">
                 <h6 class="text-uppercase text-muted small mb-3">Registrar el empaque</h6>
-                <form method="post" t-attf-action="/maquilador/orden/#{orden.uuid_ref}/empaque">
+                <form method="post" t-attf-action="/copacker/orders/#{orden.uuid_ref}/packing">
                   <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                   <div class="row g-3">
                     <div class="col-md-4">
@@ -266,7 +276,18 @@
                     </div>
                     <div class="col-md-4">
                       <label class="form-label">Presentación empacada</label>
-                      <input type="text" name="packed_presentation" class="form-control"/>
+                      <select name="packed_presentation" class="form-select">
+                        <option value="">—</option>
+                        <t t-foreach="orden._fields['packed_presentation'].selection" t-as="pres">
+                          <option t-att-value="pres[0]"
+                                  t-att-selected="'selected' if orden.packed_presentation == pres[0] else None">
+                            <t t-esc="pres[1]"/>
+                          </option>
+                        </t>
+                      </select>
+                      <input type="text" name="packed_presentation_note" class="form-control mt-1"
+                             placeholder="Formato (p. ej. master 5 lb IQF)"
+                             t-att-value="orden.packed_presentation_note or ''"/>
                     </div>
                   </div>
                   <p class="text-muted small mt-2 mb-0">
@@ -317,7 +338,7 @@
                        no podia llevar "required" sin bloquear tambien al que si
                        esta conforme. Asi el motivo se pide aqui y no despues de
                        un viaje de ida y vuelta al servidor. -->
-                  <form method="post" t-attf-action="/marketplace/empaque/orden/#{orden.uuid_ref}/firmar"
+                  <form method="post" t-attf-action="/marketplace/copacking/orders/#{orden.uuid_ref}/sign"
                         class="mt-3">
                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                     <input type="hidden" name="decision" value="accepted"/>
@@ -326,7 +347,7 @@
                       Firmar da por buenas las libras de arriba.
                     </span>
                   </form>
-                  <form method="post" t-attf-action="/marketplace/empaque/orden/#{orden.uuid_ref}/firmar"
+                  <form method="post" t-attf-action="/marketplace/copacking/orders/#{orden.uuid_ref}/sign"
                         class="mt-3 border-top pt-3">
                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                     <input type="hidden" name="decision" value="rejected"/>
@@ -343,7 +364,15 @@
                   </form>
                 </t>
                 <t t-elif="mi_firma">
-                  <p class="text-muted small mt-3 mb-0">Ya firmaste. No se puede cambiar.</p>
+                  <t t-if="undo_info and undo_info.get('can')">
+                    <p class="text-muted small mt-3 mb-0">Ya firmaste.</p>
+                    <t t-call="shrimp_marketplace.signoff_undo_form">
+                      <t t-set="firma" t-value="mi_firma"/>
+                    </t>
+                  </t>
+                  <t t-else="">
+                    <p class="text-muted small mt-3 mb-0">Ya firmaste. No se puede cambiar.</p>
+                  </t>
                 </t>
 
 
@@ -365,7 +394,7 @@
                   vez. Puede hacerlo cualquiera de las dos.
                 </p>
                 <form method="post"
-                      t-attf-action="/marketplace/empaque/orden/#{orden.uuid_ref}/reabrir-acta">
+                      t-attf-action="/marketplace/copacking/orders/#{orden.uuid_ref}/reopen">
                   <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                   <div class="mb-2">
                     <label class="form-label small">Motivo de la reapertura *</label>
@@ -378,10 +407,12 @@
             </div>
           </t>
 
+          <t t-call="shrimp_marketplace.signoff_history"/>
+
           <!-- CIERRE. action_close() existia sin ruta: el acta se firmaba y la
                orden se quedaba en «firmada» para siempre. -->
           <t t-if="orden.state == 'signed'">
-            <form method="post" t-attf-action="/marketplace/empaque/orden/#{orden.uuid_ref}/cerrar"
+            <form method="post" t-attf-action="/marketplace/copacking/orders/#{orden.uuid_ref}/close"
                   class="mt-3">
               <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
               <button type="submit" class="btn btn-primary">Dar por cerrado el trabajo</button>
@@ -390,15 +421,20 @@
               </span>
             </form>
           </t>
-          <t t-if="orden.state in ('confirmed', 'received', 'packed') and orden.acceptance_state != 'closed'">
-            <form method="post" t-attf-action="/marketplace/empaque/orden/#{orden.uuid_ref}/cancelar"
+          <!-- Una orden EMPACADA ya no se cancela: el trabajo está hecho y el
+               camino es el acta (firmar, o no dar conformidad y reabrirla). -->
+          <t t-if="orden.state in ('confirmed', 'received') and orden.acceptance_state != 'closed'">
+            <form method="post" t-attf-action="/marketplace/copacking/orders/#{orden.uuid_ref}/cancel"
                   class="mt-3" onsubmit="return confirm('¿Cancelar este trabajo? No se puede deshacer.');">
               <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
               <button type="submit" class="btn btn-outline-danger btn-sm">Cancelar el trabajo</button>
-              <span class="text-muted small ms-2">
-                Si ya se empacó, acláralo en el acta antes de cancelar.
-              </span>
             </form>
+          </t>
+          <t t-elif="orden.state == 'packed'">
+            <div class="text-muted small mt-3">
+              El trabajo ya está empacado: no se puede cancelar. Si no estás conforme,
+              no firmes el acta y, desde la disputa, reábrela para rectificar.
+            </div>
           </t>
 
               <!-- RONDAS ANTERIORES. Solo aparece si el acta se reabrio

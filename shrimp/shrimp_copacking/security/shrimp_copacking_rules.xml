@@ -34,7 +34,8 @@
             <field name="perm_write" eval="False"/>
             <field name="perm_create" eval="False"/>
             <field name="perm_unlink" eval="False"/>
-            <field name="domain_force">[('shrimp_user_type', '=', 'maquilador'), ('pack_en_directorio', '=', True)]</field>
+            <!-- Varios perfiles: maquilador activo o con el perfil aprobado. -->
+            <field name="domain_force">['|', ('shrimp_user_type', '=', 'maquilador'), ('shrimp_role_ids', 'any', [('role', '=', 'maquilador'), ('state', '=', 'approved')]), ('pack_en_directorio', '=', True)]</field>
         </record>
 
 

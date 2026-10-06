@@ -1,0 +1,920 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Compras de camarón adulto con verificación DECLARADA por las partes (verificadora
+     externa o propia): aceptadas, una rechazada, una esperando y una en preparación.
+
+     GENERADO por shrimp_marketplace/scripts/demo_masivo (semilla fija).
+     No editar a mano: cambiar el generador y volver a ejecutarlo.
+     Fechas relativas al día de carga de la demo. -->
+<odoo>
+    <data noupdate="1">
+
+        <!-- ===== Escenario 1: cosecha y compra con verificación declarada ===== -->
+        <record id="demo_dcl_prod_01" model="shrimp.product" context="{'skip_initial_lot': True}">
+            <field name="name">Cosecha entero 30/40 - verificación declarada (Camaronera Hualtaco)</field>
+            <field name="seller_partner_id" ref="shrimp_user_registry.demo_ms_cam_11"/>
+            <field name="seller_role">camaronera</field>
+            <field name="species_id" ref="shrimp_marketplace.shrimp_species_vannamei"/>
+            <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_engorde"/>
+            <field name="genetics_line_id" ref="shrimp_marketplace.shrimp_genetics_spr"/>
+            <field name="avg_size_mg" eval="28571.43"/>
+            <field name="survival_rate" eval="63.29"/>
+            <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
+            <field name="initial_qty" eval="15000.0"/>
+            <field name="uom_id" ref="shrimp_marketplace.uom_libra"/>
+            <field name="presentation">entero</field>
+            <field name="size_grade_id" ref="shrimp_marketplace.size_entero_3040"/>
+            <field name="price" eval="2.67"/>
+            <field name="location">Hualtaco, El Oro</field>
+            <field name="state">published</field>
+            <field name="active" eval="True"/>
+            <field name="available_from" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-31, hours=12, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="available_to" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-21, hours=23, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="published_date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-31, hours=14, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="expected_delivery_date" eval="(DateTime.today() + relativedelta(days=-29)).strftime('%Y-%m-%d')"/>
+            <field name="origin_facility_id" ref="shrimp_marketplace.demo_ms_fac_cam_11_1"/>
+            <field name="origin_pond_id" ref="shrimp_marketplace.demo_ms_pond_cam_11_1_1"/>
+            <field name="batch_code">DCL-001</field>
+            <field name="production_date" eval="(DateTime.today() + relativedelta(days=-31)).strftime('%Y-%m-%d')"/>
+            <field name="traceability_notes">Lote vendido con verificación declarada por las partes.</field>
+            <field name="photo_attachment_ids" eval="[(6, 0, [ref('shrimp_marketplace.demo_img_12'), ref('shrimp_marketplace.demo_img_11'), ref('shrimp_marketplace.demo_img_3')])]"/>
+        </record>
+        <record id="demo_dcl_lot_01" model="shrimp.stock.lot">
+            <field name="product_id" ref="demo_dcl_prod_01"/>
+            <field name="owner_id" ref="shrimp_user_registry.demo_ms_cam_11"/>
+            <field name="initial_qty" eval="15000.0"/>
+            <field name="available_qty" eval="5760.0"/>
+            <field name="uom_id" ref="shrimp_marketplace.uom_libra"/>
+            <field name="state">available</field>
+        </record>
+        <record id="demo_dcl_tx_01" model="shrimp.transaction">
+            <field name="transaction_type">camaronera_to_buyer</field>
+            <field name="product_id" ref="demo_dcl_prod_01"/>
+            <field name="seller_partner_id" ref="shrimp_user_registry.demo_ms_cam_11"/>
+            <field name="buyer_partner_id" ref="shrimp_packer.demo_ms_emp_02"/>
+            <field name="seller_role">camaronera</field>
+            <field name="buyer_role">empacadora</field>
+            <field name="location">Hualtaco, El Oro</field>
+            <field name="state">done</field>
+            <field name="needs_verification" eval="True"/>
+            <field name="transaction_qty" eval="9240"/>
+            <field name="price_unit" eval="2.67"/>
+            <field name="amount_total" eval="24670.8"/>
+            <field name="desired_qty" eval="9240"/>
+            <field name="desired_date" eval="(DateTime.today() + relativedelta(days=-28)).strftime('%Y-%m-%d')"/>
+            <field name="code">Cosecha entero 30/40 - verificación declarada (Camaronera Hualtaco)</field>
+        </record>
+        <record id="demo_dcl_mv_01" model="shrimp.stock.move">
+            <field name="product_id" ref="demo_dcl_prod_01"/>
+            <field name="source_partner_id" ref="shrimp_user_registry.demo_ms_cam_11"/>
+            <field name="dest_partner_id" ref="shrimp_packer.demo_ms_emp_02"/>
+            <field name="qty" eval="9240"/>
+            <field name="transaction_id" ref="demo_dcl_tx_01"/>
+            <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-28, hours=16, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        </record>
+        <record id="demo_dcl_lotc_01" model="shrimp.stock.lot">
+            <field name="product_id" ref="demo_dcl_prod_01"/>
+            <field name="owner_id" ref="shrimp_packer.demo_ms_emp_02"/>
+            <field name="origin_move_id" ref="demo_dcl_mv_01"/>
+            <field name="initial_qty" eval="9240"/>
+            <field name="available_qty" eval="9240"/>
+            <field name="uom_id" ref="shrimp_marketplace.uom_libra"/>
+            <field name="state">available</field>
+        </record>
+        <record id="demo_dcl_chg_01" model="shrimp.charge">
+            <field name="state">pending</field>
+            <field name="invoice_attempts" eval="5"/>
+            <field name="invoice_error">Datos de demostración: los cobros de ejemplo no se facturan automáticamente.</field>
+            <field name="charge_type">commission</field>
+            <field name="transaction_id" ref="demo_dcl_tx_01"/>
+            <field name="seller_partner_id" ref="shrimp_user_registry.demo_ms_cam_11"/>
+            <field name="buyer_partner_id" ref="shrimp_packer.demo_ms_emp_02"/>
+            <field name="payer_partner_id" ref="shrimp_user_registry.demo_ms_cam_11"/>
+            <field name="product_id" ref="demo_dcl_prod_01"/>
+            <field name="qty" eval="9240"/>
+            <field name="uom_id" ref="shrimp_marketplace.uom_libra"/>
+            <field name="rate_cents" eval="0.5"/>
+            <field name="invoice_qty" eval="9240"/>
+            <field name="unit_amount" eval="0.005"/>
+            <field name="amount" eval="46.2"/>
+            <field name="currency_id" ref="base.USD"/>
+            <field name="description">Comisión marketplace – Cosecha entero 30/40 - verificación declarada (Camaronera Hualtaco)</field>
+            <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-28, hours=23, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        </record>
+        <record id="demo_dcl_ver_01" model="shrimp.verification">
+            <field name="transaction_id" ref="demo_dcl_tx_01"/>
+            <field name="verification_mode">declared</field>
+            <field name="state">declared</field>
+            <field name="batch_code">DCL-001</field>
+            <field name="pond_id" ref="shrimp_marketplace.demo_ms_pond_cam_11_1_1"/>
+            <field name="facility_id" ref="shrimp_marketplace.demo_ms_fac_cam_11_1"/>
+            <field name="currency_id" ref="base.USD"/>
+            <field name="fee" eval="0.0"/>
+            <field name="assigned_date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-30, hours=14, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="declared_source">external</field>
+            <field name="external_verifier_name">Laboratorio de Control de Calidad Pacífico Sur S.A.</field>
+            <field name="external_verifier_vat">0992456781001</field>
+            <field name="plant_name">Planta Guayaquil</field>
+            <field name="harvest_date" eval="(DateTime.today() + relativedelta(days=-30)).strftime('%Y-%m-%d')"/>
+            <field name="process_date" eval="(DateTime.today() + relativedelta(days=-30)).strftime('%Y-%m-%d')"/>
+            <field name="weight_sent_lb" eval="9240.0"/>
+            <field name="weight_plant_lb" eval="9259.77"/>
+            <field name="trash_lb" eval="179.14"/>
+            <field name="presentation">entero</field>
+            <field name="metabisulfite_ppm" eval="83.28"/>
+            <field name="metabisulfite_limit_ppm" eval="100.0"/>
+            <field name="metabisulfite_notes">Kit colorimétrico, dos tomas sobre el mismo lote.</field>
+            <field name="taste_result">good</field>
+            <field name="taste_notes">Sabor característico, sin notas a tierra.</field>
+            <field name="grams_farm" eval="28.3"/>
+            <field name="grams_plant_1" eval="27.38"/>
+            <field name="grams_plant_2" eval="28.28"/>
+            <field name="taste_criteria_ok_ids" eval="[(6, 0, [ref('shrimp_verification.taste_crit_olor'), ref('shrimp_verification.taste_crit_color')])]"/>
+            <field name="declarant_partner_id" ref="shrimp_packer.demo_ms_emp_02"/>
+            <field name="declarant_role">buyer</field>
+            <field name="declared_last_editor_id" ref="shrimp_packer.demo_ms_emp_02"/>
+            <field name="declared_submitted_date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-29, hours=21, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="verified_date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-29, hours=21, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="verdict_notes">Lote conforme con lo publicado.</field>
+            <field name="photo_ids" eval="[(6, 0, [ref('shrimp_marketplace.demo_img_7'), ref('shrimp_marketplace.demo_img_4')])]"/>
+            <field name="acceptance_state">closed</field>
+            <field name="acceptance_deadline" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-27, hours=23, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="buyer_notified" eval="True"/>
+            <field name="declared_report_file">JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA2MTIgNzkyXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA1IDAgUiA+PiA+PiAvQ29udGVudHMgNCAwIFIgPj4KZW5kb2JqCjQgMCBvYmoKPDwgL0xlbmd0aCA0ODggPj4Kc3RyZWFtCkJUIC9GMSAxNiBUZiA2MCA3NjAgVGQgKEluZm9ybWUgZGUgdmVyaWZpY2FjaW9uIC0gbG90ZSBEQ0wtMDAxKSBUaiBFVApCVCAvRjEgMTEgVGYgNjAgNzMwIFRkIChWZXJpZmljYWRvcmE6IExhYm9yYXRvcmlvIGRlIENvbnRyb2wgZGUgQ2FsaWRhZCBQYWNpZmljbyBTdXIgUy5BLiBcKFJVQyAwOTkyNDU2NzgxMDAxXCkpIFRqIEVUCkJUIC9GMSAxMSBUZiA2MCA3MTIgVGQgKFBlc28gZW4gcGxhbnRhOiA5MjU5Ljc3IGxiKSBUaiBFVApCVCAvRjEgMTEgVGYgNjAgNjk0IFRkIChDbGFzaWZpY2FjaW9uIEEvQi9DLCBtZXRhYmlzdWxmaXRvIHkgY2F0YSBlbiBwbGFudGEuKSBUaiBFVApCVCAvRjEgMTEgVGYgNjAgNjc2IFRkIChEb2N1bWVudG8gZGUgZGVtb3N0cmFjaW9uIGdlbmVyYWRvIGF1dG9tYXRpY2FtZW50ZS4pIFRqIEVUCkJUIC9GMSA4IFRmIDYwIDYwIFRkIChEb2N1bWVudG8gZGUgREVNT1NUUkFDSU9OIC0gc2luIHZhbGlkZXogbGVnYWwpIFRqIEVUCmVuZHN0cmVhbQplbmRvYmoKNSAwIG9iago8PCAvVHlwZSAvRm9udCAvU3VidHlwZSAvVHlwZTEgL0Jhc2VGb250IC9IZWx2ZXRpY2EgPj4KZW5kb2JqCnhyZWYKMCA2CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDU4IDAwMDAwIG4gCjAwMDAwMDAxMTUgMDAwMDAgbiAKMDAwMDAwMDI0MSAwMDAwMCBuIAowMDAwMDAwNzgwIDAwMDAwIG4gCnRyYWlsZXIKPDwgL1NpemUgNiAvUm9vdCAxIDAgUiA+PgpzdGFydHhyZWYKODUwCiUlRU9GCg==</field>
+            <field name="declared_report_filename">Informe_verificacion_DCL-001.pdf</field>
+        </record>
+        <record id="demo_dcl_ver_01_l1" model="shrimp.verification.line">
+            <field name="verification_id" ref="demo_dcl_ver_01"/>
+            <field name="quality_class">a</field>
+            <field name="size_code">30/40</field>
+            <field name="weight_lb" eval="5467.54"/>
+            <field name="sequence" eval="10"/>
+        </record>
+        <record id="demo_dcl_ver_01_l2" model="shrimp.verification.line">
+            <field name="verification_id" ref="demo_dcl_ver_01"/>
+            <field name="quality_class">b</field>
+            <field name="size_code">40/50</field>
+            <field name="weight_lb" eval="1381.18"/>
+            <field name="sequence" eval="20"/>
+        </record>
+        <record id="demo_dcl_ver_01_l3" model="shrimp.verification.line">
+            <field name="verification_id" ref="demo_dcl_ver_01"/>
+            <field name="quality_class">c</field>
+            <field name="size_code">50/60</field>
+            <field name="weight_lb" eval="1813.09"/>
+            <field name="sequence" eval="30"/>
+        </record>
+        <record id="demo_dcl_ver_01_c1" model="shrimp.verification.count">
+            <field name="verification_id" ref="demo_dcl_ver_01"/>
+            <field name="value" eval="36.16"/>
+            <field name="note">Conteo 1 en planta (piezas/kg)</field>
+            <field name="sequence" eval="10"/>
+        </record>
+        <record id="demo_dcl_ver_01_c2" model="shrimp.verification.count">
+            <field name="verification_id" ref="demo_dcl_ver_01"/>
+            <field name="value" eval="33.77"/>
+            <field name="note">Conteo 2 en planta (piezas/kg)</field>
+            <field name="sequence" eval="20"/>
+        </record>
+        <record id="demo_dcl_ver_01_acc_buyer" model="shrimp.verification.acceptance">
+            <field name="verification_id" ref="demo_dcl_ver_01"/>
+            <field name="role">buyer</field>
+            <field name="partner_id" ref="shrimp_packer.demo_ms_emp_02"/>
+            <field name="decision">accepted</field>
+            <field name="reason">Presentó el informe declarado.</field>
+            <field name="decided_at" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-29, hours=22, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        </record>
+        <record id="demo_dcl_ver_01_acc_seller" model="shrimp.verification.acceptance">
+            <field name="verification_id" ref="demo_dcl_ver_01"/>
+            <field name="role">seller</field>
+            <field name="partner_id" ref="shrimp_user_registry.demo_ms_cam_11"/>
+            <field name="decision">accepted</field>
+            <field name="reason">Conforme con el informe declarado.</field>
+            <field name="decided_at" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-28, hours=22, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        </record>
+
+        <!-- ===== Escenario 2: cosecha y compra con verificación declarada ===== -->
+        <record id="demo_dcl_prod_02" model="shrimp.product" context="{'skip_initial_lot': True}">
+            <field name="name">Cosecha entero 30/40 - verificación declarada (Camarones La Tembladera)</field>
+            <field name="seller_partner_id" ref="shrimp_user_registry.demo_ms_cam_12"/>
+            <field name="seller_role">camaronera</field>
+            <field name="species_id" ref="shrimp_marketplace.shrimp_species_vannamei"/>
+            <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_engorde"/>
+            <field name="genetics_line_id" ref="shrimp_marketplace.shrimp_genetics_spr"/>
+            <field name="avg_size_mg" eval="28571.43"/>
+            <field name="survival_rate" eval="70.13"/>
+            <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
+            <field name="initial_qty" eval="18000.0"/>
+            <field name="uom_id" ref="shrimp_marketplace.uom_libra"/>
+            <field name="presentation">entero</field>
+            <field name="size_grade_id" ref="shrimp_marketplace.size_entero_3040"/>
+            <field name="price" eval="2.64"/>
+            <field name="location">Santa Rosa, El Oro</field>
+            <field name="state">published</field>
+            <field name="active" eval="True"/>
+            <field name="available_from" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-23, hours=12, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="available_to" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-13, hours=23, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="published_date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-23, hours=14, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="expected_delivery_date" eval="(DateTime.today() + relativedelta(days=-21)).strftime('%Y-%m-%d')"/>
+            <field name="origin_facility_id" ref="shrimp_marketplace.demo_ms_fac_cam_12_1"/>
+            <field name="origin_pond_id" ref="shrimp_marketplace.demo_ms_pond_cam_12_1_1"/>
+            <field name="batch_code">DCL-002</field>
+            <field name="production_date" eval="(DateTime.today() + relativedelta(days=-23)).strftime('%Y-%m-%d')"/>
+            <field name="traceability_notes">Lote vendido con verificación declarada por las partes.</field>
+            <field name="photo_attachment_ids" eval="[(6, 0, [ref('shrimp_marketplace.demo_img_12'), ref('shrimp_marketplace.demo_img_6'), ref('shrimp_marketplace.demo_img_5')])]"/>
+        </record>
+        <record id="demo_dcl_lot_02" model="shrimp.stock.lot">
+            <field name="product_id" ref="demo_dcl_prod_02"/>
+            <field name="owner_id" ref="shrimp_user_registry.demo_ms_cam_12"/>
+            <field name="initial_qty" eval="18000.0"/>
+            <field name="available_qty" eval="2160.0"/>
+            <field name="uom_id" ref="shrimp_marketplace.uom_libra"/>
+            <field name="state">available</field>
+        </record>
+        <record id="demo_dcl_tx_02" model="shrimp.transaction">
+            <field name="transaction_type">camaronera_to_buyer</field>
+            <field name="product_id" ref="demo_dcl_prod_02"/>
+            <field name="seller_partner_id" ref="shrimp_user_registry.demo_ms_cam_12"/>
+            <field name="buyer_partner_id" ref="shrimp_packer.demo_ms_emp_03"/>
+            <field name="seller_role">camaronera</field>
+            <field name="buyer_role">empacadora</field>
+            <field name="location">Santa Rosa, El Oro</field>
+            <field name="state">confirmed</field>
+            <field name="needs_verification" eval="True"/>
+            <field name="transaction_qty" eval="15840"/>
+            <field name="price_unit" eval="2.64"/>
+            <field name="amount_total" eval="41817.6"/>
+            <field name="desired_qty" eval="15840"/>
+            <field name="desired_date" eval="(DateTime.today() + relativedelta(days=-20)).strftime('%Y-%m-%d')"/>
+            <field name="code">Cosecha entero 30/40 - verificación declarada (Camarones La Tembladera)</field>
+        </record>
+        <record id="demo_dcl_mv_02" model="shrimp.stock.move">
+            <field name="product_id" ref="demo_dcl_prod_02"/>
+            <field name="source_partner_id" ref="shrimp_user_registry.demo_ms_cam_12"/>
+            <field name="dest_partner_id" ref="shrimp_packer.demo_ms_emp_03"/>
+            <field name="qty" eval="15840"/>
+            <field name="transaction_id" ref="demo_dcl_tx_02"/>
+            <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-20, hours=16, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        </record>
+        <record id="demo_dcl_chg_02" model="shrimp.charge">
+            <field name="state">pending</field>
+            <field name="invoice_attempts" eval="5"/>
+            <field name="invoice_error">Datos de demostración: los cobros de ejemplo no se facturan automáticamente.</field>
+            <field name="charge_type">commission</field>
+            <field name="transaction_id" ref="demo_dcl_tx_02"/>
+            <field name="seller_partner_id" ref="shrimp_user_registry.demo_ms_cam_12"/>
+            <field name="buyer_partner_id" ref="shrimp_packer.demo_ms_emp_03"/>
+            <field name="payer_partner_id" ref="shrimp_user_registry.demo_ms_cam_12"/>
+            <field name="product_id" ref="demo_dcl_prod_02"/>
+            <field name="qty" eval="15840"/>
+            <field name="uom_id" ref="shrimp_marketplace.uom_libra"/>
+            <field name="rate_cents" eval="0.5"/>
+            <field name="invoice_qty" eval="15840"/>
+            <field name="unit_amount" eval="0.005"/>
+            <field name="amount" eval="79.2"/>
+            <field name="currency_id" ref="base.USD"/>
+            <field name="description">Comisión marketplace – Cosecha entero 30/40 - verificación declarada (Camarones La Tembladera)</field>
+            <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-20, hours=23, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        </record>
+        <record id="demo_dcl_ver_02" model="shrimp.verification">
+            <field name="transaction_id" ref="demo_dcl_tx_02"/>
+            <field name="verification_mode">declared</field>
+            <field name="state">declared</field>
+            <field name="batch_code">DCL-002</field>
+            <field name="pond_id" ref="shrimp_marketplace.demo_ms_pond_cam_12_1_1"/>
+            <field name="facility_id" ref="shrimp_marketplace.demo_ms_fac_cam_12_1"/>
+            <field name="currency_id" ref="base.USD"/>
+            <field name="fee" eval="0.0"/>
+            <field name="assigned_date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-22, hours=14, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="declared_source">self</field>
+            <field name="plant_name">Planta Puerto Bolívar</field>
+            <field name="harvest_date" eval="(DateTime.today() + relativedelta(days=-22)).strftime('%Y-%m-%d')"/>
+            <field name="process_date" eval="(DateTime.today() + relativedelta(days=-22)).strftime('%Y-%m-%d')"/>
+            <field name="weight_sent_lb" eval="15840.0"/>
+            <field name="weight_plant_lb" eval="15957.22"/>
+            <field name="trash_lb" eval="299.5"/>
+            <field name="presentation">entero</field>
+            <field name="metabisulfite_ppm" eval="65.69"/>
+            <field name="metabisulfite_limit_ppm" eval="100.0"/>
+            <field name="metabisulfite_notes">Kit colorimétrico, dos tomas sobre el mismo lote.</field>
+            <field name="taste_result">good</field>
+            <field name="taste_notes">Sabor característico, sin notas a tierra.</field>
+            <field name="grams_farm" eval="27.87"/>
+            <field name="grams_plant_1" eval="27.58"/>
+            <field name="grams_plant_2" eval="28.61"/>
+            <field name="taste_criteria_ok_ids" eval="[(6, 0, [ref('shrimp_verification.taste_crit_olor'), ref('shrimp_verification.taste_crit_color')])]"/>
+            <field name="declarant_partner_id" ref="shrimp_user_registry.demo_ms_cam_12"/>
+            <field name="declarant_role">seller</field>
+            <field name="declared_last_editor_id" ref="shrimp_user_registry.demo_ms_cam_12"/>
+            <field name="declared_submitted_date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-21, hours=21, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="verified_date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-21, hours=21, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="verdict_notes">Lote conforme con lo publicado.</field>
+            <field name="photo_ids" eval="[(6, 0, [ref('shrimp_marketplace.demo_img_3'), ref('shrimp_marketplace.demo_img_6')])]"/>
+            <field name="acceptance_state">closed</field>
+            <field name="acceptance_deadline" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-19, hours=23, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="buyer_notified" eval="True"/>
+        </record>
+        <record id="demo_dcl_ver_02_l1" model="shrimp.verification.line">
+            <field name="verification_id" ref="demo_dcl_ver_02"/>
+            <field name="quality_class">a</field>
+            <field name="size_code">30/40</field>
+            <field name="weight_lb" eval="10841.54"/>
+            <field name="sequence" eval="10"/>
+        </record>
+        <record id="demo_dcl_ver_02_l2" model="shrimp.verification.line">
+            <field name="verification_id" ref="demo_dcl_ver_02"/>
+            <field name="quality_class">b</field>
+            <field name="size_code">40/50</field>
+            <field name="weight_lb" eval="3537.55"/>
+            <field name="sequence" eval="20"/>
+        </record>
+        <record id="demo_dcl_ver_02_l3" model="shrimp.verification.line">
+            <field name="verification_id" ref="demo_dcl_ver_02"/>
+            <field name="quality_class">c</field>
+            <field name="size_code">50/60</field>
+            <field name="weight_lb" eval="387.83"/>
+            <field name="sequence" eval="30"/>
+        </record>
+        <record id="demo_dcl_ver_02_c1" model="shrimp.verification.count">
+            <field name="verification_id" ref="demo_dcl_ver_02"/>
+            <field name="value" eval="36.26"/>
+            <field name="note">Conteo 1 en planta (piezas/kg)</field>
+            <field name="sequence" eval="10"/>
+        </record>
+        <record id="demo_dcl_ver_02_c2" model="shrimp.verification.count">
+            <field name="verification_id" ref="demo_dcl_ver_02"/>
+            <field name="value" eval="33.66"/>
+            <field name="note">Conteo 2 en planta (piezas/kg)</field>
+            <field name="sequence" eval="20"/>
+        </record>
+        <record id="demo_dcl_ver_02_acc_buyer" model="shrimp.verification.acceptance">
+            <field name="verification_id" ref="demo_dcl_ver_02"/>
+            <field name="role">buyer</field>
+            <field name="partner_id" ref="shrimp_packer.demo_ms_emp_03"/>
+            <field name="decision">accepted</field>
+            <field name="reason">Conforme con el informe declarado.</field>
+            <field name="decided_at" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-20, hours=22, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        </record>
+        <record id="demo_dcl_ver_02_acc_seller" model="shrimp.verification.acceptance">
+            <field name="verification_id" ref="demo_dcl_ver_02"/>
+            <field name="role">seller</field>
+            <field name="partner_id" ref="shrimp_user_registry.demo_ms_cam_12"/>
+            <field name="decision">accepted</field>
+            <field name="reason">Presentó el informe declarado.</field>
+            <field name="decided_at" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-21, hours=22, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        </record>
+
+        <!-- ===== Escenario 3: cosecha y compra con verificación declarada ===== -->
+        <record id="demo_dcl_prod_03" model="shrimp.product" context="{'skip_initial_lot': True}">
+            <field name="name">Cosecha entero 30/40 - verificación declarada (Acuícola Jambelí)</field>
+            <field name="seller_partner_id" ref="shrimp_user_registry.demo_ms_cam_13"/>
+            <field name="seller_role">camaronera</field>
+            <field name="species_id" ref="shrimp_marketplace.shrimp_species_vannamei"/>
+            <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_engorde"/>
+            <field name="genetics_line_id" ref="shrimp_marketplace.shrimp_genetics_spr"/>
+            <field name="avg_size_mg" eval="28571.43"/>
+            <field name="survival_rate" eval="71.38"/>
+            <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
+            <field name="initial_qty" eval="18000.0"/>
+            <field name="uom_id" ref="shrimp_marketplace.uom_libra"/>
+            <field name="presentation">entero</field>
+            <field name="size_grade_id" ref="shrimp_marketplace.size_entero_3040"/>
+            <field name="price" eval="2.77"/>
+            <field name="location">Puerto Bolívar, El Oro</field>
+            <field name="state">published</field>
+            <field name="active" eval="True"/>
+            <field name="available_from" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-17, hours=12, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="available_to" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-7, hours=23, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="published_date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-17, hours=14, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="expected_delivery_date" eval="(DateTime.today() + relativedelta(days=-15)).strftime('%Y-%m-%d')"/>
+            <field name="origin_facility_id" ref="shrimp_marketplace.demo_ms_fac_cam_13_1"/>
+            <field name="origin_pond_id" ref="shrimp_marketplace.demo_ms_pond_cam_13_1_2"/>
+            <field name="batch_code">DCL-003</field>
+            <field name="production_date" eval="(DateTime.today() + relativedelta(days=-17)).strftime('%Y-%m-%d')"/>
+            <field name="traceability_notes">Lote vendido con verificación declarada por las partes.</field>
+            <field name="photo_attachment_ids" eval="[(6, 0, [ref('shrimp_marketplace.demo_img_4'), ref('shrimp_marketplace.demo_img_1'), ref('shrimp_marketplace.demo_img_10')])]"/>
+        </record>
+        <record id="demo_dcl_lot_03" model="shrimp.stock.lot">
+            <field name="product_id" ref="demo_dcl_prod_03"/>
+            <field name="owner_id" ref="shrimp_user_registry.demo_ms_cam_13"/>
+            <field name="initial_qty" eval="18000.0"/>
+            <field name="available_qty" eval="4800.0"/>
+            <field name="uom_id" ref="shrimp_marketplace.uom_libra"/>
+            <field name="state">available</field>
+        </record>
+        <record id="demo_dcl_tx_03" model="shrimp.transaction">
+            <field name="transaction_type">camaronera_to_buyer</field>
+            <field name="product_id" ref="demo_dcl_prod_03"/>
+            <field name="seller_partner_id" ref="shrimp_user_registry.demo_ms_cam_13"/>
+            <field name="buyer_partner_id" ref="shrimp_packer.demo_ms_emp_04"/>
+            <field name="seller_role">camaronera</field>
+            <field name="buyer_role">empacadora</field>
+            <field name="location">Puerto Bolívar, El Oro</field>
+            <field name="state">done</field>
+            <field name="needs_verification" eval="True"/>
+            <field name="transaction_qty" eval="13200"/>
+            <field name="price_unit" eval="2.57"/>
+            <field name="amount_total" eval="33924.0"/>
+            <field name="desired_qty" eval="13200"/>
+            <field name="desired_date" eval="(DateTime.today() + relativedelta(days=-14)).strftime('%Y-%m-%d')"/>
+            <field name="code">Cosecha entero 30/40 - verificación declarada (Acuícola Jambelí)</field>
+        </record>
+        <record id="demo_dcl_mv_03" model="shrimp.stock.move">
+            <field name="product_id" ref="demo_dcl_prod_03"/>
+            <field name="source_partner_id" ref="shrimp_user_registry.demo_ms_cam_13"/>
+            <field name="dest_partner_id" ref="shrimp_packer.demo_ms_emp_04"/>
+            <field name="qty" eval="13200"/>
+            <field name="transaction_id" ref="demo_dcl_tx_03"/>
+            <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-14, hours=16, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        </record>
+        <record id="demo_dcl_lotc_03" model="shrimp.stock.lot">
+            <field name="product_id" ref="demo_dcl_prod_03"/>
+            <field name="owner_id" ref="shrimp_packer.demo_ms_emp_04"/>
+            <field name="origin_move_id" ref="demo_dcl_mv_03"/>
+            <field name="initial_qty" eval="13200"/>
+            <field name="available_qty" eval="13200"/>
+            <field name="uom_id" ref="shrimp_marketplace.uom_libra"/>
+            <field name="state">available</field>
+        </record>
+        <record id="demo_dcl_chg_03" model="shrimp.charge">
+            <field name="state">pending</field>
+            <field name="invoice_attempts" eval="5"/>
+            <field name="invoice_error">Datos de demostración: los cobros de ejemplo no se facturan automáticamente.</field>
+            <field name="charge_type">commission</field>
+            <field name="transaction_id" ref="demo_dcl_tx_03"/>
+            <field name="seller_partner_id" ref="shrimp_user_registry.demo_ms_cam_13"/>
+            <field name="buyer_partner_id" ref="shrimp_packer.demo_ms_emp_04"/>
+            <field name="payer_partner_id" ref="shrimp_user_registry.demo_ms_cam_13"/>
+            <field name="product_id" ref="demo_dcl_prod_03"/>
+            <field name="qty" eval="13200"/>
+            <field name="uom_id" ref="shrimp_marketplace.uom_libra"/>
+            <field name="rate_cents" eval="0.5"/>
+            <field name="invoice_qty" eval="13200"/>
+            <field name="unit_amount" eval="0.005"/>
+            <field name="amount" eval="66.0"/>
+            <field name="currency_id" ref="base.USD"/>
+            <field name="description">Comisión marketplace – Cosecha entero 30/40 - verificación declarada (Acuícola Jambelí)</field>
+            <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-14, hours=23, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        </record>
+        <record id="demo_dcl_ver_03" model="shrimp.verification">
+            <field name="transaction_id" ref="demo_dcl_tx_03"/>
+            <field name="verification_mode">declared</field>
+            <field name="state">declared</field>
+            <field name="batch_code">DCL-003</field>
+            <field name="pond_id" ref="shrimp_marketplace.demo_ms_pond_cam_13_1_2"/>
+            <field name="facility_id" ref="shrimp_marketplace.demo_ms_fac_cam_13_1"/>
+            <field name="currency_id" ref="base.USD"/>
+            <field name="fee" eval="0.0"/>
+            <field name="assigned_date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-16, hours=14, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="declared_source">external</field>
+            <field name="external_verifier_name">Inspecciones Acuícolas del Litoral (convenio con la planta)</field>
+            <field name="plant_name">Planta Posorja</field>
+            <field name="harvest_date" eval="(DateTime.today() + relativedelta(days=-16)).strftime('%Y-%m-%d')"/>
+            <field name="process_date" eval="(DateTime.today() + relativedelta(days=-16)).strftime('%Y-%m-%d')"/>
+            <field name="weight_sent_lb" eval="13200.0"/>
+            <field name="weight_plant_lb" eval="12520.2"/>
+            <field name="trash_lb" eval="187.73"/>
+            <field name="presentation">entero</field>
+            <field name="metabisulfite_ppm" eval="51.7"/>
+            <field name="metabisulfite_limit_ppm" eval="100.0"/>
+            <field name="metabisulfite_notes">Kit colorimétrico, dos tomas sobre el mismo lote.</field>
+            <field name="taste_result">good</field>
+            <field name="taste_notes">Sabor característico, sin notas a tierra.</field>
+            <field name="grams_farm" eval="28.39"/>
+            <field name="grams_plant_1" eval="28.08"/>
+            <field name="grams_plant_2" eval="28.05"/>
+            <field name="taste_criteria_ok_ids" eval="[(6, 0, [ref('shrimp_verification.taste_crit_olor'), ref('shrimp_verification.taste_crit_color')])]"/>
+            <field name="declarant_partner_id" ref="shrimp_user_registry.demo_ms_cam_13"/>
+            <field name="declarant_role">seller</field>
+            <field name="declared_last_editor_id" ref="shrimp_user_registry.demo_ms_cam_13"/>
+            <field name="declared_submitted_date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-15, hours=21, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="verified_date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-15, hours=21, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="verdict_notes">Faltante de peso en planta respecto de lo vendido.</field>
+            <field name="photo_ids" eval="[(6, 0, [ref('shrimp_marketplace.demo_img_4'), ref('shrimp_marketplace.demo_img_10')])]"/>
+            <field name="acceptance_state">closed</field>
+            <field name="acceptance_deadline" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-13, hours=23, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="buyer_notified" eval="True"/>
+            <field name="declared_report_file">JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA2MTIgNzkyXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA1IDAgUiA+PiA+PiAvQ29udGVudHMgNCAwIFIgPj4KZW5kb2JqCjQgMCBvYmoKPDwgL0xlbmd0aCA0NzYgPj4Kc3RyZWFtCkJUIC9GMSAxNiBUZiA2MCA3NjAgVGQgKEluZm9ybWUgZGUgdmVyaWZpY2FjaW9uIC0gbG90ZSBEQ0wtMDAzKSBUaiBFVApCVCAvRjEgMTEgVGYgNjAgNzMwIFRkIChWZXJpZmljYWRvcmE6IEluc3BlY2Npb25lcyBBY3VpY29sYXMgZGVsIExpdG9yYWwgXChjb252ZW5pbyBjb24gbGEgcGxhbnRhXCkpIFRqIEVUCkJUIC9GMSAxMSBUZiA2MCA3MTIgVGQgKFBlc28gZW4gcGxhbnRhOiAxMjUyMC4yIGxiKSBUaiBFVApCVCAvRjEgMTEgVGYgNjAgNjk0IFRkIChDbGFzaWZpY2FjaW9uIEEvQi9DLCBtZXRhYmlzdWxmaXRvIHkgY2F0YSBlbiBwbGFudGEuKSBUaiBFVApCVCAvRjEgMTEgVGYgNjAgNjc2IFRkIChEb2N1bWVudG8gZGUgZGVtb3N0cmFjaW9uIGdlbmVyYWRvIGF1dG9tYXRpY2FtZW50ZS4pIFRqIEVUCkJUIC9GMSA4IFRmIDYwIDYwIFRkIChEb2N1bWVudG8gZGUgREVNT1NUUkFDSU9OIC0gc2luIHZhbGlkZXogbGVnYWwpIFRqIEVUCmVuZHN0cmVhbQplbmRvYmoKNSAwIG9iago8PCAvVHlwZSAvRm9udCAvU3VidHlwZSAvVHlwZTEgL0Jhc2VGb250IC9IZWx2ZXRpY2EgPj4KZW5kb2JqCnhyZWYKMCA2CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDU4IDAwMDAwIG4gCjAwMDAwMDAxMTUgMDAwMDAgbiAKMDAwMDAwMDI0MSAwMDAwMCBuIAowMDAwMDAwNzY4IDAwMDAwIG4gCnRyYWlsZXIKPDwgL1NpemUgNiAvUm9vdCAxIDAgUiA+PgpzdGFydHhyZWYKODM4CiUlRU9GCg==</field>
+            <field name="declared_report_filename">Informe_verificacion_DCL-003.pdf</field>
+        </record>
+        <record id="demo_dcl_ver_03_l1" model="shrimp.verification.line">
+            <field name="verification_id" ref="demo_dcl_ver_03"/>
+            <field name="quality_class">a</field>
+            <field name="size_code">30/40</field>
+            <field name="weight_lb" eval="8360.87"/>
+            <field name="sequence" eval="10"/>
+        </record>
+        <record id="demo_dcl_ver_03_l2" model="shrimp.verification.line">
+            <field name="verification_id" ref="demo_dcl_ver_03"/>
+            <field name="quality_class">b</field>
+            <field name="size_code">40/50</field>
+            <field name="weight_lb" eval="2376.39"/>
+            <field name="sequence" eval="20"/>
+        </record>
+        <record id="demo_dcl_ver_03_l3" model="shrimp.verification.line">
+            <field name="verification_id" ref="demo_dcl_ver_03"/>
+            <field name="quality_class">c</field>
+            <field name="size_code">50/60</field>
+            <field name="weight_lb" eval="1138.41"/>
+            <field name="sequence" eval="30"/>
+        </record>
+        <record id="demo_dcl_ver_03_c1" model="shrimp.verification.count">
+            <field name="verification_id" ref="demo_dcl_ver_03"/>
+            <field name="value" eval="35.87"/>
+            <field name="note">Conteo 1 en planta (piezas/kg)</field>
+            <field name="sequence" eval="10"/>
+        </record>
+        <record id="demo_dcl_ver_03_c2" model="shrimp.verification.count">
+            <field name="verification_id" ref="demo_dcl_ver_03"/>
+            <field name="value" eval="34.63"/>
+            <field name="note">Conteo 2 en planta (piezas/kg)</field>
+            <field name="sequence" eval="20"/>
+        </record>
+        <record id="demo_dcl_ver_03_acc_buyer" model="shrimp.verification.acceptance">
+            <field name="verification_id" ref="demo_dcl_ver_03"/>
+            <field name="role">buyer</field>
+            <field name="partner_id" ref="shrimp_packer.demo_ms_emp_04"/>
+            <field name="decision">counter</field>
+            <field name="reason">El informe muestra faltante de peso; propongo ajustar el precio.</field>
+            <field name="decided_at" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-14, hours=22, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="counter_price" eval="2.57"/>
+        </record>
+        <record id="demo_dcl_ver_03_acc_seller" model="shrimp.verification.acceptance">
+            <field name="verification_id" ref="demo_dcl_ver_03"/>
+            <field name="role">seller</field>
+            <field name="partner_id" ref="shrimp_user_registry.demo_ms_cam_13"/>
+            <field name="decision">accepted</field>
+            <field name="reason">Presentó el informe declarado.</field>
+            <field name="decided_at" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-15, hours=22, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        </record>
+
+        <!-- ===== Escenario 4: cosecha y compra con verificación declarada ===== -->
+        <record id="demo_dcl_prod_04" model="shrimp.product" context="{'skip_initial_lot': True}">
+            <field name="name">Cosecha entero 30/40 - verificación declarada (Camaronera El Guabo de Peñafiel)</field>
+            <field name="seller_partner_id" ref="shrimp_user_registry.demo_ms_cam_14"/>
+            <field name="seller_role">camaronera</field>
+            <field name="species_id" ref="shrimp_marketplace.shrimp_species_vannamei"/>
+            <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_engorde"/>
+            <field name="genetics_line_id" ref="shrimp_marketplace.shrimp_genetics_spr"/>
+            <field name="avg_size_mg" eval="28571.43"/>
+            <field name="survival_rate" eval="66.15"/>
+            <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
+            <field name="initial_qty" eval="18000.0"/>
+            <field name="uom_id" ref="shrimp_marketplace.uom_libra"/>
+            <field name="presentation">entero</field>
+            <field name="size_grade_id" ref="shrimp_marketplace.size_entero_3040"/>
+            <field name="price" eval="2.72"/>
+            <field name="location">El Guabo, El Oro</field>
+            <field name="state">published</field>
+            <field name="active" eval="True"/>
+            <field name="available_from" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-13, hours=12, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="available_to" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-3, hours=23, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="published_date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-13, hours=14, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="expected_delivery_date" eval="(DateTime.today() + relativedelta(days=-11)).strftime('%Y-%m-%d')"/>
+            <field name="origin_facility_id" ref="shrimp_marketplace.demo_ms_fac_cam_14_1"/>
+            <field name="origin_pond_id" ref="shrimp_marketplace.demo_ms_pond_cam_14_1_2"/>
+            <field name="batch_code">DCL-004</field>
+            <field name="production_date" eval="(DateTime.today() + relativedelta(days=-13)).strftime('%Y-%m-%d')"/>
+            <field name="traceability_notes">Lote vendido con verificación declarada por las partes.</field>
+            <field name="photo_attachment_ids" eval="[(6, 0, [ref('shrimp_marketplace.demo_img_9'), ref('shrimp_marketplace.demo_img_5'), ref('shrimp_marketplace.demo_img_8')])]"/>
+        </record>
+        <record id="demo_dcl_lot_04" model="shrimp.stock.lot">
+            <field name="product_id" ref="demo_dcl_prod_04"/>
+            <field name="owner_id" ref="shrimp_user_registry.demo_ms_cam_14"/>
+            <field name="initial_qty" eval="18000.0"/>
+            <field name="available_qty" eval="18000.0"/>
+            <field name="uom_id" ref="shrimp_marketplace.uom_libra"/>
+            <field name="state">available</field>
+        </record>
+        <record id="demo_dcl_tx_04" model="shrimp.transaction">
+            <field name="transaction_type">camaronera_to_buyer</field>
+            <field name="product_id" ref="demo_dcl_prod_04"/>
+            <field name="seller_partner_id" ref="shrimp_user_registry.demo_ms_cam_14"/>
+            <field name="buyer_partner_id" ref="shrimp_packer.demo_ms_emp_05"/>
+            <field name="seller_role">camaronera</field>
+            <field name="buyer_role">empacadora</field>
+            <field name="location">El Guabo, El Oro</field>
+            <field name="state">cancel</field>
+            <field name="needs_verification" eval="True"/>
+            <field name="transaction_qty" eval="15530"/>
+            <field name="price_unit" eval="2.72"/>
+            <field name="amount_total" eval="42241.6"/>
+            <field name="desired_qty" eval="15530"/>
+            <field name="desired_date" eval="(DateTime.today() + relativedelta(days=-10)).strftime('%Y-%m-%d')"/>
+            <field name="code">Cosecha entero 30/40 - verificación declarada (Camaronera El Guabo de Peñafiel)</field>
+        </record>
+        <record id="demo_dcl_ver_04" model="shrimp.verification">
+            <field name="transaction_id" ref="demo_dcl_tx_04"/>
+            <field name="verification_mode">declared</field>
+            <field name="state">declared</field>
+            <field name="batch_code">DCL-004</field>
+            <field name="pond_id" ref="shrimp_marketplace.demo_ms_pond_cam_14_1_2"/>
+            <field name="facility_id" ref="shrimp_marketplace.demo_ms_fac_cam_14_1"/>
+            <field name="currency_id" ref="base.USD"/>
+            <field name="fee" eval="0.0"/>
+            <field name="assigned_date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-12, hours=14, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="declared_source">external</field>
+            <field name="external_verifier_name">Laboratorio de Control de Calidad Pacífico Sur S.A.</field>
+            <field name="external_verifier_vat">0992456781001</field>
+            <field name="plant_name">Planta Jaramijó</field>
+            <field name="harvest_date" eval="(DateTime.today() + relativedelta(days=-12)).strftime('%Y-%m-%d')"/>
+            <field name="process_date" eval="(DateTime.today() + relativedelta(days=-12)).strftime('%Y-%m-%d')"/>
+            <field name="weight_sent_lb" eval="15530.0"/>
+            <field name="weight_plant_lb" eval="15639.33"/>
+            <field name="trash_lb" eval="262.46"/>
+            <field name="presentation">entero</field>
+            <field name="metabisulfite_ppm" eval="52.03"/>
+            <field name="metabisulfite_limit_ppm" eval="100.0"/>
+            <field name="metabisulfite_notes">Kit colorimétrico, dos tomas sobre el mismo lote.</field>
+            <field name="taste_result">good</field>
+            <field name="taste_notes">Sabor característico, sin notas a tierra.</field>
+            <field name="grams_farm" eval="28.51"/>
+            <field name="grams_plant_1" eval="28.03"/>
+            <field name="grams_plant_2" eval="27.65"/>
+            <field name="taste_criteria_ok_ids" eval="[(6, 0, [ref('shrimp_verification.taste_crit_olor'), ref('shrimp_verification.taste_crit_color')])]"/>
+            <field name="declarant_partner_id" ref="shrimp_user_registry.demo_ms_cam_14"/>
+            <field name="declarant_role">seller</field>
+            <field name="declared_last_editor_id" ref="shrimp_user_registry.demo_ms_cam_14"/>
+            <field name="declared_submitted_date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-11, hours=21, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="verified_date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-11, hours=21, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="verdict_notes">Lote conforme con lo publicado.</field>
+            <field name="photo_ids" eval="[(6, 0, [ref('shrimp_marketplace.demo_img_12'), ref('shrimp_marketplace.demo_img_4')])]"/>
+            <field name="acceptance_state">broken</field>
+            <field name="acceptance_deadline" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-9, hours=23, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="buyer_notified" eval="True"/>
+            <field name="declared_report_file">JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA2MTIgNzkyXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA1IDAgUiA+PiA+PiAvQ29udGVudHMgNCAwIFIgPj4KZW5kb2JqCjQgMCBvYmoKPDwgL0xlbmd0aCA0ODkgPj4Kc3RyZWFtCkJUIC9GMSAxNiBUZiA2MCA3NjAgVGQgKEluZm9ybWUgZGUgdmVyaWZpY2FjaW9uIC0gbG90ZSBEQ0wtMDA0KSBUaiBFVApCVCAvRjEgMTEgVGYgNjAgNzMwIFRkIChWZXJpZmljYWRvcmE6IExhYm9yYXRvcmlvIGRlIENvbnRyb2wgZGUgQ2FsaWRhZCBQYWNpZmljbyBTdXIgUy5BLiBcKFJVQyAwOTkyNDU2NzgxMDAxXCkpIFRqIEVUCkJUIC9GMSAxMSBUZiA2MCA3MTIgVGQgKFBlc28gZW4gcGxhbnRhOiAxNTYzOS4zMyBsYikgVGogRVQKQlQgL0YxIDExIFRmIDYwIDY5NCBUZCAoQ2xhc2lmaWNhY2lvbiBBL0IvQywgbWV0YWJpc3VsZml0byB5IGNhdGEgZW4gcGxhbnRhLikgVGogRVQKQlQgL0YxIDExIFRmIDYwIDY3NiBUZCAoRG9jdW1lbnRvIGRlIGRlbW9zdHJhY2lvbiBnZW5lcmFkbyBhdXRvbWF0aWNhbWVudGUuKSBUaiBFVApCVCAvRjEgOCBUZiA2MCA2MCBUZCAoRG9jdW1lbnRvIGRlIERFTU9TVFJBQ0lPTiAtIHNpbiB2YWxpZGV6IGxlZ2FsKSBUaiBFVAplbmRzdHJlYW0KZW5kb2JqCjUgMCBvYmoKPDwgL1R5cGUgL0ZvbnQgL1N1YnR5cGUgL1R5cGUxIC9CYXNlRm9udCAvSGVsdmV0aWNhID4+CmVuZG9iagp4cmVmCjAgNgowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTE1IDAwMDAwIG4gCjAwMDAwMDAyNDEgMDAwMDAgbiAKMDAwMDAwMDc4MSAwMDAwMCBuIAp0cmFpbGVyCjw8IC9TaXplIDYgL1Jvb3QgMSAwIFIgPj4Kc3RhcnR4cmVmCjg1MQolJUVPRgo=</field>
+            <field name="declared_report_filename">Informe_verificacion_DCL-004.pdf</field>
+        </record>
+        <record id="demo_dcl_ver_04_l1" model="shrimp.verification.line">
+            <field name="verification_id" ref="demo_dcl_ver_04"/>
+            <field name="quality_class">a</field>
+            <field name="size_code">30/40</field>
+            <field name="weight_lb" eval="8897.14"/>
+            <field name="sequence" eval="10"/>
+        </record>
+        <record id="demo_dcl_ver_04_l2" model="shrimp.verification.line">
+            <field name="verification_id" ref="demo_dcl_ver_04"/>
+            <field name="quality_class">b</field>
+            <field name="size_code">40/50</field>
+            <field name="weight_lb" eval="3033.49"/>
+            <field name="sequence" eval="20"/>
+        </record>
+        <record id="demo_dcl_ver_04_l3" model="shrimp.verification.line">
+            <field name="verification_id" ref="demo_dcl_ver_04"/>
+            <field name="quality_class">c</field>
+            <field name="size_code">50/60</field>
+            <field name="weight_lb" eval="2377.54"/>
+            <field name="sequence" eval="30"/>
+        </record>
+        <record id="demo_dcl_ver_04_c1" model="shrimp.verification.count">
+            <field name="verification_id" ref="demo_dcl_ver_04"/>
+            <field name="value" eval="34.74"/>
+            <field name="note">Conteo 1 en planta (piezas/kg)</field>
+            <field name="sequence" eval="10"/>
+        </record>
+        <record id="demo_dcl_ver_04_c2" model="shrimp.verification.count">
+            <field name="verification_id" ref="demo_dcl_ver_04"/>
+            <field name="value" eval="35.58"/>
+            <field name="note">Conteo 2 en planta (piezas/kg)</field>
+            <field name="sequence" eval="20"/>
+        </record>
+        <record id="demo_dcl_ver_04_acc_buyer" model="shrimp.verification.acceptance">
+            <field name="verification_id" ref="demo_dcl_ver_04"/>
+            <field name="role">buyer</field>
+            <field name="partner_id" ref="shrimp_packer.demo_ms_emp_05"/>
+            <field name="decision">rejected</field>
+            <field name="reason">No acepto el informe declarado: no coincide con lo pactado.</field>
+            <field name="decided_at" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-10, hours=22, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        </record>
+        <record id="demo_dcl_ver_04_acc_seller" model="shrimp.verification.acceptance">
+            <field name="verification_id" ref="demo_dcl_ver_04"/>
+            <field name="role">seller</field>
+            <field name="partner_id" ref="shrimp_user_registry.demo_ms_cam_14"/>
+            <field name="decision">accepted</field>
+            <field name="reason">Presentó el informe declarado.</field>
+            <field name="decided_at" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-11, hours=22, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        </record>
+
+        <!-- ===== Escenario 5: cosecha y compra con verificación declarada ===== -->
+        <record id="demo_dcl_prod_05" model="shrimp.product" context="{'skip_initial_lot': True}">
+            <field name="name">Cosecha entero 30/40 - verificación declarada (Camaronera Arenillas)</field>
+            <field name="seller_partner_id" ref="shrimp_user_registry.demo_ms_cam_15"/>
+            <field name="seller_role">camaronera</field>
+            <field name="species_id" ref="shrimp_marketplace.shrimp_species_vannamei"/>
+            <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_engorde"/>
+            <field name="genetics_line_id" ref="shrimp_marketplace.shrimp_genetics_spr"/>
+            <field name="avg_size_mg" eval="28571.43"/>
+            <field name="survival_rate" eval="65.07"/>
+            <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
+            <field name="initial_qty" eval="15000.0"/>
+            <field name="uom_id" ref="shrimp_marketplace.uom_libra"/>
+            <field name="presentation">entero</field>
+            <field name="size_grade_id" ref="shrimp_marketplace.size_entero_3040"/>
+            <field name="price" eval="2.82"/>
+            <field name="location">Arenillas, El Oro</field>
+            <field name="state">published</field>
+            <field name="active" eval="True"/>
+            <field name="available_from" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-4, hours=12, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="available_to" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=6, hours=23, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="published_date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-4, hours=14, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="expected_delivery_date" eval="(DateTime.today() + relativedelta(days=-2)).strftime('%Y-%m-%d')"/>
+            <field name="origin_facility_id" ref="shrimp_marketplace.demo_ms_fac_cam_15_1"/>
+            <field name="origin_pond_id" ref="shrimp_marketplace.demo_ms_pond_cam_15_1_1"/>
+            <field name="batch_code">DCL-005</field>
+            <field name="production_date" eval="(DateTime.today() + relativedelta(days=-4)).strftime('%Y-%m-%d')"/>
+            <field name="traceability_notes">Lote vendido con verificación declarada por las partes.</field>
+            <field name="photo_attachment_ids" eval="[(6, 0, [ref('shrimp_marketplace.demo_img_4'), ref('shrimp_marketplace.demo_img_2'), ref('shrimp_marketplace.demo_img_7')])]"/>
+        </record>
+        <record id="demo_dcl_lot_05" model="shrimp.stock.lot">
+            <field name="product_id" ref="demo_dcl_prod_05"/>
+            <field name="owner_id" ref="shrimp_user_registry.demo_ms_cam_15"/>
+            <field name="initial_qty" eval="15000.0"/>
+            <field name="available_qty" eval="15000.0"/>
+            <field name="uom_id" ref="shrimp_marketplace.uom_libra"/>
+            <field name="state">available</field>
+        </record>
+        <record id="demo_dcl_tx_05" model="shrimp.transaction">
+            <field name="transaction_type">camaronera_to_buyer</field>
+            <field name="product_id" ref="demo_dcl_prod_05"/>
+            <field name="seller_partner_id" ref="shrimp_user_registry.demo_ms_cam_15"/>
+            <field name="buyer_partner_id" ref="shrimp_packer.demo_ms_emp_06"/>
+            <field name="seller_role">camaronera</field>
+            <field name="buyer_role">empacadora</field>
+            <field name="location">Arenillas, El Oro</field>
+            <field name="state">pending_acceptance</field>
+            <field name="needs_verification" eval="True"/>
+            <field name="transaction_qty" eval="11990"/>
+            <field name="price_unit" eval="2.82"/>
+            <field name="amount_total" eval="33811.8"/>
+            <field name="desired_qty" eval="11990"/>
+            <field name="desired_date" eval="(DateTime.today() + relativedelta(days=-1)).strftime('%Y-%m-%d')"/>
+            <field name="code">Cosecha entero 30/40 - verificación declarada (Camaronera Arenillas)</field>
+        </record>
+        <record id="demo_dcl_ver_05" model="shrimp.verification">
+            <field name="transaction_id" ref="demo_dcl_tx_05"/>
+            <field name="verification_mode">declared</field>
+            <field name="state">declared</field>
+            <field name="batch_code">DCL-005</field>
+            <field name="pond_id" ref="shrimp_marketplace.demo_ms_pond_cam_15_1_1"/>
+            <field name="facility_id" ref="shrimp_marketplace.demo_ms_fac_cam_15_1"/>
+            <field name="currency_id" ref="base.USD"/>
+            <field name="fee" eval="0.0"/>
+            <field name="assigned_date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-3, hours=14, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="declared_source">external</field>
+            <field name="external_verifier_name">Inspecciones Acuícolas del Litoral (convenio con la planta)</field>
+            <field name="plant_name">Planta Santa Elena</field>
+            <field name="harvest_date" eval="(DateTime.today() + relativedelta(days=-3)).strftime('%Y-%m-%d')"/>
+            <field name="process_date" eval="(DateTime.today() + relativedelta(days=-3)).strftime('%Y-%m-%d')"/>
+            <field name="weight_sent_lb" eval="11990.0"/>
+            <field name="weight_plant_lb" eval="11969.06"/>
+            <field name="trash_lb" eval="110.94"/>
+            <field name="presentation">entero</field>
+            <field name="metabisulfite_ppm" eval="76.38"/>
+            <field name="metabisulfite_limit_ppm" eval="100.0"/>
+            <field name="metabisulfite_notes">Kit colorimétrico, dos tomas sobre el mismo lote.</field>
+            <field name="taste_result">good</field>
+            <field name="taste_notes">Sabor característico, sin notas a tierra.</field>
+            <field name="grams_farm" eval="28.05"/>
+            <field name="grams_plant_1" eval="28.89"/>
+            <field name="grams_plant_2" eval="28.34"/>
+            <field name="taste_criteria_ok_ids" eval="[(6, 0, [ref('shrimp_verification.taste_crit_olor'), ref('shrimp_verification.taste_crit_color')])]"/>
+            <field name="declarant_partner_id" ref="shrimp_packer.demo_ms_emp_06"/>
+            <field name="declarant_role">buyer</field>
+            <field name="declared_last_editor_id" ref="shrimp_packer.demo_ms_emp_06"/>
+            <field name="declared_submitted_date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-2, hours=21, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="verified_date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-2, hours=21, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="verdict_notes">Lote conforme con lo publicado.</field>
+            <field name="photo_ids" eval="[(6, 0, [ref('shrimp_marketplace.demo_img_11'), ref('shrimp_marketplace.demo_img_7')])]"/>
+            <field name="acceptance_state">waiting</field>
+            <field name="acceptance_deadline" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=0, hours=23, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="buyer_notified" eval="True"/>
+            <field name="declared_report_file">JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA2MTIgNzkyXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA1IDAgUiA+PiA+PiAvQ29udGVudHMgNCAwIFIgPj4KZW5kb2JqCjQgMCBvYmoKPDwgL0xlbmd0aCA0NzcgPj4Kc3RyZWFtCkJUIC9GMSAxNiBUZiA2MCA3NjAgVGQgKEluZm9ybWUgZGUgdmVyaWZpY2FjaW9uIC0gbG90ZSBEQ0wtMDA1KSBUaiBFVApCVCAvRjEgMTEgVGYgNjAgNzMwIFRkIChWZXJpZmljYWRvcmE6IEluc3BlY2Npb25lcyBBY3VpY29sYXMgZGVsIExpdG9yYWwgXChjb252ZW5pbyBjb24gbGEgcGxhbnRhXCkpIFRqIEVUCkJUIC9GMSAxMSBUZiA2MCA3MTIgVGQgKFBlc28gZW4gcGxhbnRhOiAxMTk2OS4wNiBsYikgVGogRVQKQlQgL0YxIDExIFRmIDYwIDY5NCBUZCAoQ2xhc2lmaWNhY2lvbiBBL0IvQywgbWV0YWJpc3VsZml0byB5IGNhdGEgZW4gcGxhbnRhLikgVGogRVQKQlQgL0YxIDExIFRmIDYwIDY3NiBUZCAoRG9jdW1lbnRvIGRlIGRlbW9zdHJhY2lvbiBnZW5lcmFkbyBhdXRvbWF0aWNhbWVudGUuKSBUaiBFVApCVCAvRjEgOCBUZiA2MCA2MCBUZCAoRG9jdW1lbnRvIGRlIERFTU9TVFJBQ0lPTiAtIHNpbiB2YWxpZGV6IGxlZ2FsKSBUaiBFVAplbmRzdHJlYW0KZW5kb2JqCjUgMCBvYmoKPDwgL1R5cGUgL0ZvbnQgL1N1YnR5cGUgL1R5cGUxIC9CYXNlRm9udCAvSGVsdmV0aWNhID4+CmVuZG9iagp4cmVmCjAgNgowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTE1IDAwMDAwIG4gCjAwMDAwMDAyNDEgMDAwMDAgbiAKMDAwMDAwMDc2OSAwMDAwMCBuIAp0cmFpbGVyCjw8IC9TaXplIDYgL1Jvb3QgMSAwIFIgPj4Kc3RhcnR4cmVmCjgzOQolJUVPRgo=</field>
+            <field name="declared_report_filename">Informe_verificacion_DCL-005.pdf</field>
+        </record>
+        <record id="demo_dcl_ver_05_l1" model="shrimp.verification.line">
+            <field name="verification_id" ref="demo_dcl_ver_05"/>
+            <field name="quality_class">a</field>
+            <field name="size_code">30/40</field>
+            <field name="weight_lb" eval="6922.96"/>
+            <field name="sequence" eval="10"/>
+        </record>
+        <record id="demo_dcl_ver_05_l2" model="shrimp.verification.line">
+            <field name="verification_id" ref="demo_dcl_ver_05"/>
+            <field name="quality_class">b</field>
+            <field name="size_code">40/50</field>
+            <field name="weight_lb" eval="2497.46"/>
+            <field name="sequence" eval="20"/>
+        </record>
+        <record id="demo_dcl_ver_05_l3" model="shrimp.verification.line">
+            <field name="verification_id" ref="demo_dcl_ver_05"/>
+            <field name="quality_class">c</field>
+            <field name="size_code">50/60</field>
+            <field name="weight_lb" eval="2033.11"/>
+            <field name="sequence" eval="30"/>
+        </record>
+        <record id="demo_dcl_ver_05_c1" model="shrimp.verification.count">
+            <field name="verification_id" ref="demo_dcl_ver_05"/>
+            <field name="value" eval="34.53"/>
+            <field name="note">Conteo 1 en planta (piezas/kg)</field>
+            <field name="sequence" eval="10"/>
+        </record>
+        <record id="demo_dcl_ver_05_c2" model="shrimp.verification.count">
+            <field name="verification_id" ref="demo_dcl_ver_05"/>
+            <field name="value" eval="33.43"/>
+            <field name="note">Conteo 2 en planta (piezas/kg)</field>
+            <field name="sequence" eval="20"/>
+        </record>
+        <record id="demo_dcl_ver_05_acc_buyer" model="shrimp.verification.acceptance">
+            <field name="verification_id" ref="demo_dcl_ver_05"/>
+            <field name="role">buyer</field>
+            <field name="partner_id" ref="shrimp_packer.demo_ms_emp_06"/>
+            <field name="decision">accepted</field>
+            <field name="reason">Presentó el informe declarado.</field>
+            <field name="decided_at" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-2, hours=22, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        </record>
+        <record id="demo_dcl_ver_05_acc_seller" model="shrimp.verification.acceptance">
+            <field name="verification_id" ref="demo_dcl_ver_05"/>
+            <field name="role">seller</field>
+            <field name="partner_id" ref="shrimp_user_registry.demo_ms_cam_15"/>
+            <field name="decision">pending</field>
+        </record>
+
+        <!-- ===== Escenario 6: cosecha y compra con verificación declarada ===== -->
+        <record id="demo_dcl_prod_06" model="shrimp.product" context="{'skip_initial_lot': True}">
+            <field name="name">Cosecha entero 30/40 - verificación declarada (Langostinos Huaquillas)</field>
+            <field name="seller_partner_id" ref="shrimp_user_registry.demo_ms_cam_16"/>
+            <field name="seller_role">camaronera</field>
+            <field name="species_id" ref="shrimp_marketplace.shrimp_species_vannamei"/>
+            <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_engorde"/>
+            <field name="genetics_line_id" ref="shrimp_marketplace.shrimp_genetics_spr"/>
+            <field name="avg_size_mg" eval="28571.43"/>
+            <field name="survival_rate" eval="63.29"/>
+            <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
+            <field name="initial_qty" eval="20000.0"/>
+            <field name="uom_id" ref="shrimp_marketplace.uom_libra"/>
+            <field name="presentation">entero</field>
+            <field name="size_grade_id" ref="shrimp_marketplace.size_entero_3040"/>
+            <field name="price" eval="2.61"/>
+            <field name="location">Huaquillas, El Oro</field>
+            <field name="state">published</field>
+            <field name="active" eval="True"/>
+            <field name="available_from" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-2, hours=12, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="available_to" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=8, hours=23, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="published_date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-2, hours=14, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="expected_delivery_date" eval="(DateTime.today() + relativedelta(days=0)).strftime('%Y-%m-%d')"/>
+            <field name="origin_facility_id" ref="shrimp_marketplace.demo_ms_fac_cam_16_1"/>
+            <field name="origin_pond_id" ref="shrimp_marketplace.demo_ms_pond_cam_16_1_2"/>
+            <field name="batch_code">DCL-006</field>
+            <field name="production_date" eval="(DateTime.today() + relativedelta(days=-2)).strftime('%Y-%m-%d')"/>
+            <field name="traceability_notes">Lote vendido con verificación declarada por las partes.</field>
+            <field name="photo_attachment_ids" eval="[(6, 0, [ref('shrimp_marketplace.demo_img_6'), ref('shrimp_marketplace.demo_img_1'), ref('shrimp_marketplace.demo_img_12')])]"/>
+        </record>
+        <record id="demo_dcl_lot_06" model="shrimp.stock.lot">
+            <field name="product_id" ref="demo_dcl_prod_06"/>
+            <field name="owner_id" ref="shrimp_user_registry.demo_ms_cam_16"/>
+            <field name="initial_qty" eval="20000.0"/>
+            <field name="available_qty" eval="20000.0"/>
+            <field name="uom_id" ref="shrimp_marketplace.uom_libra"/>
+            <field name="state">available</field>
+        </record>
+        <record id="demo_dcl_tx_06" model="shrimp.transaction">
+            <field name="transaction_type">camaronera_to_buyer</field>
+            <field name="product_id" ref="demo_dcl_prod_06"/>
+            <field name="seller_partner_id" ref="shrimp_user_registry.demo_ms_cam_16"/>
+            <field name="buyer_partner_id" ref="shrimp_packer.demo_ms_emp_07"/>
+            <field name="seller_role">camaronera</field>
+            <field name="buyer_role">empacadora</field>
+            <field name="location">Huaquillas, El Oro</field>
+            <field name="state">pending_verification</field>
+            <field name="needs_verification" eval="True"/>
+            <field name="transaction_qty" eval="12850"/>
+            <field name="price_unit" eval="2.61"/>
+            <field name="amount_total" eval="33538.5"/>
+            <field name="desired_qty" eval="12850"/>
+            <field name="desired_date" eval="(DateTime.today() + relativedelta(days=1)).strftime('%Y-%m-%d')"/>
+            <field name="code">Cosecha entero 30/40 - verificación declarada (Langostinos Huaquillas)</field>
+        </record>
+        <record id="demo_dcl_ver_06" model="shrimp.verification">
+            <field name="transaction_id" ref="demo_dcl_tx_06"/>
+            <field name="verification_mode">declared</field>
+            <field name="state">declared_draft</field>
+            <field name="batch_code">DCL-006</field>
+            <field name="pond_id" ref="shrimp_marketplace.demo_ms_pond_cam_16_1_2"/>
+            <field name="facility_id" ref="shrimp_marketplace.demo_ms_fac_cam_16_1"/>
+            <field name="currency_id" ref="base.USD"/>
+            <field name="fee" eval="0.0"/>
+            <field name="assigned_date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-1, hours=14, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="declared_source">external</field>
+            <field name="external_verifier_name">Laboratorio de Control de Calidad Pacífico Sur S.A.</field>
+            <field name="external_verifier_vat">0992456781001</field>
+            <field name="plant_name">Planta Taura</field>
+            <field name="harvest_date" eval="(DateTime.today() + relativedelta(days=-1)).strftime('%Y-%m-%d')"/>
+            <field name="process_date" eval="(DateTime.today() + relativedelta(days=-1)).strftime('%Y-%m-%d')"/>
+            <field name="weight_sent_lb" eval="12850.0"/>
+            <field name="weight_plant_lb" eval="12924.26"/>
+            <field name="trash_lb" eval="116.34"/>
+            <field name="presentation">entero</field>
+            <field name="declared_last_editor_id" ref="shrimp_packer.demo_ms_emp_07"/>
+            <field name="acceptance_state">na</field>
+        </record>
+    </data>
+</odoo>

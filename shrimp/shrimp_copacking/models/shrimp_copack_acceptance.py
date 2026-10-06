@@ -1,5 +1,5 @@
 from odoo import api, fields, models, _
-from odoo.exceptions import AccessError, ValidationError
+from odoo.exceptions import ValidationError
 
 
 class ShrimpCopackAcceptance(models.Model):
@@ -26,8 +26,16 @@ class ShrimpCopackAcceptance(models.Model):
     """
 
     _name = "shrimp.copack.acceptance"
+    _inherit = ["shrimp.uuid.mixin", "shrimp.signoff.mixin"]
     _description = "Firma del acta de empaque"
+    _SIGNOFF_ARCHIVED_MSG = ("Esta firma es de un acta anterior que ya se reabrió; "
+                             "firme la del acta vigente.")
     _order = "order_id, ronda desc, role"
+    _SIGNOFF_PARENT_FIELD = "order_id"
+    _SIGNOFF_SNAPSHOT_FIELDS = (
+        "decision", "reason", "decided_by_uid", "decided_at",
+        "signed_received_lb", "signed_packed_lb", "signed_difference_lb",
+        "signed_difference_pct", "signed_tolerance_pct")
 
     order_id = fields.Many2one(
         "shrimp.copack.order", string="Orden", required=True,
@@ -107,23 +115,14 @@ class ShrimpCopackAcceptance(models.Model):
         impedir.
         """
         self.ensure_one()
-        actor = actor or self.env.user.partner_id
-        if actor != self.partner_id:
-            raise AccessError(_(
-                "Cada parte firma la suya. Esta corresponde a «%s».")
-                % (self.partner_id.name or ""))
-        # Una firma archivada pertenece a una ronda cerrada: no se toca.
-        if not self.active:
-            raise ValidationError(_(
-                "Esta firma es de un acta anterior que ya se reabrió; "
-                "firme la del acta vigente."))
-        if self.decision != "pending":
-            raise ValidationError(_("Esta parte ya firmó; no se puede cambiar."))
-        if decision == "rejected" and not motivo:
-            raise ValidationError(_(
-                "Para no dar conformidad hay que decir por qué: es lo que abre "
-                "la discusión con la otra parte."))
+        # Quién firma, que la ronda siga vigente y que el «no conforme» traiga
+        # motivo: las mismas reglas que las otras firmas de dos partes
+        # (shrimp.signoff.mixin).
+        self._signoff_check_actor(actor)
+        self._signoff_check_open()
+        self._signoff_check_reason(decision, motivo)
         orden = self.order_id
+        antes = self._signoff_snapshot()
         self.write({
             "decision": decision,
             "reason": motivo,
@@ -136,6 +135,7 @@ class ShrimpCopackAcceptance(models.Model):
             "signed_difference_pct": orden.difference_pct,
             "signed_tolerance_pct": orden.tolerance_pct,
         })
+        self._signoff_log("decision", antes, reason=motivo)
         orden._evaluar_acta()
 
     def _archivar(self, motivo):
@@ -144,15 +144,46 @@ class ShrimpCopackAcceptance(models.Model):
         Interno: lo llama `shrimp.copack.order.action_reabrir_acta`, que es
         quien ya comprobo quien pide la reapertura y por que.
         """
-        return self.write({
-            "active": False,
-            "archived_at": fields.Datetime.now(),
-            "archived_by_uid": self.env.user.id,
-            "archive_reason": motivo,
-        })
+        return self._signoff_archive(motivo)
 
     def action_accept(self, actor=None):
         self._firmar("accepted", actor=actor)
 
     def action_reject(self, motivo=None, actor=None):
         self._firmar("rejected", motivo or self.reason, actor=actor)
+
+    # ==================================================================
+    # Deshacer la firma (shrimp.signoff.mixin)
+    # ==================================================================
+    # Hasta cuándo: mientras el acta de ESTA ronda siga abierta o en disputa.
+    # La firma surte efecto en el acto (una «no conforme» pone el acta en
+    # disputa), pero la disputa no tiene efectos irreversibles: no cobra, no
+    # mueve stock, solo bloquea el cobro. Lo irreversible es el cierre: con
+    # las dos conformes la orden pasa a «firmada» y se registra la comisión de
+    # la plataforma; a partir de ahí (y de «cerrada»/liquidada) no se deshace.
+    # Tampoco se deshace una firma de una ronda reabierta (queda archivada).
+    def _signoff_undo_blocker(self):
+        bloqueo = super()._signoff_undo_blocker()
+        if bloqueo:
+            return bloqueo
+        orden = self.order_id
+        if orden.state != "packed" or orden.acceptance_state not in ("open", "disputed"):
+            return _("El acta ya está cerrada (o la orden ya no está a la firma): "
+                     "la firma ya surtió efecto y no se puede deshacer.")
+        return False
+
+    def _signoff_undo_until(self):
+        return _("mientras el acta no quede cerrada con las dos firmas conformes "
+                 "ni se reabra")
+
+    def _signoff_after_undo(self, evento):
+        """Sin «no conforme» vigente, la disputa ya no tiene motivo: el acta
+        vuelve a estar abierta a la firma."""
+        orden = self.order_id.sudo()
+        decisiones = orden.acceptance_ids.filtered("active").mapped("decision")
+        if orden.acceptance_state == "disputed" and "rejected" not in decisiones:
+            orden.acceptance_state = "open"
+        return True
+
+    def _signoff_portal_url(self, partner):
+        return "/marketplace/copacking/orders/%s" % self.order_id.uuid_ref

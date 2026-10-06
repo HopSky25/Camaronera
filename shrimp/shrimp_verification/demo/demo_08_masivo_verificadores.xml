@@ -1,0 +1,2241 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Empresas verificadoras, técnicos, acreditaciones y cuentas de acceso
+     (incluye verificador.demo@camaronera.test).
+
+     GENERADO por shrimp_marketplace/scripts/demo_masivo (semilla fija).
+     No editar a mano: cambiar el generador y volver a ejecutarlo.
+     Fechas relativas al día de carga de la demo. -->
+<odoo>
+    <data noupdate="1">
+
+        <!-- ===== Catálogos: criterios de cata y cargos ===== -->
+        <record id="demo_ms_crit_1" model="shrimp.taste.criterion">
+            <field name="name">Textura firme</field>
+            <field name="sequence" eval="21"/>
+        </record>
+        <record id="demo_ms_crit_2" model="shrimp.taste.criterion">
+            <field name="name">Sin sabor a tierra ni a fango</field>
+            <field name="sequence" eval="22"/>
+        </record>
+        <record id="demo_ms_crit_3" model="shrimp.taste.criterion">
+            <field name="name">Sin olor amoniacal</field>
+            <field name="sequence" eval="23"/>
+        </record>
+        <record id="demo_ms_crit_4" model="shrimp.taste.criterion">
+            <field name="name">Dulzor característico</field>
+            <field name="sequence" eval="24"/>
+        </record>
+        <record id="demo_ms_crit_5" model="shrimp.taste.criterion">
+            <field name="name">Sin melanosis (manchas negras)</field>
+            <field name="sequence" eval="25"/>
+        </record>
+        <record id="demo_ms_crit_6" model="shrimp.taste.criterion">
+            <field name="name">Caparazón sin flacidez</field>
+            <field name="sequence" eval="26"/>
+        </record>
+        <record id="demo_ms_crit_7" model="shrimp.taste.criterion">
+            <field name="name">Sin cabeza roja</field>
+            <field name="sequence" eval="27"/>
+        </record>
+        <record id="demo_ms_crit_8" model="shrimp.taste.criterion">
+            <field name="name">Branquias limpias</field>
+            <field name="sequence" eval="28"/>
+        </record>
+        <record id="demo_ms_crit_9" model="shrimp.taste.criterion">
+            <field name="name">Músculo translúcido, sin opacidad</field>
+            <field name="sequence" eval="29"/>
+        </record>
+        <record id="demo_ms_crit_10" model="shrimp.taste.criterion">
+            <field name="name">Sin arena en el intestino</field>
+            <field name="sequence" eval="30"/>
+        </record>
+        <record id="demo_ms_cargo_1" model="shrimp.tech.role">
+            <field name="name">Técnico de muelle</field>
+            <field name="sequence" eval="61"/>
+        </record>
+        <record id="demo_ms_cargo_2" model="shrimp.tech.role">
+            <field name="name">Jefe de cuadrilla</field>
+            <field name="sequence" eval="62"/>
+        </record>
+        <record id="demo_ms_cargo_3" model="shrimp.tech.role">
+            <field name="name">Biólogo de campo</field>
+            <field name="sequence" eval="63"/>
+        </record>
+        <record id="demo_ms_cargo_4" model="shrimp.tech.role">
+            <field name="name">Auxiliar de muestreo</field>
+            <field name="sequence" eval="64"/>
+        </record>
+
+        <!-- ===== Bancos de las cuentas de los verificadores ===== -->
+        <record id="demo_ms_bank_banco_pichincha" model="res.bank">
+            <field name="name">Banco Pichincha</field>
+            <field name="country" ref="base.ec"/>
+        </record>
+        <record id="demo_ms_bank_banco_del_pacifico" model="res.bank">
+            <field name="name">Banco del Pacífico</field>
+            <field name="country" ref="base.ec"/>
+        </record>
+        <record id="demo_ms_bank_banco_guayaquil" model="res.bank">
+            <field name="name">Banco Guayaquil</field>
+            <field name="country" ref="base.ec"/>
+        </record>
+        <record id="demo_ms_bank_produbanco" model="res.bank">
+            <field name="name">Produbanco</field>
+            <field name="country" ref="base.ec"/>
+        </record>
+        <record id="demo_ms_bank_banco_bolivariano" model="res.bank">
+            <field name="name">Banco Bolivariano</field>
+            <field name="country" ref="base.ec"/>
+        </record>
+        <record id="demo_ms_bank_banco_internacional" model="res.bank">
+            <field name="name">Banco Internacional</field>
+            <field name="country" ref="base.ec"/>
+        </record>
+
+        <!-- ===== Empresas verificadoras nuevas ===== -->
+        <record id="demo_ms_ver_01" model="res.partner">
+            <field name="name">Verificaciones Técnicas del Golfo S.A.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">verificador</field>
+            <field name="vat_or_id">0992459573001</field>
+            <field name="email">operaciones@verificacionestecnicasd.test</field>
+            <field name="phone">04-2712899</field>
+            <field name="street">Av. de las Américas 168</field>
+            <field name="city">Guayaquil</field>
+            <field name="state_id" ref="base.state_ec_09"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Verificaciones Técnicas del Golfo S.A.</field>
+            <field name="shrimp_representante">Acuic. Andrea León Salazar</field>
+            <field name="shrimp_telefono">04-2712899</field>
+            <field name="shrimp_ubicacion">Guayaquil, Guayas</field>
+            <field name="ver_cobertura">Guayas, Santa Elena, Los Ríos</field>
+            <field name="ver_provincias">Guayas, Santa Elena, Los Ríos</field>
+            <field name="ver_radio_km" eval="250"/>
+            <field name="ver_registro_num">SAE-VER-6374</field>
+            <field name="ver_entidad_acredita">Servicio de Acreditación Ecuatoriano (SAE)</field>
+            <field name="ver_acred_vigencia" eval="(DateTime.today() + relativedelta(days=581)).strftime('%Y-%m-%d')"/>
+            <field name="ver_email_avisos">avisos@verificacionestecnicasd.test</field>
+            <field name="ver_whatsapp">+593 97 223 2325</field>
+            <field name="ver_horario">Lunes a sábado, 06:00 a 20:00</field>
+            <field name="ver_tiempo_respuesta">24 a 48 horas</field>
+            <field name="ver_equipo_propio" eval="True"/>
+            <field name="ver_analisis_tipos">Peso y merma, presentación (cuerpo/cola), metabisulfito, clasificación por talla, sabor; conteo volumétrico y supervivencia de larva</field>
+            <field name="ver_equipos">Balanza 0,1 g, kit colorimétrico de metabisulfito, calibrador de tallas, microscopio de campo, termómetro y oxímetro</field>
+            <field name="shrimp_capacity_value" eval="8.0"/>
+            <field name="shrimp_capacity_unit">lots_day</field>
+            <field name="ver_ruc">0992459573001</field>
+            <field name="vat">0992459573001</field>
+            <field name="ver_razon_fiscal">Verificaciones Técnicas del Golfo S.A.</field>
+            <field name="ver_dir_fiscal">Guayaquil, Guayas</field>
+            <field name="ver_fee_base" eval="220.0"/>
+            <field name="ver_fee_por_lb" eval="0.01"/>
+        </record>
+        <record id="demo_ms_ver_01_cuenta" model="res.partner.bank">
+            <field name="partner_id" ref="demo_ms_ver_01"/>
+            <field name="bank_id" ref="demo_ms_bank_banco_pichincha"/>
+            <field name="acc_number">3668653375</field>
+            <field name="acc_holder_name">Verificaciones Técnicas del Golfo S.A.</field>
+            <field name="shrimp_account_type">corriente</field>
+            <field name="shrimp_holder_id">0992459573001</field>
+        </record>
+        <record id="demo_ms_ver_02" model="res.partner">
+            <field name="name">Control Acuícola El Oro Cía. Ltda.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">verificador</field>
+            <field name="vat_or_id">0794599092001</field>
+            <field name="email">operaciones@controlacuicolaeloro.test</field>
+            <field name="phone">07-6343993</field>
+            <field name="street">Av. 25 de Junio 1165</field>
+            <field name="city">Machala</field>
+            <field name="state_id" ref="base.state_ec_07"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Control Acuícola El Oro Cía. Ltda.</field>
+            <field name="shrimp_representante">Ing. Jorge Salazar Alvarado</field>
+            <field name="shrimp_telefono">07-6343993</field>
+            <field name="shrimp_ubicacion">Machala, El Oro</field>
+            <field name="ver_cobertura">El Oro, Guayas</field>
+            <field name="ver_provincias">El Oro, Guayas</field>
+            <field name="ver_radio_km" eval="250"/>
+            <field name="ver_registro_num">SAE-VER-4609</field>
+            <field name="ver_entidad_acredita">Servicio de Acreditación Ecuatoriano (SAE)</field>
+            <field name="ver_acred_vigencia" eval="(DateTime.today() + relativedelta(days=426)).strftime('%Y-%m-%d')"/>
+            <field name="ver_email_avisos">avisos@controlacuicolaeloro.test</field>
+            <field name="ver_whatsapp">+593 99 686 8690</field>
+            <field name="ver_horario">Lunes a sábado, 06:00 a 20:00</field>
+            <field name="ver_tiempo_respuesta">24 horas</field>
+            <field name="ver_equipo_propio" eval="True"/>
+            <field name="ver_analisis_tipos">Peso y merma, presentación (cuerpo/cola), metabisulfito, clasificación por talla, sabor; conteo volumétrico y supervivencia de larva</field>
+            <field name="ver_equipos">Balanza 0,1 g, kit colorimétrico de metabisulfito, calibrador de tallas, microscopio de campo, termómetro y oxímetro</field>
+            <field name="shrimp_capacity_value" eval="7.0"/>
+            <field name="shrimp_capacity_unit">lots_day</field>
+            <field name="ver_ruc">0794599092001</field>
+            <field name="vat">0794599092001</field>
+            <field name="ver_razon_fiscal">Control Acuícola El Oro Cía. Ltda.</field>
+            <field name="ver_dir_fiscal">Machala, El Oro</field>
+            <field name="ver_fee_base" eval="300.0"/>
+            <field name="ver_fee_por_lb" eval="0.008"/>
+        </record>
+        <record id="demo_ms_ver_02_cuenta" model="res.partner.bank">
+            <field name="partner_id" ref="demo_ms_ver_02"/>
+            <field name="bank_id" ref="demo_ms_bank_banco_bolivariano"/>
+            <field name="acc_number">3020072492</field>
+            <field name="acc_holder_name">Control Acuícola El Oro Cía. Ltda.</field>
+            <field name="shrimp_account_type">corriente</field>
+            <field name="shrimp_holder_id">0794599092001</field>
+        </record>
+        <record id="demo_ms_ver_03" model="res.partner">
+            <field name="name">Inspectores Marinos de Manabí S.A.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">verificador</field>
+            <field name="vat_or_id">1397844044001</field>
+            <field name="email">operaciones@inspectoresmarinosdema.test</field>
+            <field name="phone">05-6629267</field>
+            <field name="street">Av. Malecón 2132</field>
+            <field name="city">Manta</field>
+            <field name="state_id" ref="base.state_ec_13"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Inspectores Marinos de Manabí S.A.</field>
+            <field name="shrimp_representante">Blga. Tatiana Palacios Bravo</field>
+            <field name="shrimp_telefono">05-6629267</field>
+            <field name="shrimp_ubicacion">Manta, Manabí</field>
+            <field name="ver_cobertura">Manabí, Esmeraldas</field>
+            <field name="ver_provincias">Manabí, Esmeraldas</field>
+            <field name="ver_radio_km" eval="150"/>
+            <field name="ver_registro_num">SAE-VER-3856</field>
+            <field name="ver_entidad_acredita">Servicio de Acreditación Ecuatoriano (SAE)</field>
+            <field name="ver_acred_vigencia" eval="(DateTime.today() + relativedelta(days=188)).strftime('%Y-%m-%d')"/>
+            <field name="ver_email_avisos">avisos@inspectoresmarinosdema.test</field>
+            <field name="ver_whatsapp">+593 99 268 3885</field>
+            <field name="ver_horario">Lunes a viernes 07:00-18:00; sábados bajo pedido</field>
+            <field name="ver_tiempo_respuesta">24 horas</field>
+            <field name="ver_equipo_propio" eval="False"/>
+            <field name="ver_analisis_tipos">Peso y merma, presentación (cuerpo/cola), metabisulfito, clasificación por talla, sabor; conteo volumétrico y supervivencia de larva</field>
+            <field name="ver_equipos">Balanza 0,1 g, kit colorimétrico de metabisulfito, calibrador de tallas, microscopio de campo, termómetro y oxímetro</field>
+            <field name="shrimp_capacity_value" eval="14.0"/>
+            <field name="shrimp_capacity_unit">lots_day</field>
+            <field name="ver_ruc">1397844044001</field>
+            <field name="vat">1397844044001</field>
+            <field name="ver_razon_fiscal">Inspectores Marinos de Manabí S.A.</field>
+            <field name="ver_dir_fiscal">Manta, Manabí</field>
+            <field name="ver_fee_base" eval="180.0"/>
+            <field name="ver_fee_por_lb" eval="0.008"/>
+        </record>
+        <record id="demo_ms_ver_03_cuenta" model="res.partner.bank">
+            <field name="partner_id" ref="demo_ms_ver_03"/>
+            <field name="bank_id" ref="demo_ms_bank_banco_bolivariano"/>
+            <field name="acc_number">3513042888</field>
+            <field name="acc_holder_name">Inspectores Marinos de Manabí S.A.</field>
+            <field name="shrimp_account_type">corriente</field>
+            <field name="shrimp_holder_id">1397844044001</field>
+        </record>
+        <record id="demo_ms_ver_04" model="res.partner">
+            <field name="name">Calidad y Campo Acuícola S.A.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">verificador</field>
+            <field name="vat_or_id">0999407153001</field>
+            <field name="email">operaciones@calidadycampoacuicola.test</field>
+            <field name="phone">04-4908674</field>
+            <field name="street">Av. Malecón 806</field>
+            <field name="city">Durán</field>
+            <field name="state_id" ref="base.state_ec_09"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Calidad y Campo Acuícola S.A.</field>
+            <field name="shrimp_representante">Ing. Marcelo Ochoa Carvajal</field>
+            <field name="shrimp_telefono">04-4908674</field>
+            <field name="shrimp_ubicacion">Durán, Guayas</field>
+            <field name="ver_cobertura">Guayas, Santa Elena, Los Ríos</field>
+            <field name="ver_provincias">Guayas, Santa Elena, Los Ríos</field>
+            <field name="ver_radio_km" eval="80"/>
+            <field name="ver_registro_num">SAE-VER-7216</field>
+            <field name="ver_entidad_acredita">Servicio de Acreditación Ecuatoriano (SAE)</field>
+            <field name="ver_acred_vigencia" eval="(DateTime.today() + relativedelta(days=304)).strftime('%Y-%m-%d')"/>
+            <field name="ver_email_avisos">avisos@calidadycampoacuicola.test</field>
+            <field name="ver_whatsapp">+593 98 341 4559</field>
+            <field name="ver_horario">Todos los días, 05:00 a 22:00</field>
+            <field name="ver_tiempo_respuesta">24 horas</field>
+            <field name="ver_equipo_propio" eval="True"/>
+            <field name="ver_analisis_tipos">Peso y merma, presentación (cuerpo/cola), metabisulfito, clasificación por talla, sabor; conteo volumétrico y supervivencia de larva</field>
+            <field name="ver_equipos">Balanza 0,1 g, kit colorimétrico de metabisulfito, calibrador de tallas, microscopio de campo, termómetro y oxímetro</field>
+            <field name="shrimp_capacity_value" eval="12.0"/>
+            <field name="shrimp_capacity_unit">lots_day</field>
+            <field name="ver_ruc">0999407153001</field>
+            <field name="vat">0999407153001</field>
+            <field name="ver_razon_fiscal">Calidad y Campo Acuícola S.A.</field>
+            <field name="ver_dir_fiscal">Durán, Guayas</field>
+            <field name="ver_fee_base" eval="300.0"/>
+            <field name="ver_fee_por_lb" eval="0.01"/>
+        </record>
+        <record id="demo_ms_ver_04_cuenta" model="res.partner.bank">
+            <field name="partner_id" ref="demo_ms_ver_04"/>
+            <field name="bank_id" ref="demo_ms_bank_banco_del_pacifico"/>
+            <field name="acc_number">4045471182</field>
+            <field name="acc_holder_name">Calidad y Campo Acuícola S.A.</field>
+            <field name="shrimp_account_type">corriente</field>
+            <field name="shrimp_holder_id">0999407153001</field>
+        </record>
+        <record id="demo_ms_ver_05" model="res.partner">
+            <field name="name">Peritajes Camaroneros del Sur S.A.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">verificador</field>
+            <field name="vat_or_id">0794603316001</field>
+            <field name="email">operaciones@peritajescamaronerosdel.test</field>
+            <field name="phone">07-4788757</field>
+            <field name="street">Av. Malecón 1678</field>
+            <field name="city">Santa Rosa</field>
+            <field name="state_id" ref="base.state_ec_07"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Peritajes Camaroneros del Sur S.A.</field>
+            <field name="shrimp_representante">Ing. Miguel Muñoz Carvajal</field>
+            <field name="shrimp_telefono">07-4788757</field>
+            <field name="shrimp_ubicacion">Santa Rosa, El Oro</field>
+            <field name="ver_cobertura">El Oro, Guayas</field>
+            <field name="ver_provincias">El Oro, Guayas</field>
+            <field name="ver_radio_km" eval="200"/>
+            <field name="ver_registro_num">SAE-VER-8019</field>
+            <field name="ver_entidad_acredita">Servicio de Acreditación Ecuatoriano (SAE)</field>
+            <field name="ver_acred_vigencia" eval="(DateTime.today() + relativedelta(days=320)).strftime('%Y-%m-%d')"/>
+            <field name="ver_email_avisos">avisos@peritajescamaronerosdel.test</field>
+            <field name="ver_whatsapp">+593 97 895 1117</field>
+            <field name="ver_horario">Lunes a sábado, 06:00 a 20:00</field>
+            <field name="ver_tiempo_respuesta">12 horas</field>
+            <field name="ver_equipo_propio" eval="True"/>
+            <field name="ver_analisis_tipos">Peso y merma, presentación (cuerpo/cola), metabisulfito, clasificación por talla, sabor; conteo volumétrico y supervivencia de larva</field>
+            <field name="ver_equipos">Balanza 0,1 g, kit colorimétrico de metabisulfito, calibrador de tallas, microscopio de campo, termómetro y oxímetro</field>
+            <field name="shrimp_capacity_value" eval="13.0"/>
+            <field name="shrimp_capacity_unit">lots_day</field>
+            <field name="ver_ruc">0794603316001</field>
+            <field name="vat">0794603316001</field>
+            <field name="ver_razon_fiscal">Peritajes Camaroneros del Sur S.A.</field>
+            <field name="ver_dir_fiscal">Santa Rosa, El Oro</field>
+            <field name="ver_fee_base" eval="180.0"/>
+            <field name="ver_fee_por_lb" eval="0.01"/>
+        </record>
+        <record id="demo_ms_ver_05_cuenta" model="res.partner.bank">
+            <field name="partner_id" ref="demo_ms_ver_05"/>
+            <field name="bank_id" ref="demo_ms_bank_banco_del_pacifico"/>
+            <field name="acc_number">5141034307</field>
+            <field name="acc_holder_name">Peritajes Camaroneros del Sur S.A.</field>
+            <field name="shrimp_account_type">corriente</field>
+            <field name="shrimp_holder_id">0794603316001</field>
+        </record>
+        <record id="demo_ms_ver_06" model="res.partner">
+            <field name="name">Laboratorio de Verificación Península S.A.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">verificador</field>
+            <field name="vat_or_id">2498717139001</field>
+            <field name="email">operaciones@laboratoriodeverificaci.test</field>
+            <field name="phone">04-2700918</field>
+            <field name="street">Av. Malecón 1443</field>
+            <field name="city">La Libertad</field>
+            <field name="state_id" ref="base.state_ec_24"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Laboratorio de Verificación Península S.A.</field>
+            <field name="shrimp_representante">Econ. Víctor Suárez Yagual</field>
+            <field name="shrimp_telefono">04-2700918</field>
+            <field name="shrimp_ubicacion">La Libertad, Santa Elena</field>
+            <field name="ver_cobertura">Santa Elena, Guayas</field>
+            <field name="ver_provincias">Santa Elena, Guayas</field>
+            <field name="ver_radio_km" eval="200"/>
+            <field name="ver_registro_num">SAE-VER-1369</field>
+            <field name="ver_entidad_acredita">Servicio de Acreditación Ecuatoriano (SAE)</field>
+            <field name="ver_acred_vigencia" eval="(DateTime.today() + relativedelta(days=151)).strftime('%Y-%m-%d')"/>
+            <field name="ver_email_avisos">avisos@laboratoriodeverificaci.test</field>
+            <field name="ver_whatsapp">+593 98 815 3177</field>
+            <field name="ver_horario">Todos los días, 05:00 a 22:00</field>
+            <field name="ver_tiempo_respuesta">24 a 48 horas</field>
+            <field name="ver_equipo_propio" eval="True"/>
+            <field name="ver_analisis_tipos">Peso y merma, presentación (cuerpo/cola), metabisulfito, clasificación por talla, sabor; conteo volumétrico y supervivencia de larva</field>
+            <field name="ver_equipos">Balanza 0,1 g, kit colorimétrico de metabisulfito, calibrador de tallas, microscopio de campo, termómetro y oxímetro</field>
+            <field name="shrimp_capacity_value" eval="5.0"/>
+            <field name="shrimp_capacity_unit">lots_day</field>
+            <field name="ver_ruc">2498717139001</field>
+            <field name="vat">2498717139001</field>
+            <field name="ver_razon_fiscal">Laboratorio de Verificación Península S.A.</field>
+            <field name="ver_dir_fiscal">La Libertad, Santa Elena</field>
+            <field name="ver_fee_base" eval="180.0"/>
+            <field name="ver_fee_por_lb" eval="0.01"/>
+        </record>
+        <record id="demo_ms_ver_06_cuenta" model="res.partner.bank">
+            <field name="partner_id" ref="demo_ms_ver_06"/>
+            <field name="bank_id" ref="demo_ms_bank_banco_pichincha"/>
+            <field name="acc_number">7126250434</field>
+            <field name="acc_holder_name">Laboratorio de Verificación Península S.A.</field>
+            <field name="shrimp_account_type">corriente</field>
+            <field name="shrimp_holder_id">2498717139001</field>
+        </record>
+        <record id="demo_ms_ver_07" model="res.partner">
+            <field name="name">Auditores de Cosecha Ecuador Cía. Ltda.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">verificador</field>
+            <field name="vat_or_id">0992187263001</field>
+            <field name="email">operaciones@auditoresdecosechaecua.test</field>
+            <field name="phone">04-5750265</field>
+            <field name="street">Av. Rodríguez Bonín 1743</field>
+            <field name="city">Guayaquil</field>
+            <field name="state_id" ref="base.state_ec_09"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Auditores de Cosecha Ecuador Cía. Ltda.</field>
+            <field name="shrimp_representante">Ing. Andrés Parrales Burgos</field>
+            <field name="shrimp_telefono">04-5750265</field>
+            <field name="shrimp_ubicacion">Guayaquil, Guayas</field>
+            <field name="ver_cobertura">Guayas, Santa Elena, Los Ríos</field>
+            <field name="ver_provincias">Guayas, Santa Elena, Los Ríos</field>
+            <field name="ver_radio_km" eval="120"/>
+            <field name="ver_registro_num">SAE-VER-4393</field>
+            <field name="ver_entidad_acredita">Servicio de Acreditación Ecuatoriano (SAE)</field>
+            <field name="ver_acred_vigencia" eval="(DateTime.today() + relativedelta(days=231)).strftime('%Y-%m-%d')"/>
+            <field name="ver_email_avisos">avisos@auditoresdecosechaecua.test</field>
+            <field name="ver_whatsapp">+593 95 229 3005</field>
+            <field name="ver_horario">Todos los días, 05:00 a 22:00</field>
+            <field name="ver_tiempo_respuesta">24 horas</field>
+            <field name="ver_equipo_propio" eval="True"/>
+            <field name="ver_analisis_tipos">Peso y merma, presentación (cuerpo/cola), metabisulfito, clasificación por talla, sabor; conteo volumétrico y supervivencia de larva</field>
+            <field name="ver_equipos">Balanza 0,1 g, kit colorimétrico de metabisulfito, calibrador de tallas, microscopio de campo, termómetro y oxímetro</field>
+            <field name="shrimp_capacity_value" eval="15.0"/>
+            <field name="shrimp_capacity_unit">lots_day</field>
+            <field name="ver_ruc">0992187263001</field>
+            <field name="vat">0992187263001</field>
+            <field name="ver_razon_fiscal">Auditores de Cosecha Ecuador Cía. Ltda.</field>
+            <field name="ver_dir_fiscal">Guayaquil, Guayas</field>
+            <field name="ver_fee_base" eval="300.0"/>
+            <field name="ver_fee_por_lb" eval="0.005"/>
+        </record>
+        <record id="demo_ms_ver_07_cuenta" model="res.partner.bank">
+            <field name="partner_id" ref="demo_ms_ver_07"/>
+            <field name="bank_id" ref="demo_ms_bank_banco_internacional"/>
+            <field name="acc_number">9192549887</field>
+            <field name="acc_holder_name">Auditores de Cosecha Ecuador Cía. Ltda.</field>
+            <field name="shrimp_account_type">ahorros</field>
+            <field name="shrimp_holder_id">0992187263001</field>
+        </record>
+        <record id="demo_ms_ver_08" model="res.partner">
+            <field name="name">Verificadora Estuario Cía. Ltda.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">verificador</field>
+            <field name="vat_or_id">0997145968001</field>
+            <field name="email">operaciones@verificadoraestuario.test</field>
+            <field name="phone">04-4330279</field>
+            <field name="street">Av. Malecón 2448</field>
+            <field name="city">Naranjal</field>
+            <field name="state_id" ref="base.state_ec_09"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Verificadora Estuario Cía. Ltda.</field>
+            <field name="shrimp_representante">Econ. Ximena Macías Murillo</field>
+            <field name="shrimp_telefono">04-4330279</field>
+            <field name="shrimp_ubicacion">Naranjal, Guayas</field>
+            <field name="ver_cobertura">Guayas, Santa Elena, Los Ríos</field>
+            <field name="ver_provincias">Guayas, Santa Elena, Los Ríos</field>
+            <field name="ver_radio_km" eval="80"/>
+            <field name="ver_registro_num">SAE-VER-4602</field>
+            <field name="ver_entidad_acredita">Servicio de Acreditación Ecuatoriano (SAE)</field>
+            <field name="ver_acred_vigencia" eval="(DateTime.today() + relativedelta(days=-20)).strftime('%Y-%m-%d')"/>
+            <field name="ver_email_avisos">avisos@verificadoraestuario.test</field>
+            <field name="ver_whatsapp">+593 98 123 8545</field>
+            <field name="ver_horario">Lunes a sábado, 06:00 a 20:00</field>
+            <field name="ver_tiempo_respuesta">8 horas</field>
+            <field name="ver_equipo_propio" eval="True"/>
+            <field name="ver_analisis_tipos">Peso y merma, presentación (cuerpo/cola), metabisulfito, clasificación por talla, sabor; conteo volumétrico y supervivencia de larva</field>
+            <field name="ver_equipos">Balanza 0,1 g, kit colorimétrico de metabisulfito, calibrador de tallas, microscopio de campo, termómetro y oxímetro</field>
+            <field name="shrimp_capacity_value" eval="6.0"/>
+            <field name="shrimp_capacity_unit">lots_day</field>
+            <field name="ver_ruc">0997145968001</field>
+            <field name="vat">0997145968001</field>
+            <field name="ver_razon_fiscal">Verificadora Estuario Cía. Ltda.</field>
+            <field name="ver_dir_fiscal">Naranjal, Guayas</field>
+            <field name="ver_fee_base" eval="280.0"/>
+            <field name="ver_fee_por_lb" eval="0.01"/>
+        </record>
+        <record id="demo_ms_ver_08_cuenta" model="res.partner.bank">
+            <field name="partner_id" ref="demo_ms_ver_08"/>
+            <field name="bank_id" ref="demo_ms_bank_banco_del_pacifico"/>
+            <field name="acc_number">6577331564</field>
+            <field name="acc_holder_name">Verificadora Estuario Cía. Ltda.</field>
+            <field name="shrimp_account_type">ahorros</field>
+            <field name="shrimp_holder_id">0997145968001</field>
+        </record>
+        <record id="demo_ms_ver_09" model="res.partner">
+            <field name="name">Técnicos de Muelle Asociados S.A.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">verificador</field>
+            <field name="vat_or_id">0996769666001</field>
+            <field name="email">operaciones@tecnicosdemuelleasocia.test</field>
+            <field name="phone">04-3364238</field>
+            <field name="street">Av. 25 de Junio 1075</field>
+            <field name="city">Posorja</field>
+            <field name="state_id" ref="base.state_ec_09"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Técnicos de Muelle Asociados S.A.</field>
+            <field name="shrimp_representante">Econ. Jorge Mendoza Ochoa</field>
+            <field name="shrimp_telefono">04-3364238</field>
+            <field name="shrimp_ubicacion">Posorja, Guayas</field>
+            <field name="ver_cobertura">Guayas, Santa Elena, Los Ríos</field>
+            <field name="ver_provincias">Guayas, Santa Elena, Los Ríos</field>
+            <field name="ver_radio_km" eval="200"/>
+            <field name="ver_registro_num">SAE-VER-4325</field>
+            <field name="ver_entidad_acredita">Servicio de Acreditación Ecuatoriano (SAE)</field>
+            <field name="ver_acred_vigencia" eval="(DateTime.today() + relativedelta(days=-20)).strftime('%Y-%m-%d')"/>
+            <field name="ver_email_avisos">avisos@tecnicosdemuelleasocia.test</field>
+            <field name="ver_whatsapp">+593 96 346 9309</field>
+            <field name="ver_horario">Lunes a sábado, 06:00 a 20:00</field>
+            <field name="ver_tiempo_respuesta">24 horas</field>
+            <field name="ver_equipo_propio" eval="True"/>
+            <field name="ver_analisis_tipos">Peso y merma, presentación (cuerpo/cola), metabisulfito, clasificación por talla, sabor; conteo volumétrico y supervivencia de larva</field>
+            <field name="ver_equipos">Balanza 0,1 g, kit colorimétrico de metabisulfito, calibrador de tallas, microscopio de campo, termómetro y oxímetro</field>
+            <field name="shrimp_capacity_value" eval="9.0"/>
+            <field name="shrimp_capacity_unit">lots_day</field>
+            <field name="ver_ruc">0996769666001</field>
+            <field name="vat">0996769666001</field>
+            <field name="ver_razon_fiscal">Técnicos de Muelle Asociados S.A.</field>
+            <field name="ver_dir_fiscal">Posorja, Guayas</field>
+            <field name="ver_fee_base" eval="180.0"/>
+            <field name="ver_fee_por_lb" eval="0.005"/>
+        </record>
+        <record id="demo_ms_ver_09_cuenta" model="res.partner.bank">
+            <field name="partner_id" ref="demo_ms_ver_09"/>
+            <field name="bank_id" ref="demo_ms_bank_banco_pichincha"/>
+            <field name="acc_number">1678481060</field>
+            <field name="acc_holder_name">Técnicos de Muelle Asociados S.A.</field>
+            <field name="shrimp_account_type">ahorros</field>
+            <field name="shrimp_holder_id">0996769666001</field>
+        </record>
+        <record id="demo_ms_ver_10" model="res.partner">
+            <field name="name">Inspección Acuícola Esmeraldas S.A.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">verificador</field>
+            <field name="vat_or_id">0890379796001</field>
+            <field name="email">operaciones@inspeccionacuicolaesmer.test</field>
+            <field name="phone">06-4943926</field>
+            <field name="street">Av. Malecón 1074</field>
+            <field name="city">Atacames</field>
+            <field name="state_id" ref="base.state_ec_08"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Inspección Acuícola Esmeraldas S.A.</field>
+            <field name="shrimp_representante">Acuic. Galo Mite Jaramillo</field>
+            <field name="shrimp_telefono">06-4943926</field>
+            <field name="shrimp_ubicacion">Atacames, Esmeraldas</field>
+            <field name="ver_cobertura">Esmeraldas, Manabí</field>
+            <field name="ver_provincias">Esmeraldas, Manabí</field>
+            <field name="ver_radio_km" eval="200"/>
+            <field name="ver_registro_num">SAE-VER-4155</field>
+            <field name="ver_entidad_acredita">Servicio de Acreditación Ecuatoriano (SAE)</field>
+            <field name="ver_acred_vigencia" eval="(DateTime.today() + relativedelta(days=431)).strftime('%Y-%m-%d')"/>
+            <field name="ver_email_avisos">avisos@inspeccionacuicolaesmer.test</field>
+            <field name="ver_whatsapp">+593 99 451 4637</field>
+            <field name="ver_horario">Lunes a viernes 07:00-18:00; sábados bajo pedido</field>
+            <field name="ver_tiempo_respuesta">12 horas</field>
+            <field name="ver_equipo_propio" eval="True"/>
+            <field name="ver_analisis_tipos">Peso y merma, presentación (cuerpo/cola), metabisulfito, clasificación por talla, sabor; conteo volumétrico y supervivencia de larva</field>
+            <field name="ver_equipos">Balanza 0,1 g, kit colorimétrico de metabisulfito, calibrador de tallas, microscopio de campo, termómetro y oxímetro</field>
+            <field name="shrimp_capacity_value" eval="8.0"/>
+            <field name="shrimp_capacity_unit">lots_day</field>
+            <field name="ver_ruc">0890379796001</field>
+            <field name="vat">0890379796001</field>
+            <field name="ver_razon_fiscal">Inspección Acuícola Esmeraldas S.A.</field>
+            <field name="ver_dir_fiscal">Atacames, Esmeraldas</field>
+            <field name="ver_fee_base" eval="220.0"/>
+            <field name="ver_fee_por_lb" eval="0.005"/>
+        </record>
+        <record id="demo_ms_ver_10_cuenta" model="res.partner.bank">
+            <field name="partner_id" ref="demo_ms_ver_10"/>
+            <field name="bank_id" ref="demo_ms_bank_banco_internacional"/>
+            <field name="acc_number">2769048048</field>
+            <field name="acc_holder_name">Inspección Acuícola Esmeraldas S.A.</field>
+            <field name="shrimp_account_type">ahorros</field>
+            <field name="shrimp_holder_id">0890379796001</field>
+        </record>
+
+        <!-- ===== Técnicos de campo de las empresas nuevas (contactos hijos) ===== -->
+        <record id="demo_ms_ver_01_tec_1" model="res.partner">
+            <field name="name">Gustavo Moreira Anchundia</field>
+            <field name="parent_id" ref="demo_ms_ver_01"/>
+            <field name="type">contact</field>
+            <field name="function">Técnico de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_campo"/>
+            <field name="email">gustavo.moreira1@verificacionestecnicasd.test</field>
+            <field name="phone">+593 96 427 5926</field>
+        </record>
+        <record id="demo_ms_ver_01_tec_2" model="res.partner">
+            <field name="name">Xavier Tomalá Loor</field>
+            <field name="parent_id" ref="demo_ms_ver_01"/>
+            <field name="type">contact</field>
+            <field name="function">Técnico de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_supervisor"/>
+            <field name="email">xavier.tomala2@verificacionestecnicasd.test</field>
+            <field name="phone">+593 96 166 1729</field>
+        </record>
+        <record id="demo_ms_ver_01_tec_3" model="res.partner">
+            <field name="name">Ramiro Salazar Baque</field>
+            <field name="parent_id" ref="demo_ms_ver_01"/>
+            <field name="type">contact</field>
+            <field name="function">Biólogo de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_supervisor"/>
+            <field name="email">ramiro.salazar3@verificacionestecnicasd.test</field>
+            <field name="phone">+593 99 660 8339</field>
+        </record>
+        <record id="demo_ms_ver_01_tec_4" model="res.partner">
+            <field name="name">Cecilia Borbor Lindao</field>
+            <field name="parent_id" ref="demo_ms_ver_01"/>
+            <field name="type">contact</field>
+            <field name="function">Biólogo de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="demo_ms_cargo_1"/>
+            <field name="email">cecilia.borbor4@verificacionestecnicasd.test</field>
+            <field name="phone">+593 98 453 4691</field>
+        </record>
+        <record id="demo_ms_ver_01_tec_5" model="res.partner">
+            <field name="name">Carlos Solórzano Quintero</field>
+            <field name="parent_id" ref="demo_ms_ver_01"/>
+            <field name="type">contact</field>
+            <field name="function">Inspector de calidad</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="demo_ms_cargo_2"/>
+            <field name="email">carlos.solorzano5@verificacionestecnicasd.test</field>
+            <field name="phone">+593 95 125 2366</field>
+        </record>
+        <record id="demo_ms_ver_01_tec_6" model="res.partner">
+            <field name="name">Ximena Reyes Rodríguez</field>
+            <field name="parent_id" ref="demo_ms_ver_01"/>
+            <field name="type">contact</field>
+            <field name="function">Inspector de calidad</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_lab"/>
+            <field name="email">ximena.reyes6@verificacionestecnicasd.test</field>
+            <field name="phone">+593 98 579 5375</field>
+        </record>
+        <record id="demo_ms_ver_01_tec_7" model="res.partner">
+            <field name="name">Cecilia Villamar Muñoz</field>
+            <field name="parent_id" ref="demo_ms_ver_01"/>
+            <field name="type">contact</field>
+            <field name="function">Supervisor de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="demo_ms_cargo_2"/>
+            <field name="email">cecilia.villamar7@verificacionestecnicasd.test</field>
+            <field name="phone">+593 99 805 6102</field>
+        </record>
+        <record id="demo_ms_ver_02_tec_1" model="res.partner">
+            <field name="name">Hernán Valarezo Muñoz</field>
+            <field name="parent_id" ref="demo_ms_ver_02"/>
+            <field name="type">contact</field>
+            <field name="function">Técnico de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_supervisor"/>
+            <field name="email">hernan.valarezo1@controlacuicolaeloro.test</field>
+            <field name="phone">+593 96 625 3547</field>
+        </record>
+        <record id="demo_ms_ver_02_tec_2" model="res.partner">
+            <field name="name">Paola Sánchez Solórzano</field>
+            <field name="parent_id" ref="demo_ms_ver_02"/>
+            <field name="type">contact</field>
+            <field name="function">Técnico de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_campo"/>
+            <field name="email">paola.sanchez2@controlacuicolaeloro.test</field>
+            <field name="phone">+593 97 502 5474</field>
+        </record>
+        <record id="demo_ms_ver_02_tec_3" model="res.partner">
+            <field name="name">Jessica Aguilar Bravo</field>
+            <field name="parent_id" ref="demo_ms_ver_02"/>
+            <field name="type">contact</field>
+            <field name="function">Biólogo de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_campo"/>
+            <field name="email">jessica.aguilar3@controlacuicolaeloro.test</field>
+            <field name="phone">+593 95 563 4159</field>
+        </record>
+        <record id="demo_ms_ver_02_tec_4" model="res.partner">
+            <field name="name">Mónica Parrales Rodríguez</field>
+            <field name="parent_id" ref="demo_ms_ver_02"/>
+            <field name="type">contact</field>
+            <field name="function">Biólogo de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_supervisor"/>
+            <field name="email">monica.parrales4@controlacuicolaeloro.test</field>
+            <field name="phone">+593 99 905 7596</field>
+        </record>
+        <record id="demo_ms_ver_02_tec_5" model="res.partner">
+            <field name="name">Miguel Villamar Mite</field>
+            <field name="parent_id" ref="demo_ms_ver_02"/>
+            <field name="type">contact</field>
+            <field name="function">Biólogo de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_campo"/>
+            <field name="email">miguel.villamar5@controlacuicolaeloro.test</field>
+            <field name="phone">+593 98 807 5976</field>
+        </record>
+        <record id="demo_ms_ver_02_tec_6" model="res.partner">
+            <field name="name">Ricardo Ronquillo Ochoa</field>
+            <field name="parent_id" ref="demo_ms_ver_02"/>
+            <field name="type">contact</field>
+            <field name="function">Inspector de calidad</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_inspector"/>
+            <field name="email">ricardo.ronquillo6@controlacuicolaeloro.test</field>
+            <field name="phone">+593 99 186 3297</field>
+        </record>
+        <record id="demo_ms_ver_03_tec_1" model="res.partner">
+            <field name="name">Verónica Ronquillo Pincay</field>
+            <field name="parent_id" ref="demo_ms_ver_03"/>
+            <field name="type">contact</field>
+            <field name="function">Técnico de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_campo"/>
+            <field name="email">veronica.ronquillo1@inspectoresmarinosdema.test</field>
+            <field name="phone">+593 98 330 5816</field>
+        </record>
+        <record id="demo_ms_ver_03_tec_2" model="res.partner">
+            <field name="name">Juan Ordóñez Zambrano</field>
+            <field name="parent_id" ref="demo_ms_ver_03"/>
+            <field name="type">contact</field>
+            <field name="function">Técnico de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_supervisor"/>
+            <field name="email">juan.ordonez2@inspectoresmarinosdema.test</field>
+            <field name="phone">+593 96 313 6801</field>
+        </record>
+        <record id="demo_ms_ver_03_tec_3" model="res.partner">
+            <field name="name">Iván Sánchez Suárez</field>
+            <field name="parent_id" ref="demo_ms_ver_03"/>
+            <field name="type">contact</field>
+            <field name="function">Supervisor de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_campo"/>
+            <field name="email">ivan.sanchez3@inspectoresmarinosdema.test</field>
+            <field name="phone">+593 95 260 3618</field>
+        </record>
+        <record id="demo_ms_ver_03_tec_4" model="res.partner">
+            <field name="name">Holger Espinoza Bravo</field>
+            <field name="parent_id" ref="demo_ms_ver_03"/>
+            <field name="type">contact</field>
+            <field name="function">Inspector de calidad</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="demo_ms_cargo_3"/>
+            <field name="email">holger.espinoza4@inspectoresmarinosdema.test</field>
+            <field name="phone">+593 96 442 7077</field>
+        </record>
+        <record id="demo_ms_ver_03_tec_5" model="res.partner">
+            <field name="name">Bolívar Carvajal Coello</field>
+            <field name="parent_id" ref="demo_ms_ver_03"/>
+            <field name="type">contact</field>
+            <field name="function">Supervisor de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="demo_ms_cargo_3"/>
+            <field name="email">bolivar.carvajal5@inspectoresmarinosdema.test</field>
+            <field name="phone">+593 95 805 2227</field>
+        </record>
+        <record id="demo_ms_ver_03_tec_6" model="res.partner">
+            <field name="name">Carlos Pincay Baque</field>
+            <field name="parent_id" ref="demo_ms_ver_03"/>
+            <field name="type">contact</field>
+            <field name="function">Biólogo de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_coord"/>
+            <field name="email">carlos.pincay6@inspectoresmarinosdema.test</field>
+            <field name="phone">+593 97 693 1238</field>
+        </record>
+        <record id="demo_ms_ver_03_tec_7" model="res.partner">
+            <field name="name">Ana Mite Mendoza</field>
+            <field name="parent_id" ref="demo_ms_ver_03"/>
+            <field name="type">contact</field>
+            <field name="function">Biólogo de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="demo_ms_cargo_3"/>
+            <field name="email">ana.mite7@inspectoresmarinosdema.test</field>
+            <field name="phone">+593 95 752 3517</field>
+        </record>
+        <record id="demo_ms_ver_04_tec_1" model="res.partner">
+            <field name="name">Diana Villamar Solórzano</field>
+            <field name="parent_id" ref="demo_ms_ver_04"/>
+            <field name="type">contact</field>
+            <field name="function">Técnico de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_campo"/>
+            <field name="email">diana.villamar1@calidadycampoacuicola.test</field>
+            <field name="phone">+593 95 986 1931</field>
+        </record>
+        <record id="demo_ms_ver_04_tec_2" model="res.partner">
+            <field name="name">Rolando Torres Yagual</field>
+            <field name="parent_id" ref="demo_ms_ver_04"/>
+            <field name="type">contact</field>
+            <field name="function">Técnico de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_supervisor"/>
+            <field name="email">rolando.torres2@calidadycampoacuicola.test</field>
+            <field name="phone">+593 96 521 3839</field>
+        </record>
+        <record id="demo_ms_ver_04_tec_3" model="res.partner">
+            <field name="name">Lorena Rodríguez Ordóñez</field>
+            <field name="parent_id" ref="demo_ms_ver_04"/>
+            <field name="type">contact</field>
+            <field name="function">Inspector de calidad</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_coord"/>
+            <field name="email">lorena.rodriguez3@calidadycampoacuicola.test</field>
+            <field name="phone">+593 98 382 4407</field>
+        </record>
+        <record id="demo_ms_ver_04_tec_4" model="res.partner">
+            <field name="name">Diego Lindao Cedeño</field>
+            <field name="parent_id" ref="demo_ms_ver_04"/>
+            <field name="type">contact</field>
+            <field name="function">Inspector de calidad</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="demo_ms_cargo_3"/>
+            <field name="email">diego.lindao4@calidadycampoacuicola.test</field>
+            <field name="phone">+593 97 418 6088</field>
+        </record>
+        <record id="demo_ms_ver_04_tec_5" model="res.partner">
+            <field name="name">Andrés Pincay Torres</field>
+            <field name="parent_id" ref="demo_ms_ver_04"/>
+            <field name="type">contact</field>
+            <field name="function">Inspector de calidad</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_coord"/>
+            <field name="email">andres.pincay5@calidadycampoacuicola.test</field>
+            <field name="phone">+593 96 334 5597</field>
+        </record>
+        <record id="demo_ms_ver_05_tec_1" model="res.partner">
+            <field name="name">Lorena Moreira Parrales</field>
+            <field name="parent_id" ref="demo_ms_ver_05"/>
+            <field name="type">contact</field>
+            <field name="function">Técnico de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_campo"/>
+            <field name="email">lorena.moreira1@peritajescamaronerosdel.test</field>
+            <field name="phone">+593 97 568 4989</field>
+        </record>
+        <record id="demo_ms_ver_05_tec_2" model="res.partner">
+            <field name="name">Carlos Rodríguez Ochoa</field>
+            <field name="parent_id" ref="demo_ms_ver_05"/>
+            <field name="type">contact</field>
+            <field name="function">Técnico de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_campo"/>
+            <field name="email">carlos.rodriguez2@peritajescamaronerosdel.test</field>
+            <field name="phone">+593 97 168 6873</field>
+        </record>
+        <record id="demo_ms_ver_05_tec_3" model="res.partner">
+            <field name="name">Luis Aguilar Espinoza</field>
+            <field name="parent_id" ref="demo_ms_ver_05"/>
+            <field name="type">contact</field>
+            <field name="function">Inspector de calidad</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_inspector"/>
+            <field name="email">luis.aguilar3@peritajescamaronerosdel.test</field>
+            <field name="phone">+593 99 536 3727</field>
+        </record>
+        <record id="demo_ms_ver_05_tec_4" model="res.partner">
+            <field name="name">Ramiro Baque Intriago</field>
+            <field name="parent_id" ref="demo_ms_ver_05"/>
+            <field name="type">contact</field>
+            <field name="function">Inspector de calidad</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_inspector"/>
+            <field name="email">ramiro.baque4@peritajescamaronerosdel.test</field>
+            <field name="phone">+593 98 476 4982</field>
+        </record>
+        <record id="demo_ms_ver_05_tec_5" model="res.partner">
+            <field name="name">Rubén Baque Bravo</field>
+            <field name="parent_id" ref="demo_ms_ver_05"/>
+            <field name="type">contact</field>
+            <field name="function">Supervisor de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_inspector"/>
+            <field name="email">ruben.baque5@peritajescamaronerosdel.test</field>
+            <field name="phone">+593 99 403 2958</field>
+        </record>
+        <record id="demo_ms_ver_06_tec_1" model="res.partner">
+            <field name="name">Fernando Carvajal Coello</field>
+            <field name="parent_id" ref="demo_ms_ver_06"/>
+            <field name="type">contact</field>
+            <field name="function">Técnico de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_campo"/>
+            <field name="email">fernando.carvajal1@laboratoriodeverificaci.test</field>
+            <field name="phone">+593 99 656 9510</field>
+        </record>
+        <record id="demo_ms_ver_06_tec_2" model="res.partner">
+            <field name="name">Fernanda Reyes Loor</field>
+            <field name="parent_id" ref="demo_ms_ver_06"/>
+            <field name="type">contact</field>
+            <field name="function">Técnico de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_supervisor"/>
+            <field name="email">fernanda.reyes2@laboratoriodeverificaci.test</field>
+            <field name="phone">+593 99 728 9765</field>
+        </record>
+        <record id="demo_ms_ver_06_tec_3" model="res.partner">
+            <field name="name">Hernán Romero Tomalá</field>
+            <field name="parent_id" ref="demo_ms_ver_06"/>
+            <field name="type">contact</field>
+            <field name="function">Inspector de calidad</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_inspector"/>
+            <field name="email">hernan.romero3@laboratoriodeverificaci.test</field>
+            <field name="phone">+593 95 637 2868</field>
+        </record>
+        <record id="demo_ms_ver_06_tec_4" model="res.partner">
+            <field name="name">Lucía Zambrano Holguín</field>
+            <field name="parent_id" ref="demo_ms_ver_06"/>
+            <field name="type">contact</field>
+            <field name="function">Inspector de calidad</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_supervisor"/>
+            <field name="email">lucia.zambrano4@laboratoriodeverificaci.test</field>
+            <field name="phone">+593 99 428 2986</field>
+        </record>
+        <record id="demo_ms_ver_06_tec_5" model="res.partner">
+            <field name="name">Darwin Rodríguez Zambrano</field>
+            <field name="parent_id" ref="demo_ms_ver_06"/>
+            <field name="type">contact</field>
+            <field name="function">Inspector de calidad</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_coord"/>
+            <field name="email">darwin.rodriguez5@laboratoriodeverificaci.test</field>
+            <field name="phone">+593 97 845 8109</field>
+        </record>
+        <record id="demo_ms_ver_06_tec_6" model="res.partner">
+            <field name="name">Édison Peñafiel Parrales</field>
+            <field name="parent_id" ref="demo_ms_ver_06"/>
+            <field name="type">contact</field>
+            <field name="function">Inspector de calidad</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_lab"/>
+            <field name="email">edison.penafiel6@laboratoriodeverificaci.test</field>
+            <field name="phone">+593 95 359 9233</field>
+        </record>
+        <record id="demo_ms_ver_06_tec_7" model="res.partner">
+            <field name="name">Hernán Ronquillo Aguilar</field>
+            <field name="parent_id" ref="demo_ms_ver_06"/>
+            <field name="type">contact</field>
+            <field name="function">Supervisor de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_supervisor"/>
+            <field name="email">hernan.ronquillo7@laboratoriodeverificaci.test</field>
+            <field name="phone">+593 96 350 8695</field>
+        </record>
+        <record id="demo_ms_ver_07_tec_1" model="res.partner">
+            <field name="name">Washington Villamar Zambrano</field>
+            <field name="parent_id" ref="demo_ms_ver_07"/>
+            <field name="type">contact</field>
+            <field name="function">Técnico de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_supervisor"/>
+            <field name="email">washington.villamar1@auditoresdecosechaecua.test</field>
+            <field name="phone">+593 98 979 4843</field>
+        </record>
+        <record id="demo_ms_ver_07_tec_2" model="res.partner">
+            <field name="name">Washington Palacios Chávez</field>
+            <field name="parent_id" ref="demo_ms_ver_07"/>
+            <field name="type">contact</field>
+            <field name="function">Técnico de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_campo"/>
+            <field name="email">washington.palacios2@auditoresdecosechaecua.test</field>
+            <field name="phone">+593 96 556 6130</field>
+        </record>
+        <record id="demo_ms_ver_07_tec_3" model="res.partner">
+            <field name="name">Darwin Borbor Quimí</field>
+            <field name="parent_id" ref="demo_ms_ver_07"/>
+            <field name="type">contact</field>
+            <field name="function">Inspector de calidad</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_coord"/>
+            <field name="email">darwin.borbor3@auditoresdecosechaecua.test</field>
+            <field name="phone">+593 97 612 1018</field>
+        </record>
+        <record id="demo_ms_ver_07_tec_4" model="res.partner">
+            <field name="name">Glenda Solórzano Tomalá</field>
+            <field name="parent_id" ref="demo_ms_ver_07"/>
+            <field name="type">contact</field>
+            <field name="function">Inspector de calidad</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="demo_ms_cargo_1"/>
+            <field name="email">glenda.solorzano4@auditoresdecosechaecua.test</field>
+            <field name="phone">+593 96 487 6316</field>
+        </record>
+        <record id="demo_ms_ver_08_tec_1" model="res.partner">
+            <field name="name">Ana Moreira Ordóñez</field>
+            <field name="parent_id" ref="demo_ms_ver_08"/>
+            <field name="type">contact</field>
+            <field name="function">Técnico de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_campo"/>
+            <field name="email">ana.moreira1@verificadoraestuario.test</field>
+            <field name="phone">+593 98 779 3571</field>
+        </record>
+        <record id="demo_ms_ver_08_tec_2" model="res.partner">
+            <field name="name">Gabriela Romero Loor</field>
+            <field name="parent_id" ref="demo_ms_ver_08"/>
+            <field name="type">contact</field>
+            <field name="function">Técnico de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_campo"/>
+            <field name="email">gabriela.romero2@verificadoraestuario.test</field>
+            <field name="phone">+593 98 537 4001</field>
+        </record>
+        <record id="demo_ms_ver_08_tec_3" model="res.partner">
+            <field name="name">Carlos Muñoz Valarezo</field>
+            <field name="parent_id" ref="demo_ms_ver_08"/>
+            <field name="type">contact</field>
+            <field name="function">Supervisor de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_coord"/>
+            <field name="email">carlos.munoz3@verificadoraestuario.test</field>
+            <field name="phone">+593 97 533 9873</field>
+        </record>
+        <record id="demo_ms_ver_08_tec_4" model="res.partner">
+            <field name="name">Katherine Reyes Villamar</field>
+            <field name="parent_id" ref="demo_ms_ver_08"/>
+            <field name="type">contact</field>
+            <field name="function">Biólogo de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_campo"/>
+            <field name="email">katherine.reyes4@verificadoraestuario.test</field>
+            <field name="phone">+593 97 940 3536</field>
+        </record>
+        <record id="demo_ms_ver_09_tec_1" model="res.partner">
+            <field name="name">Ana Andrade Ordóñez</field>
+            <field name="parent_id" ref="demo_ms_ver_09"/>
+            <field name="type">contact</field>
+            <field name="function">Técnico de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_campo"/>
+            <field name="email">ana.andrade1@tecnicosdemuelleasocia.test</field>
+            <field name="phone">+593 98 970 7527</field>
+        </record>
+        <record id="demo_ms_ver_09_tec_2" model="res.partner">
+            <field name="name">Patricia Quimí Loor</field>
+            <field name="parent_id" ref="demo_ms_ver_09"/>
+            <field name="type">contact</field>
+            <field name="function">Técnico de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_supervisor"/>
+            <field name="email">patricia.quimi2@tecnicosdemuelleasocia.test</field>
+            <field name="phone">+593 99 464 4118</field>
+        </record>
+        <record id="demo_ms_ver_09_tec_3" model="res.partner">
+            <field name="name">Holger Quintero Vera</field>
+            <field name="parent_id" ref="demo_ms_ver_09"/>
+            <field name="type">contact</field>
+            <field name="function">Biólogo de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_coord"/>
+            <field name="email">holger.quintero3@tecnicosdemuelleasocia.test</field>
+            <field name="phone">+593 98 649 1334</field>
+        </record>
+        <record id="demo_ms_ver_09_tec_4" model="res.partner">
+            <field name="name">Patricia Borbor Castillo</field>
+            <field name="parent_id" ref="demo_ms_ver_09"/>
+            <field name="type">contact</field>
+            <field name="function">Supervisor de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_lab"/>
+            <field name="email">patricia.borbor4@tecnicosdemuelleasocia.test</field>
+            <field name="phone">+593 95 123 5088</field>
+        </record>
+        <record id="demo_ms_ver_09_tec_5" model="res.partner">
+            <field name="name">Gabriela Aguilar Coello</field>
+            <field name="parent_id" ref="demo_ms_ver_09"/>
+            <field name="type">contact</field>
+            <field name="function">Supervisor de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="demo_ms_cargo_3"/>
+            <field name="email">gabriela.aguilar5@tecnicosdemuelleasocia.test</field>
+            <field name="phone">+593 95 934 4887</field>
+        </record>
+        <record id="demo_ms_ver_10_tec_1" model="res.partner">
+            <field name="name">Narcisa Ochoa Chávez</field>
+            <field name="parent_id" ref="demo_ms_ver_10"/>
+            <field name="type">contact</field>
+            <field name="function">Técnico de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_supervisor"/>
+            <field name="email">narcisa.ochoa1@inspeccionacuicolaesmer.test</field>
+            <field name="phone">+593 97 481 7743</field>
+        </record>
+        <record id="demo_ms_ver_10_tec_2" model="res.partner">
+            <field name="name">Danny Baque Carvajal</field>
+            <field name="parent_id" ref="demo_ms_ver_10"/>
+            <field name="type">contact</field>
+            <field name="function">Técnico de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_supervisor"/>
+            <field name="email">danny.baque2@inspeccionacuicolaesmer.test</field>
+            <field name="phone">+593 99 142 4696</field>
+        </record>
+        <record id="demo_ms_ver_10_tec_3" model="res.partner">
+            <field name="name">Hernán Palacios Chávez</field>
+            <field name="parent_id" ref="demo_ms_ver_10"/>
+            <field name="type">contact</field>
+            <field name="function">Supervisor de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="demo_ms_cargo_2"/>
+            <field name="email">hernan.palacios3@inspeccionacuicolaesmer.test</field>
+            <field name="phone">+593 97 922 7079</field>
+        </record>
+        <record id="demo_ms_ver_10_tec_4" model="res.partner">
+            <field name="name">Johanna Mendoza Torres</field>
+            <field name="parent_id" ref="demo_ms_ver_10"/>
+            <field name="type">contact</field>
+            <field name="function">Supervisor de campo</field>
+            <field name="shrimp_is_field_tech" eval="True"/>
+            <field name="tech_role_id" ref="tech_role_inspector"/>
+            <field name="email">johanna.mendoza4@inspeccionacuicolaesmer.test</field>
+            <field name="phone">+593 95 259 6459</field>
+        </record>
+
+        <!-- ===== Acreditaciones con su PDF: vigentes, pendiente, vencida y rechazada ===== -->
+        <record id="demo_ms_ver_01_acred_pdf" model="ir.attachment">
+            <field name="name">Acreditacion_verificaciones_tecnicas_del_go.pdf</field>
+            <field name="type">binary</field>
+            <field name="mimetype">application/pdf</field>
+            <field name="datas">JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA2MTIgNzkyXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA1IDAgUiA+PiA+PiAvQ29udGVudHMgNCAwIFIgPj4KZW5kb2JqCjQgMCBvYmoKPDwgL0xlbmd0aCAzOTYgPj4Kc3RyZWFtCkJUIC9GMSAxNiBUZiA2MCA3NjAgVGQgKEFjcmVkaXRhY2lvbiBkZSB2ZXJpZmljYWRvciAtIFZlcmlmaWNhY2lvbmVzIFRlY25pY2FzIGRlbCBHb2xmbyBTLkEuKSBUaiBFVApCVCAvRjEgMTEgVGYgNjAgNzMwIFRkIChSVUM6IDA5OTI0NTk1NzMwMDEpIFRqIEVUCkJUIC9GMSAxMSBUZiA2MCA3MTIgVGQgKE9yZ2FuaXNtbzogU2VydmljaW8gZGUgQWNyZWRpdGFjaW9uIEVjdWF0b3JpYW5vIFwoU0FFXCkpIFRqIEVUCkJUIC9GMSAxMSBUZiA2MCA2OTQgVGQgKEFsY2FuY2U6IHZlcmlmaWNhY2lvbiBkZSBjYW1hcm9uIGVuIGNhbXBvIHkgZW4gcGxhbnRhKSBUaiBFVApCVCAvRjEgOCBUZiA2MCA2MCBUZCAoRG9jdW1lbnRvIGRlIERFTU9TVFJBQ0lPTiAtIHNpbiB2YWxpZGV6IGxlZ2FsKSBUaiBFVAplbmRzdHJlYW0KZW5kb2JqCjUgMCBvYmoKPDwgL1R5cGUgL0ZvbnQgL1N1YnR5cGUgL1R5cGUxIC9CYXNlRm9udCAvSGVsdmV0aWNhID4+CmVuZG9iagp4cmVmCjAgNgowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTE1IDAwMDAwIG4gCjAwMDAwMDAyNDEgMDAwMDAgbiAKMDAwMDAwMDY4OCAwMDAwMCBuIAp0cmFpbGVyCjw8IC9TaXplIDYgL1Jvb3QgMSAwIFIgPj4Kc3RhcnR4cmVmCjc1OAolJUVPRgo=</field>
+        </record>
+        <record id="demo_ms_ver_01_acred" model="shrimp.user.certificate.line">
+            <field name="partner_id" ref="demo_ms_ver_01"/>
+            <field name="certificate_id" ref="cert_acreditacion_verificador"/>
+            <field name="certificate_number">ACRED-VER-300</field>
+            <field name="issue_date" eval="(DateTime.today() + relativedelta(days=-102)).strftime('%Y-%m-%d')"/>
+            <field name="expiry_date" eval="(DateTime.today() + relativedelta(days=628)).strftime('%Y-%m-%d')"/>
+            <field name="file_attachment_id" ref="demo_ms_ver_01_acred_pdf"/>
+            <field name="status">approved</field>
+        </record>
+        <record id="demo_ms_ver_01_hab_lab" model="shrimp.user.certificate.line">
+            <field name="partner_id" ref="demo_ms_ver_01"/>
+            <field name="certificate_id" ref="cert_habilitacion_laboratorio_analisis"/>
+            <field name="certificate_number">HAB-LAB-500</field>
+            <field name="issue_date" eval="(DateTime.today() + relativedelta(days=-194)).strftime('%Y-%m-%d')"/>
+            <field name="expiry_date" eval="(DateTime.today() + relativedelta(days=70)).strftime('%Y-%m-%d')"/>
+            <field name="file_attachment_id" ref="demo_ms_ver_01_acred_pdf"/>
+            <field name="status">approved</field>
+        </record>
+        <record id="demo_ms_ver_02_acred_pdf" model="ir.attachment">
+            <field name="name">Acreditacion_control_acuicola_el_oro_cia_lt.pdf</field>
+            <field name="type">binary</field>
+            <field name="mimetype">application/pdf</field>
+            <field name="datas">JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA2MTIgNzkyXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA1IDAgUiA+PiA+PiAvQ29udGVudHMgNCAwIFIgPj4KZW5kb2JqCjQgMCBvYmoKPDwgL0xlbmd0aCAzOTIgPj4Kc3RyZWFtCkJUIC9GMSAxNiBUZiA2MCA3NjAgVGQgKEFjcmVkaXRhY2lvbiBkZSB2ZXJpZmljYWRvciAtIENvbnRyb2wgQWN1aWNvbGEgRWwgT3JvIENpYS4gTHRkYS4pIFRqIEVUCkJUIC9GMSAxMSBUZiA2MCA3MzAgVGQgKFJVQzogMDc5NDU5OTA5MjAwMSkgVGogRVQKQlQgL0YxIDExIFRmIDYwIDcxMiBUZCAoT3JnYW5pc21vOiBTZXJ2aWNpbyBkZSBBY3JlZGl0YWNpb24gRWN1YXRvcmlhbm8gXChTQUVcKSkgVGogRVQKQlQgL0YxIDExIFRmIDYwIDY5NCBUZCAoQWxjYW5jZTogdmVyaWZpY2FjaW9uIGRlIGNhbWFyb24gZW4gY2FtcG8geSBlbiBwbGFudGEpIFRqIEVUCkJUIC9GMSA4IFRmIDYwIDYwIFRkIChEb2N1bWVudG8gZGUgREVNT1NUUkFDSU9OIC0gc2luIHZhbGlkZXogbGVnYWwpIFRqIEVUCmVuZHN0cmVhbQplbmRvYmoKNSAwIG9iago8PCAvVHlwZSAvRm9udCAvU3VidHlwZSAvVHlwZTEgL0Jhc2VGb250IC9IZWx2ZXRpY2EgPj4KZW5kb2JqCnhyZWYKMCA2CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDU4IDAwMDAwIG4gCjAwMDAwMDAxMTUgMDAwMDAgbiAKMDAwMDAwMDI0MSAwMDAwMCBuIAowMDAwMDAwNjg0IDAwMDAwIG4gCnRyYWlsZXIKPDwgL1NpemUgNiAvUm9vdCAxIDAgUiA+PgpzdGFydHhyZWYKNzU0CiUlRU9GCg==</field>
+        </record>
+        <record id="demo_ms_ver_02_acred" model="shrimp.user.certificate.line">
+            <field name="partner_id" ref="demo_ms_ver_02"/>
+            <field name="certificate_id" ref="cert_acreditacion_verificador"/>
+            <field name="certificate_number">ACRED-VER-301</field>
+            <field name="issue_date" eval="(DateTime.today() + relativedelta(days=-149)).strftime('%Y-%m-%d')"/>
+            <field name="expiry_date" eval="(DateTime.today() + relativedelta(days=581)).strftime('%Y-%m-%d')"/>
+            <field name="file_attachment_id" ref="demo_ms_ver_02_acred_pdf"/>
+            <field name="status">approved</field>
+        </record>
+        <record id="demo_ms_ver_03_acred_pdf" model="ir.attachment">
+            <field name="name">Acreditacion_inspectores_marinos_de_manabi.pdf</field>
+            <field name="type">binary</field>
+            <field name="mimetype">application/pdf</field>
+            <field name="datas">JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA2MTIgNzkyXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA1IDAgUiA+PiA+PiAvQ29udGVudHMgNCAwIFIgPj4KZW5kb2JqCjQgMCBvYmoKPDwgL0xlbmd0aCAzOTIgPj4Kc3RyZWFtCkJUIC9GMSAxNiBUZiA2MCA3NjAgVGQgKEFjcmVkaXRhY2lvbiBkZSB2ZXJpZmljYWRvciAtIEluc3BlY3RvcmVzIE1hcmlub3MgZGUgTWFuYWJpIFMuQS4pIFRqIEVUCkJUIC9GMSAxMSBUZiA2MCA3MzAgVGQgKFJVQzogMTM5Nzg0NDA0NDAwMSkgVGogRVQKQlQgL0YxIDExIFRmIDYwIDcxMiBUZCAoT3JnYW5pc21vOiBTZXJ2aWNpbyBkZSBBY3JlZGl0YWNpb24gRWN1YXRvcmlhbm8gXChTQUVcKSkgVGogRVQKQlQgL0YxIDExIFRmIDYwIDY5NCBUZCAoQWxjYW5jZTogdmVyaWZpY2FjaW9uIGRlIGNhbWFyb24gZW4gY2FtcG8geSBlbiBwbGFudGEpIFRqIEVUCkJUIC9GMSA4IFRmIDYwIDYwIFRkIChEb2N1bWVudG8gZGUgREVNT1NUUkFDSU9OIC0gc2luIHZhbGlkZXogbGVnYWwpIFRqIEVUCmVuZHN0cmVhbQplbmRvYmoKNSAwIG9iago8PCAvVHlwZSAvRm9udCAvU3VidHlwZSAvVHlwZTEgL0Jhc2VGb250IC9IZWx2ZXRpY2EgPj4KZW5kb2JqCnhyZWYKMCA2CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDU4IDAwMDAwIG4gCjAwMDAwMDAxMTUgMDAwMDAgbiAKMDAwMDAwMDI0MSAwMDAwMCBuIAowMDAwMDAwNjg0IDAwMDAwIG4gCnRyYWlsZXIKPDwgL1NpemUgNiAvUm9vdCAxIDAgUiA+PgpzdGFydHhyZWYKNzU0CiUlRU9GCg==</field>
+        </record>
+        <record id="demo_ms_ver_03_acred" model="shrimp.user.certificate.line">
+            <field name="partner_id" ref="demo_ms_ver_03"/>
+            <field name="certificate_id" ref="cert_acreditacion_verificador"/>
+            <field name="certificate_number">ACRED-VER-302</field>
+            <field name="issue_date" eval="(DateTime.today() + relativedelta(days=-459)).strftime('%Y-%m-%d')"/>
+            <field name="expiry_date" eval="(DateTime.today() + relativedelta(days=271)).strftime('%Y-%m-%d')"/>
+            <field name="file_attachment_id" ref="demo_ms_ver_03_acred_pdf"/>
+            <field name="status">approved</field>
+        </record>
+        <record id="demo_ms_ver_03_hab_lab" model="shrimp.user.certificate.line">
+            <field name="partner_id" ref="demo_ms_ver_03"/>
+            <field name="certificate_id" ref="cert_habilitacion_laboratorio_analisis"/>
+            <field name="certificate_number">HAB-LAB-502</field>
+            <field name="issue_date" eval="(DateTime.today() + relativedelta(days=-220)).strftime('%Y-%m-%d')"/>
+            <field name="expiry_date" eval="(DateTime.today() + relativedelta(days=285)).strftime('%Y-%m-%d')"/>
+            <field name="file_attachment_id" ref="demo_ms_ver_03_acred_pdf"/>
+            <field name="status">approved</field>
+        </record>
+        <record id="demo_ms_ver_04_acred_pdf" model="ir.attachment">
+            <field name="name">Acreditacion_calidad_y_campo_acuicola_s_a.pdf</field>
+            <field name="type">binary</field>
+            <field name="mimetype">application/pdf</field>
+            <field name="datas">JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA2MTIgNzkyXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA1IDAgUiA+PiA+PiAvQ29udGVudHMgNCAwIFIgPj4KZW5kb2JqCjQgMCBvYmoKPDwgL0xlbmd0aCAzODcgPj4Kc3RyZWFtCkJUIC9GMSAxNiBUZiA2MCA3NjAgVGQgKEFjcmVkaXRhY2lvbiBkZSB2ZXJpZmljYWRvciAtIENhbGlkYWQgeSBDYW1wbyBBY3VpY29sYSBTLkEuKSBUaiBFVApCVCAvRjEgMTEgVGYgNjAgNzMwIFRkIChSVUM6IDA5OTk0MDcxNTMwMDEpIFRqIEVUCkJUIC9GMSAxMSBUZiA2MCA3MTIgVGQgKE9yZ2FuaXNtbzogU2VydmljaW8gZGUgQWNyZWRpdGFjaW9uIEVjdWF0b3JpYW5vIFwoU0FFXCkpIFRqIEVUCkJUIC9GMSAxMSBUZiA2MCA2OTQgVGQgKEFsY2FuY2U6IHZlcmlmaWNhY2lvbiBkZSBjYW1hcm9uIGVuIGNhbXBvIHkgZW4gcGxhbnRhKSBUaiBFVApCVCAvRjEgOCBUZiA2MCA2MCBUZCAoRG9jdW1lbnRvIGRlIERFTU9TVFJBQ0lPTiAtIHNpbiB2YWxpZGV6IGxlZ2FsKSBUaiBFVAplbmRzdHJlYW0KZW5kb2JqCjUgMCBvYmoKPDwgL1R5cGUgL0ZvbnQgL1N1YnR5cGUgL1R5cGUxIC9CYXNlRm9udCAvSGVsdmV0aWNhID4+CmVuZG9iagp4cmVmCjAgNgowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTE1IDAwMDAwIG4gCjAwMDAwMDAyNDEgMDAwMDAgbiAKMDAwMDAwMDY3OSAwMDAwMCBuIAp0cmFpbGVyCjw8IC9TaXplIDYgL1Jvb3QgMSAwIFIgPj4Kc3RhcnR4cmVmCjc0OQolJUVPRgo=</field>
+        </record>
+        <record id="demo_ms_ver_04_acred" model="shrimp.user.certificate.line">
+            <field name="partner_id" ref="demo_ms_ver_04"/>
+            <field name="certificate_id" ref="cert_acreditacion_verificador"/>
+            <field name="certificate_number">ACRED-VER-303</field>
+            <field name="issue_date" eval="(DateTime.today() + relativedelta(days=-465)).strftime('%Y-%m-%d')"/>
+            <field name="expiry_date" eval="(DateTime.today() + relativedelta(days=265)).strftime('%Y-%m-%d')"/>
+            <field name="file_attachment_id" ref="demo_ms_ver_04_acred_pdf"/>
+            <field name="status">approved</field>
+        </record>
+        <record id="demo_ms_ver_05_acred_pdf" model="ir.attachment">
+            <field name="name">Acreditacion_peritajes_camaroneros_del_sur.pdf</field>
+            <field name="type">binary</field>
+            <field name="mimetype">application/pdf</field>
+            <field name="datas">JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA2MTIgNzkyXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA1IDAgUiA+PiA+PiAvQ29udGVudHMgNCAwIFIgPj4KZW5kb2JqCjQgMCBvYmoKPDwgL0xlbmd0aCAzOTIgPj4Kc3RyZWFtCkJUIC9GMSAxNiBUZiA2MCA3NjAgVGQgKEFjcmVkaXRhY2lvbiBkZSB2ZXJpZmljYWRvciAtIFBlcml0YWplcyBDYW1hcm9uZXJvcyBkZWwgU3VyIFMuQS4pIFRqIEVUCkJUIC9GMSAxMSBUZiA2MCA3MzAgVGQgKFJVQzogMDc5NDYwMzMxNjAwMSkgVGogRVQKQlQgL0YxIDExIFRmIDYwIDcxMiBUZCAoT3JnYW5pc21vOiBTZXJ2aWNpbyBkZSBBY3JlZGl0YWNpb24gRWN1YXRvcmlhbm8gXChTQUVcKSkgVGogRVQKQlQgL0YxIDExIFRmIDYwIDY5NCBUZCAoQWxjYW5jZTogdmVyaWZpY2FjaW9uIGRlIGNhbWFyb24gZW4gY2FtcG8geSBlbiBwbGFudGEpIFRqIEVUCkJUIC9GMSA4IFRmIDYwIDYwIFRkIChEb2N1bWVudG8gZGUgREVNT1NUUkFDSU9OIC0gc2luIHZhbGlkZXogbGVnYWwpIFRqIEVUCmVuZHN0cmVhbQplbmRvYmoKNSAwIG9iago8PCAvVHlwZSAvRm9udCAvU3VidHlwZSAvVHlwZTEgL0Jhc2VGb250IC9IZWx2ZXRpY2EgPj4KZW5kb2JqCnhyZWYKMCA2CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDU4IDAwMDAwIG4gCjAwMDAwMDAxMTUgMDAwMDAgbiAKMDAwMDAwMDI0MSAwMDAwMCBuIAowMDAwMDAwNjg0IDAwMDAwIG4gCnRyYWlsZXIKPDwgL1NpemUgNiAvUm9vdCAxIDAgUiA+PgpzdGFydHhyZWYKNzU0CiUlRU9GCg==</field>
+        </record>
+        <record id="demo_ms_ver_05_acred" model="shrimp.user.certificate.line">
+            <field name="partner_id" ref="demo_ms_ver_05"/>
+            <field name="certificate_id" ref="cert_acreditacion_verificador"/>
+            <field name="certificate_number">ACRED-VER-304</field>
+            <field name="issue_date" eval="(DateTime.today() + relativedelta(days=-335)).strftime('%Y-%m-%d')"/>
+            <field name="expiry_date" eval="(DateTime.today() + relativedelta(days=395)).strftime('%Y-%m-%d')"/>
+            <field name="file_attachment_id" ref="demo_ms_ver_05_acred_pdf"/>
+            <field name="status">approved</field>
+        </record>
+        <record id="demo_ms_ver_05_hab_lab" model="shrimp.user.certificate.line">
+            <field name="partner_id" ref="demo_ms_ver_05"/>
+            <field name="certificate_id" ref="cert_habilitacion_laboratorio_analisis"/>
+            <field name="certificate_number">HAB-LAB-504</field>
+            <field name="issue_date" eval="(DateTime.today() + relativedelta(days=-226)).strftime('%Y-%m-%d')"/>
+            <field name="expiry_date" eval="(DateTime.today() + relativedelta(days=180)).strftime('%Y-%m-%d')"/>
+            <field name="file_attachment_id" ref="demo_ms_ver_05_acred_pdf"/>
+            <field name="status">approved</field>
+        </record>
+        <record id="demo_ms_ver_06_acred_pdf" model="ir.attachment">
+            <field name="name">Acreditacion_laboratorio_de_verificacion_pe.pdf</field>
+            <field name="type">binary</field>
+            <field name="mimetype">application/pdf</field>
+            <field name="datas">JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA2MTIgNzkyXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA1IDAgUiA+PiA+PiAvQ29udGVudHMgNCAwIFIgPj4KZW5kb2JqCjQgMCBvYmoKPDwgL0xlbmd0aCA0MDAgPj4Kc3RyZWFtCkJUIC9GMSAxNiBUZiA2MCA3NjAgVGQgKEFjcmVkaXRhY2lvbiBkZSB2ZXJpZmljYWRvciAtIExhYm9yYXRvcmlvIGRlIFZlcmlmaWNhY2lvbiBQZW5pbnN1bGEgUy5BLikgVGogRVQKQlQgL0YxIDExIFRmIDYwIDczMCBUZCAoUlVDOiAyNDk4NzE3MTM5MDAxKSBUaiBFVApCVCAvRjEgMTEgVGYgNjAgNzEyIFRkIChPcmdhbmlzbW86IFNlcnZpY2lvIGRlIEFjcmVkaXRhY2lvbiBFY3VhdG9yaWFubyBcKFNBRVwpKSBUaiBFVApCVCAvRjEgMTEgVGYgNjAgNjk0IFRkIChBbGNhbmNlOiB2ZXJpZmljYWNpb24gZGUgY2FtYXJvbiBlbiBjYW1wbyB5IGVuIHBsYW50YSkgVGogRVQKQlQgL0YxIDggVGYgNjAgNjAgVGQgKERvY3VtZW50byBkZSBERU1PU1RSQUNJT04gLSBzaW4gdmFsaWRleiBsZWdhbCkgVGogRVQKZW5kc3RyZWFtCmVuZG9iago1IDAgb2JqCjw8IC9UeXBlIC9Gb250IC9TdWJ0eXBlIC9UeXBlMSAvQmFzZUZvbnQgL0hlbHZldGljYSA+PgplbmRvYmoKeHJlZgowIDYKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDA5IDAwMDAwIG4gCjAwMDAwMDAwNTggMDAwMDAgbiAKMDAwMDAwMDExNSAwMDAwMCBuIAowMDAwMDAwMjQxIDAwMDAwIG4gCjAwMDAwMDA2OTIgMDAwMDAgbiAKdHJhaWxlcgo8PCAvU2l6ZSA2IC9Sb290IDEgMCBSID4+CnN0YXJ0eHJlZgo3NjIKJSVFT0YK</field>
+        </record>
+        <record id="demo_ms_ver_06_acred" model="shrimp.user.certificate.line">
+            <field name="partner_id" ref="demo_ms_ver_06"/>
+            <field name="certificate_id" ref="cert_acreditacion_verificador"/>
+            <field name="certificate_number">ACRED-VER-305</field>
+            <field name="issue_date" eval="(DateTime.today() + relativedelta(days=-182)).strftime('%Y-%m-%d')"/>
+            <field name="expiry_date" eval="(DateTime.today() + relativedelta(days=548)).strftime('%Y-%m-%d')"/>
+            <field name="file_attachment_id" ref="demo_ms_ver_06_acred_pdf"/>
+            <field name="status">approved</field>
+        </record>
+        <record id="demo_ms_ver_07_acred_pdf" model="ir.attachment">
+            <field name="name">Acreditacion_auditores_de_cosecha_ecuador_c.pdf</field>
+            <field name="type">binary</field>
+            <field name="mimetype">application/pdf</field>
+            <field name="datas">JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA2MTIgNzkyXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA1IDAgUiA+PiA+PiAvQ29udGVudHMgNCAwIFIgPj4KZW5kb2JqCjQgMCBvYmoKPDwgL0xlbmd0aCAzOTcgPj4Kc3RyZWFtCkJUIC9GMSAxNiBUZiA2MCA3NjAgVGQgKEFjcmVkaXRhY2lvbiBkZSB2ZXJpZmljYWRvciAtIEF1ZGl0b3JlcyBkZSBDb3NlY2hhIEVjdWFkb3IgQ2lhLiBMdGRhLikgVGogRVQKQlQgL0YxIDExIFRmIDYwIDczMCBUZCAoUlVDOiAwOTkyMTg3MjYzMDAxKSBUaiBFVApCVCAvRjEgMTEgVGYgNjAgNzEyIFRkIChPcmdhbmlzbW86IFNlcnZpY2lvIGRlIEFjcmVkaXRhY2lvbiBFY3VhdG9yaWFubyBcKFNBRVwpKSBUaiBFVApCVCAvRjEgMTEgVGYgNjAgNjk0IFRkIChBbGNhbmNlOiB2ZXJpZmljYWNpb24gZGUgY2FtYXJvbiBlbiBjYW1wbyB5IGVuIHBsYW50YSkgVGogRVQKQlQgL0YxIDggVGYgNjAgNjAgVGQgKERvY3VtZW50byBkZSBERU1PU1RSQUNJT04gLSBzaW4gdmFsaWRleiBsZWdhbCkgVGogRVQKZW5kc3RyZWFtCmVuZG9iago1IDAgb2JqCjw8IC9UeXBlIC9Gb250IC9TdWJ0eXBlIC9UeXBlMSAvQmFzZUZvbnQgL0hlbHZldGljYSA+PgplbmRvYmoKeHJlZgowIDYKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDA5IDAwMDAwIG4gCjAwMDAwMDAwNTggMDAwMDAgbiAKMDAwMDAwMDExNSAwMDAwMCBuIAowMDAwMDAwMjQxIDAwMDAwIG4gCjAwMDAwMDA2ODkgMDAwMDAgbiAKdHJhaWxlcgo8PCAvU2l6ZSA2IC9Sb290IDEgMCBSID4+CnN0YXJ0eHJlZgo3NTkKJSVFT0YK</field>
+        </record>
+        <record id="demo_ms_ver_07_acred" model="shrimp.user.certificate.line">
+            <field name="partner_id" ref="demo_ms_ver_07"/>
+            <field name="certificate_id" ref="cert_acreditacion_verificador"/>
+            <field name="certificate_number">ACRED-VER-306</field>
+            <field name="issue_date" eval="(DateTime.today() + relativedelta(days=-546)).strftime('%Y-%m-%d')"/>
+            <field name="expiry_date" eval="(DateTime.today() + relativedelta(days=184)).strftime('%Y-%m-%d')"/>
+            <field name="file_attachment_id" ref="demo_ms_ver_07_acred_pdf"/>
+            <field name="status">approved</field>
+        </record>
+        <record id="demo_ms_ver_07_hab_lab" model="shrimp.user.certificate.line">
+            <field name="partner_id" ref="demo_ms_ver_07"/>
+            <field name="certificate_id" ref="cert_habilitacion_laboratorio_analisis"/>
+            <field name="certificate_number">HAB-LAB-506</field>
+            <field name="issue_date" eval="(DateTime.today() + relativedelta(days=-168)).strftime('%Y-%m-%d')"/>
+            <field name="expiry_date" eval="(DateTime.today() + relativedelta(days=116)).strftime('%Y-%m-%d')"/>
+            <field name="file_attachment_id" ref="demo_ms_ver_07_acred_pdf"/>
+            <field name="status">approved</field>
+        </record>
+        <record id="demo_ms_ver_08_acred_pdf" model="ir.attachment">
+            <field name="name">Acreditacion_verificadora_estuario_cia_ltda.pdf</field>
+            <field name="type">binary</field>
+            <field name="mimetype">application/pdf</field>
+            <field name="datas">JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA2MTIgNzkyXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA1IDAgUiA+PiA+PiAvQ29udGVudHMgNCAwIFIgPj4KZW5kb2JqCjQgMCBvYmoKPDwgL0xlbmd0aCAzOTAgPj4Kc3RyZWFtCkJUIC9GMSAxNiBUZiA2MCA3NjAgVGQgKEFjcmVkaXRhY2lvbiBkZSB2ZXJpZmljYWRvciAtIFZlcmlmaWNhZG9yYSBFc3R1YXJpbyBDaWEuIEx0ZGEuKSBUaiBFVApCVCAvRjEgMTEgVGYgNjAgNzMwIFRkIChSVUM6IDA5OTcxNDU5NjgwMDEpIFRqIEVUCkJUIC9GMSAxMSBUZiA2MCA3MTIgVGQgKE9yZ2FuaXNtbzogU2VydmljaW8gZGUgQWNyZWRpdGFjaW9uIEVjdWF0b3JpYW5vIFwoU0FFXCkpIFRqIEVUCkJUIC9GMSAxMSBUZiA2MCA2OTQgVGQgKEFsY2FuY2U6IHZlcmlmaWNhY2lvbiBkZSBjYW1hcm9uIGVuIGNhbXBvIHkgZW4gcGxhbnRhKSBUaiBFVApCVCAvRjEgOCBUZiA2MCA2MCBUZCAoRG9jdW1lbnRvIGRlIERFTU9TVFJBQ0lPTiAtIHNpbiB2YWxpZGV6IGxlZ2FsKSBUaiBFVAplbmRzdHJlYW0KZW5kb2JqCjUgMCBvYmoKPDwgL1R5cGUgL0ZvbnQgL1N1YnR5cGUgL1R5cGUxIC9CYXNlRm9udCAvSGVsdmV0aWNhID4+CmVuZG9iagp4cmVmCjAgNgowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTE1IDAwMDAwIG4gCjAwMDAwMDAyNDEgMDAwMDAgbiAKMDAwMDAwMDY4MiAwMDAwMCBuIAp0cmFpbGVyCjw8IC9TaXplIDYgL1Jvb3QgMSAwIFIgPj4Kc3RhcnR4cmVmCjc1MgolJUVPRgo=</field>
+        </record>
+        <record id="demo_ms_ver_08_acred" model="shrimp.user.certificate.line">
+            <field name="partner_id" ref="demo_ms_ver_08"/>
+            <field name="certificate_id" ref="cert_acreditacion_verificador"/>
+            <field name="certificate_number">ACRED-VER-307</field>
+            <field name="issue_date" eval="(DateTime.today() + relativedelta(days=-251)).strftime('%Y-%m-%d')"/>
+            <field name="expiry_date" eval="(DateTime.today() + relativedelta(days=479)).strftime('%Y-%m-%d')"/>
+            <field name="file_attachment_id" ref="demo_ms_ver_08_acred_pdf"/>
+            <field name="status">pending</field>
+        </record>
+        <record id="demo_ms_ver_09_acred_pdf" model="ir.attachment">
+            <field name="name">Acreditacion_tecnicos_de_muelle_asociados_s.pdf</field>
+            <field name="type">binary</field>
+            <field name="mimetype">application/pdf</field>
+            <field name="datas">JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA2MTIgNzkyXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA1IDAgUiA+PiA+PiAvQ29udGVudHMgNCAwIFIgPj4KZW5kb2JqCjQgMCBvYmoKPDwgL0xlbmd0aCAzOTEgPj4Kc3RyZWFtCkJUIC9GMSAxNiBUZiA2MCA3NjAgVGQgKEFjcmVkaXRhY2lvbiBkZSB2ZXJpZmljYWRvciAtIFRlY25pY29zIGRlIE11ZWxsZSBBc29jaWFkb3MgUy5BLikgVGogRVQKQlQgL0YxIDExIFRmIDYwIDczMCBUZCAoUlVDOiAwOTk2NzY5NjY2MDAxKSBUaiBFVApCVCAvRjEgMTEgVGYgNjAgNzEyIFRkIChPcmdhbmlzbW86IFNlcnZpY2lvIGRlIEFjcmVkaXRhY2lvbiBFY3VhdG9yaWFubyBcKFNBRVwpKSBUaiBFVApCVCAvRjEgMTEgVGYgNjAgNjk0IFRkIChBbGNhbmNlOiB2ZXJpZmljYWNpb24gZGUgY2FtYXJvbiBlbiBjYW1wbyB5IGVuIHBsYW50YSkgVGogRVQKQlQgL0YxIDggVGYgNjAgNjAgVGQgKERvY3VtZW50byBkZSBERU1PU1RSQUNJT04gLSBzaW4gdmFsaWRleiBsZWdhbCkgVGogRVQKZW5kc3RyZWFtCmVuZG9iago1IDAgb2JqCjw8IC9UeXBlIC9Gb250IC9TdWJ0eXBlIC9UeXBlMSAvQmFzZUZvbnQgL0hlbHZldGljYSA+PgplbmRvYmoKeHJlZgowIDYKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDA5IDAwMDAwIG4gCjAwMDAwMDAwNTggMDAwMDAgbiAKMDAwMDAwMDExNSAwMDAwMCBuIAowMDAwMDAwMjQxIDAwMDAwIG4gCjAwMDAwMDA2ODMgMDAwMDAgbiAKdHJhaWxlcgo8PCAvU2l6ZSA2IC9Sb290IDEgMCBSID4+CnN0YXJ0eHJlZgo3NTMKJSVFT0YK</field>
+        </record>
+        <record id="demo_ms_ver_09_acred" model="shrimp.user.certificate.line">
+            <field name="partner_id" ref="demo_ms_ver_09"/>
+            <field name="certificate_id" ref="cert_acreditacion_verificador"/>
+            <field name="certificate_number">ACRED-VER-308</field>
+            <field name="issue_date" eval="(DateTime.today() + relativedelta(days=-759)).strftime('%Y-%m-%d')"/>
+            <field name="expiry_date" eval="(DateTime.today() + relativedelta(days=-29)).strftime('%Y-%m-%d')"/>
+            <field name="file_attachment_id" ref="demo_ms_ver_09_acred_pdf"/>
+            <field name="status">approved</field>
+        </record>
+        <record id="demo_ms_ver_09_acred_renov" model="shrimp.user.certificate.line">
+            <field name="partner_id" ref="demo_ms_ver_09"/>
+            <field name="certificate_id" ref="cert_acreditacion_verificador"/>
+            <field name="certificate_number">ACRED-VER-408</field>
+            <field name="issue_date" eval="(DateTime.today() + relativedelta(days=-5)).strftime('%Y-%m-%d')"/>
+            <field name="expiry_date" eval="(DateTime.today() + relativedelta(days=725)).strftime('%Y-%m-%d')"/>
+            <field name="file_attachment_id" ref="demo_ms_ver_09_acred_pdf"/>
+            <field name="status">rejected</field>
+        </record>
+        <record id="demo_ms_ver_09_hab_lab" model="shrimp.user.certificate.line">
+            <field name="partner_id" ref="demo_ms_ver_09"/>
+            <field name="certificate_id" ref="cert_habilitacion_laboratorio_analisis"/>
+            <field name="certificate_number">HAB-LAB-508</field>
+            <field name="issue_date" eval="(DateTime.today() + relativedelta(days=-178)).strftime('%Y-%m-%d')"/>
+            <field name="expiry_date" eval="(DateTime.today() + relativedelta(days=305)).strftime('%Y-%m-%d')"/>
+            <field name="file_attachment_id" ref="demo_ms_ver_09_acred_pdf"/>
+            <field name="status">approved</field>
+        </record>
+        <record id="demo_ms_ver_10_acred_pdf" model="ir.attachment">
+            <field name="name">Acreditacion_inspeccion_acuicola_esmeraldas.pdf</field>
+            <field name="type">binary</field>
+            <field name="mimetype">application/pdf</field>
+            <field name="datas">JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA2MTIgNzkyXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA1IDAgUiA+PiA+PiAvQ29udGVudHMgNCAwIFIgPj4KZW5kb2JqCjQgMCBvYmoKPDwgL0xlbmd0aCAzOTMgPj4Kc3RyZWFtCkJUIC9GMSAxNiBUZiA2MCA3NjAgVGQgKEFjcmVkaXRhY2lvbiBkZSB2ZXJpZmljYWRvciAtIEluc3BlY2Npb24gQWN1aWNvbGEgRXNtZXJhbGRhcyBTLkEuKSBUaiBFVApCVCAvRjEgMTEgVGYgNjAgNzMwIFRkIChSVUM6IDA4OTAzNzk3OTYwMDEpIFRqIEVUCkJUIC9GMSAxMSBUZiA2MCA3MTIgVGQgKE9yZ2FuaXNtbzogU2VydmljaW8gZGUgQWNyZWRpdGFjaW9uIEVjdWF0b3JpYW5vIFwoU0FFXCkpIFRqIEVUCkJUIC9GMSAxMSBUZiA2MCA2OTQgVGQgKEFsY2FuY2U6IHZlcmlmaWNhY2lvbiBkZSBjYW1hcm9uIGVuIGNhbXBvIHkgZW4gcGxhbnRhKSBUaiBFVApCVCAvRjEgOCBUZiA2MCA2MCBUZCAoRG9jdW1lbnRvIGRlIERFTU9TVFJBQ0lPTiAtIHNpbiB2YWxpZGV6IGxlZ2FsKSBUaiBFVAplbmRzdHJlYW0KZW5kb2JqCjUgMCBvYmoKPDwgL1R5cGUgL0ZvbnQgL1N1YnR5cGUgL1R5cGUxIC9CYXNlRm9udCAvSGVsdmV0aWNhID4+CmVuZG9iagp4cmVmCjAgNgowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTE1IDAwMDAwIG4gCjAwMDAwMDAyNDEgMDAwMDAgbiAKMDAwMDAwMDY4NSAwMDAwMCBuIAp0cmFpbGVyCjw8IC9TaXplIDYgL1Jvb3QgMSAwIFIgPj4Kc3RhcnR4cmVmCjc1NQolJUVPRgo=</field>
+        </record>
+        <record id="demo_ms_ver_10_acred" model="shrimp.user.certificate.line">
+            <field name="partner_id" ref="demo_ms_ver_10"/>
+            <field name="certificate_id" ref="cert_acreditacion_verificador"/>
+            <field name="certificate_number">ACRED-VER-309</field>
+            <field name="issue_date" eval="(DateTime.today() + relativedelta(days=-368)).strftime('%Y-%m-%d')"/>
+            <field name="expiry_date" eval="(DateTime.today() + relativedelta(days=362)).strftime('%Y-%m-%d')"/>
+            <field name="file_attachment_id" ref="demo_ms_ver_10_acred_pdf"/>
+            <field name="status">approved</field>
+        </record>
+
+        <!-- ===== Cuentas de acceso: empresas y técnicos (portal) e internos ===== -->
+        <record id="demo_ms_user_ver_pacifico" model="res.users">
+            <field name="partner_id" ref="demo_ver_pacifico"/>
+            <field name="login">verificador.demo@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_ver_certimar" model="res.users">
+            <field name="partner_id" ref="demo_ver_certimar"/>
+            <field name="login">verificador.02@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_ver_aquacontrol" model="res.users">
+            <field name="partner_id" ref="demo_ver_aquacontrol"/>
+            <field name="login">verificador.03@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_ver_verimar" model="res.users">
+            <field name="partner_id" ref="demo_ver_verimar"/>
+            <field name="login">verificador.04@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_ver_guayas" model="res.users">
+            <field name="partner_id" ref="demo_ver_guayas"/>
+            <field name="login">verificador.05@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_ver_bioaudit" model="res.users">
+            <field name="partner_id" ref="demo_ver_bioaudit"/>
+            <field name="login">verificador.06@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_ver_01" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_01"/>
+            <field name="login">verificador.07@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_ver_02" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_02"/>
+            <field name="login">verificador.08@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_ver_03" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_03"/>
+            <field name="login">verificador.09@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_ver_04" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_04"/>
+            <field name="login">verificador.10@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_ver_05" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_05"/>
+            <field name="login">verificador.11@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_ver_06" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_06"/>
+            <field name="login">verificador.12@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_ver_07" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_07"/>
+            <field name="login">verificador.13@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_ver_08" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_08"/>
+            <field name="login">verificador.14@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_ver_09" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_09"/>
+            <field name="login">verificador.15@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_ver_10" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_10"/>
+            <field name="login">verificador.16@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_001" model="res.users">
+            <field name="partner_id" ref="demo_vtec_pacifico_1"/>
+            <field name="login">tecnico.01@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_002" model="res.users">
+            <field name="partner_id" ref="demo_vtec_pacifico_2"/>
+            <field name="login">tecnico.02@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_003" model="res.users">
+            <field name="partner_id" ref="demo_vtec_pacifico_3"/>
+            <field name="login">tecnico.03@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_004" model="res.users">
+            <field name="partner_id" ref="demo_vtec_pacifico_4"/>
+            <field name="login">tecnico.04@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_005" model="res.users">
+            <field name="partner_id" ref="demo_vtec_certimar_1"/>
+            <field name="login">tecnico.05@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_006" model="res.users">
+            <field name="partner_id" ref="demo_vtec_certimar_2"/>
+            <field name="login">tecnico.06@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_007" model="res.users">
+            <field name="partner_id" ref="demo_vtec_certimar_3"/>
+            <field name="login">tecnico.07@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_008" model="res.users">
+            <field name="partner_id" ref="demo_vtec_certimar_4"/>
+            <field name="login">tecnico.08@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_009" model="res.users">
+            <field name="partner_id" ref="demo_vtec_certimar_5"/>
+            <field name="login">tecnico.09@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_010" model="res.users">
+            <field name="partner_id" ref="demo_vtec_certimar_6"/>
+            <field name="login">tecnico.10@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_011" model="res.users">
+            <field name="partner_id" ref="demo_vtec_aquacontrol_1"/>
+            <field name="login">tecnico.11@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_012" model="res.users">
+            <field name="partner_id" ref="demo_vtec_aquacontrol_2"/>
+            <field name="login">tecnico.12@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_013" model="res.users">
+            <field name="partner_id" ref="demo_vtec_aquacontrol_3"/>
+            <field name="login">tecnico.13@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_014" model="res.users">
+            <field name="partner_id" ref="demo_vtec_aquacontrol_4"/>
+            <field name="login">tecnico.14@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_015" model="res.users">
+            <field name="partner_id" ref="demo_vtec_aquacontrol_5"/>
+            <field name="login">tecnico.15@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_016" model="res.users">
+            <field name="partner_id" ref="demo_vtec_verimar_1"/>
+            <field name="login">tecnico.16@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_017" model="res.users">
+            <field name="partner_id" ref="demo_vtec_verimar_2"/>
+            <field name="login">tecnico.17@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_018" model="res.users">
+            <field name="partner_id" ref="demo_vtec_verimar_3"/>
+            <field name="login">tecnico.18@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_019" model="res.users">
+            <field name="partner_id" ref="demo_vtec_verimar_4"/>
+            <field name="login">tecnico.19@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_020" model="res.users">
+            <field name="partner_id" ref="demo_vtec_verimar_5"/>
+            <field name="login">tecnico.20@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_021" model="res.users">
+            <field name="partner_id" ref="demo_vtec_verimar_6"/>
+            <field name="login">tecnico.21@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_022" model="res.users">
+            <field name="partner_id" ref="demo_vtec_guayas_1"/>
+            <field name="login">tecnico.22@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_023" model="res.users">
+            <field name="partner_id" ref="demo_vtec_guayas_2"/>
+            <field name="login">tecnico.23@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_024" model="res.users">
+            <field name="partner_id" ref="demo_vtec_guayas_3"/>
+            <field name="login">tecnico.24@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_025" model="res.users">
+            <field name="partner_id" ref="demo_vtec_guayas_4"/>
+            <field name="login">tecnico.25@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_026" model="res.users">
+            <field name="partner_id" ref="demo_vtec_guayas_5"/>
+            <field name="login">tecnico.26@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_027" model="res.users">
+            <field name="partner_id" ref="demo_vtec_bioaudit_1"/>
+            <field name="login">tecnico.27@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_028" model="res.users">
+            <field name="partner_id" ref="demo_vtec_bioaudit_2"/>
+            <field name="login">tecnico.28@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_029" model="res.users">
+            <field name="partner_id" ref="demo_vtec_bioaudit_3"/>
+            <field name="login">tecnico.29@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_030" model="res.users">
+            <field name="partner_id" ref="demo_vtec_bioaudit_4"/>
+            <field name="login">tecnico.30@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_031" model="res.users">
+            <field name="partner_id" ref="demo_vtec_bioaudit_5"/>
+            <field name="login">tecnico.31@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_032" model="res.users">
+            <field name="partner_id" ref="demo_vtec_bioaudit_6"/>
+            <field name="login">tecnico.32@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_033" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_01_tec_1"/>
+            <field name="login">tecnico.33@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_034" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_01_tec_2"/>
+            <field name="login">tecnico.34@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_035" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_01_tec_3"/>
+            <field name="login">tecnico.35@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_036" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_01_tec_4"/>
+            <field name="login">tecnico.36@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_037" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_01_tec_5"/>
+            <field name="login">tecnico.37@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_038" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_01_tec_6"/>
+            <field name="login">tecnico.38@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_039" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_01_tec_7"/>
+            <field name="login">tecnico.39@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_040" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_02_tec_1"/>
+            <field name="login">tecnico.40@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_041" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_02_tec_2"/>
+            <field name="login">tecnico.41@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_042" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_02_tec_3"/>
+            <field name="login">tecnico.42@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_043" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_02_tec_4"/>
+            <field name="login">tecnico.43@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_044" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_02_tec_5"/>
+            <field name="login">tecnico.44@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_045" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_02_tec_6"/>
+            <field name="login">tecnico.45@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_046" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_03_tec_1"/>
+            <field name="login">tecnico.46@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_047" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_03_tec_2"/>
+            <field name="login">tecnico.47@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_048" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_03_tec_3"/>
+            <field name="login">tecnico.48@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_049" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_03_tec_4"/>
+            <field name="login">tecnico.49@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_050" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_03_tec_5"/>
+            <field name="login">tecnico.50@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_051" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_03_tec_6"/>
+            <field name="login">tecnico.51@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_052" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_03_tec_7"/>
+            <field name="login">tecnico.52@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_053" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_04_tec_1"/>
+            <field name="login">tecnico.53@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_054" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_04_tec_2"/>
+            <field name="login">tecnico.54@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_055" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_04_tec_3"/>
+            <field name="login">tecnico.55@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_056" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_04_tec_4"/>
+            <field name="login">tecnico.56@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_057" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_04_tec_5"/>
+            <field name="login">tecnico.57@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_058" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_05_tec_1"/>
+            <field name="login">tecnico.58@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_059" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_05_tec_2"/>
+            <field name="login">tecnico.59@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_060" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_05_tec_3"/>
+            <field name="login">tecnico.60@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_061" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_05_tec_4"/>
+            <field name="login">tecnico.61@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_062" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_05_tec_5"/>
+            <field name="login">tecnico.62@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_063" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_06_tec_1"/>
+            <field name="login">tecnico.63@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_064" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_06_tec_2"/>
+            <field name="login">tecnico.64@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_065" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_06_tec_3"/>
+            <field name="login">tecnico.65@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_066" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_06_tec_4"/>
+            <field name="login">tecnico.66@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_067" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_06_tec_5"/>
+            <field name="login">tecnico.67@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_068" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_06_tec_6"/>
+            <field name="login">tecnico.68@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_069" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_06_tec_7"/>
+            <field name="login">tecnico.69@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_070" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_07_tec_1"/>
+            <field name="login">tecnico.70@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_071" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_07_tec_2"/>
+            <field name="login">tecnico.71@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_072" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_07_tec_3"/>
+            <field name="login">tecnico.72@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_073" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_07_tec_4"/>
+            <field name="login">tecnico.73@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_074" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_08_tec_1"/>
+            <field name="login">tecnico.74@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_075" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_08_tec_2"/>
+            <field name="login">tecnico.75@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_076" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_08_tec_3"/>
+            <field name="login">tecnico.76@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_077" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_08_tec_4"/>
+            <field name="login">tecnico.77@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_078" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_09_tec_1"/>
+            <field name="login">tecnico.78@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_079" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_09_tec_2"/>
+            <field name="login">tecnico.79@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_080" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_09_tec_3"/>
+            <field name="login">tecnico.80@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_081" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_09_tec_4"/>
+            <field name="login">tecnico.81@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_082" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_09_tec_5"/>
+            <field name="login">tecnico.82@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_083" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_10_tec_1"/>
+            <field name="login">tecnico.83@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_084" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_10_tec_2"/>
+            <field name="login">tecnico.84@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_085" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_10_tec_3"/>
+            <field name="login">tecnico.85@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_tec_086" model="res.users">
+            <field name="partner_id" ref="demo_ms_ver_10_tec_4"/>
+            <field name="login">tecnico.86@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_int_coordinador_verificaciones_partner" model="res.partner">
+            <field name="name">Coordinación de verificaciones</field>
+            <field name="email">coordinador.verificaciones@camaronera.test</field>
+        </record>
+        <record id="demo_ms_user_int_coordinador_verificaciones" model="res.users">
+            <field name="partner_id" ref="demo_ms_int_coordinador_verificaciones_partner"/>
+            <field name="login">coordinador.verificaciones@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_user'), ref('shrimp_marketplace.group_shrimp_user')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_int_contabilidad_partner" model="res.partner">
+            <field name="name">Contabilidad de la plataforma</field>
+            <field name="email">contabilidad@camaronera.test</field>
+        </record>
+        <record id="demo_ms_user_int_contabilidad" model="res.users">
+            <field name="partner_id" ref="demo_ms_int_contabilidad_partner"/>
+            <field name="login">contabilidad@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_user'), ref('shrimp_marketplace.group_shrimp_user'), ref('account.group_account_invoice')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+    </data>
+</odoo>

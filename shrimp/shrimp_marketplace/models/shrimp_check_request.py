@@ -7,6 +7,24 @@ _logger = logging.getLogger(__name__)
 
 
 class ShrimpCheckRequest(models.Model):
+    """Solicitud de chequeo (flujo ANTIGUO, en retirada).
+
+    DECISIÓN: la verificación en campo (shrimp_verification) cubre lo mismo
+    —para larvas es opcional y para adulto obligatoria— con técnico,
+    informe, aceptación de las partes y trazabilidad. Mantener dos caminos
+    para "que alguien mire el producto antes de pagar" dejaba dos reglas de
+    cobro y una puerta trasera para comprar camarón adulto sin verificar.
+
+    Se retira de la forma menos disruptiva: ya no se crean solicitudes desde
+    el portal (la ruta responde con la explicación y el menú desaparece), pero
+    el modelo, sus datos y la resolución de las que quedaron pendientes
+    (backoffice y API) siguen funcionando. Aprobar una solicitud pasa por
+    execute_purchase_flow, así que un lote con verificación obligatoria se
+    rechaza igual que en la compra directa, y la comisión la cobra la propia
+    compra al confirmarse. El costo del chequeo (si lo había) es un cobro más
+    de la plataforma (shrimp.charge, tipo «check_fee»).
+    """
+
     _name = "shrimp.check.request"
     _description = "Solicitud de chequeo"
     _inherit = ["mail.thread", "mail.activity.mixin", "shrimp.uuid.mixin"]
@@ -97,6 +115,9 @@ class ShrimpCheckRequest(models.Model):
     check_fee = fields.Monetary(string="Costo del chequeo", currency_field="currency_id")
     currency_id = fields.Many2one(
         "res.currency", string="Moneda", default=lambda self: self.env.company.currency_id)
+    charge_id = fields.Many2one(
+        "shrimp.charge", string="Cobro del chequeo", readonly=True, copy=False)
+    # Documentos del cobro (antes se guardaban aquí; ahora vienen del cobro).
     sale_order_id = fields.Many2one(
         "sale.order", string="Pedido de venta", readonly=True, copy=False)
     invoice_id = fields.Many2one(
@@ -158,74 +179,39 @@ class ShrimpCheckRequest(models.Model):
         self.write({"state": "cancelled"})
 
     # ------------------------------------------------------------------
-    # Cobro del chequeo -> Ventas / Contabilidad (cliente = comprador)
+    # Cobro del chequeo -> shrimp.charge (cliente = comprador)
     # ------------------------------------------------------------------
-    def _get_check_product(self):
-        """Producto de servicio con el que se factura el chequeo. Se crea en
-        tiempo de ejecución (evita el conflicto de orden de carga con
-        website_sale, que impone publish_date en product.template)."""
-        product = self.env.ref(
-            "shrimp_marketplace.product_marketplace_check",
-            raise_if_not_found=False)
-        if product:
-            return product
-        tmpl = self.env["product.template"].sudo().create({
-            "name": "Chequeo de producto",
-            "type": "service",
-            "invoice_policy": "order",
-            "list_price": 0.0,
-            "sale_ok": True,
-            "purchase_ok": False,
-            "default_code": "CHEQUEO-MKT",
-        })
-        variant = tmpl.product_variant_id
-        self.env["ir.model.data"].sudo().create({
-            "name": "product_marketplace_check",
-            "module": "shrimp_marketplace",
-            "model": "product.product",
-            "res_id": variant.id,
-            "noupdate": True,
-        })
-        return variant
-
     def _create_check_sale_documents(self):
-        """Genera pedido de venta (confirmado) + factura (contabilizada) por el
-        costo del chequeo. Cliente = comprador. Nunca rompe el flujo web."""
-        Sale = self.env["sale.order"].sudo()
+        """Registra (una vez) el cobro del chequeo y lo intenta facturar."""
+        Charge = self.env["shrimp.charge"].sudo()
         for rec in self:
-            if rec.sale_order_id or not rec.buyer_partner_id or rec.check_fee <= 0:
+            if rec.charge_id or rec.sale_order_id or not rec.buyer_partner_id \
+                    or (rec.check_fee or 0.0) <= 0:
                 continue
-            product = rec._get_check_product()
-            if not product:
-                _logger.warning(
-                    "Producto de chequeo no encontrado; se omite el documento "
-                    "de venta para la solicitud %s", rec.name)
-                continue
-            try:
-                so = Sale.create({
-                    "partner_id": rec.buyer_partner_id.id,
-                    "client_order_ref": rec.name,
-                    "order_line": [(0, 0, {
-                        "product_id": product.id,
-                        "name": "Chequeo de producto – %s" % (rec.product_id.display_name or ""),
-                        "product_uom_qty": 1.0,
-                        "price_unit": rec.check_fee,
-                        "tax_ids": [(6, 0, [])],
-                    })],
-                })
-                so.action_confirm()
-                rec.sale_order_id = so.id
-                invoice = so._create_invoices()
-                if invoice:
-                    invoice.action_post()
-                    rec.invoice_id = invoice.id
-            except Exception as e:  # noqa: BLE001
-                _logger.exception(
-                    "No se pudo generar el documento de venta del chequeo %s: %s",
-                    rec.name, e)
+            charge = Charge._register_charge({
+                "charge_type": "check_fee",
+                "payer_partner_id": rec.buyer_partner_id.id,
+                "seller_partner_id": rec.seller_partner_id.id,
+                "buyer_partner_id": rec.buyer_partner_id.id,
+                "product_id": rec.product_id.id,
+                "amount": rec.check_fee,
+                "invoice_qty": 1.0,
+                "origin": rec.name,
+                "description": _("Chequeo de producto – %s") % (rec.product_id.display_name or ""),
+            })
+            rec.sudo().write({
+                "charge_id": charge.id,
+                "sale_order_id": charge.sale_order_id.id or False,
+                "invoice_id": charge.invoice_id.id or False,
+            })
 
     def action_generate_check_documents(self):
-        self._create_check_sale_documents()
+        for rec in self:
+            if rec.charge_id:
+                rec.charge_id.action_retry_invoice()
+                rec.sudo().write({"sale_order_id": rec.charge_id.sale_order_id.id or False,
+                                  "invoice_id": rec.charge_id.invoice_id.id or False})
+        self.filtered(lambda r: not r.charge_id)._create_check_sale_documents()
         return True
 
     def action_open_sale_order(self):

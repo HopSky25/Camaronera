@@ -16,6 +16,12 @@ from odoo import models
 # lectura honesta de una muestra de uno.
 UMBRAL_LOTES = 3
 
+# Reparto del puntaje por defecto (ver ShrimpProveedorRanking). Los tres se
+# ajustan en Ajustes › CamaronMarket y tienen que sumar 1.
+PESO_RENDIMIENTO_DEF = 0.45
+PESO_CLASE_A_DEF = 0.25
+PESO_CUMPLIMIENTO_DEF = 0.30
+
 
 def _media(valores):
     """Media aritmética simple, o None si no hay nada que promediar."""
@@ -55,9 +61,35 @@ class ShrimpProveedorRanking(models.AbstractModel):
     #   cumplimiento 30 — que el lote sea lo anunciado. Pesa casi tanto como el
     #                    rendimiento porque un incumplimiento no cuesta puntos:
     #                    cuesta reprocesar, renegociar o perder el embarque.
-    PESO_RENDIMIENTO = 0.45
-    PESO_CLASE_A = 0.25
-    PESO_CUMPLIMIENTO = 0.30
+    PESO_RENDIMIENTO = PESO_RENDIMIENTO_DEF
+    PESO_CLASE_A = PESO_CLASE_A_DEF
+    PESO_CUMPLIMIENTO = PESO_CUMPLIMIENTO_DEF
+
+    # ------------------------------------------------------------------
+    # Parámetros (Ajustes › CamaronMarket › Reservas de cosecha y proveedores)
+    # ------------------------------------------------------------------
+    def _umbral_lotes(self):
+        return self.env["shrimp.settings"].get_int(
+            "shrimp_packer.ranking_min_lots", UMBRAL_LOTES, minimum=1)
+
+    def _pesos(self):
+        """(rendimiento, clase A, cumplimiento) en tanto por uno. Si los
+        parámetros no suman 100 % se usan los de siempre: un puntaje con otra
+        escala no se puede comparar con el que ya se publicó."""
+        S = self.env["shrimp.settings"]
+        pesos = (
+            S.get_int("shrimp_packer.ranking_weight_yield", int(PESO_RENDIMIENTO_DEF * 100), 0, 100),
+            S.get_int("shrimp_packer.ranking_weight_class_a", int(PESO_CLASE_A_DEF * 100), 0, 100),
+            S.get_int("shrimp_packer.ranking_weight_compliance", int(PESO_CUMPLIMIENTO_DEF * 100), 0, 100),
+        )
+        if sum(pesos) != 100:
+            return (self.PESO_RENDIMIENTO, self.PESO_CLASE_A, self.PESO_CUMPLIMIENTO)
+        return tuple(p / 100.0 for p in pesos)
+
+    def _pesos_pct(self):
+        rend, clase_a, cumpl = self._pesos()
+        return {"rendimiento": int(round(rend * 100)), "clase_a": int(round(clase_a * 100)),
+                "cumplimiento": int(round(cumpl * 100))}
 
     # ------------------------------------------------------------------
     def _sin_porcentaje(self, texto):
@@ -135,16 +167,17 @@ class ShrimpProveedorRanking(models.AbstractModel):
         # primero por no tener datos. El resto de la fila sigue visible.
         puntaje = None
         if rend is not None:
+            p_rend, p_clase_a, p_cumpl = self._pesos()
             puntaje = (
-                self.PESO_RENDIMIENTO * rend
-                + self.PESO_CLASE_A * (clase_a if clase_a is not None else 0.0)
-                + self.PESO_CUMPLIMIENTO * cumplimiento
+                p_rend * rend
+                + p_clase_a * (clase_a if clase_a is not None else 0.0)
+                + p_cumpl * cumplimiento
             )
 
         return {
             "proveedor": proveedor,
             "lotes": len(detalles),
-            "suficiente": len(detalles) >= UMBRAL_LOTES,
+            "suficiente": len(detalles) >= self._umbral_lotes(),
             "rendimiento": rend,
             "rendimiento_n": len(rendimientos),
             "rendimiento_min": min(rendimientos) if rendimientos else None,
@@ -236,7 +269,7 @@ class ShrimpProveedorRanking(models.AbstractModel):
         return {
             "filas": filas,
             "orden": orden if orden in self.ORDENES else "puntaje",
-            "umbral": UMBRAL_LOTES,
+            "umbral": self._umbral_lotes(),
             "proveedores": len(filas),
             "con_muestra": len(con_muestra),
             "lotes": len(verificaciones),
@@ -246,11 +279,7 @@ class ShrimpProveedorRanking(models.AbstractModel):
             # que el ranking se va a mover, y cuánto.
             "en_curso": V.search_count(
                 base + [("state", "in", list(self.ESTADOS_EN_CURSO))]),
-            "pesos": {
-                "rendimiento": int(self.PESO_RENDIMIENTO * 100),
-                "clase_a": int(self.PESO_CLASE_A * 100),
-                "cumplimiento": int(self.PESO_CUMPLIMIENTO * 100),
-            },
+            "pesos": self._pesos_pct(),
         }
 
     # ==================================================================
@@ -308,9 +337,9 @@ class ShrimpProveedorRanking(models.AbstractModel):
         return {
             "fila": fila,
             "lotes": lotes,
-            "umbral": UMBRAL_LOTES,
+            "umbral": self._umbral_lotes(),
             "suficiente": bool(fila) and fila["suficiente"],
-            "faltan": max(0, UMBRAL_LOTES - lotes),
+            "faltan": max(0, self._umbral_lotes() - lotes),
             "compradores": len({
                 v.buyer_partner_id.id for v in verificaciones if v.buyer_partner_id}),
             "verificadores": len({
@@ -323,11 +352,7 @@ class ShrimpProveedorRanking(models.AbstractModel):
                 [d for d in meta_medidos if d["metabisulfito_res"] == "pass"]),
             "en_curso": V.search_count(
                 base + [("state", "in", list(self.ESTADOS_EN_CURSO))]),
-            "pesos": {
-                "rendimiento": int(self.PESO_RENDIMIENTO * 100),
-                "clase_a": int(self.PESO_CLASE_A * 100),
-                "cumplimiento": int(self.PESO_CUMPLIMIENTO * 100),
-            },
+            "pesos": self._pesos_pct(),
         }
 
     # ------------------------------------------------------------------

@@ -100,8 +100,21 @@ class TestCopackFlujo(CopackCommon):
             sol.action_cancel()
 
     def test_orden_cancelada_no_resucita(self):
-        """Firmar una orden cancelada la pasaba a signed y acababa cobrada."""
+        """Firmar una orden cancelada la pasaba a signed y acababa cobrada.
+
+        Desde 19.0.1.1.0 una orden EMPACADA no se cancela (M5): el cliente no
+        puede librarse así de pagar un trabajo hecho. El camino es la disputa
+        y la reapertura del acta; una vez reabierta (vuelve a "recibida") sí
+        se cancela, y entonces no debe quedar nada vivo ni facturable."""
         _, orden = self.hasta_empacar()
+        with self.assertRaises(ValidationError):
+            orden.action_cancel()
+        self.assertEqual(orden.state, "packed")
+        cliente = orden.acceptance_ids.filtered(lambda f: f.role == "client" and f.active)
+        cliente.action_reject("No cuadra el peso", actor=self.cli)
+        self.assertEqual(orden.acceptance_state, "disputed")
+        orden.action_reabrir_acta("Rectificar el empaque", actor=self.cli)
+        self.assertEqual(orden.state, "received")
         orden.action_cancel()
         self.assertEqual(orden.acceptance_state, "na")
         self.assertFalse(orden.acceptance_ids.filtered(lambda f: f.decision == "pending"))

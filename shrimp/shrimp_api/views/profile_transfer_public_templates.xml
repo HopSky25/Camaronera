@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Trazabilidad pública: pasos internos entre perfiles de una misma
+         empresa (p. ej. Laboratorio → Camaronera). Sin precios. -->
+    <template id="public_traceability_profile_transfers" inherit_id="shrimp_api.public_traceability"
+              name="Trazabilidad pública: transferencias internas entre perfiles">
+        <xpath expr="//div[@t-if=&quot;data.get('sowings')&quot;]" position="before">
+            <div class="card mb-3" t-if="data.get('profile_transfers')" id="shrimp_public_profile_transfers">
+                <div class="card-header"><strong>Transferencias internas (misma empresa)</strong></div>
+                <ul class="list-group list-group-flush small">
+                    <li t-foreach="data['profile_transfers']" t-as="pt" class="list-group-item">
+                        <t t-esc="F.shrimp_fmt_iso(pt['date'])"/> · <strong t-esc="pt['company']"/> ·
+                        <t t-esc="pt['label']"/>
+                        · <t t-esc="F.shrimp_fmt_qty(pt['qty'], pt['uom'])"/>
+                    </li>
+                </ul>
+            </div>
+        </xpath>
+    </template>
+</odoo>

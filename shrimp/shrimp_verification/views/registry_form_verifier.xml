@@ -1,7 +1,7 @@
 <odoo>
 
   <!-- ============================================================
-       REGISTRO DEDICADO DEL VERIFICADOR (/registro/verificador)
+       REGISTRO DEDICADO DEL VERIFICADOR (/register/verifier)
        Formulario propio, separado del registro de los tres roles del
        marketplace. Guarda todos los datos de la empresa verificadora,
        su acreditación (certificados), cuenta bancaria y, opcionalmente,
@@ -31,7 +31,9 @@
             <div class="alert alert-danger"><i class="fa fa-exclamation-circle me-1"/> <t t-esc="error"/></div>
           </t>
 
-          <form method="post" action="/registro/submit" enctype="multipart/form-data">
+          <form method="post" action="/register/submit" enctype="multipart/form-data"
+                t-att-data-captcha="'shrimp_signup' if request.env['ir.config_parameter'].sudo().get_param('recaptcha_public_key') else None">
+            <t t-call="shrimp_user_registry.signup_honeypot"/>
             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
             <input type="hidden" name="shrimp_user_type" value="verificador"/>
 
@@ -275,7 +277,7 @@
                       <t t-foreach="certs" t-as="c">
                         <tr>
                           <td style="min-width:180px;">
-                            <input type="hidden" t-attf-name="cert_line_#{c_index}_id" t-att-value="c.id"/>
+                            <input type="hidden" t-attf-name="cert_line_#{c_index}_id" t-att-value="c.uuid_ref"/>
                             <strong t-esc="c.name"/>
                             <div class="sv-muted small"><t t-esc="c.issuer"/></div>
                           </td>
@@ -307,6 +309,12 @@
                 Cada técnico entra con su propia cuenta. Puedes agregarlos ahora o después desde “Mi equipo”.
               </p>
               <div id="teamRows"></div>
+              <select id="teamRoleTpl" class="d-none" aria-hidden="true" tabindex="-1">
+                <option value="">— Cargo —</option>
+                <t t-foreach="roles" t-as="r">
+                  <option t-att-value="r.uuid_ref"><t t-esc="r.name"/></option>
+                </t>
+              </select>
             </div></div>
 
             <div class="alert alert-info d-flex align-items-start gap-2" role="alert">
@@ -348,20 +356,37 @@
 
           // ---- Filas dinámicas de equipo ----
           var rows = document.getElementById('teamRows'), n = 0;
-          var roleOpts = '<option value="">— Cargo —</option>' +
-            [<t t-foreach="roles" t-as="r">{"id": <t t-esc="r.id"/>, "name": "<t t-esc="r.name"/>"},</t>]
-            .map(function (r) { return '<option value="' + r.id + '">' + r.name + '</option>'; }).join('');
+          // Los cargos los edita un administrador: se clonan de un select
+          // renderizado por QWeb (ya escapado) en vez de concatenar su nombre
+          // en innerHTML. Las filas se arman con nodos, no con HTML.
+          var roleTpl = document.getElementById('teamRoleTpl');
+          function col(cls, child) {
+            var d = document.createElement('div'); d.className = cls; d.appendChild(child); return d;
+          }
+          function inp(type, name, ph) {
+            var e = document.createElement('input');
+            e.type = type; e.name = name; e.placeholder = ph;
+            e.className = 'form-control form-control-sm';
+            return e;
+          }
           function addRow() {
             var i = n++;
+            if (i >= 20) { return; }
             var div = document.createElement('div');
             div.className = 'row g-2 align-items-end mb-2';
-            div.innerHTML =
-              '<div class="col-md-3"><input class="form-control form-control-sm" name="team_' + i + '_name" placeholder="Nombre"/></div>' +
-              '<div class="col-md-3"><input type="email" class="form-control form-control-sm" name="team_' + i + '_email" placeholder="Correo"/></div>' +
-              '<div class="col-md-2"><input type="text" class="form-control form-control-sm" name="team_' + i + '_password" placeholder="Contraseña"/></div>' +
-              '<div class="col-md-3"><select class="form-select form-select-sm" name="team_' + i + '_role">' + roleOpts + '</select></div>' +
-              '<div class="col-md-1"><button type="button" class="s-btn s-btn-ghost btn-sm w-100" title="Quitar">&#215;</button></div>';
-            div.querySelector('button').addEventListener('click', function () { div.remove(); });
+            div.appendChild(col('col-md-3', inp('text', 'team_' + i + '_name', 'Nombre')));
+            div.appendChild(col('col-md-3', inp('email', 'team_' + i + '_email', 'Correo')));
+            div.appendChild(col('col-md-2', inp('text', 'team_' + i + '_password', 'Contraseña')));
+            var sel = roleTpl ? roleTpl.cloneNode(true) : document.createElement('select');
+            sel.removeAttribute('id'); sel.classList.remove('d-none');
+            sel.className = 'form-select form-select-sm';
+            sel.name = 'team_' + i + '_role';
+            div.appendChild(col('col-md-3', sel));
+            var btn = document.createElement('button');
+            btn.type = 'button'; btn.className = 's-btn s-btn-ghost btn-sm w-100';
+            btn.title = 'Quitar'; btn.textContent = '\u00d7';
+            btn.addEventListener('click', function () { div.remove(); });
+            div.appendChild(col('col-md-1', btn));
             rows.appendChild(div);
           }
           var addBtn = document.getElementById('teamAdd');

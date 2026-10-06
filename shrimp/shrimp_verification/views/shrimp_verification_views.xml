@@ -69,8 +69,8 @@
           <button name="action_copy_whatsapp" string="Parte para WhatsApp" type="object"
                   class="btn-secondary" invisible="state == 'assigned'"/>
           <button name="action_generate_verification_documents" type="object"
-                  string="Facturar honorario"
-                  invisible="invoice_id or state not in ['approved','approved_obs','rejected']"/>
+                  string="Reintentar facturación del honorario"
+                  invisible="invoice_id and vendor_bill_id"/>
           <field name="state" widget="statusbar"
                  statusbar_visible="assigned,in_field,done,approved"/>
         </header>
@@ -92,6 +92,7 @@
               <field name="margin_pct" readonly="1" invisible="not margin_pct"/>
               <field name="platform_amount" readonly="1" invisible="not platform_amount"/>
               <field name="verifier_amount" readonly="1" invisible="not verifier_amount"/>
+              <field name="fee_charge_id" readonly="1" invisible="not fee_charge_id"/>
               <field name="invoice_id" readonly="1" invisible="not invoice_id"/>
               <field name="vendor_bill_id" readonly="1" invisible="not vendor_bill_id"/>
             </group>
@@ -252,6 +253,23 @@
                   <field name="decided_at"/>
                   <field name="auto" string="Automática"/>
                   <field name="reason"/>
+                  <button name="action_open_signoff_undo_wizard" type="object"
+                          string="Deshacer (gestor)" icon="fa-undo"
+                          groups="shrimp_marketplace.group_shrimp_manager"
+                          invisible="decision == 'pending'"/>
+                </list>
+              </field>
+            </page>
+            <page string="Cobros del honorario" name="fee_charges">
+              <field name="charge_ids" readonly="1">
+                <list>
+                  <field name="name"/>
+                  <field name="payer_partner_id"/>
+                  <field name="currency_id" column_invisible="1"/>
+                  <field name="amount" widget="monetary"/>
+                  <field name="state" widget="badge"/>
+                  <field name="invoice_id"/>
+                  <field name="refund_id" optional="show"/>
                 </list>
               </field>
             </page>
@@ -305,13 +323,13 @@
     <field name="name">Verificadores</field>
     <field name="res_model">res.partner</field>
     <field name="view_mode">list,form</field>
-    <field name="domain">[('shrimp_user_type','=','verificador')]</field>
+    <field name="domain">['|', ('shrimp_user_type','=','verificador'), ('shrimp_role_ids', 'any', [('role', '=', 'verificador'), ('state', '=', 'approved')])]</field>
     <field name="context">{'default_shrimp_user_type': 'verificador'}</field>
     <field name="search_view_id" ref="view_verifier_partner_search"/>
     <field name="help" type="html">
       <p class="o_view_nocontent_smiling_face">Registra tu primer verificador</p>
       <p>Un verificador es un contacto de tipo Verificador. Puede registrarse
-         solo desde /registro y subir sus certificados de acreditación.</p>
+         solo desde /register y subir sus certificados de acreditación.</p>
     </field>
   </record>
 

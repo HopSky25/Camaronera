@@ -1,7 +1,15 @@
-"""Genera los datos demo de shrimp_verification.
+"""Genera los datos demo ORIGINALES de shrimp_verification (demo_01..07).
 
 Determinista (random con semilla fija) para que dos ejecuciones den el mismo
 resultado y el diff de git sea estable.
+
+AVISO: es el generador histórico. demo_04_verifications_adult.xml se ajustó
+después de generarlo (pesos de la clasificación), así que volver a ejecutarlo
+NO reproduce ese archivo. La demo que se mantiene es la masiva
+(shrimp_marketplace/scripts/demo_masivo/generar.py), que además corrige estos
+datos originales con escrituras idempotentes. Estos archivos usan todavía los
+nombres viejos del perfil (ver_razon_social, ver_bank_*...), que funcionan
+como alias durante una versión.
 """
 import random
 from lxml import etree
@@ -9,7 +17,9 @@ from pathlib import Path
 
 random.seed(20260919)
 
-BASE = Path("/home/ccristhian/odoo19/custom_addons/Camaronera")
+# Raíz de los addons calculada desde este archivo (antes era una ruta fija de
+# otro equipo, /home/.../odoo19/custom_addons/Camaronera, que ya no existe).
+BASE = Path(__file__).resolve().parents[2]
 DEMO = BASE / "shrimp_verification" / "demo"
 DEMO.mkdir(exist_ok=True)
 MP = "shrimp_marketplace."

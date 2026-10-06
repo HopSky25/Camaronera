@@ -173,10 +173,10 @@ class ShrimpDispatch(models.Model):
         for rec in self:
             rec.name = _("Despacho de %s") % (rec.transaction_id.name or "—")
 
-    @api.depends("transaction_id.verification_id")
+    @api.depends("transaction_id.verification_ids")
     def _compute_verification(self):
         for rec in self:
-            rec.verification_id = rec.transaction_id.verification_id[:1]
+            rec.verification_id = rec.transaction_id.verification_ids[:1]
 
     @api.depends("eta", "actual_arrival")
     def _compute_puntualidad(self):
@@ -366,10 +366,10 @@ class ShrimpDispatch(models.Model):
         self.ensure_one()
         base = self.get_base_url()
         ruta_verificador = (
-            "/verificador/verificacion/%s" % self.verification_id.uuid_ref
-            if self.verification_id else "/verificador/bandeja")
+            "/verifier/verifications/%s" % self.verification_id.uuid_ref
+            if self.verification_id else "/verifier/inbox")
         mapa = [
-            (self.buyer_partner_id, "/marketplace/despacho/%s" % self.transaction_id.uuid_ref),
+            (self.buyer_partner_id, "/marketplace/dispatch/%s" % self.transaction_id.uuid_ref),
             (self.verifier_partner_id, ruta_verificador),
             (self.technician_partner_id, ruta_verificador),
         ]
@@ -469,7 +469,7 @@ class ShrimpDispatch(models.Model):
         """
         self.ensure_one()
         base = self.get_base_url()
-        url = base + "/marketplace/despacho/%s" % self.transaction_id.uuid_ref
+        url = base + "/marketplace/dispatch/%s" % self.transaction_id.uuid_ref
         entregados = []
         for partner in (self.seller_partner_id, self.buyer_partner_id):
             if not partner or not partner.email:

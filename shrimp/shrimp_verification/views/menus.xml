@@ -1,15 +1,16 @@
 <odoo>
+  <!-- Sección de la app «Camaronera» (antes era una aplicación aparte). -->
   <menuitem id="menu_shrimp_verification_root"
             name="Verificación"
-            web_icon="shrimp_verification,static/description/icon.png"
-            groups="base.group_user"
-            sequence="26"/>
+            parent="shrimp_marketplace.menu_shrimp_root"
+            groups="shrimp_marketplace.group_shrimp_user"
+            sequence="50"/>
 
   <menuitem id="menu_shrimp_verification_all"
             name="Verificaciones"
             parent="menu_shrimp_verification_root"
             action="action_shrimp_verification"
-            groups="base.group_user"
+            groups="shrimp_marketplace.group_shrimp_user"
             sequence="10"/>
 
   <!-- La cita del técnico. Va justo debajo de las verificaciones porque es lo
@@ -19,22 +20,24 @@
             name="Despachos a planta"
             parent="menu_shrimp_verification_root"
             action="action_shrimp_dispatch"
-            groups="base.group_user"
+            groups="shrimp_marketplace.group_shrimp_user"
             sequence="15"/>
 
   <menuitem id="menu_shrimp_verifiers"
             name="Verificadores"
             parent="menu_shrimp_verification_root"
             action="action_shrimp_verifiers"
-            groups="base.group_user"
+            groups="shrimp_marketplace.group_shrimp_user"
             sequence="20"/>
 
   <!-- Acreditar es dar o quitar el permiso de inspeccionar: no es trabajo
        operativo, decide quién puede emitir un dictamen vinculante. -->
+  <!-- Va en «Aprobaciones», junto al resto de certificados por revisar: los
+       certificados se gestionaban en tres sitios distintos. -->
   <menuitem id="menu_shrimp_verifier_accreditation"
-            name="Acreditaciones por aprobar"
-            parent="menu_shrimp_verification_root"
+            name="Acreditaciones de verificadores"
+            parent="shrimp_marketplace.menu_shrimp_approvals_root"
             action="action_verifier_accreditation"
-            groups="base.group_system"
+            groups="shrimp_marketplace.group_shrimp_manager"
             sequence="30"/>
 </odoo>

@@ -1,0 +1,544 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Maquiladores (plantas que empacan camarón ajeno) y sus cuentas de acceso.
+
+     GENERADO por shrimp_marketplace/scripts/demo_masivo (semilla fija).
+     No editar a mano: cambiar el generador y volver a ejecutarlo.
+     Fechas relativas al día de carga de la demo. -->
+<odoo>
+    <data noupdate="1">
+
+        <!-- ===== Maquiladores ===== -->
+        <record id="demo_ms_maq_01" model="res.partner">
+            <field name="name">Maquila Acuícola del Pacífico S.A.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">maquilador</field>
+            <field name="vat_or_id">0997609816001</field>
+            <field name="email">servicios@maquilaacuicoladelpaci.test</field>
+            <field name="phone">04-3880306</field>
+            <field name="street">Km 19 vía Durán-Tambo</field>
+            <field name="city">Durán</field>
+            <field name="state_id" ref="base.state_ec_09"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Maquila Acuícola del Pacífico S.A.</field>
+            <field name="shrimp_representante">Acuic. Paola Salazar Suárez</field>
+            <field name="shrimp_telefono">04-3880306</field>
+            <field name="shrimp_ubicacion">Durán, Guayas</field>
+            <field name="pack_codigo_establecimiento">EC-129-B</field>
+            <field name="pack_habilitacion_desde" eval="(DateTime.today() + relativedelta(days=-528)).strftime('%Y-%m-%d')"/>
+            <field name="pack_habilitacion_hasta" eval="(DateTime.today() + relativedelta(days=567)).strftime('%Y-%m-%d')"/>
+            <field name="shrimp_capacity_value" eval="400000.0"/>
+            <field name="shrimp_capacity_unit">lb_week</field>
+            <field name="pack_presentaciones">Entero en bloque</field>
+            <field name="pack_desde_entero" eval="0.11"/>
+            <field name="pack_desde_cola" eval="0.18"/>
+            <field name="pack_desde_valor_agregado" eval="0.42"/>
+            <field name="pack_currency_id" ref="base.USD"/>
+            <field name="pack_tarifa_nota">Precios referenciales; la tarifa firme depende del volumen.</field>
+            <field name="pack_lote_minimo_lb" eval="15000.0"/>
+            <field name="pack_en_directorio" eval="True"/>
+            <field name="shrimp_account_state">approved</field>
+        </record>
+        <record id="demo_ms_maq_02" model="res.partner">
+            <field name="name">Servicios de Empaque Puerto Bolívar S.A.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">maquilador</field>
+            <field name="vat_or_id">0798453068001</field>
+            <field name="email">servicios@serviciosdeempaquepuer.test</field>
+            <field name="phone">07-2658618</field>
+            <field name="street">Km 7 vía Durán-Tambo</field>
+            <field name="city">Puerto Bolívar</field>
+            <field name="state_id" ref="base.state_ec_07"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Servicios de Empaque Puerto Bolívar S.A.</field>
+            <field name="shrimp_representante">Econ. Andrés Cedeño Sánchez</field>
+            <field name="shrimp_telefono">07-2658618</field>
+            <field name="shrimp_ubicacion">Puerto Bolívar, El Oro</field>
+            <field name="pack_codigo_establecimiento">EC-645-C</field>
+            <field name="pack_habilitacion_desde" eval="(DateTime.today() + relativedelta(days=-304)).strftime('%Y-%m-%d')"/>
+            <field name="pack_habilitacion_hasta" eval="(DateTime.today() + relativedelta(days=791)).strftime('%Y-%m-%d')"/>
+            <field name="shrimp_capacity_value" eval="600000.0"/>
+            <field name="shrimp_capacity_unit">lb_week</field>
+            <field name="pack_presentaciones">Entero y cola</field>
+            <field name="pack_desde_entero" eval="0.12"/>
+            <field name="pack_desde_cola" eval="0.15"/>
+            <field name="pack_desde_valor_agregado" eval="0.5"/>
+            <field name="pack_currency_id" ref="base.USD"/>
+            <field name="pack_tarifa_nota">Precios referenciales; la tarifa firme depende del volumen.</field>
+            <field name="pack_lote_minimo_lb" eval="2000.0"/>
+            <field name="pack_en_directorio" eval="True"/>
+            <field name="shrimp_account_state">approved</field>
+        </record>
+        <record id="demo_ms_maq_03" model="res.partner">
+            <field name="name">Planta de Proceso Costa Sur Cía. Ltda.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">maquilador</field>
+            <field name="vat_or_id">0790485807001</field>
+            <field name="email">servicios@plantadeprocesocostas.test</field>
+            <field name="phone">07-3591347</field>
+            <field name="street">Km 4 vía a la Costa</field>
+            <field name="city">Machala</field>
+            <field name="state_id" ref="base.state_ec_07"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Planta de Proceso Costa Sur Cía. Ltda.</field>
+            <field name="shrimp_representante">Ing. Lorena Andrade Parrales</field>
+            <field name="shrimp_telefono">07-3591347</field>
+            <field name="shrimp_ubicacion">Machala, El Oro</field>
+            <field name="pack_codigo_establecimiento">EC-723-B</field>
+            <field name="pack_habilitacion_desde" eval="(DateTime.today() + relativedelta(days=-554)).strftime('%Y-%m-%d')"/>
+            <field name="pack_habilitacion_hasta" eval="(DateTime.today() + relativedelta(days=541)).strftime('%Y-%m-%d')"/>
+            <field name="shrimp_capacity_value" eval="250000.0"/>
+            <field name="shrimp_capacity_unit">lb_week</field>
+            <field name="pack_presentaciones">Cola IQF y valor agregado</field>
+            <field name="pack_desde_entero" eval="0.12"/>
+            <field name="pack_desde_cola" eval="0.15"/>
+            <field name="pack_desde_valor_agregado" eval="0.41"/>
+            <field name="pack_currency_id" ref="base.USD"/>
+            <field name="pack_tarifa_nota">Precios referenciales; la tarifa firme depende del volumen.</field>
+            <field name="pack_lote_minimo_lb" eval="15000.0"/>
+            <field name="pack_en_directorio" eval="True"/>
+            <field name="shrimp_account_state">approved</field>
+        </record>
+        <record id="demo_ms_maq_04" model="res.partner">
+            <field name="name">Empaques Marinos Posorja S.A.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">maquilador</field>
+            <field name="vat_or_id">0995037114001</field>
+            <field name="email">servicios@empaquesmarinosposorja.test</field>
+            <field name="phone">04-2656934</field>
+            <field name="street">Km 5 vía Durán-Tambo</field>
+            <field name="city">Posorja</field>
+            <field name="state_id" ref="base.state_ec_09"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Empaques Marinos Posorja S.A.</field>
+            <field name="shrimp_representante">Ing. Andrea Tomalá Macías</field>
+            <field name="shrimp_telefono">04-2656934</field>
+            <field name="shrimp_ubicacion">Posorja, Guayas</field>
+            <field name="pack_codigo_establecimiento">EC-389-C</field>
+            <field name="pack_habilitacion_desde" eval="(DateTime.today() + relativedelta(days=-738)).strftime('%Y-%m-%d')"/>
+            <field name="pack_habilitacion_hasta" eval="(DateTime.today() + relativedelta(days=357)).strftime('%Y-%m-%d')"/>
+            <field name="shrimp_capacity_value" eval="600000.0"/>
+            <field name="shrimp_capacity_unit">lb_week</field>
+            <field name="pack_presentaciones">Entero, cola y valor agregado</field>
+            <field name="pack_desde_entero" eval="0.1"/>
+            <field name="pack_desde_cola" eval="0.18"/>
+            <field name="pack_desde_valor_agregado" eval="0.48"/>
+            <field name="pack_currency_id" ref="base.USD"/>
+            <field name="pack_tarifa_nota">Precios referenciales; la tarifa firme depende del volumen.</field>
+            <field name="pack_lote_minimo_lb" eval="10000.0"/>
+            <field name="pack_en_directorio" eval="True"/>
+            <field name="shrimp_account_state">approved</field>
+        </record>
+        <record id="demo_ms_maq_05" model="res.partner">
+            <field name="name">Coempaque Manabí S.A.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">maquilador</field>
+            <field name="vat_or_id">1391697724001</field>
+            <field name="email">servicios@coempaquemanabi.test</field>
+            <field name="phone">05-5690884</field>
+            <field name="street">Km 8 vía a la Costa</field>
+            <field name="city">Jaramijó</field>
+            <field name="state_id" ref="base.state_ec_13"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Coempaque Manabí S.A.</field>
+            <field name="shrimp_representante">Lcdo. Rolando Palacios Tomalá</field>
+            <field name="shrimp_telefono">05-5690884</field>
+            <field name="shrimp_ubicacion">Jaramijó, Manabí</field>
+            <field name="pack_codigo_establecimiento">EC-151-A</field>
+            <field name="pack_habilitacion_desde" eval="(DateTime.today() + relativedelta(days=-692)).strftime('%Y-%m-%d')"/>
+            <field name="pack_habilitacion_hasta" eval="(DateTime.today() + relativedelta(days=403)).strftime('%Y-%m-%d')"/>
+            <field name="shrimp_capacity_value" eval="250000.0"/>
+            <field name="shrimp_capacity_unit">lb_week</field>
+            <field name="pack_presentaciones">Cola IQF y valor agregado</field>
+            <field name="pack_desde_entero" eval="0.11"/>
+            <field name="pack_desde_cola" eval="0.17"/>
+            <field name="pack_desde_valor_agregado" eval="0.46"/>
+            <field name="pack_currency_id" ref="base.USD"/>
+            <field name="pack_tarifa_nota">Precios referenciales; la tarifa firme depende del volumen.</field>
+            <field name="pack_lote_minimo_lb" eval="5000.0"/>
+            <field name="pack_en_directorio" eval="True"/>
+            <field name="shrimp_account_state">approved</field>
+        </record>
+        <record id="demo_ms_maq_06" model="res.partner">
+            <field name="name">Procesos Acuícolas Taura S.A.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">maquilador</field>
+            <field name="vat_or_id">0998843154001</field>
+            <field name="email">servicios@procesosacuicolastaura.test</field>
+            <field name="phone">04-6549910</field>
+            <field name="street">Km 7 vía Durán-Tambo</field>
+            <field name="city">Taura</field>
+            <field name="state_id" ref="base.state_ec_09"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Procesos Acuícolas Taura S.A.</field>
+            <field name="shrimp_representante">Econ. Silvia Andrade Delgado</field>
+            <field name="shrimp_telefono">04-6549910</field>
+            <field name="shrimp_ubicacion">Taura, Guayas</field>
+            <field name="pack_codigo_establecimiento">EC-177-A</field>
+            <field name="pack_habilitacion_desde" eval="(DateTime.today() + relativedelta(days=-349)).strftime('%Y-%m-%d')"/>
+            <field name="pack_habilitacion_hasta" eval="(DateTime.today() + relativedelta(days=746)).strftime('%Y-%m-%d')"/>
+            <field name="shrimp_capacity_value" eval="400000.0"/>
+            <field name="shrimp_capacity_unit">lb_week</field>
+            <field name="pack_presentaciones">Cola IQF y valor agregado</field>
+            <field name="pack_desde_entero" eval="0.1"/>
+            <field name="pack_desde_cola" eval="0.15"/>
+            <field name="pack_desde_valor_agregado" eval="0.4"/>
+            <field name="pack_currency_id" ref="base.USD"/>
+            <field name="pack_tarifa_nota">Precios referenciales; la tarifa firme depende del volumen.</field>
+            <field name="pack_lote_minimo_lb" eval="10000.0"/>
+            <field name="pack_en_directorio" eval="True"/>
+            <field name="shrimp_account_state">approved</field>
+        </record>
+        <record id="demo_ms_maq_07" model="res.partner">
+            <field name="name">Maquila Frigorífica Chongón S.A.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">maquilador</field>
+            <field name="vat_or_id">0997676866001</field>
+            <field name="email">servicios@maquilafrigorificachong.test</field>
+            <field name="phone">04-3108531</field>
+            <field name="street">Km 8 vía Durán-Tambo</field>
+            <field name="city">Chongón</field>
+            <field name="state_id" ref="base.state_ec_09"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Maquila Frigorífica Chongón S.A.</field>
+            <field name="shrimp_representante">Lcdo. José Pincay Jaramillo</field>
+            <field name="shrimp_telefono">04-3108531</field>
+            <field name="shrimp_ubicacion">Chongón, Guayas</field>
+            <field name="pack_codigo_establecimiento">EC-296-A</field>
+            <field name="pack_habilitacion_desde" eval="(DateTime.today() + relativedelta(days=-477)).strftime('%Y-%m-%d')"/>
+            <field name="pack_habilitacion_hasta" eval="(DateTime.today() + relativedelta(days=618)).strftime('%Y-%m-%d')"/>
+            <field name="shrimp_capacity_value" eval="250000.0"/>
+            <field name="shrimp_capacity_unit">lb_week</field>
+            <field name="pack_presentaciones">Entero y cola</field>
+            <field name="pack_desde_entero" eval="0.11"/>
+            <field name="pack_desde_cola" eval="0.17"/>
+            <field name="pack_desde_valor_agregado" eval="0.4"/>
+            <field name="pack_currency_id" ref="base.USD"/>
+            <field name="pack_tarifa_nota">Precios referenciales; la tarifa firme depende del volumen.</field>
+            <field name="pack_lote_minimo_lb" eval="5000.0"/>
+            <field name="pack_en_directorio" eval="True"/>
+            <field name="shrimp_account_state">approved</field>
+        </record>
+        <record id="demo_ms_maq_08" model="res.partner">
+            <field name="name">Servicios IQF Santa Elena S.A.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">maquilador</field>
+            <field name="vat_or_id">2494487562001</field>
+            <field name="email">servicios@serviciosiqfsantaelena.test</field>
+            <field name="phone">04-5267831</field>
+            <field name="street">Km 2 vía Durán-Tambo</field>
+            <field name="city">Santa Elena</field>
+            <field name="state_id" ref="base.state_ec_24"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Servicios IQF Santa Elena S.A.</field>
+            <field name="shrimp_representante">Blga. Narcisa Borbor Quintero</field>
+            <field name="shrimp_telefono">04-5267831</field>
+            <field name="shrimp_ubicacion">Santa Elena, Santa Elena</field>
+            <field name="pack_codigo_establecimiento">EC-352-E</field>
+            <field name="pack_habilitacion_desde" eval="(DateTime.today() + relativedelta(days=-370)).strftime('%Y-%m-%d')"/>
+            <field name="pack_habilitacion_hasta" eval="(DateTime.today() + relativedelta(days=725)).strftime('%Y-%m-%d')"/>
+            <field name="shrimp_capacity_value" eval="150000.0"/>
+            <field name="shrimp_capacity_unit">lb_week</field>
+            <field name="pack_presentaciones">Entero y cola</field>
+            <field name="pack_desde_entero" eval="0.1"/>
+            <field name="pack_desde_cola" eval="0.18"/>
+            <field name="pack_desde_valor_agregado" eval="0.46"/>
+            <field name="pack_currency_id" ref="base.USD"/>
+            <field name="pack_tarifa_nota">Precios referenciales; la tarifa firme depende del volumen.</field>
+            <field name="pack_lote_minimo_lb" eval="2000.0"/>
+            <field name="pack_en_directorio" eval="True"/>
+            <field name="shrimp_account_state">approved</field>
+        </record>
+        <record id="demo_ms_maq_09" model="res.partner">
+            <field name="name">Planta Maquiladora El Guabo Cía. Ltda.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">maquilador</field>
+            <field name="vat_or_id">0793368909001</field>
+            <field name="email">servicios@plantamaquiladoraelgua.test</field>
+            <field name="phone">07-5836732</field>
+            <field name="street">Km 20 vía Durán-Tambo</field>
+            <field name="city">El Guabo</field>
+            <field name="state_id" ref="base.state_ec_07"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Planta Maquiladora El Guabo Cía. Ltda.</field>
+            <field name="shrimp_representante">Econ. Diego Yagual Bajaña</field>
+            <field name="shrimp_telefono">07-5836732</field>
+            <field name="shrimp_ubicacion">El Guabo, El Oro</field>
+            <field name="pack_codigo_establecimiento">EC-959-A</field>
+            <field name="pack_habilitacion_desde" eval="(DateTime.today() + relativedelta(days=-235)).strftime('%Y-%m-%d')"/>
+            <field name="pack_habilitacion_hasta" eval="(DateTime.today() + relativedelta(days=860)).strftime('%Y-%m-%d')"/>
+            <field name="shrimp_capacity_value" eval="400000.0"/>
+            <field name="shrimp_capacity_unit">lb_week</field>
+            <field name="pack_presentaciones">Entero y cola</field>
+            <field name="pack_desde_entero" eval="0.11"/>
+            <field name="pack_desde_cola" eval="0.16"/>
+            <field name="pack_desde_valor_agregado" eval="0.49"/>
+            <field name="pack_currency_id" ref="base.USD"/>
+            <field name="pack_tarifa_nota">Precios referenciales; la tarifa firme depende del volumen.</field>
+            <field name="pack_lote_minimo_lb" eval="8000.0"/>
+            <field name="pack_en_directorio" eval="True"/>
+            <field name="shrimp_account_state">approved</field>
+        </record>
+        <record id="demo_ms_maq_10" model="res.partner">
+            <field name="name">Empacadora de Servicios Manta S.A.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">maquilador</field>
+            <field name="vat_or_id">1394286741001</field>
+            <field name="email">servicios@empacadoradeserviciosm.test</field>
+            <field name="phone">05-5780889</field>
+            <field name="street">Km 15 vía Data</field>
+            <field name="city">Manta</field>
+            <field name="state_id" ref="base.state_ec_13"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Empacadora de Servicios Manta S.A.</field>
+            <field name="shrimp_representante">Acuic. Lucía Sánchez Álava</field>
+            <field name="shrimp_telefono">05-5780889</field>
+            <field name="shrimp_ubicacion">Manta, Manabí</field>
+            <field name="pack_codigo_establecimiento">EC-111-C</field>
+            <field name="pack_habilitacion_desde" eval="(DateTime.today() + relativedelta(days=-287)).strftime('%Y-%m-%d')"/>
+            <field name="pack_habilitacion_hasta" eval="(DateTime.today() + relativedelta(days=808)).strftime('%Y-%m-%d')"/>
+            <field name="shrimp_capacity_value" eval="250000.0"/>
+            <field name="shrimp_capacity_unit">lb_week</field>
+            <field name="pack_presentaciones">Entero y cola</field>
+            <field name="pack_desde_entero" eval="0.11"/>
+            <field name="pack_desde_cola" eval="0.15"/>
+            <field name="pack_desde_valor_agregado" eval="0.41"/>
+            <field name="pack_currency_id" ref="base.USD"/>
+            <field name="pack_tarifa_nota">Precios referenciales; la tarifa firme depende del volumen.</field>
+            <field name="pack_lote_minimo_lb" eval="10000.0"/>
+            <field name="pack_en_directorio" eval="True"/>
+            <field name="shrimp_account_state">approved</field>
+        </record>
+        <record id="demo_ms_maq_11" model="res.partner">
+            <field name="name">Valor Agregado Ecuador S.A.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">maquilador</field>
+            <field name="vat_or_id">0997637372001</field>
+            <field name="email">servicios@valoragregadoecuador.test</field>
+            <field name="phone">04-4218910</field>
+            <field name="street">Km 2 vía Data</field>
+            <field name="city">Guayaquil</field>
+            <field name="state_id" ref="base.state_ec_09"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Valor Agregado Ecuador S.A.</field>
+            <field name="shrimp_representante">Lcdo. Édison Peñafiel Valarezo</field>
+            <field name="shrimp_telefono">04-4218910</field>
+            <field name="shrimp_ubicacion">Guayaquil, Guayas</field>
+            <field name="pack_codigo_establecimiento">EC-519-C</field>
+            <field name="pack_habilitacion_desde" eval="(DateTime.today() + relativedelta(days=-397)).strftime('%Y-%m-%d')"/>
+            <field name="pack_habilitacion_hasta" eval="(DateTime.today() + relativedelta(days=-33)).strftime('%Y-%m-%d')"/>
+            <field name="shrimp_capacity_value" eval="250000.0"/>
+            <field name="shrimp_capacity_unit">lb_week</field>
+            <field name="pack_presentaciones">Entero en bloque</field>
+            <field name="pack_desde_entero" eval="0.12"/>
+            <field name="pack_desde_cola" eval="0.16"/>
+            <field name="pack_desde_valor_agregado" eval="0.38"/>
+            <field name="pack_currency_id" ref="base.USD"/>
+            <field name="pack_tarifa_nota">Precios referenciales; la tarifa firme depende del volumen.</field>
+            <field name="pack_lote_minimo_lb" eval="5000.0"/>
+            <field name="pack_en_directorio" eval="True"/>
+            <field name="shrimp_account_state">approved</field>
+        </record>
+        <record id="demo_ms_maq_12" model="res.partner">
+            <field name="name">Frío y Empaque Huaquillas Cía. Ltda.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">maquilador</field>
+            <field name="vat_or_id">0799350602001</field>
+            <field name="email">servicios@frioyempaquehuaquillas.test</field>
+            <field name="phone">07-5163754</field>
+            <field name="street">Km 16 vía Puerto Bolívar</field>
+            <field name="city">Huaquillas</field>
+            <field name="state_id" ref="base.state_ec_07"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Frío y Empaque Huaquillas Cía. Ltda.</field>
+            <field name="shrimp_representante">Econ. Bolívar Quintero Tomalá</field>
+            <field name="shrimp_telefono">07-5163754</field>
+            <field name="shrimp_ubicacion">Huaquillas, El Oro</field>
+            <field name="pack_codigo_establecimiento">EC-545-E</field>
+            <field name="pack_habilitacion_desde" eval="(DateTime.today() + relativedelta(days=-415)).strftime('%Y-%m-%d')"/>
+            <field name="pack_habilitacion_hasta" eval="(DateTime.today() + relativedelta(days=680)).strftime('%Y-%m-%d')"/>
+            <field name="shrimp_capacity_value" eval="150000.0"/>
+            <field name="shrimp_capacity_unit">lb_week</field>
+            <field name="pack_presentaciones">Entero, cola y valor agregado</field>
+            <field name="pack_desde_entero" eval="0.12"/>
+            <field name="pack_desde_cola" eval="0.18"/>
+            <field name="pack_desde_valor_agregado" eval="0.41"/>
+            <field name="pack_currency_id" ref="base.USD"/>
+            <field name="pack_tarifa_nota">Precios referenciales; la tarifa firme depende del volumen.</field>
+            <field name="pack_lote_minimo_lb" eval="15000.0"/>
+            <field name="pack_en_directorio" eval="False"/>
+            <field name="shrimp_account_state">approved</field>
+        </record>
+
+        <!-- ===== Maquiladores recién registrados, pendientes de aprobación (sin operaciones) ===== -->
+        <record id="demo_ms_maq_nuevo_1" model="res.partner">
+            <field name="name">Empaques del Litoral Norte S.A.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">maquilador</field>
+            <field name="vat_or_id">1395797235001</field>
+            <field name="email">servicios@empaquesdellitoralnort.test</field>
+            <field name="phone">05-6124356</field>
+            <field name="city">Pedernales</field>
+            <field name="state_id" ref="base.state_ec_13"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Empaques del Litoral Norte S.A.</field>
+            <field name="shrimp_ubicacion">Pedernales, Manabí</field>
+            <field name="pack_en_directorio" eval="False"/>
+            <field name="shrimp_account_state">pending</field>
+            <field name="comment">Pendiente de verificar la habilitación de la planta.</field>
+        </record>
+        <record id="demo_ms_maq_nuevo_2" model="res.partner">
+            <field name="name">Maquila Frío Sur Cía. Ltda.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">maquilador</field>
+            <field name="vat_or_id">0797419338001</field>
+            <field name="email">servicios@maquilafriosur.test</field>
+            <field name="phone">07-6610592</field>
+            <field name="city">Arenillas</field>
+            <field name="state_id" ref="base.state_ec_07"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Maquila Frío Sur Cía. Ltda.</field>
+            <field name="shrimp_ubicacion">Arenillas, El Oro</field>
+            <field name="pack_en_directorio" eval="False"/>
+            <field name="shrimp_account_state">pending</field>
+            <field name="comment">Pendiente de verificar la habilitación de la planta.</field>
+        </record>
+        <record id="demo_ms_maq_nuevo_3" model="res.partner">
+            <field name="name">Servicios de Glaseo Express S.A.</field>
+            <field name="is_company" eval="True"/>
+            <field name="shrimp_user_type">maquilador</field>
+            <field name="vat_or_id">0996204219001</field>
+            <field name="email">servicios@serviciosdeglaseoexpre.test</field>
+            <field name="phone">04-4825258</field>
+            <field name="city">Guayaquil</field>
+            <field name="state_id" ref="base.state_ec_09"/>
+            <field name="country_id" ref="base.ec"/>
+            <field name="shrimp_razon_social">Servicios de Glaseo Express S.A.</field>
+            <field name="shrimp_ubicacion">Guayaquil, Guayas</field>
+            <field name="pack_en_directorio" eval="False"/>
+            <field name="shrimp_account_state">rejected</field>
+            <field name="comment">Rechazado: la planta no consta en el listado de establecimientos habilitados.</field>
+        </record>
+
+        <!-- ===== Cuentas de portal de los maquiladores ===== -->
+        <record id="demo_ms_user_maq_01" model="res.users">
+            <field name="partner_id" ref="demo_ms_maq_01"/>
+            <field name="login">maquilador.01@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_maq_02" model="res.users">
+            <field name="partner_id" ref="demo_ms_maq_02"/>
+            <field name="login">maquilador.02@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_maq_03" model="res.users">
+            <field name="partner_id" ref="demo_ms_maq_03"/>
+            <field name="login">maquilador.03@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_maq_04" model="res.users">
+            <field name="partner_id" ref="demo_ms_maq_04"/>
+            <field name="login">maquilador.04@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_maq_05" model="res.users">
+            <field name="partner_id" ref="demo_ms_maq_05"/>
+            <field name="login">maquilador.05@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_maq_06" model="res.users">
+            <field name="partner_id" ref="demo_ms_maq_06"/>
+            <field name="login">maquilador.06@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_maq_07" model="res.users">
+            <field name="partner_id" ref="demo_ms_maq_07"/>
+            <field name="login">maquilador.07@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_maq_08" model="res.users">
+            <field name="partner_id" ref="demo_ms_maq_08"/>
+            <field name="login">maquilador.08@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_maq_09" model="res.users">
+            <field name="partner_id" ref="demo_ms_maq_09"/>
+            <field name="login">maquilador.09@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_maq_10" model="res.users">
+            <field name="partner_id" ref="demo_ms_maq_10"/>
+            <field name="login">maquilador.10@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_maq_11" model="res.users">
+            <field name="partner_id" ref="demo_ms_maq_11"/>
+            <field name="login">maquilador.11@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+        <record id="demo_ms_user_maq_12" model="res.users">
+            <field name="partner_id" ref="demo_ms_maq_12"/>
+            <field name="login">maquilador.12@camaronera.test</field>
+            <field name="password">demo123</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="group_ids" eval="[(6, 0, [ref('base.group_portal')])]"/>
+            <field name="tz">America/Guayaquil</field>
+        </record>
+
+        <!-- ===== Varios perfiles por cuenta: empacadora que también presta servicio de empaque ===== -->
+        <record id="demo_mp_demo_ms_emp_01_maquilador" model="shrimp.partner.role">
+            <field name="partner_id" ref="shrimp_packer.demo_ms_emp_01"/>
+            <field name="role">maquilador</field>
+            <field name="state">approved</field>
+            <field name="notes">Demo multiperfil: alquila capacidad ociosa de su planta.</field>
+        </record>
+    </data>
+    <!-- Escrituras idempotentes: se aplican al instalar y también en -u. -->
+    <data noupdate="0">
+        <function model="res.partner" name="write" eval="[obj().search([('id', 'in', [r.id for r in [obj().env.ref(x, False) for x in ['shrimp_packer.demo_ms_emp_01']] if r])] + [('pack_codigo_establecimiento', '=', False)]).ids, {'pack_codigo_establecimiento': 'EST-MP-0101', 'pack_presentaciones': 'Entero y cola', 'pack_lote_minimo_lb': 8000.0, 'pack_desde_entero': 0.18, 'pack_desde_cola': 0.26}]"/>
+    </data>
+</odoo>

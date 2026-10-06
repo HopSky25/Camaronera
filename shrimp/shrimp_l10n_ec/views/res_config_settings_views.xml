@@ -1,0 +1,34 @@
+<odoo>
+  <record id="res_config_settings_view_form_shrimp_sri" model="ir.ui.view">
+    <field name="name">res.config.settings.form.shrimp.sri</field>
+    <field name="model">res.config.settings</field>
+    <field name="inherit_id" ref="shrimp_marketplace.res_config_settings_view_form_shrimp"/>
+    <field name="arch" type="xml">
+      <xpath expr="//block[@name='shrimp_commission_block']" position="after">
+        <block title="Facturas de servicio de la plataforma (SRI)" name="shrimp_sri_block">
+          <setting string="Diario y punto de emisión"
+                   help="Con qué se emiten las facturas electrónicas de comisión, verificación y empaque. El punto de emisión tiene que tener habilitados los documentos 01 (Factura) y 04 (Nota de crédito).">
+            <div class="content-group">
+              <div class="row mt8">
+                <label for="shrimp_service_journal_id" class="col-lg-5 o_light_label"/>
+                <field name="shrimp_service_journal_id"/>
+              </div>
+              <div class="row mt8">
+                <label for="shrimp_service_sri_point_id" class="col-lg-5 o_light_label"/>
+                <field name="shrimp_service_sri_point_id"/>
+              </div>
+              <div class="row mt8">
+                <label for="shrimp_service_payment_id" class="col-lg-5 o_light_label"/>
+                <field name="shrimp_service_payment_id"/>
+              </div>
+            </div>
+          </setting>
+          <setting string="Enviar al SRI al emitir"
+                   help="Al contabilizar la factura de servicio se crea y encola su comprobante electrónico.">
+            <field name="shrimp_sri_auto_emit"/>
+          </setting>
+        </block>
+      </xpath>
+    </field>
+  </record>
+</odoo>

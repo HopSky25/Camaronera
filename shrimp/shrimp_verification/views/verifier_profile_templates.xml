@@ -16,6 +16,7 @@
             </div>
           </div>
 
+          <t t-if="error"><div class="alert alert-danger"><t t-esc="message or 'No se pudo guardar.'"/></div></t>
           <t t-if="saved">
             <div class="alert alert-success" role="alert"><i class="fa fa-check-circle me-1"></i> Datos guardados.</div>
           </t>
@@ -23,8 +24,12 @@
             <div class="alert alert-info" role="alert">Solo el administrador de la empresa puede editar estos datos.</div>
           </t>
 
-          <form method="post" action="/verificador/perfil/guardar" enctype="multipart/form-data">
-            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+          <!-- Para el técnico la ficha es de solo lectura: el formulario no
+               apunta al endpoint de guardado (que igualmente responde 403). -->
+          <form t-att-method="'post' if es_admin else None"
+                t-att-action="'/verifier/profile/save' if es_admin else None"
+                t-att-enctype="'multipart/form-data' if es_admin else None">
+            <input t-if="es_admin" type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
 
             <!-- Datos de la empresa -->
             <div class="mp-table-card mb-4">
@@ -36,19 +41,19 @@
                 <div class="row g-3">
                   <div class="col-md-6">
                     <label class="form-label">Razón social</label>
-                    <input type="text" class="form-control" name="ver_razon_social" t-att-value="empresa.ver_razon_social or ''" t-att-readonly="not es_admin or None"/>
+                    <input type="text" class="form-control" name="ver_razon_social" t-att-value="empresa.shrimp_razon_social or ''" t-att-readonly="not es_admin or None"/>
                   </div>
                   <div class="col-md-6">
                     <label class="form-label">Responsable técnico</label>
-                    <input type="text" class="form-control" name="ver_representante" t-att-value="empresa.ver_representante or ''" t-att-readonly="not es_admin or None"/>
+                    <input type="text" class="form-control" name="ver_representante" t-att-value="empresa.shrimp_representante or ''" t-att-readonly="not es_admin or None"/>
                   </div>
                   <div class="col-md-4">
                     <label class="form-label">Teléfono</label>
-                    <input type="text" class="form-control" name="ver_telefono" t-att-value="empresa.ver_telefono or ''" t-att-readonly="not es_admin or None"/>
+                    <input type="text" class="form-control" name="ver_telefono" t-att-value="empresa.shrimp_telefono or ''" t-att-readonly="not es_admin or None"/>
                   </div>
                   <div class="col-md-4">
                     <label class="form-label">Ubicación</label>
-                    <input type="text" class="form-control" name="ver_ubicacion" t-att-value="empresa.ver_ubicacion or ''" t-att-readonly="not es_admin or None"/>
+                    <input type="text" class="form-control" name="ver_ubicacion" t-att-value="empresa.shrimp_ubicacion or ''" t-att-readonly="not es_admin or None"/>
                   </div>
                   <div class="col-md-4">
                     <label class="form-label">N.º de registro / licencia</label>
@@ -85,7 +90,8 @@
                   </div>
                   <div class="col-md-6">
                     <label class="form-label">N.º de cuenta</label>
-                    <input type="text" class="form-control" name="ver_bank_account_number" t-att-value="empresa.ver_bank_account_number or ''" t-att-readonly="not es_admin or None"/>
+                    <!-- Al técnico solo se le enseñan los 4 últimos dígitos. -->
+                    <input type="text" class="form-control" name="ver_bank_account_number" t-att-value="(empresa.ver_bank_account_number or '') if es_admin else (empresa.ver_bank_account_number and ('•••• ' + empresa.ver_bank_account_number[-4:]) or '')" t-att-readonly="not es_admin or None"/>
                   </div>
                   <div class="col-md-6">
                     <label class="form-label">Titular de la cuenta</label>
@@ -93,7 +99,7 @@
                   </div>
                   <div class="col-md-6">
                     <label class="form-label">Cédula/RUC del titular</label>
-                    <input type="text" class="form-control" name="ver_bank_holder_id" t-att-value="empresa.ver_bank_holder_id or ''" t-att-readonly="not es_admin or None"/>
+                    <input type="text" class="form-control" name="ver_bank_holder_id" t-att-value="(empresa.ver_bank_holder_id or '') if es_admin else (empresa.ver_bank_holder_id and ('•••• ' + empresa.ver_bank_holder_id[-4:]) or '')" t-att-readonly="not es_admin or None"/>
                   </div>
                 </div>
               </div>
@@ -171,7 +177,7 @@
                   </div>
                   <div class="col-md-4">
                     <label class="form-label">Capacidad diaria de lotes</label>
-                    <input type="number" min="0" class="form-control" name="ver_capacidad_lotes_dia" t-att-value="empresa.ver_capacidad_lotes_dia or ''" t-att-readonly="not es_admin or None"/>
+                    <input type="number" min="0" class="form-control" name="ver_capacidad_lotes_dia" t-att-value="empresa.shrimp_capacity_value or ''" t-att-readonly="not es_admin or None"/>
                   </div>
                 </div>
               </div>
@@ -201,7 +207,7 @@
                     <label class="form-label">Certificado de acreditación (PDF)</label>
                     <t t-if="empresa.ver_acred_cert">
                       <div class="mb-2">
-                        <a t-attf-href="/web/content?model=res.partner&amp;id=#{empresa.id}&amp;field=ver_acred_cert&amp;filename_field=ver_acred_cert_name&amp;download=true"
+                        <a href="/verifier/profile/accreditation?download=1"
                            class="sv-evidence"><i class="fa fa-file-pdf-o"/> <t t-esc="empresa.ver_acred_cert_name or 'Certificado actual'"/></a>
                       </div>
                     </t>

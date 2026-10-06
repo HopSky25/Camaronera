@@ -188,7 +188,7 @@ class ShrimpHarvestCommitment(models.Model):
     @api.constrains("packer_partner_id")
     def _check_empacadora(self):
         for rec in self:
-            if rec.packer_partner_id.shrimp_user_type != "empacadora":
+            if not rec.packer_partner_id._shrimp_has_role("empacadora"):
                 raise ValidationError(_(
                     "El camarón de engorde lo compra una empacadora. «%s» no lo es.")
                     % (rec.packer_partner_id.name or ""))
@@ -612,15 +612,21 @@ class ShrimpHarvestCommitment(models.Model):
             return True
         return False
 
-    def action_comprar(self, actor=None):
+    def action_comprar(self, actor=None, verifier=None, fee=None, mode=None):
         """La empacadora remata la compra del lote que nació de la reserva.
 
         No se dispara sola al cumplirse el compromiso, a propósito: comprar es
         un acto del comprador y dejarlo automático le quitaría a la empacadora
         el último control sobre su propia orden de compra. Lo que la reserva ya
         hizo es lo difícil —colocar el camarón y fijar el precio—; esto solo
-        usa el camino de compra de siempre, para no abrir una contabilidad
+        usa los caminos de compra de siempre, para no abrir una contabilidad
         paralela de ventas que después no cuadre con el marketplace.
+
+        El camarón adulto exige verificación en campo, también cuando viene de
+        una reserva: la reserva fija precio y libras, pero nadie vio todavía
+        el producto. Por eso la compra arranca como compra VERIFICADA (con el
+        verificador que elige la empacadora) y se cierra, como cualquier otra,
+        cuando las dos partes firman el informe.
         """
         self.ensure_one()
         actor = actor or self.env.user.partner_id
@@ -629,14 +635,42 @@ class ShrimpHarvestCommitment(models.Model):
         if self.state != "honored":
             raise ValidationError(_(
                 "Solo se compra sobre un compromiso cumplido."))
-        if self.transaction_id:
+        if self.transaction_id and self.transaction_id.state != "cancel":
             raise ValidationError(_("Esta reserva ya se compró."))
         if not self.product_id:
             raise ValidationError(_("Esta reserva no llegó a generar lote."))
-        resultado = self.product_id.sudo().execute_purchase_flow(
-            self.packer_partner_id, self.settled_lb)
+        # La empacadora compra COMO empacadora aunque en ese momento su cuenta
+        # (empacadora + camaronera, por ejemplo) navegue con otro perfil.
+        producto = self.product_id.sudo().with_context(shrimp_buyer_role="empacadora")
+        # Modo de verificación (plataforma o declarada por las partes). Sin
+        # modo explícito se deduce del verificador elegido, como antes.
+        mode = mode or ("platform" if verifier else None)
+        if producto._shrimp_requires_verification() or mode:
+            if mode == "declared":
+                resultado = producto.start_verified_purchase(
+                    self.packer_partner_id, self.settled_lb, None, mode="declared")
+                nota = _("Compra iniciada sobre el lote reservado, con verificación "
+                         "declarada por las partes.")
+                self.transaction_id = resultado["transaction"].id
+                self.message_post(body=nota)
+                return resultado["transaction"]
+            if not verifier:
+                raise ValidationError(_(
+                    "El camarón adulto se compra con verificación: elige un "
+                    "verificador acreditado de la plataforma o la verificación "
+                    "declarada por las partes para cerrar la reserva."))
+            if fee is None:
+                fee = self.env["shrimp.verification.fee"].sudo().compute(self.settled_lb)
+            resultado = producto.start_verified_purchase(
+                self.packer_partner_id, self.settled_lb, verifier, fee=fee)
+            nota = _("Compra iniciada sobre el lote reservado, con verificación en "
+                     "campo de «%s».") % (verifier.name or "")
+        else:
+            resultado = producto.execute_purchase_flow(
+                self.packer_partner_id, self.settled_lb)
+            nota = _("Compra ejecutada sobre el lote reservado.")
         self.transaction_id = resultado["transaction"].id
-        self.message_post(body=_("Compra ejecutada sobre el lote reservado."))
+        self.message_post(body=nota)
         return resultado["transaction"]
 
     @api.model

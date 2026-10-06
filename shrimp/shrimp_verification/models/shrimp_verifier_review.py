@@ -65,6 +65,18 @@ class ShrimpVerifierReview(models.Model):
                 raise ValidationError(_(
                     "Solo el comprador de la operación puede calificar la verificación."))
 
+    @api.constrains("verification_id")
+    def _check_platform_mode(self):
+        """La reputación de una verificadora solo se construye con las
+        inspecciones que hizo ella en la plataforma: una verificación
+        declarada por las partes no tiene verificadora de la plataforma a la
+        que calificar."""
+        for rec in self:
+            if rec.verification_id.verification_mode != "platform":
+                raise ValidationError(_(
+                    "Solo se califican las verificaciones hechas por una "
+                    "verificadora de la plataforma."))
+
     _uniq_review_per_verification = models.Constraint(
         "unique(verification_id)",
         "Ya calificaste esta verificación.",

@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Entrada en /my -->
+    <template id="portal_my_home_api" inherit_id="portal.portal_my_home" name="Integraciones (API) en Mi cuenta">
+        <xpath expr="//div[@id='portal_common_category']" position="inside">
+            <t t-if="request.env.user.share">
+                <t t-call="portal.portal_docs_entry">
+                    <t t-set="icon" t-value="'/portal/static/src/img/portal-connection.svg'"/>
+                    <t t-set="title">Integraciones (API)</t>
+                    <t t-set="text">Claves de API y webhooks para conectar tu ERP o tus sistemas</t>
+                    <t t-set="url" t-value="'/my/api-keys'"/>
+                    <t t-set="config_card" t-value="True"/>
+                </t>
+            </t>
+        </xpath>
+    </template>
+
+    <template id="portal_api_nav" name="Navegación de integraciones">
+        <ul class="nav nav-tabs mb-4">
+            <li class="nav-item">
+                <a t-attf-class="nav-link #{'active' if page_name == 'api_keys' else ''}" href="/my/api-keys">Claves de API</a>
+            </li>
+            <li class="nav-item">
+                <a t-attf-class="nav-link #{'active' if page_name == 'api_webhooks' else ''}" href="/my/webhooks">Webhooks</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="/api/v1/docs" target="_blank">Documentación</a>
+            </li>
+        </ul>
+    </template>
+
+    <template id="portal_api_keys" name="Mis claves de API">
+        <t t-call="portal.portal_layout">
+            <t t-set="breadcrumbs_searchbar" t-value="False"/>
+            <div class="container py-3">
+                <h3 class="mb-3">Integraciones (API)</h3>
+                <t t-call="shrimp_api.portal_api_nav"/>
+
+                <div t-if="not allowed" class="alert alert-warning">
+                    Las claves de la API externa son para cuentas de socios del portal.
+                    Las integraciones internas usan la API JSON-2 de Odoo.
+                </div>
+                <div t-if="error" class="alert alert-danger" t-esc="error"/>
+
+                <div t-if="secret" class="alert alert-success">
+                    <h5 class="alert-heading">Clave creada: «<t t-esc="created.name"/>»</h5>
+                    <p class="mb-2">Cópiala ahora. <strong>No se volverá a mostrar</strong>: solo
+                        guardamos un hash. Si la pierdes, revócala y crea otra.</p>
+                    <pre class="bg-white border rounded p-2 mb-2 user-select-all" style="white-space:pre-wrap;word-break:break-all;"><t t-esc="secret"/></pre>
+                    <small>Úsala en la cabecera <code>Authorization: Bearer &lt;clave&gt;</code>
+                        (o <code>X-API-Key</code>).</small>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-header"><strong>Mis claves</strong></div>
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0 align-middle">
+                            <thead><tr>
+                                <th>Nombre</th><th>Clave</th><th>Scopes</th><th>Caduca</th>
+                                <th>Último uso</th><th>Estado</th><th/>
+                            </tr></thead>
+                            <tbody>
+                                <tr t-if="not keys"><td colspan="7" class="text-muted">Todavía no tienes claves.</td></tr>
+                                <tr t-foreach="keys" t-as="k">
+                                    <td t-esc="k.name"/>
+                                    <td><code t-esc="k.display_key"/></td>
+                                    <td><small t-esc="', '.join(k.scope_ids.mapped('code'))"/></td>
+                                    <td><span t-field="k.expires_at" t-options="{'widget': 'date'}"/></td>
+                                    <td><span t-field="k.last_used"/></td>
+                                    <td><span t-attf-class="badge #{'text-bg-success' if k.status == 'active' else 'text-bg-secondary'}" t-esc="dict(k._fields['status'].selection).get(k.status)"/></td>
+                                    <td class="text-end">
+                                        <form t-if="k.status == 'active'" t-attf-action="/my/api-keys/#{k.uuid_ref}/revoke" method="post"
+                                              onsubmit="return confirm('La integración que use esta clave dejará de funcionar. ¿Revocar?');">
+                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                            <button class="btn btn-sm btn-outline-danger">Revocar</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card" t-if="allowed">
+                    <div class="card-header"><strong>Crear una clave</strong></div>
+                    <div class="card-body">
+                        <form action="/my/api-keys/new" method="post">
+                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Nombre</label>
+                                    <input name="name" class="form-control" required="required" placeholder="ERP planta Durán"/>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Caducidad</label>
+                                    <select name="expiry_days" class="form-select">
+                                        <t t-foreach="expiry_choices" t-as="c">
+                                            <option t-att-value="c[0]" t-att-selected="c[0] == 90 and 'selected'"><t t-esc="c[1]"/></option>
+                                        </t>
+                                    </select>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label">Permisos (scopes) — da solo los que la integración necesita</label>
+                                    <div class="row">
+                                        <t t-foreach="scopes" t-as="s">
+                                            <div class="col-md-6">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" name="scopes" t-att-value="s[0]" t-att-id="'sc_%s' % s_index"/>
+                                                    <label class="form-check-label" t-att-for="'sc_%s' % s_index">
+                                                        <code t-esc="s[0]"/> — <t t-esc="s[1]"/>
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </t>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">IPs permitidas (opcional)</label>
+                                    <textarea name="ip_allowlist" class="form-control" rows="2" placeholder="203.0.113.10&#10;198.51.100.0/24"/>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Orígenes CORS (solo si llamas desde un navegador)</label>
+                                    <textarea name="allowed_origins" class="form-control" rows="2" placeholder="https://erp.miempresa.com"/>
+                                </div>
+                            </div>
+                            <button class="btn btn-primary mt-3">Crear clave</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <template id="portal_webhooks" name="Mis webhooks">
+        <t t-call="portal.portal_layout">
+            <t t-set="breadcrumbs_searchbar" t-value="False"/>
+            <div class="container py-3">
+                <h3 class="mb-3">Integraciones (API)</h3>
+                <t t-call="shrimp_api.portal_api_nav"/>
+                <div t-if="error" class="alert alert-danger" t-esc="error"/>
+                <div t-if="message" class="alert alert-info" t-esc="message"/>
+                <div t-if="secret" class="alert alert-success">
+                    <h5 class="alert-heading">Webhook creado: «<t t-esc="created.name"/>»</h5>
+                    <p class="mb-2">Este es el secreto para verificar la firma
+                        <code>X-Trazul-Signature</code>. <strong>No se volverá a mostrar.</strong></p>
+                    <pre class="bg-white border rounded p-2 user-select-all" style="white-space:pre-wrap;word-break:break-all;"><t t-esc="secret"/></pre>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-header"><strong>Mis suscripciones</strong></div>
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0 align-middle">
+                            <thead><tr><th>Nombre</th><th>URL</th><th>Eventos</th><th>Estado</th><th>Último error</th><th/></tr></thead>
+                            <tbody>
+                                <tr t-if="not subs"><td colspan="6" class="text-muted">Sin suscripciones.</td></tr>
+                                <tr t-foreach="subs" t-as="s">
+                                    <td t-esc="s.name"/>
+                                    <td><small t-esc="s.url"/></td>
+                                    <td><small t-esc="s.event_types"/></td>
+                                    <td>
+                                        <span t-if="s.active" class="badge text-bg-success">Activa</span>
+                                        <span t-else="" class="badge text-bg-secondary">Inactiva</span>
+                                        <small t-if="s.disabled_reason" class="d-block text-muted" t-esc="s.disabled_reason"/>
+                                    </td>
+                                    <td><small t-esc="s.last_error or ''"/></td>
+                                    <td class="text-end text-nowrap">
+                                        <form class="d-inline" t-attf-action="/my/webhooks/#{s.uuid_ref}/ping" method="post">
+                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                            <button class="btn btn-sm btn-outline-secondary">Ping</button>
+                                        </form>
+                                        <form class="d-inline" t-attf-action="/my/webhooks/#{s.uuid_ref}/toggle" method="post">
+                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                            <button class="btn btn-sm btn-outline-secondary"><t t-if="s.active">Pausar</t><t t-else="">Reactivar</t></button>
+                                        </form>
+                                        <form class="d-inline" t-attf-action="/my/webhooks/#{s.uuid_ref}/delete" method="post"
+                                              onsubmit="return confirm('¿Borrar la suscripción y su historial?');">
+                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                            <button class="btn btn-sm btn-outline-danger">Borrar</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card" t-if="allowed">
+                    <div class="card-header"><strong>Nueva suscripción</strong></div>
+                    <div class="card-body">
+                        <form action="/my/webhooks/new" method="post">
+                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label">Nombre</label>
+                                    <input name="name" class="form-control" required="required"/>
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label">URL (https)</label>
+                                    <input name="url" type="url" class="form-control" required="required" placeholder="https://erp.miempresa.com/webhooks/camaronmarket"/>
+                                </div>
+                                <div class="col-12">
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" name="all_events" value="1" id="wh_all"/>
+                                        <label class="form-check-label" for="wh_all">Todos los eventos que me correspondan</label>
+                                    </div>
+                                    <div class="row">
+                                        <t t-foreach="events" t-as="e">
+                                            <div class="col-md-6">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" name="events" t-att-value="e[0]" t-att-id="'ev_%s' % e_index"/>
+                                                    <label class="form-check-label" t-att-for="'ev_%s' % e_index"><code t-esc="e[0]"/> — <t t-esc="e[1]"/></label>
+                                                </div>
+                                            </div>
+                                        </t>
+                                    </div>
+                                </div>
+                            </div>
+                            <button class="btn btn-primary mt-3">Crear suscripción</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+</odoo>

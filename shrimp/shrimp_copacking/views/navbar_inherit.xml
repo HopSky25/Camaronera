@@ -1,41 +1,14 @@
 <odoo>
 
   <!-- ================================================================
-       El servicio de empaque dentro del desplegable Operaciones.
+       «Servicio de empaque» ya no se inyecta aquí con xpath en el
+       desplegable «Operaciones» (que desapareció): se declara en
+       models/website_navbar.py, dentro de Servicios ▾, para quien tiene la
+       capacidad request_copack (camaronera y empacadora). La vista vieja
+       (navbar_servicio_empaque) se elimina al actualizar el módulo.
 
-       Se muestra SOLO a quien es dueño del camarón: camaronera y
-       empacadora. Para un semillero, un laboratorio o un verificador
-       sería un camino muerto —la ruta les devuelve 403— y al maquilador
-       no le sirve porque él no contrata el servicio, lo presta, y tiene
-       su propio sitio para eso.
+       El menú del sitio de empaque (copacker_jobs / copacker_plant) no
+       cambia.
        ================================================================ -->
-  <!-- priority explicita, y no la de por defecto (16). El ancla de abajo
-       —el enlace a las listas de precios— no esta en la plantilla heredada:
-       lo inyecta otra vista de shrimp_packer con la misma prioridad, asi que
-       hasta ahora esto solo funcionaba porque el id de aquella es menor. Con
-       30 se garantiza que el ancla ya existe cuando se aplica esta vista. -->
-  <template id="navbar_servicio_empaque"
-            inherit_id="shrimp_marketplace.submenu_mi_panel_dropdown"
-            priority="30"
-            name="Operaciones - servicio de empaque">
-    <!-- Anclado por el href de las listas de precios, que es estable, y no
-         por posición: así no se rompe si mañana se reordena el desplegable. -->
-    <xpath expr="//a[@href='/marketplace/listas-de-precios']/.." position="after">
-      <t t-set="shrimp_tipo_emp"
-         t-value="request.env.user.partner_id.shrimp_user_type if request else False"/>
-
-      <!-- Una sola entrada al directorio. Desde ahí se alcanza todo lo demás:
-           ver plantas, pedir servicio, seguir las solicitudes y las órdenes.
-           Tres entradas separadas solo harían más larga la barra sin llevar a
-           ningún sitio al que no se llegue ya. -->
-      <li t-if="not shrimp_tipo_emp or shrimp_tipo_emp in ('camaronera', 'empacadora')">
-        <a role="menuitem" class="dropdown-item mp-menu-item"
-           href="/marketplace/empaque">
-          <span class="mp-menu-ico mp-mi-blue"><i class="fa fa-cube"/></span>
-          <span>Servicio de empaque</span>
-        </a>
-      </li>
-    </xpath>
-  </template>
 
 </odoo>

@@ -28,6 +28,13 @@
               <field name="is_current"/>
             </group>
             <group>
+              <!-- Del calendario de la plataforma: el aguaje en curso o uno
+                   próximo. El modelo lo exige al publicar y rechaza uno
+                   pasado al crear o cambiarlo. -->
+              <field name="aguaje_id" options="{'no_create': True, 'no_open': True}"
+                     domain="[('date_to', '&gt;=', context_today().strftime('%Y-%m-%d'))]"
+                     required="state == 'draft' and not id"/>
+              <field name="aguaje_txt" invisible="not aguaje_id"/>
               <field name="dispatch_from"/>
               <field name="open_ended"/>
               <field name="dispatch_to" invisible="open_ended"/>
@@ -89,6 +96,7 @@
         <field name="issue_date"/>
         <field name="dispatch_from"/>
         <field name="dispatch_to"/>
+        <field name="aguaje_txt" optional="show"/>
         <field name="line_count"/>
         <field name="is_current"/>
         <field name="state"/>
@@ -103,6 +111,7 @@
       <search>
         <field name="name"/>
         <field name="issuer_partner_id"/>
+        <field name="aguaje_id"/>
         <filter name="f_current" string="Vigentes" domain="[('is_current','=',True)]"/>
         <filter name="f_published" string="Publicadas" domain="[('state','=','published')]"/>
         <group>

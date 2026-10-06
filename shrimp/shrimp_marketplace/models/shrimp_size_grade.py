@@ -1,5 +1,7 @@
 from odoo import api, fields, models
 
+from .shrimp_selection import PRESENTATIONS
+
 
 class ShrimpSizeGrade(models.Model):
     _name = "shrimp.size.grade"
@@ -8,10 +10,7 @@ class ShrimpSizeGrade(models.Model):
     _order = "presentation, sequence, name"
 
     name = fields.Char(string="Talla", required=True, help="Código de talla, p. ej. 20/30.")
-    presentation = fields.Selection([
-        ("entero", "Entero"),
-        ("cola", "Cola"),
-    ], string="Presentación", required=True, index=True)
+    presentation = fields.Selection(PRESENTATIONS, string="Presentación", required=True, index=True)
     sequence = fields.Integer(default=10)
     active = fields.Boolean(default=True)
 

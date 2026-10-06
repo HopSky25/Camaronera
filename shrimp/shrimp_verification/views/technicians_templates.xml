@@ -75,14 +75,14 @@
                           <td class="text-end" style="white-space:nowrap;">
                             <button type="button" class="s-btn s-btn-ghost btn-sm"
                                     data-tech-edit="1"
-                                    t-att-data-id="t.id"
+                                    t-att-data-id="t.uuid_ref"
                                     t-att-data-name="t.name or ''"
                                     t-att-data-email="t.email or ''"
                                     t-att-data-phone="t.phone or ''"
-                                    t-att-data-role="t.tech_role_id.id or ''">
+                                    t-att-data-role="t.tech_role_id.uuid_ref or ''">
                               <i class="fa fa-pencil me-1"/> Editar
                             </button>
-                            <form method="post" t-attf-action="/verificador/tecnicos/#{t.id}/estado" style="display:inline;">
+                            <form method="post" t-attf-action="/verifier/technicians/#{t.uuid_ref}/toggle" style="display:inline;">
                               <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                               <button class="s-btn s-btn-ghost btn-sm" type="submit">
                                 <t t-if="t.active">Dar de baja</t>
@@ -129,7 +129,7 @@
               <i class="fa fa-times"/>
             </button>
           </div>
-          <form method="post" id="techForm" action="/verificador/tecnicos/agregar" class="text-start">
+          <form method="post" id="techForm" action="/verifier/technicians/add" class="text-start">
             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
             <div class="row g-3">
               <div class="col-md-6">
@@ -138,10 +138,10 @@
               </div>
               <div class="col-md-6">
                 <label class="form-label">Cargo</label>
-                <select class="form-select" name="tech_role_id" id="techRole">
+                <select class="form-select" name="tech_role_ref" id="techRole">
                   <option value="">— Seleccionar —</option>
                   <t t-foreach="roles" t-as="r">
-                    <option t-att-value="r.id"><t t-esc="r.name"/></option>
+                    <option t-att-value="r.uuid_ref"><t t-esc="r.name"/></option>
                   </t>
                 </select>
               </div>
@@ -183,12 +183,14 @@
 
           document.querySelectorAll('[data-tech-add]').forEach(function (b) {
             b.addEventListener('click', function () {
-              form.setAttribute('action', '/verificador/tecnicos/agregar');
+              form.setAttribute('action', '/verifier/technicians/add');
               title.textContent = 'Agregar técnico';
               setField('techName', ''); setField('techEmail', '');
               setField('techPhone', ''); setField('techRole', ''); setField('techPass', '');
               pass.setAttribute('required', 'required');
-              passLabel.innerHTML = 'Contraseña inicial <span class="text-danger">*</span>';
+              passLabel.textContent = 'Contraseña inicial ';
+              var req = document.createElement('span'); req.className = 'text-danger'; req.textContent = '*';
+              passLabel.appendChild(req);
               passHelp.textContent = 'Comunícale la contraseña; podrá cambiarla desde su cuenta.';
               openModal();
             });
@@ -196,7 +198,7 @@
 
           document.querySelectorAll('[data-tech-edit]').forEach(function (b) {
             b.addEventListener('click', function () {
-              form.setAttribute('action', '/verificador/tecnicos/' + b.dataset.id + '/editar');
+              form.setAttribute('action', '/verifier/technicians/' + encodeURIComponent(b.dataset.id) + '/edit');
               title.textContent = 'Editar técnico';
               setField('techName', b.dataset.name);
               setField('techEmail', b.dataset.email);

@@ -1,87 +1,231 @@
 <odoo>
-  <!-- Convierte los menús "Productos", "Operaciones" y "Mi cuenta" en DROPDOWNs
-       reales (cada sección es un menú independiente en la barra superior). -->
-  <template id="submenu_mi_panel_dropdown" inherit_id="website.submenu" name="Menús del panel (dropdowns)">
+  <!-- Barra del marketplace (sitio principal), con sesión:
 
-    <!-- 1) No renderizar el enlace plano para nuestros 3 menús (los sustituyen los dropdowns) -->
-    <xpath expr="//li[1]" position="attributes">
-      <attribute name="t-if">submenu.is_visible and not (submenu.child_id or submenu.is_mega_menu) and submenu.name not in ('Productos', 'Operaciones', 'Mi cuenta')</attribute>
+         Mi panel · Marketplace · Vender ▾ · Comprar ▾ · Servicios ▾      Perfil: X ▾ · Mi cuenta ▾
+
+       «Mi panel» y «Marketplace» son website.menu planos. «Vender»,
+       «Comprar» y «Servicios» son website.menu reconocidos por su CLAVE
+       (shrimp_key sell / buy / services; también las viejas products /
+       operations / account, por si una base aún no se migró), no por el
+       nombre, que se puede editar desde el sitio.
+
+       El CONTENIDO de cada desplegable no se escribe aquí: sale de la tabla
+       única website._shrimp_nav_entries() (models/website_navbar.py), que
+       cada módulo amplía por herencia, filtrada con la matriz de capacidades
+       y el perfil ACTIVO. Un desplegable sin entradas no se pinta. La misma
+       plantilla sirve para la barra de escritorio y el menú lateral del
+       móvil. -->
+  <template id="submenu_mi_panel_dropdown" inherit_id="website.submenu" name="Barra del marketplace (Vender / Comprar / Servicios)">
+
+    <!-- 1) No renderizar el enlace plano para los menús desplegables. Ancla
+         por el t-if del enlace plano de Odoo (estable), no por posición. -->
+    <xpath expr="//li[contains(@t-if, 'not (submenu.child_id or submenu.is_mega_menu)')]" position="attributes">
+      <attribute name="t-if">submenu.is_visible and not (submenu.child_id or submenu.is_mega_menu) and submenu.shrimp_key not in ('sell', 'buy', 'services', 'products', 'operations', 'account')</attribute>
     </xpath>
 
-    <!-- 2) Insertar los dropdowns -->
-    <xpath expr="//li[1]" position="before">
-
-      <!-- El eslabón de quien mira: hay entradas que solo tienen sentido para
-           algunos roles, y ofrecerlas a todos dejaba enlaces que terminan en
-           "403: Prohibido". El usuario no lee eso como una regla de negocio,
-           lo lee como que la aplicación está rota. -->
-      <t t-set="shrimp_tipo"
-         t-value="request.env.user.partner_id.shrimp_user_type if request else False"/>
-      <t t-set="shrimp_vende" t-value="shrimp_tipo in ('semillero', 'laboratorio', 'camaronera')"/>
-
-      <!-- ===== Menú: Productos ===== -->
-      <li t-if="submenu.is_visible and submenu.name == 'Productos'"
-          t-attf-class="#{item_class or ''} dropdown" role="presentation">
+    <!-- 2) El desplegable de la sección -->
+    <xpath expr="//li[contains(@t-if, 'not (submenu.child_id or submenu.is_mega_menu)')]" position="before">
+      <t t-set="shrimp_nav_sec" t-value="submenu.is_visible and submenu.shrimp_key in ('sell', 'buy', 'services', 'products', 'operations', 'account') and website and website._shrimp_nav_section(submenu.shrimp_key)"/>
+      <li t-if="shrimp_nav_sec"
+          t-attf-class="#{item_class or ''} dropdown shrimp-dd shrimp-dd-#{shrimp_nav_sec['key']}"
+          t-att-data-shrimp-section="shrimp_nav_sec['key']" role="presentation">
         <a href="#"
            t-attf-class="dropdown-toggle #{link_class or ''} #{submenu._is_active() and 'active'} #{dropdown_toggler_classes}"
            data-bs-toggle="dropdown" data-bs-auto-close="outside" role="menuitem">
           <span t-field="submenu.name"/>
         </a>
         <ul t-attf-class="dropdown-menu mp-menu #{dropdown_menu_classes}" role="menu">
-          <li t-if="shrimp_vende or not shrimp_tipo"><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace/products/new"><span class="mp-menu-ico mp-mi-green"><i class="fa fa-plus-circle"/></span><span>Publicar producto</span></a></li>
-          <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace/products"><span class="mp-menu-ico mp-mi-blue"><i class="fa fa-cubes"/></span><span>Mis productos</span></a></li>
-          <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace"><span class="mp-menu-ico mp-mi-teal"><i class="fa fa-shopping-bag"/></span><span>Marketplace</span></a></li>
-          <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace/mis-lotes"><span class="mp-menu-ico mp-mi-blue"><i class="fa fa-flask"/></span><span>Mi inventario</span></a></li>
-          <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace/mis-instalaciones"><span class="mp-menu-ico mp-mi-teal"><i class="fa fa-map-o"/></span><span>Instalaciones y piscinas</span></a></li>
-          <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace/solicitudes"><span class="mp-menu-ico mp-mi-amber"><i class="fa fa-check-square-o"/></span><span>Solicitudes de chequeo</span></a></li>
+          <t t-foreach="shrimp_nav_sec['items']" t-as="shrimp_it">
+            <li t-if="shrimp_it.get('group_start')" role="presentation"><h6 class="dropdown-header mp-menu-header" t-esc="shrimp_it['group_start']"/></li>
+            <li role="presentation">
+              <a role="menuitem" class="dropdown-item mp-menu-item" t-att-href="shrimp_it['url']" t-att-data-shrimp-nav="shrimp_it['key']">
+                <span t-attf-class="mp-menu-ico mp-mi-#{shrimp_it.get('tone') or 'blue'}"><i t-attf-class="fa #{shrimp_it.get('icon') or 'fa-circle-o'}"/></span>
+                <span t-esc="shrimp_it['label']"/>
+                <span t-if="shrimp_it.get('new')" class="mp-menu-new">Nuevo</span>
+              </a>
+            </li>
+          </t>
         </ul>
       </li>
-
-      <!-- ===== Menú: Operaciones ===== -->
-      <li t-if="submenu.is_visible and submenu.name == 'Operaciones'"
-          t-attf-class="#{item_class or ''} dropdown" role="presentation">
-        <a href="#"
-           t-attf-class="dropdown-toggle #{link_class or ''} #{submenu._is_active() and 'active'} #{dropdown_toggler_classes}"
-           data-bs-toggle="dropdown" data-bs-auto-close="outside" role="menuitem">
-          <span t-field="submenu.name"/>
-        </a>
-        <ul t-attf-class="dropdown-menu mp-menu #{dropdown_menu_classes}" role="menu">
-          <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace/compras"><span class="mp-menu-ico mp-mi-blue"><i class="fa fa-shopping-cart"/></span><span>Historial de compras</span></a></li>
-          <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace/ventas"><span class="mp-menu-ico mp-mi-green"><i class="fa fa-line-chart"/></span><span>Ventas realizadas</span></a></li>
-          <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace/planificacion"><span class="mp-menu-ico mp-mi-teal"><i class="fa fa-tasks"/></span><span>Planificación</span></a></li>
-          <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace/reportes"><span class="mp-menu-ico mp-mi-green"><i class="fa fa-bar-chart"/></span><span>Mis reportes</span></a></li>
-          <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace/calendar"><span class="mp-menu-ico mp-mi-amber"><i class="fa fa-calendar"/></span><span>Calendario de entregas</span></a></li>
-        </ul>
-      </li>
-
-      <!-- ===== Menú: Mi cuenta ===== -->
-      <li t-if="submenu.is_visible and submenu.name == 'Mi cuenta'"
-          t-attf-class="#{item_class or ''} dropdown" role="presentation">
-        <a href="#"
-           t-attf-class="dropdown-toggle #{link_class or ''} #{submenu._is_active() and 'active'} #{dropdown_toggler_classes}"
-           data-bs-toggle="dropdown" data-bs-auto-close="outside" role="menuitem">
-          <span t-field="submenu.name"/>
-        </a>
-        <ul t-attf-class="dropdown-menu mp-menu #{dropdown_menu_classes}" role="menu">
-          <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace/mi-cuenta"><span class="mp-menu-ico mp-mi-coral"><i class="fa fa-user-o"/></span><span>Mi cuenta y certificados</span></a></li>
-          <li><a role="menuitem" class="dropdown-item mp-menu-item fw-semibold" href="/my"><span class="mp-menu-ico mp-mi-navy"><i class="fa fa-th-large"/></span><span>Ver panel completo</span></a></li>
-        </ul>
-      </li>
-
     </xpath>
 
+  </template>
+
+  <!-- ================================================================
+       «Mi cuenta ▾» a la derecha (sitio principal): el menú de usuario de
+       Odoo muestra «Mi cuenta» y, dentro, la sección "account" de la misma
+       tabla (Datos de la empresa · Certificados · Mi vitrina pública ·
+       Integraciones (API)) antes de «Cerrar sesión». En los sitios de
+       verificadores y de empaque no cambia nada.
+       ================================================================ -->
+  <template id="user_dropdown_mi_cuenta" inherit_id="portal.user_dropdown" name="Mi cuenta (marketplace)">
+    <xpath expr="//li[@t-if='is_connected']" position="before">
+      <t t-set="shrimp_acct" t-value="is_connected and not editable and website and website.sudo().shrimp_platform == 'main' and website._shrimp_nav_tree()['sections'].get('account')"/>
+    </xpath>
+    <xpath expr="//span[@t-if='_user_name']" position="after">
+      <span t-if="_user_name and shrimp_acct" t-attf-class="#{_user_name_class} shrimp-account-toggle">Mi cuenta</span>
+    </xpath>
+    <!-- Después de insertar «Mi cuenta» (el xpath de arriba busca el t-if original). -->
+    <xpath expr="//span[@t-if='_user_name']" position="attributes">
+      <attribute name="t-if">_user_name and not shrimp_acct</attribute>
+    </xpath>
+    <!-- Arriba del todo, antes de «Apps» (interno) y «Mi cuenta / My
+         Account» de Odoo (/my/home, el panel completo). -->
+    <xpath expr="//a[@id='o_backend_user_dropdown_link']" position="before">
+      <t t-if="shrimp_acct">
+        <h6 class="dropdown-header shrimp-account-name" t-esc="user_id.name"/>
+        <t t-foreach="shrimp_acct['items']" t-as="shrimp_it">
+          <a role="menuitem" class="dropdown-item ps-3 shrimp-account-item" t-att-href="shrimp_it['url']" t-att-data-shrimp-nav="shrimp_it['key']">
+            <i t-attf-class="fa fa-fw #{shrimp_it.get('icon') or 'fa-circle-o'} me-1 small text-primary-emphasis"/> <t t-esc="shrimp_it['label']"/>
+          </a>
+        </t>
+        <div class="dropdown-divider"/>
+      </t>
+    </xpath>
+  </template>
+
+  <!-- ================================================================
+       «Perfil: Camaronera ▾» — Actuar como.
+
+       Una cuenta puede tener varios perfiles (laboratorio + camaronera,
+       camaronera + empacadora...). Este desplegable, junto al menú del
+       usuario en las tres plataformas, cambia el perfil ACTIVO
+       (res.partner.shrimp_user_type): es un POST con CSRF a
+       /my/profile/activate y se guarda en la cuenta, así que persiste
+       entre sesiones. Menús, permisos y el rol con el que se publica o se
+       compra siguen al perfil activo. No sale para el verificador (perfil
+       exclusivo) ni para los contactos hijos (técnicos).
+       ================================================================ -->
+  <template id="profile_switcher" inherit_id="portal.user_dropdown" name="Perfil activo (Actuar como)">
+    <xpath expr="//li[@t-if='is_connected']" position="before">
+      <t t-set="shrimp_ps" t-value="user_id.partner_id.sudo()._shrimp_profile_switcher_info() if is_connected and user_id.partner_id else None"/>
+      <li t-if="shrimp_ps" t-attf-class="#{_item_class or 'dropdown'} shrimp-profile-switch o_no_autohide_item">
+        <a href="#" role="button" data-bs-toggle="dropdown"
+           class="nav-link dropdown-toggle d-flex align-items-center gap-1 shrimp-profile-switch-toggle"
+           t-att-title="'Perfil activo: %s' % shrimp_ps['active_label']">
+          <i class="fa fa-id-badge"/>
+          <span>Perfil: <t t-esc="shrimp_ps['active_label']"/></span>
+          <span t-if="shrimp_ps['active_pending']" class="badge text-bg-warning ms-1">pendiente</span>
+        </a>
+        <div class="dropdown-menu dropdown-menu-end shrimp-profile-menu" role="menu">
+          <h6 class="dropdown-header">Actuar como</h6>
+          <t t-foreach="shrimp_ps['roles']" t-as="r">
+            <form method="post" action="/my/profile/activate" class="m-0">
+              <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+              <input type="hidden" name="role" t-att-value="r[0]"/>
+              <!-- Al cambiar de perfil se vuelve al panel de trabajo del
+                   nuevo perfil (en el marketplace, /my/dashboard). -->
+              <input type="hidden" name="next" t-att-value="'/my/dashboard' if website and website.sudo().shrimp_platform == 'main' else '/my'"/>
+              <button type="submit" role="menuitem"
+                      t-attf-class="dropdown-item shrimp-profile-option #{'active' if r[2] else ''}"
+                      t-att-data-role="r[0]" t-att-disabled="'disabled' if r[2] else None">
+                <i t-attf-class="fa fa-fw #{'fa-check' if r[2] else 'fa-circle-o'} me-1"/>
+                <t t-esc="r[1]"/>
+              </button>
+            </form>
+          </t>
+          <t t-foreach="shrimp_ps['pending']" t-as="r">
+            <span class="dropdown-item disabled shrimp-profile-pending" t-att-data-role="r[0]">
+              <i class="fa fa-fw fa-clock-o me-1"/><t t-esc="r[1]"/> (pendiente de aprobación)
+            </span>
+          </t>
+          <div class="dropdown-divider"/>
+          <a role="menuitem" class="dropdown-item" href="/marketplace/my-account#perfiles">
+            <i class="fa fa-fw fa-plus me-1"/>
+            <t t-if="shrimp_ps['can_add']">Agregar o ver perfiles</t>
+            <t t-else="">Ver mis perfiles</t>
+          </a>
+        </div>
+      </li>
+    </xpath>
   </template>
 
   <!-- Header overlay SOLO en la portada (path '/'): el header se posiciona
        absolute sobre el contenido, así el hero arranca en y=0 y el color de
        fondo llega hasta el borde superior (la navbar flota encima). En las
-       demás páginas el header sigue en flujo normal. -->
+       demás páginas el header sigue en flujo normal.
+
+       Además marca el #wrapwrap con la plataforma del sitio
+       (o_shrimp_platform_main / _verifier / _copacker) para que cada una
+       aplique su tema de color sobre los tokens comunes (variables shrimp). La
+       clase o_shrimp_verifier se conserva: la usa verification.css. -->
   <template id="layout_overlay_home" inherit_id="website.layout" name="Header overlay en portadas">
     <xpath expr="//div[@id='wrapwrap']" position="attributes">
       <attribute name="t-attf-class" add="#{'o_header_overlay' if request and request.httprequest.path == '/' else ''}" separator=" "/>
-      <!-- Marca el sitio de verificadores para aplicar la paleta VERDE/teal
-           a todas sus páginas (banners, botones, acentos). -->
-      <attribute name="t-attf-class" add="#{'o_shrimp_verifier' if website and website.sudo().shrimp_is_verifier_site else ''}" separator=" "/>
+      <attribute name="t-attf-class" add="#{website and ('o_shrimp_platform_%s' % (website.sudo().shrimp_platform or 'main')) or ''}" separator=" "/>
+      <attribute name="t-attf-class" add="#{'o_shrimp_verifier' if website and website.sudo().shrimp_platform == 'verifier' else ''}" separator=" "/>
+      <attribute name="t-attf-class" add="#{'o_shrimp_anon' if request and request.env.user._is_public() else ''}" separator=" "/>
+    </xpath>
+  </template>
+
+  <!-- ================================================================
+       Visitante sin sesión: cabecera mínima en las TRES plataformas.
+
+       Solo el logo (que lleva a "/"), «Iniciar sesión» y el botón principal
+       de la plataforma (alta). El menú de opciones —Marketplace, Productos,
+       Operaciones, Verificaciones, Trabajos...— es del usuario con cuenta:
+       lo oculta website.menu._compute_visible (un solo sitio, sirve para la
+       barra de escritorio y para el menú lateral del móvil). Las páginas
+       públicas siguen accesibles por sus enlaces (portada, catálogo,
+       fichas, trazabilidad /t/<token>).
+
+       La búsqueda, el teléfono/correo y las redes sociales de la cabecera
+       también se ocultan al visitante: el buscador del sitio no lleva a
+       ninguna parte útil sin cuenta y el contacto ya está en el pie de
+       página. El selector de idioma se deja (solo aparece si hay más de un
+       idioma instalado). En modo edición todo sigue visible y editable.
+       ================================================================ -->
+  <template id="header_sin_sesion_busqueda" inherit_id="website.header_search_box"
+            name="Cabecera - sin búsqueda para el visitante">
+    <xpath expr="//li" position="attributes">
+      <attribute name="t-if">editable or not (request and request.env.user._is_public())</attribute>
+    </xpath>
+  </template>
+
+  <template id="header_sin_sesion_texto" inherit_id="website.header_text_element"
+            name="Cabecera - sin teléfono ni correo para el visitante">
+    <!-- En el marketplace tampoco con sesión: la barra nueva (Mi panel ·
+         Marketplace · Vender · Comprar · Servicios + Perfil + Mi cuenta)
+         necesita ese ancho para no plegar menús en «+», y el contacto ya
+         está en el pie de página. -->
+    <xpath expr="//li" position="attributes">
+      <attribute name="t-if">editable or not (request and (request.env.user._is_public() or (website and website.sudo().shrimp_platform == 'main')))</attribute>
+    </xpath>
+  </template>
+
+  <template id="header_sin_sesion_redes" inherit_id="website.header_social_links"
+            name="Cabecera - sin redes sociales para el visitante">
+    <xpath expr="//li" position="attributes">
+      <attribute name="t-if">editable or not (request and request.env.user._is_public())</attribute>
+    </xpath>
+  </template>
+
+  <!-- El botón de la cabecera («Contact Us» de Odoo) es, en cada plataforma,
+       su alta: Registrarse (marketplace), Ser verificador (CamaronMarket Verificadores) y
+       Registrar mi planta (empaque). Solo para el visitante sin sesión;
+       quien ya tiene cuenta no lo necesita. En modo edición se deja el
+       original, que es el que el editor sabe guardar. -->
+  <template id="header_cta_plataforma" inherit_id="website.header_call_to_action"
+            name="Cabecera - botón de alta de cada plataforma">
+    <xpath expr="//a[hasclass('btn_cta')]" position="attributes">
+      <attribute name="t-if">editable</attribute>
+    </xpath>
+    <xpath expr="//a[hasclass('btn_cta')]" position="after">
+      <t t-if="not editable and website and request and request.env.user._is_public()">
+        <t t-set="shrimp_cta" t-value="website.sudo()._shrimp_header_cta()"/>
+        <a t-if="shrimp_cta" t-att-href="shrimp_cta['url']"
+           t-attf-class="btn btn-primary btn_cta shrimp-header-cta #{shrimp_cta['class']}">
+          <t t-esc="shrimp_cta['label']"/>
+        </a>
+      </t>
+    </xpath>
+  </template>
+
+  <!-- «Iniciar sesión» en español en los tres sitios, con o sin traducción
+       cargada (el sitio de empaque mostraba «Sign in»). -->
+  <template id="user_sign_in_es" inherit_id="portal.user_sign_in" name="Iniciar sesión (es)">
+    <xpath expr="//a" position="replace">
+      <a t-attf-href="/web/login" t-attf-class="#{_link_class} shrimp-sign-in">Iniciar sesión<span t-if="request.session.get('profile_session')" class="text-danger fa fa-circle"/></a>
     </xpath>
   </template>
 </odoo>

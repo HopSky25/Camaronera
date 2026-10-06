@@ -60,11 +60,10 @@
         <field name="name">shrimp.charge.pivot</field>
         <field name="model">shrimp.charge</field>
         <field name="arch" type="xml">
-            <pivot string="Comisiones" sample="1">
-                <field name="seller_partner_id" type="row"/>
+            <pivot string="Cobros de la plataforma" sample="1">
+                <field name="charge_type" type="row"/>
                 <field name="date" interval="month" type="col"/>
                 <field name="amount" type="measure"/>
-                <field name="qty" type="measure"/>
             </pivot>
         </field>
     </record>
@@ -73,10 +72,35 @@
         <field name="name">shrimp.charge.graph</field>
         <field name="model">shrimp.charge</field>
         <field name="arch" type="xml">
-            <graph string="Comisiones" type="line" sample="1">
+            <graph string="Cobros de la plataforma" type="line" sample="1">
                 <field name="date" interval="month"/>
                 <field name="amount" type="measure"/>
             </graph>
+        </field>
+    </record>
+
+    <record id="view_shrimp_charge_search" model="ir.ui.view">
+        <field name="name">shrimp.charge.search</field>
+        <field name="model">shrimp.charge</field>
+        <field name="arch" type="xml">
+            <search string="Cobros">
+                <field name="name"/>
+                <field name="payer_partner_id"/>
+                <field name="origin"/>
+                <filter string="Con error" name="con_error" domain="[('state', '=', 'error')]"/>
+                <filter string="Por facturar" name="por_facturar" domain="[('state', '=', 'pending')]"/>
+                <filter string="Por acreditar" name="por_acreditar" domain="[('state', '=', 'to_credit')]"/>
+                <filter string="Facturados" name="facturados" domain="[('state', '=', 'invoiced')]"/>
+                <separator/>
+                <filter string="Comisión por venta" name="t_commission" domain="[('charge_type', '=', 'commission')]"/>
+                <filter string="Honorario de verificación" name="t_verification" domain="[('charge_type', '=', 'verification_fee')]"/>
+                <filter string="Comisión de empaque" name="t_copack" domain="[('charge_type', '=', 'copack_platform')]"/>
+                <group>
+                    <filter string="Tipo" name="g_type" context="{'group_by': 'charge_type'}"/>
+                    <filter string="Estado" name="g_state" context="{'group_by': 'state'}"/>
+                    <filter string="Paga" name="g_payer" context="{'group_by': 'payer_partner_id'}"/>
+                </group>
+            </search>
         </field>
     </record>
 
@@ -84,19 +108,26 @@
         <field name="name">shrimp.charge.list</field>
         <field name="model">shrimp.charge</field>
         <field name="arch" type="xml">
-            <list string="Cobros">
+            <list string="Cobros" decoration-danger="state == 'error'"
+                  decoration-warning="state in ('pending', 'to_credit')"
+                  decoration-muted="state in ('cancelled', 'credited')">
                 <field name="name"/>
                 <field name="date"/>
-                <field name="seller_partner_id"/>
-                <field name="buyer_partner_id"/>
-                <field name="product_id"/>
-                <field name="qty"/>
-                <field name="uom_id"/>
-                <field name="rate_cents"/>
-                <field name="amount" sum="Total comisión"/>
-                <field name="sale_order_id"/>
-                <field name="invoice_id"/>
-                <field name="invoice_state" widget="badge"/>
+                <field name="charge_type"/>
+                <field name="payer_partner_id"/>
+                <field name="origin"/>
+                <field name="description" optional="hide"/>
+                <field name="qty" optional="hide"/>
+                <field name="uom_id" optional="hide"/>
+                <field name="rate_cents" optional="hide"/>
+                <field name="currency_id" column_invisible="1"/>
+                <field name="amount" sum="Total" widget="monetary"/>
+                <field name="state" widget="badge"
+                       decoration-success="state == 'invoiced'"
+                       decoration-danger="state == 'error'"
+                       decoration-warning="state in ('pending', 'to_credit')"/>
+                <field name="invoice_id" optional="show"/>
+                <field name="invoice_state" widget="badge" optional="hide"/>
             </list>
         </field>
     </record>
@@ -105,52 +136,81 @@
         <field name="name">shrimp.charge.form</field>
         <field name="model">shrimp.charge</field>
         <field name="arch" type="xml">
-            <form string="Cobro de comisión">
+            <form string="Cobro de la plataforma">
                 <header>
-                    <button name="action_generate_sale_documents" type="object"
-                            string="Generar pedido y factura" class="btn-primary"
-                            invisible="sale_order_id"/>
+                    <button name="action_retry_invoice" type="object"
+                            string="Reintentar facturación" class="btn-primary"
+                            invisible="state not in ('pending', 'error', 'to_credit')"/>
                     <button name="action_open_sale_order" type="object"
                             string="Ver pedido de venta"
                             invisible="not sale_order_id"/>
                     <button name="action_open_invoice" type="object"
                             string="Ver factura"
                             invisible="not invoice_id"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="pending,invoiced"/>
                 </header>
                 <sheet>
+                    <div class="alert alert-danger" role="alert" invisible="not invoice_error">
+                        <strong>No se pudo facturar:</strong>
+                        <field name="invoice_error" readonly="1"/>
+                        <div class="small text-muted">
+                            Intentos: <field name="invoice_attempts" readonly="1" class="oe_inline"/>.
+                            El cron lo reintenta solo; también puede reintentarlo con el botón.
+                        </div>
+                    </div>
                     <div class="oe_title">
                         <h1><field name="name" readonly="1"/></h1>
                     </div>
                     <group>
-                        <group string="Venta">
+                        <group string="Servicio">
+                            <field name="charge_type"/>
+                            <field name="payer_partner_id"/>
+                            <field name="description"/>
+                            <field name="origin"/>
                             <field name="date"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                        <group string="Importe">
+                            <field name="invoice_qty"/>
+                            <field name="currency_id" invisible="1"/>
+                            <field name="unit_amount" widget="monetary"/>
+                            <field name="amount" widget="monetary"/>
+                            <field name="qty" invisible="charge_type != 'commission'"/>
+                            <field name="uom_id" invisible="charge_type != 'commission'"/>
+                            <field name="rate_cents" invisible="charge_type != 'commission'"/>
+                        </group>
+                    </group>
+                    <group string="Origen">
+                        <group>
+                            <field name="transaction_id"/>
+                            <field name="product_id"/>
+                        </group>
+                        <group>
                             <field name="seller_partner_id"/>
                             <field name="buyer_partner_id"/>
-                            <field name="product_id"/>
-                            <field name="transaction_id"/>
-                        </group>
-                        <group string="Comisión">
-                            <field name="qty"/>
-                            <field name="uom_id"/>
-                            <field name="rate_cents"/>
-                            <field name="currency_id" invisible="1"/>
-                            <field name="amount" widget="monetary"/>
                         </group>
                     </group>
                     <group string="Documentos en Ventas / Contabilidad">
                         <field name="sale_order_id"/>
                         <field name="invoice_id"/>
                         <field name="invoice_state" widget="badge"/>
+                        <field name="refund_id" invisible="not refund_id"/>
+                        <field name="cancel_reason" invisible="not cancel_reason"/>
+                        <field name="service_product_id"/>
+                        <field name="last_attempt_at"/>
                     </group>
                 </sheet>
+                <chatter/>
             </form>
         </field>
     </record>
 
     <record id="action_report_commissions" model="ir.actions.act_window">
-        <field name="name">Comisiones cobradas</field>
+        <field name="name">Cobros de la plataforma</field>
         <field name="res_model">shrimp.charge</field>
         <field name="view_mode">list,form,graph,pivot</field>
+        <field name="search_view_id" ref="view_shrimp_charge_search"/>
     </record>
 
     <!-- ============================================================ -->
@@ -192,7 +252,7 @@
               parent="menu_shrimp_root" sequence="70"/>
     <menuitem id="menu_report_sales" name="Ventas"
               parent="menu_shrimp_reports_root" action="action_report_sales" sequence="10"/>
-    <menuitem id="menu_report_commissions" name="Comisiones"
+    <menuitem id="menu_report_commissions" name="Cobros de la plataforma"
               parent="menu_shrimp_reports_root" action="action_report_commissions" sequence="20"/>
     <menuitem id="menu_report_moves" name="Movimientos"
               parent="menu_shrimp_reports_root" action="action_report_moves" sequence="30"/>

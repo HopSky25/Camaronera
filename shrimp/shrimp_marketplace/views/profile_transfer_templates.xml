@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- «Mover a otro perfil»: transferencia interna entre los perfiles de una
+     misma cuenta (p. ej. Laboratorio → Camaronera). Por herencia: no reescribe
+     Mi inventario ni la ficha del producto. -->
+<odoo>
+
+    <!-- Historial reutilizable (Mi inventario y ficha del producto). -->
+    <template id="profile_transfer_history" name="Transferencias entre perfiles (historial)">
+        <div class="mp-table-card mt-4" id="shrimp_profile_transfer_history">
+            <div class="card-body p-4">
+                <div class="mp-sec-head">
+                    <span class="mp-sec-ico"><i class="fa fa-exchange"></i></span>
+                    <h3 class="mp-sec-title">Movimientos entre mis perfiles</h3>
+                    <t t-if="pt_transfers"><span class="s-badge s-badge--teal mp-sec-count"><t t-esc="len(pt_transfers)"/></span></t>
+                </div>
+                <t t-if="pt_transfers">
+                    <div class="table-responsive mp-table-wrap">
+                        <table class="table align-middle mb-0">
+                            <thead>
+                                <tr><th>Fecha</th><th>Movimiento</th><th>Producto</th><th class="text-end">Cantidad</th><th>Motivo</th><th>Registrado por</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="pt_transfers" t-as="tr" class="pt-row">
+                                    <td><t t-esc="request.env['shrimp.transaction'].shrimp_fmt_dt(tr.date)"/></td>
+                                    <td><span class="s-badge"><t t-esc="tr.label()"/></span>
+                                        <small t-if="tr.kind == 'product'" class="text-muted d-block">Producto completo</small></td>
+                                    <td>
+                                        <t t-esc="tr.product_id.name or '—'"/>
+                                        <t t-if="tr.target_product_id and tr.target_product_id != tr.product_id">
+                                            → <a t-att-href="'/marketplace/product/%s' % tr.target_product_id.uuid_ref"><t t-esc="tr.target_product_id.name"/></a>
+                                        </t>
+                                    </td>
+                                    <td class="text-end"><t t-esc="tr.fmt_qty()"/></td>
+                                    <td><t t-esc="tr.reason or '—'"/></td>
+                                    <td><t t-esc="tr.user_id.name or '—'"/></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </t>
+                <t t-else="">
+                    <div class="text-muted" style="font-size:14px;">Todavía no has movido producto entre tus perfiles.</div>
+                </t>
+            </div>
+        </div>
+    </template>
+
+    <template id="profile_transfer_feedback" name="Transferencias entre perfiles (aviso)">
+        <div t-if="pt_ok" class="alert alert-success pt-feedback" style="border-radius:14px;"><i class="fa fa-check me-1"></i> <t t-esc="pt_ok"/></div>
+        <div t-if="pt_error" class="alert alert-danger pt-feedback" style="border-radius:14px;"><i class="fa fa-exclamation-triangle me-1"></i> <t t-esc="pt_error"/></div>
+    </template>
+
+    <!-- ============================================================ -->
+    <!-- Mi inventario                                                 -->
+    <!-- ============================================================ -->
+    <template id="my_lots_profile_transfer" inherit_id="shrimp_marketplace.my_lots"
+              name="Mi inventario: mover a otro perfil">
+        <xpath expr="//div[hasclass('mp-table-card')]" position="before">
+            <t t-call="shrimp_marketplace.profile_transfer_feedback"/>
+        </xpath>
+        <xpath expr="//table/thead/tr/th[last()]" position="after">
+            <th>Perfil</th>
+            <th class="text-end"></th>
+        </xpath>
+        <xpath expr="//table/tbody//tr/td[last()]" position="after">
+            <t t-set="pt_lot_targets" t-value="lot._shrimp_profile_transfer_targets()"/>
+            <td><span class="s-badge s-badge--teal"><t t-esc="lot.held_role_label()"/></span>
+                <small t-if="lot.parent_lot_id" class="text-muted d-block">Transferencia interna</small></td>
+            <td class="text-end">
+                <button t-if="pt_lot_targets" type="button" class="s-btn s-btn-ghost btn-sm pt-move-btn"
+                        data-bs-toggle="modal" t-att-data-bs-target="'#ptLotModal%s' % lot.uuid_ref">
+                    <i class="fa fa-exchange me-1"></i> Mover a otro perfil
+                </button>
+                <div t-if="pt_lot_targets" class="modal fade text-start" t-att-id="'ptLotModal%s' % lot.uuid_ref"
+                     tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <form class="modal-content" method="post"
+                              t-att-action="'/marketplace/my-lots/%s/move-profile' % lot.uuid_ref">
+                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                            <div class="modal-header">
+                                <h5 class="modal-title">Mover a otro perfil</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p class="text-muted small mb-3">
+                                    Transferencia interna dentro de tu misma empresa: no es una venta
+                                    (sin precio, comisión, factura ni verificación). Queda registrada en
+                                    la trazabilidad del lote.
+                                </p>
+                                <div class="mb-2"><b><t t-esc="lot.product_id.name"/></b> ·
+                                    ahora en tu perfil <b><t t-esc="lot.held_role_label()"/></b></div>
+                                <label class="form-label">Perfil de destino</label>
+                                <select name="to_role" class="form-select mb-3" required="required">
+                                    <t t-foreach="pt_lot_targets" t-as="tg">
+                                        <option t-att-value="tg[0]"><t t-esc="tg[1]"/></option>
+                                    </t>
+                                </select>
+                                <label class="form-label">Cantidad (<t t-esc="lot.uom_id.name or ''"/>)</label>
+                                <input type="number" name="qty" class="form-control mb-1" step="any" min="0"
+                                       t-att-max="lot._shrimp_profile_transferable_qty()"
+                                       t-att-value="lot._shrimp_profile_transferable_qty()" required="required"/>
+                                <small class="text-muted d-block mb-3">Máximo: <t t-esc="lot._shrimp_profile_transferable_qty()"/>. Si mueves menos, se crea un lote nuevo para el otro perfil y el resto se queda donde está.</small>
+                                <label class="form-label">Motivo</label>
+                                <textarea name="reason" class="form-control" rows="2" maxlength="500"
+                                          placeholder="Ej.: la siembro en mis piscinas"></textarea>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="s-btn s-btn-ghost" data-bs-dismiss="modal">Cancelar</button>
+                                <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-exchange me-1"></i> Mover</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </td>
+        </xpath>
+        <xpath expr="//div[hasclass('mp-table-card')]" position="after">
+            <t t-call="shrimp_marketplace.profile_transfer_history"/>
+        </xpath>
+    </template>
+
+    <!-- ============================================================ -->
+    <!-- Ficha del producto (dueño)                                    -->
+    <!-- ============================================================ -->
+    <template id="product_detail_profile_transfer" inherit_id="shrimp_marketplace.product_detail"
+              name="Producto: mover a otro perfil">
+        <xpath expr="//div[hasclass('mp-detail-actions')]" position="before">
+            <t t-call="shrimp_marketplace.profile_transfer_feedback"/>
+        </xpath>
+        <xpath expr="//div[hasclass('mp-detail-actions')]" position="inside">
+            <t t-if="is_owner and pt_targets">
+                <button type="button" class="s-btn s-btn-ghost pt-move-btn" data-bs-toggle="modal"
+                        data-bs-target="#ptProductModal">
+                    <i class="fa fa-exchange me-1"></i> Mover a otro perfil
+                </button>
+            </t>
+        </xpath>
+        <xpath expr="//t[@t-call='shrimp_marketplace.product_confirm_modal']" position="after">
+            <t t-if="is_owner and pt_targets">
+                <div class="modal fade" id="ptProductModal" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <form class="modal-content" method="post"
+                              t-att-action="'/marketplace/products/%s/move-profile' % product.uuid_ref">
+                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                            <div class="modal-header">
+                                <h5 class="modal-title">Mover a otro perfil</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p class="text-muted small mb-3">
+                                    Transferencia interna dentro de tu misma empresa (sin precio, comisión,
+                                    factura ni verificación). Ahora se vende como
+                                    <b><t t-esc="request.env['res.partner']._shrimp_type_label(product._shrimp_seller_role())"/></b>.
+                                </p>
+                                <label class="form-label">Perfil de destino</label>
+                                <select name="to_role" class="form-select mb-3" required="required">
+                                    <t t-foreach="pt_targets" t-as="tg">
+                                        <option t-att-value="tg[0]"><t t-esc="tg[1]"/></option>
+                                    </t>
+                                </select>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="mode" value="all" id="ptModeAll"
+                                           t-att-checked="'checked' if pt_change_targets else None"
+                                           t-att-disabled="None if pt_change_targets else 'disabled'"/>
+                                    <label class="form-check-label" for="ptModeAll">Todo el producto (cambia el perfil con el que se vende)</label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="radio" name="mode" value="qty" id="ptModeQty"
+                                           t-att-checked="None if pt_change_targets else 'checked'"/>
+                                    <label class="form-check-label" for="ptModeQty">Solo una cantidad (crea un lote para el otro perfil)</label>
+                                </div>
+                                <small t-if="not pt_change_targets" class="text-muted d-block mb-2">
+                                    El producto completo no puede cambiar de perfil ahora (operaciones abiertas o el
+                                    perfil de destino no vende este estadío); sí puedes mover una cantidad.
+                                </small>
+                                <label class="form-label">Cantidad (<t t-esc="product.uom_id.name or ''"/>)</label>
+                                <input type="number" name="qty" class="form-control mb-1" step="any" min="0"
+                                       t-att-max="product.available_qty" t-att-value="product.available_qty"/>
+                                <small class="text-muted d-block mb-3">Solo cuenta si mueves una cantidad. Disponible: <t t-esc="product.available_qty"/>.</small>
+                                <label class="form-label">Motivo</label>
+                                <textarea name="reason" class="form-control" rows="2" maxlength="500"></textarea>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="s-btn s-btn-ghost" data-bs-dismiss="modal">Cancelar</button>
+                                <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-exchange me-1"></i> Mover</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </t>
+            <t t-if="is_owner and pt_transfers">
+                <t t-call="shrimp_marketplace.profile_transfer_history"/>
+            </t>
+        </xpath>
+    </template>
+
+</odoo>

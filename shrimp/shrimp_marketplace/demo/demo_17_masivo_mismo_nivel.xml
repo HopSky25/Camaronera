@@ -1,0 +1,340 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Compras al mismo nivel: semillero -> semillero y laboratorio -> laboratorio
+     (el comprador revende lo recibido como producto propio).
+
+     GENERADO por shrimp_marketplace/scripts/demo_masivo (semilla fija).
+     No editar a mano: cambiar el generador y volver a ejecutarlo.
+     Fechas relativas al día de carga de la demo. -->
+<odoo>
+    <data noupdate="1">
+
+        <!-- ===== Semillero -&gt; semillero: nauplios para cubrir un faltante de desove ===== -->
+        <record id="demo_mn_prod_sem_a" model="shrimp.product" context="{'skip_initial_lot': True}">
+            <field name="name">Nauplios SPR - excedente de desove (Nauplios del Pacífico Sur)</field>
+            <field name="seller_partner_id" ref="shrimp_user_registry.demo_ms_sem_02"/>
+            <field name="seller_role">semillero</field>
+            <field name="species_id" ref="shrimp_marketplace.shrimp_species_vannamei"/>
+            <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_nauplio"/>
+            <field name="genetics_line_id" ref="shrimp_marketplace.shrimp_genetics_spr"/>
+            <field name="avg_size_mg" eval="0.01"/>
+            <field name="survival_rate" eval="85.28"/>
+            <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
+            <field name="initial_qty" eval="180000.0"/>
+            <field name="uom_id" ref="shrimp_marketplace.uom_millar"/>
+            <field name="price" eval="0.55"/>
+            <field name="location">San Pablo, Santa Elena</field>
+            <field name="state">published</field>
+            <field name="active" eval="True"/>
+            <field name="available_from" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-30, hours=12, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="available_to" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-10, hours=23, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="published_date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-30, hours=14, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="expected_delivery_date" eval="(DateTime.today() + relativedelta(days=-28)).strftime('%Y-%m-%d')"/>
+            <field name="origin_facility_id" ref="shrimp_marketplace.demo_ms_fac_sem_02_1"/>
+            <field name="origin_pond_id" ref="shrimp_marketplace.demo_ms_pond_sem_02_1_1"/>
+            <field name="batch_code">MN-SEM_A</field>
+            <field name="production_date" eval="(DateTime.today() + relativedelta(days=-30)).strftime('%Y-%m-%d')"/>
+            <field name="photo_attachment_ids" eval="[(6, 0, [ref('shrimp_marketplace.demo_img_6'), ref('shrimp_marketplace.demo_img_3')])]"/>
+        </record>
+        <record id="demo_mn_prod_sem_a_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
+            <field name="product_id" ref="demo_mn_prod_sem_a"/>
+            <field name="source_user_certificate_line_id" ref="shrimp_user_registry.demo_ms_sem_02_cert_1"/>
+            <field name="certificate_id" ref="shrimp_user_registry.shrimp_certificate_movilizacion_larvas"/>
+            <field name="number">LARVA-MN-SEM_A</field>
+            <field name="issue_date" eval="(DateTime.today() + relativedelta(days=-10)).strftime('%Y-%m-%d')"/>
+            <field name="expiry_date" eval="(DateTime.today() + relativedelta(days=439)).strftime('%Y-%m-%d')"/>
+            <field name="attachment_id" ref="shrimp_user_registry.demo_ms_sem_02_expediente"/>
+            <field name="active" eval="True"/>
+            <field name="status">approved</field>
+        </record>
+        <record id="demo_mn_prod_sem_b" model="shrimp.product" context="{'skip_initial_lot': True}">
+            <field name="name">Nauplios SPR de Nauplios del Pacífico Sur - reventa</field>
+            <field name="seller_partner_id" ref="shrimp_user_registry.demo_ms_sem_03"/>
+            <field name="seller_role">semillero</field>
+            <field name="species_id" ref="shrimp_marketplace.shrimp_species_vannamei"/>
+            <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_nauplio"/>
+            <field name="genetics_line_id" ref="shrimp_marketplace.shrimp_genetics_spr"/>
+            <field name="avg_size_mg" eval="0.01"/>
+            <field name="survival_rate" eval="91.2"/>
+            <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
+            <field name="initial_qty" eval="60000.0"/>
+            <field name="uom_id" ref="shrimp_marketplace.uom_millar"/>
+            <field name="price" eval="0.62"/>
+            <field name="location">Monteverde, Santa Elena</field>
+            <field name="state">published</field>
+            <field name="active" eval="True"/>
+            <field name="available_from" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-25, hours=12, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="available_to" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-5, hours=23, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="published_date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-25, hours=14, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="expected_delivery_date" eval="(DateTime.today() + relativedelta(days=-23)).strftime('%Y-%m-%d')"/>
+            <field name="origin_facility_id" ref="shrimp_marketplace.demo_ms_fac_sem_03_1"/>
+            <field name="origin_pond_id" ref="shrimp_marketplace.demo_ms_pond_sem_03_1_1"/>
+            <field name="batch_code">MN-SEM_B</field>
+            <field name="production_date" eval="(DateTime.today() + relativedelta(days=-25)).strftime('%Y-%m-%d')"/>
+            <field name="traceability_notes">Nauplios comprados a Nauplios del Pacífico Sur Cía. Ltda. (lote MN-SEM_A).</field>
+            <field name="photo_attachment_ids" eval="[(6, 0, [ref('shrimp_marketplace.demo_img_1'), ref('shrimp_marketplace.demo_img_12')])]"/>
+        </record>
+        <record id="demo_mn_tx_0001" model="shrimp.transaction">
+            <field name="transaction_type">semillero_to_semillero</field>
+            <field name="product_id" ref="demo_mn_prod_sem_a"/>
+            <field name="seller_partner_id" ref="shrimp_user_registry.demo_ms_sem_02"/>
+            <field name="buyer_partner_id" ref="shrimp_user_registry.demo_ms_sem_03"/>
+            <field name="seller_role">semillero</field>
+            <field name="buyer_role">semillero</field>
+            <field name="location">San Pablo, Santa Elena</field>
+            <field name="state">done</field>
+            <field name="transaction_qty" eval="60000.0"/>
+            <field name="price_unit" eval="0.55"/>
+            <field name="amount_total" eval="33000.0"/>
+            <field name="desired_qty" eval="60000.0"/>
+            <field name="desired_date" eval="(DateTime.today() + relativedelta(days=-25)).strftime('%Y-%m-%d')"/>
+            <field name="code">Nauplios SPR - excedente de desove (Nauplios del Pacífico Sur)</field>
+            <field name="result_product_id" ref="demo_mn_prod_sem_b"/>
+            <field name="received_date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-25, hours=15, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="sold_qty" eval="60000.0"/>
+            <field name="sold_date" eval="(DateTime.today() + relativedelta(days=-28)).strftime('%Y-%m-%d')"/>
+            <field name="production_note">Nauplios SPR - excedente de desove (Nauplios del Pacífico Sur)</field>
+        </record>
+        <record id="demo_mn_mv_0001" model="shrimp.stock.move">
+            <field name="product_id" ref="demo_mn_prod_sem_a"/>
+            <field name="source_partner_id" ref="shrimp_user_registry.demo_ms_sem_02"/>
+            <field name="dest_partner_id" ref="shrimp_user_registry.demo_ms_sem_03"/>
+            <field name="qty" eval="60000.0"/>
+            <field name="transaction_id" ref="demo_mn_tx_0001"/>
+            <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-28, hours=16, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        </record>
+        <record id="demo_mn_chg_0001" model="shrimp.charge">
+            <field name="state">pending</field>
+            <field name="invoice_attempts" eval="5"/>
+            <field name="invoice_error">Datos de demostración: los cobros de ejemplo no se facturan automáticamente.</field>
+            <field name="charge_type">commission</field>
+            <field name="transaction_id" ref="demo_mn_tx_0001"/>
+            <field name="seller_partner_id" ref="shrimp_user_registry.demo_ms_sem_02"/>
+            <field name="payer_partner_id" ref="shrimp_user_registry.demo_ms_sem_02"/>
+            <field name="buyer_partner_id" ref="shrimp_user_registry.demo_ms_sem_03"/>
+            <field name="product_id" ref="demo_mn_prod_sem_a"/>
+            <field name="qty" eval="60000.0"/>
+            <field name="uom_id" ref="shrimp_marketplace.uom_millar"/>
+            <field name="rate_cents" eval="1.0"/>
+            <field name="invoice_qty" eval="60000.0"/>
+            <field name="unit_amount" eval="0.01"/>
+            <field name="amount" eval="600.0"/>
+            <field name="currency_id" ref="base.USD"/>
+            <field name="description">Comisión marketplace – Nauplios SPR - excedente de desove (Nauplios del Pacífico Sur)</field>
+            <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-28, hours=23, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        </record>
+        <record id="demo_mn_lot_sem_b" model="shrimp.stock.lot">
+            <field name="product_id" ref="demo_mn_prod_sem_b"/>
+            <field name="owner_id" ref="shrimp_user_registry.demo_ms_sem_03"/>
+            <field name="initial_qty" eval="60000.0"/>
+            <field name="available_qty" eval="45000.0"/>
+            <field name="uom_id" ref="shrimp_marketplace.uom_millar"/>
+            <field name="state">available</field>
+            <field name="origin_move_id" ref="demo_mn_mv_0001"/>
+        </record>
+        <record id="demo_mn_prod_sem_b_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
+            <field name="product_id" ref="demo_mn_prod_sem_b"/>
+            <field name="source_user_certificate_line_id" ref="shrimp_user_registry.demo_ms_sem_02_cert_1"/>
+            <field name="certificate_id" ref="shrimp_user_registry.shrimp_certificate_movilizacion_larvas"/>
+            <field name="number">LARVA-MN-SEM_A</field>
+            <field name="issue_date" eval="(DateTime.today() + relativedelta(days=-10)).strftime('%Y-%m-%d')"/>
+            <field name="expiry_date" eval="(DateTime.today() + relativedelta(days=439)).strftime('%Y-%m-%d')"/>
+            <field name="attachment_id" ref="shrimp_user_registry.demo_ms_sem_02_expediente"/>
+            <field name="active" eval="True"/>
+            <field name="status">approved</field>
+        </record>
+
+        <!-- ===== Laboratorio -&gt; laboratorio: postlarva para completar un pedido ===== -->
+        <record id="demo_mn_prod_lab_a" model="shrimp.product" context="{'skip_initial_lot': True}">
+            <field name="name">Postlarva PL12 SPR - corrida para terceros (Larvicultura Monteverde)</field>
+            <field name="seller_partner_id" ref="shrimp_user_registry.demo_ms_lab_02"/>
+            <field name="seller_role">laboratorio</field>
+            <field name="species_id" ref="shrimp_marketplace.shrimp_species_vannamei"/>
+            <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
+            <field name="genetics_line_id" ref="shrimp_marketplace.shrimp_genetics_spr"/>
+            <field name="avg_size_mg" eval="3.4"/>
+            <field name="survival_rate" eval="91.64"/>
+            <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
+            <field name="initial_qty" eval="30000.0"/>
+            <field name="uom_id" ref="shrimp_marketplace.uom_millar"/>
+            <field name="price" eval="2.4"/>
+            <field name="location">Ayangue, Santa Elena</field>
+            <field name="state">published</field>
+            <field name="active" eval="True"/>
+            <field name="available_from" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-20, hours=12, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="available_to" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=0, hours=23, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="published_date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-20, hours=14, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="expected_delivery_date" eval="(DateTime.today() + relativedelta(days=-18)).strftime('%Y-%m-%d')"/>
+            <field name="origin_facility_id" ref="shrimp_marketplace.demo_ms_fac_lab_02_1"/>
+            <field name="origin_pond_id" ref="shrimp_marketplace.demo_ms_pond_lab_02_1_1"/>
+            <field name="batch_code">MN-LAB_A</field>
+            <field name="production_date" eval="(DateTime.today() + relativedelta(days=-20)).strftime('%Y-%m-%d')"/>
+            <field name="photo_attachment_ids" eval="[(6, 0, [ref('shrimp_marketplace.demo_img_2'), ref('shrimp_marketplace.demo_img_11')])]"/>
+        </record>
+        <record id="demo_mn_prod_lab_a_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
+            <field name="product_id" ref="demo_mn_prod_lab_a"/>
+            <field name="source_user_certificate_line_id" ref="shrimp_user_registry.demo_ms_lab_02_cert_5"/>
+            <field name="certificate_id" ref="shrimp_user_registry.demo_cert_libre_venta"/>
+            <field name="number">VENTA-MN-LAB_A</field>
+            <field name="issue_date" eval="(DateTime.today() + relativedelta(days=-252)).strftime('%Y-%m-%d')"/>
+            <field name="expiry_date" eval="(DateTime.today() + relativedelta(days=113)).strftime('%Y-%m-%d')"/>
+            <field name="attachment_id" ref="shrimp_user_registry.demo_ms_lab_02_expediente"/>
+            <field name="active" eval="True"/>
+            <field name="status">approved</field>
+        </record>
+        <record id="demo_mn_prod_lab_b" model="shrimp.product" context="{'skip_initial_lot': True}">
+            <field name="name">Postlarva PL12 de Larvicultura Monteverde - reventa</field>
+            <field name="seller_partner_id" ref="shrimp_user_registry.demo_ms_lab_03"/>
+            <field name="seller_role">laboratorio</field>
+            <field name="species_id" ref="shrimp_marketplace.shrimp_species_vannamei"/>
+            <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
+            <field name="genetics_line_id" ref="shrimp_marketplace.shrimp_genetics_spr"/>
+            <field name="avg_size_mg" eval="3.4"/>
+            <field name="survival_rate" eval="91.75"/>
+            <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
+            <field name="initial_qty" eval="10000.0"/>
+            <field name="uom_id" ref="shrimp_marketplace.uom_millar"/>
+            <field name="price" eval="2.7"/>
+            <field name="location">Monteverde, Santa Elena</field>
+            <field name="state">published</field>
+            <field name="active" eval="True"/>
+            <field name="available_from" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-15, hours=12, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="available_to" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=5, hours=23, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="published_date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-15, hours=14, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="expected_delivery_date" eval="(DateTime.today() + relativedelta(days=-13)).strftime('%Y-%m-%d')"/>
+            <field name="origin_facility_id" ref="shrimp_marketplace.demo_ms_fac_lab_03_1"/>
+            <field name="origin_pond_id" ref="shrimp_marketplace.demo_ms_pond_lab_03_1_1"/>
+            <field name="batch_code">MN-LAB_B</field>
+            <field name="production_date" eval="(DateTime.today() + relativedelta(days=-15)).strftime('%Y-%m-%d')"/>
+            <field name="traceability_notes">Postlarva comprada a Larvicultura Monteverde Cía. Ltda. (lote MN-LAB_A).</field>
+            <field name="photo_attachment_ids" eval="[(6, 0, [ref('shrimp_marketplace.demo_img_3'), ref('shrimp_marketplace.demo_img_4')])]"/>
+        </record>
+        <record id="demo_mn_tx_0002" model="shrimp.transaction">
+            <field name="transaction_type">laboratorio_to_laboratorio</field>
+            <field name="product_id" ref="demo_mn_prod_lab_a"/>
+            <field name="seller_partner_id" ref="shrimp_user_registry.demo_ms_lab_02"/>
+            <field name="buyer_partner_id" ref="shrimp_user_registry.demo_ms_lab_03"/>
+            <field name="seller_role">laboratorio</field>
+            <field name="buyer_role">laboratorio</field>
+            <field name="location">Ayangue, Santa Elena</field>
+            <field name="state">done</field>
+            <field name="transaction_qty" eval="10000.0"/>
+            <field name="price_unit" eval="2.4"/>
+            <field name="amount_total" eval="24000.0"/>
+            <field name="desired_qty" eval="10000.0"/>
+            <field name="desired_date" eval="(DateTime.today() + relativedelta(days=-15)).strftime('%Y-%m-%d')"/>
+            <field name="code">Postlarva PL12 SPR - corrida para terceros (Larvicultura Monteverde)</field>
+            <field name="result_product_id" ref="demo_mn_prod_lab_b"/>
+            <field name="received_date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-15, hours=15, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        </record>
+        <record id="demo_mn_mv_0002" model="shrimp.stock.move">
+            <field name="product_id" ref="demo_mn_prod_lab_a"/>
+            <field name="source_partner_id" ref="shrimp_user_registry.demo_ms_lab_02"/>
+            <field name="dest_partner_id" ref="shrimp_user_registry.demo_ms_lab_03"/>
+            <field name="qty" eval="10000.0"/>
+            <field name="transaction_id" ref="demo_mn_tx_0002"/>
+            <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-18, hours=16, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        </record>
+        <record id="demo_mn_chg_0002" model="shrimp.charge">
+            <field name="state">pending</field>
+            <field name="invoice_attempts" eval="5"/>
+            <field name="invoice_error">Datos de demostración: los cobros de ejemplo no se facturan automáticamente.</field>
+            <field name="charge_type">commission</field>
+            <field name="transaction_id" ref="demo_mn_tx_0002"/>
+            <field name="seller_partner_id" ref="shrimp_user_registry.demo_ms_lab_02"/>
+            <field name="payer_partner_id" ref="shrimp_user_registry.demo_ms_lab_02"/>
+            <field name="buyer_partner_id" ref="shrimp_user_registry.demo_ms_lab_03"/>
+            <field name="product_id" ref="demo_mn_prod_lab_a"/>
+            <field name="qty" eval="10000.0"/>
+            <field name="uom_id" ref="shrimp_marketplace.uom_millar"/>
+            <field name="rate_cents" eval="1.0"/>
+            <field name="invoice_qty" eval="10000.0"/>
+            <field name="unit_amount" eval="0.01"/>
+            <field name="amount" eval="100.0"/>
+            <field name="currency_id" ref="base.USD"/>
+            <field name="description">Comisión marketplace – Postlarva PL12 SPR - corrida para terceros (Larvicultura Monteverde)</field>
+            <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-18, hours=23, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        </record>
+        <record id="demo_mn_lot_lab_b" model="shrimp.stock.lot">
+            <field name="product_id" ref="demo_mn_prod_lab_b"/>
+            <field name="owner_id" ref="shrimp_user_registry.demo_ms_lab_03"/>
+            <field name="initial_qty" eval="10000.0"/>
+            <field name="available_qty" eval="10000.0"/>
+            <field name="uom_id" ref="shrimp_marketplace.uom_millar"/>
+            <field name="state">available</field>
+            <field name="origin_move_id" ref="demo_mn_mv_0002"/>
+        </record>
+        <record id="demo_mn_prod_lab_b_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
+            <field name="product_id" ref="demo_mn_prod_lab_b"/>
+            <field name="source_user_certificate_line_id" ref="shrimp_user_registry.demo_ms_lab_02_cert_5"/>
+            <field name="certificate_id" ref="shrimp_user_registry.demo_cert_libre_venta"/>
+            <field name="number">VENTA-MN-LAB_A</field>
+            <field name="issue_date" eval="(DateTime.today() + relativedelta(days=-252)).strftime('%Y-%m-%d')"/>
+            <field name="expiry_date" eval="(DateTime.today() + relativedelta(days=113)).strftime('%Y-%m-%d')"/>
+            <field name="attachment_id" ref="shrimp_user_registry.demo_ms_lab_02_expediente"/>
+            <field name="active" eval="True"/>
+            <field name="status">approved</field>
+        </record>
+        <record id="demo_mn_tx_0003" model="shrimp.transaction">
+            <field name="transaction_type">laboratorio_to_laboratorio</field>
+            <field name="product_id" ref="demo_mn_prod_lab_a"/>
+            <field name="seller_partner_id" ref="shrimp_user_registry.demo_ms_lab_02"/>
+            <field name="buyer_partner_id" ref="shrimp_user_registry.demo_ms_lab_03"/>
+            <field name="seller_role">laboratorio</field>
+            <field name="buyer_role">laboratorio</field>
+            <field name="location">Ayangue, Santa Elena</field>
+            <field name="state">confirmed</field>
+            <field name="transaction_qty" eval="5000.0"/>
+            <field name="price_unit" eval="2.4"/>
+            <field name="amount_total" eval="12000.0"/>
+            <field name="desired_qty" eval="5000.0"/>
+            <field name="desired_date" eval="(DateTime.today() + relativedelta(days=1)).strftime('%Y-%m-%d')"/>
+            <field name="code">Postlarva PL12 SPR - corrida para terceros (Larvicultura Monteverde)</field>
+        </record>
+        <record id="demo_mn_mv_0003" model="shrimp.stock.move">
+            <field name="product_id" ref="demo_mn_prod_lab_a"/>
+            <field name="source_partner_id" ref="shrimp_user_registry.demo_ms_lab_02"/>
+            <field name="dest_partner_id" ref="shrimp_user_registry.demo_ms_lab_03"/>
+            <field name="qty" eval="5000.0"/>
+            <field name="transaction_id" ref="demo_mn_tx_0003"/>
+            <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-2, hours=16, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        </record>
+        <record id="demo_mn_chg_0003" model="shrimp.charge">
+            <field name="state">pending</field>
+            <field name="invoice_attempts" eval="5"/>
+            <field name="invoice_error">Datos de demostración: los cobros de ejemplo no se facturan automáticamente.</field>
+            <field name="charge_type">commission</field>
+            <field name="transaction_id" ref="demo_mn_tx_0003"/>
+            <field name="seller_partner_id" ref="shrimp_user_registry.demo_ms_lab_02"/>
+            <field name="payer_partner_id" ref="shrimp_user_registry.demo_ms_lab_02"/>
+            <field name="buyer_partner_id" ref="shrimp_user_registry.demo_ms_lab_03"/>
+            <field name="product_id" ref="demo_mn_prod_lab_a"/>
+            <field name="qty" eval="5000.0"/>
+            <field name="uom_id" ref="shrimp_marketplace.uom_millar"/>
+            <field name="rate_cents" eval="1.0"/>
+            <field name="invoice_qty" eval="5000.0"/>
+            <field name="unit_amount" eval="0.01"/>
+            <field name="amount" eval="50.0"/>
+            <field name="currency_id" ref="base.USD"/>
+            <field name="description">Comisión marketplace – Postlarva PL12 SPR - corrida para terceros (Larvicultura Monteverde)</field>
+            <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-2, hours=23, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        </record>
+
+        <!-- ===== Lotes de origen (disponible final) ===== -->
+        <record id="demo_mn_lot_sem_a" model="shrimp.stock.lot">
+            <field name="product_id" ref="demo_mn_prod_sem_a"/>
+            <field name="owner_id" ref="shrimp_user_registry.demo_ms_sem_02"/>
+            <field name="initial_qty" eval="180000.0"/>
+            <field name="available_qty" eval="120000.0"/>
+            <field name="uom_id" ref="shrimp_marketplace.uom_millar"/>
+            <field name="state">available</field>
+        </record>
+        <record id="demo_mn_lot_lab_a" model="shrimp.stock.lot">
+            <field name="product_id" ref="demo_mn_prod_lab_a"/>
+            <field name="owner_id" ref="shrimp_user_registry.demo_ms_lab_02"/>
+            <field name="initial_qty" eval="30000.0"/>
+            <field name="available_qty" eval="15000.0"/>
+            <field name="uom_id" ref="shrimp_marketplace.uom_millar"/>
+            <field name="state">available</field>
+        </record>
+    </data>
+</odoo>

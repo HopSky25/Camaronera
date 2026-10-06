@@ -1,0 +1,298 @@
+<odoo>
+
+  <!-- ================================================================
+       EMPAQUE PROPIO. La empresa (camaronera o empacadora) con el perfil
+       Maquilador aprobado empaca su propio camarón en su planta. No hay
+       solicitud, ofertas, tarifa, comisión ni acta de dos partes: la misma
+       cuenta registra recepción, empaque y un cierre interno. Deja el mismo
+       rastro de trazabilidad que un empaque de terceros, rotulado
+       «Empaque propio — empacado por <empresa> (planta <código>)».
+       ================================================================ -->
+
+  <!-- Sin el perfil Maquilador aprobado -->
+  <template id="copack_self_need_profile" name="Empaque propio - falta el perfil">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page py-4">
+          <a href="/marketplace/copacking/orders" class="btn btn-sm btn-link mb-2">&#8592; Órdenes de empaque</a>
+          <h2 class="mb-3">Registrar empaque propio</h2>
+          <div class="alert alert-warning" id="shrimp_selfpack_need_profile">
+            <strong>Para empacar tu propio producto necesitas el perfil Maquilador</strong>
+            <t t-if="estado_perfil == 'pending'">
+              <div class="small mt-1">Ya lo pediste: está pendiente de aprobación. Cuando la
+                administración lo apruebe podrás registrar tus empaques propios.</div>
+            </t>
+            <t t-elif="estado_perfil == 'rejected'">
+              <div class="small mt-1">Tu perfil Maquilador fue rechazado. Revisa los datos de tu
+                planta (razón social, ubicación, código de establecimiento) y vuelve a pedirlo.</div>
+            </t>
+            <t t-else="">
+              <div class="small mt-1">El perfil Maquilador registra tu planta (código de
+                establecimiento y habilitación), que es lo que el informe de trazabilidad imprime
+                como «empacado por». Se agrega a tu misma cuenta y lo aprueba la administración.</div>
+            </t>
+          </div>
+          <a t-if="estado_perfil != 'pending'" t-att-href="url_agregar" class="btn btn-primary">
+            Agregar el perfil Maquilador
+          </a>
+          <a href="/marketplace/copacking" class="btn btn-outline-secondary ms-2">
+            Contratar el empaque a otra planta
+          </a>
+        </div>
+      </div>
+    </t>
+  </template>
+
+  <!-- Formulario: elegir el camarón y las libras -->
+  <template id="copack_self_form" name="Empaque propio - nuevo">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page py-4">
+          <a href="/marketplace/copacking/orders" class="btn btn-sm btn-link mb-2">&#8592; Órdenes de empaque</a>
+          <h2 class="mb-1">Registrar empaque propio</h2>
+          <p class="text-muted">
+            Empacas tu propio camarón en tu planta
+            <b><t t-esc="planta.name"/></b>
+            <t t-if="planta.pack_codigo_establecimiento"> (establecimiento <b><t t-esc="planta.pack_codigo_establecimiento"/></b>)</t>.
+            No hay solicitud, tarifa ni comisión, y el acta es un cierre interno tuyo; la trazabilidad
+            dirá «Empaque propio — empacado por <t t-esc="planta.name"/>».
+          </p>
+          <t t-if="error"><div class="alert alert-danger"><t t-esc="error"/></div></t>
+          <t t-if="not origenes">
+            <div class="alert alert-light border">
+              No tienes lotes publicados ni compras confirmadas que empacar.
+            </div>
+          </t>
+          <form method="post" action="/marketplace/copacking/self/new" class="card">
+            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+            <div class="card-body">
+              <div class="row g-3">
+                <div class="col-12">
+                  <label class="form-label" for="origen_ref">Camarón a empacar *</label>
+                  <select name="origen_ref" id="origen_ref" class="form-select" required="required">
+                    <option value="">Elige un lote o una compra…</option>
+                    <t t-set="compras" t-value="[o for o in origenes if o['kind'] == 'transaction']"/>
+                    <t t-set="lotes" t-value="[o for o in origenes if o['kind'] == 'product']"/>
+                    <optgroup t-if="lotes" label="Mis lotes">
+                      <t t-foreach="lotes" t-as="o">
+                        <option t-att-value="o['ref']"
+                                t-att-selected="'selected' if datos.get('origen_ref') == o['ref'] else None">
+                          <t t-esc="o['label']"/>
+                        </option>
+                      </t>
+                    </optgroup>
+                    <optgroup t-if="compras" label="Mis compras">
+                      <t t-foreach="compras" t-as="o">
+                        <option t-att-value="o['ref']"
+                                t-att-selected="'selected' if datos.get('origen_ref') == o['ref'] else None">
+                          <t t-esc="o['label']"/>
+                        </option>
+                      </t>
+                    </optgroup>
+                  </select>
+                  <div class="form-text">Del lote salen las libras que entran a la línea; la merma se
+                    consume y lo empacado pasa a un lote empacado, como en un empaque de terceros.</div>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Libras a empacar *</label>
+                  <input type="number" step="0.01" min="0.01" name="quantity_lb" class="form-control"
+                         required="required" t-att-value="datos.get('quantity_lb') or ''"/>
+                </div>
+                <div class="col-md-8">
+                  <label class="form-label">Insumos</label>
+                  <input type="text" name="supplies_notes" class="form-control"
+                         placeholder="Cajas master, fundas, etiquetas…"
+                         t-att-value="datos.get('supplies_notes') or ''"/>
+                </div>
+              </div>
+              <button type="submit" class="btn btn-primary mt-3">Registrar empaque propio</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </t>
+  </template>
+
+  <!-- Detalle: recepción, empaque, cierre interno -->
+  <template id="copack_self_order_detail" name="Empaque propio - orden">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page py-4">
+          <a t-att-href="volver_url" class="btn btn-sm btn-link mb-2">&#8592; Órdenes de empaque</a>
+          <div class="d-flex justify-content-between align-items-start flex-wrap">
+            <div>
+              <h2 class="mb-1"><t t-esc="orden.name"/> <span class="badge text-bg-info fs-6">Empaque propio</span></h2>
+              <p class="text-muted mb-0" id="shrimp_selfpack_label"><t t-esc="orden.shrimp_plant_label()"/></p>
+              <p class="text-muted small mb-0">
+                <t t-if="orden.transaction_id">Compra <t t-esc="orden.transaction_id.name"/> · </t>
+                <t t-esc="orden.product_id.display_name or ''"/>
+              </p>
+            </div>
+            <span class="badge text-bg-secondary fs-6">
+              <t t-esc="dict(orden._fields['state'].selection).get(orden.state)"/>
+            </span>
+          </div>
+
+          <t t-if="mensaje == 'cerrada'">
+            <div class="alert alert-success mt-3">Empaque propio cerrado: el inventario se movió y ya
+              consta en la trazabilidad.</div>
+          </t>
+          <t t-elif="mensaje"><div class="alert alert-success mt-3">Listo.</div></t>
+          <t t-if="error"><div class="alert alert-danger mt-3"><t t-esc="error"/></div></t>
+
+          <div class="card my-3"><div class="card-body">
+            <h6 class="text-uppercase text-muted small mb-3">El cuadre</h6>
+            <div class="row text-center">
+              <div class="col-3"><div class="text-muted small">A empacar</div>
+                <div class="fs-4 fw-bold"><t t-esc="int(orden.agreed_qty_lb)"/></div><div class="text-muted small">lb</div></div>
+              <div class="col-3"><div class="text-muted small">Recibidas</div>
+                <div class="fs-4 fw-bold"><t t-esc="int(orden.received_lb)"/></div><div class="text-muted small">lb</div></div>
+              <div class="col-3"><div class="text-muted small">Empacadas</div>
+                <div class="fs-4 fw-bold"><t t-esc="int(orden.packed_lb)"/></div><div class="text-muted small">lb</div></div>
+              <div class="col-3"><div class="text-muted small">Merma</div>
+                <div t-att-class="'fs-4 fw-bold ' + ('text-success' if orden.cuadra else 'text-danger')"><t t-esc="round(orden.difference_lb, 2)"/></div>
+                <div class="text-muted small"><t t-esc="round(orden.difference_pct, 2)"/> %</div></div>
+            </div>
+            <dl class="row mb-0 small mt-3">
+              <dt class="col-6">Cajas / masters</dt><dd class="col-6 text-end"><t t-esc="orden.boxes or '—'"/></dd>
+              <dt class="col-6">Presentación</dt>
+              <dd class="col-6 text-end"><t t-esc="dict(orden._fields['packed_presentation'].selection).get(orden.packed_presentation) or '—'"/>
+                <t t-if="orden.packed_presentation_note"> · <t t-esc="orden.packed_presentation_note"/></t></dd>
+              <dt class="col-6">Insumos</dt><dd class="col-6 text-end"><t t-esc="orden.supplies_notes or '—'"/></dd>
+              <dt class="col-6">Recepción</dt><dd class="col-6 text-end"><t t-esc="orden.received_date or '—'"/></dd>
+              <dt class="col-6">Empaque</dt><dd class="col-6 text-end"><t t-esc="orden.packed_date or '—'"/></dd>
+              <dt class="col-6">Cierre interno</dt>
+              <dd class="col-6 text-end"><t t-if="orden.self_signoff_date"><t t-esc="orden.self_signoff_date"/> · <t t-esc="orden.self_signoff_user_id.name"/></t><t t-else="">—</t></dd>
+              <dt class="col-6">Lote empacado</dt>
+              <dd class="col-6 text-end"><t t-if="orden.packed_lot_id">L-<t t-esc="orden.packed_lot_id.id"/></t><t t-else="">—</t></dd>
+              <dt class="col-6 border-top pt-2">Tarifa / comisión</dt>
+              <dd class="col-6 text-end border-top pt-2">Sin cobro (empaque propio)</dd>
+            </dl>
+          </div></div>
+
+          <t t-if="orden.state == 'confirmed'">
+            <div class="card mt-3 border-primary"><div class="card-body">
+              <h6 class="text-uppercase text-muted small mb-3">1. Recepción en la línea</h6>
+              <form method="post" t-attf-action="/marketplace/copacking/self/#{orden.uuid_ref}/reception">
+                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <label class="form-label">Libras recibidas *</label>
+                    <input type="number" step="0.01" min="0.01" name="received_lb" class="form-control"
+                           required="required" t-att-value="int(orden.agreed_qty_lb)"/>
+                  </div>
+                  <div class="col-md-8">
+                    <label class="form-label">Insumos</label>
+                    <div class="form-check">
+                      <input type="checkbox" name="supplies_received" class="form-check-input" checked="checked"/>
+                      <label class="form-check-label">Completos</label>
+                    </div>
+                    <input type="text" name="supplies_issue" class="form-control mt-2" placeholder="Si faltó algo"/>
+                  </div>
+                </div>
+                <button type="submit" class="btn btn-primary mt-3">Registrar recepción</button>
+              </form>
+            </div></div>
+          </t>
+
+          <t t-if="orden.state == 'received'">
+            <div class="card mt-3 border-primary"><div class="card-body">
+              <h6 class="text-uppercase text-muted small mb-3">2. Empaque</h6>
+              <form method="post" t-attf-action="/marketplace/copacking/self/#{orden.uuid_ref}/packing">
+                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <label class="form-label">Libras empacadas *</label>
+                    <input type="number" step="0.01" min="0.01" name="packed_lb" class="form-control"
+                           required="required" t-att-value="orden.packed_lb or ''"/>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Cajas / masters</label>
+                    <input type="number" step="1" min="0" name="boxes" class="form-control" t-att-value="orden.boxes or ''"/>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Presentación</label>
+                    <select name="packed_presentation" class="form-select">
+                      <option value="">—</option>
+                      <t t-foreach="orden._fields['packed_presentation'].selection" t-as="pres">
+                        <option t-att-value="pres[0]" t-att-selected="'selected' if orden.packed_presentation == pres[0] else None"><t t-esc="pres[1]"/></option>
+                      </t>
+                    </select>
+                    <input type="text" name="packed_presentation_note" class="form-control mt-1"
+                           placeholder="Formato (p. ej. master 5 lb IQF)" t-att-value="orden.packed_presentation_note or ''"/>
+                  </div>
+                </div>
+                <button type="submit" class="btn btn-primary mt-3">Registrar empaque</button>
+              </form>
+            </div></div>
+          </t>
+
+          <t t-if="orden.state == 'packed'">
+            <div class="card mt-3 border-success"><div class="card-body">
+              <h6 class="text-uppercase text-muted small mb-2">3. Cierre interno</h6>
+              <p class="small text-muted">
+                No hay acta de dos partes: el cliente y la planta son tu misma empresa. Al cerrar das
+                por buenas estas cifras; la merma se consume, lo empacado pasa a un lote empacado y el
+                empaque aparece en el informe de trazabilidad como empaque propio.
+              </p>
+              <form method="post" t-attf-action="/marketplace/copacking/self/#{orden.uuid_ref}/close" class="d-inline">
+                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                <button type="submit" class="btn btn-success">Cerrar empaque propio</button>
+              </form>
+              <form method="post" t-attf-action="/marketplace/copacking/self/#{orden.uuid_ref}/correct" class="d-inline ms-2">
+                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                <button type="submit" class="btn btn-outline-secondary">Corregir lo empacado</button>
+              </form>
+            </div></div>
+          </t>
+
+          <t t-if="orden.state in ('confirmed', 'received', 'packed')">
+            <form method="post" t-attf-action="/marketplace/copacking/orders/#{orden.uuid_ref}/cancel"
+                  class="mt-3" onsubmit="return confirm('¿Anular este empaque propio?');">
+              <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+              <button type="submit" class="btn btn-outline-danger btn-sm">Anular</button>
+            </form>
+          </t>
+        </div>
+      </div>
+    </t>
+  </template>
+
+  <!-- Botón en la lista de órdenes -->
+  <template id="copack_orders_self_pack_button" inherit_id="shrimp_copacking.copack_orders"
+            name="Órdenes de empaque - empaque propio">
+    <xpath expr="//h2[hasclass('mb-0')]" position="after">
+      <div class="d-flex gap-2" t-if="es_duenio_camaron">
+        <a href="/marketplace/copacking/self/new" id="shrimp_selfpack_btn"
+           t-attf-class="btn #{'btn-primary' if puede_empaque_propio else 'btn-outline-secondary'}">
+          <i class="fa fa-industry"></i> Registrar empaque propio
+        </a>
+      </div>
+    </xpath>
+    <xpath expr="//t[@t-foreach='ordenes']//a" position="after">
+      <span t-if="o.self_packing" class="badge text-bg-info ms-1">Empaque propio</span>
+    </xpath>
+  </template>
+
+  <!-- Acceso desde «Mi inventario»: empacar un lote propio o comprado -->
+  <template id="my_lots_self_pack" inherit_id="shrimp_marketplace.my_lots"
+            name="Mis lotes - empaque propio">
+    <xpath expr="//h3[hasclass('mp-sec-title')]" position="after">
+      <a href="/marketplace/copacking/self/new" class="btn btn-sm btn-outline-primary ms-auto"
+         t-if="partner.sudo()._shrimp_can_any('request_copack')" id="shrimp_selfpack_lots_btn">
+        <i class="fa fa-industry"></i> Registrar empaque propio
+      </a>
+    </xpath>
+    <xpath expr="//table/thead/tr/th[last()]" position="after">
+      <th></th>
+    </xpath>
+    <xpath expr="//table/tbody//tr/td[last()]" position="after">
+      <td class="text-end">
+        <t t-set="sp_origen" t-value="request.env['shrimp.copack.order'].sudo()._shrimp_self_pack_origin_for_lot(lot)"/>
+        <a t-if="sp_origen and lot.state == 'available'" t-attf-href="/marketplace/copacking/self/new?origen=#{sp_origen}"
+           class="btn btn-sm btn-link">Empacar</a>
+      </td>
+    </xpath>
+  </template>
+
+</odoo>

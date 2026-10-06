@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_api_root" name="Integraciones (API)"
+              parent="shrimp_marketplace.menu_shrimp_config_root" sequence="95"
+              groups="base.group_system"/>
+    <menuitem id="menu_api_keys" name="Claves de API" parent="menu_api_root"
+              action="action_api_keys" sequence="10" groups="base.group_system"/>
+    <menuitem id="menu_api_webhook_subs" name="Suscripciones a webhooks" parent="menu_api_root"
+              action="action_webhook_subscriptions" sequence="20" groups="base.group_system"/>
+    <menuitem id="menu_api_webhook_deliveries" name="Entregas de webhooks" parent="menu_api_root"
+              action="action_webhook_deliveries" sequence="30" groups="base.group_system"/>
+    <menuitem id="menu_api_scopes" name="Scopes" parent="menu_api_root"
+              action="action_api_scopes" sequence="40" groups="base.group_system"/>
+
+    <!-- El menú antiguo apuntaba a la vista que enseñaba la clave en claro. -->
+    <record id="shrimp_marketplace.menu_shrimp_api_key" model="ir.ui.menu">
+        <field name="active" eval="False"/>
+    </record>
+</odoo>

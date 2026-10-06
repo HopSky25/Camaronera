@@ -15,37 +15,25 @@ from urllib.parse import quote, urlencode
 
 from odoo import http, fields, _
 from odoo.http import request
-from odoo.exceptions import AccessError, ValidationError
+from odoo.exceptions import AccessError, UserError, ValidationError
 from werkzeug.exceptions import NotFound, Forbidden
 
-
-# Lo que llega por la barra de direcciones o por un formulario es texto libre, y
-# un int()/float() desnudo sobre eso es un error 500 esperando a que alguien
-# escriba «hola». Estas dos convierten sin reventar y dejan que rechace el
-# valor la validación del modelo, que sí sabe explicarse.
-def _entero(valor, por_defecto=0):
-    try:
-        return int(valor)
-    except (TypeError, ValueError):
-        return por_defecto
+from odoo.addons.shrimp_user_registry.controllers.main import (
+    flash_message, require_operational)
+from odoo.addons.shrimp_marketplace.controllers.utils import (
+    ShrimpPortalMixin, error_text, to_int, to_number)
 
 
-def _decimal(valor, por_defecto=0.0):
-    try:
-        return float(valor)
-    except (TypeError, ValueError):
-        return por_defecto
+# Lo que llega por la barra de direcciones o por un formulario es texto libre:
+# se convierte con las ayudas comunes (shrimp_marketplace.controllers.utils),
+# que no revientan y dejan que rechace el valor la validación del modelo.
+_entero = to_int
+_decimal = to_number
+_mensaje = error_text
 
 
-def _mensaje(error):
-    return error.args[0] if getattr(error, "args", None) else str(error)
-
-
-class ShrimpReservaBase(http.Controller):
+class ShrimpReservaBase(ShrimpPortalMixin, http.Controller):
     """Ayudas comunes a los dos lados."""
-
-    def _partner(self):
-        return request.env.user.partner_id
 
     def _tallas(self, presentation=None):
         dominio = [("active", "=", True)]
@@ -53,6 +41,25 @@ class ShrimpReservaBase(http.Controller):
             dominio.append(("presentation", "=", presentation))
         return request.env["shrimp.size.grade"].sudo().search(
             dominio, order="presentation, sequence, name")
+
+    def _contexto_firmas(self, compromisos, socio):
+        """Historial de decisiones y «deshacer mi firma» de la confirmación
+        fuera de banda, para las dos pantallas (camaronera y empacadora)."""
+        compromisos = compromisos.sudo()
+        historial = request.env["shrimp.signoff.event"].sudo().search([
+            ("parent_model", "=", "shrimp.harvest.commitment"),
+            ("parent_id", "in", compromisos.ids or [0])])
+        firma = compromisos.mapped("confirmation_ids").filtered(
+            lambda c: c.active and c.partner_id == socio and c.decision != "pending"
+            and c.commitment_id.state in ("to_confirm", "released"))[:1]
+        info = firma.signoff_undo_info(actor=socio) if firma else {}
+        return {
+            "historial": historial,
+            "firma_deshacer": firma if info.get("can") else None,
+            "undo_info": info,
+            "undo_url": ("/marketplace/reservations/confirmations/%s/undo" % firma.uuid_ref
+                         if firma else ""),
+        }
 
 
 class ShrimpReservaCamaronera(ShrimpReservaBase):
@@ -62,7 +69,7 @@ class ShrimpReservaCamaronera(ShrimpReservaBase):
     # guardado que lo devuelve cuando la validación falla: perder lo tecleado
     # por una fecha mal puesta es la forma más rápida de que alguien abandone.
     _CAMPOS = ("expected_date", "expected_lb", "presentation", "size_grade_id",
-               "pond_id", "facility_id", "tolerance_lb_pct",
+               "pond_ref", "facility_ref", "tolerance_lb_pct",
                "tolerance_size_steps", "date_tolerance_days", "notes")
 
     def _solo_camaronera(self):
@@ -94,7 +101,7 @@ class ShrimpReservaCamaronera(ShrimpReservaBase):
     # ==================================================================
     # Mis cosechas declaradas
     # ==================================================================
-    @http.route("/marketplace/reservas", type="http", auth="user", website=True)
+    @http.route("/marketplace/reservations", type="http", auth="user", website=True)
     def reservas_index(self, **kw):
         self._solo_camaronera()
         declaraciones = request.env["shrimp.harvest.forecast"].sudo().search(
@@ -106,7 +113,7 @@ class ShrimpReservaCamaronera(ShrimpReservaBase):
             "error": kw.get("error"),
         })
 
-    @http.route("/marketplace/reservas/nueva", type="http", auth="user",
+    @http.route("/marketplace/reservations/new", type="http", auth="user",
                 website=True, methods=["GET"])
     def reserva_form(self, **kw):
         self._solo_camaronera()
@@ -117,36 +124,43 @@ class ShrimpReservaCamaronera(ShrimpReservaBase):
             "instalaciones": request.env["shrimp.partner.facility"].sudo().search(
                 [("partner_id", "=", socio.id)]),
             "tallas": self._tallas(),
-            "empacadoras": request.env["res.partner"].sudo().search(
-                [("shrimp_user_type", "=", "empacadora"), ("active", "=", True)],
-                order="name"),
+            "empacadoras": request.env["res.partner"].sudo().empacadoras_activas(),
             "datos": dict(
                 {c: (kw.get(c) or "") for c in self._CAMPOS},
                 # Se convierten aquí y no en la plantilla, que es donde menos
-                # se puede depurar: el desplegable compara con el id.
-                size_grade_id=_entero(kw.get("size_grade_id"), 0),
-                pond_id=_entero(kw.get("pond_id"), 0),
-                facility_id=_entero(kw.get("facility_id"), 0)),
+                # se puede depurar: el desplegable de tallas (catálogo) compara
+                # con el id; piscina e instalación, con su código.
+                size_grade_id=_entero(kw.get("size_grade_id"), 0)),
             "error": kw.get("error"),
         })
 
-    @http.route("/marketplace/reservas/nueva", type="http", auth="user",
+    @http.route("/marketplace/reservations/new", type="http", auth="user",
                 website=True, methods=["POST"], csrf=True)
     def reserva_guardar(self, **post):
         self._solo_camaronera()
         socio = self._partner()
-        destinatarios = [
-            _entero(v) for v in request.httprequest.form.getlist("recipient_ids")
-            if _entero(v)
-        ]
+        Partner = request.env["res.partner"].sudo()
+        # Empacadoras destinatarias, piscina e instalación: por su código
+        # (uuid_ref), nunca por id; piscina e instalación, solo las propias.
+        refs = [v for v in request.httprequest.form.getlist("recipient_refs") if v]
+        destinatarios = Partner.search([
+            ("uuid_ref", "in", refs)] + Partner._shrimp_role_domain("empacadora")).ids if refs else []
+        piscina = request.env["shrimp.partner.pond"].sudo().resolve_ref(post.get("pond_ref"))
+        piscina = piscina if piscina.partner_id == socio else piscina.browse()
+        instalacion = request.env["shrimp.partner.facility"].sudo().resolve_ref(post.get("facility_ref"))
+        instalacion = instalacion if instalacion.partner_id == socio else instalacion.browse()
+        if not piscina:
+            params = {c: (post.get(c) or "") for c in self._CAMPOS}
+            params["error"] = flash_message(_("Elige una de tus piscinas."))
+            return request.redirect("/marketplace/reservations/new?%s" % urlencode(params))
         vals = {
             "farmer_partner_id": socio.id,
             "expected_date": post.get("expected_date") or False,
             "expected_lb": _decimal(post.get("expected_lb")),
             "presentation": post.get("presentation") or "entero",
             "size_grade_id": _entero(post.get("size_grade_id")) or False,
-            "pond_id": _entero(post.get("pond_id")) or False,
-            "facility_id": _entero(post.get("facility_id")) or False,
+            "pond_id": piscina.id or False,
+            "facility_id": instalacion.id or False,
             "tolerance_lb_pct": _decimal(post.get("tolerance_lb_pct"), 20.0),
             "tolerance_size_steps": _entero(post.get("tolerance_size_steps"), 1),
             "date_tolerance_days": _entero(post.get("date_tolerance_days"), 7),
@@ -166,20 +180,21 @@ class ShrimpReservaCamaronera(ShrimpReservaBase):
                 declaracion.action_publish(actor=socio)
         except (AccessError, ValidationError, ValueError) as e:
             params = {c: (post.get(c) or "") for c in self._CAMPOS}
-            params["error"] = str(_mensaje(e))
+            params["error"] = flash_message(_mensaje(e))
             return request.redirect(
-                "/marketplace/reservas/nueva?%s" % urlencode(params))
-        return request.redirect("/marketplace/reservas/%s?mensaje=publicada"
+                "/marketplace/reservations/new?%s" % urlencode(params))
+        return request.redirect("/marketplace/reservations/%s?mensaje=publicada"
                                 % declaracion.uuid_ref)
 
-    @http.route("/marketplace/reservas/<ref>", type="http", auth="user",
+    @http.route("/marketplace/reservations/<ref>", type="http", auth="user",
                 website=True)
     def reserva_detalle(self, ref, **kw):
         self._solo_camaronera()
         declaracion = self._mia(ref)
         aceptado = declaracion.commitment_ids.filtered(
             lambda c: c.state in ("accepted", "to_confirm", "honored"))[:1]
-        return request.render("shrimp_packer.reserva_detalle", {
+        return request.render("shrimp_packer.reserva_detalle", dict(self._contexto_firmas(
+                declaracion.commitment_ids, self._partner()), **{
             "d": declaracion,
             "compromisos": declaracion.commitment_ids.filtered(
                 lambda c: c.state not in ("withdrawn", "lapsed")),
@@ -190,9 +205,9 @@ class ShrimpReservaCamaronera(ShrimpReservaBase):
             "hoy": fields.Date.context_today(self._partner()),
             "mensaje": kw.get("mensaje"),
             "error": kw.get("error"),
-        })
+        }))
 
-    @http.route("/marketplace/reservas/<ref>/cancelar", type="http", auth="user",
+    @http.route("/marketplace/reservations/<ref>/cancel", type="http", auth="user",
                 website=True, methods=["POST"], csrf=True)
     def reserva_cancelar(self, ref, **post):
         self._solo_camaronera()
@@ -202,12 +217,12 @@ class ShrimpReservaCamaronera(ShrimpReservaBase):
                 declaracion.action_cancel(
                     motivo=post.get("motivo"), actor=self._partner())
         except (AccessError, ValidationError) as e:
-            return request.redirect("/marketplace/reservas/%s?error=%s"
-                                    % (declaracion.uuid_ref, quote(str(_mensaje(e)))))
-        return request.redirect("/marketplace/reservas/%s?mensaje=cancelada"
+            return request.redirect("/marketplace/reservations/%s?error=%s"
+                                    % (declaracion.uuid_ref, flash_message(_mensaje(e))))
+        return request.redirect("/marketplace/reservations/%s?mensaje=cancelada"
                                 % declaracion.uuid_ref)
 
-    @http.route("/marketplace/reservas/<ref>/cosecha", type="http", auth="user",
+    @http.route("/marketplace/reservations/<ref>/harvest", type="http", auth="user",
                 website=True, methods=["POST"], csrf=True)
     def reserva_cosecha(self, ref, **post):
         self._solo_camaronera()
@@ -220,9 +235,9 @@ class ShrimpReservaCamaronera(ShrimpReservaBase):
                     actual_date=post.get("actual_date") or None,
                     actor=self._partner())
         except (AccessError, ValidationError) as e:
-            return request.redirect("/marketplace/reservas/%s?error=%s"
-                                    % (declaracion.uuid_ref, quote(str(_mensaje(e)))))
-        return request.redirect("/marketplace/reservas/%s?mensaje=cosechada"
+            return request.redirect("/marketplace/reservations/%s?error=%s"
+                                    % (declaracion.uuid_ref, flash_message(_mensaje(e))))
+        return request.redirect("/marketplace/reservations/%s?mensaje=cosechada"
                                 % declaracion.uuid_ref)
 
     # ==================================================================
@@ -230,28 +245,28 @@ class ShrimpReservaCamaronera(ShrimpReservaBase):
     # ==================================================================
     def _accion_compromiso(self, ref, metodo, **kwargs):
         compromiso = self._mi_compromiso(ref)
-        destino = "/marketplace/reservas/%s" % compromiso.forecast_id.uuid_ref
+        destino = "/marketplace/reservations/%s" % compromiso.forecast_id.uuid_ref
         try:
             with request.env.cr.savepoint():
                 getattr(compromiso, metodo)(actor=self._partner(), **kwargs)
         except (AccessError, ValidationError) as e:
-            return request.redirect("%s?error=%s" % (destino, quote(str(_mensaje(e)))))
+            return request.redirect("%s?error=%s" % (destino, flash_message(_mensaje(e))))
         return request.redirect("%s?mensaje=ok" % destino)
 
-    @http.route("/marketplace/reservas/compromiso/<ref>/aceptar", type="http",
+    @http.route("/marketplace/reservations/commitments/<ref>/accept", type="http",
                 auth="user", website=True, methods=["POST"], csrf=True)
     def compromiso_aceptar(self, ref, **post):
         self._solo_camaronera()
         return self._accion_compromiso(ref, "action_accept")
 
-    @http.route("/marketplace/reservas/compromiso/<ref>/descartar", type="http",
+    @http.route("/marketplace/reservations/commitments/<ref>/discard", type="http",
                 auth="user", website=True, methods=["POST"], csrf=True)
     def compromiso_descartar(self, ref, **post):
         self._solo_camaronera()
         return self._accion_compromiso(
             ref, "action_reject", motivo=post.get("motivo"))
 
-    @http.route("/marketplace/reservas/compromiso/<ref>/desistir", type="http",
+    @http.route("/marketplace/reservations/commitments/<ref>/desist", type="http",
                 auth="user", website=True, methods=["POST"], csrf=True)
     def compromiso_desistir(self, ref, **post):
         self._solo_camaronera()
@@ -265,6 +280,8 @@ class ShrimpReservaEmpacadora(ShrimpReservaBase):
     def _solo_empacadora(self):
         if self._partner().shrimp_user_type != "empacadora":
             raise Forbidden()
+        # Una empacadora recién registrada no opera hasta su aprobación.
+        require_operational(self._partner())
 
     def _dirigida_a_mi(self, ref):
         """La declaración tiene que estar dirigida a mí. Se comprueba aquí.
@@ -288,7 +305,7 @@ class ShrimpReservaEmpacadora(ShrimpReservaBase):
             raise Forbidden()
         return compromiso
 
-    @http.route("/empacadora/reservas", type="http", auth="user", website=True)
+    @http.route("/packer/reservations", type="http", auth="user", website=True)
     def bandeja(self, **kw):
         self._solo_empacadora()
         socio = self._partner()
@@ -307,7 +324,7 @@ class ShrimpReservaEmpacadora(ShrimpReservaBase):
             "error": kw.get("error"),
         })
 
-    @http.route("/empacadora/reservas/preferencia", type="http", auth="user",
+    @http.route("/packer/reservations/preference", type="http", auth="user",
                 website=True, methods=["POST"], csrf=True)
     def preferencia(self, **post):
         """El interruptor de recibir declaraciones abiertas.
@@ -321,16 +338,17 @@ class ShrimpReservaEmpacadora(ShrimpReservaBase):
         self._solo_empacadora()
         self._partner().sudo().write({
             "reserva_acepta": bool(post.get("reserva_acepta"))})
-        return request.redirect("/empacadora/reservas?mensaje=preferencia")
+        return request.redirect("/packer/reservations?mensaje=preferencia")
 
-    @http.route("/empacadora/reserva/<ref>", type="http", auth="user", website=True)
+    @http.route("/packer/reservations/<ref>", type="http", auth="user", website=True)
     def declaracion(self, ref, **kw):
         self._solo_empacadora()
         declaracion = self._dirigida_a_mi(ref)
         socio = self._partner()
         mio = declaracion.commitment_ids.filtered(
             lambda c: c.packer_partner_id == socio)[:1]
-        return request.render("shrimp_packer.reserva_declaracion", {
+        return request.render("shrimp_packer.reserva_declaracion", dict(self._contexto_firmas(
+                mio, socio), **{
             "d": declaracion,
             "mio": mio,
             "mi_firma": mio.confirmation_ids.filtered(
@@ -345,15 +363,15 @@ class ShrimpReservaEmpacadora(ShrimpReservaBase):
             "datos": dict(kw),
             "mensaje": kw.get("mensaje"),
             "error": kw.get("error"),
-        })
+        }))
 
-    @http.route("/empacadora/reserva/<ref>/comprometer", type="http", auth="user",
+    @http.route("/packer/reservations/<ref>/commit", type="http", auth="user",
                 website=True, methods=["POST"], csrf=True)
     def comprometer(self, ref, **post):
         self._solo_empacadora()
         declaracion = self._dirigida_a_mi(ref)
         socio = self._partner()
-        destino = "/empacadora/reserva/%s" % declaracion.uuid_ref
+        destino = "/packer/reservations/%s" % declaracion.uuid_ref
         vals = {
             "forecast_id": declaracion.id,
             "packer_partner_id": socio.id,
@@ -382,38 +400,45 @@ class ShrimpReservaEmpacadora(ShrimpReservaBase):
                     # que el portal no necesita permiso de creación.
                     request.env["shrimp.harvest.commitment"].sudo().create(vals)
         except (AccessError, ValidationError, ValueError) as e:
-            params = dict({k: (post.get(k) or "") for k in post}, error=str(_mensaje(e)))
+            params = dict({k: (post.get(k) or "") for k in post}, error=flash_message(_mensaje(e)))
             params.pop("csrf_token", None)
             return request.redirect("%s?%s" % (destino, urlencode(params)))
         return request.redirect("%s?mensaje=comprometida" % destino)
 
     def _accion(self, ref, metodo, **kwargs):
         compromiso = self._mi_compromiso(ref)
-        destino = "/empacadora/reserva/%s" % compromiso.forecast_id.uuid_ref
+        destino = "/packer/reservations/%s" % compromiso.forecast_id.uuid_ref
         try:
             with request.env.cr.savepoint():
                 getattr(compromiso, metodo)(actor=self._partner(), **kwargs)
         except (AccessError, ValidationError) as e:
-            return request.redirect("%s?error=%s" % (destino, quote(str(_mensaje(e)))))
+            return request.redirect("%s?error=%s" % (destino, flash_message(_mensaje(e))))
         return request.redirect("%s?mensaje=ok" % destino)
 
-    @http.route("/empacadora/compromiso/<ref>/retirar", type="http", auth="user",
+    @http.route("/packer/commitments/<ref>/withdraw", type="http", auth="user",
                 website=True, methods=["POST"], csrf=True)
     def retirar(self, ref, **post):
         self._solo_empacadora()
         return self._accion(ref, "action_withdraw")
 
-    @http.route("/empacadora/compromiso/<ref>/desistir", type="http", auth="user",
+    @http.route("/packer/commitments/<ref>/desist", type="http", auth="user",
                 website=True, methods=["POST"], csrf=True)
     def desistir(self, ref, **post):
         self._solo_empacadora()
         return self._accion(ref, "action_desistir", motivo=post.get("motivo"))
 
-    @http.route("/empacadora/compromiso/<ref>/comprar", type="http", auth="user",
+    @http.route("/packer/commitments/<ref>/buy", type="http", auth="user",
                 website=True, methods=["POST"], csrf=True)
     def comprar(self, ref, **post):
+        """La compra del lote reservado. Si es camarón adulto va con
+        verificación en campo: el verificador llega por su código y el modelo
+        valida que esté acreditado (start_verified_purchase)."""
         self._solo_empacadora()
-        return self._accion(ref, "action_comprar")
+        modo = post.get("verification_mode")
+        modo = modo if modo in ("platform", "declared") else None
+        verificador = request.env["res.partner"].sudo().resolve_ref(
+            post.get("verifier_ref") or "") if modo != "declared" else None
+        return self._accion(ref, "action_comprar", verifier=verificador or None, mode=modo)
 
 
 class ShrimpReservaConfirmacion(ShrimpReservaBase):
@@ -435,16 +460,16 @@ class ShrimpReservaConfirmacion(ShrimpReservaBase):
             raise Forbidden()
         return firma
 
-    @http.route("/marketplace/reservas/confirmacion/<ref>/firmar", type="http",
+    @http.route("/marketplace/reservations/confirmations/<ref>/sign", type="http",
                 auth="user", website=True, methods=["POST"], csrf=True)
     def firmar(self, ref, **post):
         firma = self._mi_firma(ref)
         socio = request.env.user.partner_id
         compromiso = firma.commitment_id
         if socio == compromiso.farmer_partner_id:
-            destino = "/marketplace/reservas/%s" % compromiso.forecast_id.uuid_ref
+            destino = "/marketplace/reservations/%s" % compromiso.forecast_id.uuid_ref
         else:
-            destino = "/empacadora/reserva/%s" % compromiso.forecast_id.uuid_ref
+            destino = "/packer/reservations/%s" % compromiso.forecast_id.uuid_ref
         acepta = post.get("decision") == "accepted"
         try:
             with request.env.cr.savepoint():
@@ -453,5 +478,24 @@ class ShrimpReservaConfirmacion(ShrimpReservaBase):
                 else:
                     firma.action_reject(motivo=post.get("motivo"), actor=socio)
         except (AccessError, ValidationError) as e:
-            return request.redirect("%s?error=%s" % (destino, quote(str(_mensaje(e)))))
+            return request.redirect("%s?error=%s" % (destino, flash_message(_mensaje(e))))
         return request.redirect("%s?mensaje=firmada" % destino)
+
+    @http.route("/marketplace/reservations/confirmations/<ref>/undo", type="http",
+                auth="user", website=True, methods=["POST"], csrf=True)
+    def deshacer(self, ref, **post):
+        """Cada parte deshace SU firma mientras se pueda (ver el modelo)."""
+        firma = self._mi_firma(ref)
+        socio = request.env.user.partner_id
+        compromiso = firma.commitment_id
+        if socio == compromiso.farmer_partner_id:
+            destino = "/marketplace/reservations/%s" % compromiso.forecast_id.uuid_ref
+        else:
+            destino = "/packer/reservations/%s" % compromiso.forecast_id.uuid_ref
+        try:
+            with request.env.cr.savepoint():
+                firma.action_signoff_undo(
+                    reason=(post.get("motivo") or "").strip() or None, actor=socio)
+        except (AccessError, ValidationError, UserError) as e:
+            return request.redirect("%s?error=%s" % (destino, flash_message(_mensaje(e))))
+        return request.redirect("%s?mensaje=deshecha" % destino)

@@ -148,9 +148,6 @@
 /* ==================================================================
    Directorio y ficha pública de la empacadora
    ================================================================== */
-.pk-buscar { position: relative; max-width: 460px; }
-.pk-buscar .fa { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #8b9ba3; }
-.pk-buscar .form-control { padding-left: 34px; }
 
 .pk-card--emp { border-top-color: #123E5C; }
 .pk-sellos { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -485,6 +482,12 @@
   border: 0; border-radius: 8px; padding: 5px 12px; margin-right: 10px;
   background: rgba(255,255,255,.85); color: #0f6f4a; font-weight: 700; cursor: pointer;
 }
+/* Selector del aguaje en la carga por Excel: mismo tono que el archivo. */
+.pl-excel-aguaje {
+  flex: 1 1 220px; min-width: 0; max-width: 340px; font-size: .82rem;
+  border-radius: 10px; border: 1px solid rgba(255,255,255,.35);
+}
+.pk-card-aguaje { margin-top: 2px; }
 @media (max-width: 767.98px) {
   .pl-excel-actions { width: 100%; }
   .pl-excel-upload { flex-wrap: wrap; }
@@ -783,3 +786,18 @@
 .pk-alert--ojo {
   background: #fff8ec; border-left: 4px solid #e0a53c; color: #7a5310;
 }
+
+/* ==================================================================
+   Responsive (teléfono): nada de anchos mínimos que empujen la página
+   ================================================================== */
+.pk-card-pie, .pk-acciones, .pk-subir, .pk-sug-precio { flex-wrap: wrap; gap: 6px 10px; }
+@media (max-width: 575.98px) {
+  .pk-filtro { padding: 14px; gap: 12px; }
+  .pk-filtro > * { flex: 1 1 100%; min-width: 0; }
+  .pk-filtro .form-control, .pk-cant .form-control { min-width: 0; width: 100%; }
+  .pk-subir .form-control { max-width: none; flex: 1 1 100%; }
+  .pk-perfil-head, .pk-atajo { padding-left: 18px; padding-right: 18px; }
+  .pk-precios--corta { max-width: none; }
+  .pk-acciones { justify-content: flex-start; }
+}
+.pl-modal-box { max-height: calc(100dvh - 40px); overflow-y: auto; }

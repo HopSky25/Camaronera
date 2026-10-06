@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <!-- =====================================================================
+         Landing (/): protagonismo de la larva (Fase 1, §4.1 de la propuesta)
+         - Segundo botón en el hero: «Reserva tu larva para la siembra».
+         - «Larva lista para sembrar»: resumen por estadío PL y últimos lotes.
+         - «Laboratorios destacados»: enlaces a su vitrina.
+         Por herencia (anclas por clase), sin reescribir landing_template.xml.
+         ===================================================================== -->
+    <template id="landing_larva" inherit_id="shrimp_marketplace.landing" name="Landing - Larva lista para sembrar">
+
+        <xpath expr="//div[hasclass('sl-cta')]" position="inside">
+            <a class="sl-btn sl-btn--glass" href="/marketplace?tipo=larva" id="sp_cta_reserva_hero">
+                <i class="fa fa-calendar-check-o"></i> Reserva tu larva para la siembra
+            </a>
+        </xpath>
+
+        <xpath expr="//section[hasclass('sl-hero')]" position="after">
+            <t t-set="sp_larva" t-value="request.env['shrimp.product'].sudo()._shrimp_landing_larva(6)"/>
+            <t t-set="sp_labs" t-value="request.env['shrimp.product'].sudo()._shrimp_featured_sellers('larva', 6)"/>
+
+            <!-- ============ LARVA LISTA PARA SEMBRAR ============ -->
+            <section class="sl-section sp-land" id="sp_larva_lista">
+                <div class="sl-wrap">
+                    <div class="sl-head">
+                        <div class="sl-eyebrow">Larva disponible esta semana</div>
+                        <h2 class="sl-h2">Larva lista para sembrar</h2>
+                        <p class="sl-sub">Filtra por estadío, genética y supervivencia. Cada lote con su certificado sanitario y su historia.</p>
+                    </div>
+
+                    <div class="sp-land-stages" t-if="sp_larva['stages']">
+                        <t t-foreach="sp_larva['stages']" t-as="st">
+                            <a class="sp-land-stage" t-att-href="'/marketplace?tipo=larva&amp;stage=%s' % st['stage'].id">
+                                <span class="sp-land-stage-name"><t t-esc="st['stage'].name"/></span>
+                                <span class="sp-land-stage-qty"><t t-esc="'{:,.0f}'.format(st['qty'])"/> <t t-esc="st['uom']"/></span>
+                                <span class="sp-land-stage-price">desde $<t t-esc="'%.2f' % st['price_from']"/></span>
+                            </a>
+                        </t>
+                    </div>
+
+                    <div class="sp-land-lots" t-if="sp_larva['lots']">
+                        <t t-foreach="sp_larva['lots']" t-as="lp">
+                            <a class="sp-land-lot" t-att-href="'/marketplace/product/%s' % lp.uuid_ref">
+                                <span class="sp-land-lot-img">
+                                    <t t-set="lp_img" t-value="('/marketplace/product/%s/cover' % lp.uuid_ref) if lp.photo_attachment_ids else False"/>
+                                    <img t-if="lp_img" t-att-src="lp_img" t-att-alt="lp.name" loading="lazy"/>
+                                    <i t-if="not lp_img" class="fa fa-flask"/>
+                                </span>
+                                <span class="sp-land-lot-body">
+                                    <span class="sp-land-lot-badges">
+                                        <span class="s-badge"><t t-esc="lp.stage_id.name"/></span>
+                                        <span t-if="lp.survival_rate" class="s-badge sp-badge-surv">Superv. <t t-esc="'%.0f' % lp.survival_rate"/> %</span>
+                                        <span t-if="lp.id in sp_larva['pcr_ids']" class="s-badge sp-badge-pcr">PCR vigente</span>
+                                    </span>
+                                    <span class="sp-land-lot-name"><t t-esc="lp.name"/></span>
+                                    <span class="sp-land-lot-seller"><t t-esc="lp.seller_partner_id.name"/><t t-if="lp.genetics_line_id"> · <t t-esc="lp.genetics_line_id.name"/></t></span>
+                                    <span class="sp-land-lot-price">$<t t-esc="'%.2f' % lp.price"/> <small>/ <t t-esc="lp.uom_id.name"/></small>
+                                        · <t t-esc="'{:,.0f}'.format(lp.available_qty)"/> disp.</span>
+                                </span>
+                            </a>
+                        </t>
+                    </div>
+                    <p t-if="not sp_larva['lots']" class="sl-sub">Muy pronto: los laboratorios están publicando sus próximas corridas.</p>
+
+                    <div class="sp-land-cta">
+                        <a class="s-btn s-btn-primary s-btn-lg" href="/marketplace?tipo=larva" id="sp_cta_reserva">
+                            <i class="fa fa-calendar-check-o"></i> Reserva tu larva para la siembra
+                        </a>
+                        <a class="sp-land-link" href="/marketplace?tipo=nauplio">¿Eres laboratorio? Compra nauplio <i class="fa fa-angle-right"/></a>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ============ LABORATORIOS DESTACADOS ============ -->
+            <section class="sl-section sl-section--tint sp-land" id="sp_labs_destacados" t-if="sp_labs">
+                <div class="sl-wrap">
+                    <div class="sl-head">
+                        <div class="sl-eyebrow">Laboratorios destacados</div>
+                        <h2 class="sl-h2">Los que mejor siembran</h2>
+                        <p class="sl-sub">Mejor calificados por las camaroneras y con más ventas cerradas en la plataforma.</p>
+                    </div>
+                    <div class="sp-featured-row sp-featured-row--land">
+                        <t t-foreach="sp_labs" t-as="fs">
+                            <a class="sp-feat-card" t-att-href="'/marketplace/sellers/%s' % fs['partner'].uuid_ref">
+                                <span class="sp-feat-name"><t t-esc="fs['partner'].name"/></span>
+                                <span class="sp-feat-meta">
+                                    <t t-if="fs['rating_count']"><i class="fa fa-star"/> <t t-esc="'%.1f' % fs['rating']"/> (<t t-esc="fs['rating_count']"/>)</t>
+                                    <t t-else="">Sin reseñas</t>
+                                    · <t t-esc="fs['sales']"/> ventas
+                                </span>
+                                <span class="sp-feat-meta" t-if="fs['location']"><i class="fa fa-map-marker"/> <t t-esc="fs['location']"/></span>
+                                <span class="sp-feat-tags">
+                                    <span t-if="fs['survival']" class="s-badge sp-badge-surv">Superv. <t t-esc="'%.0f' % fs['survival']"/> %</span>
+                                    <span t-if="fs['pcr']" class="s-badge sp-badge-pcr">PCR vigente</span>
+                                    <t t-foreach="fs['genetics']" t-as="g"><span class="s-badge sp-badge-gen"><t t-esc="g"/></span></t>
+                                </span>
+                                <span class="sp-feat-foot">Ver vitrina <i class="fa fa-angle-right"/></span>
+                            </a>
+                        </t>
+                    </div>
+                </div>
+            </section>
+        </xpath>
+    </template>
+
+</odoo>

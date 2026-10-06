@@ -6,26 +6,32 @@
        Se engancha con un bloque y un script sobre el formulario de
        shrimp_marketplace, sin reescribir su plantilla: el precio se
        consulta por jsonrpc al cambiar talla o presentación.
+
+       Anclas del formulario rediseñado (2026-10): #pfPriceListSlot (antes
+       del precio) y #pfPriceSugSlot (debajo del grupo «USD $ … / unidad»).
+       Presentación y talla son radios (chips): se leen con :checked y se
+       escucha el «change» del formulario.
        ================================================================ -->
   <template id="publicar_precio_sugerido"
             inherit_id="shrimp_marketplace.product_new_form"
             name="Publicar lote - precio sugerido">
     <!-- Selector de lista de precios: si se asigna, el precio se toma de ella
          y se bloquea el campo. -->
-    <xpath expr="//input[@name='price']" position="before">
+    <xpath expr="//div[@id='pfPriceListSlot']" position="inside">
       <t t-set="_pls" t-value="request.env['shrimp.price.list'].sudo().visibles_para(request.env.user.partner_id)"/>
-      <div class="mb-2" t-if="_pls">
-        <label class="form-label" style="font-weight:800; font-size:13px;">Lista de precios (opcional)</label>
-        <select class="form-select" name="price_list_id" id="pkPriceList">
+      <div class="pf-blk" t-if="_pls">
+        <label class="pf-lbl" for="pkPriceList"><i class="fa fa-tag pf-teal" aria-hidden="true"/> Lista de precios <span class="pf-opt">· opcional</span></label>
+        <select class="pf-sel" name="price_list_ref" id="pkPriceList" aria-describedby="pkPriceListHelp"
+                t-att-disabled="'disabled' if purchase_locked else None">
           <option value="">Sin lista (precio manual)</option>
           <t t-foreach="_pls" t-as="pl">
-            <option t-att-value="pl.id"
+            <option t-att-value="pl.uuid_ref"
                     t-att-selected="'selected' if (is_edit and product.price_list_id.id == pl.id) else None">
               <t t-esc="pl.name"/> — <t t-esc="pl.issuer_partner_id.name"/>
             </option>
           </t>
         </select>
-        <div class="form-text">Si eliges una lista, el precio se toma de ella (según talla y presentación) y no se edita a mano.</div>
+        <div class="pf-help" id="pkPriceListHelp">Si eliges una lista, el precio se toma de ella (según talla y presentación) y no se edita a mano.</div>
       </div>
       <script type="text/javascript">
 <![CDATA[
@@ -33,26 +39,31 @@
   function init(){
     var sel=document.getElementById('pkPriceList');
     var precio=document.querySelector('input[name="price"]');
-    if(!sel||!precio) return;
-    var pres=document.querySelector('select[name="presentation"]');
-    var talla=document.querySelector('select[name="size_grade_id"]');
+    var form=precio && precio.form;
+    if(!sel||!precio||!form) return;
+    function val(n){ var i=form.querySelector('input[name="'+n+'"]:checked'); return i?i.value:''; }
     function fill(){
       var pl=sel.value;
-      if(!pl){ precio.readOnly=false; precio.style.background=''; return; }
-      precio.readOnly=true; precio.style.background='#eef2f5';
-      var p=pres?pres.value:'', t=talla?talla.value:'';
+      if(!pl){ precio.readOnly=false; return; }
+      precio.readOnly=true;
+      var p=val('presentation'), t=val('size_grade_id');
       if(!p||!t){ return; }
-      fetch('/marketplace/precio-de-lista',{method:'POST',
+      fetch('/marketplace/list-price',{method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({jsonrpc:'2.0',method:'call',
-          params:{price_list_id:pl,presentation:p,size_grade_id:t}})})
+          params:{price_list_ref:pl,presentation:p,size_grade_id:t}})})
         .then(function(r){return r.json();}).then(function(d){
-          var r=(d&&d.result)||{}; if(r.precio!=null){ precio.value=r.precio.toFixed(2); }
+          var r=(d&&d.result)||{};
+          if(r.precio!=null){
+            precio.value=r.precio.toFixed(2);
+            precio.dispatchEvent(new Event('input',{bubbles:true}));
+          }
         }).catch(function(){});
     }
-    sel.addEventListener('change', fill);
-    if(pres) pres.addEventListener('change', fill);
-    if(talla) talla.addEventListener('change', fill);
+    form.addEventListener('change', function(e){
+      var n=e.target && e.target.name;
+      if(e.target===sel || n==='presentation' || n==='size_grade_id'){ fill(); }
+    });
     fill();
   }
   if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',init);}else{init();}
@@ -60,35 +71,45 @@
 ]]>
       </script>
     </xpath>
-    <xpath expr="//input[@name='price']" position="after">
-      <div id="pk_sugerencia" class="pk-sug-precio" style="display:none;">
+    <xpath expr="//div[@id='pfPriceSugSlot']" position="inside">
+      <div id="pk_sugerencia" class="pf-sug pk-sug-precio" style="display:none;" aria-live="polite">
+        <i class="fa fa-tag" aria-hidden="true"/>
         <span class="pk-sug-txt"></span>
-        <button type="button" class="pk-sug-usar" style="display:none;">Usar</button>
+        <button type="button" class="s-btn s-btn-ghost pk-sug-usar" style="display:none;">Usar</button>
       </div>
 
       <script type="text/javascript">
 <![CDATA[
 (function(){
   function init(){
-    var pres  = document.querySelector('select[name="presentation"]');
-    var talla = document.querySelector('select[name="size_grade_id"]');
     var precio = document.querySelector('input[name="price"]');
+    var form = precio && precio.form;
     var caja  = document.getElementById('pk_sugerencia');
-    if(!pres || !talla || !precio || !caja) return;
+    if(!precio || !form || !caja) return;
     var txt = caja.querySelector('.pk-sug-txt');
     var usar = caja.querySelector('.pk-sug-usar');
     var ultimo = null;
+    function val(n){ var i=form.querySelector('input[name="'+n+'"]:checked'); return i?i.value:''; }
 
-    function mostrar(html, valor){
-      txt.innerHTML = html;
-      caja.style.display = 'block';
+    // `partes` es una lista de [texto, negrita]. Se arma con nodos de texto:
+    // el nombre de la empacadora lo escribe ella misma en su perfil y antes
+    // entraba crudo en innerHTML (XSS en la pantalla de publicar).
+    function mostrar(partes, valor){
+      while (txt.firstChild) { txt.removeChild(txt.firstChild); }
+      partes.forEach(function(p){
+        var nodo = p[1] ? document.createElement('strong') : document.createElement('span');
+        nodo.textContent = String(p[0] == null ? '' : p[0]);
+        txt.appendChild(nodo);
+      });
+      caja.style.display = 'flex';
       ultimo = valor;
-      usar.style.display = valor ? 'inline-block' : 'none';
+      usar.style.display = (valor && !precio.disabled) ? 'inline-flex' : 'none';
     }
     function consultar(){
-      var p = pres.value, t = talla.value;
-      if(!p || !t){ caja.style.display = 'none'; return; }
-      fetch('/marketplace/precio-sugerido', {
+      var p = val('presentation'), t = val('size_grade_id');
+      var blk = document.getElementById('pfPresBlk');
+      if(!p || !t || (blk && blk.hidden)){ caja.style.display = 'none'; return; }
+      fetch('/marketplace/suggested-price', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({jsonrpc:'2.0', method:'call',
@@ -98,25 +119,30 @@
         if(r.precio){
           var u = r.uom === 'kg' ? 'Kg' : 'Lb';
           var extra = r.cuantas > 1 ? (' · ' + r.cuantas + ' empacadoras cotizan esta talla') : '';
-          mostrar('<strong>' + r.empacadora + '</strong> te paga <strong>$' +
-                  r.precio.toFixed(2) + ' / ' + u + '</strong> por esta talla' + extra,
+          mostrar([[r.empacadora, true], [' te paga ', false],
+                   ['$' + Number(r.precio).toFixed(2) + ' / ' + u, true],
+                   [' por esta talla' + extra, false]],
                   r.precio);
         } else if(r.sin_precio){
-          mostrar('Ninguna de tus ' + r.listas + ' lista(s) vigente(s) cotiza esta talla.', null);
-        } else if(r.sin_listas){
-          caja.style.display = 'none';
+          mostrar([['Ninguna de tus ' + Number(r.listas || 0) + ' lista(s) vigente(s) cotiza esta talla.', false]], null);
         } else {
           caja.style.display = 'none';
         }
       }).catch(function(){ caja.style.display = 'none'; });
     }
-    // Se rellena solo si el campo está vacío: no se pisa un precio que el
-    // camaronero ya escribió a mano.
     usar.addEventListener('click', function(){
-      if(ultimo){ precio.value = ultimo.toFixed(2); precio.focus(); }
+      if(ultimo && !precio.readOnly){
+        precio.value = Number(ultimo).toFixed(2);
+        precio.dispatchEvent(new Event('input', {bubbles: true}));
+        precio.focus();
+      }
     });
-    pres.addEventListener('change', consultar);
-    talla.addEventListener('change', consultar);
+    form.addEventListener('change', function(e){
+      var n = e.target && e.target.name;
+      // setTimeout: deja que el formulario limpie presentación/talla al
+      // pasar a una etapa sin talla comercial antes de consultar.
+      if(n === 'presentation' || n === 'size_grade_id' || n === 'stage_id'){ setTimeout(consultar, 0); }
+    });
     consultar();
   }
   if(document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', init); }

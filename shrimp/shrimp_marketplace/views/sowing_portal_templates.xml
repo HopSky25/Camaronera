@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ============================================================ -->
+    <!-- Siembra: formulario (nueva / editar)                          -->
+    <!-- ============================================================ -->
+    <!-- La ruta de asignación existía sin interfaz: la camaronera no podía
+         registrar desde la web en qué piscina sembró su larva. El consumo del
+         lote (movimiento «Siembra») y la validación contra el disponible los
+         hace el modelo shrimp.lot.allocation. -->
+    <template id="sowing_form" name="Marketplace - Registrar siembra">
+        <t t-call="website.layout">
+            <t t-set="TX" t-value="request.env['shrimp.transaction']"/>
+            <div class="shrimp-bg">
+                <div class="shrimp-page py-4" style="max-width:860px;">
+                    <div class="mb-3">
+                        <t t-call="shrimp_marketplace.s_back_button"><t t-set="back_fallback" t-value="'/marketplace/my-facilities'"/></t>
+                    </div>
+                    <div class="sf-banner mb-4">
+                        <div class="sf-banner-row">
+                            <div class="sf-banner-txt">
+                                <h1 t-if="alloc">Editar siembra</h1>
+                                <h1 t-else="">Registrar siembra</h1>
+                                <p>Qué lote de larva o juvenil sembraste, en qué piscina, cuánto y cuándo. Lo sembrado se descuenta del lote y queda en su trazabilidad.</p>
+                            </div>
+                            <span class="sf-kicker"><i class="fa fa-tint"></i> Siembra</span>
+                        </div>
+                    </div>
+
+                    <div t-if="error" class="alert alert-danger" style="border-radius:14px;" id="sowingError">
+                        <t t-esc="message or 'Revisa los datos.'"/>
+                    </div>
+                    <div t-if="edit_block" class="alert alert-warning" style="border-radius:14px;">
+                        <t t-esc="edit_block"/>
+                    </div>
+
+                    <t t-if="not alloc and not lots">
+                        <div class="mp-table-card"><div class="card-body p-4">
+                            <div class="s-empty">
+                                <div class="s-empty-ico"><i class="fa fa-flask"></i></div>
+                                <h3>Sin lotes para sembrar</h3>
+                                <p>Necesitas un lote propio de larva, postlarva o juvenil con saldo disponible. Cuando recibas una compra de larva aparecerá aquí.</p>
+                                <a class="s-btn s-btn-primary" href="/marketplace?tipo=larva">Comprar larva</a>
+                            </div>
+                        </div></div>
+                    </t>
+                    <t t-elif="not ponds">
+                        <div class="mp-table-card"><div class="card-body p-4">
+                            <div class="s-empty">
+                                <div class="s-empty-ico"><i class="fa fa-map-o"></i></div>
+                                <h3>Sin piscinas</h3>
+                                <p>Primero crea una instalación y sus piscinas.</p>
+                                <a class="s-btn s-btn-primary" href="/marketplace/my-facilities">Ir a instalaciones y piscinas</a>
+                            </div>
+                        </div></div>
+                    </t>
+                    <t t-else="">
+                        <form method="post" class="mp-table-card" id="sowingForm"
+                              t-att-action="('/marketplace/sowings/%s/update' % alloc.uuid_ref) if alloc else '/marketplace/my-facilities/allocate'">
+                            <div class="card-body p-4">
+                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                <fieldset t-att-disabled="'disabled' if edit_block else None">
+                                <div class="row g-3">
+                                    <div class="col-12">
+                                        <label class="form-label fw-bold" for="sowLot">Lote <span class="text-danger">*</span></label>
+                                        <t t-if="alloc">
+                                            <div class="form-control-plaintext fw-semibold" id="sowLot">
+                                                <t t-esc="alloc.stock_lot_id.product_id.name"/>
+                                                <t t-if="alloc.stock_lot_id.product_id.stage_id"> · <t t-esc="alloc.stock_lot_id.product_id.stage_id.name"/></t>
+                                            </div>
+                                        </t>
+                                        <select t-else="" class="form-select" name="stock_lot_ref" id="sowLot" required="required">
+                                            <t t-foreach="lots" t-as="l">
+                                                <option t-att-value="l.uuid_ref" t-att-selected="l == sel_lot"
+                                                        t-att-data-max="l.available_qty"
+                                                        t-att-data-uom="l.uom_id.name or ''">
+                                                    <t t-esc="l.product_id.name"/>
+                                                    <t t-if="l.product_id.stage_id"> · <t t-esc="l.product_id.stage_id.name"/></t>
+                                                    · disponible <t t-esc="TX.shrimp_fmt_qty(l.available_qty, l.uom_id)"/>
+                                                </option>
+                                            </t>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold" for="sowPond">Piscina <span class="text-danger">*</span></label>
+                                        <select class="form-select" name="pond_ref" id="sowPond" required="required">
+                                            <t t-foreach="ponds" t-as="p">
+                                                <option t-att-value="p.uuid_ref" t-att-selected="p == sel_pond">
+                                                    <t t-if="p.facility_id"><t t-esc="p.facility_id.name"/> · </t><t t-esc="p.name or p.display_name"/>
+                                                    <t t-if="p.area_m2"> (<t t-esc="round(p.area_m2, 1)"/> m²)</t>
+                                                </option>
+                                            </t>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold" for="sowDate">Fecha de siembra <span class="text-danger">*</span></label>
+                                        <input class="form-control" type="date" name="allocation_date" id="sowDate" required="required"
+                                               t-att-max="today"
+                                               t-att-value="alloc.allocation_date if alloc else today"/>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold" for="sowQty">Cantidad <span class="text-danger">*</span>
+                                            <span class="text-muted fw-normal" id="sowUom">(<t t-esc="(sel_lot.uom_id.name if sel_lot else '') or ''"/>)</span></label>
+                                        <input class="form-control" type="number" step="any" min="0" name="allocated_qty" id="sowQty" required="required"
+                                               t-att-max="max_qty"
+                                               t-att-value="alloc.allocated_qty if alloc else ''"/>
+                                        <div class="form-text" id="sowMax">Máximo: <t t-esc="TX.shrimp_fmt_num(max_qty, 2)"/></div>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label fw-bold" for="sowNotes">Observaciones</label>
+                                        <textarea class="form-control" name="notes" id="sowNotes" rows="2" maxlength="2000"
+                                                  placeholder="Densidad (larvas/m²), aclimatación, recambio…"><t t-esc="alloc.notes if alloc else ''"/></textarea>
+                                    </div>
+                                </div>
+                                </fieldset>
+                                <div class="mt-4 d-flex flex-wrap gap-2">
+                                    <button t-if="not edit_block" type="submit" class="s-btn s-btn-primary">
+                                        <i class="fa fa-check me-1"></i> <t t-if="alloc">Guardar cambios</t><t t-else="">Registrar siembra</t>
+                                    </button>
+                                    <a href="/marketplace/my-facilities" class="s-btn s-btn-ghost">Volver</a>
+                                </div>
+                            </div>
+                        </form>
+                        <form t-if="alloc and not edit_block" method="post" class="mt-3 text-end"
+                              t-att-action="'/marketplace/sowings/%s/cancel' % alloc.uuid_ref"
+                              onsubmit="return confirm('¿Cancelar la siembra? La cantidad vuelve al lote.');">
+                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                            <button type="submit" class="s-btn sf-btn-danger btn-sm"><i class="fa fa-undo me-1"></i> Cancelar siembra</button>
+                        </form>
+                        <script type="text/javascript">
+<![CDATA[
+(function(){
+  function init(){
+    var sel=document.getElementById("sowLot"), qty=document.getElementById("sowQty");
+    var hint=document.getElementById("sowMax"), uom=document.getElementById("sowUom");
+    if(!sel || sel.tagName!=="SELECT" || !qty) return;
+    function apply(){
+      var o=sel.options[sel.selectedIndex]; if(!o) return;
+      var mx=o.getAttribute("data-max")||""; qty.max=mx;
+      if(hint) hint.textContent="Máximo: "+(mx?Number(mx).toLocaleString("es-EC",{maximumFractionDigits:2}):"—");
+      if(uom) uom.textContent="("+(o.getAttribute("data-uom")||"")+")";
+    }
+    sel.addEventListener("change",apply); apply();
+  }
+  if(document.readyState==="loading"){ document.addEventListener("DOMContentLoaded",init); } else { init(); }
+})();
+]]>
+                        </script>
+                    </t>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <!-- Mi inventario: «Sembrar» en cada lote de larva / juvenil con saldo.
+         Va dentro de la celda del producto para no mover las columnas que
+         añaden otros módulos. -->
+    <template id="my_lots_sembrar" inherit_id="shrimp_marketplace.my_lots"
+              name="Mis lotes - Sembrar">
+        <xpath expr="//tbody//td[t[@t-esc='lot.product_id.name']]" position="inside">
+            <div t-if="sowable_lot_ids and lot.id in sowable_lot_ids" class="mt-1">
+                <a class="s-btn s-btn-primary btn-sm shrimp-sow-btn"
+                   t-att-href="'/marketplace/sowings/new?lote=%s' % lot.uuid_ref">
+                    <i class="fa fa-tint me-1"/> Sembrar
+                </a>
+            </div>
+        </xpath>
+    </template>
+
+</odoo>

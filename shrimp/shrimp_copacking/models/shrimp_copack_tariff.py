@@ -1,6 +1,9 @@
 from odoo import api, fields, models, _
 from odoo.exceptions import ValidationError
 
+from odoo.addons.shrimp_marketplace.models.shrimp_selection import (
+    PRESENTATIONS_WITH_VALUE_ADDED)
+
 
 class ShrimpCopackTariff(models.Model):
     """La tarifa firme que un maquilador dirige a clientes concretos.
@@ -44,7 +47,7 @@ class ShrimpCopackTariff(models.Model):
 
     line_ids = fields.One2many(
         "shrimp.copack.tariff.line", "tariff_id", string="Renglones", copy=True)
-    line_count = fields.Integer(compute="_compute_counts", string="Renglones")
+    line_count = fields.Integer(compute="_compute_counts", string="N.º de renglones")
 
     min_lot_lb = fields.Float(string="Lote mínimo (lb)", digits=(16, 2))
     payment_notes = fields.Char(string="Forma de pago")
@@ -90,12 +93,12 @@ class ShrimpCopackTariff(models.Model):
     @api.constrains("copacker_partner_id", "recipient_ids")
     def _check_partes(self):
         for rec in self:
-            if rec.copacker_partner_id.shrimp_user_type != "maquilador":
+            if not rec.copacker_partner_id._shrimp_can_any("provide_copack"):
                 raise ValidationError(_(
                     "La tarifa de empaque la publica un maquilador. «%s» no lo es.")
                     % (rec.copacker_partner_id.name or ""))
             ajenos = rec.recipient_ids.filtered(
-                lambda p: p.shrimp_user_type not in ("camaronera", "empacadora"))
+                lambda p: not p._shrimp_can_any("request_copack"))
             if ajenos:
                 raise ValidationError(_(
                     "El servicio de empaque va dirigido a quien es dueño del "
@@ -149,6 +152,7 @@ class ShrimpCopackTariffLine(models.Model):
     """
 
     _name = "shrimp.copack.tariff.line"
+    _inherit = "shrimp.uuid.mixin"
     _description = "Renglón de la tarifa de empaque"
     _order = "tariff_id, presentation, from_lb"
 
@@ -158,8 +162,7 @@ class ShrimpCopackTariffLine(models.Model):
     currency_id = fields.Many2one(related="tariff_id.currency_id", readonly=True)
 
     presentation = fields.Selection(
-        [("entero", "Entero"), ("cola", "Cola"), ("valor_agregado", "Valor agregado")],
-        string="Presentación", required=True, default="entero")
+        PRESENTATIONS_WITH_VALUE_ADDED, string="Presentación", required=True, default="entero")
     pack_format = fields.Char(
         string="Formato de empaque", required=True,
         help="Ej: master 5 lb, bloque 2 kg, IQF granel.")

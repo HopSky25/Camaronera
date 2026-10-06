@@ -4,15 +4,16 @@
             inherit_id="shrimp_marketplace.traceability_screen"
             name="Trazabilidad - bloque de verificación">
 
-    <!-- El certificado PDF no se ofrece mientras la compra sigue pendiente:
-         la cadena de custodia todavía no existe. -->
+    <!-- El certificado PDF no se ofrece mientras la compra no se cerró
+         (pendiente de verificación o de las firmas, o cancelada): la cadena
+         de custodia todavía no existe. -->
     <xpath expr="//button[hasclass('js-cert-view')]" position="attributes">
-      <attribute name="t-if">tx.state not in ('pending_verification', 'cancel')</attribute>
+      <attribute name="t-if">tx.state in ('confirmed', 'done')</attribute>
     </xpath>
 
     <!-- La verificación en campo forma parte de la trazabilidad del lote. -->
-    <xpath expr="//div[hasclass('mp-table-card')][1]" position="after">
-      <t t-set="ver" t-value="tx.verification_id[:1]"/>
+    <xpath expr="//div[@id='shrimp_trace_summary']" position="after">
+      <t t-set="ver" t-value="tx.verification_ids[:1]"/>
       <t t-if="ver">
         <div class="mp-table-card mb-4">
           <div class="card-body p-4">
@@ -21,7 +22,14 @@
               <h3 class="mp-sec-title">Verificación en campo</h3>
             </div>
 
-            <div t-attf-class="sv-alert sv-alert--#{'ready' if ver.state in ('approved','approved_obs') else ('wait' if ver.state in ('assigned','in_field','done') else 'wait')} mb-3">
+            <!-- Modo de verificación: «Verificado por <acreditada>» o
+                 «Verificación declarada por <empresa> (externa: …)». -->
+            <div t-attf-class="sv-mode-label sv-mode-label--#{ver.verification_mode} mb-2">
+              <i t-attf-class="fa fa-#{'handshake-o' if ver.verification_mode == 'declared' else 'check-circle'} me-1"/>
+              <t t-esc="ver.verification_label()"/>
+            </div>
+
+            <div t-attf-class="sv-alert sv-alert--#{'ready' if ver.state in ('approved','approved_obs','declared') else ('wait' if ver.state in ('assigned','in_field','done') else 'wait')} mb-3">
               <strong>
                 <t t-if="ver.state == 'assigned'">Asignada, pendiente de visita</t>
                 <t t-elif="ver.state == 'in_field'">Inspección en curso</t>
@@ -29,20 +37,22 @@
                 <t t-elif="ver.state == 'approved'">Aprobada</t>
                 <t t-elif="ver.state == 'approved_obs'">Aprobada con observaciones</t>
                 <t t-elif="ver.state == 'rejected'">Rechazada</t>
+                <t t-elif="ver.state == 'declared_draft'">Informe declarado en preparación</t>
+                <t t-elif="ver.state == 'declared'">Informe declarado por las partes<t t-if="ver.acceptance_state == 'closed'">, confirmado por ambas</t></t>
                 <t t-else="">Cancelada</t>
               </strong>
               <div class="small mt-1">
                 <t t-esc="ver.name"/> ·
-                <strong t-esc="ver.technician_partner_id.name or ver.verifier_partner_id.name"/>
+                <strong t-esc="ver.technician_partner_id.name or ver.verifier_partner_id.name or ver.declarant_partner_id.name"/>
                 <t t-if="ver.technician_partner_id and ver.technician_partner_id != ver.verifier_partner_id">
                   (<t t-esc="ver.verifier_partner_id.name"/>)
                 </t>
-                <t t-if="ver.verified_date"> · <t t-esc="ver.verified_date"/></t>
+                <t t-if="ver.verified_date"> · <t t-esc="tx.shrimp_fmt_dt(ver.verified_date)"/></t>
               </div>
             </div>
 
             <div class="mp-spec-grid">
-              <div class="mp-spec">
+              <div class="mp-spec" t-if="ver.verification_mode == 'platform'">
                 <span class="mp-spec-ico"><i class="fa fa-user-o"/></span>
                 <div class="mp-spec-body">
                   <div class="mp-spec-label">Técnico de campo</div>
@@ -51,11 +61,18 @@
                   </div>
                 </div>
               </div>
-              <div class="mp-spec">
+              <div class="mp-spec" t-if="ver.verification_mode == 'platform'">
                 <span class="mp-spec-ico"><i class="fa fa-building-o"/></span>
                 <div class="mp-spec-body">
                   <div class="mp-spec-label">Empresa verificadora</div>
                   <div class="mp-spec-value"><t t-esc="ver.verifier_partner_id.name"/></div>
+                </div>
+              </div>
+              <div class="mp-spec" t-if="ver.verification_mode == 'declared'">
+                <span class="mp-spec-ico"><i class="fa fa-building-o"/></span>
+                <div class="mp-spec-body">
+                  <div class="mp-spec-label">Quién verificó (declarado)</div>
+                  <div class="mp-spec-value"><t t-esc="ver.declared_origin_text()"/></div>
                 </div>
               </div>
               <div class="mp-spec" t-if="ver.batch_code">
@@ -72,7 +89,7 @@
                   <span class="mp-spec-ico"><i class="fa fa-line-chart"/></span>
                   <div class="mp-spec-body">
                     <div class="mp-spec-label">Rendimiento</div>
-                    <div class="mp-spec-value"><t t-esc="'{:.2f} %'.format(ver.yield_pct)"/></div>
+                    <div class="mp-spec-value"><t t-esc="tx.shrimp_fmt_num(ver.yield_pct, 2) + ' %'"/></div>
                   </div>
                 </div>
                 <div class="mp-spec" t-if="ver.total_processed_lb">
@@ -80,8 +97,8 @@
                   <div class="mp-spec-body">
                     <div class="mp-spec-label">Clase A / B</div>
                     <div class="mp-spec-value">
-                      <t t-esc="'{:.2f}'.format(ver.yield_class_a_pct)"/> % /
-                      <t t-esc="'{:.2f}'.format(ver.yield_class_b_pct)"/> %
+                      <t t-esc="tx.shrimp_fmt_num(ver.yield_class_a_pct, 2)"/> % /
+                      <t t-esc="tx.shrimp_fmt_num(ver.yield_class_b_pct, 2)"/> %
                     </div>
                   </div>
                 </div>
@@ -90,7 +107,7 @@
                   <div class="mp-spec-body">
                     <div class="mp-spec-label">Metabisulfito</div>
                     <div class="mp-spec-value">
-                      <t t-esc="'{:.2f}'.format(ver.metabisulfite_ppm)"/> ppm
+                      <t t-esc="tx.shrimp_fmt_num(ver.metabisulfite_ppm, 2)"/> ppm
                       <t t-if="ver.metabisulfite_result == 'pass'"> · conforme</t>
                       <t t-if="ver.metabisulfite_result == 'fail'"> · no conforme</t>
                     </div>
@@ -112,9 +129,9 @@
                   <div class="mp-spec-body">
                     <div class="mp-spec-label">Cantidad verificada</div>
                     <div class="mp-spec-value">
-                      <t t-esc="'{:.2f}'.format(ver.larvae_qty_verified)"/>
+                      <t t-esc="tx.shrimp_fmt_num(ver.larvae_qty_verified, 2)"/>
                       <t t-if="ver.larvae_qty_diff_pct">
-                        (<t t-esc="'{:.2f} %'.format(ver.larvae_qty_diff_pct)"/>)
+                        (<t t-esc="tx.shrimp_fmt_num(ver.larvae_qty_diff_pct, 2) + ' %'"/>)
                       </t>
                     </div>
                   </div>
@@ -123,14 +140,14 @@
                   <span class="mp-spec-ico"><i class="fa fa-heartbeat"/></span>
                   <div class="mp-spec-body">
                     <div class="mp-spec-label">Supervivencia medida</div>
-                    <div class="mp-spec-value"><t t-esc="'{:.2f} %'.format(ver.larvae_survival_rate)"/></div>
+                    <div class="mp-spec-value"><t t-esc="tx.shrimp_fmt_num(ver.larvae_survival_rate, 2) + ' %'"/></div>
                   </div>
                 </div>
                 <div class="mp-spec" t-if="ver.larvae_avg_size_mg">
                   <span class="mp-spec-ico"><i class="fa fa-balance-scale"/></span>
                   <div class="mp-spec-body">
                     <div class="mp-spec-label">Tamaño medido</div>
-                    <div class="mp-spec-value"><t t-esc="'{:.3f}'.format(ver.larvae_avg_size_mg)"/> mg</div>
+                    <div class="mp-spec-value"><t t-esc="tx.shrimp_fmt_num(ver.larvae_avg_size_mg, 3)"/> mg</div>
                   </div>
                 </div>
                 <div class="mp-spec" t-if="ver.larvae_health_status">
@@ -148,6 +165,7 @@
               <h4 class="mt-4" style="font-size:15px;font-weight:700;color:#123e5c;">
                 Clasificación por talla
               </h4>
+              <div class="table-responsive">
               <table class="table table-sm mt-2">
                 <thead>
                   <tr>
@@ -160,22 +178,23 @@
                     <tr>
                       <td><t t-esc="dict(ln._fields['quality_class'].selection).get(ln.quality_class)"/></td>
                       <td><t t-esc="ln.size_code"/></td>
-                      <td class="text-end"><t t-esc="'{:.2f}'.format(ln.weight_lb)"/></td>
-                      <td class="text-end"><t t-esc="'{:.2f}'.format(ln.percent_of_total)"/></td>
+                      <td class="text-end"><t t-esc="tx.shrimp_fmt_num(ln.weight_lb, 2)"/></td>
+                      <td class="text-end"><t t-esc="tx.shrimp_fmt_num(ln.percent_of_total, 2)"/></td>
                     </tr>
                   </t>
                   <tr style="font-weight:700;">
                     <td colspan="2">Total procesado</td>
-                    <td class="text-end"><t t-esc="'{:.2f}'.format(ver.total_processed_lb)"/></td>
+                    <td class="text-end"><t t-esc="tx.shrimp_fmt_num(ver.total_processed_lb, 2)"/></td>
                     <td class="text-end">100,00</td>
                   </tr>
                 </tbody>
               </table>
+              </div>
               <div class="sv-muted small">
-                Peso enviado <t t-esc="'{:.2f}'.format(ver.weight_sent_lb)"/> ·
-                en planta <t t-esc="'{:.2f}'.format(ver.weight_plant_lb)"/> ·
-                basura <t t-esc="'{:.2f}'.format(ver.trash_lb)"/> ·
-                neto <t t-esc="'{:.2f}'.format(ver.net_weight_lb)"/> lb
+                Peso enviado <t t-esc="tx.shrimp_fmt_num(ver.weight_sent_lb, 2)"/> ·
+                en planta <t t-esc="tx.shrimp_fmt_num(ver.weight_plant_lb, 2)"/> ·
+                basura <t t-esc="tx.shrimp_fmt_num(ver.trash_lb, 2)"/> ·
+                neto <t t-esc="tx.shrimp_fmt_num(ver.net_weight_lb, 2)"/> lb
               </div>
             </t>
 
@@ -186,9 +205,10 @@
               </h4>
               <div class="d-flex flex-wrap gap-2 mt-2">
                 <t t-foreach="ver.photo_ids" t-as="foto">
-                  <a t-attf-href="/marketplace/verificacion/#{ver.uuid_ref}/foto/#{foto.id}"
+                  <t t-set="ftok" t-value="ver.photo_token(foto)"/>
+                  <a t-attf-href="/marketplace/verifications/#{ver.uuid_ref}/photos/#{ftok}"
                      target="_blank" class="sv-evidence">
-                    <img t-attf-src="/marketplace/verificacion/#{ver.uuid_ref}/foto/#{foto.id}"
+                    <img t-attf-src="/marketplace/verifications/#{ver.uuid_ref}/photos/#{ftok}"
                          t-att-alt="foto.name or 'Foto de campo'"/>
                   </a>
                 </t>
@@ -198,7 +218,7 @@
             <!-- Quién verificó y con qué acreditación -->
             <t t-if="ver.verifier_partner_id.verifier_accreditation_line_id">
               <div class="mt-3">
-                <a t-attf-href="/marketplace/verificador/#{ver.verifier_partner_id.uuid_ref}/acreditacion"
+                <a t-attf-href="/marketplace/verifiers/#{ver.verifier_partner_id.uuid_ref}/accreditation"
                    target="_blank" class="s-btn s-btn-ghost">
                   <i class="fa fa-id-badge me-1"/> Ver acreditación del verificador
                 </a>
@@ -210,7 +230,32 @@
               <div class="small mt-1"><t t-esc="ver.incident_notes"/></div>
             </div>
             <div t-if="ver.verdict_notes" class="mt-3 sv-muted small">
-              <strong>Conclusión del verificador:</strong> <t t-esc="ver.verdict_notes"/>
+              <strong><t t-if="ver.verification_mode == 'declared'">Observaciones declaradas:</t><t t-else="">Conclusión del verificador:</t></strong> <t t-esc="ver.verdict_notes"/>
+            </div>
+          </div>
+        </div>
+      </t>
+
+      <!-- Despacho de la finca a la planta (pesca, salida, cita, llegada real,
+           transporte y puntualidad), en la hora local del usuario. -->
+      <t t-set="desp" t-value="tx.dispatch_id"/>
+      <t t-if="desp and (desp.harvest_date or desp.farm_departure or desp.eta or desp.actual_arrival)">
+        <div class="mp-table-card mb-4" id="shrimp_trace_dispatch">
+          <div class="card-body p-4">
+            <div class="mp-sec-head">
+              <span class="mp-sec-ico"><i class="fa fa-truck"/></span>
+              <h3 class="mp-sec-title">Despacho a planta</h3>
+            </div>
+            <div class="mp-spec-grid">
+              <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-anchor"/></span><div class="mp-spec-body"><div class="mp-spec-label">Pesca</div><div class="mp-spec-value"><t t-esc="tx.shrimp_fmt_dt(desp.harvest_date)"/></div></div></div>
+              <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-sign-out"/></span><div class="mp-spec-body"><div class="mp-spec-label">Salida de la finca</div><div class="mp-spec-value"><t t-esc="tx.shrimp_fmt_dt(desp.farm_departure)"/></div></div></div>
+              <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-clock-o"/></span><div class="mp-spec-body"><div class="mp-spec-label">Cita en planta (ETA)</div><div class="mp-spec-value"><t t-esc="tx.shrimp_fmt_dt(desp.eta)"/><small t-if="desp.eta_changes" class="text-muted"> · movida <t t-esc="desp.eta_changes"/> vez/veces</small></div></div></div>
+              <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-flag-checkered"/></span><div class="mp-spec-body"><div class="mp-spec-label">Llegada real</div><div class="mp-spec-value"><t t-esc="tx.shrimp_fmt_dt(desp.actual_arrival)"/></div></div></div>
+              <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-truck"/></span><div class="mp-spec-body"><div class="mp-spec-label">Transporte</div><div class="mp-spec-value"><t t-esc="desp.transporte_texto()"/></div></div></div>
+              <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-check-circle-o"/></span><div class="mp-spec-body"><div class="mp-spec-label">Puntualidad</div><div class="mp-spec-value">
+                <t t-if="desp.actual_arrival"><span t-att-class="'text-success' if desp.on_time else 'text-warning'" t-esc="desp.puntualidad_texto()"/></t>
+                <t t-else="">pendiente de llegada</t>
+              </div></div></div>
             </div>
           </div>
         </div>

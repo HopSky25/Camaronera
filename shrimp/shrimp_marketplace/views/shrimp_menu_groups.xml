@@ -16,29 +16,38 @@
        cruzan las listas de precios de compra. Quien la edita mueve el precio
        al que se liquida una cosecha, así que va con el resto del catálogo. -->
   <record id="menu_shrimp_size_grade" model="ir.ui.menu">
-    <field name="group_ids" eval="[(6, 0, [ref('base.group_system')])]"/>
+    <field name="group_ids" eval="[(6, 0, [ref('shrimp_marketplace.group_shrimp_manager')])]"/>
   </record>
 
   <!-- Reportes agregados de todo el marketplace: ventas, comisiones cobradas y
        movimientos de TODOS los socios a la vez. Es la foto comercial del
        negocio, no el trabajo diario de nadie. -->
   <record id="menu_shrimp_reports_root" model="ir.ui.menu">
-    <field name="group_ids" eval="[(6, 0, [ref('base.group_system')])]"/>
+    <field name="group_ids" eval="[(6, 0, [ref('shrimp_marketplace.group_shrimp_manager')])]"/>
   </record>
   <record id="menu_report_sales" model="ir.ui.menu">
-    <field name="group_ids" eval="[(6, 0, [ref('base.group_system')])]"/>
+    <field name="group_ids" eval="[(6, 0, [ref('shrimp_marketplace.group_shrimp_manager')])]"/>
   </record>
   <record id="menu_report_commissions" model="ir.ui.menu">
-    <field name="group_ids" eval="[(6, 0, [ref('base.group_system')])]"/>
+    <field name="group_ids" eval="[(6, 0, [ref('shrimp_marketplace.group_shrimp_manager')])]"/>
   </record>
   <record id="menu_report_moves" model="ir.ui.menu">
-    <field name="group_ids" eval="[(6, 0, [ref('base.group_system')])]"/>
+    <field name="group_ids" eval="[(6, 0, [ref('shrimp_marketplace.group_shrimp_manager')])]"/>
   </record>
 
   <!-- Aprobar certificados es cola de trabajo operativa, como las solicitudes
        de chequeo: se queda en usuario interno, coherente con su menú padre. -->
   <record id="menu_shrimp_cert_approval" model="ir.ui.menu">
-    <field name="group_ids" eval="[(6, 0, [ref('base.group_user')])]"/>
+    <field name="group_ids" eval="[(6, 0, [ref('shrimp_marketplace.group_shrimp_user')])]"/>
+  </record>
+
+  <!-- El catálogo de certificados lo define shrimp_user_registry bajo
+       Contactos (ese módulo no conoce la app «Camaronera»); aquí se reubica
+       en su Configuración para que los certificados vivan en un solo lugar:
+       catálogo en Configuración, revisión en Aprobaciones. -->
+  <record id="shrimp_user_registry.menu_shrimp_certificate_catalog" model="ir.ui.menu">
+    <field name="parent_id" ref="shrimp_marketplace.menu_shrimp_config_root"/>
+    <field name="sequence">15</field>
   </record>
 
 </odoo>

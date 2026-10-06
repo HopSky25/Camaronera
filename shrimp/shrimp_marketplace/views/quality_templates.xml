@@ -1,0 +1,372 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <!-- =====================================================================
+         Ficha de calidad del lote (nauplio y larva)
+         - Bloque en la ficha del producto (comprador y dueño).
+         - Pantalla del vendedor para crear/editar fichas y registrar muestreos.
+         - Bloque en la trazabilidad (pantalla y PDF).
+         ===================================================================== -->
+
+    <!-- Hechos de una ficha (reutilizado en la ficha pública y en el portal) -->
+    <template id="quality_sheet_facts" name="Ficha de calidad - datos">
+        <div class="sp-q-facts">
+            <div class="sp-q-fact">
+                <span class="sp-q-k">Fecha de muestreo</span>
+                <span class="sp-q-v"><t t-esc="q.sample_date.strftime('%d/%m/%Y') if q.sample_date else '—'"/>
+                    <span t-if="q._is_recent()" class="s-badge s-badge--success ms-1">Reciente</span>
+                    <span t-else="" class="s-badge ms-1">Más de 30 días</span>
+                </span>
+            </div>
+            <div class="sp-q-fact sp-q-fact--wide">
+                <span class="sp-q-k">PCR</span>
+                <span class="sp-q-v sp-q-pcr">
+                    <t t-foreach="q._pcr_rows()" t-as="row">
+                        <span t-att-class="'sp-pcr sp-pcr--%s' % row[1]">
+                            <strong><t t-esc="row[0]"/></strong> <t t-esc="row[2]"/>
+                        </span>
+                    </t>
+                </span>
+            </div>
+            <div class="sp-q-fact">
+                <span class="sp-q-k">Prueba de estrés</span>
+                <span class="sp-q-v"><t t-if="q.stress_test_survival"><t t-esc="'{:.0f}'.format(q.stress_test_survival)"/> %</t><t t-else="">—</t></span>
+            </div>
+            <div class="sp-q-fact">
+                <span class="sp-q-k">Uniformidad</span>
+                <span class="sp-q-v"><t t-if="q.uniformity"><t t-esc="'{:.0f}'.format(q.uniformity)"/> %</t><t t-else="">—</t></span>
+            </div>
+            <div class="sp-q-fact">
+                <span class="sp-q-k">Estadío</span>
+                <span class="sp-q-v"><t t-esc="q.stage_id.name or q.product_id.stage_id.name or '—'"/></span>
+            </div>
+            <div class="sp-q-fact">
+                <span class="sp-q-k">Tanque</span>
+                <span class="sp-q-v"><t t-esc="q.tank or '—'"/></span>
+            </div>
+            <div class="sp-q-fact">
+                <span class="sp-q-k">Nauplio de origen</span>
+                <span class="sp-q-v">
+                    <t t-if="q.origin_lot_id">
+                        <t t-set="q_origen" t-value="q.origin_lot_id.origin_move_id.source_partner_id or q.origin_lot_id.origin_move_id.transaction_id.seller_partner_id"/>
+                        <t t-esc="q.origin_lot_id.product_id.name"/>
+                        <t t-if="q_origen"> · <a t-att-href="'/marketplace/sellers/%s' % q_origen.uuid_ref"><t t-esc="q_origen.name"/></a></t>
+                    </t>
+                    <t t-else="">—</t>
+                </span>
+            </div>
+            <div class="sp-q-fact">
+                <span class="sp-q-k">Laboratorio que analizó</span>
+                <span class="sp-q-v"><t t-esc="q.analysis_lab or '—'"/></span>
+            </div>
+            <div class="sp-q-fact" t-if="q.attachment_id">
+                <span class="sp-q-k">Informe</span>
+                <span class="sp-q-v">
+                    <a t-att-href="'/marketplace/product/%s/quality/%s/report' % (q.product_id.uuid_ref, q.uuid_ref)" target="_blank">
+                        <i class="fa fa-file-pdf-o me-1"/>Ver PDF
+                    </a>
+                </span>
+            </div>
+            <div class="sp-q-fact sp-q-fact--wide" t-if="q.notes">
+                <span class="sp-q-k">Observaciones</span>
+                <span class="sp-q-v"><t t-esc="q.notes"/></span>
+            </div>
+        </div>
+    </template>
+
+    <!-- Bloque en la ficha del producto, antes de la evolución -->
+    <template id="product_detail_quality" inherit_id="shrimp_marketplace.product_detail"
+              name="Detalle de producto - Ficha de calidad">
+        <xpath expr="//div[hasclass('col-12')][.//h3[contains(., 'Evolución del producto')]]" position="before">
+            <t t-set="q_sheets" t-value="product.sudo().quality_ids.sorted(lambda r: (r.sample_date, r.id), reverse=True)"/>
+            <div class="col-12" id="shrimp_product_quality"
+                 t-if="product._shrimp_accepts_quality() and (q_sheets or is_owner or is_internal)">
+                <div class="mp-table-card">
+                    <div class="card-body p-4">
+                        <div class="mp-sec-head">
+                            <span class="mp-sec-ico"><i class="fa fa-flask"></i></span>
+                            <h3 class="mp-sec-title">Ficha de calidad del lote</h3>
+                            <span t-if="q_sheets" t-att-class="'s-badge mp-sec-count sp-pcr-sum sp-pcr-sum--%s' % q_sheets[0].pcr_status">
+                                <t t-esc="dict(q_sheets[0]._fields['pcr_status'].selection).get(q_sheets[0].pcr_status)"/>
+                            </span>
+                            <a t-if="is_owner or is_internal" class="s-btn s-btn-ghost btn-sm ms-auto"
+                               t-att-href="'/marketplace/products/%s/quality' % product.uuid_ref">
+                                <i class="fa fa-pencil me-1"/> <t t-esc="'Gestionar fichas y muestreos' if q_sheets else 'Crear ficha de calidad'"/>
+                            </a>
+                        </div>
+                        <t t-if="q_sheets">
+                            <t t-call="shrimp_marketplace.quality_sheet_facts"><t t-set="q" t-value="q_sheets[0]"/></t>
+                            <details t-if="len(q_sheets) &gt; 1" class="sp-q-history mt-3">
+                                <summary>Muestreos anteriores (<t t-esc="len(q_sheets) - 1"/>)</summary>
+                                <table class="sp-table mt-2">
+                                    <thead><tr><th>Fecha</th><th>PCR</th><th>Estrés</th><th>Uniformidad</th><th>Estadío</th></tr></thead>
+                                    <tbody>
+                                        <tr t-foreach="q_sheets[1:]" t-as="qh">
+                                            <td data-label="Fecha"><t t-esc="qh.sample_date.strftime('%d/%m/%Y') if qh.sample_date else ''"/></td>
+                                            <td data-label="PCR"><t t-esc="dict(qh._fields['pcr_status'].selection).get(qh.pcr_status)"/></td>
+                                            <td data-label="Estrés"><t t-if="qh.stress_test_survival"><t t-esc="'{:.0f}'.format(qh.stress_test_survival)"/> %</t><t t-else="">—</t></td>
+                                            <td data-label="Uniformidad"><t t-if="qh.uniformity"><t t-esc="'{:.0f}'.format(qh.uniformity)"/> %</t><t t-else="">—</t></td>
+                                            <td data-label="Estadío"><t t-esc="qh.stage_id.name or '—'"/></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </details>
+                        </t>
+                        <div t-else="" class="sp-empty">
+                            Este lote todavía no tiene ficha de calidad. Registra el muestreo con PCR,
+                            prueba de estrés y uniformidad: es lo primero que mira una camaronera.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </xpath>
+    </template>
+
+    <!-- Pantalla del vendedor: fichas del lote + formulario + muestreo rápido -->
+    <template id="product_quality_page" name="Ficha de calidad del lote - vendedor">
+        <t t-call="website.layout">
+            <div class="shrimp-bg sp-page">
+                <div class="shrimp-page sp-wrap py-4" id="sp_quality_page">
+                    <div class="sp-head">
+                        <div class="sp-head-txt">
+                            <div class="sp-eyebrow">Ficha de calidad del lote</div>
+                            <h1 class="sp-title"><t t-esc="product.name"/></h1>
+                            <div class="text-soft">
+                                <t t-esc="product.stage_id.name or ''"/>
+                                <t t-if="product.genetics_line_id"> · <t t-esc="product.genetics_line_id.name"/></t>
+                                <t t-if="product.batch_code"> · Lote <t t-esc="product.batch_code"/></t>
+                            </div>
+                        </div>
+                        <div class="sp-head-actions">
+                            <a class="s-btn s-btn-ghost" t-att-href="'/marketplace/product/%s' % product.uuid_ref">
+                                <i class="fa fa-eye me-1"/> Ver como comprador</a>
+                            <a class="s-btn s-btn-ghost" href="/my/dashboard"><i class="fa fa-tachometer me-1"/> Mi panel</a>
+                        </div>
+                    </div>
+
+                    <div t-if="error_message" class="sp-alert sp-alert--danger" role="alert"><t t-esc="error_message"/></div>
+                    <div t-if="saved" class="sp-alert sp-alert--info" role="status" id="sp_quality_saved">
+                        <t t-if="saved == 'deleted'">Ficha eliminada.</t>
+                        <t t-elif="saved == 'sample'">Muestreo registrado en la evolución del lote.</t>
+                        <t t-else="">Ficha de calidad guardada.</t>
+                    </div>
+                    <div t-if="not accepts" class="sp-alert sp-alert--warning" role="status">
+                        La ficha de calidad es para lotes de nauplio o larva. Este lote es de camarón adulto.
+                    </div>
+
+                    <div class="sp-q-layout" t-if="accepts">
+                        <!-- Formulario -->
+                        <div class="sp-card">
+                            <div class="sp-card-head">
+                                <h3 t-if="editing"><i class="fa fa-pencil me-2"/>Editar ficha del <t t-esc="editing.sample_date.strftime('%d/%m/%Y')"/></h3>
+                                <h3 t-else=""><i class="fa fa-plus me-2"/>Nueva ficha de calidad</h3>
+                                <a t-if="editing" class="sp-more" t-att-href="'/marketplace/products/%s/quality' % product.uuid_ref">Nueva ficha</a>
+                            </div>
+                            <form method="post" enctype="multipart/form-data" class="sp-form" id="sp_quality_form"
+                                  t-att-action="'/marketplace/products/%s/quality/save' % product.uuid_ref">
+                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                <input t-if="editing" type="hidden" name="ficha" t-att-value="editing.uuid_ref"/>
+                                <div class="sp-form-grid">
+                                    <label>Fecha de muestreo
+                                        <input type="date" name="sample_date" class="form-control" required="required"
+                                               t-att-max="today" t-att-value="editing.sample_date if editing else today"/>
+                                    </label>
+                                    <label>Estadío
+                                        <select name="stage" class="form-select">
+                                            <option value="">El del lote</option>
+                                            <t t-foreach="stages" t-as="st">
+                                                <option t-att-value="st.uuid_ref"
+                                                        t-att-selected="(editing.stage_id == st) if editing else (product.stage_id == st)"><t t-esc="st.name"/></option>
+                                            </t>
+                                        </select>
+                                    </label>
+                                    <t t-foreach="pcr_fields" t-as="pf">
+                                        <label>PCR <t t-esc="pf[1]"/>
+                                            <select t-att-name="pf[0]" class="form-select">
+                                                <t t-foreach="pcr_results" t-as="pr">
+                                                    <option t-att-value="pr[0]"
+                                                            t-att-selected="(editing[pf[0]] if editing else 'no_realizado') == pr[0]"><t t-esc="pr[1]"/></option>
+                                                </t>
+                                            </select>
+                                        </label>
+                                    </t>
+                                    <label>Prueba de estrés (% supervivencia)
+                                        <input type="number" name="stress_test_survival" min="0" max="100" step="0.1" class="form-control"
+                                               t-att-value="editing.stress_test_survival if editing else ''"/>
+                                    </label>
+                                    <label>Uniformidad (%)
+                                        <input type="number" name="uniformity" min="0" max="100" step="0.1" class="form-control"
+                                               t-att-value="editing.uniformity if editing else ''"/>
+                                    </label>
+                                    <label>Tanque
+                                        <input type="text" name="tank" maxlength="80" class="form-control"
+                                               t-att-value="editing.tank if editing else (product.origin_pond_id.name or '')"/>
+                                    </label>
+                                    <label>Laboratorio que analizó
+                                        <input type="text" name="analysis_lab" maxlength="120" class="form-control"
+                                               placeholder="Ej.: laboratorio de diagnóstico acreditado"
+                                               t-att-value="editing.analysis_lab if editing else ''"/>
+                                    </label>
+                                    <label class="sp-form-wide">Nauplio de origen
+                                        <select name="origin_lot" class="form-select">
+                                            <option value="">— Ninguno / producción propia —</option>
+                                            <t t-foreach="origin_lots" t-as="ol">
+                                                <option t-att-value="ol.uuid_ref" t-att-selected="editing and editing.origin_lot_id == ol">
+                                                    <t t-esc="ol.product_id.name"/> · <t t-esc="ol.origin_move_id.source_partner_id.name or ''"/>
+                                                </option>
+                                            </t>
+                                        </select>
+                                    </label>
+                                    <label class="sp-form-wide">Informe del análisis (PDF, máx. 5 MB)
+                                        <input type="file" name="report_file" accept="application/pdf,.pdf" class="form-control"/>
+                                        <small t-if="editing and editing.attachment_id" class="text-soft">Ya tiene informe: <t t-esc="editing.attachment_id.name"/>. Sube otro para reemplazarlo.</small>
+                                    </label>
+                                    <label class="sp-form-wide">Observaciones
+                                        <textarea name="notes" rows="2" maxlength="2000" class="form-control"><t t-esc="editing.notes if editing else ''"/></textarea>
+                                    </label>
+                                    <label class="sp-check sp-form-wide">
+                                        <input type="checkbox" name="register_sample" value="1" t-att-checked="not editing"/>
+                                        <span>Registrar también como muestreo en la evolución del lote (estadío y supervivencia)</span>
+                                    </label>
+                                </div>
+                                <button type="submit" class="s-btn s-btn-primary mt-2"><i class="fa fa-save me-1"/> Guardar ficha</button>
+                            </form>
+                        </div>
+
+                        <!-- Muestreo rápido -->
+                        <div class="sp-card">
+                            <div class="sp-card-head"><h3><i class="fa fa-line-chart me-2"/>Registrar muestreo</h3></div>
+                            <p class="text-soft">Un control rápido (estadío, supervivencia y talla) sin ficha completa. Queda en la
+                                evolución del lote, que ven el comprador y el certificado de trazabilidad.</p>
+                            <form method="post" class="sp-form" id="sp_sample_form"
+                                  t-att-action="'/marketplace/products/%s/sampling' % product.uuid_ref">
+                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                <div class="sp-form-grid">
+                                    <label>Estadío
+                                        <select name="stage" class="form-select">
+                                            <t t-foreach="stages" t-as="st">
+                                                <option t-att-value="st.uuid_ref" t-att-selected="product.stage_id == st"><t t-esc="st.name"/></option>
+                                            </t>
+                                        </select>
+                                    </label>
+                                    <label>Supervivencia (%)
+                                        <input type="number" name="survival_rate" min="0" max="100" step="0.1" class="form-control" required="required"
+                                               t-att-value="product.survival_rate or ''"/>
+                                    </label>
+                                    <label>Talla promedio (mg)
+                                        <input type="number" name="avg_size_mg" min="0" step="0.001" class="form-control"
+                                               t-att-value="product.avg_size_mg or ''"/>
+                                    </label>
+                                    <label>Nota
+                                        <input type="text" name="note" maxlength="500" class="form-control" placeholder="Ej.: muestreo en tanque T-04"/>
+                                    </label>
+                                </div>
+                                <button type="submit" class="s-btn s-btn-teal mt-2"><i class="fa fa-plus me-1"/> Registrar muestreo</button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Fichas existentes -->
+                    <div class="sp-card" id="sp_quality_list">
+                        <div class="sp-card-head"><h3><i class="fa fa-list me-2"/>Fichas de este lote</h3></div>
+                        <t t-if="sheets">
+                            <t t-foreach="sheets" t-as="q">
+                                <div class="sp-q-item">
+                                    <t t-call="shrimp_marketplace.quality_sheet_facts"/>
+                                    <div class="sp-q-actions">
+                                        <a class="s-btn s-btn-ghost btn-sm" t-att-href="'/marketplace/products/%s/quality?ficha=%s' % (product.uuid_ref, q.uuid_ref)">
+                                            <i class="fa fa-pencil me-1"/> Editar</a>
+                                        <form method="post" class="d-inline" t-att-action="'/marketplace/products/%s/quality/%s/sampling' % (product.uuid_ref, q.uuid_ref)">
+                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                            <button type="submit" class="s-btn s-btn-ghost btn-sm">
+                                                <i class="fa fa-line-chart me-1"/> <t t-esc="'Actualizar muestreo' if q.evolution_id else 'Registrar muestreo'"/></button>
+                                        </form>
+                                        <form method="post" class="d-inline" t-att-action="'/marketplace/products/%s/quality/%s/delete' % (product.uuid_ref, q.uuid_ref)"
+                                              onsubmit="return confirm('¿Eliminar esta ficha de calidad?');">
+                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                            <button type="submit" class="s-btn s-btn-danger btn-sm"><i class="fa fa-trash me-1"/> Eliminar</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </t>
+                        </t>
+                        <div t-else="" class="sp-empty">Aún no hay fichas de calidad para este lote.</div>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <!-- Trazabilidad en pantalla: fichas de calidad de los lotes de la cadena -->
+    <template id="traceability_screen_quality" inherit_id="shrimp_marketplace.traceability_screen"
+              name="Trazabilidad - Ficha de calidad">
+        <xpath expr="//div[@id='shrimp_trace_summary']" position="after">
+            <t t-set="trz_quality" t-value="request.env['shrimp.product.quality'].sudo()._shrimp_trace_quality(trz, tx)"/>
+            <div t-if="trz_quality" class="mp-table-card mb-4" id="shrimp_trace_quality">
+                <div class="card-body p-4">
+                    <div class="mp-sec-head">
+                        <span class="mp-sec-ico"><i class="fa fa-flask"></i></span>
+                        <h3 class="mp-sec-title">Ficha de calidad de los lotes</h3>
+                        <span class="s-badge mp-sec-count"><t t-esc="len(trz_quality)"/></span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table align-middle mb-0 sp-table">
+                            <thead><tr><th>Lote</th><th>Muestreo</th><th>WSSV</th><th>IHHNV</th><th>AHPND</th><th>EHP</th><th>Estrés</th><th>Uniformidad</th><th>Analizó</th><th/></tr></thead>
+                            <tbody>
+                                <tr t-foreach="trz_quality" t-as="q">
+                                    <td data-label="Lote"><t t-esc="q.product_id.name"/></td>
+                                    <td data-label="Muestreo"><t t-esc="q.sample_date.strftime('%d/%m/%Y') if q.sample_date else ''"/></td>
+                                    <t t-foreach="q._pcr_rows()" t-as="row">
+                                        <td t-att-data-label="row[0]"><span t-att-class="'sp-pcr sp-pcr--%s' % row[1]"><t t-esc="row[2]"/></span></td>
+                                    </t>
+                                    <td data-label="Estrés"><t t-if="q.stress_test_survival"><t t-esc="'{:.0f}'.format(q.stress_test_survival)"/> %</t><t t-else="">—</t></td>
+                                    <td data-label="Uniformidad"><t t-if="q.uniformity"><t t-esc="'{:.0f}'.format(q.uniformity)"/> %</t><t t-else="">—</t></td>
+                                    <td data-label="Analizó"><t t-esc="q.analysis_lab or '—'"/></td>
+                                    <td class="text-end">
+                                        <a t-if="q.attachment_id" target="_blank" class="s-btn s-btn-ghost btn-sm"
+                                           t-att-href="'/marketplace/product/%s/quality/%s/report' % (q.product_id.uuid_ref, q.uuid_ref)">PDF</a>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </xpath>
+    </template>
+
+    <!-- Certificado PDF: bloque antes del pie (y antes de la salida/exportación) -->
+    <template id="report_traceability_quality" inherit_id="shrimp_marketplace.report_shrimp_full_traceability"
+              priority="20" name="Certificado de trazabilidad - ficha de calidad">
+        <xpath expr="//div[hasclass('st-foot')]" position="before">
+            <t t-set="q_lines" t-value="doc.env['shrimp.product.quality'].sudo()._shrimp_trace_quality(trace, doc)"/>
+            <t t-if="q_lines">
+                <t t-set="sec_n" t-value="sec_n + 1"/>
+                <div class="st-keep">
+                <div class="st-sec"><t t-esc="sec_n"/>. Ficha de calidad de los lotes</div>
+                <table class="st-tbl">
+                    <thead>
+                        <tr>
+                            <th>Lote</th><th>Muestreo</th><th>WSSV</th><th>IHHNV</th><th>AHPND</th><th>EHP</th>
+                            <th class="st-r">Estrés</th><th class="st-r">Uniform.</th><th>Analizó</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr t-foreach="q_lines" t-as="q">
+                            <td><t t-esc="q.product_id.name"/></td>
+                            <td><t t-esc="q.sample_date.strftime('%d/%m/%Y') if q.sample_date else ''"/></td>
+                            <t t-foreach="q._pcr_rows()" t-as="row">
+                                <td t-att-style="'color:#b42318;font-weight:bold;' if row[1] == 'positivo' else ('color:#1f7d56;' if row[1] == 'negativo' else 'color:#8a98a0;')"><t t-esc="row[2]"/></td>
+                            </t>
+                            <td class="st-r"><t t-if="q.stress_test_survival"><t t-esc="'{:.0f}'.format(q.stress_test_survival)"/> %</t><t t-else="">—</t></td>
+                            <td class="st-r"><t t-if="q.uniformity"><t t-esc="'{:.0f}'.format(q.uniformity)"/> %</t><t t-else="">—</t></td>
+                            <td><t t-esc="q.analysis_lab or '—'"/></td>
+                        </tr>
+                    </tbody>
+                </table>
+                </div>
+            </t>
+        </xpath>
+    </template>
+
+</odoo>

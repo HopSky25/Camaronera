@@ -36,6 +36,27 @@ class ShrimpReview(models.Model):
             if not (1 <= rec.rating <= 5):
                 raise ValidationError(_("La calificación debe estar entre 1 y 5 estrellas."))
 
+    @api.constrains("transaction_id", "reviewer_partner_id", "seller_partner_id", "direction")
+    def _check_transaction_review(self):
+        """Una reseña atada a una compra exige que la compra se haya cerrado
+        (confirmada o completada) y que autor y calificado sean sus partes,
+        en el sentido que indica `direction`. Una por parte y compra (ver la
+        unicidad de abajo)."""
+        for rec in self:
+            tx = rec.transaction_id.sudo()
+            if not tx:
+                continue
+            if tx.state not in ("confirmed", "done"):
+                raise ValidationError(_(
+                    "Solo se pueden calificar compras confirmadas o completadas."))
+            if rec.direction == "to_seller":
+                partes = (tx.buyer_partner_id, tx.seller_partner_id)
+            else:
+                partes = (tx.seller_partner_id, tx.buyer_partner_id)
+            if (rec.reviewer_partner_id, rec.seller_partner_id) != partes:
+                raise ValidationError(_(
+                    "La reseña debe emitirla una parte de la compra sobre la otra."))
+
     @api.constrains("seller_partner_id", "reviewer_partner_id")
     def _check_not_self(self):
         for rec in self:

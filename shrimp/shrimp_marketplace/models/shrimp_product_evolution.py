@@ -49,3 +49,13 @@ class ShrimpProductEvolution(models.Model):
         default=lambda self: self.env.user,
         readonly=True,
     )
+    _AUTO_NOTE = "Actualización automática del producto."
+
+    def shrimp_observation(self):
+        """Lo que se enseña en «Observación»: la nota escrita a mano o, si la
+        fila la creó el sistema, el estado sanitario (que dice algo) en vez
+        del texto genérico."""
+        self.ensure_one()
+        if self.note and self.note != self._AUTO_NOTE:
+            return self.note
+        return self.health_status or self.note or "—"

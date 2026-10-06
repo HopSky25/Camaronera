@@ -59,13 +59,21 @@ class ShrimpCopackOffer(models.Model):
         for rec in self:
             rec.estimated_total = rec.rate_per_lb * rec.capacity_lb
 
-    @api.constrains("copacker_partner_id")
+    @api.constrains("copacker_partner_id", "request_id")
     def _check_maquilador(self):
         for rec in self:
-            if rec.copacker_partner_id.shrimp_user_type != "maquilador":
+            if not rec.copacker_partner_id._shrimp_can_any("provide_copack"):
                 raise ValidationError(_(
                     "Solo un maquilador oferta servicio de empaque. «%s» no lo es.")
                     % (rec.copacker_partner_id.name or ""))
+            cliente = rec.request_id.client_partner_id
+            if cliente and cliente.commercial_partner_id \
+                    == rec.copacker_partner_id.commercial_partner_id:
+                raise ValidationError(_(
+                    "Una empresa no se contrata a sí misma: el empaque de tu propio "
+                    "camarón en tu planta es una operación interna, no un servicio de "
+                    "la plataforma (no hay contraparte que firme el acta ni comisión "
+                    "que cobrar)."))
 
     @api.constrains("rate_per_lb", "capacity_lb")
     def _check_numeros(self):
@@ -159,6 +167,8 @@ class ShrimpCopackOffer(models.Model):
             "client_partner_id": solicitud.client_partner_id.id,
             "copacker_partner_id": self.copacker_partner_id.id,
             "product_id": solicitud.product_id.id or False,
+            "transaction_id": solicitud.transaction_id.id or False,
+            "stock_lot_id": solicitud.stock_lot_id.id or False,
             "agreed_qty_lb": min(self.capacity_lb, solicitud.quantity_lb),
             "rate_per_lb": self.rate_per_lb,
             "currency_id": self.currency_id.id,

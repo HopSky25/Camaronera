@@ -11,7 +11,12 @@ class ShrimpApiKey(models.Model):
     _order = "create_date desc"
 
     name = fields.Char(string="Etiqueta", required=True, help="Nombre para identificar esta clave (p. ej. 'Integración ERP').")
-    key = fields.Char(string="Clave", required=True, index=True, copy=False, readonly=True,
+    # No obligatoria en la base: shrimp_api guarda solo el HASH de la clave y
+    # deja esta columna vacía. Con required=True, cada -u de este módulo
+    # (que se carga ANTES que shrimp_api) intentaba rellenar los vacíos con
+    # un único valor por defecto y chocaba con la unicidad: la segunda
+    # actualización de una base con varias claves fallaba.
+    key = fields.Char(string="Clave", index=True, copy=False, readonly=True,
                       default=lambda self: self._generate_key())
     user_id = fields.Many2one("res.users", string="Usuario propietario", required=True,
                               default=lambda self: self.env.user,

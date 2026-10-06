@@ -1,15 +1,25 @@
 <odoo>
+    <!-- Ajustes › CamaronMarket. Cada módulo agrega su bloque:
+           Comisiones (este) · Verificación (shrimp_verification) ·
+           Reservas de cosecha y proveedores (shrimp_packer) ·
+           Empaque / co-packing (shrimp_copacking) · Marketplace · Facturación.
+         La pantalla de Ajustes ya es solo del administrador (base.group_system). -->
     <record id="res_config_settings_view_form_shrimp" model="ir.ui.view">
         <field name="name">res.config.settings.form.shrimp.marketplace</field>
         <field name="model">res.config.settings</field>
         <field name="inherit_id" ref="base.res_config_settings_view_form"/>
         <field name="arch" type="xml">
             <xpath expr="//form" position="inside">
-                <app string="Marketplace Camarón" name="shrimp_marketplace"
+                <app string="CamaronMarket" name="shrimp_marketplace"
                      logo="/shrimp_marketplace/static/description/icon.png">
                     <block title="Comisiones" name="shrimp_commission_block">
-                        <setting string="Comisión por venta"
-                                 help="La comisión que cobra el marketplace se configura por cada Unidad de medida (centavos por unidad vendida), en el menú Configuración › Unidades de medida. Cada unidad puede tener su propia tarifa. Solo el administrador del sistema puede verla y editarla."/>
+                        <setting id="shrimp_commission_per_uom" string="Comisión por venta"
+                                 help="La comisión que cobra el marketplace NO se configura aquí: es por cada Unidad de medida (centavos por unidad vendida), en Camaronera › Configuración › Unidades de medida. Cada unidad puede tener su propia tarifa.">
+                            <div class="mt8">
+                                <button type="action" name="%(shrimp_marketplace.action_shrimp_uom)d"
+                                        string="Ir a Unidades de medida" icon="oi-arrow-right" class="btn-link"/>
+                            </div>
+                        </setting>
                         <setting string="Costo del chequeo"
                                  help="Valor fijo que se cobra al comprador por enviar un equipo a verificar el producto al solicitar un chequeo. Se cobra además del valor del producto.">
                             <div class="content-group">
@@ -17,6 +27,40 @@
                                     <label for="shrimp_check_fee" class="col-lg-6 o_light_label"/>
                                     <field name="shrimp_check_fee"/>
                                     <span class="text-muted">por solicitud de chequeo</span>
+                                </div>
+                            </div>
+                        </setting>
+                    </block>
+                    <block title="Marketplace" name="shrimp_marketplace_block">
+                        <setting string="Mínimo de reseñas para destacados"
+                                 help="Un laboratorio o semillero solo aparece en «Laboratorios / Semilleros destacados» (catálogo y página de inicio) si tiene al menos estas reseñas como vendedor. No se rellena con vendedores con menos reseñas: si no cumple ninguno, la sección no se muestra.">
+                            <div class="content-group">
+                                <div class="row mt16">
+                                    <label for="shrimp_featured_min_reviews" class="col-lg-6 o_light_label"/>
+                                    <field name="shrimp_featured_min_reviews"/>
+                                    <span class="text-muted">reseñas como mínimo</span>
+                                </div>
+                            </div>
+                        </setting>
+                        <setting string="Aviso de certificados por vencer"
+                                 help="Mi panel avisa al socio de sus certificados (y los de sus lotes publicados) que vencen dentro de estos días.">
+                            <div class="content-group">
+                                <div class="row mt16">
+                                    <label for="shrimp_cert_alert_days" class="col-lg-6 o_light_label"/>
+                                    <field name="shrimp_cert_alert_days"/>
+                                    <span class="text-muted">días de antelación</span>
+                                </div>
+                            </div>
+                        </setting>
+                    </block>
+                    <block title="Facturación" name="shrimp_billing_block">
+                        <setting string="Reintentos automáticos"
+                                 help="La plataforma factura sus servicios (comisión, honorario de verificación, cuota de empaque). Si emitir la factura falla, el proceso automático lo reintenta hasta este número de veces; después el cobro queda en «Error» para revisión manual (botón «Reintentar»).">
+                            <div class="content-group">
+                                <div class="row mt16">
+                                    <label for="shrimp_charge_max_attempts" class="col-lg-6 o_light_label"/>
+                                    <field name="shrimp_charge_max_attempts"/>
+                                    <span class="text-muted">intentos por cobro</span>
                                 </div>
                             </div>
                         </setting>

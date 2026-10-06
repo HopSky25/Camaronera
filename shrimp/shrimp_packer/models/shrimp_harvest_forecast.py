@@ -41,6 +41,8 @@ desarrollan en paralelo.
 from datetime import timedelta
 
 from odoo import api, fields, models, _
+
+from odoo.addons.shrimp_marketplace.models.shrimp_selection import PRESENTATIONS
 from odoo.exceptions import AccessError, ValidationError
 
 from .shrimp_simulador import _rango_talla
@@ -160,8 +162,7 @@ class ShrimpHarvestForecast(models.Model):
     expected_lb = fields.Float(
         string="Libras estimadas", required=True, digits=(16, 2), tracking=True)
     presentation = fields.Selection(
-        [("entero", "Entero"), ("cola", "Cola")],
-        string="Presentación", required=True, default="entero")
+        PRESENTATIONS, string="Presentación", required=True, default="entero")
     size_grade_id = fields.Many2one(
         "shrimp.size.grade", string="Talla estimada", required=True,
         ondelete="restrict", index=True, tracking=True)
@@ -224,7 +225,7 @@ class ShrimpHarvestForecast(models.Model):
     commitment_ids = fields.One2many(
         "shrimp.harvest.commitment", "forecast_id", string="Compromisos")
     commitment_count = fields.Integer(
-        compute="_compute_counts", string="Compromisos")
+        compute="_compute_counts", string="N.º de compromisos")
 
     # --- lo que realmente salió ---
     actual_date = fields.Date(string="Fecha real de cosecha", readonly=True)
@@ -314,7 +315,7 @@ class ShrimpHarvestForecast(models.Model):
     @api.constrains("farmer_partner_id")
     def _check_camaronera(self):
         for rec in self:
-            if rec.farmer_partner_id.shrimp_user_type != "camaronera":
+            if not rec.farmer_partner_id._shrimp_has_role("camaronera"):
                 raise ValidationError(_(
                     "Una cosecha la declara quien la produce: una camaronera. "
                     "«%s» no lo es.") % (rec.farmer_partner_id.name or ""))
@@ -323,7 +324,7 @@ class ShrimpHarvestForecast(models.Model):
     def _check_destinatarios(self):
         for rec in self:
             ajenos = rec.recipient_ids.filtered(
-                lambda p: p.shrimp_user_type != "empacadora")
+                lambda p: not p._shrimp_has_role("empacadora"))
             if ajenos:
                 raise ValidationError(_(
                     "Una reserva de cosecha se le ofrece a empacadoras, que son "
@@ -580,8 +581,8 @@ class ShrimpHarvestForecast(models.Model):
                 "estar a %(n)s días o más. Para algo que sale esta semana, "
                 "publica el lote directamente.") % {"n": HORIZONTE_MIN_DIAS})
         if self.open_call and not self.recipient_ids:
-            abiertas = self.env["res.partner"].sudo().search([
-                ("shrimp_user_type", "=", "empacadora"),
+            Partner = self.env["res.partner"].sudo()
+            abiertas = Partner.search(Partner._shrimp_role_domain("empacadora") + [
                 ("active", "=", True),
                 ("reserva_acepta", "=", True),
             ])

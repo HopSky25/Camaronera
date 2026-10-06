@@ -1,14 +1,13 @@
 from odoo import http, _
 from odoo.http import request
+
+from odoo.addons.shrimp_marketplace.controllers.utils import to_number
+
+from .website_home import _es_sitio_maquiladores
 from odoo.exceptions import ValidationError
 
 from odoo.addons.shrimp_user_registry.controllers.main import ShrimpRegistryController
 
-
-def _es_sitio_maquiladores():
-    """True si la petición entra por la plataforma de maquiladores."""
-    web = getattr(request, "website", False)
-    return bool(web and web.sudo().shrimp_is_copacker_site)
 
 
 class ShrimpCopackerRegistry(ShrimpRegistryController):
@@ -22,7 +21,7 @@ class ShrimpCopackerRegistry(ShrimpRegistryController):
     quien vende camarón.
     """
 
-    @http.route("/registro/maquilador", type="http", auth="public",
+    @http.route("/register/copacker", type="http", auth="public",
                 website=True, sitemap=True)
     def registro_maquilador(self, **kw):
         return request.render("shrimp_copacking.registry_form_maquilador",
@@ -30,11 +29,22 @@ class ShrimpCopackerRegistry(ShrimpRegistryController):
 
     @http.route()
     def registro_form(self, **kw):
-        # En el sitio de maquiladores, /registro no puede llevar al formulario
+        # En el sitio de maquiladores, /register no puede llevar al formulario
         # del marketplace: ahí no hay nada que se pueda ser salvo maquilador.
         if _es_sitio_maquiladores():
-            return request.redirect("/registro/maquilador")
+            return request.redirect("/register/copacker")
         return super().registro_form(**kw)
+
+    def _allowed_user_types(self):
+        # En la plataforma de maquiladores solo se registra un maquilador; en
+        # el sitio del marketplace también se admite (su ruta /register/
+        # maquilador es pública allí), pero NO en la de verificadores.
+        if _es_sitio_maquiladores():
+            return {"maquilador"}
+        tipos = super()._allowed_user_types()
+        if tipos & self._signup_types():
+            tipos = tipos | {"maquilador"}
+        return tipos
 
     def _registro_form_template(self, user_type):
         # Al que falla el alta hay que devolverlo a SU formulario, no al común:
@@ -52,13 +62,9 @@ class ShrimpCopackerRegistry(ShrimpRegistryController):
             return " ".join((post.get(key) or "").split()) or False
 
         def _float(key):
-            # Lo que llega del formulario es texto libre: coma decimal, campo
-            # vacío o cualquier cosa. Un ValueError aquí reventaría el alta
-            # entera por un precio mal tecleado.
-            try:
-                return float((post.get(key) or "0").replace(",", "."))
-            except (TypeError, ValueError):
-                return 0.0
+            # Texto libre del formulario: coma decimal, vacío o cualquier
+            # cosa. Un ValueError aquí reventaría el alta entera.
+            return to_number(post.get(key), 0.0)
 
         razon = _txt("pack_razon_social")
         ubicacion = _txt("pack_ubicacion")
@@ -72,17 +78,19 @@ class ShrimpCopackerRegistry(ShrimpRegistryController):
             raise ValidationError(_("La ubicación de la planta es obligatoria."))
 
         vals.update({
-            "pack_razon_social": razon,
-            "pack_ubicacion": ubicacion,
-            "pack_representante": _txt("pack_representante"),
-            "pack_telefono": _txt("pack_telefono"),
+            # Perfil común (los nombres del formulario siguen siendo pack_*).
+            "shrimp_razon_social": razon,
+            "shrimp_ubicacion": ubicacion,
+            "shrimp_representante": _txt("pack_representante"),
+            "shrimp_telefono": _txt("pack_telefono"),
             # La habilitación no se exige al registrarse: hay plantas que la
             # tienen en trámite y dejarlas fuera del alta sería perderlas. Lo
             # que no se puede es empacar sin ella, y eso lo controla la orden.
             "pack_codigo_establecimiento": _txt("pack_codigo_establecimiento"),
             "pack_habilitacion_desde": post.get("pack_habilitacion_desde") or False,
             "pack_habilitacion_hasta": post.get("pack_habilitacion_hasta") or False,
-            "pack_capacidad_lb_semana": _float("pack_capacidad_lb_semana"),
+            "shrimp_capacity_value": _float("pack_capacidad_lb_semana"),
+            "shrimp_capacity_unit": "lb_week",
             "pack_lote_minimo_lb": _float("pack_lote_minimo_lb"),
             "pack_presentaciones": _txt("pack_presentaciones"),
             "pack_desde_entero": _float("pack_desde_entero"),

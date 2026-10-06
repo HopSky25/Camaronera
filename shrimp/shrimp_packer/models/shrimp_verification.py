@@ -24,7 +24,11 @@ class ShrimpVerification(models.Model):
         tx = self.transaction_id
         comprador = self.buyer_partner_id
         producto = tx.product_id
-        if not comprador or comprador.shrimp_user_type != "empacadora":
+        # El rol con el que compró (una cuenta puede ser camaronera y
+        # empacadora); en compras antiguas sin rol, si la cuenta lo es.
+        es_empacadora = (tx.buyer_role == "empacadora" if tx.buyer_role
+                         else bool(comprador) and comprador._shrimp_has_role("empacadora"))
+        if not comprador or not es_empacadora:
             return {}
         if self.scope != "adult" or not self.line_ids or not producto.presentation:
             return {}

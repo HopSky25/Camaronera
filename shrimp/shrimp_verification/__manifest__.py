@@ -42,6 +42,9 @@ genera el parte en el mismo formato de texto que el equipo ya usa por WhatsApp.
         "views/registry_form_verifier.xml",
         "views/verifier_website.xml",
         "views/verifier_profile_templates.xml",
+        # Antes de portal_templates.xml: al actualizar una BD existente, Odoo valida
+        # la vista padre con esta herencia aun en su version vieja (anchor trazabilidad/pdf).
+        "views/purchases_list_inherit.xml",
         "views/portal_templates.xml",
         # Aviso de verificación en el formulario de publicar producto.
         "views/product_form_inherit.xml",
@@ -50,7 +53,6 @@ genera el parte en el mismo formato de texto que el equipo ya usa por WhatsApp.
         # Verificación declarada por las partes (formulario y avisos).
         "views/declared_templates.xml",
         "views/technicians_templates.xml",
-        "views/purchases_list_inherit.xml",
         # Después de portal_templates.xml y de las listas del marketplace:
         # hereda de todas ellas.
         "views/dispatch_templates.xml",

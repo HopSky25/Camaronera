@@ -71,6 +71,7 @@ desarrollo que se hace en paralelo sobre ese módulo.
         "demo/demo_10_masivo_mismo_nivel.xml",
         # Verificaciones declaradas por las partes (mismo generador).
         "demo/demo_11_masivo_verificacion_declarada.xml",
+        "demo/demo_04_verificaciones_aquagold.xml",
     ],
     "assets": {
         "web.assets_frontend": [

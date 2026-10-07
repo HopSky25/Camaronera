@@ -92,10 +92,13 @@ class ShrimpMarketplacePublicController(http.Controller):
         domain = self._build_public_marketplace_domain()
 
         if q:
-            domain += ["|", "|",
+            # También por el nombre del vendedor: quien escribe "Burgos" en la
+            # búsqueda espera ver los lotes de Grupo Burgos sin abrir el cajón.
+            domain += ["|", "|", "|",
                 ("name", "ilike", q),
                 ("species_id.name", "ilike", q),
                 ("location", "ilike", q),
+                ("seller_partner_id.name", "ilike", q),
             ]
 
         if stage:

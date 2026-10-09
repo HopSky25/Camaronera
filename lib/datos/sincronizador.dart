@@ -134,7 +134,16 @@ class Sincronizador extends ChangeNotifier {
   }
 
   Future<void> _bajarBandeja(ApiCliente api) async {
-    final lista = await api.listarTodo('/verifications', params: {'role': 'technician'});
+    // La clave puede ser de un técnico (ve lo suyo) o de la empresa
+    // verificadora (ve todo lo de su empresa y puede actuar). Se piden ambas
+    // bandejas y se juntan sin repetir.
+    final porId = <String, Map<String, dynamic>>{};
+    for (final rol in ['technician', 'verifier']) {
+      for (final v in await api.listarTodo('/verifications', params: {'role': rol})) {
+        porId[v['id'] as String] = v;
+      }
+    }
+    final lista = porId.values.toList();
     await _bd.guardarVerificaciones(lista);
     // El detalle (pesos, líneas, conteos) solo de las que están abiertas.
     for (final v in lista) {

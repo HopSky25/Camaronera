@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'datos/sincronizador.dart';
 import 'pantallas/pantalla_bandeja.dart';
 import 'pantallas/pantalla_clave.dart';
+import 'tema.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.dark,
+  ));
   runApp(const AppVerificador());
 }
 
@@ -20,13 +26,7 @@ class AppVerificador extends StatelessWidget {
       child: MaterialApp(
         title: 'CamaronMarket Verificador',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0B6E8F)),
-          useMaterial3: true,
-          // Pantallas de campo: controles grandes, fáciles con el sol y guantes.
-          visualDensity: VisualDensity.comfortable,
-          inputDecorationTheme: const InputDecorationTheme(border: OutlineInputBorder(), isDense: false),
-        ),
+        theme: temaCamaronMarket(),
         home: const _Raiz(),
       ),
     );

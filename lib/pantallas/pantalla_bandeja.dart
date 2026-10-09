@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../datos/sincronizador.dart';
 import '../modelos/verificacion.dart';
+import '../tema.dart';
 import 'pantalla_pendientes.dart';
 import 'pantalla_verificacion.dart';
 
@@ -28,16 +29,20 @@ class _PantallaBandejaState extends State<PantallaBandeja> {
         _ => true,
       };
     }).toList();
+    final abiertas = sinc.bandeja.where((v) => !v.cerrada).length;
+    final enCampo = sinc.bandeja.where((v) => v.enCampo).length;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mis verificaciones'),
+        titleSpacing: 16,
+        title: Image.asset('assets/logo.png', height: 30),
         actions: [
           IconButton(
             tooltip: 'Pendientes de enviar',
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaPendientes())),
             icon: Badge(
               isLabelVisible: sinc.pendientes > 0,
+              backgroundColor: Marca.ambar,
               label: Text('${sinc.pendientes}'),
               child: const Icon(Icons.cloud_upload_outlined),
             ),
@@ -68,7 +73,14 @@ class _PantallaBandejaState extends State<PantallaBandeja> {
                 if (ok == true) sinc.cerrarSesion();
               }
             },
-            itemBuilder: (_) => const [PopupMenuItem(value: 'salir', child: Text('Cerrar sesión'))],
+            itemBuilder: (_) => [
+              PopupMenuItem(
+                enabled: false,
+                child: Text(sinc.quienSoy?['name'] as String? ?? 'Cuenta conectada',
+                    style: const TextStyle(fontWeight: FontWeight.w700, color: Marca.navy)),
+              ),
+              const PopupMenuItem(value: 'salir', child: Text('Cerrar sesión')),
+            ],
           ),
         ],
       ),
@@ -76,28 +88,48 @@ class _PantallaBandejaState extends State<PantallaBandeja> {
         children: [
           _BarraEstado(sinc: sinc),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: SegmentedButton<String>(
-              segments: const [
-                ButtonSegment(value: 'abiertas', label: Text('Abiertas')),
-                ButtonSegment(value: 'campo', label: Text('En campo')),
-                ButtonSegment(value: 'cerradas', label: Text('Cerradas')),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+            child: Row(
+              children: [
+                Expanded(child: Text('Mis verificaciones', style: Theme.of(context).textTheme.titleLarge)),
+                Text('$abiertas abiertas · $enCampo en campo', style: Theme.of(context).textTheme.bodySmall),
               ],
-              selected: {_filtro},
-              onSelectionChanged: (s) => setState(() => _filtro = s.first),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<String>(
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(value: 'abiertas', label: Text('Abiertas')),
+                  ButtonSegment(value: 'campo', label: Text('En campo')),
+                  ButtonSegment(value: 'cerradas', label: Text('Cerradas')),
+                ],
+                selected: {_filtro},
+                onSelectionChanged: (s) => setState(() => _filtro = s.first),
+              ),
             ),
           ),
           Expanded(
             child: RefreshIndicator(
+              color: Marca.brand,
               onRefresh: sinc.sincronizar,
               child: lista.isEmpty
-                  ? ListView(children: const [
-                      SizedBox(height: 80),
-                      Center(child: Text('No hay verificaciones en esta lista.\nDesliza hacia abajo para sincronizar.',
-                          textAlign: TextAlign.center)),
+                  ? ListView(children: [
+                      const SizedBox(height: 90),
+                      Icon(Icons.inbox_outlined, size: 56, color: Marca.gris.withValues(alpha: 0.6)),
+                      const SizedBox(height: 12),
+                      const Center(
+                        child: Text('No hay verificaciones en esta lista.\nDesliza hacia abajo para sincronizar.',
+                            textAlign: TextAlign.center, style: TextStyle(color: Marca.tintaSuave)),
+                      ),
                     ])
-                  : ListView.builder(
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                       itemCount: lista.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 10),
                       itemBuilder: (_, i) => _TarjetaVerificacion(v: lista[i]),
                     ),
             ),
@@ -114,21 +146,23 @@ class _BarraEstado extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final esquema = Theme.of(context).colorScheme;
-    final texto = !sinc.hayRed
+    final sinRed = !sinc.hayRed;
+    final texto = sinRed
         ? 'Sin internet. Lo que captures queda guardado en el teléfono.'
         : sinc.ultimoMensaje ??
             (sinc.ultimaSincronizacion == null
                 ? 'Todavía no se ha sincronizado'
-                : 'Última sincronización: ${DateFormat('dd/MM HH:mm').format(sinc.ultimaSincronizacion!)}');
+                : 'Sincronizado el ${DateFormat('dd/MM').format(sinc.ultimaSincronizacion!)} a las ${DateFormat('HH:mm').format(sinc.ultimaSincronizacion!)}');
     return Container(
       width: double.infinity,
-      color: !sinc.hayRed ? esquema.errorContainer : esquema.surfaceContainerHighest,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: sinRed ? const Color(0xFFFDF1E0) : Marca.tealClaro,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
       child: Row(children: [
-        Icon(!sinc.hayRed ? Icons.cloud_off : Icons.cloud_done_outlined, size: 18),
+        Icon(sinRed ? Icons.cloud_off_outlined : Icons.cloud_done_outlined, size: 18, color: sinRed ? Marca.ambar : Marca.brand),
         const SizedBox(width: 8),
-        Expanded(child: Text(texto, style: Theme.of(context).textTheme.bodySmall)),
+        Expanded(
+          child: Text(texto, style: TextStyle(fontSize: 13, color: sinRed ? Marca.ambar : Marca.brand, fontWeight: FontWeight.w600)),
+        ),
       ]),
     );
   }
@@ -138,44 +172,57 @@ class _TarjetaVerificacion extends StatelessWidget {
   final Verificacion v;
   const _TarjetaVerificacion({required this.v});
 
-  Color _colorEstado(ColorScheme c) => switch (v.estado) {
-        'in_field' => Colors.orange,
-        'approved' || 'approved_obs' => Colors.green,
-        'rejected' || 'cancelled' => c.error,
-        _ => c.primary,
-      };
-
   @override
   Widget build(BuildContext context) {
-    final esquema = Theme.of(context).colorScheme;
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: ListTile(
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PantallaVerificacion(id: v.id))),
-        leading: CircleAvatar(
-          backgroundColor: _colorEstado(esquema).withValues(alpha: 0.15),
-          child: Icon(Icons.assignment_outlined, color: _colorEstado(esquema)),
-        ),
-        title: Text('${v.referencia}  ·  ${v.vendedor.nombre}', maxLines: 1, overflow: TextOverflow.ellipsis),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(v.producto.nombre, maxLines: 1, overflow: TextOverflow.ellipsis),
-            Text(
-              'Compra: ${v.comprador.nombre}'
-              '${v.despachoEta != null ? '  ·  Camión: ${DateFormat('dd/MM HH:mm').format(v.despachoEta!)}' : ''}',
-              style: Theme.of(context).textTheme.bodySmall,
+    final (_, colorEstado) = Marca.insignia(v.estado);
+    return Tarjeta(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PantallaVerificacion(id: v.id))),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(v.referencia,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Marca.navy)),
+              ),
+              Insignia(estado: v.estado, texto: v.estadoEtiqueta),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(v.producto.nombre, maxLines: 2, overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Marca.tinta)),
+          const SizedBox(height: 10),
+          _Dato(icono: Icons.water_outlined, texto: v.vendedor.nombre),
+          _Dato(icono: Icons.factory_outlined, texto: v.comprador.nombre),
+          if (v.despachoEta != null)
+            _Dato(
+              icono: Icons.local_shipping_outlined,
+              texto: 'Camión: ${DateFormat('dd/MM').format(v.despachoEta!)} a las ${DateFormat('HH:mm').format(v.despachoEta!)}',
+              color: colorEstado,
             ),
-          ],
-        ),
-        trailing: Chip(
-          label: Text(v.estadoEtiqueta, style: const TextStyle(fontSize: 11)),
-          visualDensity: VisualDensity.compact,
-          backgroundColor: _colorEstado(esquema).withValues(alpha: 0.12),
-          side: BorderSide.none,
-        ),
-        isThreeLine: true,
+        ],
       ),
     );
   }
+}
+
+class _Dato extends StatelessWidget {
+  final IconData icono;
+  final String texto;
+  final Color? color;
+  const _Dato({required this.icono, required this.texto, this.color});
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Row(children: [
+          Icon(icono, size: 16, color: Marca.gris),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(texto, maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 13.5, color: color ?? Marca.tintaSuave)),
+          ),
+        ]),
+      );
 }

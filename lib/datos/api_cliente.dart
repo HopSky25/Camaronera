@@ -32,7 +32,7 @@ class ApiCliente {
         'Authorization': 'Bearer $clave',
         'Accept': 'application/json',
         'Content-Type': 'application/json',
-        if (idempotencia != null) 'Idempotency-Key': idempotencia,
+        'Idempotency-Key': ?idempotencia,
       };
 
   Uri _uri(String ruta, [Map<String, String>? params]) =>

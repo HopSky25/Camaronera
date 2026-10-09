@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
 import '../datos/sincronizador.dart';
+import '../tema.dart';
 
 /// Fotos de campo. Se guardan comprimidas en el teléfono. La API de
 /// CamaronMarket todavía no recibe archivos: cuando exista el endpoint, la
@@ -52,12 +53,12 @@ class _PantallaFotosState extends State<PantallaFotos> {
     return Scaffold(
       appBar: AppBar(title: const Text('Fotos de campo')),
       body: _rutas.isEmpty
-          ? const Center(child: Text('Todavía no hay fotos.'))
+          ? const Center(child: Text('Todavía no hay fotos de este lote.', style: TextStyle(color: Marca.tintaSuave)))
           : GridView.builder(
               padding: const EdgeInsets.all(8),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 6, mainAxisSpacing: 6),
               itemCount: _rutas.length,
-              itemBuilder: (_, i) => Image.file(File(_rutas[i]), fit: BoxFit.cover),
+              itemBuilder: (_, i) => ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.file(File(_rutas[i]), fit: BoxFit.cover)),
             ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _tomar,

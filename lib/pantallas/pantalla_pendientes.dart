@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../datos/sincronizador.dart';
+import '../tema.dart';
 import '../modelos/operacion_pendiente.dart';
 
 /// Lo que todavía no se ha enviado al servidor, con el error si lo hubo.
@@ -22,7 +23,7 @@ class PantallaPendientes extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
           if (ops.isEmpty) {
-            return const Center(child: Text('Todo está enviado.'));
+            return const Center(child: Text('Todo está enviado al servidor.', style: TextStyle(color: Marca.tintaSuave)));
           }
           return ListView.separated(
             itemCount: ops.length,
@@ -33,7 +34,7 @@ class PantallaPendientes extends StatelessWidget {
               return ListTile(
                 leading: Icon(conError ? Icons.error_outline : Icons.schedule,
                     color: conError ? Theme.of(context).colorScheme.error : null),
-                title: Text('${op.descripcion}  ·  ${op.verificacionId.substring(0, 8)}'),
+                title: Text(op.descripcion, style: const TextStyle(fontWeight: FontWeight.w700, color: Marca.navy)),
                 subtitle: Text(
                   '${DateFormat('dd/MM HH:mm').format(op.creadaEn)}'
                   '${conError ? '\n${op.ultimoError} (intentos: ${op.intentos})' : ''}',

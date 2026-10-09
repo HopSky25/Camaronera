@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../datos/sincronizador.dart';
 import '../modelos/verificacion.dart';
+import '../tema.dart';
 
 /// Captura del informe en campo. Todo se guarda en el teléfono al pulsar
 /// Guardar; el envío al servidor lo hace la cola cuando hay internet.
@@ -130,9 +131,9 @@ class _PantallaInformeState extends State<PantallaInforme> {
       body: Form(
         key: _form,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
           children: [
-            _Titulo('Pesos'),
+            const Rotulo('Pesos'),
             TextFormField(controller: _planta, decoration: const InputDecoration(labelText: 'Planta / lugar de pesaje')),
             const SizedBox(height: 10),
             Row(children: [
@@ -155,7 +156,7 @@ class _PantallaInformeState extends State<PantallaInforme> {
               ],
               onChanged: (v) => setState(() => inf.presentacion = v),
             ),
-            _Titulo('Clasificación por talla (una fila por clase)'),
+            const Rotulo('Clasificación por talla (una fila por clase)'),
             for (var i = 0; i < inf.lineas.length; i++) _FilaLinea(
               linea: inf.lineas[i],
               onBorrar: () => setState(() => inf.lineas.removeAt(i)),
@@ -172,7 +173,7 @@ class _PantallaInformeState extends State<PantallaInforme> {
               icon: const Icon(Icons.add),
               label: const Text('Agregar clase'),
             ),
-            _Titulo('Conteos (camarones por libra)'),
+            const Rotulo('Conteos (camarones por libra)'),
             for (var i = 0; i < inf.conteos.length; i++) _FilaConteo(
               conteo: inf.conteos[i],
               onBorrar: () => setState(() => inf.conteos.removeAt(i)),
@@ -182,12 +183,12 @@ class _PantallaInformeState extends State<PantallaInforme> {
               icon: const Icon(Icons.add),
               label: const Text('Agregar conteo'),
             ),
-            _Titulo('Metabisulfito'),
+            const Rotulo('Metabisulfito'),
             TextFormField(controller: _ppm, keyboardType: numero, validator: positivo,
                 decoration: const InputDecoration(labelText: 'ppm')),
             const SizedBox(height: 10),
             TextFormField(controller: _ppmNotas, decoration: const InputDecoration(labelText: 'Notas')),
-            _Titulo('Sabor'),
+            const Rotulo('Sabor'),
             DropdownButtonFormField<String>(
               initialValue: inf.sabor,
               decoration: const InputDecoration(labelText: 'Resultado'),
@@ -201,7 +202,7 @@ class _PantallaInformeState extends State<PantallaInforme> {
             ),
             const SizedBox(height: 10),
             TextFormField(controller: _saborNotas, decoration: const InputDecoration(labelText: 'Notas de sabor')),
-            _Titulo('Gramaje'),
+            const Rotulo('Gramaje'),
             Row(children: [
               Expanded(child: TextFormField(controller: _gFinca, keyboardType: numero, validator: positivo,
                   decoration: const InputDecoration(labelText: 'Finca (g)'))),
@@ -212,17 +213,19 @@ class _PantallaInformeState extends State<PantallaInforme> {
               Expanded(child: TextFormField(controller: _gPlanta2, keyboardType: numero, validator: positivo,
                   decoration: const InputDecoration(labelText: 'Planta 2 (g)'))),
             ]),
-            _Titulo('Incidencias'),
+            const Rotulo('Incidencias'),
             TextFormField(controller: _incidencias, maxLines: 3,
                 decoration: const InputDecoration(labelText: 'Lo que haya que dejar por escrito')),
-            _Titulo('Ubicación'),
+            const Rotulo('Ubicación'),
             Row(children: [
               Expanded(
                 child: Text(inf.latitud == null
-                    ? 'Sin ubicación'
-                    : '${inf.latitud!.toStringAsFixed(5)}, ${inf.longitud!.toStringAsFixed(5)}'),
+                    ? 'Sin ubicación todavía'
+                    : '${inf.latitud!.toStringAsFixed(5)}, ${inf.longitud!.toStringAsFixed(5)}',
+                    style: const TextStyle(color: Marca.tintaSuave)),
               ),
               OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(minimumSize: const Size(0, 44)),
                 onPressed: _buscandoGps ? null : _tomarGps,
                 icon: _buscandoGps
                     ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
@@ -234,7 +237,7 @@ class _PantallaInformeState extends State<PantallaInforme> {
             FilledButton.icon(
               onPressed: () => _guardar(enviar: true),
               icon: const Icon(Icons.save),
-              label: const Text('Guardar y enviar'),
+              label: const Text('Guardar y enviar cuando haya internet'),
             ),
             const SizedBox(height: 8),
             TextButton(onPressed: () => _guardar(enviar: false), child: const Text('Guardar solo como borrador')),
@@ -244,16 +247,6 @@ class _PantallaInformeState extends State<PantallaInforme> {
       ),
     );
   }
-}
-
-class _Titulo extends StatelessWidget {
-  final String texto;
-  const _Titulo(this.texto);
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(top: 20, bottom: 8),
-        child: Text(texto, style: Theme.of(context).textTheme.titleMedium),
-      );
 }
 
 class _FilaLinea extends StatelessWidget {

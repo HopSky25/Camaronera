@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../datos/sincronizador.dart';
+import '../tema.dart';
 
 /// Veredicto del técnico: aprobar, aprobar con observaciones o rechazar.
 class PantallaVeredicto extends StatefulWidget {
@@ -48,8 +49,9 @@ class _PantallaVeredictoState extends State<PantallaVeredicto> {
     return Scaffold(
       appBar: AppBar(title: const Text('Veredicto')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
         children: [
+          const Rotulo('Resultado de la inspección'),
           RadioGroup<String>(
             groupValue: _veredicto,
             onChanged: (v) => setState(() => _veredicto = v ?? 'approve'),
@@ -60,11 +62,11 @@ class _PantallaVeredictoState extends State<PantallaVeredicto> {
               RadioListTile(value: 'reject', title: Text('Rechazar'), subtitle: Text('No cumple; la compra se cancela')),
             ]),
           ),
-          const SizedBox(height: 12),
+          const Rotulo('Notas'),
           TextField(
             controller: _notas,
             maxLines: 4,
-            decoration: InputDecoration(labelText: 'Notas', errorText: _error),
+            decoration: InputDecoration(labelText: 'Observaciones para el informe', errorText: _error),
             onChanged: (_) => setState(() => _error = null),
           ),
           const SizedBox(height: 24),

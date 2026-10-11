@@ -1,7 +1,8 @@
 # shrimp_user_registry/controllers/main.py
 import base64
+from markupsafe import Markup
 import re
-from odoo import http, _
+from odoo import http, _, fields
 from odoo.http import request
 from odoo.exceptions import ValidationError, UserError
 from odoo.tools.mimetypes import guess_mimetype
@@ -254,6 +255,11 @@ class ShrimpAuthSignupRedirect(AuthSignupHome):
         return super().web_auth_signup(*args, **kw)
 
 
+# Versión vigente de la política de privacidad y los términos. Súbela cuando
+# cambie el texto: así se sabe qué versión aceptó cada socio.
+POLITICA_PRIVACIDAD_VERSION = "2026-10"
+
+
 class ShrimpRegistryController(http.Controller):
 
     @http.route("/register", type="http", auth="public", website=True, sitemap=True)
@@ -327,6 +333,10 @@ class ShrimpRegistryController(http.Controller):
             # -----------------------------
             # 1. VALIDACIONES BÁSICAS
             # -----------------------------
+            if not (post.get("acepto_privacidad") or "").strip():
+                raise ValidationError(
+                    "Para crear la cuenta tienes que leer y aceptar la Política de "
+                    "privacidad y los Términos de uso.")
             if not user_type:
                 raise ValidationError(_("Debe seleccionar el tipo de usuario."))
 
@@ -414,6 +424,11 @@ class ShrimpRegistryController(http.Controller):
             # Hook de extension: otros modulos (p. ej. shrimp_verification)
             # aportan aqui los campos propios de su rol y sus validaciones.
             partner_vals.update(self._extra_partner_vals(user_type, post))
+            # Consentimiento informado (LOPDP): queda registrado con fecha y versión.
+            partner_vals.update({
+                "shrimp_privacy_accepted_at": fields.Datetime.now(),
+                "shrimp_privacy_version": POLITICA_PRIVACIDAD_VERSION,
+            })
 
             # -----------------------------
             # 4. CREACIÓN TRANSACCIONAL
@@ -678,3 +693,52 @@ class ShrimpRegistryController(http.Controller):
             domain += [("role", "=", "all")]
         certs = request.env["shrimp.certificate"].sudo().search(domain, order="sequence, name")
         return [{"ref": c.uuid_ref, "name": c.name, "issuer": c.issuer} for c in certs]
+
+
+
+class ShrimpDatosPersonales(http.Controller):
+    """Páginas legales y canal de derechos del titular (LOPDP)."""
+
+    @http.route("/privacidad", type="http", auth="public", website=True, sitemap=True)
+    def privacidad(self, **kw):
+        return request.render("shrimp_user_registry.pagina_privacidad",
+                              {"version": POLITICA_PRIVACIDAD_VERSION, "dpo_email": self._dpo_email()})
+
+    @http.route("/terminos", type="http", auth="public", website=True, sitemap=True)
+    def terminos(self, **kw):
+        return request.render("shrimp_user_registry.pagina_terminos",
+                              {"version": POLITICA_PRIVACIDAD_VERSION, "dpo_email": self._dpo_email()})
+
+    @http.route("/my/datos", type="http", auth="user", website=True)
+    def mis_datos(self, **kw):
+        socio = request.env.user.partner_id.sudo()
+        return request.render("shrimp_user_registry.pagina_mis_datos", {
+            "socio": socio, "dpo_email": self._dpo_email(), "enviado": kw.get("ok"),
+            "version": POLITICA_PRIVACIDAD_VERSION,
+        })
+
+    @http.route("/my/datos/solicitar", type="http", auth="user", website=True, methods=["POST"], csrf=True)
+    def solicitar(self, tipo=None, detalle=None, **kw):
+        """Registra la solicitud (acceso, rectificación, eliminación, portabilidad
+        u oposición) en el historial del socio y avisa al responsable."""
+        tipos = {"acceso": "Acceso: copia de mis datos", "rectificacion": "Rectificación de datos",
+                 "eliminacion": "Eliminación de mi cuenta y datos", "portabilidad": "Portabilidad de mis datos",
+                 "oposicion": "Oposición a un tratamiento"}
+        if tipo not in tipos:
+            return request.redirect("/my/datos")
+        socio = request.env.user.partner_id.sudo()
+        cuerpo = "<p><b>Solicitud LOPDP: %s</b></p><p>%s</p><p>Solicitante: %s (%s). Plazo legal de respuesta: 15 días.</p>" % (
+            tipos[tipo], (detalle or "").strip() or "Sin detalle", socio.name, request.env.user.login)
+        socio.message_post(body=Markup(cuerpo), subject="Solicitud de derechos: %s" % tipos[tipo],
+                           message_type="comment", subtype_xmlid="mail.mt_note")
+        dpo = self._dpo_email()
+        if dpo:
+            request.env["mail.mail"].sudo().create({
+                "subject": "[CamaronMarket] Solicitud LOPDP de %s: %s" % (socio.name, tipos[tipo]),
+                "email_to": dpo, "body_html": cuerpo, "auto_delete": True,
+            }).send(raise_exception=False)
+        return request.redirect("/my/datos?ok=1")
+
+    @staticmethod
+    def _dpo_email():
+        return request.env["ir.config_parameter"].sudo().get_param("shrimp.dpo_email", "datos@camaronmarket.com")

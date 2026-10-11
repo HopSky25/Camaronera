@@ -43,6 +43,13 @@ class ResPartner(models.Model):
     )
 
     # Básicos (registro)
+    # Protección de datos (LOPDP): cuándo y qué versión de la política aceptó
+    # el socio al registrarse. Lo escribe el registro público; en el backoffice
+    # es solo lectura.
+    shrimp_privacy_accepted_at = fields.Datetime(
+        string="Política de privacidad aceptada el", readonly=True, copy=False)
+    shrimp_privacy_version = fields.Char(
+        string="Versión de la política aceptada", readonly=True, copy=False, size=16)
     vat_or_id = fields.Char(string="RUC o Cédula", index=True)
 
     # Aprobación interna de la cuenta. Los roles con poder operativo sobre

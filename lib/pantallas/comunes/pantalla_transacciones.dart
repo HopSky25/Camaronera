@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import '../../datos/repositorio.dart';
-import '../../datos/sincronizador.dart';
-import '../../modelos/operacion_pendiente.dart';
 import '../../tema.dart';
 import 'formato.dart';
 import 'lista_remota.dart';
@@ -82,6 +79,8 @@ class TarjetaTransaccion extends StatelessWidget {
 
 /// Detalle de una compra o venta: estado, importes, verificación y
 /// trazabilidad (`GET /transactions/{id}/traceability`: texto + enlace público).
+/// No hay botón de "concluir": la compra pasa sola a confirmada cuando las
+/// dos partes aceptan el informe.
 class PantallaTransaccion extends StatelessWidget {
   final String id;
   const PantallaTransaccion({super.key, required this.id});
@@ -151,16 +150,14 @@ class _DetalleTransaccion extends StatelessWidget {
             ('Verificación', t['needs_verification'] == true ? (t['verification_mode'] == 'declared' ? 'Declarada por las partes' : 'Verificadora de la plataforma') : 'No requiere'),
             if (factura != null) ('Factura del vendedor', '${factura['number'] ?? '—'} · ${fecha(factura['date'])}'),
           ]),
-          if (esComprador && estado == 'pending_acceptance') ...[
+          if (estado == 'pending_acceptance') ...[
             const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: () => _concluir(context),
-              icon: const Icon(Icons.task_alt),
-              label: const Text('Concluir la compra'),
+            Text(
+              esComprador
+                  ? 'La compra se confirma sola cuando tú y el vendedor aceptan el informe de verificación.'
+                  : 'La venta se confirma sola cuando tú y el comprador aceptan el informe de verificación.',
+              style: const TextStyle(fontSize: 12.5, color: Marca.tintaSuave),
             ),
-            const SizedBox(height: 4),
-            const Text('Solo cuando comprador y vendedor ya aceptaron el informe de verificación.',
-                style: TextStyle(fontSize: 12.5, color: Marca.tintaSuave)),
           ],
           const Rotulo('Trazabilidad'),
           if (traza == null)
@@ -222,24 +219,5 @@ class _DetalleTransaccion extends StatelessWidget {
       if (p['size_grade'] != null) 'talla ${p['size_grade']}',
       if (origen['facility'] != null) 'origen ${origen['facility']}',
     ].whereType<Object>().join(' · ');
-  }
-
-  Future<void> _concluir(BuildContext context) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: const Text('Concluir la compra'),
-        content: const Text('Se cierra la compra verificada y aceptada por las dos partes. ¿Continuar?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Concluir')),
-        ],
-      ),
-    );
-    if (ok != true || !context.mounted) return;
-    final r = await context.read<Sincronizador>().ejecutar(TipoOperacion.concluirCompra, t['id'] as String, {});
-    if (!context.mounted) return;
-    avisarResultado(context, r, hecho: 'Compra concluida');
-    if (r.enviado) await recargar();
   }
 }

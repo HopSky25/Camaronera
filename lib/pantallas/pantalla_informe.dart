@@ -3,8 +3,10 @@ import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 
 import '../datos/sincronizador.dart';
+import '../modelos/cuerpos.dart';
 import '../modelos/verificacion.dart';
 import '../tema.dart';
+import 'comunes/widgets.dart';
 
 /// Captura del informe en campo. Todo se guarda en el teléfono al pulsar
 /// Guardar; el envío al servidor lo hace la cola cuando hay internet.
@@ -19,20 +21,31 @@ class _PantallaInformeState extends State<PantallaInforme> {
   final _form = GlobalKey<FormState>();
   InformeCampo? _inf;
   Verificacion? _v;
+  bool _noEsta = false;
   bool _buscandoGps = false;
+  bool _guardando = false;
 
   // Controladores de texto (uno por campo numérico/texto).
-  late final _planta = TextEditingController();
-  late final _enviadas = TextEditingController();
-  late final _enPlanta = TextEditingController();
-  late final _basura = TextEditingController();
-  late final _ppm = TextEditingController();
-  late final _ppmNotas = TextEditingController();
-  late final _saborNotas = TextEditingController();
-  late final _gFinca = TextEditingController();
-  late final _gPlanta1 = TextEditingController();
-  late final _gPlanta2 = TextEditingController();
-  late final _incidencias = TextEditingController();
+  final _planta = TextEditingController();
+  final _enviadas = TextEditingController();
+  final _enPlanta = TextEditingController();
+  final _basura = TextEditingController();
+  final _ppm = TextEditingController();
+  final _ppmNotas = TextEditingController();
+  final _saborNotas = TextEditingController();
+  final _gFinca = TextEditingController();
+  final _gPlanta1 = TextEditingController();
+  final _gPlanta2 = TextEditingController();
+  final _incidencias = TextEditingController();
+  final _larvaCantidad = TextEditingController();
+  final _larvaSupervivencia = TextEditingController();
+  final _larvaTamano = TextEditingController();
+  final _larvaNotas = TextEditingController();
+
+  List<TextEditingController> get _controladores => [
+        _planta, _enviadas, _enPlanta, _basura, _ppm, _ppmNotas, _saborNotas, _gFinca, _gPlanta1, _gPlanta2, _incidencias,
+        _larvaCantidad, _larvaSupervivencia, _larvaTamano, _larvaNotas,
+      ];
 
   @override
   void initState() {
@@ -40,10 +53,23 @@ class _PantallaInformeState extends State<PantallaInforme> {
     _cargar();
   }
 
+  @override
+  void dispose() {
+    for (final c in _controladores) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
   Future<void> _cargar() async {
     final sinc = context.read<Sincronizador>();
-    _v = sinc.bandeja.firstWhere((e) => e.id == widget.id);
-    final inf = await sinc.informeDe(_v!);
+    final v = sinc.bandeja.where((e) => e.id == widget.id).firstOrNull;
+    if (v == null) {
+      if (mounted) setState(() => _noEsta = true);
+      return;
+    }
+    final inf = await sinc.informeDe(v);
+    if (!mounted) return;
     String t(double? d) => d == null ? '' : (d % 1 == 0 ? d.toInt().toString() : d.toString());
     _planta.text = inf.plantaNombre ?? '';
     _enviadas.text = t(inf.librasEnviadas);
@@ -56,60 +82,91 @@ class _PantallaInformeState extends State<PantallaInforme> {
     _gPlanta1.text = t(inf.gramosPlanta1);
     _gPlanta2.text = t(inf.gramosPlanta2);
     _incidencias.text = inf.incidencias ?? '';
-    setState(() => _inf = inf);
+    _larvaCantidad.text = t(inf.larvaCantidad);
+    _larvaSupervivencia.text = t(inf.larvaSupervivencia);
+    _larvaTamano.text = t(inf.larvaTamanoMg);
+    _larvaNotas.text = inf.larvaSanidadNotas ?? '';
+    setState(() {
+      _v = v;
+      _inf = inf;
+    });
   }
 
-  double? _d(TextEditingController c) => double.tryParse(c.text.replaceAll(',', '.').trim());
-
-  void _volcar() {
-    final inf = _inf!;
+  void _volcar(InformeCampo inf) {
     inf.plantaNombre = _planta.text.trim().isEmpty ? null : _planta.text.trim();
-    inf.librasEnviadas = _d(_enviadas);
-    inf.librasPlanta = _d(_enPlanta);
-    inf.librasBasura = _d(_basura);
-    inf.metabisulfitoPpm = _d(_ppm);
+    inf.librasEnviadas = numeroEscrito(_enviadas.text);
+    inf.librasPlanta = numeroEscrito(_enPlanta.text);
+    inf.librasBasura = numeroEscrito(_basura.text);
+    inf.metabisulfitoPpm = numeroEscrito(_ppm.text);
     inf.metabisulfitoNotas = _ppmNotas.text.trim();
     inf.saborNotas = _saborNotas.text.trim();
-    inf.gramosFinca = _d(_gFinca);
-    inf.gramosPlanta1 = _d(_gPlanta1);
-    inf.gramosPlanta2 = _d(_gPlanta2);
+    inf.gramosFinca = numeroEscrito(_gFinca.text);
+    inf.gramosPlanta1 = numeroEscrito(_gPlanta1.text);
+    inf.gramosPlanta2 = numeroEscrito(_gPlanta2.text);
     inf.incidencias = _incidencias.text.trim();
+    inf.larvaCantidad = numeroEscrito(_larvaCantidad.text);
+    inf.larvaSupervivencia = numeroEscrito(_larvaSupervivencia.text);
+    inf.larvaTamanoMg = numeroEscrito(_larvaTamano.text);
+    inf.larvaSanidadNotas = _larvaNotas.text.trim();
   }
 
   Future<void> _guardar({required bool enviar}) async {
-    if (!_form.currentState!.validate()) return;
-    _volcar();
-    final clases = _inf!.lineas.map((l) => l.clase).toList();
+    final inf = _inf;
+    final v = _v;
+    if (inf == null || v == null || _guardando) return;
+    if (!(_form.currentState?.validate() ?? false)) {
+      _aviso('Revisa los campos marcados en rojo.');
+      return;
+    }
+    _volcar(inf);
+    final clases = inf.lineas.map((l) => l.clase).toList();
     if (clases.length != clases.toSet().length) {
       _aviso('Solo puede haber una fila por clase (A, B, C).');
       return;
     }
-    await context.read<Sincronizador>().guardarInforme(_v!, _inf!, enviar: enviar);
+    setState(() => _guardando = true);
+    try {
+      await context.read<Sincronizador>().guardarInforme(v, inf, enviar: enviar);
+    } catch (_) {
+      if (mounted) _aviso('No se pudo guardar en el teléfono. Inténtalo otra vez.');
+      return;
+    } finally {
+      if (mounted) setState(() => _guardando = false);
+    }
     if (!mounted) return;
     _aviso(enviar ? 'Informe guardado; se enviará cuando haya internet' : 'Borrador guardado en el teléfono');
     Navigator.pop(context);
   }
 
-  void _aviso(String texto) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(texto)));
+  void _aviso(String texto) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(texto)));
+  }
 
   Future<void> _tomarGps() async {
+    if (_buscandoGps) return;
     setState(() => _buscandoGps = true);
     try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        _aviso('La ubicación del teléfono está apagada. Enciéndela e inténtalo otra vez.');
+        return;
+      }
       var permiso = await Geolocator.checkPermission();
       if (permiso == LocationPermission.denied) permiso = await Geolocator.requestPermission();
       if (permiso == LocationPermission.denied || permiso == LocationPermission.deniedForever) {
-        _aviso('Sin permiso de ubicación');
+        _aviso('Sin permiso de ubicación. Actívalo en los ajustes del teléfono.');
         return;
       }
       final pos = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, timeLimit: Duration(seconds: 25)),
       );
+      if (!mounted) return;
       setState(() {
-        _inf!.latitud = pos.latitude;
-        _inf!.longitud = pos.longitude;
+        _inf?.latitud = pos.latitude;
+        _inf?.longitud = pos.longitude;
       });
-    } catch (e) {
-      _aviso('No se pudo leer el GPS: $e');
+    } catch (_) {
+      _aviso('No se pudo leer el GPS. Sal a cielo abierto e inténtalo otra vez.');
     } finally {
       if (mounted) setState(() => _buscandoGps = false);
     }
@@ -117,22 +174,70 @@ class _PantallaInformeState extends State<PantallaInforme> {
 
   @override
   Widget build(BuildContext context) {
+    if (_noEsta) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Informe de campo')),
+        body: const VacioLista(texto: 'Esta verificación ya no está en tu bandeja.'),
+      );
+    }
     final inf = _inf;
-    if (inf == null) return Scaffold(appBar: AppBar(), body: const Center(child: CircularProgressIndicator()));
+    final v = _v;
+    if (inf == null || v == null) {
+      return Scaffold(appBar: AppBar(), body: const Center(child: CircularProgressIndicator()));
+    }
     final numero = const TextInputType.numberWithOptions(decimal: true);
     String? positivo(String? s) {
       if (s == null || s.trim().isEmpty) return null;
-      final d = double.tryParse(s.replaceAll(',', '.'));
-      return d == null || d < 0 ? 'Número no válido' : null;
+      final d = numeroEscrito(s);
+      return d == null || d < 0 ? 'Escribe un número' : null;
     }
 
+    String? porcentaje(String? s) {
+      if (s == null || s.trim().isEmpty) return null;
+      final d = numeroEscrito(s);
+      return d == null || d < 0 || d > 100 ? 'Entre 0 y 100' : null;
+    }
+
+    // A la larva (scope larvae) el servidor le pide cantidad, supervivencia,
+    // tamaño y sanidad; no tallas, metabisulfito ni sabor.
+    final larva = v.esLarva;
     return Scaffold(
-      appBar: AppBar(title: Text('Informe · ${_v!.referencia}')),
+      appBar: AppBar(title: Text('Informe · ${v.referencia}')),
       body: Form(
         key: _form,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
           children: [
+            if (larva) ...[
+              const Rotulo('Larva'),
+              TextFormField(controller: _planta, decoration: const InputDecoration(labelText: 'Laboratorio / lugar de la revisión')),
+              const SizedBox(height: 10),
+              TextFormField(controller: _larvaCantidad, keyboardType: numero, validator: positivo,
+                  decoration: const InputDecoration(labelText: 'Cantidad verificada (larvas)')),
+              const SizedBox(height: 10),
+              Row(children: [
+                Expanded(child: TextFormField(controller: _larvaSupervivencia, keyboardType: numero, validator: porcentaje,
+                    decoration: const InputDecoration(labelText: 'Supervivencia (%)'))),
+                const SizedBox(width: 10),
+                Expanded(child: TextFormField(controller: _larvaTamano, keyboardType: numero, validator: positivo,
+                    decoration: const InputDecoration(labelText: 'Tamaño promedio (mg)'))),
+              ]),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<String>(
+                initialValue: inf.larvaSanidad,
+                decoration: const InputDecoration(labelText: 'Estado sanitario'),
+                items: const [
+                  DropdownMenuItem(value: 'excellent', child: Text('Excelente')),
+                  DropdownMenuItem(value: 'good', child: Text('Bueno')),
+                  DropdownMenuItem(value: 'acceptable', child: Text('Aceptable')),
+                  DropdownMenuItem(value: 'rejected', child: Text('Rechazado')),
+                ],
+                onChanged: (v) => setState(() => inf.larvaSanidad = v),
+              ),
+              const SizedBox(height: 10),
+              TextFormField(controller: _larvaNotas, maxLines: 2, decoration: const InputDecoration(labelText: 'Notas de sanidad')),
+            ],
+            if (!larva) ...[
             const Rotulo('Pesos'),
             TextFormField(controller: _planta, decoration: const InputDecoration(labelText: 'Planta / lugar de pesaje')),
             const SizedBox(height: 10),
@@ -157,27 +262,31 @@ class _PantallaInformeState extends State<PantallaInforme> {
               onChanged: (v) => setState(() => inf.presentacion = v),
             ),
             const Rotulo('Clasificación por talla (una fila por clase)'),
-            for (var i = 0; i < inf.lineas.length; i++) _FilaLinea(
-              linea: inf.lineas[i],
-              onBorrar: () => setState(() => inf.lineas.removeAt(i)),
-              onCambio: () => setState(() {}),
-            ),
+            for (final linea in inf.lineas)
+              _FilaLinea(
+                key: ObjectKey(linea),
+                linea: linea,
+                onBorrar: () => setState(() => inf.lineas.remove(linea)),
+                onCambio: () => setState(() {}),
+              ),
             OutlinedButton.icon(
               onPressed: inf.lineas.length >= 3
                   ? null
                   : () => setState(() {
                         final usadas = inf.lineas.map((l) => l.clase).toSet();
-                        final libre = ['a', 'b', 'c'].firstWhere((c) => !usadas.contains(c));
+                        final libre = ['a', 'b', 'c'].where((c) => !usadas.contains(c)).firstOrNull ?? 'a';
                         inf.lineas.add(LineaClasificacion(clase: libre, talla: '', libras: 0));
                       }),
               icon: const Icon(Icons.add),
               label: const Text('Agregar clase'),
             ),
             const Rotulo('Conteos (camarones por libra)'),
-            for (var i = 0; i < inf.conteos.length; i++) _FilaConteo(
-              conteo: inf.conteos[i],
-              onBorrar: () => setState(() => inf.conteos.removeAt(i)),
-            ),
+            for (final conteo in inf.conteos)
+              _FilaConteo(
+                key: ObjectKey(conteo),
+                conteo: conteo,
+                onBorrar: () => setState(() => inf.conteos.remove(conteo)),
+              ),
             OutlinedButton.icon(
               onPressed: () => setState(() => inf.conteos.add(Conteo(valor: 0))),
               icon: const Icon(Icons.add),
@@ -213,19 +322,21 @@ class _PantallaInformeState extends State<PantallaInforme> {
               Expanded(child: TextFormField(controller: _gPlanta2, keyboardType: numero, validator: positivo,
                   decoration: const InputDecoration(labelText: 'Planta 2 (g)'))),
             ]),
+            ],
             const Rotulo('Incidencias'),
             TextFormField(controller: _incidencias, maxLines: 3,
                 decoration: const InputDecoration(labelText: 'Lo que haya que dejar por escrito')),
             const Rotulo('Ubicación'),
             Row(children: [
               Expanded(
-                child: Text(inf.latitud == null
-                    ? 'Sin ubicación todavía'
-                    : '${inf.latitud!.toStringAsFixed(5)}, ${inf.longitud!.toStringAsFixed(5)}',
+                child: Text(
+                    inf.latitud == null || inf.longitud == null
+                        ? 'Sin ubicación todavía'
+                        : '${inf.latitud!.toStringAsFixed(5)}, ${inf.longitud!.toStringAsFixed(5)}',
                     style: const TextStyle(color: Marca.tintaSuave)),
               ),
               OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(minimumSize: const Size(0, 44)),
+                style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48)),
                 onPressed: _buscandoGps ? null : _tomarGps,
                 icon: _buscandoGps
                     ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
@@ -235,12 +346,14 @@ class _PantallaInformeState extends State<PantallaInforme> {
             ]),
             const SizedBox(height: 24),
             FilledButton.icon(
-              onPressed: () => _guardar(enviar: true),
-              icon: const Icon(Icons.save),
-              label: const Text('Guardar y enviar cuando haya internet'),
+              onPressed: _guardando ? null : () => _guardar(enviar: true),
+              icon: _guardando
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.save),
+              label: Text(_guardando ? 'Guardando…' : 'Guardar y enviar cuando haya internet'),
             ),
             const SizedBox(height: 8),
-            TextButton(onPressed: () => _guardar(enviar: false), child: const Text('Guardar solo como borrador')),
+            TextButton(onPressed: _guardando ? null : () => _guardar(enviar: false), child: const Text('Guardar solo como borrador')),
             const SizedBox(height: 24),
           ],
         ),
@@ -253,7 +366,7 @@ class _FilaLinea extends StatelessWidget {
   final LineaClasificacion linea;
   final VoidCallback onBorrar;
   final VoidCallback onCambio;
-  const _FilaLinea({required this.linea, required this.onBorrar, required this.onCambio});
+  const _FilaLinea({super.key, required this.linea, required this.onBorrar, required this.onCambio});
 
   @override
   Widget build(BuildContext context) {
@@ -282,7 +395,7 @@ class _FilaLinea extends StatelessWidget {
             initialValue: linea.talla,
             decoration: const InputDecoration(labelText: 'Talla', hintText: '21/25'),
             onChanged: (v) => linea.talla = v.trim(),
-            validator: (v) => (v == null || v.trim().isEmpty) ? 'Falta' : null,
+            validator: (v) => (v == null || v.trim().isEmpty) ? 'Falta la talla' : null,
           ),
         ),
         const SizedBox(width: 8),
@@ -291,11 +404,11 @@ class _FilaLinea extends StatelessWidget {
             initialValue: linea.libras == 0 ? '' : linea.libras.toString(),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: const InputDecoration(labelText: 'Libras'),
-            onChanged: (v) => linea.libras = double.tryParse(v.replaceAll(',', '.')) ?? 0,
-            validator: (v) => (double.tryParse((v ?? '').replaceAll(',', '.')) ?? 0) <= 0 ? '> 0' : null,
+            onChanged: (v) => linea.libras = numeroEscrito(v) ?? 0,
+            validator: (v) => (numeroEscrito(v) ?? 0) <= 0 ? 'Más de 0' : null,
           ),
         ),
-        IconButton(onPressed: onBorrar, icon: const Icon(Icons.delete_outline)),
+        IconButton(tooltip: 'Quitar esta clase', onPressed: onBorrar, icon: const Icon(Icons.delete_outline)),
       ]),
     );
   }
@@ -304,7 +417,7 @@ class _FilaLinea extends StatelessWidget {
 class _FilaConteo extends StatelessWidget {
   final Conteo conteo;
   final VoidCallback onBorrar;
-  const _FilaConteo({required this.conteo, required this.onBorrar});
+  const _FilaConteo({super.key, required this.conteo, required this.onBorrar});
 
   @override
   Widget build(BuildContext context) {
@@ -317,8 +430,8 @@ class _FilaConteo extends StatelessWidget {
             initialValue: conteo.valor == 0 ? '' : conteo.valor.toString(),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: const InputDecoration(labelText: 'Camarones/lb'),
-            onChanged: (v) => conteo.valor = double.tryParse(v.replaceAll(',', '.')) ?? 0,
-            validator: (v) => (double.tryParse((v ?? '').replaceAll(',', '.')) ?? 0) <= 0 ? '> 0' : null,
+            onChanged: (v) => conteo.valor = numeroEscrito(v) ?? 0,
+            validator: (v) => (numeroEscrito(v) ?? 0) <= 0 ? 'Más de 0' : null,
           ),
         ),
         const SizedBox(width: 8),
@@ -329,7 +442,7 @@ class _FilaConteo extends StatelessWidget {
             onChanged: (v) => conteo.nota = v,
           ),
         ),
-        IconButton(onPressed: onBorrar, icon: const Icon(Icons.delete_outline)),
+        IconButton(tooltip: 'Quitar este conteo', onPressed: onBorrar, icon: const Icon(Icons.delete_outline)),
       ]),
     );
   }

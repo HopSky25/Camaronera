@@ -30,6 +30,7 @@ class _PantallaClaveState extends State<PantallaClave> {
   }
 
   Future<void> _conectar() async {
+    if (_ocupado) return;
     if (_clave.text.trim().isEmpty) {
       setState(() => _error = 'Pega la clave de API que te entregó tu empresa.');
       return;

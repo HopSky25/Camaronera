@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../datos/repositorio.dart';
 import '../../datos/sincronizador.dart';
+import '../../modelos/cuerpos.dart';
 import '../../modelos/operacion_pendiente.dart';
 import '../../tema.dart';
 import '../comunes/formato.dart';
@@ -135,15 +136,14 @@ class _PantallaComprarReservaState extends State<_PantallaComprarReserva> {
   bool _ocupado = false;
 
   Future<void> _comprar() async {
+    if (_ocupado) return;
     if (_modo == 'platform' && _verificadora == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Elige la verificadora.')));
       return;
     }
     setState(() => _ocupado = true);
-    final r = await context.read<Sincronizador>().ejecutar(TipoOperacion.comprarReserva, widget.m['id'] as String, {
-      'verification_mode': _modo,
-      if (_modo == 'platform') 'verifier': _verificadora,
-    });
+    final r = await context.read<Sincronizador>().ejecutar(TipoOperacion.comprarReserva, '${widget.m['id']}',
+        cuerpoCompraReserva(modo: _modo, verificadoraId: _verificadora));
     if (!mounted) return;
     setState(() => _ocupado = false);
     avisarResultado(context, r, hecho: 'Compra registrada: queda pendiente de verificación');
@@ -188,7 +188,7 @@ class _PantallaComprarReservaState extends State<_PantallaComprarReserva> {
                         groupValue: _verificadora,
                         onChanged: (v) => setState(() => _verificadora = v),
                         child: Column(children: [
-                          for (final v in r.datos)
+                          for (final v in r.datos.where((v) => v['id'] is String))
                             RadioListTile<String>(value: v['id'] as String, title: Text((v['name'] ?? '') as String), subtitle: v['province'] == null ? null : Text('${v['province']}')),
                         ]),
                       ),

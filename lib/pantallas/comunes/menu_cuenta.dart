@@ -107,19 +107,20 @@ class MenuCuenta extends StatelessWidget {
 }
 
 /// "Mis datos y privacidad" vive en el portal: `https://<servidor>/my/datos`
-Future<void> abrirMisDatos(BuildContext context, String servidor) async {
-  final uri = Uri.parse('$servidor/my/datos');
-  final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-  if (!ok && context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('No se pudo abrir $uri')));
-  }
-}
+Future<void> abrirMisDatos(BuildContext context, String servidor) => abrirEnlace(context, '$servidor/my/datos');
 
+/// Abre una dirección en el navegador del teléfono; si no hay navegador o la
+/// dirección no vale, lo dice sin tumbar la app.
 Future<void> abrirEnlace(BuildContext context, String url) async {
   final uri = Uri.tryParse(url);
-  final ok = uri != null && await launchUrl(uri, mode: LaunchMode.externalApplication);
+  var ok = false;
+  try {
+    ok = uri != null && await launchUrl(uri, mode: LaunchMode.externalApplication);
+  } catch (_) {
+    ok = false;
+  }
   if (!ok && context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('No se pudo abrir $url')));
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No se pudo abrir el enlace en el navegador.')));
   }
 }
 
@@ -132,11 +133,13 @@ class FranjaPerfil extends StatelessWidget {
     final sesion = context.watch<Sesion>();
     final rol = sesion.perfil ?? '';
     final puedeCambiar = !sesion.esTecnico && (sesion.yo?.aprobados.length ?? 0) > 1;
+    final avisoCaduca = sesion.avisoCaducidadProxima;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
       decoration: const BoxDecoration(gradient: Marca.degradado),
-      child: Row(children: [
+      child: Column(children: [
+        Row(children: [
         Container(
           width: 44,
           height: 44,
@@ -167,6 +170,16 @@ class FranjaPerfil extends StatelessWidget {
             },
             icon: const Icon(Icons.swap_horiz, size: 18),
             label: const Text('Cambiar'),
+          ),
+        ]),
+        if (avisoCaduca != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Row(children: [
+              const Icon(Icons.timer_outlined, size: 16, color: Color(0xFFFFE08A)),
+              const SizedBox(width: 6),
+              Expanded(child: Text(avisoCaduca, style: const TextStyle(color: Color(0xFFFFE08A), fontSize: 12.5, fontWeight: FontWeight.w600))),
+            ]),
           ),
       ]),
     );

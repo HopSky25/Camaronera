@@ -32,6 +32,7 @@ class _PantallaInicioSesionState extends State<PantallaInicioSesion> {
   }
 
   Future<void> _entrar() async {
+    if (_ocupado) return; // el teclado puede repetir "Entrar" mientras se procesa
     if (_correo.text.trim().isEmpty || _contrasena.text.isEmpty) {
       setState(() => _error = 'Escribe tu correo y tu contraseña.');
       return;

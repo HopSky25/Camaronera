@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../datos/repositorio.dart';
 import '../../datos/sincronizador.dart';
+import '../../modelos/cuerpos.dart';
 import '../../modelos/operacion_pendiente.dart';
 import '../../modelos/verificacion.dart';
 import '../../tema.dart';
@@ -67,7 +68,7 @@ class _PantallaInformesState extends State<PantallaInformes> {
               if (v.esperaAceptacion)
                 Dato(
                   icono: Icons.how_to_vote_outlined,
-                  texto: v.plazoAceptacion == null ? 'Esperando tu decisión' : 'Decidir antes del ${fechaHora(v.plazoAceptacion!.toIso8601String())}',
+                  texto: v.plazoAceptacion == null ? 'Esperando tu decisión' : 'Decidir antes del ${fechaHoraDe(v.plazoAceptacion!)}',
                   color: Marca.ambar,
                 ),
             ],
@@ -181,7 +182,7 @@ class _Detalle extends StatelessWidget {
           const Rotulo('Aceptación de las partes'),
           SeccionDatos(filas: [
             ('Estado', v.aceptacionEtiqueta),
-            if (v.plazoAceptacion != null) ('Plazo', fechaHora(v.plazoAceptacion!.toIso8601String())),
+            if (v.plazoAceptacion != null) ('Plazo', fechaHoraDe(v.plazoAceptacion!)),
             for (final a in posturas.whereType<Map>())
               (
                 a['role'] == 'buyer' ? 'Comprador' : 'Vendedor',
@@ -190,18 +191,19 @@ class _Detalle extends StatelessWidget {
           ]),
           if (v.puedoDecidir) ...[
             const SizedBox(height: 16),
-            FilledButton.icon(
-              style: FilledButton.styleFrom(backgroundColor: Marca.verde),
+            BotonAccion(
+              estilo: FilledButton.styleFrom(backgroundColor: Marca.verde),
               onPressed: () => _decidir(context, 'accept'),
-              icon: const Icon(Icons.check_circle_outline),
-              label: const Text('Aceptar el informe'),
+              icono: Icons.check_circle_outline,
+              texto: 'Aceptar el informe',
             ),
             const SizedBox(height: 10),
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(foregroundColor: Marca.rojo, side: const BorderSide(color: Marca.rojo, width: 1.5)),
+            BotonAccion(
+              relleno: false,
+              estilo: OutlinedButton.styleFrom(foregroundColor: Marca.rojo, side: const BorderSide(color: Marca.rojo, width: 1.5)),
               onPressed: () => _decidir(context, 'reject'),
-              icon: const Icon(Icons.cancel_outlined),
-              label: const Text('Rechazar el informe'),
+              icono: Icons.cancel_outlined,
+              texto: 'Rechazar el informe',
             ),
             const SizedBox(height: 8),
             const AvisoWeb(texto: 'La contraoferta de precio se hace desde el portal web.'),
@@ -244,11 +246,10 @@ class _Detalle extends StatelessWidget {
         ],
       ),
     );
+    final cuerpo = cuerpoAceptacion(decision, motivo.text);
+    motivo.dispose();
     if (ok != true || !context.mounted) return;
-    final r = await context.read<Sincronizador>().ejecutar(TipoOperacion.aceptacionInforme, v.id, {
-      'decision': decision,
-      if (motivo.text.trim().isNotEmpty) 'reason': motivo.text.trim(),
-    });
+    final r = await context.read<Sincronizador>().ejecutar(TipoOperacion.aceptacionInforme, v.id, cuerpo);
     if (!context.mounted) return;
     avisarResultado(context, r, hecho: decision == 'accept' ? 'Informe aceptado' : 'Informe rechazado');
     if (r.enviado) await recargar();

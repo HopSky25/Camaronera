@@ -3,6 +3,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
+import '../modelos/cuerpos.dart';
 import '../modelos/operacion_pendiente.dart';
 import '../modelos/perfil.dart';
 import '../modelos/verificacion.dart';
@@ -30,17 +31,26 @@ class ResultadoEnvio {
 /// Primero se guarda en el teléfono; el envío es aparte. Los perfiles en
 /// línea (camaronera, empacadora, maquilador) usan la misma cola para sus
 /// acciones (aceptar informe, programar despacho, ofertar...).
+///
+/// Orden de envío: el de la cola (el orden en que se hizo cada cosa). Si una
+/// operación es rechazada por el servidor, las siguientes sobre el MISMO
+/// recurso se quedan esperando (asignar → iniciar → informe → veredicto no
+/// se mandan fuera de orden); las de otros recursos siguen.
 class Sincronizador extends ChangeNotifier {
   final BaseLocal _bd;
   final Sesion sesion;
   final _uuid = const Uuid();
 
   ApiCliente? _api;
+  String? _perfil;
   StreamSubscription<List<ConnectivityResult>>? _escuchaRed;
   Future<void>? _enCurso;
 
   List<Verificacion> bandeja = [];
-  int pendientes = 0;
+
+  /// La cola tal como está en el teléfono, en orden de envío.
+  List<OperacionPendiente> cola = [];
+  int get pendientes => cola.length;
   bool sincronizando = false;
   bool hayRed = true;
   String? ultimoMensaje;
@@ -57,8 +67,13 @@ class Sincronizador extends ChangeNotifier {
 
   void _alCambiarSesion() {
     final nuevo = sesion.api;
+    final cambioPerfil = sesion.perfil != _perfil;
+    _perfil = sesion.perfil;
     if (identical(nuevo, _api)) {
-      if (_api != null && _usaBandeja && bandeja.isEmpty) unawaited(sincronizar());
+      // Misma sesión: si cambió el perfil (o acaba de fijarse) se refresca.
+      if (_api != null && cambioPerfil && sesion.perfil != null) {
+        unawaited(recargarLocal().then((_) => sincronizar()));
+      }
       return;
     }
     _api = nuevo;
@@ -71,26 +86,32 @@ class Sincronizador extends ChangeNotifier {
   /// Al abrir la app: carga lo guardado y, si hay sesión, intenta sincronizar.
   Future<void> iniciar() async {
     _api = sesion.api;
-    final guardado = await _bd.leerConfig('ultima_sincronizacion');
-    ultimaSincronizacion = guardado == null ? null : DateTime.tryParse(guardado);
+    _perfil = sesion.perfil;
     await recargarLocal();
     _escuchaRed ??= Connectivity().onConnectivityChanged.listen((estados) {
       final antes = hayRed;
       hayRed = !estados.contains(ConnectivityResult.none);
       notifyListeners();
-      if (hayRed && !antes) sincronizar();
+      if (hayRed && !antes) unawaited(sincronizar());
     });
     if (_api != null) unawaited(sincronizar());
   }
 
   Future<void> recargarLocal() async {
-    bandeja = await _bd.verificaciones();
-    pendientes = await _bd.pendientes();
+    try {
+      bandeja = await _bd.verificaciones();
+      cola = await _bd.cola();
+      final guardado = await _bd.leerConfig('ultima_sincronizacion');
+      ultimaSincronizacion = guardado == null ? null : DateTime.tryParse(guardado)?.toLocal();
+    } catch (e) {
+      debugPrint('No se pudo leer la base local: $e');
+    }
     notifyListeners();
   }
 
   /// 1) Sube la cola en orden. 2) Baja la bandeja (técnico / verificadora).
-  /// Si ya hay una pasada en curso, se espera a esa.
+  /// Si ya hay una pasada en curso, se espera a esa. Nunca lanza: lo que
+  /// pase queda en [ultimoMensaje].
   Future<void> sincronizar() {
     if (_api == null) return Future.value();
     return _enCurso ??= _sincronizar().whenComplete(() => _enCurso = null);
@@ -112,7 +133,10 @@ class Sincronizador extends ChangeNotifier {
       hayRed = false;
       ultimoMensaje = 'Sin internet: lo capturado queda guardado en el teléfono';
     } on ErrorApi catch (e) {
-      ultimoMensaje = e.mensaje;
+      ultimoMensaje = e.esNoAutorizado ? 'La sesión caducó. Vuelve a entrar para enviar lo pendiente.' : e.mensaje;
+    } catch (e) {
+      debugPrint('Fallo al sincronizar: $e');
+      ultimoMensaje = 'No se pudo sincronizar. Inténtalo otra vez.';
     } finally {
       sincronizando = false;
       await recargarLocal();
@@ -120,14 +144,22 @@ class Sincronizador extends ChangeNotifier {
   }
 
   Future<void> _subirCola(ApiCliente api) async {
+    // Recursos con una operación rechazada en esta pasada: las que vienen
+    // después sobre el mismo recurso esperan a que se corrija o descarte.
+    final bloqueados = <String>{};
     for (final op in await _bd.cola()) {
+      if (bloqueados.contains(op.recursoId)) continue;
+      if (op.tipo == TipoOperacion.llegadaCamion && (op.despachoId ?? '').isEmpty) {
+        await _bd.anotarError(op.idLocal!, op.intentos + 1, 'Esta verificación no tiene despacho asociado.');
+        continue;
+      }
       try {
         final resp = op.metodo == 'PATCH'
-            ? await api.patch(op.ruta, op.cuerpo, idempotencia: op.claveIdempotencia)
-            : await api.post(op.ruta, op.cuerpo, idempotencia: op.claveIdempotencia);
+            ? await api.patch(op.ruta, op.cuerpo, idempotencia: op.claveIdempotencia, rol: op.rol)
+            : await api.post(op.ruta, op.cuerpo, idempotencia: op.claveIdempotencia, rol: op.rol);
         await _bd.quitarDeCola(op.idLocal!);
         // La respuesta trae la verificación al día: se guarda en la bandeja.
-        if (resp['id'] != null && op.respondeVerificacion && _usaBandeja) {
+        if (op.respondeVerificacion && _usaBandeja && Verificacion.tieneId(resp)) {
           await _bd.guardarVerificaciones([resp]);
           if (op.tipo == TipoOperacion.informe) {
             await _bd.guardarInformeLocal(op.recursoId, InformeCampo.desdeServidor(resp), modificado: false);
@@ -137,7 +169,13 @@ class Sincronizador extends ChangeNotifier {
         await _bd.anotarError(op.idLocal!, op.intentos + 1, e.mensaje);
         if (e.esDefinitivo) {
           // El servidor rechazó el dato: se deja en la cola con el error a la
-          // vista para que el usuario lo corrija; se sigue con las demás.
+          // vista para que el usuario lo corrija o lo descarte. Lo que dependa
+          // de este recurso espera; lo demás sigue.
+          bloqueados.add(op.recursoId);
+          if (op.tipo == TipoOperacion.iniciarCampo) {
+            // El estado local se había adelantado a "en campo": se revierte.
+            await _bd.cambiarEstadoLocal(op.recursoId, 'assigned');
+          }
           ultimoMensaje = '${op.descripcion}: ${e.mensaje}';
           continue;
         }
@@ -147,13 +185,14 @@ class Sincronizador extends ChangeNotifier {
   }
 
   Future<void> _bajarBandeja(ApiCliente api) async {
-    // La cuenta puede ser de un técnico (ve lo suyo) o de la empresa
-    // verificadora (ve todo lo de su empresa y puede actuar). Se piden ambas
-    // bandejas y se juntan sin repetir.
+    // El técnico ve lo suyo (`role=technician`). La empresa verificadora ve
+    // todo lo de su empresa (`role=verifier`) y, por si además figura como
+    // técnico, también lo asignado a ella. Se juntan sin repetir.
+    final roles = sesion.esTecnico ? const ['technician'] : const ['verifier', 'technician'];
     final porId = <String, Map<String, dynamic>>{};
-    for (final rol in ['technician', 'verifier']) {
+    for (final rol in roles) {
       for (final v in await api.listarTodo('/verifications', params: {'role': rol})) {
-        porId[v['id'] as String] = v;
+        if (Verificacion.tieneId(v)) porId[v['id'] as String] = v;
       }
     }
     final lista = porId.values.toList();
@@ -161,12 +200,14 @@ class Sincronizador extends ChangeNotifier {
     await _bd.conservarSoloVerificaciones(porId.keys);
     // El detalle (pesos, líneas, conteos) solo de las que están abiertas.
     for (final v in lista) {
-      final estado = v['state'] as String? ?? '';
+      final id = v['id'] as String;
+      final estado = jsonTexto(v['state']) ?? '';
       if (const {'received', 'assigned', 'in_field', 'done'}.contains(estado)) {
-        final detalle = await api.get('/verifications/${v['id']}');
+        final detalle = await api.get('/verifications/$id');
+        if (!Verificacion.tieneId(detalle)) continue;
         await _bd.guardarVerificaciones([detalle]);
-        if (await _bd.informeLocal(v['id'] as String) == null) {
-          await _bd.guardarInformeLocal(v['id'] as String, InformeCampo.desdeServidor(detalle), modificado: false);
+        if (await _bd.informeLocal(id) == null) {
+          await _bd.guardarInformeLocal(id, InformeCampo.desdeServidor(detalle), modificado: false);
         }
       }
     }
@@ -182,6 +223,7 @@ class Sincronizador extends ChangeNotifier {
       cuerpo: cuerpo,
       claveIdempotencia: _uuid.v4(),
       creadaEn: DateTime.now(),
+      rol: sesion.rolParaApi,
     ));
     await recargarLocal();
     return idLocal;
@@ -211,32 +253,45 @@ class Sincronizador extends ChangeNotifier {
     unawaited(sincronizar());
   }
 
+  /// Guarda el informe en el teléfono y, si `enviar`, lo pone en la cola.
+  /// Un informe anterior del mismo lote que todavía no salió se reemplaza:
+  /// vale el último guardado.
   Future<void> guardarInforme(Verificacion v, InformeCampo informe, {bool enviar = true}) async {
     await _bd.guardarInformeLocal(v.id, informe, modificado: true);
     if (enviar) {
+      await _bd.quitarDeColaPorTipo(v.id, TipoOperacion.informe);
       await _encolar(TipoOperacion.informe, v.id, informe.aCuerpoApi());
       unawaited(sincronizar());
     }
     await recargarLocal();
   }
 
-  Future<void> darVeredicto(Verificacion v, String veredicto, String notas) async {
-    final estado = {'approve': 'approved', 'approve_obs': 'approved_obs', 'reject': 'rejected'}[veredicto]!;
-    await _bd.cambiarEstadoLocal(v.id, estado);
-    await _encolar(TipoOperacion.veredicto, v.id, {'verdict': veredicto, if (notas.trim().isNotEmpty) 'notes': notas.trim()});
+  /// Veredicto. Antes de encolarlo se comprueba con el informe local lo
+  /// mismo que exige el servidor; devuelve lo que falta (vacío = encolado).
+  /// El estado local NO se adelanta: la bandeja cambia cuando el servidor
+  /// responde.
+  Future<List<String>> darVeredicto(Verificacion v, String veredicto, String notas) async {
+    final informe = await informeDe(v);
+    final faltan = informe.faltantesParaVeredicto(larva: v.esLarva);
+    if (faltan.isNotEmpty) return faltan;
+    await _encolar(TipoOperacion.veredicto, v.id, cuerpoVeredicto(veredicto, notas));
     unawaited(sincronizar());
+    return const [];
   }
 
-  Future<void> registrarLlegadaCamion(Verificacion v, DateTime cuando) async {
-    await _encolar(TipoOperacion.llegadaCamion, v.id, {'actual_arrival': cuando.toUtc().toIso8601String()},
-        despachoId: v.despachoId);
+  /// Llegada del camión. Sin despacho asociado no hay a qué registrarla.
+  Future<bool> registrarLlegadaCamion(Verificacion v, DateTime cuando) async {
+    final despacho = v.despachoId;
+    if (despacho == null || despacho.isEmpty) return false;
+    await _encolar(TipoOperacion.llegadaCamion, v.id, cuerpoLlegadaCamion(cuando), despachoId: despacho);
     unawaited(sincronizar());
+    return true;
   }
 
   // ---------------- acciones de la verificadora ----------------
 
   Future<ResultadoEnvio> asignarTecnico(Verificacion v, String tecnicoId) =>
-      ejecutar(TipoOperacion.asignarTecnico, v.id, {'technician': tecnicoId});
+      ejecutar(TipoOperacion.asignarTecnico, v.id, cuerpoAsignarTecnico(tecnicoId));
 
   /// Técnicos conocidos: los que aparecen asignados en la bandeja de la
   /// empresa (la API no tiene una lista de técnicos; se gestionan en el portal).
@@ -252,7 +307,6 @@ class Sincronizador extends ChangeNotifier {
   Future<InformeCampo> informeDe(Verificacion v) async =>
       await _bd.informeLocal(v.id) ?? InformeCampo.desdeServidor(v.crudo);
 
-  Future<List<OperacionPendiente>> cola() => _bd.cola();
   Future<void> descartarPendiente(int idLocal) async {
     await _bd.quitarDeCola(idLocal);
     await recargarLocal();

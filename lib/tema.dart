@@ -118,12 +118,19 @@ ThemeData temaCamaronMarket() {
         textStyle: const TextStyle(fontFamily: fuente, fontSize: 16, fontWeight: FontWeight.w700),
       ),
     ),
+    // Todo lo que se pulsa mide al menos 48 px de alto: en campo se usa con
+    // los dedos mojados o con guantes.
     textButtonTheme: TextButtonThemeData(
-      style: TextButton.styleFrom(foregroundColor: Marca.brand, textStyle: const TextStyle(fontFamily: fuente, fontWeight: FontWeight.w700)),
+      style: TextButton.styleFrom(
+        foregroundColor: Marca.brand,
+        minimumSize: const Size(48, 48),
+        textStyle: const TextStyle(fontFamily: fuente, fontSize: 15, fontWeight: FontWeight.w700),
+      ),
     ),
     segmentedButtonTheme: SegmentedButtonThemeData(
       style: ButtonStyle(
         visualDensity: VisualDensity.standard,
+        minimumSize: const WidgetStatePropertyAll(Size(0, 48)),
         textStyle: WidgetStatePropertyAll(const TextStyle(fontFamily: fuente, fontSize: 14, fontWeight: FontWeight.w600)),
         backgroundColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? Marca.tealClaro : Colors.white),
         foregroundColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? Marca.brand : Marca.tintaSuave),

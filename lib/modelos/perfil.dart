@@ -22,12 +22,15 @@ class Perfil {
 
   bool get aprobado => estado == 'approved';
 
-  factory Perfil.desde(Map json) => Perfil(
-        rol: (json['role'] ?? '') as String,
-        etiqueta: (json['label'] ?? nombreDePerfil(json['role'] as String? ?? '')) as String,
-        estado: (json['state'] ?? '') as String,
-        activo: json['active'] == true,
-      );
+  factory Perfil.desde(Map json) {
+    final rol = jsonTexto(json['role']) ?? '';
+    return Perfil(
+      rol: rol,
+      etiqueta: jsonTexto(json['label']) ?? nombreDePerfil(rol),
+      estado: jsonTexto(json['state']) ?? '',
+      activo: json['active'] == true,
+    );
+  }
 
   Map<String, dynamic> aJson() => {'role': rol, 'label': etiqueta, 'state': estado, 'active': activo};
 }
@@ -92,14 +95,14 @@ class Yo {
   });
 
   factory Yo.desde(Map<String, dynamic> json) => Yo(
-        id: (json['id'] ?? '') as String,
-        nombre: (json['name'] ?? '') as String,
-        tipo: json['type'] as String?,
-        correo: json['email'] as String?,
+        id: jsonTexto(json['id']) ?? '',
+        nombre: jsonTexto(json['name']) ?? '',
+        tipo: jsonTexto(json['type']),
+        correo: jsonTexto(json['email']),
         esTecnicoDeCampo: json['is_field_technician'] == true,
         empresa: json['company'] is Map ? Referencia.desde(json['company']) : null,
-        perfilActivo: json['active_role'] as String?,
-        perfiles: ((json['roles'] ?? []) as List).map((r) => Perfil.desde(r as Map)).toList(),
+        perfilActivo: jsonTexto(json['active_role']),
+        perfiles: (json['roles'] is List ? json['roles'] as List : const []).whereType<Map>().map(Perfil.desde).toList(),
         crudo: json,
       );
 

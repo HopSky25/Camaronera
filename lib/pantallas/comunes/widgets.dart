@@ -309,6 +309,60 @@ class TarjetaRegistro extends StatelessWidget {
       );
 }
 
+/// Botón que se bloquea mientras corre la acción: evita el doble envío al
+/// pulsar dos veces seguidas. Con `relleno` es un FilledButton; si no, un
+/// OutlinedButton.
+class BotonAccion extends StatefulWidget {
+  final Future<void> Function()? onPressed;
+  final IconData icono;
+  final String texto;
+  final String? textoOcupado;
+  final bool relleno;
+  final ButtonStyle? estilo;
+  const BotonAccion({
+    super.key,
+    required this.onPressed,
+    required this.icono,
+    required this.texto,
+    this.textoOcupado,
+    this.relleno = true,
+    this.estilo,
+  });
+
+  @override
+  State<BotonAccion> createState() => _BotonAccionState();
+}
+
+class _BotonAccionState extends State<BotonAccion> {
+  bool _ocupado = false;
+
+  Future<void> _pulsar() async {
+    if (_ocupado) return;
+    setState(() => _ocupado = true);
+    try {
+      await widget.onPressed?.call();
+    } finally {
+      if (mounted) setState(() => _ocupado = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final icono = _ocupado
+        ? SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2, color: widget.relleno ? Colors.white : null),
+          )
+        : Icon(widget.icono);
+    final etiqueta = Text(_ocupado ? (widget.textoOcupado ?? widget.texto) : widget.texto);
+    final onPressed = widget.onPressed == null || _ocupado ? null : _pulsar;
+    return widget.relleno
+        ? FilledButton.icon(style: widget.estilo, onPressed: onPressed, icon: icono, label: etiqueta)
+        : OutlinedButton.icon(style: widget.estilo, onPressed: onPressed, icon: icono, label: etiqueta);
+  }
+}
+
 /// Avisa del resultado de una acción encolada, con el texto que corresponde.
 void avisarResultado(BuildContext context, ResultadoEnvio r, {required String hecho}) {
   final texto = r.enviado

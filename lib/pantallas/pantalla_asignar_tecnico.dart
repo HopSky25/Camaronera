@@ -11,10 +11,10 @@ import 'comunes/widgets.dart';
 /// La empresa verificadora asigna el técnico de campo:
 /// `POST /verifications/{id}:assign {"technician": "<uuid>"}`.
 ///
-/// La lista de técnicos sale de `GET /me/technicians` → `[{id, name, role,
-/// active}]`. Si el servidor aún no la tiene (o no hay señal), se ofrecen los
-/// técnicos que ya aparecen asignados en la bandeja de la empresa y un campo
-/// para pegar el identificador.
+/// La lista de técnicos sale de `GET /me/technicians` → `{"data": [{id, name,
+/// role, active}]}`. Si no se puede bajar (sin señal, sin permiso), se
+/// ofrecen los técnicos que ya aparecen asignados en la bandeja de la
+/// empresa y un campo para pegar el identificador.
 class PantallaAsignarTecnico extends StatefulWidget {
   final String id;
   const PantallaAsignarTecnico({super.key, required this.id});
@@ -46,19 +46,23 @@ class _PantallaAsignarTecnicoState extends State<PantallaAsignarTecnico> {
     final sinc = context.read<Sincronizador>();
     final api = context.read<Sesion>().api;
     List<Referencia> lista = [];
-    try {
-      final resp = await api!.get('/me/technicians');
-      final datos = (resp['data'] ?? []) as List;
-      lista = datos
-          .whereType<Map>()
-          .where((t) => t['active'] != false)
-          .map((t) => Referencia(id: t['id'] as String?, nombre: (t['name'] ?? '') as String))
-          .where((t) => t.id != null)
-          .toList();
-    } catch (e) {
-      _avisoLista = e is SinConexion
-          ? 'Sin internet: se muestran los técnicos ya vistos en la bandeja.'
-          : 'No se pudo bajar la lista de técnicos (${mensajeDeError(e)}). Se muestran los ya vistos en la bandeja.';
+    if (api == null) {
+      _avisoLista = 'La sesión caducó: se muestran los técnicos ya vistos en la bandeja.';
+    } else {
+      try {
+        final resp = await api.get('/me/technicians');
+        final datos = resp['data'] is List ? resp['data'] as List : const [];
+        lista = datos
+            .whereType<Map>()
+            .where((t) => t['active'] != false)
+            .map((t) => Referencia.desde(t))
+            .where((t) => t.id != null && t.id!.isNotEmpty)
+            .toList();
+      } catch (e) {
+        _avisoLista = e is SinConexion
+            ? 'Sin internet: se muestran los técnicos ya vistos en la bandeja.'
+            : 'No se pudo bajar la lista de técnicos (${mensajeDeError(e)}). Se muestran los ya vistos en la bandeja.';
+      }
     }
     if (lista.isEmpty) lista = sinc.tecnicosConocidos();
     if (!mounted) return;
@@ -69,14 +73,19 @@ class _PantallaAsignarTecnicoState extends State<PantallaAsignarTecnico> {
   }
 
   Future<void> _asignar() async {
+    if (_ocupado) return;
     final id = (_elegido ?? _uuid.text).trim();
     if (id.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Elige un técnico o pega su identificador.')));
       return;
     }
-    setState(() => _ocupado = true);
     final sinc = context.read<Sincronizador>();
-    final v = sinc.bandeja.firstWhere((e) => e.id == widget.id);
+    final v = sinc.bandeja.where((e) => e.id == widget.id).firstOrNull;
+    if (v == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Esta verificación ya no está en tu bandeja.')));
+      return;
+    }
+    setState(() => _ocupado = true);
     final r = await sinc.asignarTecnico(v, id);
     if (!mounted) return;
     setState(() => _ocupado = false);
@@ -144,7 +153,9 @@ class _PantallaAsignarTecnicoState extends State<PantallaAsignarTecnico> {
           const SizedBox(height: 24),
           FilledButton.icon(
             onPressed: _ocupado ? null : _asignar,
-            icon: const Icon(Icons.person_add_alt_1_outlined),
+            icon: _ocupado
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.person_add_alt_1_outlined),
             label: Text(_ocupado ? 'Enviando…' : 'Asignar'),
           ),
         ],

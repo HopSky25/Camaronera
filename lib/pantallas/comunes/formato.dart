@@ -24,6 +24,12 @@ String fechaHora(dynamic v) {
 
 String hora(DateTime d) => _hora.format(d);
 
+String fechaHoraDe(DateTime d) => _fechaHora.format(d);
+
+/// Acota una fecha al rango que admite el selector (evita el error de
+/// `showDatePicker` cuando la fecha guardada queda fuera del rango).
+DateTime fechaEntre(DateTime v, DateTime desde, DateTime hasta) => v.isBefore(desde) ? desde : (v.isAfter(hasta) ? hasta : v);
+
 String fechaCorta(DateTime d) => _fecha.format(d);
 
 String numero(dynamic v) => v is num ? _numero.format(v) : '—';

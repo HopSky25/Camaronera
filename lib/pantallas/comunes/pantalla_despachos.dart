@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../datos/repositorio.dart';
 import '../../datos/sincronizador.dart';
+import '../../modelos/cuerpos.dart';
 import '../../modelos/operacion_pendiente.dart';
 import '../../tema.dart';
 import 'formato.dart';
@@ -184,12 +185,14 @@ class _PantallaProgramarDespachoState extends State<PantallaProgramarDespacho> {
   }
 
   Future<DateTime?> _elegirFechaHora(DateTime? actual, {bool conHora = true}) async {
-    final base = actual ?? DateTime.now();
+    final desde = DateTime.now().subtract(const Duration(days: 30));
+    final hasta = DateTime.now().add(const Duration(days: 365));
+    final base = fechaEntre(actual ?? DateTime.now(), desde, hasta);
     final fecha = await showDatePicker(
       context: context,
       initialDate: base,
-      firstDate: DateTime.now().subtract(const Duration(days: 30)),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
+      firstDate: desde,
+      lastDate: hasta,
     );
     if (fecha == null || !mounted) return actual;
     if (!conHora) return fecha;
@@ -199,15 +202,16 @@ class _PantallaProgramarDespachoState extends State<PantallaProgramarDespacho> {
   }
 
   Future<void> _guardar() async {
-    final cuerpo = <String, dynamic>{
-      if (_cosecha != null) 'harvest_date': DateFormat('yyyy-MM-dd').format(_cosecha!),
-      if (_salida != null) 'farm_departure': _salida!.toUtc().toIso8601String(),
-      if (_eta != null) 'eta': _eta!.toUtc().toIso8601String(),
-      if (_transportista.text.trim().isNotEmpty) 'carrier_name': _transportista.text.trim(),
-      if (_placa.text.trim().isNotEmpty) 'vehicle_plate': _placa.text.trim().toUpperCase(),
-      if (_telefono.text.trim().isNotEmpty) 'carrier_phone': _telefono.text.trim(),
-      if (_notas.text.trim().isNotEmpty) 'notes': _notas.text.trim(),
-    };
+    if (_ocupado) return;
+    final cuerpo = cuerpoDespacho(
+      cosecha: _cosecha,
+      salida: _salida,
+      eta: _eta,
+      transportista: _transportista.text,
+      placa: _placa.text,
+      telefono: _telefono.text,
+      notas: _notas.text,
+    );
     if (cuerpo.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Indica al menos la llegada prevista.')));
       return;
@@ -257,9 +261,9 @@ class _PantallaProgramarDespachoState extends State<PantallaProgramarDespacho> {
           const Rotulo('Transporte'),
           TextField(controller: _transportista, decoration: const InputDecoration(labelText: 'Transportista', prefixIcon: Icon(Icons.local_shipping_outlined))),
           const SizedBox(height: 12),
-          TextField(controller: _placa, textCapitalization: TextCapitalization.characters, decoration: const InputDecoration(labelText: 'Placa', prefixIcon: Icon(Icons.pin_outlined))),
+          TextField(controller: _placa, maxLength: 16, textCapitalization: TextCapitalization.characters, decoration: const InputDecoration(labelText: 'Placa', prefixIcon: Icon(Icons.pin_outlined))),
           const SizedBox(height: 12),
-          TextField(controller: _telefono, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Teléfono del chofer', prefixIcon: Icon(Icons.phone_outlined))),
+          TextField(controller: _telefono, maxLength: 32, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Teléfono del chofer', prefixIcon: Icon(Icons.phone_outlined))),
           const SizedBox(height: 12),
           TextField(controller: _notas, maxLines: 2, decoration: const InputDecoration(labelText: 'Notas')),
           const SizedBox(height: 24),

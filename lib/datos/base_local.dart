@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
@@ -24,14 +26,26 @@ class ListaGuardada {
 ///    (lotes, ventas, despachos...) para mostrarla sin señal.
 ///  - config: pares clave/valor (última sincronización, quién soy, perfil).
 class BaseLocal {
-  static Database? _bd;
+  /// Una sola apertura compartida: Sesion y Sincronizador arrancan a la vez
+  /// y sin esto abrirían la base dos veces.
+  static Future<Database>? _abriendo;
 
-  Future<Database> get bd async {
-    if (_bd != null) return _bd!;
+  /// Versiones del esquema (onUpgrade migra desde la que tenga el teléfono):
+  ///  1 verificaciones, cola, fotos, config
+  ///  2 + cache_listas
+  ///  3 + cola.rol (perfil con el que se hizo cada operación)
+  static const _version = 3;
+
+  Future<Database> get bd => _abriendo ??= _abrir().catchError((Object e) {
+        _abriendo = null; // la próxima llamada vuelve a intentar
+        throw e;
+      });
+
+  static Future<Database> _abrir() async {
     final dir = await getApplicationDocumentsDirectory();
-    _bd = await openDatabase(
+    return openDatabase(
       p.join(dir.path, 'verificador_campo.db'),
-      version: 2,
+      version: _version,
       onCreate: (db, _) async {
         await db.execute('''
           CREATE TABLE verificaciones (
@@ -55,7 +69,8 @@ class BaseLocal {
             clave_idempotencia TEXT NOT NULL,
             creada_en TEXT NOT NULL,
             intentos INTEGER NOT NULL DEFAULT 0,
-            ultimo_error TEXT
+            ultimo_error TEXT,
+            rol TEXT
           )''');
         await db.execute('''
           CREATE TABLE fotos (
@@ -70,13 +85,29 @@ class BaseLocal {
       },
       onUpgrade: (db, desde, _) async {
         if (desde < 2) await _crearCache(db);
+        if (desde < 3) await _agregarRolACola(db);
       },
     );
-    return _bd!;
   }
 
-  static Future<void> _crearCache(Database db) =>
-      db.execute('CREATE TABLE cache_listas (clave TEXT PRIMARY KEY, json TEXT NOT NULL, guardado_en TEXT NOT NULL)');
+  static Future<void> _crearCache(Database db) => db.execute(
+      'CREATE TABLE IF NOT EXISTS cache_listas (clave TEXT PRIMARY KEY, json TEXT NOT NULL, guardado_en TEXT NOT NULL)');
+
+  static Future<void> _agregarRolACola(Database db) async {
+    final columnas = await db.rawQuery('PRAGMA table_info(cola)');
+    if (columnas.any((c) => c['name'] == 'rol')) return;
+    await db.execute('ALTER TABLE cola ADD COLUMN rol TEXT');
+  }
+
+  /// Decodifica el JSON guardado; nulo si está dañado (no tumba la lista).
+  static Map<String, dynamic>? _json(Object? texto) {
+    try {
+      final v = jsonDecode(texto as String);
+      return v is Map<String, dynamic> ? v : null;
+    } catch (_) {
+      return null;
+    }
+  }
 
   // ---------------- verificaciones ----------------
 
@@ -84,13 +115,14 @@ class BaseLocal {
     final db = await bd;
     final lote = db.batch();
     for (final v in lista) {
+      if (!Verificacion.tieneId(v)) continue; // sin id no se puede guardar ni abrir
       // El detalle (con pesos, líneas...) no debe pisarse con la versión
       // resumida de la lista: se conserva el JSON más completo.
       final previo = await db.query('verificaciones', where: 'id = ?', whereArgs: [v['id']]);
       var json = v;
       if (previo.isNotEmpty) {
-        final guardado = jsonDecode(previo.first['json'] as String) as Map<String, dynamic>;
-        if (guardado.containsKey('weights') && !v.containsKey('weights')) {
+        final guardado = _json(previo.first['json']);
+        if (guardado != null && guardado.containsKey('weights') && !v.containsKey('weights')) {
           json = {...guardado, ...v};
         }
       }
@@ -98,9 +130,9 @@ class BaseLocal {
         'verificaciones',
         {
           'id': v['id'],
-          'estado': v['state'] ?? '',
+          'estado': jsonTexto(v['state']) ?? '',
           'json': jsonEncode(json),
-          'actualizado_en': v['updated_at'],
+          'actualizado_en': jsonTexto(v['updated_at']),
         },
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
@@ -133,14 +165,14 @@ class BaseLocal {
   Future<List<Verificacion>> verificaciones() async {
     final db = await bd;
     final filas = await db.query('verificaciones', orderBy: 'actualizado_en DESC');
-    return filas.map((f) => Verificacion.desde(jsonDecode(f['json'] as String) as Map<String, dynamic>)).toList();
+    return filas.map((f) => _json(f['json'])).whereType<Map<String, dynamic>>().map(Verificacion.desde).toList();
   }
 
   Future<Verificacion?> verificacion(String id) async {
     final db = await bd;
     final filas = await db.query('verificaciones', where: 'id = ?', whereArgs: [id]);
-    if (filas.isEmpty) return null;
-    return Verificacion.desde(jsonDecode(filas.first['json'] as String) as Map<String, dynamic>);
+    final json = filas.isEmpty ? null : _json(filas.first['json']);
+    return json == null ? null : Verificacion.desde(json);
   }
 
   /// Cambia el estado local de inmediato (p. ej. a "in_field" al iniciar campo
@@ -148,8 +180,8 @@ class BaseLocal {
   Future<void> cambiarEstadoLocal(String id, String estado) async {
     final db = await bd;
     final filas = await db.query('verificaciones', where: 'id = ?', whereArgs: [id]);
-    if (filas.isEmpty) return;
-    final json = jsonDecode(filas.first['json'] as String) as Map<String, dynamic>;
+    final json = filas.isEmpty ? null : _json(filas.first['json']);
+    if (json == null) return;
     json['state'] = estado;
     await db.update('verificaciones', {'estado': estado, 'json': jsonEncode(json)}, where: 'id = ?', whereArgs: [id]);
   }
@@ -157,9 +189,8 @@ class BaseLocal {
   Future<InformeCampo?> informeLocal(String id) async {
     final db = await bd;
     final filas = await db.query('verificaciones', columns: ['informe_local'], where: 'id = ?', whereArgs: [id]);
-    final texto = filas.isEmpty ? null : filas.first['informe_local'] as String?;
-    if (texto == null) return null;
-    return InformeCampo.desdeJsonLocal(jsonDecode(texto) as Map);
+    final guardado = filas.isEmpty ? null : _json(filas.first['informe_local']);
+    return guardado == null ? null : InformeCampo.desdeJsonLocal(guardado);
   }
 
   Future<void> guardarInformeLocal(String id, InformeCampo informe, {bool modificado = true}) async {
@@ -185,29 +216,47 @@ class BaseLocal {
       'creada_en': op.creadaEn.toIso8601String(),
       'intentos': op.intentos,
       'ultimo_error': op.ultimoError,
+      'rol': op.rol,
     });
   }
 
+  /// La cola en el orden en que se hizo cada cosa. Una fila que no se puede
+  /// leer (tipo de una versión más nueva, JSON dañado) se salta y se avisa en
+  /// consola; no bloquea a las demás.
   Future<List<OperacionPendiente>> cola() async {
     final db = await bd;
     final filas = await db.query('cola', orderBy: 'id ASC');
-    return filas
-        .map((f) => OperacionPendiente(
-              idLocal: f['id'] as int,
-              tipo: TipoOperacion.values.byName(f['tipo'] as String),
-              recursoId: f['verificacion_id'] as String,
-              despachoId: f['despacho_id'] as String?,
-              cuerpo: jsonDecode(f['cuerpo'] as String) as Map<String, dynamic>,
-              claveIdempotencia: f['clave_idempotencia'] as String,
-              creadaEn: DateTime.parse(f['creada_en'] as String),
-              intentos: f['intentos'] as int,
-              ultimoError: f['ultimo_error'] as String?,
-            ))
-        .toList();
+    final ops = <OperacionPendiente>[];
+    for (final f in filas) {
+      try {
+        ops.add(OperacionPendiente(
+          idLocal: f['id'] as int,
+          tipo: TipoOperacion.values.byName(f['tipo'] as String),
+          recursoId: f['verificacion_id'] as String,
+          despachoId: f['despacho_id'] as String?,
+          cuerpo: _json(f['cuerpo']) ?? const {},
+          claveIdempotencia: f['clave_idempotencia'] as String,
+          creadaEn: DateTime.tryParse(f['creada_en'] as String? ?? '') ?? DateTime.now(),
+          intentos: (f['intentos'] as int?) ?? 0,
+          ultimoError: f['ultimo_error'] as String?,
+          rol: f['rol'] as String?,
+        ));
+      } catch (e) {
+        debugPrint('Operación ${f['id']} ilegible en la cola: $e');
+      }
+    }
+    return ops;
   }
 
   Future<OperacionPendiente?> operacion(int idLocal) async =>
       (await cola()).where((o) => o.idLocal == idLocal).firstOrNull;
+
+  /// Quita las operaciones de un tipo sobre un recurso que todavía no se
+  /// enviaron (p. ej. un informe guardado dos veces: vale el último).
+  Future<void> quitarDeColaPorTipo(String recursoId, TipoOperacion tipo) async {
+    final db = await bd;
+    await db.delete('cola', where: 'verificacion_id = ? AND tipo = ?', whereArgs: [recursoId, tipo.name]);
+  }
 
   Future<int> pendientes() async {
     final db = await bd;
@@ -282,12 +331,26 @@ class BaseLocal {
     await db.insert('config', {'clave': clave, 'valor': valor}, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
+  /// Carpeta donde se guardan las fotos de campo (`fotos/<verificacion>/`).
+  static Future<Directory> carpetaFotos() async =>
+      Directory(p.join((await getApplicationDocumentsDirectory()).path, 'fotos'));
+
+  /// Borra todo lo guardado en el teléfono (cerrar sesión): tablas y fotos,
+  /// en una sola transacción para no dejar la base a medias.
   Future<void> borrarTodo() async {
     final db = await bd;
-    await db.delete('verificaciones');
-    await db.delete('cola');
-    await db.delete('fotos');
-    await db.delete('cache_listas');
-    await db.delete('config');
+    await db.transaction((t) async {
+      await t.delete('verificaciones');
+      await t.delete('cola');
+      await t.delete('fotos');
+      await t.delete('cache_listas');
+      await t.delete('config');
+    });
+    try {
+      final carpeta = await carpetaFotos();
+      if (await carpeta.exists()) await carpeta.delete(recursive: true);
+    } catch (e) {
+      debugPrint('No se pudieron borrar las fotos: $e');
+    }
   }
 }

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 /// Error devuelto por la API (formato RFC 9457: title, detail, status, errors).
+/// `type` llega como `https://.../docs#problem-<slug>`; [tipo] es el slug.
 class ErrorApi implements Exception {
   final int status;
   final String titulo;
@@ -45,8 +46,13 @@ class SinConexion implements Exception {
 String mensajeDeError(Object e) {
   if (e is ErrorApi) return e.mensaje;
   if (e is SinConexion) return 'Sin internet. Revisa la señal e inténtalo otra vez.';
-  return 'Algo falló: $e';
+  if (e is FormatException || e is ArgumentError) return 'La dirección del servidor no es válida.';
+  return 'Algo falló. Inténtalo otra vez y, si sigue, avisa a soporte.';
 }
+
+/// Texto de un valor JSON que debería ser cadena. Odoo manda `false` en los
+/// campos de texto vacíos: aquí eso vale como "sin valor".
+String? _texto(dynamic v) => v is String ? v : null;
 
 /// Una página de una lista de la API (`data` + `meta.next_cursor`).
 class PaginaApi {
@@ -71,12 +77,14 @@ class ApiCliente {
 
   ApiCliente({required this.baseUrl, required this.clave, http.Client? cliente}) : _http = cliente ?? http.Client();
 
-  Map<String, String> _cabeceras({String? idempotencia}) => {
+  /// `rol` fuerza el perfil de esta petición (las operaciones de la cola
+  /// viajan con el perfil con el que se hicieron, no con el actual).
+  Map<String, String> _cabeceras({String? idempotencia, String? rol}) => {
         'Authorization': 'Bearer $clave',
         'Accept': 'application/json',
         'Content-Type': 'application/json',
         'Idempotency-Key': ?idempotencia,
-        'X-Shrimp-Role': ?rolActivo,
+        'X-Shrimp-Role': ?(rol ?? rolActivo),
       };
 
   Uri _uri(String ruta, [Map<String, String>? params]) =>
@@ -86,6 +94,10 @@ class ApiCliente {
     http.Response resp;
     try {
       resp = await llamada().timeout(const Duration(seconds: 40));
+    } on FormatException {
+      rethrow; // URL mal escrita: no es un problema de señal
+    } on ArgumentError {
+      rethrow;
     } catch (_) {
       throw SinConexion();
     }
@@ -103,13 +115,16 @@ class ApiCliente {
       return cuerpo is Map<String, dynamic> ? cuerpo : {'data': cuerpo};
     }
     final m = cuerpo is Map ? cuerpo : {};
-    final tipo = (m['type'] ?? '') as String;
-    final errores = (m['errors'] as List?)?.map((e) => '${e['field']}: ${e['message']}').join('; ');
+    final tipo = _texto(m['type']) ?? '';
+    final errores = (m['errors'] is List ? m['errors'] as List : const [])
+        .whereType<Map>()
+        .map((e) => '${e['field'] ?? ''}: ${e['message'] ?? ''}')
+        .join('; ');
     throw ErrorApi(
       resp.statusCode,
-      (m['title'] ?? 'Error') as String,
-      [?m['detail'] as String?, if (errores != null && errores.isNotEmpty) errores].join(' '),
-      tipo.split('#').last,
+      _texto(m['title']) ?? 'Error',
+      [?_texto(m['detail']), if (errores.isNotEmpty) errores].join(' '),
+      tipo.split('#').last.replaceFirst(RegExp(r'^problem-'), ''),
     );
   }
 
@@ -125,26 +140,27 @@ class ApiCliente {
   Future<Map<String, dynamic>> get(String ruta, {Map<String, String>? params}) =>
       _enviar(() => _http.get(_uri(ruta, params), headers: _cabeceras()));
 
-  Future<Map<String, dynamic>> post(String ruta, Map<String, dynamic> cuerpo, {required String idempotencia}) =>
-      _enviar(() => _http.post(_uri(ruta), headers: _cabeceras(idempotencia: idempotencia), body: jsonEncode(cuerpo)));
+  Future<Map<String, dynamic>> post(String ruta, Map<String, dynamic> cuerpo, {required String idempotencia, String? rol}) =>
+      _enviar(() => _http.post(_uri(ruta), headers: _cabeceras(idempotencia: idempotencia, rol: rol), body: jsonEncode(cuerpo)));
 
-  Future<Map<String, dynamic>> patch(String ruta, Map<String, dynamic> cuerpo, {required String idempotencia}) =>
-      _enviar(() => _http.patch(_uri(ruta), headers: _cabeceras(idempotencia: idempotencia), body: jsonEncode(cuerpo)));
+  Future<Map<String, dynamic>> patch(String ruta, Map<String, dynamic> cuerpo, {required String idempotencia, String? rol}) =>
+      _enviar(() => _http.patch(_uri(ruta), headers: _cabeceras(idempotencia: idempotencia, rol: rol), body: jsonEncode(cuerpo)));
 
   /// `GET /me`: comprueba la clave y devuelve quién soy.
   Future<Map<String, dynamic>> quienSoy() => get('/me');
 
-  /// `POST /auth/login` (sin clave): correo + contraseña → clave de API y `me`.
+  /// `POST /auth/login` (sin clave, sin `X-Shrimp-Role`, sin
+  /// `Idempotency-Key`): correo + contraseña → clave de API y `me`.
   static Future<Map<String, dynamic>> iniciarSesion({
     required String baseUrl,
     required String correo,
     required String contrasena,
     required String dispositivo,
-    required String idempotencia,
+    http.Client? cliente,
   }) =>
-      _enviarSinSesion(() => http.post(
+      _enviarSinSesion(() => (cliente ?? http.Client()).post(
             Uri.parse('$baseUrl/api/v1/auth/login'),
-            headers: {'Accept': 'application/json', 'Content-Type': 'application/json', 'Idempotency-Key': idempotencia},
+            headers: const {'Accept': 'application/json', 'Content-Type': 'application/json'},
             body: jsonEncode({'login': correo, 'password': contrasena, 'device': dispositivo}),
           ));
 
@@ -154,9 +170,9 @@ class ApiCliente {
   /// Una página de una lista (cursor opaco de la API).
   Future<PaginaApi> pagina(String ruta, {Map<String, String>? params, String? cursor, int limite = 50}) async {
     final resp = await get(ruta, params: {...?params, 'limit': '$limite', 'cursor': ?cursor});
-    final datos = ((resp['data'] ?? []) as List).cast<Map<String, dynamic>>();
-    final meta = (resp['meta'] ?? {}) as Map;
-    final siguiente = meta['next_cursor'] as String?;
+    final datos = (resp['data'] is List ? resp['data'] as List : const []).whereType<Map<String, dynamic>>().toList();
+    final meta = resp['meta'] is Map ? resp['meta'] as Map : const {};
+    final siguiente = _texto(meta['next_cursor']);
     return PaginaApi(datos, siguiente == null || siguiente.isEmpty ? null : siguiente);
   }
 

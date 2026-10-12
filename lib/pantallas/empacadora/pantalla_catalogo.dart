@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../datos/repositorio.dart';
 import '../../datos/sincronizador.dart';
+import '../../modelos/cuerpos.dart';
 import '../../modelos/operacion_pendiente.dart';
 import '../../tema.dart';
 import '../comunes/formato.dart';
@@ -180,8 +181,9 @@ class _PantallaComprarState extends State<PantallaComprar> {
   }
 
   Future<void> _comprar() async {
-    final qty = double.tryParse(_qty.text.replaceAll(',', '.').trim());
-    final disponible = (widget.p['available_qty'] as num?)?.toDouble() ?? 0;
+    if (_ocupado) return;
+    final qty = numeroEscrito(_qty.text);
+    final disponible = (widget.p['available_qty'] is num ? widget.p['available_qty'] as num : 0).toDouble();
     if (qty == null || qty <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Escribe la cantidad a comprar.')));
       return;
@@ -208,12 +210,12 @@ class _PantallaComprarState extends State<PantallaComprar> {
     );
     if (ok != true || !mounted) return;
     setState(() => _ocupado = true);
-    final r = await context.read<Sincronizador>().ejecutar(TipoOperacion.compraVerificada, widget.p['id'] as String, {
-      'product': widget.p['id'],
-      'qty': qty,
-      'verification_mode': _modo,
-      if (_modo == 'platform') 'verifier': _verificadora,
-    });
+    final productoId = '${widget.p['id']}';
+    final r = await context.read<Sincronizador>().ejecutar(
+          TipoOperacion.compraVerificada,
+          productoId,
+          cuerpoCompra(productoId: productoId, cantidad: qty, modo: _modo, verificadoraId: _verificadora),
+        );
     if (!mounted) return;
     setState(() => _ocupado = false);
     avisarResultado(context, r, hecho: 'Compra registrada: queda pendiente de verificación');
@@ -269,7 +271,7 @@ class _PantallaComprarState extends State<PantallaComprar> {
                     groupValue: _verificadora,
                     onChanged: (v) => setState(() => _verificadora = v),
                     child: Column(children: [
-                      for (final v in lista)
+                      for (final v in lista.where((v) => v['id'] is String))
                         RadioListTile<String>(
                           value: v['id'] as String,
                           title: Text((v['name'] ?? '') as String, style: const TextStyle(fontWeight: FontWeight.w600)),

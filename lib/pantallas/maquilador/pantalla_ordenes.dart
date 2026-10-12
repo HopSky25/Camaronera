@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../datos/repositorio.dart';
 import '../../datos/sincronizador.dart';
+import '../../modelos/cuerpos.dart';
 import '../../modelos/operacion_pendiente.dart';
 import '../../tema.dart';
 import '../comunes/formato.dart';
@@ -136,26 +137,27 @@ class _Detalle extends StatelessWidget {
           ]),
           const SizedBox(height: 16),
           if (soyMaquilador && estado == 'confirmed') ...[
-            FilledButton.icon(onPressed: () => _recepcion(context), icon: const Icon(Icons.move_to_inbox_outlined), label: const Text('Registrar recepción en planta')),
+            BotonAccion(onPressed: () => _recepcion(context), icono: Icons.move_to_inbox_outlined, texto: 'Registrar recepción en planta'),
             const SizedBox(height: 10),
           ],
           if (soyMaquilador && estado == 'received') ...[
-            FilledButton.icon(onPressed: () => _empaque(context), icon: const Icon(Icons.inventory_2_outlined), label: const Text('Registrar empaque terminado')),
+            BotonAccion(onPressed: () => _empaque(context), icono: Icons.inventory_2_outlined, texto: 'Registrar empaque terminado'),
             const SizedBox(height: 10),
           ],
           if (puedoFirmar) ...[
-            FilledButton.icon(
-              style: FilledButton.styleFrom(backgroundColor: Marca.verde),
+            BotonAccion(
+              estilo: FilledButton.styleFrom(backgroundColor: Marca.verde),
               onPressed: () => _firmar(context, 'accepted'),
-              icon: const Icon(Icons.draw_outlined),
-              label: const Text('Firmar el acta (conforme)'),
+              icono: Icons.draw_outlined,
+              texto: 'Firmar el acta (conforme)',
             ),
             const SizedBox(height: 10),
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(foregroundColor: Marca.rojo, side: const BorderSide(color: Marca.rojo, width: 1.5)),
+            BotonAccion(
+              relleno: false,
+              estilo: OutlinedButton.styleFrom(foregroundColor: Marca.rojo, side: const BorderSide(color: Marca.rojo, width: 1.5)),
               onPressed: () => _firmar(context, 'rejected'),
-              icon: const Icon(Icons.cancel_outlined),
-              label: const Text('No conforme'),
+              icono: Icons.cancel_outlined,
+              texto: 'No conforme',
             ),
             const SizedBox(height: 10),
           ],
@@ -193,7 +195,7 @@ class _Detalle extends StatelessWidget {
             TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancelar')),
             FilledButton(
               onPressed: () {
-                final v = double.tryParse(lb.text.replaceAll(',', '.'));
+                final v = numeroEscrito(lb.text);
                 if (v == null || v <= 0) return;
                 Navigator.pop(c, true);
               },
@@ -203,12 +205,12 @@ class _Detalle extends StatelessWidget {
         ),
       ),
     );
-    if (ok != true || !context.mounted) return;
-    final r = await context.read<Sincronizador>().ejecutar(TipoOperacion.recepcionMaquila, o['id'] as String, {
-      'received_lb': double.parse(lb.text.replaceAll(',', '.')),
-      'supplies_received': insumos,
-      if (!insumos && problema.text.trim().isNotEmpty) 'supplies_issue': problema.text.trim(),
-    });
+    final libras = numeroEscrito(lb.text) ?? 0;
+    final cuerpo = cuerpoRecepcionMaquila(librasRecibidas: libras, insumos: insumos, problema: problema.text);
+    lb.dispose();
+    problema.dispose();
+    if (ok != true || libras <= 0 || !context.mounted) return;
+    final r = await context.read<Sincronizador>().ejecutar(TipoOperacion.recepcionMaquila, '${o['id']}', cuerpo);
     if (!context.mounted) return;
     avisarResultado(context, r, hecho: 'Recepción registrada');
     if (r.enviado) await recargar();
@@ -232,7 +234,7 @@ class _Detalle extends StatelessWidget {
           TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancelar')),
           FilledButton(
             onPressed: () {
-              final v = double.tryParse(lb.text.replaceAll(',', '.'));
+              final v = numeroEscrito(lb.text);
               if (v == null || v <= 0) return;
               Navigator.pop(c, true);
             },
@@ -241,12 +243,12 @@ class _Detalle extends StatelessWidget {
         ],
       ),
     );
-    if (ok != true || !context.mounted) return;
-    final nCajas = int.tryParse(cajas.text.trim());
-    final r = await context.read<Sincronizador>().ejecutar(TipoOperacion.empaqueMaquila, o['id'] as String, {
-      'packed_lb': double.parse(lb.text.replaceAll(',', '.')),
-      'boxes': ?nCajas,
-    });
+    final libras = numeroEscrito(lb.text) ?? 0;
+    final cuerpo = cuerpoEmpaqueMaquila(librasEmpacadas: libras, cajas: int.tryParse(cajas.text.trim()));
+    lb.dispose();
+    cajas.dispose();
+    if (ok != true || libras <= 0 || !context.mounted) return;
+    final r = await context.read<Sincronizador>().ejecutar(TipoOperacion.empaqueMaquila, '${o['id']}', cuerpo);
     if (!context.mounted) return;
     avisarResultado(context, r, hecho: 'Empaque registrado: el acta queda a la firma');
     if (r.enviado) await recargar();
@@ -277,11 +279,10 @@ class _Detalle extends StatelessWidget {
         ],
       ),
     );
+    final cuerpo = cuerpoFirmaActa(decision, motivo.text);
+    motivo.dispose();
     if (ok != true || !context.mounted) return;
-    final r = await context.read<Sincronizador>().ejecutar(TipoOperacion.firmaActa, o['id'] as String, {
-      'decision': decision,
-      if (motivo.text.trim().isNotEmpty) 'reason': motivo.text.trim(),
-    });
+    final r = await context.read<Sincronizador>().ejecutar(TipoOperacion.firmaActa, '${o['id']}', cuerpo);
     if (!context.mounted) return;
     avisarResultado(context, r, hecho: decision == 'accepted' ? 'Acta firmada' : 'Disconformidad registrada');
     if (r.enviado) await recargar();

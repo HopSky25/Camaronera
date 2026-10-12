@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../datos/sincronizador.dart';
+import '../../modelos/cuerpos.dart';
 import '../../modelos/operacion_pendiente.dart';
 import '../../tema.dart';
 import '../comunes/formato.dart';
@@ -75,11 +76,11 @@ class _PantallaSolicitudesState extends State<PantallaSolicitudes> {
                 ),
               if (abierta) ...[
                 const SizedBox(height: 10),
-                FilledButton.icon(
-                  style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(44)),
+                BotonAccion(
+                  estilo: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
                   onPressed: () => _ofertar(context, s, miOferta),
-                  icon: const Icon(Icons.local_offer_outlined, size: 18),
-                  label: Text(miOferta == null || miOferta['state'] == 'withdrawn' ? 'Ofertar' : 'Cambiar mi oferta'),
+                  icono: Icons.local_offer_outlined,
+                  texto: miOferta == null || miOferta['state'] == 'withdrawn' ? 'Ofertar' : 'Cambiar mi oferta',
                 ),
               ],
             ]),
@@ -93,8 +94,13 @@ class _PantallaSolicitudesState extends State<PantallaSolicitudes> {
     final tarifa = TextEditingController(text: previa?['rate_per_lb'] is Map ? '${previa!['rate_per_lb']['amount']}' : '');
     final capacidad = TextEditingController(text: previa?['capacity_lb'] != null ? '${previa!['capacity_lb']}' : '${s['quantity_lb'] ?? ''}');
     final notas = TextEditingController(text: previa?['notes'] as String? ?? '');
-    var desde = aFecha(previa?['available_from']) ?? aFecha(s['needed_from']) ?? DateTime.now();
-    var hasta = aFecha(previa?['available_to']) ?? aFecha(s['needed_to']) ?? DateTime.now().add(const Duration(days: 7));
+    // El selector de fecha exige que la inicial esté dentro del rango: las
+    // fechas de la solicitud pueden haber quedado atrás.
+    final primero = DateTime.now().subtract(const Duration(days: 1));
+    final ultimo = DateTime.now().add(const Duration(days: 365));
+    var desde = fechaEntre(aFecha(previa?['available_from']) ?? aFecha(s['needed_from']) ?? DateTime.now(), primero, ultimo);
+    var hasta = fechaEntre(
+        aFecha(previa?['available_to']) ?? aFecha(s['needed_to']) ?? DateTime.now().add(const Duration(days: 7)), desde, ultimo);
     final fmt = DateFormat('dd/MM/yyyy');
 
     final ok = await showDialog<bool>(
@@ -113,8 +119,13 @@ class _PantallaSolicitudesState extends State<PantallaSolicitudes> {
                 title: Text('Disponible desde: ${fmt.format(desde)}'),
                 trailing: const Icon(Icons.edit_outlined, size: 18),
                 onTap: () async {
-                  final f = await showDatePicker(context: c, initialDate: desde, firstDate: DateTime.now().subtract(const Duration(days: 1)), lastDate: DateTime.now().add(const Duration(days: 365)));
-                  if (f != null) setLocal(() => desde = f);
+                  final f = await showDatePicker(context: c, initialDate: desde, firstDate: primero, lastDate: ultimo);
+                  if (f != null) {
+                    setLocal(() {
+                      desde = f;
+                      if (hasta.isBefore(desde)) hasta = desde;
+                    });
+                  }
                 },
               ),
               ListTile(
@@ -122,7 +133,7 @@ class _PantallaSolicitudesState extends State<PantallaSolicitudes> {
                 title: Text('Disponible hasta: ${fmt.format(hasta)}'),
                 trailing: const Icon(Icons.edit_outlined, size: 18),
                 onTap: () async {
-                  final f = await showDatePicker(context: c, initialDate: hasta, firstDate: desde, lastDate: DateTime.now().add(const Duration(days: 365)));
+                  final f = await showDatePicker(context: c, initialDate: fechaEntre(hasta, desde, ultimo), firstDate: desde, lastDate: ultimo);
                   if (f != null) setLocal(() => hasta = f);
                 },
               ),
@@ -133,8 +144,8 @@ class _PantallaSolicitudesState extends State<PantallaSolicitudes> {
             TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancelar')),
             FilledButton(
               onPressed: () {
-                final t = double.tryParse(tarifa.text.replaceAll(',', '.'));
-                final cap = double.tryParse(capacidad.text.replaceAll(',', '.'));
+                final t = numeroEscrito(tarifa.text);
+                final cap = numeroEscrito(capacidad.text);
                 if (t == null || t < 0 || cap == null || cap <= 0) return;
                 Navigator.pop(c, true);
               },
@@ -144,14 +155,14 @@ class _PantallaSolicitudesState extends State<PantallaSolicitudes> {
         ),
       ),
     );
-    if (ok != true || !context.mounted) return;
-    final r = await context.read<Sincronizador>().ejecutar(TipoOperacion.ofertaMaquila, s['id'] as String, {
-      'rate_per_lb': double.parse(tarifa.text.replaceAll(',', '.')),
-      'capacity_lb': double.parse(capacidad.text.replaceAll(',', '.')),
-      'available_from': DateFormat('yyyy-MM-dd').format(desde),
-      'available_to': DateFormat('yyyy-MM-dd').format(hasta),
-      if (notas.text.trim().isNotEmpty) 'notes': notas.text.trim(),
-    });
+    final t = numeroEscrito(tarifa.text);
+    final cap = numeroEscrito(capacidad.text);
+    final cuerpo = cuerpoOfertaMaquila(tarifaPorLb: t ?? 0, capacidadLb: cap ?? 0, desde: desde, hasta: hasta, notas: notas.text);
+    tarifa.dispose();
+    capacidad.dispose();
+    notas.dispose();
+    if (ok != true || t == null || cap == null || !context.mounted) return;
+    final r = await context.read<Sincronizador>().ejecutar(TipoOperacion.ofertaMaquila, '${s['id']}', cuerpo);
     if (!context.mounted) return;
     avisarResultado(context, r, hecho: 'Oferta enviada');
     if (r.enviado) await _lista.currentState?.recargar();

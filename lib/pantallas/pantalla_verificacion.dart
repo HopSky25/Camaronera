@@ -27,7 +27,11 @@ class PantallaVerificacion extends StatelessWidget {
     final fmt = DateFormat('dd/MM/yyyy HH:mm');
     final pesos = (v.crudo['weights'] ?? {}) as Map;
     final clasif = (v.crudo['classification'] ?? {}) as Map;
-    final hayInforme = _hay(pesos['sent_lb']) || _hay(pesos['plant_lb']) || ((clasif['lines'] as List?)?.isNotEmpty ?? false);
+    final larva = v.crudo['larvae'] is Map ? v.crudo['larvae'] as Map : const {};
+    final hayInforme = _hay(pesos['sent_lb']) ||
+        _hay(pesos['plant_lb']) ||
+        ((clasif['lines'] as List?)?.isNotEmpty ?? false) ||
+        _hay(larva['qty_verified']);
 
     return Scaffold(
       appBar: AppBar(title: Text(v.referencia)),
@@ -59,6 +63,14 @@ class PantallaVerificacion extends StatelessWidget {
             const Tarjeta(
               child: Text('Todavía no se ha cargado ningún dato de campo.', style: TextStyle(color: Marca.tintaSuave)),
             )
+          else if (v.esLarva)
+            SeccionDatos(filas: [
+              ('Cantidad verificada', _hay(larva['qty_verified']) ? NumberFormat('#,##0').format(larva['qty_verified']) : '—'),
+              ('Supervivencia', _pct(larva['survival_rate'])),
+              ('Tamaño promedio', _hay(larva['avg_size_mg']) ? '${NumberFormat('#,##0.##').format(larva['avg_size_mg'])} mg' : '—'),
+              ('Estado sanitario', _sanidad(larva['health_status'])),
+              ('Fotos', '${v.crudo['photo_count'] ?? 0}'),
+            ])
           else
             SeccionDatos(filas: [
               ('Libras enviadas', _lb(pesos['sent_lb'])),
@@ -79,24 +91,36 @@ class PantallaVerificacion extends StatelessWidget {
             ),
             const SizedBox(height: 10),
           ],
+          if (v.esperaTecnico && !v.soyVerificadora)
+            const Tarjeta(
+              child: Text('Todavía no tiene técnico asignado. Cuando la verificadora lo asigne podrás iniciar el trabajo de campo.',
+                  style: TextStyle(color: Marca.tintaSuave)),
+            ),
+          if (v.esperaTecnico && v.soyVerificadora)
+            const Tarjeta(
+              child: Text('Asigna un técnico para poder iniciar el trabajo de campo.', style: TextStyle(color: Marca.tintaSuave)),
+            ),
+          if (v.esperaTecnico) const SizedBox(height: 10),
           if (v.puedeIniciarCampo) ...[
-            FilledButton.icon(
+            BotonAccion(
               onPressed: () async {
                 await sinc.iniciarCampo(v);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Trabajo de campo iniciado')));
                 }
               },
-              icon: const Icon(Icons.play_arrow_rounded),
-              label: const Text('Iniciar trabajo de campo'),
+              icono: Icons.play_arrow_rounded,
+              texto: 'Iniciar trabajo de campo',
+              textoOcupado: 'Iniciando…',
             ),
             const SizedBox(height: 10),
           ],
           if (v.despachoId != null && !v.cerrada) ...[
-            OutlinedButton.icon(
+            BotonAccion(
+              relleno: false,
               onPressed: () => _registrarLlegada(context, sinc, v),
-              icon: const Icon(Icons.local_shipping_outlined),
-              label: const Text('Registrar llegada del camión'),
+              icono: Icons.local_shipping_outlined,
+              texto: 'Registrar llegada del camión',
             ),
             const SizedBox(height: 10),
           ],
@@ -133,6 +157,13 @@ class PantallaVerificacion extends StatelessWidget {
   }
 
   static bool _hay(dynamic v) => v != null && v is num && v > 0;
+  static String _sanidad(dynamic v) => switch (v) {
+        'excellent' => 'Excelente',
+        'good' => 'Bueno',
+        'acceptable' => 'Aceptable',
+        'rejected' => 'Rechazado',
+        _ => '—',
+      };
   static String _lb(dynamic v) => !_hay(v) ? '—' : '${NumberFormat('#,##0.##').format(v)} lb';
   static String _pct(dynamic v) => !_hay(v) ? '—' : '${NumberFormat('#,##0.#').format(v)} %';
 
@@ -150,9 +181,10 @@ class PantallaVerificacion extends StatelessWidget {
       ),
     );
     if (ok == true) {
-      await sinc.registrarLlegadaCamion(v, ahora);
+      final registrada = await sinc.registrarLlegadaCamion(v, ahora);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Llegada registrada')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(registrada ? 'Llegada registrada' : 'Esta verificación no tiene despacho asociado.')));
       }
     }
   }

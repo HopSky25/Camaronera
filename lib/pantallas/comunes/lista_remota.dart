@@ -40,6 +40,10 @@ class ListaRemotaState extends State<ListaRemota> {
   DateTime? _guardadoEn;
   String? _error;
 
+  /// Sube con cada recarga: una respuesta de una petición anterior (otro
+  /// filtro) que llega tarde se ignora.
+  int _generacion = 0;
+
   @override
   void initState() {
     super.initState();
@@ -55,13 +59,14 @@ class ListaRemotaState extends State<ListaRemota> {
   }
 
   Future<void> recargar() async {
+    final g = ++_generacion;
     setState(() {
       _cargando = true;
       _error = null;
     });
     try {
       final r = await context.read<Repositorio>().pagina(widget.ruta, params: widget.params, limite: 100);
-      if (!mounted) return;
+      if (!mounted || g != _generacion) return;
       setState(() {
         _datos = r.datos;
         _cursor = r.siguienteCursor;
@@ -69,29 +74,30 @@ class ListaRemotaState extends State<ListaRemota> {
         _guardadoEn = r.guardadoEn;
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || g != _generacion) return;
       setState(() => _error = mensajeDeError(e));
     } finally {
-      if (mounted) setState(() => _cargando = false);
+      if (mounted && g == _generacion) setState(() => _cargando = false);
     }
   }
 
   Future<void> _cargarMas() async {
     final cursor = _cursor;
     if (cursor == null || _cargandoMas) return;
+    final g = _generacion;
     setState(() => _cargandoMas = true);
     try {
       final r = await context.read<Repositorio>().pagina(widget.ruta, params: widget.params, cursor: cursor, limite: 100);
-      if (!mounted) return;
+      if (!mounted || g != _generacion) return;
       setState(() {
         _datos = [..._datos, ...r.datos];
         _cursor = r.siguienteCursor;
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || g != _generacion) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mensajeDeError(e))));
     } finally {
-      if (mounted) setState(() => _cargandoMas = false);
+      if (mounted && g == _generacion) setState(() => _cargandoMas = false);
     }
   }
 

@@ -5,6 +5,16 @@
 /// (el JSON completo) para no perder nada al volver a guardarlo.
 library;
 
+/// Cadena de un valor JSON, o nulo si no es cadena (Odoo manda `false` en
+/// los campos de texto vacíos y `null` en los que no aplican).
+String? jsonTexto(dynamic v) => v is String ? v : null;
+
+/// Número de un valor JSON, o nulo si no es número (`false`, `null`, texto).
+double? jsonNumero(dynamic v) => v is num ? v.toDouble() : null;
+
+/// Fecha ISO-8601 de la API (UTC con `Z`, o solo fecha) pasada a hora local.
+DateTime? fechaIso(dynamic v) => v is String && v.isNotEmpty ? DateTime.tryParse(v)?.toLocal() : null;
+
 class Referencia {
   final String? id;
   final String nombre;
@@ -12,7 +22,7 @@ class Referencia {
 
   factory Referencia.desde(dynamic json) {
     if (json is Map) {
-      return Referencia(id: json['id'] as String?, nombre: (json['name'] ?? '') as String);
+      return Referencia(id: jsonTexto(json['id']), nombre: jsonTexto(json['name']) ?? '');
     }
     return const Referencia(nombre: '');
   }
@@ -28,9 +38,9 @@ class LineaClasificacion {
 
   Map<String, dynamic> aJson() => {'quality_class': clase, 'size_code': talla, 'weight_lb': libras};
   factory LineaClasificacion.desde(Map json) => LineaClasificacion(
-        clase: (json['quality_class'] ?? 'a') as String,
-        talla: (json['size_code'] ?? '') as String,
-        libras: ((json['weight_lb'] ?? 0) as num).toDouble(),
+        clase: jsonTexto(json['quality_class']) ?? 'a',
+        talla: jsonTexto(json['size_code']) ?? '',
+        libras: jsonNumero(json['weight_lb']) ?? 0,
       );
 }
 
@@ -40,8 +50,7 @@ class Conteo {
   String? nota;
   Conteo({required this.valor, this.nota});
   Map<String, dynamic> aJson() => {'value': valor, if (nota != null && nota!.isNotEmpty) 'note': nota};
-  factory Conteo.desde(Map json) =>
-      Conteo(valor: ((json['value'] ?? 0) as num).toDouble(), nota: json['note'] as String?);
+  factory Conteo.desde(Map json) => Conteo(valor: jsonNumero(json['value']) ?? 0, nota: jsonTexto(json['note']));
 }
 
 /// Lo que el técnico captura en campo. Se guarda en el teléfono y se envía
@@ -67,6 +76,15 @@ class InformeCampo {
   List<LineaClasificacion> lineas;
   List<Conteo> conteos;
 
+  // Solo para verificaciones de larva (`scope == "larvae"`).
+  double? larvaCantidad;
+  /// 0-100
+  double? larvaSupervivencia;
+  double? larvaTamanoMg;
+  /// excellent | good | acceptable | rejected
+  String? larvaSanidad;
+  String? larvaSanidadNotas;
+
   InformeCampo({
     this.plantaNombre,
     this.librasEnviadas,
@@ -85,11 +103,38 @@ class InformeCampo {
     this.longitud,
     List<LineaClasificacion>? lineas,
     List<Conteo>? conteos,
+    this.larvaCantidad,
+    this.larvaSupervivencia,
+    this.larvaTamanoMg,
+    this.larvaSanidad,
+    this.larvaSanidadNotas,
   })  : lineas = lineas ?? [],
         conteos = conteos ?? [];
 
-  /// Cuerpo del PATCH: solo lo que tiene valor (la API rechaza campos
-  /// desconocidos y acepta envíos parciales).
+  /// Qué le falta al informe para que el servidor admita un veredicto
+  /// (`_missing_report_fields` del modelo). Vacío = se puede dictaminar.
+  List<String> faltantesParaVeredicto({required bool larva}) {
+    bool hay(double? d) => d != null && d > 0;
+    if (larva) {
+      return [
+        if (!hay(larvaCantidad)) 'cantidad verificada',
+        if (!hay(larvaSupervivencia)) 'supervivencia medida',
+        if (!hay(larvaTamanoMg)) 'tamaño promedio',
+        if ((larvaSanidad ?? '').isEmpty) 'estado sanitario',
+      ];
+    }
+    return [
+      if (!hay(librasPlanta)) 'peso en planta',
+      if ((presentacion ?? '').isEmpty) 'presentación (entero o cola)',
+      if (!hay(metabisulfitoPpm)) 'metabisulfito (ppm)',
+      if (lineas.isEmpty) 'clasificación por tallas',
+      if ((sabor ?? '').isEmpty) 'resultado de sabor',
+    ];
+  }
+
+  /// Cuerpo del PATCH: los campos con valor más las listas de clasificación
+  /// y conteos tal como quedaron (vacías si el técnico las borró: la API
+  /// reemplaza lo que tenía).
   Map<String, dynamic> aCuerpoApi() {
     final m = <String, dynamic>{};
     void pon(String k, dynamic v) {
@@ -110,11 +155,16 @@ class InformeCampo {
     pon('grams_farm', gramosFinca);
     pon('grams_plant_1', gramosPlanta1);
     pon('grams_plant_2', gramosPlanta2);
+    pon('larvae_qty_verified', larvaCantidad);
+    pon('larvae_survival_rate', larvaSupervivencia);
+    pon('larvae_avg_size_mg', larvaTamanoMg);
+    pon('larvae_health_status', larvaSanidad);
+    pon('larvae_health_notes', larvaSanidadNotas);
     pon('incident_notes', incidencias);
     pon('gps_latitude', latitud);
     pon('gps_longitude', longitud);
-    if (lineas.isNotEmpty) m['lines'] = lineas.map((l) => l.aJson()).toList();
-    if (conteos.isNotEmpty) m['counts'] = conteos.map((c) => c.aJson()).toList();
+    m['lines'] = lineas.map((l) => l.aJson()).toList();
+    m['counts'] = conteos.map((c) => c.aJson()).toList();
     return m;
   }
 
@@ -137,65 +187,90 @@ class InformeCampo {
         'longitud': longitud,
         'lineas': lineas.map((l) => l.aJson()).toList(),
         'conteos': conteos.map((c) => c.aJson()).toList(),
+        'larvaCantidad': larvaCantidad,
+        'larvaSupervivencia': larvaSupervivencia,
+        'larvaTamanoMg': larvaTamanoMg,
+        'larvaSanidad': larvaSanidad,
+        'larvaSanidadNotas': larvaSanidadNotas,
       };
 
   factory InformeCampo.desdeJsonLocal(Map json) {
-    double? d(dynamic v) => v == null ? null : (v as num).toDouble();
     return InformeCampo(
-      plantaNombre: json['plantaNombre'] as String?,
-      librasEnviadas: d(json['librasEnviadas']),
-      librasPlanta: d(json['librasPlanta']),
-      librasBasura: d(json['librasBasura']),
-      presentacion: json['presentacion'] as String?,
-      metabisulfitoPpm: d(json['metabisulfitoPpm']),
-      metabisulfitoNotas: json['metabisulfitoNotas'] as String?,
-      sabor: json['sabor'] as String?,
-      saborNotas: json['saborNotas'] as String?,
-      gramosFinca: d(json['gramosFinca']),
-      gramosPlanta1: d(json['gramosPlanta1']),
-      gramosPlanta2: d(json['gramosPlanta2']),
-      incidencias: json['incidencias'] as String?,
-      latitud: d(json['latitud']),
-      longitud: d(json['longitud']),
-      lineas: ((json['lineas'] ?? []) as List).map((e) => LineaClasificacion.desde(e as Map)).toList(),
-      conteos: ((json['conteos'] ?? []) as List).map((e) => Conteo.desde(e as Map)).toList(),
+      plantaNombre: jsonTexto(json['plantaNombre']),
+      librasEnviadas: jsonNumero(json['librasEnviadas']),
+      librasPlanta: jsonNumero(json['librasPlanta']),
+      librasBasura: jsonNumero(json['librasBasura']),
+      presentacion: jsonTexto(json['presentacion']),
+      metabisulfitoPpm: jsonNumero(json['metabisulfitoPpm']),
+      metabisulfitoNotas: jsonTexto(json['metabisulfitoNotas']),
+      sabor: jsonTexto(json['sabor']),
+      saborNotas: jsonTexto(json['saborNotas']),
+      gramosFinca: jsonNumero(json['gramosFinca']),
+      gramosPlanta1: jsonNumero(json['gramosPlanta1']),
+      gramosPlanta2: jsonNumero(json['gramosPlanta2']),
+      incidencias: jsonTexto(json['incidencias']),
+      latitud: jsonNumero(json['latitud']),
+      longitud: jsonNumero(json['longitud']),
+      lineas: _lista(json['lineas']).map(LineaClasificacion.desde).toList(),
+      conteos: _lista(json['conteos']).map(Conteo.desde).toList(),
+      larvaCantidad: jsonNumero(json['larvaCantidad']),
+      larvaSupervivencia: jsonNumero(json['larvaSupervivencia']),
+      larvaTamanoMg: jsonNumero(json['larvaTamanoMg']),
+      larvaSanidad: jsonTexto(json['larvaSanidad']),
+      larvaSanidadNotas: jsonTexto(json['larvaSanidadNotas']),
     );
   }
 
   /// Arranca el informe con lo que el servidor ya tiene (si el técnico
-  /// empezó desde otro equipo o la empresa cargó algo).
+  /// empezó desde otro equipo o la empresa cargó algo). Los campos
+  /// numéricos en 0 son "sin dato" en Odoo: no se precargan como ceros.
   factory InformeCampo.desdeServidor(Map<String, dynamic> detalle) {
-    final pesos = (detalle['weights'] ?? {}) as Map;
-    final meta = (detalle['metabisulfite'] ?? {}) as Map;
-    final sabor = (detalle['taste'] ?? {}) as Map;
-    final gramos = (detalle['grams'] ?? {}) as Map;
-    final clasif = (detalle['classification'] ?? {}) as Map;
-    double? d(dynamic v) => v == null ? null : (v as num).toDouble();
+    final pesos = _mapa(detalle['weights']);
+    final meta = _mapa(detalle['metabisulfite']);
+    final sabor = _mapa(detalle['taste']);
+    final gramos = _mapa(detalle['grams']);
+    final clasif = _mapa(detalle['classification']);
+    final larva = _mapa(detalle['larvae']);
+    double? d(dynamic v) {
+      final n = jsonNumero(v);
+      return n == null || n == 0 ? null : n;
+    }
+
     return InformeCampo(
-      plantaNombre: detalle['plant_name'] as String?,
+      plantaNombre: jsonTexto(detalle['plant_name']),
       librasEnviadas: d(pesos['sent_lb']),
       librasPlanta: d(pesos['plant_lb']),
       librasBasura: d(pesos['trash_lb']),
-      presentacion: detalle['presentation'] as String?,
+      presentacion: jsonTexto(detalle['presentation']),
       metabisulfitoPpm: d(meta['ppm']),
-      metabisulfitoNotas: meta['notes'] as String?,
-      sabor: sabor['result'] as String?,
-      saborNotas: sabor['notes'] as String?,
+      metabisulfitoNotas: jsonTexto(meta['notes']),
+      sabor: jsonTexto(sabor['result']),
+      saborNotas: jsonTexto(sabor['notes']),
       gramosFinca: d(gramos['farm']),
       gramosPlanta1: d(gramos['plant_1']),
       gramosPlanta2: d(gramos['plant_2']),
-      incidencias: detalle['incident_notes'] as String?,
-      lineas: ((clasif['lines'] ?? []) as List).map((e) => LineaClasificacion.desde(e as Map)).toList(),
-      conteos: ((detalle['counts'] ?? []) as List).map((e) => Conteo.desde(e as Map)).toList(),
+      incidencias: jsonTexto(detalle['incident_notes']),
+      lineas: _lista(clasif['lines']).map(LineaClasificacion.desde).toList(),
+      conteos: _lista(detalle['counts']).map(Conteo.desde).toList(),
+      larvaCantidad: d(larva['qty_verified']),
+      larvaSupervivencia: d(larva['survival_rate']),
+      larvaTamanoMg: d(larva['avg_size_mg']),
+      larvaSanidad: jsonTexto(larva['health_status']),
+      larvaSanidadNotas: jsonTexto(larva['health_notes']),
     );
   }
 }
+
+Map _mapa(dynamic v) => v is Map ? v : const {};
+Iterable<Map> _lista(dynamic v) => v is List ? v.whereType<Map>() : const [];
 
 class Verificacion {
   final String id;
   final String referencia;
   /// received | assigned | in_field | done | approved | approved_obs | rejected ...
   final String estado;
+  /// shrimp | larvae: a la larva no se le piden tallas, metabisulfito ni sabor.
+  final String? alcance;
   final String? miRol;
   final Referencia producto;
   final Referencia comprador;
@@ -223,6 +298,7 @@ class Verificacion {
     required this.id,
     required this.referencia,
     required this.estado,
+    required this.alcance,
     required this.miRol,
     required this.producto,
     required this.comprador,
@@ -243,34 +319,38 @@ class Verificacion {
     required this.crudo,
   });
 
+  /// `true` si el JSON trae un identificador utilizable.
+  static bool tieneId(Map json) => (jsonTexto(json['id']) ?? '').isNotEmpty;
+
   factory Verificacion.desde(Map<String, dynamic> json) {
-    DateTime? fecha(dynamic v) => v == null ? null : DateTime.tryParse(v as String)?.toLocal();
     return Verificacion(
-      id: json['id'] as String,
-      referencia: (json['reference'] ?? '') as String,
-      estado: (json['state'] ?? '') as String,
-      miRol: json['my_role'] as String?,
+      id: jsonTexto(json['id']) ?? '',
+      referencia: jsonTexto(json['reference']) ?? '',
+      estado: jsonTexto(json['state']) ?? '',
+      alcance: jsonTexto(json['scope']),
+      miRol: jsonTexto(json['my_role']),
       producto: Referencia.desde(json['product']),
       comprador: Referencia.desde(json['buyer']),
       vendedor: Referencia.desde(json['seller']),
       verificadora: Referencia.desde(json['verifier']),
       tecnico: json['technician'] is Map ? Referencia.desde(json['technician']) : null,
       tecnicoAsignado: json['technician_assigned'] == true || json['technician'] is Map,
-      modo: json['verification_mode'] as String?,
-      transaccionId: json['transaction'] as String?,
-      estadoAceptacion: (json['acceptance_state'] ?? 'na') as String,
-      plazoAceptacion: fecha(json['acceptance_deadline']),
-      despachoId: json['dispatch'] as String?,
-      despachoEta: fecha(json['dispatch_eta']),
-      loteCodigo: json['batch_code'] as String?,
-      piscina: json['pond'] is Map ? (json['pond']['name'] as String?) : null,
-      instalacion: json['facility'] is Map ? (json['facility']['name'] as String?) : null,
-      actualizadoEn: fecha(json['updated_at']),
+      modo: jsonTexto(json['verification_mode']),
+      transaccionId: jsonTexto(json['transaction']),
+      estadoAceptacion: jsonTexto(json['acceptance_state']) ?? 'na',
+      plazoAceptacion: fechaIso(json['acceptance_deadline']),
+      despachoId: jsonTexto(json['dispatch']),
+      despachoEta: fechaIso(json['dispatch_eta']),
+      loteCodigo: jsonTexto(json['batch_code']),
+      piscina: json['pond'] is Map ? jsonTexto(json['pond']['name']) : null,
+      instalacion: json['facility'] is Map ? jsonTexto(json['facility']['name']) : null,
+      actualizadoEn: fechaIso(json['updated_at']),
       crudo: json,
     );
   }
 
   bool get tieneDetalle => crudo.containsKey('weights');
+  bool get esLarva => alcance == 'larvae';
   bool get esperaAceptacion => estadoAceptacion == 'waiting';
   bool get soyVerificadora => miRol == 'verifier';
 
@@ -280,7 +360,7 @@ class Verificacion {
     final lista = crudo['acceptances'];
     if (lista is! List) return null;
     for (final a in lista) {
-      if (a is Map && a['role'] == rol) return a['decision'] as String?;
+      if (a is Map && a['role'] == rol) return jsonTexto(a['decision']);
     }
     return null;
   }
@@ -288,7 +368,9 @@ class Verificacion {
   /// Mi decisión está pendiente y la ronda sigue abierta.
   bool get puedoDecidir =>
       esperaAceptacion && (miRol == 'buyer' || miRol == 'seller') && (decisionDe(miRol!) ?? 'pending') == 'pending';
-  bool get puedeIniciarCampo => estado == 'received' || estado == 'assigned';
+  /// El servidor solo admite `:start` con técnico asignado (422 en `received`).
+  bool get puedeIniciarCampo => estado == 'assigned';
+  bool get esperaTecnico => estado == 'received';
   bool get enCampo => estado == 'in_field';
   bool get cerrada => const {'done', 'approved', 'approved_obs', 'rejected', 'cancelled'}.contains(estado);
 

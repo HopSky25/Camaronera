@@ -36,8 +36,12 @@ class PanelEmpacadora extends StatelessWidget {
               repo.todoOVacio('/transactions', params: {'role': 'buyer'}),
               repo.todoOVacio('/verifications', params: {'role': 'buyer'}),
               repo.todoOVacio('/dispatches'),
-              repo.detalle('/suppliers/ranking', params: {'order': 'puntaje'}).catchError(
-                  (Object e) => e is ErrorApi && !e.esNoAutorizado ? const ResultadoLista([{}]) : throw e),
+              // El ranking solo lo da la API a una cuenta empacadora; si falla
+              // (403, sin señal y sin caché) el panel sigue con el resto.
+              repo.detalle('/suppliers/ranking', params: {'order': 'puntaje'}).catchError((Object e) {
+                if (e is ErrorApi && e.esNoAutorizado) throw e;
+                return const ResultadoLista([{}]);
+              }),
             ]),
             hijo: (c, datos, _, _, recargar) {
               final compras = datos[0].datos.where((t) => transaccionEnCurso(t['state'] as String?)).toList();
@@ -116,7 +120,7 @@ class PanelEmpacadora extends StatelessWidget {
                     ],
                     const Rotulo('Listas'),
                     FilaMenu(icono: Icons.storefront_outlined, titulo: 'Catálogo de lotes', subtitulo: 'Lotes publicados y compra con verificación', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaCatalogo()))),
-                    FilaMenu(icono: Icons.shopping_bag_outlined, titulo: 'Mis compras', subtitulo: 'Estado, trazabilidad y concluir la compra', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaTransacciones(rol: 'buyer')))),
+                    FilaMenu(icono: Icons.shopping_bag_outlined, titulo: 'Mis compras', subtitulo: 'Estado y trazabilidad de cada compra', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaTransacciones(rol: 'buyer')))),
                     FilaMenu(icono: Icons.fact_check_outlined, titulo: 'Informes de verificación', subtitulo: 'Ver el resultado y aceptar o rechazar', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaInformes(rol: 'buyer')))),
                     FilaMenu(icono: Icons.local_shipping_outlined, titulo: 'Despachos', subtitulo: 'Citas de los camiones y llegadas', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaDespachos()))),
                     FilaMenu(icono: Icons.event_available_outlined, titulo: 'Reservas de cosecha', subtitulo: 'Compromisos y compra del lote reservado', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaReservas()))),

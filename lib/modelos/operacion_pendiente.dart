@@ -17,7 +17,6 @@ enum TipoOperacion {
   // Empacadora
   compraVerificada,
   comprarReserva,
-  concluirCompra,
   // Maquilador
   ofertaMaquila,
   recepcionMaquila,
@@ -40,6 +39,10 @@ class OperacionPendiente {
   final int intentos;
   final String? ultimoError;
 
+  /// Perfil (`X-Shrimp-Role`) con el que se hizo la operación. Se envía con
+  /// ese perfil aunque después se cambie de perfil en la app.
+  final String? rol;
+
   const OperacionPendiente({
     this.idLocal,
     required this.tipo,
@@ -50,7 +53,11 @@ class OperacionPendiente {
     required this.creadaEn,
     this.intentos = 0,
     this.ultimoError,
+    this.rol,
   });
+
+  /// El servidor rechazó el dato (4xx definitivo): no se reintenta sola.
+  bool get conError => ultimoError != null;
 
   String get metodo => switch (tipo) {
         TipoOperacion.informe || TipoOperacion.programarDespacho => 'PATCH',
@@ -67,7 +74,6 @@ class OperacionPendiente {
         TipoOperacion.programarDespacho => '/dispatches/$recursoId',
         TipoOperacion.compraVerificada => '/verifications',
         TipoOperacion.comprarReserva => '/harvest/commitments/$recursoId:buy',
-        TipoOperacion.concluirCompra => '/transactions/$recursoId:complete',
         TipoOperacion.ofertaMaquila => '/copack/requests/$recursoId/offers',
         TipoOperacion.recepcionMaquila => '/copack/orders/$recursoId:reception',
         TipoOperacion.empaqueMaquila => '/copack/orders/$recursoId:packing',
@@ -84,7 +90,6 @@ class OperacionPendiente {
         TipoOperacion.programarDespacho => 'Programación del despacho',
         TipoOperacion.compraVerificada => 'Compra con verificación',
         TipoOperacion.comprarReserva => 'Compra del lote reservado',
-        TipoOperacion.concluirCompra => 'Conclusión de la compra',
         TipoOperacion.ofertaMaquila => 'Oferta de empaque',
         TipoOperacion.recepcionMaquila => 'Recepción en planta',
         TipoOperacion.empaqueMaquila => 'Empaque terminado',

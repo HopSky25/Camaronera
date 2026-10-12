@@ -1,13 +1,32 @@
 import uuid
+from contextlib import contextmanager
 from datetime import timedelta
+from unittest.mock import patch
 
 from odoo import fields
 from odoo.exceptions import ValidationError
 from odoo.tests import tagged
+from odoo.tests.test_cursor import TestCursor
 
 from odoo.addons.shrimp_api.hooks import migrate_legacy_keys
 
 from .common import ApiCase
+
+
+@contextmanager
+def postcommit_activo():
+    """El cursor de los tests (TestCursor) descarta los postcommit al
+    «confirmar». Aquí se ejecutan, como haría el cursor real."""
+    original = TestCursor.commit
+
+    def commit(cr):
+        pendientes = list(cr.postcommit._funcs)
+        original(cr)
+        for func in pendientes:
+            func()
+
+    with patch.object(TestCursor, "commit", commit):
+        yield
 
 
 @tagged("post_install", "-at_install", "shrimp_api")
@@ -145,14 +164,37 @@ class TestApiAuth(ApiCase):
         self.assertProblem(self.api("POST", "/facilities", raw=self.raw_b, body={"name": "w2"}), 429)
 
     def test_last_used_is_throttled(self):
-        self.api("GET", "/me", raw=self.raw_lab)
-        self.key_lab.invalidate_recordset()
-        first = self.key_lab.sudo().last_used
-        self.assertTrue(first)
-        self.api("GET", "/me", raw=self.raw_lab)
-        self.key_lab.invalidate_recordset()
-        # Menos de un minuto después: no se vuelve a escribir.
-        self.assertEqual(self.key_lab.sudo().last_used, first)
+        with postcommit_activo():
+            self.api("GET", "/me", raw=self.raw_lab)
+            self.key_lab.invalidate_recordset()
+            first = self.key_lab.sudo().last_used
+            self.assertTrue(first)
+            self.api("GET", "/me", raw=self.raw_lab)
+            self.key_lab.invalidate_recordset()
+            # Menos de un minuto después: no se vuelve a escribir.
+            self.assertEqual(self.key_lab.sudo().last_used, first)
+
+    def test_last_used_se_marca_despues_de_confirmar(self):
+        """La marca de último uso no se escribe dentro de la transacción de la
+        petición: si un cursor aparte actualizaba la fila de la clave mientras
+        la petición seguía abierta, el INSERT en shrimp_api_idempotency (FK a
+        la clave) fallaba con «could not serialize access»."""
+        viejo = fields.Datetime.now() - timedelta(hours=1)
+        self.key_b.sudo().write({"last_used": viejo, "last_ip": False})
+        self.env.flush_all()
+        # Sin ejecutar los postcommit (el TestCursor los descarta): el POST con
+        # Idempotency-Key funciona y la fila de la clave queda intacta.
+        resp = self.api("POST", "/facilities", raw=self.raw_b, body={"name": "Piscina touch"})
+        self.assertEqual(resp.status_code, 201, resp.text)
+        self.key_b.invalidate_recordset()
+        self.assertEqual(self.key_b.sudo().last_used, viejo)
+        # Con postcommit (como en producción) se marca al confirmar.
+        with postcommit_activo():
+            resp = self.api("POST", "/facilities", raw=self.raw_b, body={"name": "Piscina touch 2"})
+        self.assertEqual(resp.status_code, 201, resp.text)
+        self.key_b.invalidate_recordset()
+        self.assertGreater(self.key_b.sudo().last_used, viejo)
+        self.assertTrue(self.key_b.sudo().last_ip)
 
     def test_cors_public(self):
         resp = self.url_open("/api/v1/public/catalogs/species", method="OPTIONS",

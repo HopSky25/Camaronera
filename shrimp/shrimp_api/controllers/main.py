@@ -274,13 +274,20 @@ class ShrimpApiController(http.Controller):
             raise ApiError(403, "insufficient-scope",
                            "La clave no tiene el scope necesario: %s." % " o ".join(route.scopes))
 
-        # Límite de peticiones y último uso, en un cursor aparte que se
-        # confirma enseguida (cuenta aunque la petición falle después).
+        # Límite de peticiones en un cursor aparte que se confirma enseguida
+        # (cuenta aunque la petición falle después).
         read_limit, write_limit = key._api_limits()
         kind, limit = ("w", write_limit) if method in WRITE_METHODS else ("r", read_limit)
         with request.env.registry.cursor() as cr:
             ok, hits, retry = request.env["shrimp.api.rate.bucket"]._hit(cr, "k:%s" % key.id, kind, limit)
-            request.env["shrimp.api.key"]._api_touch_sql(cr, key.id, ip)
+        # El último uso NO va en ese cursor: actualiza la fila de
+        # shrimp_api_key, y esta transacción ya tiene su foto (REPEATABLE
+        # READ) desde que autenticó la clave. Si otro cursor confirma un
+        # UPDATE de esa fila, el INSERT en shrimp_api_idempotency (FK a la
+        # clave, que bloquea la fila con KEY SHARE) choca con «could not
+        # serialize access due to concurrent update». Se hace después de
+        # confirmar la petición.
+        request.env["shrimp.api.key"]._api_touch_after_commit(request.env.cr, key.id, ip)
         extra += [("X-RateLimit-Limit", str(limit)),
                   ("X-RateLimit-Remaining", str(max(0, limit - hits)))]
         if not ok:

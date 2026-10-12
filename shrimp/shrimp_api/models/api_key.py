@@ -357,10 +357,43 @@ class ShrimpApiKey(models.Model):
     # Último uso: como mucho una escritura por minuto y por clave
     # ------------------------------------------------------------------
     @api.model
+    def _api_touch_after_commit(self, cr, key_id, ip):
+        """Programa la marca de último uso para DESPUÉS de confirmar `cr`.
+
+        No puede ir dentro de la petición: la transacción de la petición
+        (REPEATABLE READ) tomó su foto al autenticar la clave, y si un cursor
+        aparte confirma un UPDATE de la fila de shrimp_api_key, el INSERT en
+        shrimp_api_idempotency (FK a la clave, KEY SHARE sobre la fila)
+        falla con «could not serialize access due to concurrent update».
+
+        Si la petición se revierte (reintento por concurrencia), Odoo vacía
+        los postcommit y el reintento la vuelve a programar. Un fallo aquí
+        nunca rompe la respuesta: la petición ya está confirmada.
+        """
+        pendientes = cr.postcommit.data.setdefault("shrimp_api.touch", {})
+        if not pendientes:
+            registry = self.env.registry
+            api_key = self
+
+            def _touch():
+                for kid, kip in list(pendientes.items()):
+                    try:
+                        with registry.cursor() as tcr:
+                            api_key._api_touch_sql(tcr, kid, kip)
+                    except Exception:  # noqa: BLE001 - dato informativo
+                        _logger.info("No se pudo marcar el último uso de la clave %s",
+                                     kid, exc_info=True)
+                pendientes.clear()
+
+            cr.postcommit.add(_touch)
+        pendientes[key_id] = ip
+
+    @api.model
     def _api_touch_sql(self, cr, key_id, ip):
-        """Se ejecuta en un cursor aparte (el del límite de peticiones), con
-        SKIP LOCKED: si otra petición está actualizando la fila, esta no
-        espera — la marca de último uso no merece un bloqueo."""
+        """Se ejecuta en un cursor propio, después de confirmar la petición
+        (_api_touch_after_commit), con SKIP LOCKED: si otra petición está
+        actualizando la fila, esta no espera — la marca de último uso no
+        merece un bloqueo."""
         cr.execute("""
             UPDATE shrimp_api_key SET last_used = (now() at time zone 'utc'), last_ip = %s
              WHERE id IN (SELECT id FROM shrimp_api_key

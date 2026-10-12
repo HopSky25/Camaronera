@@ -79,9 +79,21 @@
         </record>
 
         <!-- Las reglas del mismo grupo se suman con O, asi que esta AMPLIA la
-             anterior: el maquilador ve ademas las publicadas de cualquiera, que
-             es lo que le llena la bandeja. Quien no es maquilador cae en el
-             dominio falso y no ve nada ajeno. -->
+             anterior. El maquilador ve:
+             - las solicitudes en las que ya participa, en cualquier estado: la
+               que se le adjudico (la orden es suya) y aquellas en las que
+               oferto. Sin esto, la bandeja de la app con ?state=assigned o
+               done salia vacia aunque el trabajo fuera suyo.
+             - la bandeja: las publicadas abiertas a todos o dirigidas a el.
+             La bandeja exige poder actuar como maquilador: perfil ACTIVO o un
+             perfil maquilador APROBADO (_shrimp_has_role, el mismo criterio que
+             el directorio de arriba y que la cabecera X-Shrimp-Role de la API).
+             Antes miraba solo el perfil activo y una cuenta multiperfil que
+             navegaba como camaronera veia la bandeja vacia.
+             Quien no puede ser maquilador solo ve aquello en lo que participa,
+             nunca las publicadas de otros ni las adjudicadas a otra planta.
+             El registro esta en un bloque noupdate: en una base ya instalada
+             el dominio lo reescribe migrations/19.0.1.9.0. -->
         <record id="rule_copack_request_bandeja" model="ir.rule">
             <field name="name">Solicitudes de empaque: bandeja del maquilador</field>
             <field name="model_id" ref="model_shrimp_copack_request"/>
@@ -90,7 +102,18 @@
             <field name="perm_write" eval="False"/>
             <field name="perm_create" eval="False"/>
             <field name="perm_unlink" eval="False"/>
-            <field name="domain_force">['&amp;', ('state', '=', 'published'), '|', ('is_open', '=', True), ('copacker_partner_id', '=', user.partner_id.id)] if user.partner_id.shrimp_user_type == 'maquilador' else [(0, '=', 1)]</field>
+            <field name="domain_force">
+                (['|', '|',
+                  ('order_id.copacker_partner_id', '=', user.partner_id.id),
+                  ('offer_ids.copacker_partner_id', '=', user.partner_id.id),
+                  '&amp;', ('state', '=', 'published'),
+                           '|', ('is_open', '=', True),
+                                ('copacker_partner_id', '=', user.partner_id.id)]
+                 if user.partner_id._shrimp_has_role('maquilador') else
+                 ['|',
+                  ('order_id.copacker_partner_id', '=', user.partner_id.id),
+                  ('offer_ids.copacker_partner_id', '=', user.partner_id.id)])
+            </field>
         </record>
 
 

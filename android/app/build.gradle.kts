@@ -47,3 +47,12 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // BiometricPrompt con CryptoObject: firma ES256 y cifrado AES ligados a la
+    // huella o al PIN del teléfono (SeguridadDispositivo.kt).
+    implementation("androidx.biometric:biometric:1.1.0")
+    // FlutterFragmentActivity + tema AppCompat (el diálogo de huella en
+    // Android 7-8 lo necesita).
+    implementation("androidx.appcompat:appcompat:1.7.0")
+}

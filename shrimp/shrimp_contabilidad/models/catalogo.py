@@ -143,6 +143,21 @@ DIARIOS = {
                         renombrables={}),
 }
 
+# Diarios que crea Odoo con nombre en inglés (base sin idioma español al
+# cargar el plan). Solo se renombran si conservan EXACTAMENTE ese nombre.
+DIARIOS_FABRICA_ES = {
+    "Purchases": "Compras",
+    "Vendor Bills": "Facturas de proveedores",
+    "Customer Invoices": "Facturas de cliente",
+    "Miscellaneous Operations": "Operaciones varias",
+    "Exchange Difference": "Diferencia de cambio",
+    "Cash Basis Taxes": "Impuestos sobre base de efectivo",
+    "Cash Basis Taxes Journal": "Impuestos sobre base de efectivo",
+    "Inventory Valuation": "Valoración de inventario",
+    "Point of Sale": "Punto de venta",
+    "Tax Returns": "Declaraciones de impuestos",
+}
+
 # Términos de pago (se reutilizan los de Odoo).
 TERMINOS_PAGO = {
     "contado": "account.account_payment_term_immediate",

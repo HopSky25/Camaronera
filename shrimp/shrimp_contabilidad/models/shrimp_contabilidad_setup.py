@@ -486,8 +486,25 @@ class ShrimpContabilidadSetup(models.AbstractModel):
         return journal
 
     @api.model
+    def _traducir_diarios_fabrica(self):
+        """En cada actualización (-u): diarios de fábrica que siguen en inglés,
+        al español, en todas las empresas. Nombres puestos a mano no se tocan."""
+        for journal in self.env["account.journal"].sudo().with_context(active_test=False).search([]):
+            nuevo = C.DIARIOS_FABRICA_ES.get(journal.with_context(lang="en_US").name)
+            if nuevo and journal.name != nuevo:
+                self._rename(journal, nuevo)
+
+    @api.model
     def _ensure_journals(self, company, R):
-        return {clave: self._ensure_journal(company, clave, R) for clave in C.DIARIOS}
+        diarios = {clave: self._ensure_journal(company, clave, R) for clave in C.DIARIOS}
+        # Los diarios de fábrica que quedaron en inglés, al español.
+        for journal in self.env["account.journal"].sudo().search([("company_id", "=", company.id)]):
+            nuevo = C.DIARIOS_FABRICA_ES.get(journal.name)
+            if nuevo:
+                antes = journal.name
+                self._rename(journal, nuevo)
+                R["diarios"].append(("renombrado desde «%s»" % antes, journal.code, journal.name))
+        return diarios
 
     @api.model
     def _ensure_payment_terms(self, R):

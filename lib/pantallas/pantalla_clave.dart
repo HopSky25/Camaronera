@@ -1,22 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../datos/sincronizador.dart';
+import '../datos/api_cliente.dart';
+import '../datos/sesion.dart';
 import '../tema.dart';
+import 'comunes/widgets.dart';
 
-/// Primera pantalla: servidor y clave de API del técnico.
+/// Opción avanzada: entrar con una clave de API creada en el portal
+/// (por ejemplo la que la empresa verificadora entrega a cada técnico).
 class PantallaClave extends StatefulWidget {
-  const PantallaClave({super.key});
+  final String url;
+  const PantallaClave({super.key, this.url = 'https://demo.camaronmarket.com'});
   @override
   State<PantallaClave> createState() => _PantallaClaveState();
 }
 
 class _PantallaClaveState extends State<PantallaClave> {
-  final _url = TextEditingController(text: 'https://demo.camaronmarket.com');
+  late final _url = TextEditingController(text: widget.url);
   final _clave = TextEditingController();
   bool _ocupado = false;
   bool _verClave = false;
   String? _error;
+
+  @override
+  void dispose() {
+    _url.dispose();
+    _clave.dispose();
+    super.dispose();
+  }
 
   Future<void> _conectar() async {
     if (_clave.text.trim().isEmpty) {
@@ -28,11 +39,10 @@ class _PantallaClaveState extends State<PantallaClave> {
       _error = null;
     });
     try {
-      final yo = await context.read<Sincronizador>().conectar(url: _url.text, clave: _clave.text);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Conectado como ${yo['name']}')));
+      await context.read<Sesion>().entrarConClave(url: _url.text, clave: _clave.text);
+      if (mounted) Navigator.pop(context);
     } catch (e) {
-      setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = mensajeDeError(e));
     } finally {
       if (mounted) setState(() => _ocupado = false);
     }
@@ -41,83 +51,45 @@ class _PantallaClaveState extends State<PantallaClave> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
+      appBar: AppBar(title: const Text('Entrar con clave de API')),
+      body: ListView(
+        padding: const EdgeInsets.all(24),
         children: [
-          // Cabecera con el degradado de la marca y el logo, como la portada del portal.
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(24, 72, 24, 32),
-            decoration: const BoxDecoration(gradient: Marca.degradado),
-            child: Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
-                  child: Image.asset('assets/logo.png', height: 40),
-                ),
-                const SizedBox(height: 18),
-                const Text('Verificador de campo',
-                    style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800)),
-                const SizedBox(height: 6),
-                Text('Inspecciona en la piscina o en la planta, con o sin señal.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 14)),
-              ],
+          const Text(
+            'Para integraciones y para técnicos con clave propia. Si tienes correo y contraseña, '
+            'vuelve atrás y entra con tu cuenta.',
+            style: TextStyle(color: Marca.tintaSuave, fontSize: 13.5),
+          ),
+          const Rotulo('Conexión'),
+          TextField(
+            controller: _url,
+            keyboardType: TextInputType.url,
+            autocorrect: false,
+            decoration: const InputDecoration(labelText: 'Servidor', prefixIcon: Icon(Icons.language)),
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            controller: _clave,
+            obscureText: !_verClave,
+            autocorrect: false,
+            decoration: InputDecoration(
+              labelText: 'Clave de API',
+              helperText: 'Se crea en el portal, en Mis claves de API. Empieza por trz_',
+              prefixIcon: const Icon(Icons.key_outlined),
+              suffixIcon: IconButton(
+                icon: Icon(_verClave ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+                onPressed: () => setState(() => _verClave = !_verClave),
+              ),
             ),
           ),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(24),
-              children: [
-                const Rotulo('Conexión'),
-                TextField(
-                  controller: _url,
-                  keyboardType: TextInputType.url,
-                  decoration: const InputDecoration(labelText: 'Servidor', prefixIcon: Icon(Icons.language)),
-                ),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: _clave,
-                  obscureText: !_verClave,
-                  decoration: InputDecoration(
-                    labelText: 'Clave de API',
-                    helperText: 'La crea tu empresa verificadora en el portal. Empieza por trz_',
-                    prefixIcon: const Icon(Icons.key_outlined),
-                    suffixIcon: IconButton(
-                      icon: Icon(_verClave ? Icons.visibility_off_outlined : Icons.visibility_outlined),
-                      onPressed: () => setState(() => _verClave = !_verClave),
-                    ),
-                  ),
-                ),
-                if (_error != null) ...[
-                  const SizedBox(height: 14),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: const Color(0xFFFDEAEA), borderRadius: BorderRadius.circular(12)),
-                    child: Row(children: [
-                      const Icon(Icons.error_outline, color: Marca.rojo),
-                      const SizedBox(width: 10),
-                      Expanded(child: Text(_error!, style: const TextStyle(color: Marca.rojo))),
-                    ]),
-                  ),
-                ],
-                const SizedBox(height: 24),
-                FilledButton.icon(
-                  onPressed: _ocupado ? null : _conectar,
-                  icon: _ocupado
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Icon(Icons.login),
-                  label: Text(_ocupado ? 'Conectando…' : 'Conectar'),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Solo necesitas internet para conectar y para sincronizar. '
-                  'Lo que captures en campo se guarda en el teléfono.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Marca.tintaSuave, fontSize: 13),
-                ),
-              ],
-            ),
+          if (_error != null) ...[const SizedBox(height: 14), CajaError(texto: _error!)],
+          const SizedBox(height: 24),
+          FilledButton.icon(
+            onPressed: _ocupado ? null : _conectar,
+            icon: _ocupado
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.login),
+            label: Text(_ocupado ? 'Conectando…' : 'Conectar'),
           ),
         ],
       ),

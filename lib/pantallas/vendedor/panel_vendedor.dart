@@ -1,0 +1,124 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../datos/repositorio.dart';
+import '../../datos/sesion.dart';
+import '../../datos/sincronizador.dart';
+import '../../tema.dart';
+import '../comunes/formato.dart';
+import '../comunes/lista_remota.dart';
+import '../comunes/menu_cuenta.dart';
+import '../comunes/pantalla_despachos.dart';
+import '../comunes/pantalla_informes.dart';
+import '../comunes/pantalla_transacciones.dart';
+import '../comunes/widgets.dart';
+import 'pantalla_mis_lotes.dart';
+
+/// Panel de quien vende (camaronera, semillero, laboratorio): lotes
+/// publicados, ventas en curso, informes por aceptar y próximos despachos.
+class PanelVendedor extends StatelessWidget {
+  const PanelVendedor({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final sinc = context.watch<Sincronizador>();
+    final perfil = context.watch<Sesion>().perfil ?? '';
+    final esCamaronera = perfil == 'camaronera';
+    return Scaffold(
+      appBar: const BarraCuenta(),
+      body: Column(children: [
+        const FranjaPerfil(),
+        BarraEstado(sinc: sinc),
+        Expanded(
+          child: CargaRemota<List<ResultadoLista>>(
+            cargar: (repo) => Future.wait([
+              repo.todoOVacio('/products', params: {'state': 'published'}),
+              repo.todoOVacio('/transactions', params: {'role': 'seller'}),
+              repo.todoOVacio('/verifications', params: {'role': 'seller'}),
+              repo.todoOVacio('/dispatches'),
+            ]),
+            hijo: (c, datos, _, _, recargar) {
+              final lotes = datos[0].datos;
+              final ventas = datos[1].datos.where((t) => transaccionEnCurso(t['state'] as String?)).toList();
+              final informes = datos[2].datos.where((v) => v['acceptance_state'] == 'waiting').toList();
+              final ahora = DateTime.now();
+              final despachos = datos[3].datos.where((d) {
+                if (d['state'] == 'llegado') return false;
+                final eta = aFecha(d['eta']);
+                return eta == null || eta.isAfter(ahora.subtract(const Duration(hours: 12)));
+              }).toList();
+              final libras = lotes.fold<double>(0, (s, p) => s + ((p['available_qty'] as num?)?.toDouble() ?? 0));
+              final unidad = lotes.isNotEmpty ? nombreDe(lotes.first['uom']) : (esCamaronera ? 'lb' : '');
+              final proximo = despachos.map((d) => aFecha(d['eta'])).whereType<DateTime>().fold<DateTime?>(null, (a, b) => a == null || b.isBefore(a) ? b : a);
+
+              return RefreshIndicator(
+                color: Marca.brand,
+                onRefresh: recargar,
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+                  children: [
+                    const Rotulo('Resumen'),
+                    RejillaResumen(tarjetas: [
+                      TarjetaResumen(
+                        icono: Icons.inventory_outlined,
+                        valor: '${lotes.length}',
+                        titulo: 'Lotes publicados',
+                        detalle: '${numero(libras)} $unidad disponibles',
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaMisLotes())),
+                      ),
+                      TarjetaResumen(
+                        icono: Icons.sell_outlined,
+                        valor: '${ventas.length}',
+                        titulo: 'Ventas en curso',
+                        detalle: _resumenEstados(ventas),
+                        color: Marca.navy,
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaTransacciones(rol: 'seller'))),
+                      ),
+                      TarjetaResumen(
+                        icono: Icons.how_to_vote_outlined,
+                        valor: '${informes.length}',
+                        titulo: 'Informes por aceptar',
+                        detalle: informes.isEmpty ? 'Nada pendiente' : 'Esperan tu decisión',
+                        color: informes.isEmpty ? Marca.verde : Marca.ambar,
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaInformes(rol: 'seller'))),
+                      ),
+                      TarjetaResumen(
+                        icono: Icons.local_shipping_outlined,
+                        valor: '${despachos.length}',
+                        titulo: 'Próximos despachos',
+                        detalle: proximo == null
+                            ? (despachos.isEmpty ? 'Sin despachos' : 'Hay citas sin fijar')
+                            : 'Próximo: ${fechaCorta(proximo)} ${hora(proximo)}',
+                        color: Marca.brand,
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaDespachos())),
+                      ),
+                    ]),
+                    const Rotulo('Listas'),
+                    FilaMenu(icono: Icons.inventory_outlined, titulo: 'Mis lotes', subtitulo: 'Publicados, en borrador y vendidos', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaMisLotes()))),
+                    FilaMenu(icono: Icons.sell_outlined, titulo: 'Mis ventas', subtitulo: 'Estado y trazabilidad de cada venta', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaTransacciones(rol: 'seller')))),
+                    FilaMenu(icono: Icons.fact_check_outlined, titulo: 'Informes de verificación', subtitulo: 'Ver el resultado y aceptar o rechazar', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaInformes(rol: 'seller')))),
+                    FilaMenu(icono: Icons.local_shipping_outlined, titulo: 'Despacho', subtitulo: 'Programar la cosecha, la salida y el camión', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaDespachos()))),
+                    const SizedBox(height: 8),
+                    const AvisoWeb(texto: 'Publicar lotes nuevos, cambiar precios, certificados y fotos se hace desde el portal web.'),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ]),
+    );
+  }
+
+  static String _resumenEstados(List<Map<String, dynamic>> ventas) {
+    if (ventas.isEmpty) return 'Sin ventas abiertas';
+    final porVerificar = ventas.where((t) => t['state'] == 'pending_verification').length;
+    final porAceptar = ventas.where((t) => t['state'] == 'pending_acceptance').length;
+    final confirmadas = ventas.where((t) => t['state'] == 'confirmed').length;
+    return [
+      if (porVerificar > 0) '$porVerificar por verificar',
+      if (porAceptar > 0) '$porAceptar por aceptar',
+      if (confirmadas > 0) '$confirmadas confirmadas',
+    ].join(' · ');
+  }
+}

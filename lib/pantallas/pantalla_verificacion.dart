@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import '../datos/sincronizador.dart';
 import '../modelos/verificacion.dart';
 import '../tema.dart';
+import 'comunes/widgets.dart';
+import 'pantalla_asignar_tecnico.dart';
 import 'pantalla_fotos.dart';
 import 'pantalla_informe.dart';
 import 'pantalla_veredicto.dart';
@@ -38,16 +40,17 @@ class PantallaVerificacion extends StatelessWidget {
             Insignia(estado: v.estado, texto: v.estadoEtiqueta),
           ]),
           const Rotulo('Lote'),
-          _Seccion(filas: [
+          SeccionDatos(filas: [
             ('Camaronera', v.vendedor.nombre),
             ('Compra de', v.comprador.nombre),
             if (v.instalacion != null) ('Finca', v.instalacion!),
             if (v.piscina != null) ('Piscina', v.piscina!),
             if (v.loteCodigo != null) ('Código de lote', v.loteCodigo!),
+            if (v.soyVerificadora) ('Técnico', v.tecnico?.nombre ?? 'Sin asignar'),
           ]),
           if (v.despachoId != null) ...[
             const Rotulo('Camión'),
-            _Seccion(filas: [
+            SeccionDatos(filas: [
               ('Llegada prevista', v.despachoEta == null ? 'Sin programar' : fmt.format(v.despachoEta!)),
             ]),
           ],
@@ -57,7 +60,7 @@ class PantallaVerificacion extends StatelessWidget {
               child: Text('Todavía no se ha cargado ningún dato de campo.', style: TextStyle(color: Marca.tintaSuave)),
             )
           else
-            _Seccion(filas: [
+            SeccionDatos(filas: [
               ('Libras enviadas', _lb(pesos['sent_lb'])),
               ('Libras en planta', _lb(pesos['plant_lb'])),
               ('Basura', _lb(pesos['trash_lb'])),
@@ -68,6 +71,14 @@ class PantallaVerificacion extends StatelessWidget {
               ('Fotos', '${v.crudo['photo_count'] ?? 0}'),
             ]),
           const Rotulo('Acciones'),
+          if (v.soyVerificadora && !v.cerrada) ...[
+            OutlinedButton.icon(
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PantallaAsignarTecnico(id: v.id))),
+              icon: const Icon(Icons.engineering_outlined),
+              label: Text(v.tecnicoAsignado ? 'Cambiar técnico' : 'Asignar técnico'),
+            ),
+            const SizedBox(height: 10),
+          ],
           if (v.puedeIniciarCampo) ...[
             FilledButton.icon(
               onPressed: () async {
@@ -144,37 +155,5 @@ class PantallaVerificacion extends StatelessWidget {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Llegada registrada')));
       }
     }
-  }
-}
-
-class _Seccion extends StatelessWidget {
-  final List<(String, String)> filas;
-  const _Seccion({required this.filas});
-
-  @override
-  Widget build(BuildContext context) {
-    return Tarjeta(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Column(
-        children: [
-          for (var i = 0; i < filas.length; i++) ...[
-            if (i > 0) const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(width: 130, child: Text(filas[i].$1, style: const TextStyle(fontSize: 13, color: Marca.tintaSuave))),
-                  Expanded(
-                    child: Text(filas[i].$2, textAlign: TextAlign.right,
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Marca.tinta)),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
   }
 }

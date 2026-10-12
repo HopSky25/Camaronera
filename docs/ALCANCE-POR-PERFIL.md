@@ -9,15 +9,71 @@ NO va en la app: en su lugar se muestra el aviso "Esto se hace desde el portal w
 
 | Paso | Qué hace la app | Endpoint |
 |---|---|---|
-| Entrar por cuenta | Servidor (por defecto `https://demo.camaronmarket.com`), correo y contraseña. Guarda la clave cifrada (flutter_secure_storage) y `me` en SQLite para abrir sin señal. `device` = marca y modelo del teléfono. | `POST /auth/login {"login","password","device"}` → `{api_key, expires_at, me}` |
-| Entrar con clave de API (opción avanzada) | Para técnicos con clave propia o integraciones. | `GET /me` |
+| Entrar por cuenta | Servidor (por defecto `https://demo.camaronmarket.com`), correo y contraseña. La clave queda en memoria hasta "Protege tu cuenta" (ver **Seguridad del teléfono**); `me` va a SQLite para abrir sin señal. `device` = marca y modelo del teléfono. | `POST /auth/login {"login","password","device"}` → `{api_key, expires_at, me, device_required}` |
+| Protege tu cuenta | Obligatoria tras entrar. Ver **Seguridad del teléfono**. | `POST /me/devices` |
+| ~~Entrar con clave de API~~ | Retirado: las claves creadas a mano en el portal no son de app (`409 not-an-app-key`) y no se pueden ligar al teléfono. Si una sesión así llega a "Protege tu cuenta", la app pide entrar con correo y contraseña. | — |
 | Elegir perfil | Lee `me.roles`. Un perfil aprobado → entra directo. Dos o más → pantalla "¿Con qué perfil quieres trabajar?" (los pendientes se ven deshabilitados). El técnico de campo (`is_field_technician` y `company`) entra directo al flujo del técnico. | `me.roles`, `me.active_role` |
 | "Actuar como" | El perfil elegido se guarda en el teléfono y va en la cabecera `X-Shrimp-Role` de **cada** petición. No se llama a `POST /me/active-role` (cambiaría los menús del portal de la misma cuenta). Valor inicial: `me.active_role`. | cabecera `X-Shrimp-Role` |
 | Cambiar de perfil | Desde el menú de la cuenta o el botón "Cambiar" de la cabecera. | local |
 | Mis datos y privacidad | Abre `https://<servidor>/my/datos` en el navegador. | portal |
-| Cerrar sesión | Revoca la clave y borra todo lo guardado en el teléfono. | `POST /auth/logout` |
+| Cerrar sesión | Revoca la clave (y con ella el dispositivo) y borra todo lo guardado en el teléfono, también las claves del Keystore. Desde la pantalla de desbloqueo no se puede revocar en el servidor (la clave está cifrada): solo se borra en el teléfono. | `POST /auth/logout` |
 | 401 (clave caducada o revocada) | Vuelve a la pantalla de entrada con el motivo; NO se borra lo capturado (la cola se envía al volver a entrar). | — |
 | 403 | Mensaje claro ("Tu clave no tiene permiso...", o el `detail` del servidor); en la cola queda a la vista para corregir o descartar. | — |
+
+## Seguridad del teléfono
+
+Contrato: `odoo19/docs/app/CONTRATO-FIRMA-DISPOSITIVO.md` (versión 1.1).
+
+**Claves del teléfono.** Canal nativo propio (`android/app/src/main/kotlin/.../SeguridadDispositivo.kt`,
+canal `com.camaronmarket/seguridad`, `MainActivity` es `FlutterFragmentActivity`). En el Android Keystore,
+no exportables y solo utilizables tras autenticar a la persona:
+
+* par **ECDSA P-256** (ES256) para firmar: `SHA256withECDSA` → firma DER (ASN.1) en base64; la clave pública
+  sale como SubjectPublicKeyInfo DER en base64. Dos ranuras (`_a`/`_b`) para poder sustituir el dispositivo.
+* clave **AES-256-GCM** que cifra la clave de API `trz_…` (se guarda `base64(iv ‖ cifrado)` en
+  flutter_secure_storage; la clave legible nunca se guarda).
+* Android 11+ (API 30): cada uso exige su propia autenticación ligada a la operación (`BiometricPrompt` con
+  `CryptoObject`), huella fuerte **o** PIN/patrón del teléfono (para guantes o manos mojadas).
+  Android 7-10 (API 24-29): Android no admite PIN con `CryptoObject`; la clave queda autorizada 10 s tras
+  autenticar (huella con `BiometricPrompt` o PIN con la pantalla del sistema) y la operación se hace en el acto.
+* Añadir una huella o quitar el bloqueo invalida las claves (`setInvalidatedByBiometricEnrollment`): la app
+  vuelve a la entrada ("vuelve a entrar con tu correo y contraseña").
+* `minSdk` sigue en 24 (el de Flutter); permisos `USE_BIOMETRIC` y `USE_FINGERPRINT` (≤ API 27); tema
+  AppCompat (lo pide el diálogo de huella en Android 7-8). Dependencias: `androidx.biometric:1.1.0`,
+  `androidx.appcompat:1.7.0`.
+* Se descartó `biometric_signature` (v13): no documenta que la firma EC sea DER ni que la pública sea SPKI, y
+  no cifra datos con AES ligada a la huella (haría falta otro paquete para la clave de API).
+
+**Flujo de pantallas.**
+
+| Momento | Pantalla | Qué pasa |
+|---|---|---|
+| Tras entrar (o al actualizar desde la versión anterior, que tenía la clave legible) | **Protege tu cuenta** | Comprueba bloqueo de pantalla (sin él no se sigue: explica cómo activarlo y abre Ajustes). Crea las claves, registra el teléfono (`POST /me/devices`, primer registro SIN firma, `name` = marca y modelo) y cifra la clave de API (una huella o "Usar PIN del teléfono"). Sin señal, el registro queda pendiente y se completa al sincronizar; se puede firmar igual (la firma no incluye el `device_id`). `409 not-an-app-key` → "Entrar con correo y contraseña" (no pide huella; no revoca la clave). |
+| Al abrir la app y al volver tras más de 2 min en segundo plano | **Desbloqueo** | Tapa toda la app (sin cerrar lo que estaba abierto): huella o "Usar PIN del teléfono". Desbloquear = descifrar la clave de API. Funciona sin señal. |
+| Al confirmar una operación sensible | diálogo de huella del sistema | Se serializa el cuerpo UNA vez, se firma la cadena canónica (`METODO\nRUTA(/api/v1/…)\nTIMESTAMP\nIDEMPOTENCY-KEY\nsha256hex(cuerpo)`) y se guarda en la cola con el cuerpo serializado, la firma, el timestamp y el dispositivo. Al enviar se mandan esos bytes y las cabeceras `X-Device-Id`, `X-Signature-Timestamp`, `X-Signature`. Si no se confirma, no se guarda nada. |
+| Menú de la cuenta → **Seguridad** | Seguridad | Nombre del teléfono, estado, fecha de registro y último uso (`GET /me/devices`), "Registrar de nuevo este teléfono" y la explicación de que la huella nunca sale del teléfono. |
+| Pendientes | Pendientes | Lo que necesita huella (operaciones de la versión anterior sin firma, firmas de más de 7 días, firmas con un par anterior, o rechazadas por `signature-expired` / `invalid-signature` / `signature-required`) NO se envía y muestra "Confirmar con huella" ("Confirmar todos" si hay varias). Se vuelve a firmar el mismo cuerpo con la misma `Idempotency-Key` y la hora actual. |
+
+**Registrar de nuevo este teléfono (contrato 1.1).** Se crea el par nuevo en la otra ranura; el par
+VIEJO firma el `POST /me/devices` (huella) con el `X-Device-Id` actual; solo tras el 201 se activa el nuevo y se
+borra el viejo. Si se cancela o no hay señal, no cambia nada. Si el par viejo ya no existe, la única vía es
+cerrar sesión y volver a entrar (el login emite una clave nueva, sin dispositivo).
+
+**Errores del contrato.**
+
+| Error | Qué hace la app |
+|---|---|
+| `403 device-revoked` | Borra la clave cifrada, el dispositivo y el par de firma; vuelve a la entrada con "Este teléfono fue desconectado de tu cuenta…". Lo capturado se conserva (como con un 401). |
+| `403 device-not-registered` | Vuelve a "Protege tu cuenta" (solo registro, sin huella); lo ya firmado sigue valiendo con el nuevo `device_id`. Si el servidor responde `signature-required` al registrar (la clave ya tiene otro teléfono), cierra la clave y pide entrar de nuevo. |
+| `403 signature-expired` / `invalid-signature` / `signature-required` | La operación queda en Pendientes con "Confirmar con huella"; no se reintenta sola. |
+| `409 signature-replayed` | Mensaje "Esta confirmación ya se usó…": descartar y volver a hacer. |
+| Clave del Keystore invalidada | Al desbloquear o al firmar: vuelta a la entrada (al firmar, además se revoca la clave en el servidor con `/auth/logout`). |
+
+**Lo que no se puede verificar sin un teléfono real.** Todo lo nativo: el diálogo de huella y de PIN, que
+la clave se cree en hardware y no sea exportable, la invalidación al añadir una huella, el camino de Android
+7-10 (ventana de 10 s y pantalla de PIN del sistema) y que el servidor real acepte una firma hecha por el
+Keystore. Las pruebas usan un firmador falso con pointycastle que produce ES256 real (DER + SPKI) y un servidor
+falso que verifica como `shrimp_api`.
 
 ## Datos y red
 
@@ -26,7 +82,9 @@ NO va en la app: en su lugar se muestra el aviso "Esto se hace desde el portal w
   cada lista y detalle queda en SQLite (`cache_listas`) y se muestra sin señal con el aviso
   "Datos de la última sincronización".
 * Todas las acciones (aceptar informe, programar despacho, ofertar, comprar...) van por la misma cola
-  (`cola`) con `Idempotency-Key` (UUID v4) y se envían en orden cuando hay señal.
+  (`cola`) con `Idempotency-Key` (UUID v4) y se envían en orden cuando hay señal. Todas son rutas firmadas:
+  la cola guarda el cuerpo ya serializado y la firma (esquema 4 de la base local; las filas antiguas se
+  conservan y quedan "por confirmar").
 * Paginación con `limit` (100) y `cursor` de la API ("Cargar más").
 
 ## Tabla por perfil

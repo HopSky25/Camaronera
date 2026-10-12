@@ -12,7 +12,8 @@ todo lo que se captura queda en el teléfono y se envía al servidor cuando vuel
   `Idempotency-Key` en cada envío.
 - `lib/datos/sincronizador.dart` — baja la bandeja del técnico (`GET /verifications?role=technician`)
   y sube la cola en orden: inicio de campo, informe, veredicto, llegada del camión.
-- `lib/pantallas/` — clave de API, bandeja, detalle, informe de campo, veredicto, fotos, pendientes.
+- `lib/seguridad/` — firma de operaciones (cadena canónica, rutas sensibles) y acceso a las claves del teléfono.
+- `lib/pantallas/` — protección y desbloqueo, bandeja, detalle, informe de campo, veredicto, fotos, pendientes.
 
 ## Compilar
 

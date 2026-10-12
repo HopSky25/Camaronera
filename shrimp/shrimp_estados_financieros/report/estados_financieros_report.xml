@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Dos formatos de papel: vertical para balance, resultados, comprobación
+         y diario; horizontal para el mayor y la cartera (muchas columnas). -->
+    <record id="paperformat_estado_financiero" model="report.paperformat">
+        <field name="name">Estados financieros (A4 vertical)</field>
+        <field name="format">A4</field>
+        <field name="orientation">Portrait</field>
+        <field name="margin_top">32</field>
+        <field name="margin_bottom">16</field>
+        <field name="margin_left">10</field>
+        <field name="margin_right">10</field>
+        <field name="header_line" eval="False"/>
+        <field name="header_spacing">4</field>
+        <field name="dpi">90</field>
+    </record>
+    <record id="paperformat_estado_financiero_horizontal" model="report.paperformat">
+        <field name="name">Estados financieros (A4 horizontal)</field>
+        <field name="format">A4</field>
+        <field name="orientation">Landscape</field>
+        <field name="margin_top">32</field>
+        <field name="margin_bottom">16</field>
+        <field name="margin_left">8</field>
+        <field name="margin_right">8</field>
+        <field name="header_line" eval="False"/>
+        <field name="header_spacing">4</field>
+        <field name="dpi">90</field>
+    </record>
+
+    <record id="action_report_ef" model="ir.actions.report">
+        <field name="name">Estado financiero</field>
+        <field name="model">shrimp.estados.financieros.wizard</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">shrimp_estados_financieros.report_ef</field>
+        <field name="report_file">shrimp_estados_financieros.report_ef</field>
+        <field name="print_report_name">dict(object._fields['informe']._description_selection(object.env)).get(object.informe, 'Estado financiero') + ' ' + str(object.date_to)</field>
+        <field name="paperformat_id" ref="paperformat_estado_financiero"/>
+    </record>
+    <record id="action_report_ef_horizontal" model="ir.actions.report">
+        <field name="name">Estado financiero (horizontal)</field>
+        <field name="model">shrimp.estados.financieros.wizard</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">shrimp_estados_financieros.report_ef_horizontal</field>
+        <field name="report_file">shrimp_estados_financieros.report_ef_horizontal</field>
+        <field name="print_report_name">dict(object._fields['informe']._description_selection(object.env)).get(object.informe, 'Estado financiero') + ' ' + str(object.date_to)</field>
+        <field name="paperformat_id" ref="paperformat_estado_financiero_horizontal"/>
+    </record>
+
+    <!-- Cuerpo común. Los textos de las celdas vienen ya formateados desde
+         Python (r['filas'][i]['textos']): aquí no se formatea nada. -->
+    <template id="report_ef_cuerpo">
+        <t t-call="web.html_container">
+            <t t-foreach="reportes" t-as="r">
+                <div class="header" style="font-family: Arial, sans-serif; color: #123e5c;">
+                    <table style="width: 100%; border-bottom: 2px solid #123e5c;">
+                        <tr>
+                            <td style="vertical-align: bottom; padding-bottom: 4px;">
+                                <div style="font-size: 15px; font-weight: bold;" t-out="r['empresa']"/>
+                                <div style="font-size: 11px;">RUC: <t t-out="r['ruc'] or '—'"/></div>
+                                <div style="font-size: 14px; font-weight: bold; margin-top: 4px;" t-out="r['titulo']"/>
+                                <div style="font-size: 11px;"><t t-out="r['periodo']"/> — <t t-out="r['moneda']"/></div>
+                            </td>
+                            <td style="vertical-align: bottom; text-align: right; font-size: 10px; padding-bottom: 4px; width: 35%;">
+                                <div>Emitido el <t t-out="r['emision']"/></div>
+                                <div t-out="r['filtros']"/>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+                <div class="article" style="font-family: Arial, sans-serif; font-size: 10px; color: #222;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead style="display: table-header-group;">
+                            <tr>
+                                <t t-foreach="r['columnas']" t-as="c">
+                                    <th t-att-style="'padding: 4px; background: #123e5c; color: #fff; border: 1px solid #123e5c; font-weight: bold; text-align: ' + ('right' if c['tipo'] == 'monto' else 'left') + ';'"
+                                        t-out="c['nombre']"/>
+                                </t>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <t t-foreach="r['filas']" t-as="f">
+                                <t t-set="estilo_fila" t-value="{
+                                    'normal': '',
+                                    'grupo': 'font-weight: bold;',
+                                    'seccion': 'font-weight: bold; background: #e9eef2;',
+                                    'total': 'font-weight: bold; border-top: 1px solid #555;',
+                                    'gran_total': 'font-weight: bold; border-top: 3px double #222; background: #f2f2f2;',
+                                    'aviso': 'font-weight: bold; color: #b00020;',
+                                }.get(f['estilo'], '')"/>
+                                <tr t-att-style="'page-break-inside: avoid; ' + estilo_fila">
+                                    <t t-if="f['span']">
+                                        <td t-att-colspan="len(r['columnas'])" t-att-style="'padding: 3px 4px; ' + estilo_fila" t-out="f['textos'][0]"/>
+                                    </t>
+                                    <t t-else="">
+                                        <t t-foreach="r['columnas']" t-as="c">
+                                            <t t-set="sangria" t-value="(f['nivel'] * 12) if c_index == r['col_sangria'] else 0"/>
+                                            <td t-att-style="'padding: 2px 4px; vertical-align: top; ' + estilo_fila + ('text-align: right; white-space: nowrap;' if c['tipo'] == 'monto' else 'text-align: left;') + ('white-space: nowrap;' if c['tipo'] == 'fecha' else '') + 'padding-left: ' + str(4 + sangria) + 'px;'"
+                                                t-out="f['textos'][c_index] if c_index &lt; len(f['textos']) else ''"/>
+                                        </t>
+                                    </t>
+                                </tr>
+                            </t>
+                        </tbody>
+                    </table>
+                    <div t-if="r['notas']" style="margin-top: 10px; font-size: 9px; color: #5a6b74;">
+                        <t t-foreach="r['notas']" t-as="nota">
+                            <div t-out="nota"/>
+                        </t>
+                    </div>
+                </div>
+                <div class="footer" style="font-family: Arial, sans-serif; font-size: 9px; color: #5a6b74;">
+                    <table style="width: 100%; border-top: 1px solid #ccc;">
+                        <tr>
+                            <td><t t-out="r['empresa']"/> — <t t-out="r['titulo']"/></td>
+                            <td style="text-align: right;">Página <span class="page"/> de <span class="topage"/></td>
+                        </tr>
+                    </table>
+                </div>
+            </t>
+        </t>
+    </template>
+
+    <template id="report_ef">
+        <t t-call="shrimp_estados_financieros.report_ef_cuerpo"/>
+    </template>
+    <template id="report_ef_horizontal">
+        <t t-call="shrimp_estados_financieros.report_ef_cuerpo"/>
+    </template>
+</odoo>

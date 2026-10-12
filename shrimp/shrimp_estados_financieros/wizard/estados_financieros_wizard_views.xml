@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_shrimp_estados_financieros_wizard_form" model="ir.ui.view">
+        <field name="name">shrimp.estados.financieros.wizard.form</field>
+        <field name="model">shrimp.estados.financieros.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Estados financieros">
+                <field name="company_id" invisible="1"/>
+                <group>
+                    <group string="Informe">
+                        <field name="informe"/>
+                        <field name="date_from" invisible="informe in ('situacion', 'cartera')"/>
+                        <field name="date_to" string="Hasta / al"/>
+                        <field name="comparar" invisible="informe not in ('situacion', 'resultados')"/>
+                    </group>
+                    <group string="Opciones">
+                        <field name="nivel" invisible="informe not in ('comprobacion', 'situacion', 'resultados')"/>
+                        <field name="mostrar_sin_saldo" invisible="informe in ('diario', 'cartera')"/>
+                        <field name="solo_publicados"/>
+                        <field name="journal_ids" widget="many2many_tags" options="{'no_create': True}"/>
+                    </group>
+                </group>
+                <group string="Filtros del libro mayor" invisible="informe != 'mayor'">
+                    <field name="account_ids" widget="many2many_tags" options="{'no_create': True}"/>
+                    <field name="partner_id" options="{'no_create': True}"/>
+                </group>
+                <footer>
+                    <button name="action_ver_pdf" string="Ver PDF" type="object" class="btn-primary" icon="fa-file-pdf-o"/>
+                    <button name="action_descargar_excel" string="Descargar Excel" type="object" class="btn-secondary" icon="fa-file-excel-o"/>
+                    <button string="Cerrar" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_shrimp_estados_financieros_wizard" model="ir.actions.act_window">
+        <field name="name">Estados financieros</field>
+        <field name="res_model">shrimp.estados.financieros.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

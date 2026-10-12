@@ -58,7 +58,7 @@ ACTIVE_ROLE_SPEC = {"role": F("string", required=True, max_length=32,
                                           "camaronera, empacadora, maquilador, verificador)")}
 
 
-@api_route("POST", "/me/active-role", scope="profile:write", tags=[TAG_ME], body=ACTIVE_ROLE_SPEC,
+@api_route("POST", "/me/active-role", signed=True, scope="profile:write", tags=[TAG_ME], body=ACTIVE_ROLE_SPEC,
            summary="Cambia el perfil activo de la cuenta («Actuar como»)",
            description="Solo a un perfil aprobado. Es el mismo cambio que el selector «Perfil» "
                        "del portal y persiste en la cuenta. Para una sola petición con otro "

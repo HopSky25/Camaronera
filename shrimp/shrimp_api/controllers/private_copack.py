@@ -115,7 +115,7 @@ OFFER_SPEC = {
 }
 
 
-@api_route("POST", "/copack/requests/{id}/offers", scope="copack:write", tags=[TAG], body=OFFER_SPEC,
+@api_route("POST", "/copack/requests/{id}/offers", signed=True, scope="copack:write", tags=[TAG], body=OFFER_SPEC,
            status=201, summary="El maquilador oferta (o rectifica su oferta) sobre una solicitud",
            response=OFFER_SCHEMA)
 def offer_create(ctx, id):
@@ -214,7 +214,7 @@ def _order(ctx, id, copacker_only=False):
     return order
 
 
-@api_route("POST", "/copack/orders/{id}:reception", scope="copack:write", tags=[TAG],
+@api_route("POST", "/copack/orders/{id}:reception", signed=True, scope="copack:write", tags=[TAG],
            body={"received_lb": F("number", required=True, minimum=0.01),
                  "supplies_received": F("boolean"), "supplies_issue": F("text")},
            summary="El maquilador registra la recepción (libras e insumos)", response=ORDER_SCHEMA)
@@ -235,7 +235,7 @@ PACKING_SPEC = {"packed_lb": F("number", required=True, minimum=0.01),
                 "packed_presentation_note": F("string", max_length=200)}
 
 
-@api_route("POST", "/copack/orders/{id}:packing", scope="copack:write", tags=[TAG],
+@api_route("POST", "/copack/orders/{id}:packing", signed=True, scope="copack:write", tags=[TAG],
            body=PACKING_SPEC,
            summary="El maquilador registra lo empacado: se abre el acta a la firma", response=ORDER_SCHEMA)
 def order_packing(ctx, id):
@@ -251,7 +251,7 @@ def order_packing(ctx, id):
     return S.copack_order(order, ctx.partner, detail=True)
 
 
-@api_route("POST", "/copack/orders/{id}:sign", scope="copack:write", tags=[TAG],
+@api_route("POST", "/copack/orders/{id}:sign", signed=True, scope="copack:write", tags=[TAG],
            body={"decision": F("enum", required=True, enum=["accepted", "rejected"]),
                  "reason": F("text", description="Obligatorio si no se acepta")},
            summary="Cada parte firma (o rechaza) el acta de cuadre", response=ORDER_SCHEMA)
@@ -270,7 +270,7 @@ def order_sign(ctx, id):
     return S.copack_order(order, ctx.partner, detail=True)
 
 
-@api_route("POST", "/copack/orders/{id}:revert-signature", scope="copack:write", tags=[TAG],
+@api_route("POST", "/copack/orders/{id}:revert-signature", signed=True, scope="copack:write", tags=[TAG],
            body={"reason": F("text", description="Por qué se deshace (recomendado)")},
            summary="Cada parte deshace SU firma del acta mientras el acta no esté cerrada",
            description="La firma propia vuelve a «pending». Se puede mientras la orden siga "
@@ -288,7 +288,7 @@ def order_revert_signature(ctx, id):
     return S.copack_order(order, ctx.partner, detail=True)
 
 
-@api_route("POST", "/copack/orders/{id}:reopen", scope="copack:write", tags=[TAG],
+@api_route("POST", "/copack/orders/{id}:reopen", signed=True, scope="copack:write", tags=[TAG],
            body={"reason": F("text", required=True)},
            summary="Reabre un acta en disputa (cualquiera de las partes, con motivo)", response=ORDER_SCHEMA)
 def order_reopen(ctx, id):
@@ -298,7 +298,7 @@ def order_reopen(ctx, id):
     return S.copack_order(order, ctx.partner, detail=True)
 
 
-@api_route("POST", "/copack/orders/{id}:close", scope="copack:write", tags=[TAG],
+@api_route("POST", "/copack/orders/{id}:close", signed=True, scope="copack:write", tags=[TAG],
            summary="Cierra una orden con el acta firmada", response=ORDER_SCHEMA)
 def order_close(ctx, id):
     order = _order(ctx, id)

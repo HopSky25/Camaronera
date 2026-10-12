@@ -42,6 +42,7 @@ class ShrimpApiPortal(http.Controller):
         values = {
             "page_name": "api_keys",
             "keys": self._keys(),
+            "devices": self._devices(),
             "scopes": SCOPES,
             "expiry_choices": EXPIRY_CHOICES,
             "allowed": self._api_user_ok(),
@@ -94,6 +95,24 @@ class ShrimpApiPortal(http.Controller):
         if not key:
             raise NotFound()
         key.action_revoke()
+        return request.redirect("/my/api-keys")
+
+    # ------------------------------------------------------------------
+    # Dispositivos de la app móvil (los que firman las operaciones sensibles)
+    # ------------------------------------------------------------------
+    def _devices(self):
+        return request.env["shrimp.api.device"].sudo().with_context(active_test=False).search(
+            [("user_id", "=", request.env.user.id)], order="active desc, id desc", limit=50)
+
+    @http.route("/my/api-keys/devices/<string:ref>/revoke", type="http", auth="user", website=True,
+                methods=["POST"], csrf=True)
+    def my_api_device_revoke(self, ref, **post):
+        device = self._devices().filtered(lambda d: d.uuid_ref == ref)[:1]
+        if not device:
+            raise NotFound()
+        # Igual que en la API: el dispositivo y su clave de la app.
+        device._api_revoke(revoke_key=True)
+        _logger.info("Portal: dispositivo %s revocado por %s", device.uuid_ref, request.env.user.login)
         return request.redirect("/my/api-keys")
 
     # ------------------------------------------------------------------

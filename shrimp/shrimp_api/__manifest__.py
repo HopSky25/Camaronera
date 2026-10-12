@@ -1,6 +1,6 @@
 {
     "name": "Camaronera — API externa (v1)",
-    "version": "19.0.1.4.0",
+    "version": "19.0.1.5.0",
     "summary": "API REST/JSON versionada (/api/v1) con claves con hash, scopes, "
                "webhooks firmados, trazabilidad pública por token y OpenAPI 3.1",
     "description": """
@@ -36,6 +36,8 @@ La guía para integradores está en README.md.
         "views/webhook_views.xml",
         "views/transaction_views.xml",
         "views/menus.xml",
+        # Dispositivos de la app y auditoría de operaciones firmadas.
+        "views/device_views.xml",
         "views/portal_templates.xml",
         "views/traceability_public_templates.xml",
         # Pasos internos entre perfiles de la misma empresa (por herencia).

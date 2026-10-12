@@ -41,7 +41,8 @@ class TestApiLogin(ApiCase):
         self.assertEqual(resp.status_code, 200, resp.text)
         self.assertEqual(resp.headers.get("Cache-Control"), "no-store")
         data = resp.json()
-        self.assertEqual(set(data), {"api_key", "expires_at", "me"})
+        self.assertEqual(set(data), {"api_key", "expires_at", "device_required", "me"})
+        self.assertIs(data["device_required"], True)
         secret = data["api_key"]
         self.assertTrue(secret.startswith("trz_"), secret)
 

@@ -6,6 +6,7 @@ import logging
 import re
 import time
 import uuid
+from datetime import datetime, timezone
 
 import psycopg2
 
@@ -14,8 +15,11 @@ from odoo.exceptions import AccessDenied, AccessError, MissingError, UserError, 
 from odoo.http import request
 from odoo.service.model import PG_CONCURRENCY_EXCEPTIONS_TO_RETRY
 
-from .framework import (API_PREFIX, MONEY_SCHEMA, REF_SCHEMA, ROUTES, ApiCtx, ApiError,
-                        ApiResponse, PROBLEM_TITLES, api_route, object_schema, resolve)
+from ..models.api_key import KEY_RE
+from .framework import (API_PREFIX, DEVICE_HEADER, MONEY_SCHEMA, REF_SCHEMA, ROUTES,
+                        SIGNATURE_HEADER, SIGNATURE_MAX_AGE, SIGNATURE_MAX_SKEW,
+                        SIGNATURE_TS_HEADER, SIGNED_IF_DEVICE, ApiCtx, ApiError, ApiResponse, PROBLEM_TITLES,
+                        api_route, canonical_string, object_schema, resolve)
 
 _logger = logging.getLogger(__name__)
 
@@ -23,7 +27,8 @@ METHODS = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 WRITE_METHODS = ("POST", "PUT", "PATCH", "DELETE")
 MAX_BODY = 1024 * 1024
 PUBLIC_HEADERS = "Accept, Content-Type, If-None-Match"
-PRIVATE_HEADERS = "Authorization, X-API-Key, Content-Type, Accept, Idempotency-Key"
+PRIVATE_HEADERS = ("Authorization, X-API-Key, Content-Type, Accept, Idempotency-Key, "
+                   "X-Shrimp-Role, X-Device-Id, X-Signature, X-Signature-Timestamp")
 EXPOSE = "X-Request-Id, X-RateLimit-Limit, X-RateLimit-Remaining, Retry-After, Idempotent-Replayed"
 
 _AUTH_ERRORS = {
@@ -44,6 +49,24 @@ def _business_message(exc):
     msg = str(msg)
     # Nunca un repr de recordset (lleva ids enteros) en un mensaje público.
     return _RECORD_REPR.sub("[registro]", msg)[:2000]
+
+
+_SIGNATURE_ERRORS = {
+    "device-not-registered": (403, "Esta operación exige un dispositivo registrado: registra este "
+                                   "teléfono con POST /me/devices y firma la petición."),
+    "signature-required": (403, "Esta operación exige firma: faltan las cabeceras X-Device-Id, "
+                                "X-Signature-Timestamp y X-Signature."),
+    "device-revoked": (403, "El dispositivo fue revocado. Vuelve a iniciar sesión en la app."),
+    "invalid-signature": (403, "La firma de la petición no es válida."),
+    "signature-expired": (403, "El timestamp de la firma está fuera de la ventana permitida "
+                               "(hasta 7 días en el pasado y 10 minutos en el futuro)."),
+    "signature-replayed": (409, "Esta firma ya se usó. Firma de nuevo la operación."),
+}
+
+
+def _signature_error(slug, detail=None):
+    status, default = _SIGNATURE_ERRORS[slug]
+    return ApiError(status, slug, detail or default)
 
 
 class ShrimpApiController(http.Controller):
@@ -237,7 +260,7 @@ class ShrimpApiController(http.Controller):
         headers = list(extra) + [("Cache-Control", cache)]
         return self._render(result, headers)
 
-    def _authenticate(self):
+    def _authenticate(self, route=None):
         hr = request.httprequest
         bearer = None
         auth = hr.headers.get("Authorization") or ""
@@ -255,14 +278,135 @@ class ShrimpApiController(http.Controller):
         Key = request.env["shrimp.api.key"].sudo()
         key, reason = Key._api_authenticate(bearer or xkey)
         if not key:
+            if reason == "revoked" and route is not None and route.signed:
+                # La app que firma con un dispositivo revocado (lo que revoca
+                # también su clave) recibe el error del contrato y no un 401
+                # genérico. _api_authenticate solo dice «revoked» después de
+                # comprobar el secreto, así que no se filtra nada.
+                self._raise_if_device_revoked(bearer or xkey)
             status, slug, detail = _AUTH_ERRORS.get(reason, _AUTH_ERRORS["invalid"])
             raise ApiError(status, slug, detail,
                            headers=[("WWW-Authenticate", 'Bearer realm="api"')] if status == 401 else [])
         return key
 
+    def _raise_if_device_revoked(self, raw_key):
+        dev_ref = (request.httprequest.headers.get(DEVICE_HEADER) or "").strip()
+        m = KEY_RE.match((raw_key or "").strip())
+        if not dev_ref or len(dev_ref) > 64 or not m:
+            return
+        device = request.env["shrimp.api.device"].sudo().with_context(active_test=False).search(
+            [("uuid_ref", "=", dev_ref), ("api_key_id.key_prefix", "=", m.group(1))], limit=1)
+        if device and not device.active:
+            raise _signature_error("device-revoked")
+
+    # ------------------------------------------------------------------
+    # Firma de operaciones (claves de la app). Contrato:
+    # docs/app/CONTRATO-FIRMA-DISPOSITIVO.md
+    # ------------------------------------------------------------------
+    def _check_signature(self, key, method, route):
+        """Comprueba dispositivo, ventana y firma. Devuelve un dict con lo que
+        hace falta para gastar la firma y auditarla (o None si la ruta solo
+        se firma cuando ya hay dispositivo y no lo hay); no escribe nada."""
+        hr = request.httprequest
+        Device = request.env["shrimp.api.device"].sudo().with_context(active_test=False)
+        dev_ref = (hr.headers.get(DEVICE_HEADER) or "").strip()
+        ts_raw = (hr.headers.get(SIGNATURE_TS_HEADER) or "").strip()
+        sig_raw = (hr.headers.get(SIGNATURE_HEADER) or "").strip()
+        has_device = bool(Device.search_count([("api_key_id", "=", key.id), ("active", "=", True)],
+                                              limit=1))
+        if route.signed == SIGNED_IF_DEVICE and not has_device:
+            # Primer registro del dispositivo de esta clave: va sin firma
+            # (todavía no hay con qué firmar). Cabeceras de firma, si vienen,
+            # se ignoran.
+            return None
+        if not (dev_ref or ts_raw or sig_raw):
+            if not has_device:
+                raise _signature_error("device-not-registered")
+            raise _signature_error("signature-required")
+        missing = [h for h, v in ((DEVICE_HEADER, dev_ref), (SIGNATURE_TS_HEADER, ts_raw),
+                                  (SIGNATURE_HEADER, sig_raw)) if not v]
+        if missing:
+            raise _signature_error("signature-required", "Faltan las cabeceras: %s." % ", ".join(missing))
+        device = Device.browse()
+        if len(dev_ref) <= 64:
+            device = Device.search([("uuid_ref", "=", dev_ref), ("api_key_id", "=", key.id)], limit=1)
+        if not device:
+            raise _signature_error("device-not-registered",
+                                   "El dispositivo %s no está registrado con esta clave." % DEVICE_HEADER)
+        if not device.active:
+            raise _signature_error("device-revoked")
+        if not re.fullmatch(r"[0-9]{1,12}", ts_raw):
+            raise _signature_error("invalid-signature",
+                                   "%s tiene que ser un entero (segundos Unix)." % SIGNATURE_TS_HEADER)
+        ts = int(ts_raw)
+        now = time.time()
+        if ts < now - SIGNATURE_MAX_AGE or ts > now + SIGNATURE_MAX_SKEW:
+            raise _signature_error("signature-expired")
+        idem_key = (hr.headers.get("Idempotency-Key") or "").strip()
+        body = hr.get_data(cache=True) or b""
+        message = canonical_string(method, hr.path, ts_raw, idem_key, body)
+        sig_hash = device._api_verify(message, sig_raw)
+        if not sig_hash:
+            raise _signature_error("invalid-signature")
+        return {"device": device, "timestamp": ts, "signature_hash": sig_hash,
+                "idempotency_key": idem_key, "body_sha256": hashlib.sha256(body).hexdigest(),
+                "path": hr.path, "audit": None}
+
+    def _consume_signature(self, sig, ctx):
+        """Gasta la firma (antirreplay) y deja la auditoría, en la transacción
+        de la operación. 409 signature-replayed si ya se usó."""
+        device = sig["device"]
+        if not request.env["shrimp.api.signature.nonce"].sudo()._api_consume(
+                sig["signature_hash"], device.id):
+            raise _signature_error("signature-replayed")
+        sig["audit"] = request.env["shrimp.api.signed.operation"].sudo().create({
+            "user_id": ctx.user.id,
+            "device_id": device.id,
+            "device_ref": device.uuid_ref,
+            "method": ctx.method,
+            "path": sig["path"],
+            "idempotency_key": sig["idempotency_key"] or False,
+            "signed_timestamp": sig["timestamp"],
+            "signed_at": datetime.fromtimestamp(sig["timestamp"], tz=timezone.utc).replace(tzinfo=None),
+            "signature_hash": sig["signature_hash"],
+            "body_sha256": sig["body_sha256"],
+            "ip": (ctx.remote_addr or "")[:64] or False,
+            "request_id": ctx.request_id,
+        })
+        request.env["shrimp.api.device"]._api_touch_after_commit(
+            request.env.cr, device.id, ctx.remote_addr)
+
+    def _finish_signature(self, sig, status_code):
+        """Tras ejecutar: anota la respuesta en la auditoría o, si fue un 5xx
+        (la operación no se hizo), devuelve la firma para poder reintentar."""
+        if not sig or not sig.get("audit"):
+            return
+        audit = sig["audit"].with_context(shrimp_api_audit=True)
+        if status_code is None or status_code >= 500:
+            audit.unlink()
+            request.env["shrimp.api.signature.nonce"].sudo()._api_release(sig["signature_hash"])
+        else:
+            audit.write({"status_code": status_code})
+
+    def _run_signed(self, route, ctx, pparams, sig, headers):
+        """Operación firmada sin Idempotency-Key (solo PATCH: los POST la
+        exigen siempre). Sin respuesta guardada, repetir la firma es un 409."""
+        self._consume_signature(sig, ctx)
+        try:
+            response = self._render(self._run(route, ctx, pparams), headers)
+        except ApiError as err:
+            response = self._problem(err, ctx.request_id, headers)
+        except PG_CONCURRENCY_EXCEPTIONS_TO_RETRY:
+            raise
+        except Exception:
+            self._finish_signature(sig, None)
+            raise
+        self._finish_signature(sig, response.status_code)
+        return response
+
     def _serve_private(self, route, pparams, path, method, rid, extra, origin):
         hr = request.httprequest
-        key = self._authenticate()
+        key = self._authenticate(route)
         ip = hr.remote_addr or ""
         if not key._api_ip_allowed(ip):
             raise ApiError(403, "ip-not-allowed", "Esta clave no admite peticiones desde tu IP.")
@@ -301,23 +445,36 @@ class ShrimpApiController(http.Controller):
                        shrimp_api_queue_mail=True, shrimp_api_request=rid)
         request.update_env(user=user.id, context=context)
         body, raw = self._read_body(method)
+        # Operación sensible con clave de la app: dispositivo + firma, ANTES
+        # de mirar la idempotencia (un reintento también tiene que venir
+        # firmado por un dispositivo vigente) y sin escribir nada todavía.
+        sig = self._check_signature(key, method, route) if route.signed and key.is_app_key else None
         ctx = ApiCtx(request.env, key.with_env(request.env).sudo(), self._params(), body,
                      method, path, rid, ip, route)
+        if sig:
+            ctx.device = sig["device"].with_env(request.env).sudo()
         headers = list(extra) + [("Cache-Control", "no-store")]
 
-        if method != "POST":
-            return self._render(self._run(route, ctx, pparams), headers)
-        return self._idempotent(route, ctx, pparams, key, raw, headers)
+        if method == "POST" or (sig and sig["idempotency_key"]):
+            # Un PATCH firmado con Idempotency-Key también guarda su respuesta:
+            # el reintento legítimo (misma clave, ruta y cuerpo) recibe la de
+            # siempre en vez de chocar con el antirreplay.
+            return self._idempotent(route, ctx, pparams, key, raw, headers, sig)
+        if sig:
+            return self._run_signed(route, ctx, pparams, sig, headers)
+        return self._render(self._run(route, ctx, pparams), headers)
 
-    def _idempotent(self, route, ctx, pparams, key, raw, headers):
+    def _idempotent(self, route, ctx, pparams, key, raw, headers, sig=None):
         hr = request.httprequest
+        method = ctx.method
         idem_key = (hr.headers.get("Idempotency-Key") or "").strip()
         if not idem_key:
             raise ApiError(400, "idempotency-key-required",
                            "Los POST requieren la cabecera Idempotency-Key (p. ej. un UUID v4).")
         if len(idem_key) > 255:
             raise ApiError(400, "idempotency-key-too-long", "Idempotency-Key admite hasta 255 caracteres.")
-        req_hash = hashlib.sha256(b"POST " + ctx.path.encode() + b"\n" + (raw or b"")).hexdigest()
+        req_hash = hashlib.sha256(method.encode() + b" " + ctx.path.encode() + b"\n"
+                                  + (raw or b"")).hexdigest()
         Idem = request.env["shrimp.api.idempotency"].sudo()
         existing = Idem.search([("api_key_id", "=", key.id), ("key", "=", idem_key)], limit=1)
         if existing:
@@ -327,28 +484,42 @@ class ShrimpApiController(http.Controller):
             if existing.state != "done":
                 raise ApiError(409, "idempotency-in-progress",
                                "Hay una petición con esta Idempotency-Key en curso.")
+            # Reintento idempotente legítimo: misma respuesta, aunque la firma
+            # ya esté gastada (no se vuelve a ejecutar ni a auditar).
             replay = list(headers) + [("Idempotent-Replayed", "true"),
                                       ("Content-Type", existing.response_type or "application/json; charset=utf-8")]
             return request.make_response(existing.response_body or "", headers=replay,
                                          status=existing.status_code or 200)
         try:
             with request.env.cr.savepoint():
-                record = Idem.create({"api_key_id": key.id, "key": idem_key, "method": "POST",
+                record = Idem.create({"api_key_id": key.id, "key": idem_key, "method": method,
                                       "path": ctx.path, "request_hash": req_hash})
                 record.flush_recordset()
         except psycopg2.IntegrityError:
             raise ApiError(409, "idempotency-in-progress",
                            "Hay una petición con esta Idempotency-Key en curso.")
+        if sig:
+            try:
+                self._consume_signature(sig, ctx)
+            except ApiError:
+                # Firma repetida sin respuesta guardada (p. ej. pasadas las
+                # 24 h de la idempotencia): no se deja la clave «en curso».
+                record.unlink()
+                raise
         try:
             result = self._run(route, ctx, pparams)
             response = self._render(result, headers)
         except ApiError as err:
             response = self._problem(err, ctx.request_id, headers)
+        except PG_CONCURRENCY_EXCEPTIONS_TO_RETRY:
+            raise
         except Exception:
             # Fallo inesperado: se libera la clave para que el cliente pueda
             # reintentar (si no, quedaría "en curso" 24 h).
             record.unlink()
+            self._finish_signature(sig, None)
             raise
+        self._finish_signature(sig, response.status_code)
         if response.status_code >= 500:
             record.unlink()
         else:
@@ -407,6 +578,35 @@ def build_openapi(base_url, installed):
         if route.method == "POST" and not route.public:
             params.append({"name": "Idempotency-Key", "in": "header", "required": True,
                            "schema": {"type": "string", "maxLength": 255}})
+        if route.signed and not route.public:
+            if route.method != "POST":
+                params.append({"name": "Idempotency-Key", "in": "header", "required": False,
+                               "schema": {"type": "string", "maxLength": 255},
+                               "description": "Recomendada con la firma: el reintento con la misma "
+                                              "clave recibe la respuesta guardada."})
+            params += [
+                {"name": DEVICE_HEADER, "in": "header", "required": False,
+                 "schema": {"type": "string", "format": "uuid"},
+                 "description": "Obligatoria con una clave de la app: uuid del dispositivo registrado."},
+                {"name": SIGNATURE_TS_HEADER, "in": "header", "required": False,
+                 "schema": {"type": "integer"},
+                 "description": "Obligatoria con una clave de la app: segundos Unix de la firma."},
+                {"name": SIGNATURE_HEADER, "in": "header", "required": False,
+                 "schema": {"type": "string", "format": "byte"},
+                 "description": "Obligatoria con una clave de la app: firma ES256 (DER, base64)."},
+            ]
+            if route.signed == SIGNED_IF_DEVICE:
+                op["x-signed"] = "if-device"
+                op["description"] = (op.get("description", "") +
+                                     "\n\n**Firmada si ya hay dispositivo:** con una clave de la app "
+                                     "que ya tiene un dispositivo activo, la petición va firmada por ese "
+                                     "dispositivo (README, «Dispositivos y firma de operaciones»).").strip()
+            else:
+                op["x-signed"] = True
+                op["description"] = (op.get("description", "") +
+                                     "\n\n**Operación firmada:** con una clave de la app móvil exige "
+                                     "dispositivo registrado y firma ES256 (README, «Dispositivos y firma "
+                                     "de operaciones»). Las demás claves no la necesitan.").strip()
         if params:
             op["parameters"] = params
         if route.body:
@@ -443,8 +643,14 @@ def build_openapi(base_url, installed):
             "400": _problem_ref("Petición mal formada"),
             "404": _problem_ref("No existe o no tienes acceso"),
         })
+        if route.signed and not route.public:
+            op["responses"]["403"] = _problem_ref(
+                "Sin scope, IP no permitida, sin derecho sobre el recurso o, con clave de la app: "
+                "device-not-registered, signature-required, device-revoked, invalid-signature, "
+                "signature-expired")
         if route.method in WRITE_METHODS:
-            op["responses"]["409"] = _problem_ref("Conflicto / Idempotency-Key en curso")
+            op["responses"]["409"] = _problem_ref("Conflicto / Idempotency-Key en curso"
+                                                  + (" / signature-replayed" if route.signed else ""))
             op["responses"]["422"] = _problem_ref("Datos no válidos o regla de negocio")
         oa_path = API_PREFIX + route.path
         paths.setdefault(oa_path, {})[route.method.lower()] = op

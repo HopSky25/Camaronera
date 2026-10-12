@@ -114,7 +114,7 @@ def transaction_receive(ctx, id):
     return S.transaction(tx, ctx.partner)
 
 
-@api_route("POST", "/transactions/{id}:complete", scope="transactions:write", tags=[TAG_TX],
+@api_route("POST", "/transactions/{id}:complete", signed=True, scope="transactions:write", tags=[TAG_TX],
            summary="El comprador concluye una compra verificada y aceptada por las partes",
            response=TX_SCHEMA)
 def transaction_complete(ctx, id):

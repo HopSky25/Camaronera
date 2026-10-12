@@ -71,7 +71,7 @@ ACCEPT_SPEC = {
 }
 
 
-@api_route("POST", "/verifications/{id}/acceptance", scope="verifications:write", tags=[TAG_VER],
+@api_route("POST", "/verifications/{id}/acceptance", signed=True, scope="verifications:write", tags=[TAG_VER],
            body=ACCEPT_SPEC, summary="Comprador o vendedor aceptan, rechazan o contraofertan el informe",
            response=VER_SCHEMA)
 def verification_acceptance(ctx, id):
@@ -98,7 +98,7 @@ def verification_acceptance(ctx, id):
 REVERT_SPEC = {"reason": F("text", description="Por qué se deshace (recomendado)")}
 
 
-@api_route("POST", "/verifications/{id}/acceptance:revert", scope="verifications:write",
+@api_route("POST", "/verifications/{id}/acceptance:revert", signed=True, scope="verifications:write",
            tags=[TAG_VER], body=REVERT_SPEC,
            summary="Comprador o vendedor deshacen SU decisión sobre el informe",
            description="Devuelve la postura propia a como estaba antes de la última decisión "
@@ -155,7 +155,7 @@ def me_technicians(ctx):
     } for t in techs.sorted(lambda t: (t.name or "").lower())]}
 
 
-@api_route("POST", "/verifications/{id}:assign", scope="verifications:write", tags=[TAG_VER],
+@api_route("POST", "/verifications/{id}:assign", signed=True, scope="verifications:write", tags=[TAG_VER],
            body={"technician": F("string", required=True, description="uuid del técnico (contacto de la empresa)")},
            summary="El administrador de la verificadora asigna el técnico de campo", response=VER_SCHEMA)
 def verification_assign(ctx, id):
@@ -174,7 +174,7 @@ def verification_assign(ctx, id):
     return S.verification(v, ctx.partner, detail=True)
 
 
-@api_route("POST", "/verifications/{id}:start", scope="verifications:write", tags=[TAG_VER],
+@api_route("POST", "/verifications/{id}:start", signed=True, scope="verifications:write", tags=[TAG_VER],
            summary="Inicia el trabajo de campo (técnico asignado o administrador)", response=VER_SCHEMA)
 def verification_start(ctx, id):
     v, _admin = _as_verifier(ctx, id, editable=True)
@@ -218,7 +218,7 @@ REPORT_SPEC = {
 }
 
 
-@api_route("PATCH", "/verifications/{id}/report", scope="verifications:write", tags=[TAG_VER],
+@api_route("PATCH", "/verifications/{id}/report", signed=True, scope="verifications:write", tags=[TAG_VER],
            body=REPORT_SPEC, summary="Carga (parcial) del informe de campo desde la app del técnico",
            response=VER_SCHEMA)
 def verification_report(ctx, id):
@@ -247,7 +247,7 @@ def verification_report(ctx, id):
     return S.verification(v, ctx.partner, detail=True)
 
 
-@api_route("POST", "/verifications/{id}:verdict", scope="verifications:write", tags=[TAG_VER],
+@api_route("POST", "/verifications/{id}:verdict", signed=True, scope="verifications:write", tags=[TAG_VER],
            body={"verdict": F("enum", required=True, enum=["approve", "approve_obs", "reject"]),
                  "notes": F("text", description="Obligatorio con observaciones o rechazo")},
            summary="Emite el veredicto (técnico que fue a campo o administrador)", response=VER_SCHEMA)
@@ -290,7 +290,7 @@ BUY_VERIFIED_SPEC = dict({
 }, **DECLARED_SPEC)
 
 
-@api_route("POST", "/verifications", scope="verifications:write", tags=[TAG_VER],
+@api_route("POST", "/verifications", signed=True, scope="verifications:write", tags=[TAG_VER],
            body=BUY_VERIFIED_SPEC, status=201,
            summary="Compra un lote con verificación, eligiendo el modo (plataforma o declarada)",
            description="Graba la compra pendiente de verificación (reserva la cantidad, no consume "
@@ -433,7 +433,7 @@ PLAN_SPEC = {
 }
 
 
-@api_route("PATCH", "/dispatches/{id}", scope="dispatch:write", tags=[TAG_DSP], body=PLAN_SPEC,
+@api_route("PATCH", "/dispatches/{id}", signed=True, scope="dispatch:write", tags=[TAG_DSP], body=PLAN_SPEC,
            summary="El vendedor fija o mueve la cita (eta), la salida y el transporte",
            response=DSP_SCHEMA)
 def dispatch_patch(ctx, id):
@@ -449,7 +449,7 @@ def dispatch_patch(ctx, id):
     return S.dispatch(d, ctx.partner)
 
 
-@api_route("POST", "/dispatches/{id}/arrival", scope="dispatch:write", tags=[TAG_DSP],
+@api_route("POST", "/dispatches/{id}/arrival", signed=True, scope="dispatch:write", tags=[TAG_DSP],
            body={"actual_arrival": F("datetime", description="Por defecto, ahora")},
            summary="El técnico verificador (o su empresa) estampa la llegada real a planta",
            response=DSP_SCHEMA)

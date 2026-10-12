@@ -63,6 +63,10 @@ LOGIN_SPEC = {
 LOGIN_RESPONSE = obj(api_key={"type": "string", "description": "Clave trz_… Solo se devuelve aquí: "
                                                                "guárdala en el almacén seguro del móvil."},
                      expires_at="datetime",
+                     device_required={"type": "boolean",
+                                      "description": "Siempre true: la clave es de la app y las "
+                                                     "operaciones sensibles exigen registrar el "
+                                                     "dispositivo (POST /me/devices) y firmarlas."},
                      me={"type": "object", "description": "Lo mismo que devuelve GET /me con esa clave."})
 
 
@@ -95,7 +99,9 @@ def _reject(ip, login, why):
                        "403 account-not-approved (la cuenta no tiene ningún perfil), "
                        "403 mfa-not-supported (el usuario tiene verificación en dos pasos), "
                        "429 rate-limited (más de %s intentos fallidos en %s minutos desde la "
-                       "misma IP para el mismo correo)."
+                       "misma IP para el mismo correo). La clave es «de la app» "
+                       "(device_required: true): antes de una operación sensible hay que registrar "
+                       "el dispositivo (POST /me/devices) y firmar la petición."
                        % (LOGIN_KEY_DAYS, LOGIN_MAX_FAILURES, LOGIN_WINDOW // 60))
 def auth_login(ctx):
     vals = ctx.clean(LOGIN_SPEC)
@@ -153,7 +159,7 @@ def auth_login(ctx):
     # otra vez (reinstalaciones, varios teléfonos) se revocan primero sus
     # propias claves más antiguas; las que el socio creó a mano no se tocan.
     while len(activas) >= MAX_ACTIVE_KEYS:
-        vieja = activas.filtered(lambda k: (k.name or "").startswith(APP_KEY_PREFIX))[:1]
+        vieja = activas.filtered(lambda k: k.is_app_key or (k.name or "").startswith(APP_KEY_PREFIX))[:1]
         if not vieja:
             raise ApiError(409, "too-many-keys",
                            "Tienes %s claves de API activas. Revoca alguna en el portal "
@@ -163,8 +169,11 @@ def auth_login(ctx):
 
     expires_at = fields.Datetime.now() + timedelta(days=LOGIN_KEY_DAYS)
     key, secret = Key.api_create_key(user, APP_KEY_PREFIX + device, app_scopes(), expires_at=expires_at)
-    # Lo que ve el socio en el portal como "último uso" de esta clave.
-    key.write({"last_used": fields.Datetime.now(), "last_ip": ip[:64] or False})
+    # Lo que ve el socio en el portal como "último uso" de esta clave. Es
+    # clave de la app: las rutas sensibles exigirán dispositivo y firma
+    # (docs/app/CONTRATO-FIRMA-DISPOSITIVO.md).
+    key.write({"last_used": fields.Datetime.now(), "last_ip": ip[:64] or False,
+               "is_app_key": True})
     # Un inicio correcto limpia el contador de fallos de este (IP, login),
     # también los ya fuera de la ventana (no tiene sentido conservarlos).
     request.env["shrimp.rate.limit"].sudo().search([("key", "=", _throttle_key(ip, login))]).unlink()
@@ -173,6 +182,7 @@ def auth_login(ctx):
     return {
         "api_key": secret,
         "expires_at": iso_dt(key.expires_at),
+        "device_required": True,
         "me": S.me(user, key),
     }
 

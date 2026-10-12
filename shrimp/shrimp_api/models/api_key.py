@@ -112,6 +112,15 @@ class ShrimpApiKey(models.Model):
     rate_write_per_min = fields.Integer(
         string="Escrituras/min", help="0 = valor por defecto del sistema.")
     last_ip = fields.Char(string="Última IP", readonly=True)
+    # La emite POST /auth/login. Con una clave de app, las rutas sensibles
+    # exigen un dispositivo registrado y la firma de la operación (ver
+    # models/api_device.py). Las claves creadas a mano en el portal no.
+    is_app_key = fields.Boolean(
+        string="Clave de la app", readonly=True, copy=False, index=True,
+        help="Emitida por el inicio de sesión de la app móvil: las operaciones sensibles "
+             "exigen un dispositivo registrado y una firma ES256.")
+    device_ids = fields.One2many("shrimp.api.device", "api_key_id", string="Dispositivos",
+                                 readonly=True, context={"active_test": False})
     status = fields.Selection(
         [("active", "Activa"), ("expired", "Caducada"), ("revoked", "Revocada"),
          ("inactive", "Inactiva")],
@@ -341,6 +350,12 @@ class ShrimpApiKey(models.Model):
             rec.write({"revoked_at": fields.Datetime.now(),
                        "revoked_by_id": self.env.user.id, "active": False})
         _forget_key_ids(set(self.ids))
+        # Sin clave, su dispositivo ya no sirve: se marca revocado también
+        # para que el socio lo vea así en el portal.
+        devices = self.env["shrimp.api.device"].sudo().search(
+            [("api_key_id", "in", self.ids), ("active", "=", True)])
+        if devices:
+            devices._api_revoke(revoke_key=False)
         return True
 
     def write(self, vals):

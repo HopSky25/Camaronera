@@ -20,6 +20,7 @@ la base que atiende la petición.
 
 import base64
 import binascii
+import hashlib
 import json
 import logging
 import re
@@ -31,6 +32,9 @@ from odoo.tools import SQL
 _logger = logging.getLogger(__name__)
 
 API_PREFIX = "/api/v1"
+# Valor de api_route(signed=...): firma solo si la clave ya tiene un
+# dispositivo activo (sustituir el dispositivo de la app).
+SIGNED_IF_DEVICE = "if-device"
 DEFAULT_LIMIT = 50
 MAX_LIMIT = 200
 
@@ -116,7 +120,7 @@ def _compile(path):
 class Route:
     def __init__(self, method, path, func, *, scopes=(), public=False, summary="",
                  description="", tags=(), params=None, body=None, response=None,
-                 status=200, module=None, paginated=False, binary=None):
+                 status=200, module=None, paginated=False, binary=None, signed=False):
         self.method = method.upper()
         self.path = path
         self.func = func
@@ -132,6 +136,13 @@ class Route:
         self.module = module
         self.paginated = paginated
         self.binary = binary
+        # Operación sensible: con una clave de la app exige dispositivo
+        # registrado y firma ES256 (ver «Firma de operaciones» más abajo).
+        # SIGNED_IF_DEVICE: solo si la clave ya tiene un dispositivo activo
+        # (sustituir el dispositivo; el primer registro va sin firma).
+        if signed not in (True, False, SIGNED_IF_DEVICE):
+            raise ValueError("signed admite True, False o SIGNED_IF_DEVICE")
+        self.signed = signed
         self.patterns = [_compile(path)]
         # Las acciones se publican como "/x/{id}:accion" (estilo Google AIP)
         # y se aceptan también como "/x/{id}/accion" para clientes o proxies
@@ -152,12 +163,17 @@ class Route:
 
 def api_route(method, path, *, scope=None, public=False, summary="", description="",
               tags=(), params=None, body=None, response=None, status=200,
-              paginated=False, binary=None):
+              paginated=False, binary=None, signed=False):
     """Declara una operación de /api/v1.
 
     ``scope`` puede ser un código o una tupla de códigos (basta con tener uno).
     ``body`` es un dict {campo: F(...)} que sirve a la vez para validar y para
     documentar.
+    ``signed=True`` marca una operación sensible: si la clave es de la app
+    móvil (``is_app_key``), el despachador exige un dispositivo registrado y
+    la firma de la petición antes de ejecutarla. Las demás claves no cambian.
+    ``signed=SIGNED_IF_DEVICE`` exige la firma solo si la clave ya tiene un
+    dispositivo activo (POST /me/devices: sustituirlo lo firma el actual).
     """
     scopes = (scope,) if isinstance(scope, str) else tuple(scope or ())
 
@@ -167,7 +183,7 @@ def api_route(method, path, *, scope=None, public=False, summary="", description
         route = Route(method, path, func, scopes=scopes, public=public, summary=summary,
                       description=description or (func.__doc__ or "").strip(), tags=tags,
                       params=params, body=body, response=response, status=status,
-                      module=module, paginated=paginated, binary=binary)
+                      module=module, paginated=paginated, binary=binary, signed=signed)
         # Con --dev=reload un módulo puede importarse dos veces: se reemplaza
         # la ruta en vez de duplicarla.
         for i, existing in enumerate(ROUTES):
@@ -193,6 +209,30 @@ def resolve(path, method, installed_modules):
         if route.method == method or (method == "HEAD" and route.method == "GET"):
             return route, params, allowed
     return None, None, allowed
+
+
+# ---------------------------------------------------------------------------
+# Firma de operaciones (claves de la app móvil)
+# docs/app/CONTRATO-FIRMA-DISPOSITIVO.md
+# ---------------------------------------------------------------------------
+DEVICE_HEADER = "X-Device-Id"
+SIGNATURE_HEADER = "X-Signature"
+SIGNATURE_TS_HEADER = "X-Signature-Timestamp"
+SIGNATURE_MAX_AGE = 7 * 24 * 3600       # la cola sin internet firma en campo y envía después
+SIGNATURE_MAX_SKEW = 10 * 60            # reloj del teléfono adelantado
+
+
+def canonical_string(method, path, timestamp, idempotency_key, body):
+    """Cadena que firma la app, en bytes UTF-8.
+
+    METODO \n RUTA \n TIMESTAMP \n IDEMPOTENCY-KEY \n SHA256_HEX(cuerpo), sin
+    salto final. ``path`` es el de la petición tal como llega (sin host ni
+    query) y ``body`` los bytes exactos del cuerpo (b"" si no hay).
+    """
+    return "\n".join([
+        (method or "").upper(), path or "", str(timestamp), idempotency_key or "",
+        hashlib.sha256(body or b"").hexdigest(),
+    ]).encode("utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -594,6 +634,8 @@ class ApiCtx:
         self.request_id = request_id
         self.remote_addr = remote_addr
         self.route = route
+        # Dispositivo que firmó la petición (solo rutas firmadas con clave de app).
+        self.device = None
         # Perfil pedido para esta petición: cabecera X-Shrimp-Role, parámetro
         # ?acting_role= o clave "acting_role" del cuerpo (se retira del cuerpo
         # para que la validación estricta de campos no la rechace).

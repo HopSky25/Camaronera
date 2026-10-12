@@ -18,6 +18,7 @@
                 <field name="last_used"/>
                 <field name="call_count"/>
                 <field name="is_legacy" optional="hide"/>
+                <field name="is_app_key" optional="show"/>
             </list>
         </field>
     </record>
@@ -44,6 +45,7 @@
                             <field name="user_id" readonly="1"/>
                             <field name="partner_id" readonly="1"/>
                             <field name="is_legacy" readonly="1"/>
+                            <field name="is_app_key" readonly="1"/>
                         </group>
                         <group string="Uso">
                             <field name="last_used"/>
@@ -64,6 +66,18 @@
                             <field name="ip_allowlist" placeholder="203.0.113.10&#10;198.51.100.0/24"/>
                             <field name="allowed_origins" placeholder="https://erp.ejemplo.com"/>
                         </group>
+                    </group>
+                    <group string="Dispositivos (app móvil)" invisible="not is_app_key">
+                        <field name="device_ids" nolabel="1" colspan="2">
+                            <list decoration-muted="not active">
+                                <field name="name"/>
+                                <field name="platform"/>
+                                <field name="create_date" string="Registrado el"/>
+                                <field name="last_used"/>
+                                <field name="active" string="Activo"/>
+                                <field name="revoked_at"/>
+                            </list>
+                        </field>
                     </group>
                     <div class="alert alert-info" role="alert">
                         El secreto no se guarda: solo un hash PBKDF2. Los socios crean y
@@ -86,6 +100,7 @@
                 <filter name="f_active" string="Activas" domain="[('active', '=', True), ('revoked_at', '=', False)]"/>
                 <filter name="f_revoked" string="Revocadas" domain="[('revoked_at', '!=', False)]"/>
                 <filter name="f_legacy" string="Heredadas" domain="[('is_legacy', '=', True)]"/>
+                <filter name="f_app" string="De la app" domain="[('is_app_key', '=', True)]"/>
             </search>
         </field>
     </record>

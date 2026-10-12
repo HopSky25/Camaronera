@@ -14,3 +14,5 @@ from . import portal
 from . import auth
 # Mover producto propio entre los perfiles de la cuenta.
 from . import private_profile_transfer
+# Dispositivos de la app móvil (registro de la clave pública para firmar).
+from . import private_devices

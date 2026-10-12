@@ -382,7 +382,7 @@ BUY_SPEC = {"verifier": F("ref", model="res.partner",
                                                "las partes. Por defecto platform si hay verifier.")}
 
 
-@api_route("POST", "/harvest/commitments/{id}:buy", scope="harvest:write", tags=[TAG_HV],
+@api_route("POST", "/harvest/commitments/{id}:buy", signed=True, scope="harvest:write", tags=[TAG_HV],
            body=BUY_SPEC,
            summary="La empacadora compra el lote nacido de un compromiso cumplido",
            description="El camarón adulto se compra con verificación en campo: la compra "

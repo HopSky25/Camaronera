@@ -1,6 +1,8 @@
 from . import api_scope
 from . import api_key
 from . import api_runtime
+# Dispositivos de la app, antirreplay y auditoría de operaciones firmadas.
+from . import api_device
 from . import webhook
 from . import events
 from . import transaction_trace

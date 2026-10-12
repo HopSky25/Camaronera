@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Dispositivos de la app móvil y auditoría de operaciones firmadas
+         (docs/app/CONTRATO-FIRMA-DISPOSITIVO.md). Solo administradores. -->
+
+    <record id="view_api_device_list" model="ir.ui.view">
+        <field name="name">shrimp.api.device.list</field>
+        <field name="model">shrimp.api.device</field>
+        <field name="arch" type="xml">
+            <list string="Dispositivos de la app" create="false" decoration-muted="not active">
+                <field name="name"/>
+                <field name="user_id"/>
+                <field name="partner_id" optional="show"/>
+                <field name="platform"/>
+                <field name="api_key_id"/>
+                <field name="create_date" string="Registrado el"/>
+                <field name="last_used"/>
+                <field name="active" widget="boolean" string="Activo"/>
+                <field name="revoked_at" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_api_device_form" model="ir.ui.view">
+        <field name="name">shrimp.api.device.form</field>
+        <field name="model">shrimp.api.device</field>
+        <field name="arch" type="xml">
+            <form string="Dispositivo de la app" create="false">
+                <header>
+                    <button name="action_revoke" type="object" string="Revocar dispositivo y clave"
+                            class="btn-danger" invisible="not active"
+                            confirm="El dispositivo dejará de firmar y su clave de API quedará revocada. ¿Revocar?"/>
+                </header>
+                <sheet>
+                    <widget name="web_ribbon" title="Revocado" bg_color="text-bg-danger" invisible="active"/>
+                    <div class="oe_title">
+                        <h1><field name="name"/></h1>
+                        <field name="uuid_ref"/>
+                    </div>
+                    <group>
+                        <group string="Dueño">
+                            <field name="user_id"/>
+                            <field name="partner_id"/>
+                            <field name="api_key_id"/>
+                        </group>
+                        <group string="Uso">
+                            <field name="create_date" string="Registrado el"/>
+                            <field name="last_used"/>
+                            <field name="last_ip"/>
+                            <field name="active" invisible="1"/>
+                            <field name="revoked_at"/>
+                            <field name="revoked_by_id"/>
+                        </group>
+                    </group>
+                    <group string="Clave pública">
+                        <field name="platform"/>
+                        <field name="alg"/>
+                        <field name="key_fingerprint"/>
+                        <field name="public_key"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_api_device_search" model="ir.ui.view">
+        <field name="name">shrimp.api.device.search</field>
+        <field name="model">shrimp.api.device</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="user_id"/>
+                <field name="partner_id"/>
+                <field name="uuid_ref"/>
+                <filter name="f_active" string="Activos" domain="[('active', '=', True)]"/>
+                <filter name="f_revoked" string="Revocados" domain="[('active', '=', False)]"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_api_devices" model="ir.actions.act_window">
+        <field name="name">Dispositivos de la app</field>
+        <field name="res_model">shrimp.api.device</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'active_test': False, 'search_default_f_active': 1}</field>
+    </record>
+
+    <record id="view_api_signed_operation_list" model="ir.ui.view">
+        <field name="name">shrimp.api.signed.operation.list</field>
+        <field name="model">shrimp.api.signed.operation</field>
+        <field name="arch" type="xml">
+            <list string="Operaciones firmadas" create="false" edit="false" delete="false">
+                <field name="received_at"/>
+                <field name="user_id"/>
+                <field name="partner_id" optional="show"/>
+                <field name="device_id"/>
+                <field name="method"/>
+                <field name="path"/>
+                <field name="signed_at"/>
+                <field name="status_code"/>
+                <field name="ip" optional="show"/>
+                <field name="signature_hash" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_api_signed_operation_form" model="ir.ui.view">
+        <field name="name">shrimp.api.signed.operation.form</field>
+        <field name="model">shrimp.api.signed.operation</field>
+        <field name="arch" type="xml">
+            <form string="Operación firmada" create="false" edit="false" delete="false">
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="method"/> <field name="path"/></h1>
+                    </div>
+                    <group>
+                        <group string="Quién">
+                            <field name="user_id"/>
+                            <field name="partner_id"/>
+                            <field name="device_id"/>
+                            <field name="device_ref"/>
+                            <field name="ip"/>
+                        </group>
+                        <group string="Cuándo">
+                            <field name="signed_at"/>
+                            <field name="signed_timestamp"/>
+                            <field name="received_at"/>
+                            <field name="status_code"/>
+                        </group>
+                    </group>
+                    <group string="Firma">
+                        <field name="idempotency_key"/>
+                        <field name="signature_hash"/>
+                        <field name="body_sha256"/>
+                        <field name="request_id"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_api_signed_operation_search" model="ir.ui.view">
+        <field name="name">shrimp.api.signed.operation.search</field>
+        <field name="model">shrimp.api.signed.operation</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="path"/>
+                <field name="user_id"/>
+                <field name="partner_id"/>
+                <field name="device_id"/>
+                <field name="signature_hash"/>
+                <field name="request_id"/>
+                <group>
+                    <filter name="g_user" string="Usuario" context="{'group_by': 'user_id'}"/>
+                    <filter name="g_device" string="Dispositivo" context="{'group_by': 'device_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_api_signed_operations" model="ir.actions.act_window">
+        <field name="name">Operaciones firmadas</field>
+        <field name="res_model">shrimp.api.signed.operation</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_api_devices" name="Dispositivos de la app" parent="menu_api_root"
+              action="action_api_devices" sequence="15" groups="base.group_system"/>
+    <menuitem id="menu_api_signed_operations" name="Operaciones firmadas (auditoría)"
+              parent="menu_api_root" action="action_api_signed_operations" sequence="16"
+              groups="base.group_system"/>
+</odoo>

@@ -115,8 +115,12 @@ curl -s -X POST https://TU-DOMINIO/api/v1/auth/login -H "Content-Type: applicati
 ```json
 {"api_key": "trz_1a2b3c4d_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
  "expires_at": "2027-10-11T18:20:00Z",
+ "device_required": true,
  "me": { ...exactamente lo que devuelve GET /me con esa clave... }}
 ```
+
+* La clave es **de la app** (`device_required: true`): antes de una operación sensible la app registra el
+  teléfono (`POST /me/devices`) y firma cada una de esas peticiones (§5 bis).
 
 * `device` es opcional (máx. 64 caracteres); solo sirve para nombrar la clave.
 * La clave dura **365 días** y lleva todos los scopes `*:read` más `profile:write`, `verifications:write`,
@@ -200,6 +204,148 @@ curl -s -X POST https://TU-DOMINIO/api/v1/facilities \
 
 ---
 
+## 5 bis. Dispositivos y firma de operaciones (app móvil)
+
+Contrato completo: `docs/app/CONTRATO-FIRMA-DISPOSITIVO.md` (versión 1.1). Solo afecta a las **claves de la
+app** (`is_app_key`), es decir, las que emite `POST /auth/login`; las claves creadas a mano en el portal
+(ERP, integraciones) **no cambian**: ni registran dispositivos ni firman.
+
+La clave de API de la app vive en el almacén seguro del teléfono, pero una clave robada serviría desde
+cualquier sitio. Por eso las operaciones que comprometen al socio exigen además la firma de un
+**dispositivo registrado**: un par EC P-256 cuya clave privada vive en el Android Keystore / Secure
+Enclave, no se puede exportar y solo firma tras la huella (o la credencial del teléfono).
+
+### Registro del dispositivo
+
+`POST /api/v1/me/devices` — con la clave de la app, exige `Idempotency-Key` y no exige scope. El **primer
+registro** de una clave va **sin firma**; **sustituir** el dispositivo (la clave ya tiene uno activo) va
+**firmado por el dispositivo activo** (cabeceras y cadena de abajo, con su `X-Device-Id`):
+
+```json
+{"name": "Samsung A54 de Juan", "platform": "android",
+ "public_key": "<SubjectPublicKeyInfo DER en base64 estándar>", "alg": "ES256"}
+```
+```json
+{"id": "5c0e…", "name": "Samsung A54 de Juan", "platform": "android", "alg": "ES256",
+ "created_at": "2026-10-12T15:00:00Z", "active": true,
+ "last_used_at": null, "revoked_at": null, "current": true}
+```
+
+* Una clave de app tiene **como máximo un dispositivo activo**: registrar otro (firmado por el actual)
+  revoca el anterior (no la clave). Sin firma → 403 `signature-required`; firmado con otra clave → 403
+  `invalid-signature`; con un `X-Device-Id` que no es de la clave → 403 `device-not-registered`. Así quien
+  robe la clave de API no puede reemplazar el teléfono legítimo.
+* **Teléfono perdido**: el socio lo revoca en el portal (eso revoca también su clave) y vuelve a iniciar
+  sesión; la clave nueva no tiene dispositivo y su primer registro vuelve a ir sin firma.
+* Registrar o sustituir deja una **nota interna en el historial del socio** (dispositivo, plataforma, IP,
+  prefijo de la clave y, si sustituye, a cuál).
+* 422 `validation-error` si la clave pública no es una SubjectPublicKeyInfo DER EC P-256 en base64 estándar
+  o si `alg` no es `ES256` (campo en `errors[]`); 409 `not-an-app-key` con una clave que no es de la app.
+* `GET /api/v1/me/devices` → `{"data": [...]}`: los dispositivos de mis claves de la app, activos y
+  revocados (`current: true` es el de la clave con la que se llama).
+* `POST /api/v1/me/devices/{id}:revoke` revoca el dispositivo **y su clave de API**. Lo mismo hace el botón
+  «Revocar» de **Mi cuenta → Integraciones (API) → Mis dispositivos**, y `POST /auth/logout` (o revocar la
+  clave) deja revocado su dispositivo.
+
+### Firma de cada operación sensible
+
+Cabeceras:
+```
+X-Device-Id: <uuid del dispositivo>
+X-Signature-Timestamp: <segundos Unix, entero>
+X-Signature: <firma ES256 en base64 estándar, formato DER (ASN.1)>
+```
+Cadena firmada (UTF-8, líneas separadas por `\n`, **sin** salto final):
+```
+METODO            POST / PATCH, en mayúsculas
+RUTA              path exacto sin host ni query: /api/v1/verifications/abc:verdict
+TIMESTAMP         el mismo texto de X-Signature-Timestamp
+IDEMPOTENCY-KEY   el valor de la cabecera (línea vacía si un PATCH no la lleva)
+SHA256_CUERPO     hex en minúsculas del SHA-256 de los BYTES EXACTOS del cuerpo (vacío = sha256 de "")
+```
+La ruta es la que llega al servidor (`request.httprequest.path`): si la app usa la forma `/x/{id}/accion`,
+firma esa. El cuerpo se firma tal cual se envía: guarda los bytes serializados y manda exactamente esos.
+
+* **Ventana**: el timestamp vale hasta **7 días en el pasado** (la cola sin internet firma en campo y envía
+  después) y **10 minutos en el futuro** (reloj del teléfono).
+* **Antirreplay**: el servidor guarda 8 días el hash de cada firma aceptada (de la firma normalizada, `r` y
+  `s` bajo, para que reescribir la firma no la «renueve»). Repetirla es 409 `signature-replayed`, **salvo**
+  el reintento idempotente legítimo (misma `Idempotency-Key`, ruta y cuerpo), que recibe la respuesta
+  guardada (`Idempotent-Replayed: true`) mientras dure la idempotencia (24 h, §5). Como la
+  `Idempotency-Key` va dentro de la cadena, la misma firma con otra `Idempotency-Key` ya no verifica (403
+  `invalid-signature`).
+* Los **PATCH** firmados que llevan `Idempotency-Key` también guardan su respuesta (como un POST); sin
+  `Idempotency-Key` se ejecutan y repetir la firma es un replay. La app debería mandarla siempre.
+* Orden de las comprobaciones: clave → scope → límite → **dispositivo y firma** → idempotencia (respuesta
+  guardada) → antirreplay → operación. Los errores de firma no se guardan como respuesta idempotente: se
+  puede reintentar con la misma `Idempotency-Key` y una firma buena.
+* Si la operación falla con 5xx, la firma se devuelve (se puede reintentar con la misma).
+
+Rutas firmadas (con clave de la app): `POST /verifications`, `POST /verifications/{id}/acceptance`,
+`POST /verifications/{id}/acceptance:revert`, `POST /verifications/{id}:assign|:start|:verdict`,
+`PATCH /verifications/{id}/report`, `POST /dispatches/{id}/arrival`, `PATCH /dispatches/{id}`,
+`POST /transactions/{id}:complete`, `POST /harvest/commitments/{id}:buy`,
+`POST /copack/requests/{id}/offers`, `POST /copack/orders/{id}:reception|:packing|:sign|:revert-signature|:reopen|:close`
+y `POST /me/active-role`. En `/api/v1/openapi.json` llevan `x-signed: true`. `POST /me/devices` se firma
+solo para sustituir el dispositivo (`x-signed: "if-device"`). Las lecturas (GET), `/auth/login` y
+`/auth/logout` no se firman.
+
+Ejemplo en Python (lo mismo que hace la app; en el teléfono la clave privada no sale del Keystore):
+
+```python
+import base64, hashlib, json, time, uuid
+import requests
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec
+
+BASE = "https://TU-DOMINIO"
+KEY = "trz_…"                                   # la de POST /auth/login
+
+# 1. Par de claves y registro del dispositivo (una vez).
+priv = ec.generate_private_key(ec.SECP256R1())
+spki = priv.public_key().public_bytes(serialization.Encoding.DER,
+                                      serialization.PublicFormat.SubjectPublicKeyInfo)
+dev = requests.post(BASE + "/api/v1/me/devices", headers={
+        "Authorization": "Bearer " + KEY, "Idempotency-Key": str(uuid.uuid4())},
+    json={"name": "Pixel 7 de Juan", "platform": "android", "alg": "ES256",
+          "public_key": base64.b64encode(spki).decode()}).json()
+
+# 2. Operación firmada.
+def signed_post(path, payload):
+    body = json.dumps(payload).encode()          # estos bytes exactos se firman y se envían
+    ts = str(int(time.time()))
+    idem = str(uuid.uuid4())
+    canonical = "\n".join(["POST", path, ts, idem, hashlib.sha256(body).hexdigest()])
+    signature = priv.sign(canonical.encode("utf-8"), ec.ECDSA(hashes.SHA256()))   # DER
+    return requests.post(BASE + path, data=body, headers={
+        "Authorization": "Bearer " + KEY, "Content-Type": "application/json",
+        "Idempotency-Key": idem, "X-Device-Id": dev["id"], "X-Signature-Timestamp": ts,
+        "X-Signature": base64.b64encode(signature).decode()})
+
+r = signed_post("/api/v1/verifications/ab2…:verdict", {"verdict": "approve", "notes": "OK"})
+```
+
+Errores (RFC 9457, como el resto):
+
+| status | `type` (sufijo) | cuándo |
+|---|---|---|
+| 403 | `device-not-registered` | clave de app sin dispositivo activo pidiendo una ruta sensible (o `X-Device-Id` que no es de esta clave) |
+| 403 | `signature-required` | faltan las cabeceras de firma (`detail` dice cuáles) |
+| 403 | `device-revoked` | el dispositivo fue revocado (también si se revocó con él su clave): volver al inicio de sesión |
+| 403 | `invalid-signature` | la firma no verifica (o `X-Signature`/`X-Signature-Timestamp` mal formados) |
+| 403 | `signature-expired` | timestamp de más de 7 días o más de 10 minutos en el futuro |
+| 409 | `signature-replayed` | firma ya usada y sin respuesta guardada que devolver |
+| 409 | `not-an-app-key` | `POST /me/devices` con una clave que no es de la app |
+
+**Auditoría**: cada operación firmada aceptada queda en *Camaronera → Configuración → Integraciones (API) →
+Operaciones firmadas* (usuario, dispositivo, método, ruta, timestamp firmado, hash de la firma, sha256 del
+cuerpo, IP, fecha de recepción y código HTTP de la respuesta), en la misma transacción que la operación. Es de
+solo lectura y solo la ven los administradores; no se borra. El antirreplay sí: el cron «API externa:
+antirreplay de firmas de la app (limpieza)» borra cada hora los hashes de más de 8 días. Los dispositivos se
+ven en *Integraciones (API) → Dispositivos de la app* y en la ficha de cada clave.
+
+---
+
 ## 6. Errores (RFC 9457)
 
 ```json
@@ -214,9 +360,10 @@ curl -s -X POST https://TU-DOMINIO/api/v1/facilities \
 |---|---|---|
 | 400 | `invalid-json`, `body-not-object`, `invalid-parameter`, `invalid-cursor`, `idempotency-key-required` | petición mal formada |
 | 401 / 403 | ver §3, `invalid-credentials`, `account-not-approved`, `access-denied`, `forbidden` | autenticación / permisos / papel |
+| 403 | `device-not-registered`, `signature-required`, `device-revoked`, `invalid-signature`, `signature-expired` | firma de la app (§5 bis) |
 | 404 | `not-found` | no existe **o no es tuyo** (no se distingue a propósito) |
 | 405 | `method-not-allowed` | cabecera `Allow` con los métodos válidos |
-| 409 | `invalid-state`, `conflict`, `idempotency-in-progress`, `too-many-keys` | el recurso no está en el estado necesario |
+| 409 | `invalid-state`, `conflict`, `idempotency-in-progress`, `too-many-keys`, `signature-replayed`, `not-an-app-key` | el recurso no está en el estado necesario / firma repetida (§5 bis) |
 | 413 / 415 | `payload-too-large`, `unsupported-media-type` | cuerpo > 1 MB / no es JSON |
 | 422 | `validation-error`, `business-rule`, `idempotency-key-reused` | datos inválidos o regla de negocio (el `detail` es el mensaje del negocio) |
 | 429 | `rate-limited` | ver §7 |
@@ -556,6 +703,14 @@ y la contraseña del portal (§3, «Iniciar sesión con correo y contraseña») 
 <dispositivo>» de un año con los scopes de la app; al cerrar sesión llama a `POST /auth/logout`, que la
 revoca. Cada técnico entra con su propio usuario, así que el informe queda firmado por quien lo cargó.
 
+Además, la app **registra el teléfono** (`POST /me/devices`, una vez tras el inicio de sesión) y **firma**
+con la clave del Keystore / Secure Enclave, tras la huella, cada operación sensible: asignar, iniciar campo,
+cargar el informe, estampar la llegada, dictaminar, aceptar o revertir la aceptación, mover la cita del
+despacho y cambiar de perfil activo (§5 bis). Las firmas valen 7 días, así que la cola de campo sin internet
+se puede enviar después; cada una queda en la auditoría de operaciones firmadas. Si el socio pierde el
+teléfono, lo revoca en **Mi cuenta → Integraciones (API) → Mis dispositivos** y esa sesión de la app se
+cierra.
+
 | Paso | Endpoint |
 |---|---|
 | Bandeja | `GET /verifications?role=verifier` (admin) o `?role=technician` |
@@ -565,6 +720,10 @@ revoca. Cada técnico entra con su propio usuario, así que el informe queda fir
 | Cargar el informe (parcial, desde el móvil) | `PATCH /verifications/{id}/report` (pesos, presentación, metabisulfito, sabor, `lines`, `counts`, GPS) |
 | Estampar la llegada del camión | `POST /dispatches/{id}/arrival` |
 | Veredicto | `POST /verifications/{id}:verdict` `{"verdict": "approve|approve_obs|reject", "notes": "…"}` |
+| Registrar el teléfono (app) | `POST /me/devices` `{"name", "platform", "public_key", "alg": "ES256"}`; `GET /me/devices`; `POST /me/devices/{id}:revoke` |
+Con la clave de la app, todos los pasos de escritura de esta tabla van **firmados** (registrar el teléfono, solo
+cuando sustituye a uno activo): cabeceras `X-Device-Id`, `X-Signature-Timestamp`, `X-Signature` (§5 bis).
+**firmados** (cabeceras `X-Device-Id`, `X-Signature-Timestamp`, `X-Signature`; §5 bis).
 
 ```bash
 curl -s -X PATCH https://TU-DOMINIO/api/v1/verifications/ab2…/report -H "Authorization: Bearer $KEY" \
@@ -655,7 +814,13 @@ Solo aparecen comprobantes **autorizados o anulados** cuyo receptor es la empres
 Sesión de la app móvil: `POST /auth/login` (correo + contraseña → clave de API; sin `Idempotency-Key`).
 
 ### Privados
-* Sesión de la app: `POST /auth/logout` (revoca la clave con la que se llama)
+* Sesión de la app: `POST /auth/logout` (revoca la clave con la que se llama y su dispositivo)
+* Dispositivos de la app (§5 bis): `GET|POST /me/devices` (sustituir uno activo va firmado por él), `POST /me/devices/{id}:revoke`. Con la clave de
+  la app van **firmadas**: `POST /verifications`, `POST /verifications/{id}/acceptance`,
+  `POST /verifications/{id}/acceptance:revert`, `POST /verifications/{id}:assign|:start|:verdict`,
+  `PATCH /verifications/{id}/report`, `POST /dispatches/{id}/arrival`, `PATCH /dispatches/{id}`,
+  `POST /transactions/{id}:complete`, `POST /harvest/commitments/{id}:buy`, `POST /copack/requests/{id}/offers`,
+  `POST /copack/orders/{id}:reception|:packing|:sign|:revert-signature|:reopen|:close` y `POST /me/active-role`
 * Perfil: `GET /me`, `PATCH /me`, `POST /me/active-role`
 * Instalaciones: `GET|POST /facilities`, `GET|PATCH|PUT|DELETE /facilities/{id}`; piscinas: ídem en `/ponds`
 * Productos: `GET|POST /products`, `GET|PATCH|PUT|DELETE /products/{id}`, `POST /products/{id}:publish|:archive|:unarchive`, `GET|POST /products/{id}/evolutions`
@@ -748,8 +913,14 @@ Parámetros de sistema opcionales: `shrimp_api.rate_read_per_min` (600), `shrimp
 (60), `shrimp_api.public_rate_per_min` (0 = sin límite en Odoo), `shrimp_api.webhook_allow_insecure`
 (solo pruebas: permite `http://` y destinos privados).
 
-Crons: «API externa: enviar webhooks pendientes» (cada minuto) y «API externa: contadores de uso e
-idempotencia» (cada 10 min).
+Crons: «API externa: enviar webhooks pendientes» (cada minuto), «API externa: contadores de uso e
+idempotencia» (cada 10 min) y «API externa: antirreplay de firmas de la app (limpieza)» (cada hora; borra
+los hashes de firma de más de 8 días, la auditoría se conserva).
+
+Al actualizar a 19.0.1.5.0, la migración marca como claves de la app (`is_app_key`) las que se llaman
+«App móvil – …» (las emitió `POST /auth/login`): desde ese momento sus operaciones sensibles exigen
+dispositivo y firma, así que una versión de la app que no firme recibirá 403 `device-not-registered` en
+ellas. Publica la app que firma antes (o a la vez) de actualizar el servidor.
 
 Tests (en una base desechable, nunca en la de trabajo):
 

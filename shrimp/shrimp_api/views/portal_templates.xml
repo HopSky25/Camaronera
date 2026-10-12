@@ -62,7 +62,7 @@
                             <tbody>
                                 <tr t-if="not keys"><td colspan="7" class="text-muted">Todavía no tienes claves.</td></tr>
                                 <tr t-foreach="keys" t-as="k">
-                                    <td t-esc="k.name"/>
+                                    <td><t t-esc="k.name"/> <span t-if="k.is_app_key" class="badge text-bg-info">App</span></td>
                                     <td><code t-esc="k.display_key"/></td>
                                     <td><small t-esc="', '.join(k.scope_ids.mapped('code'))"/></td>
                                     <td><span t-field="k.expires_at" t-options="{'widget': 'date'}"/></td>
@@ -71,6 +71,42 @@
                                     <td class="text-end">
                                         <form t-if="k.status == 'active'" t-attf-action="/my/api-keys/#{k.uuid_ref}/revoke" method="post"
                                               onsubmit="return confirm('La integración que use esta clave dejará de funcionar. ¿Revocar?');">
+                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                            <button class="btn btn-sm btn-outline-danger">Revocar</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card mb-4" id="mis-dispositivos">
+                    <div class="card-header"><strong>Mis dispositivos</strong>
+                        <small class="text-muted d-block">Teléfonos con la app que pueden firmar
+                            operaciones (aceptar, dictaminar, comprar, firmar actas…). Si pierdes uno,
+                            revócalo: deja de firmar y su sesión de la app se cierra.</small>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0 align-middle">
+                            <thead><tr>
+                                <th>Nombre</th><th>Plataforma</th><th>Registrado</th>
+                                <th>Último uso</th><th>Estado</th><th/>
+                            </tr></thead>
+                            <tbody>
+                                <tr t-if="not devices"><td colspan="6" class="text-muted">Todavía no has registrado ningún teléfono con la app.</td></tr>
+                                <tr t-foreach="devices" t-as="d">
+                                    <td t-esc="d.name"/>
+                                    <td><small t-esc="d.platform or ''"/></td>
+                                    <td><span t-field="d.create_date"/></td>
+                                    <td><span t-field="d.last_used"/></td>
+                                    <td>
+                                        <span t-if="d.active" class="badge text-bg-success">Activo</span>
+                                        <span t-else="" class="badge text-bg-secondary">Revocado</span>
+                                    </td>
+                                    <td class="text-end">
+                                        <form t-if="d.active" t-attf-action="/my/api-keys/devices/#{d.uuid_ref}/revoke" method="post"
+                                              onsubmit="return confirm('El teléfono dejará de firmar operaciones y su sesión de la app se cerrará. ¿Revocar?');">
                                             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                             <button class="btn btn-sm btn-outline-danger">Revocar</button>
                                         </form>

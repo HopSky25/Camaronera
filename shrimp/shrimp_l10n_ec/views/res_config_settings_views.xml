@@ -7,24 +7,28 @@
       <xpath expr="//block[@name='shrimp_commission_block']" position="after">
         <block title="Facturas de servicio de la plataforma (SRI)" name="shrimp_sri_block">
           <setting string="Diario y punto de emisión"
-                   help="Con qué se emiten las facturas electrónicas de comisión, verificación y empaque. El punto de emisión tiene que tener habilitados los documentos 01 (Factura) y 04 (Nota de crédito).">
+                   help="Con qué se emiten las facturas electrónicas de comisión, verificación y empaque. El establecimiento y punto del diario (p. ej. 001-003) tienen que coincidir con los de los puntos de emisión SRI de Factura (01) y de Nota de crédito (04), en el ambiente de la compañía.">
             <div class="content-group">
               <div class="row mt8">
                 <label for="shrimp_service_journal_id" class="col-lg-5 o_light_label"/>
-                <field name="shrimp_service_journal_id"/>
+                <field name="shrimp_service_journal_id"
+                       domain="[('type', '=', 'sale'), ('company_id', '=', company_id), ('l10n_latam_use_documents', '=', True)]"
+                       options="{'no_create': True}"/>
               </div>
               <div class="row mt8">
                 <label for="shrimp_service_sri_point_id" class="col-lg-5 o_light_label"/>
-                <field name="shrimp_service_sri_point_id"/>
+                <field name="shrimp_service_sri_point_id"
+                       domain="[('company_id', '=', company_id), ('document_type', '=', '01')]"
+                       options="{'no_create': True}"/>
               </div>
               <div class="row mt8">
                 <label for="shrimp_service_payment_id" class="col-lg-5 o_light_label"/>
-                <field name="shrimp_service_payment_id"/>
+                <field name="shrimp_service_payment_id" options="{'no_create': True}"/>
               </div>
             </div>
           </setting>
           <setting string="Enviar al SRI al emitir"
-                   help="Al contabilizar la factura de servicio se crea y encola su comprobante electrónico.">
+                   help="Al contabilizar la factura de servicio se crea su comprobante; un proceso automático lo firma y lo encola, y el cron del módulo SRI lo envía.">
             <field name="shrimp_sri_auto_emit"/>
           </setting>
         </block>

@@ -56,7 +56,8 @@ PROBLEM_TITLES = {
 class ApiError(Exception):
     """Error que se convierte tal cual en un application/problem+json."""
 
-    def __init__(self, status, slug, detail=None, title=None, errors=None, headers=None):
+    def __init__(self, status, slug, detail=None, title=None, errors=None, headers=None,
+                 keep_changes=False):
         super().__init__(detail or slug)
         self.status = status
         self.slug = slug
@@ -64,6 +65,11 @@ class ApiError(Exception):
         self.detail = detail
         self.errors = errors
         self.headers = headers or []
+        # Por defecto el despachador revierte lo que escribió el handler antes
+        # de fallar. Con keep_changes=True lo conserva: sirve para dejar
+        # constancia de un intento fallido (p. ej. de inicio de sesión) que
+        # tiene que contar aunque la respuesta sea un error.
+        self.keep_changes = keep_changes
 
 
 def not_found(what="El recurso"):

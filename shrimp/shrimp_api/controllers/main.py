@@ -117,7 +117,8 @@ class ShrimpApiController(http.Controller):
 
     # ------------------------------------------------------------------
     def _preflight(self, path, origin, installed, extra):
-        is_public = path.startswith("/public/") or path in ("/openapi.json", "/docs", "/")
+        is_public = path.startswith("/public/") or path in ("/openapi.json", "/docs", "/",
+                                                             "/auth/login")
         headers = list(extra)
         if is_public:
             headers += [("Access-Control-Allow-Origin", "*"),
@@ -171,9 +172,18 @@ class ShrimpApiController(http.Controller):
         """Ejecuta el handler en un savepoint: si falla, no queda nada a medias
         (Odoo confirmaría la transacción porque la respuesta de error no es una
         excepción)."""
+        kept = None
         try:
             with request.env.cr.savepoint():
-                result = route.func(ctx, **pparams)
+                try:
+                    result = route.func(ctx, **pparams)
+                except ApiError as err:
+                    if not err.keep_changes:
+                        raise
+                    # El handler quiere conservar lo escrito (ver ApiError):
+                    # se sale del savepoint sin excepción para que no se
+                    # revierta y se relanza después.
+                    kept = err
         except ApiError:
             raise
         except PG_CONCURRENCY_EXCEPTIONS_TO_RETRY:
@@ -187,6 +197,8 @@ class ShrimpApiController(http.Controller):
         except psycopg2.IntegrityError:
             raise ApiError(409, "conflict", "La operación choca con un dato existente "
                                             "(duplicado o en uso).")
+        if kept is not None:
+            raise kept
         if isinstance(result, ApiResponse):
             return result
         return ApiResponse(result, status=route.status)
@@ -215,10 +227,14 @@ class ShrimpApiController(http.Controller):
             if not ok:
                 raise ApiError(429, "rate-limited", "Demasiadas peticiones desde esta IP.",
                                headers=[("Retry-After", str(retry))])
-        ctx = ApiCtx(request.env, None, self._params(), {}, method, path, rid,
+        # Las rutas públicas eran solo GET; el inicio de sesión de la app
+        # (POST /auth/login) lleva cuerpo y su respuesta no se cachea.
+        body, _raw = self._read_body(method)
+        ctx = ApiCtx(request.env, None, self._params(), body, method, path, rid,
                      request.httprequest.remote_addr, route)
         result = self._run(route, ctx, pparams)
-        headers = list(extra) + [("Cache-Control", "public, max-age=60")]
+        cache = "public, max-age=60" if method in ("GET", "HEAD") else "no-store"
+        headers = list(extra) + [("Cache-Control", cache)]
         return self._render(result, headers)
 
     def _authenticate(self):

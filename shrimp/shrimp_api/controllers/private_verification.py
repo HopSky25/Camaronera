@@ -133,6 +133,28 @@ def _as_verifier(ctx, id, editable=False):
     return v, is_admin
 
 
+TECH_SCHEMA = obj(id="uuid", name="string", role="string", active="boolean")
+
+
+@api_route("GET", "/me/technicians", scope=READ, tags=[TAG_VER], response={
+               "type": "object", "properties": {"data": {"type": "array", "items": TECH_SCHEMA}}},
+           summary="Técnicos de campo de mi empresa verificadora",
+           description="Los contactos de la empresa marcados como técnico de campo y activos: son los "
+                       "uuid que admite POST /verifications/{id}:assign. Lo puede pedir la empresa o "
+                       "uno de sus técnicos. 403 si la cuenta no tiene aprobado el perfil verificador.")
+def me_technicians(ctx):
+    titular = ctx.partner._shrimp_role_holder()
+    if not titular._shrimp_has_role("verificador"):
+        raise forbidden("Tu cuenta no tiene aprobado el perfil verificador.")
+    techs = titular.sudo().child_ids.filtered(lambda c: c.shrimp_is_field_tech and c.active)
+    return {"data": [{
+        "id": t.uuid_ref,
+        "name": t.name,
+        "role": t.tech_role_id.name or None,
+        "active": bool(t.active),
+    } for t in techs.sorted(lambda t: (t.name or "").lower())]}
+
+
 @api_route("POST", "/verifications/{id}:assign", scope="verifications:write", tags=[TAG_VER],
            body={"technician": F("string", required=True, description="uuid del técnico (contacto de la empresa)")},
            summary="El administrador de la verificadora asigna el técnico de campo", response=VER_SCHEMA)

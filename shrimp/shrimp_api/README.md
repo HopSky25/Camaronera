@@ -100,6 +100,51 @@ curl -s https://TU-DOMINIO/api/v1/me -H "Authorization: Bearer $KEY"
              "expires_at": "2027-01-01T00:00:00Z"}}
 ```
 
+### Iniciar sesión con correo y contraseña (app móvil)
+
+La app móvil no pide al socio que cree una clave a mano: entra con el correo y la contraseña del portal y
+recibe una clave de API normal, que es lo que usa en adelante (se ve en **Mi cuenta → Integraciones (API)**
+como «App móvil – <dispositivo>» y se puede revocar desde ahí).
+
+`POST /api/v1/auth/login` — **público** (sin clave, sin `Idempotency-Key`), cuerpo JSON:
+
+```bash
+curl -s -X POST https://TU-DOMINIO/api/v1/auth/login -H "Content-Type: application/json" \
+  -d '{"login": "admin@lasmareas.ec", "password": "********", "device": "Pixel 7 de Juan"}'
+```
+```json
+{"api_key": "trz_1a2b3c4d_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+ "expires_at": "2027-10-11T18:20:00Z",
+ "me": { ...exactamente lo que devuelve GET /me con esa clave... }}
+```
+
+* `device` es opcional (máx. 64 caracteres); solo sirve para nombrar la clave.
+* La clave dura **365 días** y lleva todos los scopes `*:read` más `profile:write`, `verifications:write`,
+  `dispatch:write`, `harvest:write`, `pricelists:write`, `copack:write`, `transactions:write`,
+  `products:write`, `facilities:write`, `lots:write` y `exports:write` (nunca `webhooks:manage`). Sin lista
+  de IPs ni CORS. El secreto solo viaja en esta respuesta: guárdalo en el almacén seguro del teléfono.
+* Solo usuarios **de portal** y activos. Un perfil pendiente de aprobación no impide entrar (la app
+  muestra el estado en `me.roles`).
+* Si el socio ya tiene 10 claves activas (tope del portal), se revocan primero las claves «App móvil» más
+  antiguas; si las 10 son manuales, 409 `too-many-keys`.
+
+| Respuesta | Cuándo |
+|---|---|
+| 401 `invalid-credentials` | correo o contraseña incorrectos (no se dice cuál, ni si el correo existe) |
+| 403 `user-not-allowed` | el usuario es interno o está inactivo |
+| 403 `account-not-approved` | la cuenta no tiene ningún perfil (ni activo ni solicitado) |
+| 403 `mfa-not-supported` | el usuario tiene verificación en dos pasos: que cree la clave desde el portal |
+| 429 `rate-limited` | más de **5 intentos fallidos en 15 minutos** desde la misma IP para el mismo correo (`Retry-After` en segundos) |
+
+`POST /api/v1/auth/logout` — privado (con la clave, exige `Idempotency-Key` como todo POST privado), sin
+scope: revoca la clave con la que se llama, igual que «Revocar» en el portal. Responde
+`{"revoked": true}`; una segunda llamada con la misma clave recibe 401 `revoked-api-key`.
+
+```bash
+curl -s -X POST https://TU-DOMINIO/api/v1/auth/logout -H "Authorization: Bearer $KEY" \
+  -H "Idempotency-Key: $(uuidgen)"
+```
+
 ---
 
 ## 4. Listas, paginación y sincronización
@@ -168,10 +213,10 @@ curl -s -X POST https://TU-DOMINIO/api/v1/facilities \
 | status | `type` (sufijo) | significado |
 |---|---|---|
 | 400 | `invalid-json`, `body-not-object`, `invalid-parameter`, `invalid-cursor`, `idempotency-key-required` | petición mal formada |
-| 401 / 403 | ver §3, `access-denied`, `forbidden` | autenticación / permisos / papel |
+| 401 / 403 | ver §3, `invalid-credentials`, `account-not-approved`, `access-denied`, `forbidden` | autenticación / permisos / papel |
 | 404 | `not-found` | no existe **o no es tuyo** (no se distingue a propósito) |
 | 405 | `method-not-allowed` | cabecera `Allow` con los métodos válidos |
-| 409 | `invalid-state`, `conflict`, `idempotency-in-progress` | el recurso no está en el estado necesario |
+| 409 | `invalid-state`, `conflict`, `idempotency-in-progress`, `too-many-keys` | el recurso no está en el estado necesario |
 | 413 / 415 | `payload-too-large`, `unsupported-media-type` | cuerpo > 1 MB / no es JSON |
 | 422 | `validation-error`, `business-rule`, `idempotency-key-reused` | datos inválidos o regla de negocio (el `detail` es el mensaje del negocio) |
 | 429 | `rate-limited` | ver §7 |
@@ -506,9 +551,15 @@ curl -s -X POST https://TU-DOMINIO/api/v1/products/0f3…/evolutions -H "Authori
 
 La clave puede ser de la empresa verificadora (administrador) o del técnico (cada técnico tiene su usuario).
 
+La app móvil (Flutter) no necesita que el técnico cree una clave: entra por `POST /auth/login` con el correo
+y la contraseña del portal (§3, «Iniciar sesión con correo y contraseña») y recibe una clave «App móvil –
+<dispositivo>» de un año con los scopes de la app; al cerrar sesión llama a `POST /auth/logout`, que la
+revoca. Cada técnico entra con su propio usuario, así que el informe queda firmado por quien lo cargó.
+
 | Paso | Endpoint |
 |---|---|
 | Bandeja | `GET /verifications?role=verifier` (admin) o `?role=technician` |
+| Listar los técnicos de la empresa | `GET /me/technicians` → `{"data": [{"id": "<uuid>", "name": "…", "role": "Supervisor", "active": true}]}` (403 si la cuenta no es verificadora) |
 | Asignar técnico (admin) | `POST /verifications/{id}:assign` `{"technician": "<uuid del técnico>"}` |
 | Iniciar campo | `POST /verifications/{id}:start` |
 | Cargar el informe (parcial, desde el móvil) | `PATCH /verifications/{id}/report` (pesos, presentación, metabisulfito, sabor, `lines`, `counts`, GPS) |
@@ -601,15 +652,17 @@ Solo aparecen comprobantes **autorizados o anulados** cuyo receptor es la empres
 `GET /public/directory/{packers|copackers|verifiers|sellers}`, `GET /public/partners/{id}`,
 `GET /public/verification-fee/quote?lb=`, `GET /public/traceability/{token}`,
 `GET /openapi.json`, `GET /docs`. HTML: `GET /t/{token}`.
+Sesión de la app móvil: `POST /auth/login` (correo + contraseña → clave de API; sin `Idempotency-Key`).
 
 ### Privados
-* Perfil: `GET /me`, `PATCH /me`
+* Sesión de la app: `POST /auth/logout` (revoca la clave con la que se llama)
+* Perfil: `GET /me`, `PATCH /me`, `POST /me/active-role`
 * Instalaciones: `GET|POST /facilities`, `GET|PATCH|PUT|DELETE /facilities/{id}`; piscinas: ídem en `/ponds`
 * Productos: `GET|POST /products`, `GET|PATCH|PUT|DELETE /products/{id}`, `POST /products/{id}:publish|:archive|:unarchive`, `GET|POST /products/{id}/evolutions`
 * Lotes: `GET /lots`, `GET /lots/{id}`, `GET /lots/{id}/moves`, `GET|POST /lots/{id}/allocations`
 * Compras/ventas: `GET /transactions`, `GET /transactions/{id}`, `GET /transactions/{id}/traceability`, `GET /transactions/{id}/traceability.pdf`, `POST /transactions/{id}:receive|:complete`, `POST /transactions/{id}/trace-token:rotate`, `GET /charges`
 * Chequeo: `GET /check-requests`, `GET /check-requests/{id}`, `POST /check-requests/{id}:approve|:reject`
-* Verificación: `GET /verifications`, `GET /verifications/{id}`, `POST /verifications/{id}/acceptance`, `POST /verifications/{id}/acceptance:revert`, `POST /verifications/{id}:assign|:start|:verdict`, `PATCH /verifications/{id}/report`, `GET /suppliers/ranking`
+* Verificación: `GET /me/technicians`, `GET /verifications`, `GET /verifications/{id}`, `POST /verifications/{id}/acceptance`, `POST /verifications/{id}/acceptance:revert`, `POST /verifications/{id}:assign|:start|:verdict`, `PATCH /verifications/{id}/report`, `GET /suppliers/ranking`
 * Despacho: `GET /dispatches`, `GET /dispatches/{id}`, `PATCH /dispatches/{id}`, `POST /dispatches/{id}/arrival`
 * Listas de precios: `GET|POST /price-lists`, `GET|PUT /price-lists/{id}`, `POST /price-lists/{id}:publish|:archive`, `GET /lot-alerts`
 * Reserva: `GET|POST /harvest/forecasts`, `GET /harvest/forecasts/{id}`, `POST /harvest/forecasts/{id}:publish|:cancel|:harvest`, `POST /harvest/forecasts/{id}/commitments`, `GET /harvest/commitments`, `GET /harvest/commitments/{id}`, `POST /harvest/commitments/{id}:accept|:reject|:withdraw|:desist|:buy`, `POST /harvest/commitments/{id}/confirmation`, `POST /harvest/commitments/{id}/confirmation:revert`

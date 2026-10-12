@@ -14,3 +14,5 @@ from . import test_api_verificacion_declarada
 from . import test_api_empaque_propio
 from . import test_api_seis_fallos
 from . import test_rutas_ingles
+from . import test_api_login
+from . import test_api_technicians

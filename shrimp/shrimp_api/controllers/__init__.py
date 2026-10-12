@@ -10,5 +10,7 @@ from . import private_copack
 from . import private_exports
 from . import private_webhooks
 from . import portal
+# Inicio y cierre de sesión de la app móvil (correo + contraseña -> clave).
+from . import auth
 # Mover producto propio entre los perfiles de la cuenta.
 from . import private_profile_transfer

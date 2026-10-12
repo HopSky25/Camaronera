@@ -6,12 +6,23 @@ import 'package:sqflite/sqflite.dart';
 import '../modelos/operacion_pendiente.dart';
 import '../modelos/verificacion.dart';
 
-/// Base de datos en el teléfono. Tres tablas:
-///  - verificaciones: copia local de la bandeja del técnico (JSON del servidor)
-///    más el informe capturado en campo.
-///  - cola: operaciones hechas sin internet, en el orden en que se hicieron.
+/// Lo que guarda una lista en caché: los datos y cuándo se bajaron.
+class ListaGuardada {
+  final List<Map<String, dynamic>> datos;
+  final DateTime guardadoEn;
+  const ListaGuardada(this.datos, this.guardadoEn);
+}
+
+/// Base de datos en el teléfono. Tablas:
+///  - verificaciones: copia local de la bandeja del técnico / verificadora
+///    (JSON del servidor) más el informe capturado en campo.
+///  - cola: operaciones hechas en la app, en el orden en que se hicieron, que
+///    se envían al servidor cuando hay señal (todos los perfiles).
 ///  - fotos: fotos tomadas en campo (archivo local; la API todavía no recibe
-///    archivos, así que se suben luego desde el portal o cuando exista el endpoint).
+///    archivos, así que se suben luego desde el portal).
+///  - cache_listas: última respuesta de cada lista de los perfiles en línea
+///    (lotes, ventas, despachos...) para mostrarla sin señal.
+///  - config: pares clave/valor (última sincronización, quién soy, perfil).
 class BaseLocal {
   static Database? _bd;
 
@@ -20,7 +31,7 @@ class BaseLocal {
     final dir = await getApplicationDocumentsDirectory();
     _bd = await openDatabase(
       p.join(dir.path, 'verificador_campo.db'),
-      version: 1,
+      version: 2,
       onCreate: (db, _) async {
         await db.execute('''
           CREATE TABLE verificaciones (
@@ -31,6 +42,9 @@ class BaseLocal {
             informe_modificado INTEGER NOT NULL DEFAULT 0,
             actualizado_en TEXT
           )''');
+        // `verificacion_id` guarda el id del recurso principal de la
+        // operación (verificación, despacho, solicitud u orden); conserva el
+        // nombre de la versión 1 para no migrar datos en el teléfono.
         await db.execute('''
           CREATE TABLE cola (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -52,10 +66,17 @@ class BaseLocal {
             subida INTEGER NOT NULL DEFAULT 0
           )''');
         await db.execute('CREATE TABLE config (clave TEXT PRIMARY KEY, valor TEXT)');
+        await _crearCache(db);
+      },
+      onUpgrade: (db, desde, _) async {
+        if (desde < 2) await _crearCache(db);
       },
     );
     return _bd!;
   }
+
+  static Future<void> _crearCache(Database db) =>
+      db.execute('CREATE TABLE cache_listas (clave TEXT PRIMARY KEY, json TEXT NOT NULL, guardado_en TEXT NOT NULL)');
 
   // ---------------- verificaciones ----------------
 
@@ -97,6 +118,16 @@ class BaseLocal {
       }
     }
     await lote.commit(noResult: true);
+  }
+
+  /// Quita de la bandeja local las que el servidor ya no devuelve.
+  Future<void> conservarSoloVerificaciones(Iterable<String> ids) async {
+    final db = await bd;
+    final actuales = await db.query('verificaciones', columns: ['id']);
+    final quitar = actuales.map((f) => f['id'] as String).where((id) => !ids.contains(id)).toList();
+    for (final id in quitar) {
+      await db.delete('verificaciones', where: 'id = ?', whereArgs: [id]);
+    }
   }
 
   Future<List<Verificacion>> verificaciones() async {
@@ -143,11 +174,11 @@ class BaseLocal {
 
   // ---------------- cola ----------------
 
-  Future<void> encolar(OperacionPendiente op) async {
+  Future<int> encolar(OperacionPendiente op) async {
     final db = await bd;
-    await db.insert('cola', {
+    return db.insert('cola', {
       'tipo': op.tipo.name,
-      'verificacion_id': op.verificacionId,
+      'verificacion_id': op.recursoId,
       'despacho_id': op.despachoId,
       'cuerpo': jsonEncode(op.cuerpo),
       'clave_idempotencia': op.claveIdempotencia,
@@ -164,7 +195,7 @@ class BaseLocal {
         .map((f) => OperacionPendiente(
               idLocal: f['id'] as int,
               tipo: TipoOperacion.values.byName(f['tipo'] as String),
-              verificacionId: f['verificacion_id'] as String,
+              recursoId: f['verificacion_id'] as String,
               despachoId: f['despacho_id'] as String?,
               cuerpo: jsonDecode(f['cuerpo'] as String) as Map<String, dynamic>,
               claveIdempotencia: f['clave_idempotencia'] as String,
@@ -174,6 +205,9 @@ class BaseLocal {
             ))
         .toList();
   }
+
+  Future<OperacionPendiente?> operacion(int idLocal) async =>
+      (await cola()).where((o) => o.idLocal == idLocal).firstOrNull;
 
   Future<int> pendientes() async {
     final db = await bd;
@@ -207,6 +241,30 @@ class BaseLocal {
     return filas.map((f) => f['ruta'] as String).toList();
   }
 
+  // ---------------- caché de listas (perfiles en línea) ----------------
+
+  Future<void> guardarLista(String clave, List<Map<String, dynamic>> datos) async {
+    final db = await bd;
+    await db.insert(
+      'cache_listas',
+      {'clave': clave, 'json': jsonEncode(datos), 'guardado_en': DateTime.now().toUtc().toIso8601String()},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<ListaGuardada?> leerLista(String clave) async {
+    final db = await bd;
+    final filas = await db.query('cache_listas', where: 'clave = ?', whereArgs: [clave]);
+    if (filas.isEmpty) return null;
+    final datos = (jsonDecode(filas.first['json'] as String) as List).cast<Map<String, dynamic>>();
+    return ListaGuardada(datos, DateTime.parse(filas.first['guardado_en'] as String).toLocal());
+  }
+
+  Future<void> borrarCache() async {
+    final db = await bd;
+    await db.delete('cache_listas');
+  }
+
   // ---------------- config ----------------
 
   Future<String?> leerConfig(String clave) async {
@@ -215,8 +273,12 @@ class BaseLocal {
     return filas.isEmpty ? null : filas.first['valor'] as String?;
   }
 
-  Future<void> escribirConfig(String clave, String valor) async {
+  Future<void> escribirConfig(String clave, String? valor) async {
     final db = await bd;
+    if (valor == null) {
+      await db.delete('config', where: 'clave = ?', whereArgs: [clave]);
+      return;
+    }
     await db.insert('config', {'clave': clave, 'valor': valor}, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
@@ -225,6 +287,7 @@ class BaseLocal {
     await db.delete('verificaciones');
     await db.delete('cola');
     await db.delete('fotos');
+    await db.delete('cache_listas');
     await db.delete('config');
   }
 }

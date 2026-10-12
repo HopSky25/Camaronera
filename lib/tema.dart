@@ -33,7 +33,19 @@ class Marca {
         'done' => (const Color(0xFFE9F0FB), const Color(0xFF2A5DB0)),
         'approved' || 'approved_obs' => (const Color(0xFFE6F6EC), const Color(0xFF217A48)),
         'rejected' => (const Color(0xFFFDEAEA), const Color(0xFFB3261E)),
-        'cancelled' => (const Color(0xFFF2F3F5), const Color(0xFF6B7780)),
+        'cancelled' || 'cancel' || 'withdrawn' || 'archived' => (const Color(0xFFF2F3F5), const Color(0xFF6B7780)),
+        // Compras y ventas
+        'pending_verification' || 'pending_acceptance' || 'waiting' || 'open' => (const Color(0xFFFDF1E0), const Color(0xFFA86A10)),
+        'confirmed' || 'published' || 'sent' || 'accepted' || 'closed' || 'sold' => (const Color(0xFFE6F6EC), const Color(0xFF217A48)),
+        'draft' => (const Color(0xFFEEF1F4), const Color(0xFF46545E)),
+        'broken' || 'disputed' => (const Color(0xFFFDEAEA), const Color(0xFFB3261E)),
+        // Despacho
+        'sin_cita' => (const Color(0xFFEEF1F4), const Color(0xFF46545E)),
+        'programado' => (const Color(0xFFE6F6F8), const Color(0xFF0D7C88)),
+        'en_ruta' => (const Color(0xFFFDF1E0), const Color(0xFFA86A10)),
+        'llegado' => (const Color(0xFFE6F6EC), const Color(0xFF217A48)),
+        // Maquila
+        'packed' || 'signed' => (const Color(0xFFE9F0FB), const Color(0xFF2A5DB0)),
         _ => (const Color(0xFFEEF1F4), const Color(0xFF46545E)),
       };
 }

@@ -4,23 +4,40 @@ import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 import '../modelos/operacion_pendiente.dart';
+import '../modelos/perfil.dart';
 import '../modelos/verificacion.dart';
-import 'almacen_credenciales.dart';
 import 'api_cliente.dart';
 import 'base_local.dart';
+import 'sesion.dart';
 
-/// Corazón de la app: mantiene la bandeja local, encola lo que el técnico
-/// hace sin internet y lo envía al servidor cuando hay señal.
+/// Qué pasó con una operación que se mandó a la cola.
+class ResultadoEnvio {
+  /// Llegó al servidor y se aplicó.
+  final bool enviado;
+
+  /// El servidor la rechazó (queda en Pendientes con el error a la vista).
+  final String? error;
+  const ResultadoEnvio({required this.enviado, this.error});
+
+  /// Guardada en el teléfono, se enviará cuando haya señal.
+  bool get enEspera => !enviado && error == null;
+}
+
+/// Corazón de la app: mantiene la bandeja local (técnico y verificadora),
+/// encola lo que se hace sin internet y lo envía al servidor cuando hay señal.
 ///
-/// Regla de oro: NADA de lo que el técnico captura se pierde si no hay
-/// internet. Primero se guarda en el teléfono; el envío es aparte.
+/// Regla de oro: NADA de lo que se captura se pierde si no hay internet.
+/// Primero se guarda en el teléfono; el envío es aparte. Los perfiles en
+/// línea (camaronera, empacadora, maquilador) usan la misma cola para sus
+/// acciones (aceptar informe, programar despacho, ofertar...).
 class Sincronizador extends ChangeNotifier {
   final BaseLocal _bd;
-  final AlmacenCredenciales _credenciales;
+  final Sesion sesion;
   final _uuid = const Uuid();
 
   ApiCliente? _api;
   StreamSubscription<List<ConnectivityResult>>? _escuchaRed;
+  Future<void>? _enCurso;
 
   List<Verificacion> bandeja = [];
   int pendientes = 0;
@@ -28,21 +45,32 @@ class Sincronizador extends ChangeNotifier {
   bool hayRed = true;
   String? ultimoMensaje;
   DateTime? ultimaSincronizacion;
-  Map<String, dynamic>? quienSoy;
 
-  Sincronizador({BaseLocal? bd, AlmacenCredenciales? credenciales})
-      : _bd = bd ?? BaseLocal(),
-        _credenciales = credenciales ?? AlmacenCredenciales();
+  Sincronizador({required this.sesion, BaseLocal? bd}) : _bd = bd ?? BaseLocal() {
+    sesion.addListener(_alCambiarSesion);
+  }
 
   bool get configurado => _api != null;
 
-  /// Al abrir la app: carga lo guardado y, si hay clave, intenta sincronizar.
-  Future<void> iniciar() async {
-    final url = await _credenciales.url();
-    final clave = await _credenciales.clave();
-    if (url != null && clave != null && clave.isNotEmpty) {
-      _api = ApiCliente(baseUrl: url, clave: clave);
+  /// La bandeja de verificaciones solo la bajan el técnico y la verificadora.
+  bool get _usaBandeja => sesion.perfil == perfilTecnico || sesion.perfil == 'verificador';
+
+  void _alCambiarSesion() {
+    final nuevo = sesion.api;
+    if (identical(nuevo, _api)) {
+      if (_api != null && _usaBandeja && bandeja.isEmpty) unawaited(sincronizar());
+      return;
     }
+    _api = nuevo;
+    ultimoMensaje = null;
+    unawaited(recargarLocal().then((_) {
+      if (_api != null) unawaited(sincronizar());
+    }));
+  }
+
+  /// Al abrir la app: carga lo guardado y, si hay sesión, intenta sincronizar.
+  Future<void> iniciar() async {
+    _api = sesion.api;
     final guardado = await _bd.leerConfig('ultima_sincronizacion');
     ultimaSincronizacion = guardado == null ? null : DateTime.tryParse(guardado);
     await recargarLocal();
@@ -55,44 +83,27 @@ class Sincronizador extends ChangeNotifier {
     if (_api != null) unawaited(sincronizar());
   }
 
-  /// Guarda servidor y clave, y comprueba que la clave sirva (`GET /me`).
-  Future<Map<String, dynamic>> conectar({required String url, required String clave}) async {
-    await _credenciales.guardar(url: url, clave: clave);
-    final api = ApiCliente(baseUrl: (await _credenciales.url())!, clave: clave.trim());
-    final yo = await api.quienSoy();
-    _api = api;
-    quienSoy = yo;
-    notifyListeners();
-    unawaited(sincronizar());
-    return yo;
-  }
-
-  Future<void> cerrarSesion() async {
-    await _credenciales.borrar();
-    await _bd.borrarTodo();
-    _api = null;
-    bandeja = [];
-    pendientes = 0;
-    quienSoy = null;
-    notifyListeners();
-  }
-
   Future<void> recargarLocal() async {
     bandeja = await _bd.verificaciones();
     pendientes = await _bd.pendientes();
     notifyListeners();
   }
 
-  /// 1) Sube la cola en orden. 2) Baja la bandeja del técnico.
-  Future<void> sincronizar() async {
-    final api = _api;
-    if (api == null || sincronizando) return;
+  /// 1) Sube la cola en orden. 2) Baja la bandeja (técnico / verificadora).
+  /// Si ya hay una pasada en curso, se espera a esa.
+  Future<void> sincronizar() {
+    if (_api == null) return Future.value();
+    return _enCurso ??= _sincronizar().whenComplete(() => _enCurso = null);
+  }
+
+  Future<void> _sincronizar() async {
+    final api = _api!;
     sincronizando = true;
     ultimoMensaje = null;
     notifyListeners();
     try {
       await _subirCola(api);
-      await _bajarBandeja(api);
+      if (_usaBandeja) await _bajarBandeja(api);
       ultimaSincronizacion = DateTime.now();
       await _bd.escribirConfig('ultima_sincronizacion', ultimaSincronizacion!.toUtc().toIso8601String());
       hayRed = true;
@@ -101,7 +112,7 @@ class Sincronizador extends ChangeNotifier {
       hayRed = false;
       ultimoMensaje = 'Sin internet: lo capturado queda guardado en el teléfono';
     } on ErrorApi catch (e) {
-      ultimoMensaje = e.toString();
+      ultimoMensaje = e.mensaje;
     } finally {
       sincronizando = false;
       await recargarLocal();
@@ -115,26 +126,28 @@ class Sincronizador extends ChangeNotifier {
             ? await api.patch(op.ruta, op.cuerpo, idempotencia: op.claveIdempotencia)
             : await api.post(op.ruta, op.cuerpo, idempotencia: op.claveIdempotencia);
         await _bd.quitarDeCola(op.idLocal!);
-        // La respuesta trae la verificación/despacho al día: se guarda.
-        if (resp['id'] != null && op.tipo != TipoOperacion.llegadaCamion) {
+        // La respuesta trae la verificación al día: se guarda en la bandeja.
+        if (resp['id'] != null && op.respondeVerificacion && _usaBandeja) {
           await _bd.guardarVerificaciones([resp]);
-          await _bd.guardarInformeLocal(op.verificacionId, InformeCampo.desdeServidor(resp), modificado: false);
+          if (op.tipo == TipoOperacion.informe) {
+            await _bd.guardarInformeLocal(op.recursoId, InformeCampo.desdeServidor(resp), modificado: false);
+          }
         }
       } on ErrorApi catch (e) {
-        await _bd.anotarError(op.idLocal!, op.intentos + 1, e.toString());
+        await _bd.anotarError(op.idLocal!, op.intentos + 1, e.mensaje);
         if (e.esDefinitivo) {
           // El servidor rechazó el dato: se deja en la cola con el error a la
-          // vista para que el técnico lo corrija; se sigue con las demás.
-          ultimoMensaje = '${op.descripcion}: ${e.detalle}';
+          // vista para que el usuario lo corrija; se sigue con las demás.
+          ultimoMensaje = '${op.descripcion}: ${e.mensaje}';
           continue;
         }
-        rethrow; // 401/403/429/5xx: se para aquí y se reintenta en la próxima pasada
+        rethrow; // 401/429/5xx: se para aquí y se reintenta en la próxima pasada
       }
     }
   }
 
   Future<void> _bajarBandeja(ApiCliente api) async {
-    // La clave puede ser de un técnico (ve lo suyo) o de la empresa
+    // La cuenta puede ser de un técnico (ve lo suyo) o de la empresa
     // verificadora (ve todo lo de su empresa y puede actuar). Se piden ambas
     // bandejas y se juntan sin repetir.
     final porId = <String, Map<String, dynamic>>{};
@@ -145,6 +158,7 @@ class Sincronizador extends ChangeNotifier {
     }
     final lista = porId.values.toList();
     await _bd.guardarVerificaciones(lista);
+    await _bd.conservarSoloVerificaciones(porId.keys);
     // El detalle (pesos, líneas, conteos) solo de las que están abiertas.
     for (final v in lista) {
       final estado = v['state'] as String? ?? '';
@@ -158,29 +172,51 @@ class Sincronizador extends ChangeNotifier {
     }
   }
 
-  // ---------------- acciones del técnico (siempre primero en local) ----------------
+  // ---------------- cola (siempre primero en local) ----------------
 
-  Future<void> _encolar(TipoOperacion tipo, String verificacionId, Map<String, dynamic> cuerpo, {String? despachoId}) async {
-    await _bd.encolar(OperacionPendiente(
+  Future<int> _encolar(TipoOperacion tipo, String recursoId, Map<String, dynamic> cuerpo, {String? despachoId}) async {
+    final idLocal = await _bd.encolar(OperacionPendiente(
       tipo: tipo,
-      verificacionId: verificacionId,
+      recursoId: recursoId,
       despachoId: despachoId,
       cuerpo: cuerpo,
       claveIdempotencia: _uuid.v4(),
       creadaEn: DateTime.now(),
     ));
     await recargarLocal();
-    unawaited(sincronizar());
+    return idLocal;
   }
+
+  /// Encola y, si hay señal, envía de inmediato. Devuelve qué pasó para que
+  /// la pantalla lo diga con claridad.
+  Future<ResultadoEnvio> ejecutar(TipoOperacion tipo, String recursoId, Map<String, dynamic> cuerpo,
+      {String? despachoId}) async {
+    final idLocal = await _encolar(tipo, recursoId, cuerpo, despachoId: despachoId);
+    await sincronizar();
+    var op = await _bd.operacion(idLocal);
+    if (op != null && op.ultimoError == null && hayRed && _api != null) {
+      // La pasada anterior ya iba por la bandeja cuando se encoló: otra pasada.
+      await sincronizar();
+      op = await _bd.operacion(idLocal);
+    }
+    if (op == null) return const ResultadoEnvio(enviado: true);
+    return ResultadoEnvio(enviado: false, error: op.ultimoError);
+  }
+
+  // ---------------- acciones del técnico ----------------
 
   Future<void> iniciarCampo(Verificacion v) async {
     await _bd.cambiarEstadoLocal(v.id, 'in_field');
     await _encolar(TipoOperacion.iniciarCampo, v.id, {});
+    unawaited(sincronizar());
   }
 
   Future<void> guardarInforme(Verificacion v, InformeCampo informe, {bool enviar = true}) async {
     await _bd.guardarInformeLocal(v.id, informe, modificado: true);
-    if (enviar) await _encolar(TipoOperacion.informe, v.id, informe.aCuerpoApi());
+    if (enviar) {
+      await _encolar(TipoOperacion.informe, v.id, informe.aCuerpoApi());
+      unawaited(sincronizar());
+    }
     await recargarLocal();
   }
 
@@ -188,11 +224,29 @@ class Sincronizador extends ChangeNotifier {
     final estado = {'approve': 'approved', 'approve_obs': 'approved_obs', 'reject': 'rejected'}[veredicto]!;
     await _bd.cambiarEstadoLocal(v.id, estado);
     await _encolar(TipoOperacion.veredicto, v.id, {'verdict': veredicto, if (notas.trim().isNotEmpty) 'notes': notas.trim()});
+    unawaited(sincronizar());
   }
 
   Future<void> registrarLlegadaCamion(Verificacion v, DateTime cuando) async {
     await _encolar(TipoOperacion.llegadaCamion, v.id, {'actual_arrival': cuando.toUtc().toIso8601String()},
         despachoId: v.despachoId);
+    unawaited(sincronizar());
+  }
+
+  // ---------------- acciones de la verificadora ----------------
+
+  Future<ResultadoEnvio> asignarTecnico(Verificacion v, String tecnicoId) =>
+      ejecutar(TipoOperacion.asignarTecnico, v.id, {'technician': tecnicoId});
+
+  /// Técnicos conocidos: los que aparecen asignados en la bandeja de la
+  /// empresa (la API no tiene una lista de técnicos; se gestionan en el portal).
+  List<Referencia> tecnicosConocidos() {
+    final porId = <String, Referencia>{};
+    for (final v in bandeja) {
+      final t = v.tecnico;
+      if (t != null && t.id != null) porId[t.id!] = t;
+    }
+    return porId.values.toList()..sort((a, b) => a.nombre.compareTo(b.nombre));
   }
 
   Future<InformeCampo> informeDe(Verificacion v) async =>
@@ -209,8 +263,8 @@ class Sincronizador extends ChangeNotifier {
 
   @override
   void dispose() {
+    sesion.removeListener(_alCambiarSesion);
     _escuchaRed?.cancel();
-    _api?.cerrar();
     super.dispose();
   }
 }

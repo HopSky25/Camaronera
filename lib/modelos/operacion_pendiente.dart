@@ -1,16 +1,38 @@
-/// Una operación que el técnico hizo sin internet y que la app enviará al
-/// servidor cuando vuelva la señal. Se guarda en la base local y se envía en
-/// orden; cada una lleva su clave de idempotencia para poder reintentar sin
-/// duplicar nada (la API lo garantiza durante 24 h).
+/// Una operación hecha en la app (con o sin internet) que se envía al
+/// servidor cuando hay señal. Se guarda en la base local y se envía en orden;
+/// cada una lleva su clave de idempotencia para poder reintentar sin duplicar
+/// nada (la API lo garantiza durante 24 h).
 library;
 
-enum TipoOperacion { iniciarCampo, informe, veredicto, llegadaCamion }
+enum TipoOperacion {
+  // Técnico / verificadora
+  iniciarCampo,
+  informe,
+  veredicto,
+  llegadaCamion,
+  asignarTecnico,
+  // Comprador y vendedor
+  aceptacionInforme,
+  programarDespacho,
+  // Empacadora
+  compraVerificada,
+  comprarReserva,
+  concluirCompra,
+  // Maquilador
+  ofertaMaquila,
+  recepcionMaquila,
+  empaqueMaquila,
+  firmaActa,
+}
 
 class OperacionPendiente {
   final int? idLocal;
   final TipoOperacion tipo;
-  final String verificacionId;
-  /// Para la llegada del camión: id del despacho.
+
+  /// Id (uuid) del recurso principal: verificación, despacho, solicitud u orden.
+  final String recursoId;
+
+  /// Para la llegada del camión desde una verificación: id del despacho.
   final String? despachoId;
   final Map<String, dynamic> cuerpo;
   final String claveIdempotencia;
@@ -21,7 +43,7 @@ class OperacionPendiente {
   const OperacionPendiente({
     this.idLocal,
     required this.tipo,
-    required this.verificacionId,
+    required this.recursoId,
     this.despachoId,
     required this.cuerpo,
     required this.claveIdempotencia,
@@ -30,13 +52,26 @@ class OperacionPendiente {
     this.ultimoError,
   });
 
-  String get metodo => tipo == TipoOperacion.informe ? 'PATCH' : 'POST';
+  String get metodo => switch (tipo) {
+        TipoOperacion.informe || TipoOperacion.programarDespacho => 'PATCH',
+        _ => 'POST',
+      };
 
   String get ruta => switch (tipo) {
-        TipoOperacion.iniciarCampo => '/verifications/$verificacionId:start',
-        TipoOperacion.informe => '/verifications/$verificacionId/report',
-        TipoOperacion.veredicto => '/verifications/$verificacionId:verdict',
+        TipoOperacion.iniciarCampo => '/verifications/$recursoId:start',
+        TipoOperacion.informe => '/verifications/$recursoId/report',
+        TipoOperacion.veredicto => '/verifications/$recursoId:verdict',
         TipoOperacion.llegadaCamion => '/dispatches/$despachoId/arrival',
+        TipoOperacion.asignarTecnico => '/verifications/$recursoId:assign',
+        TipoOperacion.aceptacionInforme => '/verifications/$recursoId/acceptance',
+        TipoOperacion.programarDespacho => '/dispatches/$recursoId',
+        TipoOperacion.compraVerificada => '/verifications',
+        TipoOperacion.comprarReserva => '/harvest/commitments/$recursoId:buy',
+        TipoOperacion.concluirCompra => '/transactions/$recursoId:complete',
+        TipoOperacion.ofertaMaquila => '/copack/requests/$recursoId/offers',
+        TipoOperacion.recepcionMaquila => '/copack/orders/$recursoId:reception',
+        TipoOperacion.empaqueMaquila => '/copack/orders/$recursoId:packing',
+        TipoOperacion.firmaActa => '/copack/orders/$recursoId:sign',
       };
 
   String get descripcion => switch (tipo) {
@@ -44,17 +79,25 @@ class OperacionPendiente {
         TipoOperacion.informe => 'Informe de campo',
         TipoOperacion.veredicto => 'Veredicto',
         TipoOperacion.llegadaCamion => 'Llegada del camión',
+        TipoOperacion.asignarTecnico => 'Asignación de técnico',
+        TipoOperacion.aceptacionInforme => 'Decisión sobre el informe',
+        TipoOperacion.programarDespacho => 'Programación del despacho',
+        TipoOperacion.compraVerificada => 'Compra con verificación',
+        TipoOperacion.comprarReserva => 'Compra del lote reservado',
+        TipoOperacion.concluirCompra => 'Conclusión de la compra',
+        TipoOperacion.ofertaMaquila => 'Oferta de empaque',
+        TipoOperacion.recepcionMaquila => 'Recepción en planta',
+        TipoOperacion.empaqueMaquila => 'Empaque terminado',
+        TipoOperacion.firmaActa => 'Firma del acta',
       };
 
-  OperacionPendiente conError(String error) => OperacionPendiente(
-        idLocal: idLocal,
-        tipo: tipo,
-        verificacionId: verificacionId,
-        despachoId: despachoId,
-        cuerpo: cuerpo,
-        claveIdempotencia: claveIdempotencia,
-        creadaEn: creadaEn,
-        intentos: intentos + 1,
-        ultimoError: error,
-      );
+  /// La respuesta de estas operaciones es la verificación al día: se guarda
+  /// en la bandeja local.
+  bool get respondeVerificacion => const {
+        TipoOperacion.iniciarCampo,
+        TipoOperacion.informe,
+        TipoOperacion.veredicto,
+        TipoOperacion.asignarTecnico,
+        TipoOperacion.aceptacionInforme,
+      }.contains(tipo);
 }

@@ -201,6 +201,15 @@ class Verificacion {
   final Referencia comprador;
   final Referencia vendedor;
   final Referencia verificadora;
+  /// Técnico asignado (solo lo ve la verificadora y el propio técnico).
+  final Referencia? tecnico;
+  final bool tecnicoAsignado;
+  /// platform | declared
+  final String? modo;
+  final String? transaccionId;
+  /// na | waiting | closed | broken
+  final String estadoAceptacion;
+  final DateTime? plazoAceptacion;
   final String? despachoId;
   final DateTime? despachoEta;
   final String? loteCodigo;
@@ -219,6 +228,12 @@ class Verificacion {
     required this.comprador,
     required this.vendedor,
     required this.verificadora,
+    required this.tecnico,
+    required this.tecnicoAsignado,
+    required this.modo,
+    required this.transaccionId,
+    required this.estadoAceptacion,
+    required this.plazoAceptacion,
     required this.despachoId,
     required this.despachoEta,
     required this.loteCodigo,
@@ -239,6 +254,12 @@ class Verificacion {
       comprador: Referencia.desde(json['buyer']),
       vendedor: Referencia.desde(json['seller']),
       verificadora: Referencia.desde(json['verifier']),
+      tecnico: json['technician'] is Map ? Referencia.desde(json['technician']) : null,
+      tecnicoAsignado: json['technician_assigned'] == true || json['technician'] is Map,
+      modo: json['verification_mode'] as String?,
+      transaccionId: json['transaction'] as String?,
+      estadoAceptacion: (json['acceptance_state'] ?? 'na') as String,
+      plazoAceptacion: fecha(json['acceptance_deadline']),
       despachoId: json['dispatch'] as String?,
       despachoEta: fecha(json['dispatch_eta']),
       loteCodigo: json['batch_code'] as String?,
@@ -250,6 +271,23 @@ class Verificacion {
   }
 
   bool get tieneDetalle => crudo.containsKey('weights');
+  bool get esperaAceptacion => estadoAceptacion == 'waiting';
+  bool get soyVerificadora => miRol == 'verifier';
+
+  /// Postura de la parte (`buyer` / `seller`) en el detalle: pending |
+  /// accepted | counter | rejected. Nulo si el detalle no está cargado.
+  String? decisionDe(String rol) {
+    final lista = crudo['acceptances'];
+    if (lista is! List) return null;
+    for (final a in lista) {
+      if (a is Map && a['role'] == rol) return a['decision'] as String?;
+    }
+    return null;
+  }
+
+  /// Mi decisión está pendiente y la ronda sigue abierta.
+  bool get puedoDecidir =>
+      esperaAceptacion && (miRol == 'buyer' || miRol == 'seller') && (decisionDe(miRol!) ?? 'pending') == 'pending';
   bool get puedeIniciarCampo => estado == 'received' || estado == 'assigned';
   bool get enCampo => estado == 'in_field';
   bool get cerrada => const {'done', 'approved', 'approved_obs', 'rejected', 'cancelled'}.contains(estado);
@@ -263,6 +301,15 @@ class Verificacion {
         'approved_obs' => 'Aprobada con observaciones',
         'rejected' => 'Rechazada',
         'cancelled' => 'Cancelada',
+        'declared_draft' => 'Informe en preparación',
+        'declared' => 'Informe declarado',
         _ => estado,
+      };
+
+  String get aceptacionEtiqueta => switch (estadoAceptacion) {
+        'waiting' => 'Esperando a las partes',
+        'closed' => 'Aceptada por ambas',
+        'broken' => 'Trato caído',
+        _ => 'No corresponde',
       };
 }

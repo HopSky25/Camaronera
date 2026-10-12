@@ -1,0 +1,111 @@
+/// Quién soy y con qué perfiles puedo trabajar. Es el JSON de `GET /me`
+/// (serializers.py `me()`): `active_role`, `roles`, `name`, `type`, `email`,
+/// `is_field_technician`, `company`...
+library;
+
+import 'package:flutter/material.dart';
+
+import 'verificacion.dart';
+
+/// Perfil interno de la app para el técnico de campo: no es un rol de la
+/// plataforma, pero la app lo trata como una forma más de trabajar.
+const perfilTecnico = 'tecnico';
+
+class Perfil {
+  final String rol;
+  final String etiqueta;
+
+  /// pending | approved | ...
+  final String estado;
+  final bool activo;
+  const Perfil({required this.rol, required this.etiqueta, required this.estado, required this.activo});
+
+  bool get aprobado => estado == 'approved';
+
+  factory Perfil.desde(Map json) => Perfil(
+        rol: (json['role'] ?? '') as String,
+        etiqueta: (json['label'] ?? nombreDePerfil(json['role'] as String? ?? '')) as String,
+        estado: (json['state'] ?? '') as String,
+        activo: json['active'] == true,
+      );
+
+  Map<String, dynamic> aJson() => {'role': rol, 'label': etiqueta, 'state': estado, 'active': activo};
+}
+
+String nombreDePerfil(String rol) => switch (rol) {
+      'semillero' => 'Semillero',
+      'laboratorio' => 'Laboratorio',
+      'camaronera' => 'Camaronera',
+      'empacadora' => 'Empacadora',
+      'maquilador' => 'Maquilador',
+      'verificador' => 'Verificadora',
+      perfilTecnico => 'Técnico de campo',
+      _ => rol,
+    };
+
+IconData iconoDePerfil(String rol) => switch (rol) {
+      'semillero' => Icons.egg_outlined,
+      'laboratorio' => Icons.science_outlined,
+      'camaronera' => Icons.water_outlined,
+      'empacadora' => Icons.factory_outlined,
+      'maquilador' => Icons.inventory_2_outlined,
+      'verificador' => Icons.verified_outlined,
+      perfilTecnico => Icons.engineering_outlined,
+      _ => Icons.person_outline,
+    };
+
+/// Qué hace cada perfil, en una frase para la pantalla de elección.
+String descripcionDePerfil(String rol) => switch (rol) {
+      'semillero' || 'laboratorio' => 'Vendes larva: lotes, ventas e informes',
+      'camaronera' => 'Vendes camarón: lotes, ventas, informes y despacho',
+      'empacadora' => 'Compras: informes, llegadas y ranking de proveedores',
+      'maquilador' => 'Servicio de empaque: solicitudes, órdenes y tarifas',
+      'verificador' => 'Bandeja de verificaciones y asignación de técnicos',
+      perfilTecnico => 'Inspección en campo, con o sin señal',
+      _ => '',
+    };
+
+/// Los perfiles que venden (semillero, laboratorio, camaronera) comparten panel.
+bool perfilVende(String rol) => rol == 'semillero' || rol == 'laboratorio' || rol == 'camaronera';
+
+class Yo {
+  final String id;
+  final String nombre;
+  final String? tipo;
+  final String? correo;
+  final bool esTecnicoDeCampo;
+  final Referencia? empresa;
+  final String? perfilActivo;
+  final List<Perfil> perfiles;
+  final Map<String, dynamic> crudo;
+
+  const Yo({
+    required this.id,
+    required this.nombre,
+    required this.tipo,
+    required this.correo,
+    required this.esTecnicoDeCampo,
+    required this.empresa,
+    required this.perfilActivo,
+    required this.perfiles,
+    required this.crudo,
+  });
+
+  factory Yo.desde(Map<String, dynamic> json) => Yo(
+        id: (json['id'] ?? '') as String,
+        nombre: (json['name'] ?? '') as String,
+        tipo: json['type'] as String?,
+        correo: json['email'] as String?,
+        esTecnicoDeCampo: json['is_field_technician'] == true,
+        empresa: json['company'] is Map ? Referencia.desde(json['company']) : null,
+        perfilActivo: json['active_role'] as String?,
+        perfiles: ((json['roles'] ?? []) as List).map((r) => Perfil.desde(r as Map)).toList(),
+        crudo: json,
+      );
+
+  /// Un técnico de campo es un contacto de la empresa verificadora: entra
+  /// directo al flujo del técnico, sin elegir perfil.
+  bool get esTecnico => esTecnicoDeCampo && empresa != null;
+
+  List<Perfil> get aprobados => perfiles.where((p) => p.aprobado).toList();
+}

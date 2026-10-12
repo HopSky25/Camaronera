@@ -7,6 +7,7 @@ import '../../datos/sincronizador.dart';
 import '../../modelos/perfil.dart';
 import '../../tema.dart';
 import '../pantalla_pendientes.dart';
+import '../seguridad/pantalla_seguridad.dart';
 
 /// Barra superior común a todos los perfiles: logo, pendientes de enviar,
 /// sincronizar y el menú de la cuenta (cambiar perfil, datos y privacidad,
@@ -69,6 +70,7 @@ class MenuCuenta extends StatelessWidget {
         const PopupMenuDivider(),
         if (puedeCambiar)
           const PopupMenuItem(value: 'perfil', child: ListTile(leading: Icon(Icons.swap_horiz), title: Text('Cambiar de perfil'))),
+        const PopupMenuItem(value: 'seguridad', child: ListTile(leading: Icon(Icons.shield_outlined), title: Text('Seguridad'))),
         const PopupMenuItem(value: 'datos', child: ListTile(leading: Icon(Icons.privacy_tip_outlined), title: Text('Mis datos y privacidad'))),
         const PopupMenuItem(value: 'salir', child: ListTile(leading: Icon(Icons.logout), title: Text('Cerrar sesión'))),
       ],
@@ -82,6 +84,8 @@ class MenuCuenta extends StatelessWidget {
       case 'perfil':
         Navigator.popUntil(context, (r) => r.isFirst);
         await sesion.volverAElegirPerfil();
+      case 'seguridad':
+        await Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaSeguridad()));
       case 'datos':
         await abrirMisDatos(context, sesion.url);
       case 'salir':

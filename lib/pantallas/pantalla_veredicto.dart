@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../datos/sincronizador.dart';
+import '../seguridad/firmador.dart';
 import '../tema.dart';
 
 /// Veredicto del técnico: aprobar, aprobar con observaciones o rechazar.
@@ -71,10 +72,11 @@ class _PantallaVeredictoState extends State<PantallaVeredicto> {
         }
         return;
       }
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         setState(() => _ocupado = false);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No se pudo guardar el veredicto. Inténtalo otra vez.')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(e is ErrorSeguridad ? e.mensaje : 'No se pudo guardar el veredicto. Inténtalo otra vez.')));
       }
       return;
     }

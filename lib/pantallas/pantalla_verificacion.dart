@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../datos/sincronizador.dart';
 import '../modelos/verificacion.dart';
+import '../seguridad/firmador.dart';
 import '../tema.dart';
 import 'comunes/widgets.dart';
 import 'pantalla_asignar_tecnico.dart';
@@ -104,7 +105,12 @@ class PantallaVerificacion extends StatelessWidget {
           if (v.puedeIniciarCampo) ...[
             BotonAccion(
               onPressed: () async {
-                await sinc.iniciarCampo(v);
+                try {
+                  await sinc.iniciarCampo(v);
+                } on ErrorSeguridad catch (e) {
+                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.mensaje)));
+                  return;
+                }
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Trabajo de campo iniciado')));
                 }
@@ -181,7 +187,13 @@ class PantallaVerificacion extends StatelessWidget {
       ),
     );
     if (ok == true) {
-      final registrada = await sinc.registrarLlegadaCamion(v, ahora);
+      final bool registrada;
+      try {
+        registrada = await sinc.registrarLlegadaCamion(v, ahora);
+      } on ErrorSeguridad catch (e) {
+        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.mensaje)));
+        return;
+      }
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text(registrada ? 'Llegada registrada' : 'Esta verificación no tiene despacho asociado.')));

@@ -11,6 +11,8 @@ import 'pantallas/inicio/pantalla_elegir_perfil.dart';
 import 'pantallas/inicio/pantalla_inicio_sesion.dart';
 import 'pantallas/maquilador/panel_maquilador.dart';
 import 'pantallas/pantalla_bandeja.dart';
+import 'pantallas/seguridad/pantalla_desbloqueo.dart';
+import 'pantallas/seguridad/pantalla_protege_cuenta.dart';
 import 'pantallas/vendedor/panel_vendedor.dart';
 import 'tema.dart';
 
@@ -36,13 +38,83 @@ class AppCamaronMarket extends StatelessWidget {
         ChangeNotifierProvider(create: (c) => Sincronizador(sesion: c.read<Sesion>())..iniciar()),
         Provider(create: (c) => Repositorio(sesion: c.read<Sesion>())),
       ],
-      child: MaterialApp(
-        title: 'CamaronMarket',
-        debugShowCheckedModeBanner: false,
-        theme: temaCamaronMarket(),
-        home: const _Raiz(),
+      child: _GuardiaBloqueo(
+        child: MaterialApp(
+          title: 'CamaronMarket',
+          debugShowCheckedModeBanner: false,
+          theme: temaCamaronMarket(),
+          // La pantalla de desbloqueo tapa TODO (también las pantallas
+          // abiertas encima de la raíz), sin cerrarlas: al desbloquear se
+          // sigue donde se estaba (p. ej. un informe a medio llenar).
+          builder: (context, child) => _CapaBloqueo(child: child ?? const SizedBox()),
+          home: const _Raiz(),
+        ),
       ),
     );
+  }
+}
+
+/// Avisa a la sesión cuando la app pasa a segundo plano y cuando vuelve
+/// (más de 2 minutos fuera → bloqueada).
+class _GuardiaBloqueo extends StatefulWidget {
+  final Widget child;
+  const _GuardiaBloqueo({required this.child});
+  @override
+  State<_GuardiaBloqueo> createState() => _GuardiaBloqueoState();
+}
+
+class _GuardiaBloqueoState extends State<_GuardiaBloqueo> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final sesion = context.read<Sesion>();
+    switch (state) {
+      case AppLifecycleState.paused || AppLifecycleState.hidden:
+        sesion.alSegundoPlano();
+      case AppLifecycleState.resumed:
+        sesion.alVolver();
+      default:
+        break;
+    }
+  }
+
+  /// Con la app bloqueada, el botón atrás no mueve nada de lo de debajo.
+  @override
+  Future<bool> didPopRoute() async => context.read<Sesion>().bloqueada;
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
+class _CapaBloqueo extends StatelessWidget {
+  final Widget child;
+  const _CapaBloqueo({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final bloqueada = context.select<Sesion, bool>((s) => s.bloqueada);
+    if (bloqueada) FocusManager.instance.primaryFocus?.unfocus();
+    return Stack(children: [
+      // Debajo no se pinta nada mientras está bloqueada (Offstage), pero
+      // las pantallas abiertas conservan su estado.
+      Offstage(offstage: bloqueada, child: TickerMode(enabled: !bloqueada, child: child)),
+      if (bloqueada)
+        // Navigator propio: los diálogos de la pantalla de desbloqueo.
+        Positioned.fill(
+          child: Navigator(onGenerateRoute: (_) => MaterialPageRoute(builder: (_) => const PantallaDesbloqueo())),
+        ),
+    ]);
   }
 }
 
@@ -60,7 +132,7 @@ class _RaizState extends State<_Raiz> {
     final sesion = context.watch<Sesion>();
     // Si la sesión caduca o se cambia de perfil estando en una pantalla
     // interior, se vuelve a la raíz para que no quede nada encima.
-    final clave = '${sesion.conectado}/${sesion.perfil}';
+    final clave = '${sesion.conectado}/${sesion.necesitaProteger}/${sesion.perfil}';
     if (_clave != null && _clave != clave) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) Navigator.of(context).popUntil((r) => r.isFirst);
@@ -70,7 +142,10 @@ class _RaizState extends State<_Raiz> {
     if (sesion.cargando) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
+    // Bloqueada al abrir la app: la capa de desbloqueo tapa esto.
+    if (sesion.bloqueada && !sesion.conectado) return const Scaffold();
     if (!sesion.conectado) return const PantallaInicioSesion();
+    if (sesion.necesitaProteger) return const PantallaProtegeCuenta();
     if (sesion.necesitaElegirPerfil) return const PantallaElegirPerfil();
     final perfil = sesion.perfil!;
     if (perfil == perfilTecnico) return const PantallaBandeja(titulo: 'Mis verificaciones');

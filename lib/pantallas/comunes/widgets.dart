@@ -367,9 +367,11 @@ class _BotonAccionState extends State<BotonAccion> {
 void avisarResultado(BuildContext context, ResultadoEnvio r, {required String hecho}) {
   final texto = r.enviado
       ? hecho
-      : r.error != null
-          ? 'El servidor no lo aceptó: ${r.error}'
-          : 'Guardado en el teléfono; se enviará cuando haya internet.';
+      : r.sinConfirmar
+          ? r.error!
+          : r.error != null
+              ? 'El servidor no lo aceptó: ${r.error}'
+              : 'Guardado en el teléfono; se enviará cuando haya internet.';
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
     content: Text(texto),
     backgroundColor: r.error != null ? Marca.rojo : null,

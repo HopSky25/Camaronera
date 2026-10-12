@@ -5,7 +5,6 @@ import '../../datos/api_cliente.dart';
 import '../../datos/sesion.dart';
 import '../../tema.dart';
 import '../comunes/widgets.dart';
-import '../pantalla_clave.dart';
 
 /// Primera pantalla: servidor, correo y contraseña de la cuenta de CamaronMarket.
 class PantallaInicioSesion extends StatefulWidget {
@@ -143,13 +142,6 @@ class _PantallaInicioSesionState extends State<PantallaInicioSesion> {
                       ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                       : const Icon(Icons.login),
                   label: Text(_ocupado ? 'Entrando…' : 'Entrar'),
-                ),
-                const SizedBox(height: 12),
-                TextButton(
-                  onPressed: _ocupado
-                      ? null
-                      : () => Navigator.push(context, MaterialPageRoute(builder: (_) => PantallaClave(url: _url.text))),
-                  child: const Text('Entrar con clave de API (opción avanzada)'),
                 ),
                 const SizedBox(height: 8),
                 const Text(

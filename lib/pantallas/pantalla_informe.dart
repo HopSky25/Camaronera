@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../datos/sincronizador.dart';
 import '../modelos/cuerpos.dart';
 import '../modelos/verificacion.dart';
+import '../seguridad/firmador.dart';
 import '../tema.dart';
 import 'comunes/widgets.dart';
 
@@ -127,6 +128,9 @@ class _PantallaInformeState extends State<PantallaInforme> {
     setState(() => _guardando = true);
     try {
       await context.read<Sincronizador>().guardarInforme(v, inf, enviar: enviar);
+    } on ErrorSeguridad catch (e) {
+      _aviso('El informe quedó guardado en el teléfono, pero no se envió. ${e.mensaje}');
+      return;
     } catch (_) {
       if (mounted) _aviso('No se pudo guardar en el teléfono. Inténtalo otra vez.');
       return;

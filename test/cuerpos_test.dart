@@ -6,7 +6,7 @@ import 'package:verificador_campo/modelos/verificacion.dart';
 
 void main() {
   OperacionPendiente op(TipoOperacion t, {String? despacho}) => OperacionPendiente(
-      tipo: t, recursoId: 'R1', despachoId: despacho, cuerpo: const {}, claveIdempotencia: 'k', creadaEn: DateTime(2026));
+      tipo: t, recursoId: 'R1', despachoId: despacho, cuerpoSerializado: '{}', claveIdempotencia: 'k', creadaEn: DateTime(2026));
 
   group('OperacionPendiente', () {
     test('ruta y método de cada operación', () {

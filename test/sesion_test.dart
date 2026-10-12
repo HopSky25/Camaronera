@@ -5,36 +5,14 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:verificador_campo/datos/almacen_credenciales.dart';
 import 'package:verificador_campo/datos/api_cliente.dart';
 import 'package:verificador_campo/datos/base_local.dart';
 import 'package:verificador_campo/datos/sesion.dart';
 import 'package:verificador_campo/modelos/perfil.dart';
 
+import 'almacen_falso.dart';
 import 'datos_api.dart';
-
-/// Credenciales en memoria (en el teléfono van cifradas).
-class AlmacenFalso extends AlmacenCredenciales {
-  String? urlGuardada;
-  String? claveGuardada;
-  @override
-  Future<String?> url() async => urlGuardada;
-  @override
-  Future<String?> clave() async => claveGuardada;
-  @override
-  Future<void> guardar({required String url, required String clave}) async {
-    urlGuardada = AlmacenCredenciales.normalizar(url);
-    claveGuardada = clave.trim();
-  }
-
-  @override
-  Future<void> borrarClave() async => claveGuardada = null;
-  @override
-  Future<void> borrar() async {
-    urlGuardada = null;
-    claveGuardada = null;
-  }
-}
+import 'firmador_falso.dart';
 
 /// Base local en memoria: solo lo que usa Sesion (config y borrados).
 class BaseFalsa extends BaseLocal {
@@ -97,7 +75,7 @@ void main() {
     servidor = ServidorFalso();
     almacen = AlmacenFalso();
     bd = BaseFalsa();
-    sesion = Sesion(credenciales: almacen, bd: bd, clienteHttp: servidor.cliente);
+    sesion = Sesion(credenciales: almacen, bd: bd, clienteHttp: servidor.cliente, firmador: FirmadorFalso());
   });
 
   Future<void> entrar() => sesion.iniciarSesion(url: 'demo.camaronmarket.com/', correo: ' socio@finca.ec ', contrasena: 'clave 123');
@@ -110,7 +88,9 @@ void main() {
       expect(sesion.perfil, 'camaronera');
       expect(sesion.nombre, 'Camaronera Las Mareas');
       expect(sesion.url, 'https://demo.camaronmarket.com');
-      expect(almacen.claveGuardada, 'trz_secreta');
+      expect(almacen.claveGuardada, isNull, reason: 'la clave nunca se guarda legible');
+      expect(sesion.api!.clave, 'trz_secreta');
+      expect(sesion.necesitaProteger, isTrue, reason: 'tras entrar, "Protege tu cuenta"');
       expect(almacen.urlGuardada, 'https://demo.camaronmarket.com');
       expect(bd.config['perfil'], 'camaronera');
       expect(jsonDecode(bd.config['yo']!)['name'], 'Camaronera Las Mareas');
@@ -265,6 +245,7 @@ void main() {
       await sesion.iniciar();
       expect(sesion.cargando, isFalse);
       expect(sesion.conectado, isTrue);
+      expect(sesion.necesitaProteger, isTrue, reason: 'viene de la versión anterior: clave legible');
       expect(sesion.perfil, 'empacadora');
       expect(sesion.rolParaApi, 'empacadora');
     });
@@ -358,7 +339,8 @@ void main() {
     test('GET /me comprueba la clave', () async {
       await sesion.entrarConClave(url: 'demo.camaronmarket.com', clave: ' trz_manual ');
       expect(sesion.conectado, isTrue);
-      expect(almacen.claveGuardada, 'trz_manual');
+      expect(sesion.api!.clave, 'trz_manual');
+      expect(almacen.claveGuardada, isNull);
       expect(servidor.ultima.headers['Authorization'], 'Bearer trz_manual');
     });
 

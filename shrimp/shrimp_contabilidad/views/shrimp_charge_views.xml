@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Formulario de SOLO LECTURA para el área contable: el mismo de
+         shrimp_marketplace (modo primary, el original no cambia) sin el botón
+         «Reintentar facturación», que corre con sudo y es tarea de la
+         administración de la plataforma. -->
+    <record id="view_shrimp_charge_form_contable" model="ir.ui.view">
+        <field name="name">shrimp.charge.form.contabilidad</field>
+        <field name="model">shrimp.charge</field>
+        <field name="inherit_id" ref="shrimp_marketplace.view_shrimp_charge_form"/>
+        <field name="mode">primary</field>
+        <field name="priority">90</field>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="attributes">
+                <attribute name="create">0</attribute>
+                <attribute name="edit">0</attribute>
+                <attribute name="delete">0</attribute>
+            </xpath>
+            <xpath expr="//button[@name='action_retry_invoice']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Filtros que faltan en la búsqueda original (anulados, acreditados y el
+         tipo legado). Se añaden por herencia: no cambian lo que ya había. -->
+    <record id="view_shrimp_charge_search_contable" model="ir.ui.view">
+        <field name="name">shrimp.charge.search.contabilidad</field>
+        <field name="model">shrimp.charge</field>
+        <field name="inherit_id" ref="shrimp_marketplace.view_shrimp_charge_search"/>
+        <field name="arch" type="xml">
+            <xpath expr="//filter[@name='facturados']" position="after">
+                <filter string="Acreditados (nota de crédito)" name="acreditados"
+                        domain="[('state', '=', 'credited')]"/>
+                <filter string="Anulados" name="anulados" domain="[('state', '=', 'cancelled')]"/>
+            </xpath>
+            <xpath expr="//filter[@name='t_copack']" position="after">
+                <filter string="Chequeo (legado)" name="t_check"
+                        domain="[('charge_type', '=', 'check_fee')]"/>
+                <separator/>
+                <filter string="Fecha del cobro" name="f_date" date="date"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="action_cobros_plataforma" model="ir.actions.act_window">
+        <field name="name">Cobros de la plataforma</field>
+        <field name="res_model">shrimp.charge</field>
+        <field name="view_mode">list,form,pivot,graph</field>
+        <field name="search_view_id" ref="shrimp_marketplace.view_shrimp_charge_search"/>
+        <field name="context">{'create': 0, 'edit': 0, 'delete': 0}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_empty_folder">Aún no hay cobros de la plataforma.</p>
+            <p>Cada comisión, honorario de verificación o comisión de empaque que la
+               plataforma registra aparece aquí con su factura. Revise los que están
+               «Con error» o «Por acreditar» en el cierre de mes.</p>
+        </field>
+    </record>
+    <record id="action_cobros_plataforma_list" model="ir.actions.act_window.view">
+        <field name="sequence">1</field>
+        <field name="view_mode">list</field>
+        <field name="view_id" ref="shrimp_marketplace.view_shrimp_charge_list"/>
+        <field name="act_window_id" ref="action_cobros_plataforma"/>
+    </record>
+    <record id="action_cobros_plataforma_form" model="ir.actions.act_window.view">
+        <field name="sequence">2</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_shrimp_charge_form_contable"/>
+        <field name="act_window_id" ref="action_cobros_plataforma"/>
+    </record>
+</odoo>

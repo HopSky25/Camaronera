@@ -56,17 +56,19 @@ class ShrimpCharge(models.Model):
         compute="_compute_sri_document", groups="account.group_account_invoice",
         help="Comprobante electrónico de la factura del servicio.")
     sri_document_state = fields.Selection(
-        related="sri_document_id.state", string="Estado SRI",
+        selection=lambda self: self.env["ec.sri.document"]._fields["state"].selection,
+        string="Estado SRI", compute="_compute_sri_document",
         groups="account.group_account_invoice")
     sri_refund_document_id = fields.Many2one(
         "ec.sri.document", string="Comprobante SRI de la nota de crédito",
         compute="_compute_sri_document", groups="account.group_account_invoice")
 
-    @api.depends("invoice_id.ec_sri_document_ids", "refund_id.ec_sri_document_ids")
+    @api.depends("invoice_id.ec_sri_document_ids.state", "refund_id.ec_sri_document_ids")
     def _compute_sri_document(self):
         for charge in self:
             charge.sri_document_id = charge.invoice_id.ec_sri_document_ids.filtered(
                 lambda d: d.document_type == "01")[:1]
+            charge.sri_document_state = charge.sri_document_id.state or False
             charge.sri_refund_document_id = charge.refund_id.ec_sri_document_ids.filtered(
                 lambda d: d.document_type == "04")[:1]
 

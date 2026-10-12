@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Categoría y privilegio (Odoo 19: los grupos cuelgan de un
+         res.groups.privilege, que a su vez pertenece a una categoría). -->
+    <record id="module_category_contabilidad_camaronmarket" model="ir.module.category">
+        <field name="name">Contabilidad CamaronMarket</field>
+        <field name="description">Área contable de la plataforma CamaronMarket.</field>
+        <field name="sequence">8</field>
+    </record>
+
+    <record id="res_groups_privilege_contabilidad" model="res.groups.privilege">
+        <field name="name">Contabilidad CamaronMarket</field>
+        <field name="category_id" ref="module_category_contabilidad_camaronmarket"/>
+        <field name="sequence">8</field>
+    </record>
+
+    <!-- Asistente contable: funciones contables completas (asientos,
+         conciliación, informes), analítica, creación de contactos (clientes y
+         proveedores), lectura de los cobros de la plataforma y generación de
+         ATS / auxiliares 103-104. NO configura impuestos ni el plan (eso es
+         account.group_account_manager) y NO administra el sistema. -->
+    <record id="group_asistente_contable" model="res.groups">
+        <field name="name">Asistente contable</field>
+        <field name="sequence">10</field>
+        <field name="privilege_id" ref="res_groups_privilege_contabilidad"/>
+        <field name="comment">Registra facturas, cobros, pagos, asientos y conciliaciones; ve los informes, los cobros de la plataforma (solo lectura) y genera ATS y auxiliares 103/104. No modifica la configuración contable ni de impuestos.</field>
+        <field name="implied_ids" eval="[
+            (4, ref('account.group_account_user')),
+            (4, ref('analytic.group_analytic_accounting')),
+            (4, ref('base.group_partner_manager')),
+        ]"/>
+    </record>
+
+    <!-- Contador general: todo lo del asistente + administración contable
+         (plan de cuentas, impuestos, diarios, posiciones fiscales, puntos de
+         emisión SRI). Sigue sin ser administrador del sistema ni de la
+         plataforma. -->
+    <record id="group_contador_general" model="res.groups">
+        <field name="name">Contador general</field>
+        <field name="sequence">20</field>
+        <field name="privilege_id" ref="res_groups_privilege_contabilidad"/>
+        <field name="comment">Todo lo del asistente contable más la configuración contable: plan de cuentas, impuestos, diarios, posiciones fiscales y puntos de emisión del SRI.</field>
+        <field name="implied_ids" eval="[
+            (4, ref('group_asistente_contable')),
+            (4, ref('account.group_account_manager')),
+        ]"/>
+    </record>
+</odoo>

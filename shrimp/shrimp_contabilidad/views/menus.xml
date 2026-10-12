@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ================================================================
+         Menú de nivel superior «Contabilidad»: abre el tablero de diarios de
+         Odoo y agrupa los accesos del área contable. Todo apunta a acciones
+         nativas (account, analytic, l10n_ec_sri_community) salvo las tres
+         propias: cobros de la plataforma (solo lectura), retenciones
+         emitidas y apuntes por conciliar.
+         ================================================================ -->
+    <menuitem id="menu_contabilidad_root"
+              name="Contabilidad"
+              action="account.open_account_journal_dashboard_kanban"
+              web_icon="account,static/description/icon.png"
+              groups="account.group_account_readonly,account.group_account_invoice"
+              sequence="54"/>
+
+    <menuitem id="menu_cont_tablero" name="Tablero" parent="menu_contabilidad_root"
+              action="account.open_account_journal_dashboard_kanban" sequence="1"
+              groups="account.group_account_basic,account.group_account_readonly"/>
+
+    <!-- Clientes -->
+    <menuitem id="menu_cont_clientes" name="Clientes" parent="menu_contabilidad_root" sequence="10"/>
+    <menuitem id="menu_cont_clientes_facturas" name="Facturas" parent="menu_cont_clientes"
+              action="account.action_move_out_invoice" sequence="10"/>
+    <menuitem id="menu_cont_clientes_nc" name="Notas de crédito" parent="menu_cont_clientes"
+              action="account.action_move_out_refund_type_non_legacy" sequence="20"/>
+    <menuitem id="menu_cont_clientes_cobros" name="Cobros" parent="menu_cont_clientes"
+              action="account.action_account_payments" sequence="30"/>
+    <menuitem id="menu_cont_clientes_contactos" name="Clientes" parent="menu_cont_clientes"
+              action="account.res_partner_action_customer" sequence="90"/>
+
+    <!-- Proveedores -->
+    <menuitem id="menu_cont_proveedores" name="Proveedores" parent="menu_contabilidad_root" sequence="20"/>
+    <menuitem id="menu_cont_proveedores_facturas" name="Facturas de proveedor" parent="menu_cont_proveedores"
+              action="account.action_move_in_invoice" sequence="10"/>
+    <menuitem id="menu_cont_proveedores_nc" name="Notas de crédito de proveedor" parent="menu_cont_proveedores"
+              action="account.action_move_in_refund_type" sequence="20"/>
+    <menuitem id="menu_cont_proveedores_pagos" name="Pagos" parent="menu_cont_proveedores"
+              action="account.action_account_payments_payable" sequence="30"/>
+    <menuitem id="menu_cont_proveedores_retenciones" name="Retenciones emitidas" parent="menu_cont_proveedores"
+              action="action_sri_retenciones" sequence="40"/>
+    <menuitem id="menu_cont_proveedores_contactos" name="Proveedores" parent="menu_cont_proveedores"
+              action="account.res_partner_action_supplier" sequence="90"/>
+
+    <!-- Bancos -->
+    <menuitem id="menu_cont_bancos" name="Bancos" parent="menu_contabilidad_root" sequence="30"
+              groups="account.group_account_readonly"/>
+    <menuitem id="menu_cont_bancos_extractos" name="Extractos bancarios" parent="menu_cont_bancos"
+              action="account.action_bank_statement_tree" sequence="10"/>
+    <menuitem id="menu_cont_bancos_conciliar" name="Apuntes por conciliar" parent="menu_cont_bancos"
+              action="action_apuntes_por_conciliar" sequence="20"/>
+    <menuitem id="menu_cont_bancos_caja" name="Caja" parent="menu_cont_bancos"
+              action="account.action_view_bank_statement_tree" sequence="30"/>
+    <menuitem id="menu_cont_bancos_modelos" name="Modelos de conciliación" parent="menu_cont_bancos"
+              action="account.action_account_reconcile_model" sequence="40"
+              groups="account.group_account_user"/>
+
+    <!-- Cobros de la plataforma (solo lectura) -->
+    <menuitem id="menu_cont_cobros" name="Cobros de la plataforma" parent="menu_contabilidad_root"
+              action="action_cobros_plataforma" sequence="40"
+              groups="group_asistente_contable,shrimp_marketplace.group_shrimp_manager"/>
+
+    <!-- Asientos y apuntes -->
+    <menuitem id="menu_cont_asientos" name="Asientos y apuntes" parent="menu_contabilidad_root" sequence="50"
+              groups="account.group_account_readonly"/>
+    <menuitem id="menu_cont_asientos_asientos" name="Asientos contables" parent="menu_cont_asientos"
+              action="account.action_move_journal_line" sequence="10"/>
+    <menuitem id="menu_cont_asientos_apuntes" name="Apuntes contables" parent="menu_cont_asientos"
+              action="account.action_account_moves_all" sequence="20"/>
+    <menuitem id="menu_cont_asientos_analiticos" name="Apuntes analíticos" parent="menu_cont_asientos"
+              action="analytic.account_analytic_line_action_entries" sequence="30"
+              groups="analytic.group_analytic_accounting"/>
+
+    <!-- Informes: se REUTILIZA el menú nativo account.menu_finance_reports
+         (no se duplica). Se cuelga aquí; ahí cuelga también «Estados
+         financieros» (shrimp_estados_financieros). El uninstall_hook lo
+         devuelve a Facturación al desinstalar. -->
+    <record id="account.menu_finance_reports" model="ir.ui.menu">
+        <field name="parent_id" ref="menu_contabilidad_root"/>
+        <field name="sequence">60</field>
+    </record>
+
+    <!-- SRI -->
+    <menuitem id="menu_cont_sri" name="SRI" parent="menu_contabilidad_root" sequence="70"
+              groups="group_asistente_contable,account.group_account_manager"/>
+    <menuitem id="menu_cont_sri_comprobantes" name="Comprobantes electrónicos" parent="menu_cont_sri"
+              action="l10n_ec_sri_community.action_sri_documents" sequence="10"/>
+    <menuitem id="menu_cont_sri_retenciones" name="Retenciones emitidas" parent="menu_cont_sri"
+              action="action_sri_retenciones" sequence="20"/>
+    <menuitem id="menu_cont_sri_reportes" name="ATS, 103, 104 y libros" parent="menu_cont_sri"
+              action="l10n_ec_sri_community.action_sri_reports" sequence="30"/>
+    <menuitem id="menu_cont_sri_puntos" name="Puntos de emisión" parent="menu_cont_sri"
+              action="l10n_ec_sri_community.action_sri_points" sequence="40"/>
+
+    <!-- Configuración -->
+    <menuitem id="menu_cont_config" name="Configuración" parent="menu_contabilidad_root" sequence="90"
+              groups="group_asistente_contable,account.group_account_manager"/>
+    <menuitem id="menu_cont_config_plan" name="Plan de cuentas" parent="menu_cont_config"
+              action="account.action_account_form" sequence="10"/>
+    <menuitem id="menu_cont_config_impuestos" name="Impuestos" parent="menu_cont_config"
+              action="account.action_tax_form" sequence="20"/>
+    <menuitem id="menu_cont_config_diarios" name="Diarios" parent="menu_cont_config"
+              action="account.action_account_journal_form" sequence="30"
+              groups="account.group_account_manager"/>
+    <menuitem id="menu_cont_config_terminos" name="Términos de pago" parent="menu_cont_config"
+              action="account.action_payment_term_form" sequence="40"/>
+    <menuitem id="menu_cont_config_posiciones" name="Posiciones fiscales" parent="menu_cont_config"
+              action="account.action_account_fiscal_position_form" sequence="50"
+              groups="account.group_account_manager"/>
+    <menuitem id="menu_cont_config_productos" name="Productos y servicios" parent="menu_cont_config"
+              action="account.product_product_action_sellable" sequence="60"/>
+    <menuitem id="menu_cont_config_analitica" name="Contabilidad analítica" parent="menu_cont_config"
+              sequence="70" groups="analytic.group_analytic_accounting"/>
+    <menuitem id="menu_cont_config_planes" name="Planes analíticos" parent="menu_cont_config_analitica"
+              action="analytic.account_analytic_plan_action" sequence="10"/>
+    <menuitem id="menu_cont_config_cuentas_analiticas" name="Cuentas analíticas" parent="menu_cont_config_analitica"
+              action="analytic.action_account_analytic_account_form" sequence="20"/>
+    <menuitem id="menu_cont_config_distribucion" name="Modelos de distribución" parent="menu_cont_config_analitica"
+              action="analytic.action_analytic_distribution_model" sequence="30"/>
+</odoo>

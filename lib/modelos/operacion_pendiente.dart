@@ -2,7 +2,16 @@
 /// servidor cuando hay señal. Se guarda en la base local y se envía en orden;
 /// cada una lleva su clave de idempotencia para poder reintentar sin duplicar
 /// nada (la API lo garantiza durante 24 h).
+///
+/// Operaciones sensibles (todas las de la app, ver `esRutaSensible`): el
+/// cuerpo se serializa UNA vez al hacer la acción, se firma con la huella o
+/// el PIN en ese momento (en campo, sin internet) y se guarda tal cual junto
+/// con la firma. Al enviar se mandan exactamente esos bytes y esas cabeceras.
 library;
+
+import 'dart:convert';
+
+import '../seguridad/firma_operacion.dart';
 
 enum TipoOperacion {
   // Técnico / verificadora
@@ -33,11 +42,22 @@ class OperacionPendiente {
 
   /// Para la llegada del camión desde una verificación: id del despacho.
   final String? despachoId;
-  final Map<String, dynamic> cuerpo;
+
+  /// Cuerpo JSON YA SERIALIZADO: son los bytes (UTF-8) que se firmaron y los
+  /// que se envían. Nunca se vuelve a serializar.
+  final String cuerpoSerializado;
   final String claveIdempotencia;
   final DateTime creadaEn;
   final int intentos;
   final String? ultimoError;
+
+  /// Tipo del último error (slug RFC 9457, p. ej. `signature-expired`, o
+  /// `firma-pendiente` cuando la app no la envía por falta de firma).
+  final String? ultimoErrorTipo;
+
+  /// Firma hecha en el momento de la acción (nula en operaciones de una
+  /// versión anterior de la app o de una clave de integración).
+  final FirmaOperacion? firma;
 
   /// Perfil (`X-Shrimp-Role`) con el que se hizo la operación. Se envía con
   /// ese perfil aunque después se cambie de perfil en la app.
@@ -48,13 +68,64 @@ class OperacionPendiente {
     required this.tipo,
     required this.recursoId,
     this.despachoId,
-    required this.cuerpo,
+    required this.cuerpoSerializado,
     required this.claveIdempotencia,
     required this.creadaEn,
     this.intentos = 0,
     this.ultimoError,
+    this.ultimoErrorTipo,
     this.rol,
+    this.firma,
   });
+
+  /// La misma operación con su firma (o sin ella si [f] es nula).
+  OperacionPendiente conFirma(FirmaOperacion? f) => OperacionPendiente(
+        idLocal: idLocal,
+        tipo: tipo,
+        recursoId: recursoId,
+        despachoId: despachoId,
+        cuerpoSerializado: cuerpoSerializado,
+        claveIdempotencia: claveIdempotencia,
+        creadaEn: creadaEn,
+        intentos: intentos,
+        ultimoError: ultimoError,
+        ultimoErrorTipo: ultimoErrorTipo,
+        rol: rol,
+        firma: f,
+      );
+
+  /// El cuerpo como mapa (solo para leerlo; lo que se envía es [cuerpoSerializado]).
+  Map<String, dynamic> get cuerpo {
+    try {
+      final v = jsonDecode(cuerpoSerializado);
+      return v is Map<String, dynamic> ? v : const {};
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  /// La operación exige firma del dispositivo (sección 4 del contrato).
+  bool get esSensible => esRutaSensible(metodo, ruta);
+
+  /// Ruta completa tal como se firma (`/api/v1/...`).
+  String get rutaCompleta => rutaFirmada(ruta);
+
+  /// Cadena canónica que se firma para esta operación con el [timestamp] dado.
+  String cadenaParaFirmar(int timestamp) => cadenaCanonica(
+        metodo: metodo,
+        ruta: ruta,
+        timestamp: timestamp,
+        idempotencia: claveIdempotencia,
+        cuerpo: bytesDelCuerpo(cuerpoSerializado),
+      );
+
+  /// El servidor la rechazó por la firma y hay que volver a firmarla.
+  bool get errorDeFirma => const {
+        'signature-expired',
+        'signature-required',
+        'invalid-signature',
+        'firma-pendiente',
+      }.contains(ultimoErrorTipo);
 
   /// El servidor rechazó el dato (4xx definitivo): no se reintenta sola.
   bool get conError => ultimoError != null;

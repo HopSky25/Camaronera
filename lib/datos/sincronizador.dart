@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
@@ -7,6 +8,7 @@ import '../modelos/cuerpos.dart';
 import '../modelos/operacion_pendiente.dart';
 import '../modelos/perfil.dart';
 import '../modelos/verificacion.dart';
+import '../seguridad/firmador.dart';
 import 'api_cliente.dart';
 import 'base_local.dart';
 import 'sesion.dart';
@@ -18,7 +20,10 @@ class ResultadoEnvio {
 
   /// El servidor la rechazó (queda en Pendientes con el error a la vista).
   final String? error;
-  const ResultadoEnvio({required this.enviado, this.error});
+
+  /// La persona no confirmó con la huella / PIN: no se guardó nada.
+  final bool sinConfirmar;
+  const ResultadoEnvio({required this.enviado, this.error, this.sinConfirmar = false});
 
   /// Guardada en el teléfono, se enviará cuando haya señal.
   bool get enEspera => !enviado && error == null;
@@ -36,6 +41,12 @@ class ResultadoEnvio {
 /// operación es rechazada por el servidor, las siguientes sobre el MISMO
 /// recurso se quedan esperando (asignar → iniciar → informe → veredicto no
 /// se mandan fuera de orden); las de otros recursos siguen.
+///
+/// Firma: cada operación sensible se firma con la huella / PIN en el momento
+/// de hacerla ([_encolar]) y se guarda con su cuerpo YA SERIALIZADO; al
+/// enviarla se mandan esos mismos bytes con las cabeceras de la firma. Una
+/// operación sensible sin firma válida NO se envía: queda en Pendientes con
+/// el botón "Confirmar con huella" ([volverAFirmar]).
 class Sincronizador extends ChangeNotifier {
   final BaseLocal _bd;
   final Sesion sesion;
@@ -66,7 +77,7 @@ class Sincronizador extends ChangeNotifier {
   bool get _usaBandeja => sesion.perfil == perfilTecnico || sesion.perfil == 'verificador';
 
   void _alCambiarSesion() {
-    final nuevo = sesion.api;
+    final nuevo = sesion.apiOperativa;
     final cambioPerfil = sesion.perfil != _perfil;
     _perfil = sesion.perfil;
     if (identical(nuevo, _api)) {
@@ -85,7 +96,7 @@ class Sincronizador extends ChangeNotifier {
 
   /// Al abrir la app: carga lo guardado y, si hay sesión, intenta sincronizar.
   Future<void> iniciar() async {
-    _api = sesion.api;
+    _api = sesion.apiOperativa;
     _perfil = sesion.perfil;
     await recargarLocal();
     _escuchaRed ??= Connectivity().onConnectivityChanged.listen((estados) {
@@ -134,6 +145,8 @@ class Sincronizador extends ChangeNotifier {
       ultimoMensaje = 'Sin internet: lo capturado queda guardado en el teléfono';
     } on ErrorApi catch (e) {
       ultimoMensaje = e.esNoAutorizado ? 'La sesión caducó. Vuelve a entrar para enviar lo pendiente.' : e.mensaje;
+    } on ErrorSeguridad catch (e) {
+      ultimoMensaje = e.mensaje;
     } catch (e) {
       debugPrint('Fallo al sincronizar: $e');
       ultimoMensaje = 'No se pudo sincronizar. Inténtalo otra vez.';
@@ -144,8 +157,10 @@ class Sincronizador extends ChangeNotifier {
   }
 
   Future<void> _subirCola(ApiCliente api) async {
-    // Recursos con una operación rechazada en esta pasada: las que vienen
-    // después sobre el mismo recurso esperan a que se corrija o descarte.
+    // Registro del teléfono que quedó pendiente por falta de señal.
+    await sesion.reintentarRegistro();
+    // Recursos con una operación rechazada (o sin firma) en esta pasada: las
+    // que vienen después sobre el mismo recurso esperan.
     final bloqueados = <String>{};
     for (final op in await _bd.cola()) {
       if (bloqueados.contains(op.recursoId)) continue;
@@ -153,10 +168,28 @@ class Sincronizador extends ChangeNotifier {
         await _bd.anotarError(op.idLocal!, op.intentos + 1, 'Esta verificación no tiene despacho asociado.');
         continue;
       }
+      Map<String, String>? cabecerasFirma;
+      final estado = sesion.estadoFirma(op);
+      switch (estado) {
+        case EstadoFirma.noHaceFalta:
+          break;
+        case EstadoFirma.lista:
+          cabecerasFirma = op.firma!.cabeceras(sesion.dispositivo!.id!);
+        case EstadoFirma.esperaRegistro:
+          // Firmada, pero el teléfono aún no está registrado (sin señal).
+          bloqueados.add(op.recursoId);
+          continue;
+        case EstadoFirma.falta || EstadoFirma.otraClave || EstadoFirma.caducada || EstadoFirma.rechazada:
+          // Sin firma válida no se envía: se marca para confirmarla.
+          if (estado != EstadoFirma.rechazada) {
+            await _bd.anotarError(op.idLocal!, op.intentos, mensajeFirmaPendiente(estado), tipo: 'firma-pendiente');
+          }
+          bloqueados.add(op.recursoId);
+          continue;
+      }
       try {
-        final resp = op.metodo == 'PATCH'
-            ? await api.patch(op.ruta, op.cuerpo, idempotencia: op.claveIdempotencia, rol: op.rol)
-            : await api.post(op.ruta, op.cuerpo, idempotencia: op.claveIdempotencia, rol: op.rol);
+        final resp = await api.enviarSerializado(op.metodo, op.ruta, op.cuerpoSerializado,
+            idempotencia: op.claveIdempotencia, rol: op.rol, firma: cabecerasFirma);
         await _bd.quitarDeCola(op.idLocal!);
         // La respuesta trae la verificación al día: se guarda en la bandeja.
         if (op.respondeVerificacion && _usaBandeja && Verificacion.tieneId(resp)) {
@@ -166,7 +199,11 @@ class Sincronizador extends ChangeNotifier {
           }
         }
       } on ErrorApi catch (e) {
-        await _bd.anotarError(op.idLocal!, op.intentos + 1, e.mensaje);
+        // Teléfono revocado o sin registrar: la sesión ya reaccionó
+        // (vuelta a la entrada / a "Protege tu cuenta"); la operación sigue
+        // intacta en la cola.
+        if (e.dispositivoRevocado || e.dispositivoNoRegistrado) rethrow;
+        await _bd.anotarError(op.idLocal!, op.intentos + 1, e.mensaje, tipo: e.tipo);
         if (e.esDefinitivo) {
           // El servidor rechazó el dato: se deja en la cola con el error a la
           // vista para que el usuario lo corrija o lo descarte. Lo que dependa
@@ -183,6 +220,14 @@ class Sincronizador extends ChangeNotifier {
       }
     }
   }
+
+  /// Texto para Pendientes de una operación que hay que (volver a) confirmar.
+  static String mensajeFirmaPendiente(EstadoFirma estado) => switch (estado) {
+        EstadoFirma.falta => 'Falta confirmarla con tu huella o PIN (se hizo con una versión anterior de la app).',
+        EstadoFirma.otraClave => 'Se confirmó antes de registrar de nuevo este teléfono: vuelve a confirmarla.',
+        EstadoFirma.caducada => 'La confirmación tiene más de 7 días: vuelve a confirmarla.',
+        _ => 'Vuelve a confirmarla con tu huella o PIN.',
+      };
 
   Future<void> _bajarBandeja(ApiCliente api) async {
     // El técnico ve lo suyo (`role=technician`). La empresa verificadora ve
@@ -215,25 +260,57 @@ class Sincronizador extends ChangeNotifier {
 
   // ---------------- cola (siempre primero en local) ----------------
 
-  Future<int> _encolar(TipoOperacion tipo, String recursoId, Map<String, dynamic> cuerpo, {String? despachoId}) async {
-    final idLocal = await _bd.encolar(OperacionPendiente(
+  /// Serializa el cuerpo UNA vez, lo firma (huella / PIN) si la operación es
+  /// sensible y lo guarda en la cola. Lanza [ErrorSeguridad] si la persona no
+  /// confirma: en ese caso no se guarda nada en la cola.
+  Future<int> _encolar(TipoOperacion tipo, String recursoId, Map<String, dynamic> cuerpo,
+      {String? despachoId, bool reemplazarTipo = false}) async {
+    final sinFirma = OperacionPendiente(
       tipo: tipo,
       recursoId: recursoId,
       despachoId: despachoId,
-      cuerpo: cuerpo,
+      cuerpoSerializado: jsonEncode(cuerpo),
       claveIdempotencia: _uuid.v4(),
       creadaEn: DateTime.now(),
       rol: sesion.rolParaApi,
-    ));
+    );
+    final firma = await sesion.firmarOperacion(sinFirma);
+    final idLocal = await _bd.encolar(sinFirma.conFirma(firma));
+    // Lo anterior del mismo tipo se quita solo cuando lo nuevo ya está
+    // guardado (si la persona no confirma, lo anterior sigue en la cola).
+    if (reemplazarTipo) await _bd.quitarDeColaPorTipo(recursoId, tipo, excepto: idLocal);
     await recargarLocal();
     return idLocal;
   }
+
+  /// Vuelve a firmar una operación de la cola (sin firma, caducada o
+  /// rechazada por la firma): mismo cuerpo, misma Idempotency-Key, hora
+  /// nueva. Lanza [ErrorSeguridad] si no se confirma.
+  Future<void> volverAFirmar(OperacionPendiente op, {bool conPin = false}) async {
+    final firma = await sesion.firmarOperacion(op, conPin: conPin);
+    if (firma != null) await _bd.guardarFirma(op.idLocal!, firma);
+    await recargarLocal();
+    unawaited(sincronizar());
+  }
+
+  /// Operaciones de la cola que esperan una confirmación con huella / PIN.
+  List<OperacionPendiente> get porConfirmar => cola.where(necesitaConfirmar).toList();
+
+  bool necesitaConfirmar(OperacionPendiente op) => switch (sesion.estadoFirma(op)) {
+        EstadoFirma.falta || EstadoFirma.otraClave || EstadoFirma.caducada || EstadoFirma.rechazada => true,
+        _ => false,
+      };
 
   /// Encola y, si hay señal, envía de inmediato. Devuelve qué pasó para que
   /// la pantalla lo diga con claridad.
   Future<ResultadoEnvio> ejecutar(TipoOperacion tipo, String recursoId, Map<String, dynamic> cuerpo,
       {String? despachoId}) async {
-    final idLocal = await _encolar(tipo, recursoId, cuerpo, despachoId: despachoId);
+    final int idLocal;
+    try {
+      idLocal = await _encolar(tipo, recursoId, cuerpo, despachoId: despachoId);
+    } on ErrorSeguridad catch (e) {
+      return ResultadoEnvio(enviado: false, error: e.mensaje, sinConfirmar: true);
+    }
     await sincronizar();
     var op = await _bd.operacion(idLocal);
     if (op != null && op.ultimoError == null && hayRed && _api != null) {
@@ -247,20 +324,22 @@ class Sincronizador extends ChangeNotifier {
 
   // ---------------- acciones del técnico ----------------
 
+  /// Lanza [ErrorSeguridad] si no se confirma (el estado no cambia).
   Future<void> iniciarCampo(Verificacion v) async {
-    await _bd.cambiarEstadoLocal(v.id, 'in_field');
     await _encolar(TipoOperacion.iniciarCampo, v.id, {});
+    await _bd.cambiarEstadoLocal(v.id, 'in_field');
+    await recargarLocal();
     unawaited(sincronizar());
   }
 
   /// Guarda el informe en el teléfono y, si `enviar`, lo pone en la cola.
   /// Un informe anterior del mismo lote que todavía no salió se reemplaza:
-  /// vale el último guardado.
+  /// vale el último guardado. Si no se confirma con la huella / PIN lanza
+  /// [ErrorSeguridad]; el informe queda guardado en el teléfono.
   Future<void> guardarInforme(Verificacion v, InformeCampo informe, {bool enviar = true}) async {
     await _bd.guardarInformeLocal(v.id, informe, modificado: true);
     if (enviar) {
-      await _bd.quitarDeColaPorTipo(v.id, TipoOperacion.informe);
-      await _encolar(TipoOperacion.informe, v.id, informe.aCuerpoApi());
+      await _encolar(TipoOperacion.informe, v.id, informe.aCuerpoApi(), reemplazarTipo: true);
       unawaited(sincronizar());
     }
     await recargarLocal();

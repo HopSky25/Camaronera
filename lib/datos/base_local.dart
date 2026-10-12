@@ -7,6 +7,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../modelos/operacion_pendiente.dart';
 import '../modelos/verificacion.dart';
+import '../seguridad/firma_operacion.dart';
 
 /// Lo que guarda una lista en caché: los datos y cuándo se bajaron.
 class ListaGuardada {
@@ -30,73 +31,107 @@ class BaseLocal {
   /// y sin esto abrirían la base dos veces.
   static Future<Database>? _abriendo;
 
+  /// En pruebas: abre una base propia (sqflite_common_ffi) en vez de la del teléfono.
+  final Future<Database> Function()? _abrirPropia;
+  Future<Database>? _propia;
+
+  BaseLocal({Future<Database> Function()? abrir}) : _abrirPropia = abrir;
+
   /// Versiones del esquema (onUpgrade migra desde la que tenga el teléfono):
   ///  1 verificaciones, cola, fotos, config
   ///  2 + cache_listas
   ///  3 + cola.rol (perfil con el que se hizo cada operación)
-  static const _version = 3;
+  ///  4 + cola.firma_timestamp, firma, firma_clave, dispositivo_id,
+  ///      ultimo_error_tipo (operaciones firmadas con el dispositivo). Desde
+  ///      la 4, cola.cuerpo es el cuerpo serializado EXACTO que se firmó y se
+  ///      envía (antes ya se guardaba con jsonEncode, así que las filas
+  ///      viejas valen tal cual; solo les falta la firma).
+  static const version = 4;
 
-  Future<Database> get bd => _abriendo ??= _abrir().catchError((Object e) {
-        _abriendo = null; // la próxima llamada vuelve a intentar
-        throw e;
-      });
+  Future<Database> get bd {
+    final propia = _abrirPropia;
+    if (propia != null) return _propia ??= propia();
+    return _abriendo ??= _abrir().catchError((Object e) {
+      _abriendo = null; // la próxima llamada vuelve a intentar
+      throw e;
+    });
+  }
 
   static Future<Database> _abrir() async {
     final dir = await getApplicationDocumentsDirectory();
     return openDatabase(
       p.join(dir.path, 'verificador_campo.db'),
-      version: _version,
-      onCreate: (db, _) async {
-        await db.execute('''
-          CREATE TABLE verificaciones (
-            id TEXT PRIMARY KEY,
-            estado TEXT NOT NULL,
-            json TEXT NOT NULL,
-            informe_local TEXT,
-            informe_modificado INTEGER NOT NULL DEFAULT 0,
-            actualizado_en TEXT
-          )''');
-        // `verificacion_id` guarda el id del recurso principal de la
-        // operación (verificación, despacho, solicitud u orden); conserva el
-        // nombre de la versión 1 para no migrar datos en el teléfono.
-        await db.execute('''
-          CREATE TABLE cola (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            tipo TEXT NOT NULL,
-            verificacion_id TEXT NOT NULL,
-            despacho_id TEXT,
-            cuerpo TEXT NOT NULL,
-            clave_idempotencia TEXT NOT NULL,
-            creada_en TEXT NOT NULL,
-            intentos INTEGER NOT NULL DEFAULT 0,
-            ultimo_error TEXT,
-            rol TEXT
-          )''');
-        await db.execute('''
-          CREATE TABLE fotos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            verificacion_id TEXT NOT NULL,
-            ruta TEXT NOT NULL,
-            tomada_en TEXT NOT NULL,
-            subida INTEGER NOT NULL DEFAULT 0
-          )''');
-        await db.execute('CREATE TABLE config (clave TEXT PRIMARY KEY, valor TEXT)');
-        await _crearCache(db);
-      },
-      onUpgrade: (db, desde, _) async {
-        if (desde < 2) await _crearCache(db);
-        if (desde < 3) await _agregarRolACola(db);
-      },
+      version: version,
+      onCreate: crearEsquema,
+      onUpgrade: migrar,
     );
+  }
+
+  static Future<void> crearEsquema(Database db, int _) async {
+    await db.execute('''
+      CREATE TABLE verificaciones (
+        id TEXT PRIMARY KEY,
+        estado TEXT NOT NULL,
+        json TEXT NOT NULL,
+        informe_local TEXT,
+        informe_modificado INTEGER NOT NULL DEFAULT 0,
+        actualizado_en TEXT
+      )''');
+    // `verificacion_id` guarda el id del recurso principal de la
+    // operación (verificación, despacho, solicitud u orden); conserva el
+    // nombre de la versión 1 para no migrar datos en el teléfono.
+    await db.execute('''
+      CREATE TABLE cola (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tipo TEXT NOT NULL,
+        verificacion_id TEXT NOT NULL,
+        despacho_id TEXT,
+        cuerpo TEXT NOT NULL,
+        clave_idempotencia TEXT NOT NULL,
+        creada_en TEXT NOT NULL,
+        intentos INTEGER NOT NULL DEFAULT 0,
+        ultimo_error TEXT,
+        rol TEXT,
+        firma_timestamp INTEGER,
+        firma TEXT,
+        firma_clave TEXT,
+        dispositivo_id TEXT,
+        ultimo_error_tipo TEXT
+      )''');
+    await db.execute('''
+      CREATE TABLE fotos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        verificacion_id TEXT NOT NULL,
+        ruta TEXT NOT NULL,
+        tomada_en TEXT NOT NULL,
+        subida INTEGER NOT NULL DEFAULT 0
+      )''');
+    await db.execute('CREATE TABLE config (clave TEXT PRIMARY KEY, valor TEXT)');
+    await _crearCache(db);
+  }
+
+  static Future<void> migrar(Database db, int desde, int _) async {
+    if (desde < 2) await _crearCache(db);
+    if (desde < 3) await _agregarColumnas(db, const {'rol': 'TEXT'});
+    if (desde < 4) {
+      await _agregarColumnas(db, const {
+        'firma_timestamp': 'INTEGER',
+        'firma': 'TEXT',
+        'firma_clave': 'TEXT',
+        'dispositivo_id': 'TEXT',
+        'ultimo_error_tipo': 'TEXT',
+      });
+    }
   }
 
   static Future<void> _crearCache(Database db) => db.execute(
       'CREATE TABLE IF NOT EXISTS cache_listas (clave TEXT PRIMARY KEY, json TEXT NOT NULL, guardado_en TEXT NOT NULL)');
 
-  static Future<void> _agregarRolACola(Database db) async {
-    final columnas = await db.rawQuery('PRAGMA table_info(cola)');
-    if (columnas.any((c) => c['name'] == 'rol')) return;
-    await db.execute('ALTER TABLE cola ADD COLUMN rol TEXT');
+  static Future<void> _agregarColumnas(Database db, Map<String, String> columnas) async {
+    final existentes = (await db.rawQuery('PRAGMA table_info(cola)')).map((c) => c['name']).toSet();
+    for (final c in columnas.entries) {
+      if (!existentes.contains(c.key)) await db.execute('ALTER TABLE cola ADD COLUMN ${c.key} ${c.value}');
+    }
   }
 
   /// Decodifica el JSON guardado; nulo si está dañado (no tumba la lista).
@@ -211,13 +246,37 @@ class BaseLocal {
       'tipo': op.tipo.name,
       'verificacion_id': op.recursoId,
       'despacho_id': op.despachoId,
-      'cuerpo': jsonEncode(op.cuerpo),
+      'cuerpo': op.cuerpoSerializado, // tal cual: son los bytes firmados
       'clave_idempotencia': op.claveIdempotencia,
       'creada_en': op.creadaEn.toIso8601String(),
       'intentos': op.intentos,
       'ultimo_error': op.ultimoError,
+      'ultimo_error_tipo': op.ultimoErrorTipo,
       'rol': op.rol,
+      ..._columnasFirma(op.firma),
     });
+  }
+
+  static Map<String, Object?> _columnasFirma(FirmaOperacion? f) => {
+        'firma_timestamp': f?.timestamp,
+        'firma': f?.firma,
+        'firma_clave': f?.huellaClave,
+        'dispositivo_id': f?.dispositivoId,
+      };
+
+  static FirmaOperacion? _firmaDe(Map<String, Object?> f) {
+    final ts = f['firma_timestamp'];
+    final firma = f['firma'];
+    final clave = f['firma_clave'];
+    if (ts is! int || firma is! String || clave is! String) return null;
+    return FirmaOperacion(timestamp: ts, firma: firma, huellaClave: clave, dispositivoId: f['dispositivo_id'] as String?);
+  }
+
+  /// Guarda una firma nueva (volver a firmar) y limpia el error anterior.
+  Future<void> guardarFirma(int idLocal, FirmaOperacion firma) async {
+    final db = await bd;
+    await db.update('cola', {..._columnasFirma(firma), 'ultimo_error': null, 'ultimo_error_tipo': null},
+        where: 'id = ?', whereArgs: [idLocal]);
   }
 
   /// La cola en el orden en que se hizo cada cosa. Una fila que no se puede
@@ -234,12 +293,14 @@ class BaseLocal {
           tipo: TipoOperacion.values.byName(f['tipo'] as String),
           recursoId: f['verificacion_id'] as String,
           despachoId: f['despacho_id'] as String?,
-          cuerpo: _json(f['cuerpo']) ?? const {},
+          cuerpoSerializado: f['cuerpo'] as String? ?? '{}',
           claveIdempotencia: f['clave_idempotencia'] as String,
           creadaEn: DateTime.tryParse(f['creada_en'] as String? ?? '') ?? DateTime.now(),
           intentos: (f['intentos'] as int?) ?? 0,
           ultimoError: f['ultimo_error'] as String?,
+          ultimoErrorTipo: f['ultimo_error_tipo'] as String?,
           rol: f['rol'] as String?,
+          firma: _firmaDe(f),
         ));
       } catch (e) {
         debugPrint('Operación ${f['id']} ilegible en la cola: $e');
@@ -253,9 +314,10 @@ class BaseLocal {
 
   /// Quita las operaciones de un tipo sobre un recurso que todavía no se
   /// enviaron (p. ej. un informe guardado dos veces: vale el último).
-  Future<void> quitarDeColaPorTipo(String recursoId, TipoOperacion tipo) async {
+  Future<void> quitarDeColaPorTipo(String recursoId, TipoOperacion tipo, {int? excepto}) async {
     final db = await bd;
-    await db.delete('cola', where: 'verificacion_id = ? AND tipo = ?', whereArgs: [recursoId, tipo.name]);
+    await db.delete('cola',
+        where: 'verificacion_id = ? AND tipo = ? AND id != ?', whereArgs: [recursoId, tipo.name, excepto ?? -1]);
   }
 
   Future<int> pendientes() async {
@@ -268,9 +330,10 @@ class BaseLocal {
     await db.delete('cola', where: 'id = ?', whereArgs: [idLocal]);
   }
 
-  Future<void> anotarError(int idLocal, int intentos, String error) async {
+  Future<void> anotarError(int idLocal, int intentos, String error, {String? tipo}) async {
     final db = await bd;
-    await db.update('cola', {'intentos': intentos, 'ultimo_error': error}, where: 'id = ?', whereArgs: [idLocal]);
+    await db.update('cola', {'intentos': intentos, 'ultimo_error': error, 'ultimo_error_tipo': tipo},
+        where: 'id = ?', whereArgs: [idLocal]);
   }
 
   // ---------------- fotos ----------------

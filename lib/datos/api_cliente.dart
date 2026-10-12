@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
+import '../seguridad/firmador.dart';
+
 /// Error devuelto por la API (formato RFC 9457: title, detail, status, errors).
 /// `type` llega como `https://.../docs#problem-<slug>`; [tipo] es el slug.
 class ErrorApi implements Exception {
@@ -18,6 +20,15 @@ class ErrorApi implements Exception {
   bool get esNoAutorizado => status == 401;
   bool get esProhibido => status == 403;
 
+  /// El servidor ya no acepta este teléfono: hay que volver a entrar.
+  bool get dispositivoRevocado => tipo == 'device-revoked';
+
+  /// La clave es de app pero no tiene dispositivo activo: hay que registrarlo.
+  bool get dispositivoNoRegistrado => tipo == 'device-not-registered';
+
+  /// La operación tiene que volver a firmarse (botón en Pendientes).
+  bool get pideFirmarDeNuevo => const {'signature-expired', 'signature-required', 'invalid-signature'}.contains(tipo);
+
   /// Texto para la gente de campo, sin jerga.
   String get mensaje => switch (tipo) {
         'invalid-credentials' => 'Correo o contraseña incorrectos.',
@@ -30,6 +41,16 @@ class ErrorApi implements Exception {
         'insufficient-scope' => 'Tu clave no tiene permiso para esta operación.',
         'ip-not-allowed' => 'Esta clave no admite conexiones desde tu red.',
         'invalid-state' => detalle.isEmpty ? 'El registro ya no está en el estado necesario.' : detalle,
+        // Firma del dispositivo (docs/app/CONTRATO-FIRMA-DISPOSITIVO.md, sección 5)
+        'device-not-registered' => 'Este teléfono no está registrado para confirmar operaciones. Vuelve a protegerlo con tu huella.',
+        'signature-required' => 'Falta confirmar esta operación con tu huella o PIN. Hazlo desde Pendientes.',
+        'device-revoked' => 'Este teléfono fue desconectado de tu cuenta (desde el portal). Vuelve a entrar.',
+        'invalid-signature' =>
+          'El servidor no reconoció la confirmación de este teléfono. Vuelve a confirmarla en Pendientes o registra de nuevo el teléfono en Seguridad.',
+        'signature-expired' =>
+          'La confirmación caducó (pasaron más de 7 días o la hora del teléfono está mal). Vuelve a confirmarla en Pendientes.',
+        'not-an-app-key' => 'Esta clave de API no es de la app. Entra con tu correo y contraseña para proteger tu cuenta.',
+        'signature-replayed' => 'Esta confirmación ya se usó para otra operación. Descarta este envío y vuelve a hacerlo.',
         _ => detalle.isNotEmpty ? detalle : titulo,
       };
 
@@ -45,6 +66,7 @@ class SinConexion implements Exception {
 /// Texto claro para cualquier fallo de red o de la API.
 String mensajeDeError(Object e) {
   if (e is ErrorApi) return e.mensaje;
+  if (e is ErrorSeguridad) return e.mensaje;
   if (e is SinConexion) return 'Sin internet. Revisa la señal e inténtalo otra vez.';
   if (e is FormatException || e is ArgumentError) return 'La dirección del servidor no es válida.';
   return 'Algo falló. Inténtalo otra vez y, si sigue, avisa a soporte.';
@@ -69,6 +91,9 @@ class ApiCliente {
 
   /// Se llama con un 401: la clave caducó o fue revocada y hay que volver a entrar.
   void Function(ErrorApi error)? alNoAutorizado;
+
+  /// Se llama con 403 device-revoked / device-not-registered.
+  void Function(ErrorApi error)? alErrorDispositivo;
 
   /// Perfil con el que actúa la app ("actuar como"). Va en la cabecera
   /// `X-Shrimp-Role` de cada petición; NO se cambia el perfil activo de la
@@ -133,6 +158,7 @@ class ApiCliente {
       return await _enviarSinSesion(llamada);
     } on ErrorApi catch (e) {
       if (e.esNoAutorizado) alNoAutorizado?.call(e);
+      if (e.dispositivoRevocado || e.dispositivoNoRegistrado) alErrorDispositivo?.call(e);
       rethrow;
     }
   }
@@ -145,6 +171,34 @@ class ApiCliente {
 
   Future<Map<String, dynamic>> patch(String ruta, Map<String, dynamic> cuerpo, {required String idempotencia, String? rol}) =>
       _enviar(() => _http.patch(_uri(ruta), headers: _cabeceras(idempotencia: idempotencia, rol: rol), body: jsonEncode(cuerpo)));
+
+  /// Envía una operación de la cola con su cuerpo YA SERIALIZADO: los bytes
+  /// UTF-8 de [cuerpoSerializado] son exactamente los que se firmaron (no se
+  /// vuelve a serializar nada). [firma] son las cabeceras X-Device-Id,
+  /// X-Signature-Timestamp y X-Signature (nulas si no hay que firmar).
+  Future<Map<String, dynamic>> enviarSerializado(
+    String metodo,
+    String ruta,
+    String cuerpoSerializado, {
+    required String idempotencia,
+    String? rol,
+    Map<String, String>? firma,
+  }) {
+    final cabeceras = {..._cabeceras(idempotencia: idempotencia, rol: rol), ...?firma};
+    final bytes = utf8.encode(cuerpoSerializado);
+    return _enviar(() => metodo.toUpperCase() == 'PATCH'
+        ? _http.patch(_uri(ruta), headers: cabeceras, body: bytes)
+        : _http.post(_uri(ruta), headers: cabeceras, body: bytes));
+  }
+
+  /// `POST /me/devices` (no se firma): registra la clave pública del teléfono.
+  Future<Map<String, dynamic>> registrarDispositivo({
+    required String nombre,
+    required String clavePublica,
+    required String idempotencia,
+  }) =>
+      post('/me/devices', {'name': nombre, 'platform': 'android', 'public_key': clavePublica, 'alg': 'ES256'},
+          idempotencia: idempotencia);
 
   /// `GET /me`: comprueba la clave y devuelve quién soy.
   Future<Map<String, dynamic>> quienSoy() => get('/me');

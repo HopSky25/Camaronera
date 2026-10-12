@@ -22,7 +22,7 @@ class Repositorio {
   Repositorio({required this.sesion, BaseLocal? bd}) : _bd = bd ?? BaseLocal();
 
   ApiCliente get _api {
-    final api = sesion.api;
+    final api = sesion.apiOperativa;
     if (api == null) throw const ErrorApi(401, 'Sin sesión', 'Vuelve a entrar.', 'expired-api-key');
     return api;
   }

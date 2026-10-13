@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../datos/sincronizador.dart';
+import '../../modelos/supervisor.dart';
 import '../../tema.dart';
 
 /// Tarjeta con filas etiqueta → valor, como en el detalle de la verificación.
@@ -144,6 +145,23 @@ class AvisoWeb extends StatelessWidget {
           const Icon(Icons.language, size: 18, color: Marca.tintaSuave),
           const SizedBox(width: 10),
           Expanded(child: Text(texto, style: const TextStyle(fontSize: 13, color: Marca.tintaSuave))),
+        ]),
+      );
+}
+
+/// Reemplaza a las acciones de escritura en modo supervisor.
+class AvisoSoloLectura extends StatelessWidget {
+  const AvisoSoloLectura({super.key});
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: const Color(0xFFFDF1E0), borderRadius: BorderRadius.circular(12)),
+        child: const Row(children: [
+          Icon(Icons.visibility_outlined, size: 18, color: Marca.ambar),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(textoSoloLectura, style: TextStyle(fontSize: 13.5, color: Marca.ambar, fontWeight: FontWeight.w700)),
+          ),
         ]),
       );
 }
@@ -367,7 +385,7 @@ class _BotonAccionState extends State<BotonAccion> {
 void avisarResultado(BuildContext context, ResultadoEnvio r, {required String hecho}) {
   final texto = r.enviado
       ? hecho
-      : r.sinConfirmar
+      : r.sinConfirmar || r.soloLectura
           ? r.error!
           : r.error != null
               ? 'El servidor no lo aceptó: ${r.error}'

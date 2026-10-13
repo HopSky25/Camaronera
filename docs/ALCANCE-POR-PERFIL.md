@@ -75,6 +75,72 @@ la clave se cree en hardware y no sea exportable, la invalidación al añadir un
 Keystore. Las pruebas usan un firmador falso con pointycastle que produce ES256 real (DER + SPKI) y un servidor
 falso que verifica como `shrimp_api`.
 
+## Modo supervisor
+
+Contrato: `odoo19/docs/app/CONTRATO-FIRMA-DISPOSITIVO.md`, **Anexo B** (v1, 12-oct-2026). Un usuario
+INTERNO con el grupo "Supervisor de la app" ve la app de cualquier socio **en solo lectura**; nunca
+transacciona en su nombre.
+
+**Flujo de pantallas.**
+
+| Paso | Pantalla | Qué pasa | Endpoint |
+|---|---|---|---|
+| Entrar | Entrada (la misma) | El login responde `"supervisor": true` (en la raíz o en `me`): la app lo marca en `me` (que se guarda en SQLite) y entra en modo supervisor. | `POST /auth/login` |
+| Proteger | **Protege tu cuenta** (la misma) | Igual que cualquier clave de app: bloqueo de pantalla, registro del teléfono con la clave de supervisor (primer registro sin firma) y la clave cifrada bajo la huella / PIN. El texto explica que cada acceso a un socio se confirma con la huella. | `POST /me/devices` |
+| Abrir la app | **Desbloqueo** (la misma) | Huella o PIN. Con la clave de supervisor NO se pide `GET /me` (no tiene scopes de datos). | — |
+| Elegir socio | **Elige un socio** | Buscador (`q`, con espera de 400 ms), chips por tipo (Todos, Camaronera, Empacadora, Verificadora, Maquilador, Laboratorio, Semillero) y lista paginada ("Cargar más", 30 por página) con nombre, tipo, ciudad / provincia y perfiles. Menú: Seguridad y "Salir del modo supervisor". | `GET /supervisor/partners?q&type&limit&cursor` (clave de supervisor, sin `X-Shrimp-Role`) |
+| Ver su app | diálogo de huella (o "Ver su app con el PIN" en el menú de la tarjeta) | `POST /supervisor/act-as {"partner": id}` **firmado** por el teléfono del supervisor: cadena canónica de la sección 3, `Idempotency-Key`, `X-Device-Id`, `X-Signature-Timestamp`, `X-Signature`. La clave de solo lectura que devuelve vive **solo en memoria** (no se guarda ni cifrada; al cerrar la app se vuelve al directorio). Su `me` tampoco se guarda. | `POST /supervisor/act-as` |
+| Perfil del socio | **¿Con qué perfil quieres ver su app?** (la de elegir perfil) | Las mismas reglas que una cuenta normal (técnico → directo; un aprobado → directo; varios → elegir). El perfil va solo en `X-Shrimp-Role`; nunca `POST /me/active-role`. | cabecera `X-Shrimp-Role` |
+| Panel del socio | El panel de su perfil, con la **franja fija** arriba | "Viendo como *socio* · solo lectura" con "Cambiar de socio" y "Salir del modo supervisor", encima de TODAS las pantallas (también las abiertas encima del panel y los diálogos). Las lecturas usan la clave del socio, **sin firma**. | `GET` de cada perfil |
+
+**Solo lectura.**
+
+* Se ocultan todas las acciones de escritura y en su lugar aparece "Solo lectura en modo supervisor":
+  comprar con verificación y comprar el lote reservado (empacadora), aceptar / rechazar el informe
+  (vendedor y comprador), programar o cambiar la cita del despacho, ofertar en maquila, registrar recepción
+  y empaque, firmar el acta, y en el detalle de la verificación (verificadora / técnico): asignar técnico,
+  iniciar campo, llegada del camión, informe de campo, fotos y veredicto.
+* Desaparecen "Pendientes de enviar" y "Mis datos y privacidad" (es el portal del supervisor, no del
+  socio). "Cambiar de perfil" sigue (solo cambia `X-Shrimp-Role`). "Cerrar sesión" pasa a ser "Salir del
+  modo supervisor".
+* La cola no encola ni firma nada (`Sincronizador` corta con `ErrorSoloLectura` antes de serializar, firmar
+  o guardar, ni siquiera un borrador de informe o una foto), y en modo supervisor no se sube nada de la cola
+  aunque hubiera quedado algo. Solo se baja la bandeja si el socio es verificadora / técnico.
+* Si aun así el servidor responde `403 insufficient-scope` con la clave del socio, el mensaje es "Solo
+  lectura en modo supervisor: el servidor no permite hacer cambios en nombre del socio."
+
+**Cambiar de socio, salir y caducidad.**
+
+| Caso | Qué hace la app |
+|---|---|
+| "Cambiar de socio" | Vuelve al directorio y revoca la clave del socio (`POST /auth/logout` con esa clave; sin señal caduca sola a las 8 h). Lo bajado con ese socio (bandeja, caché de listas) se borra del teléfono; la sesión del supervisor sigue. |
+| "Salir del modo supervisor" | Revoca la clave del socio y la de supervisor (`/auth/logout` con cada una) y borra todo, como "Cerrar sesión". |
+| 401 con la clave del socio (8 h o revocada) | Vuelta al **directorio** con el aviso "Terminó el acceso de solo lectura a *socio*…"; también al volver a la app si ya pasó su `expires_at`. |
+| 401 con la clave de supervisor | Vuelta a la **entrada** (como cualquier sesión caducada). Revocar la de supervisor revoca las de act-as: el 401 del socio lleva al directorio y el del directorio a la entrada. |
+| Entrar como supervisor en un teléfono con datos de otra cuenta | Se borra lo de la cuenta anterior (su cola no se puede enviar con otra clave). |
+
+**Detalles del servidor que la app maneja (Anexo B, confirmados por backend el 12-oct-2026).**
+
+1. `type` del filtro usa el código del perfil: `camaronera`, `empacadora`, `verificador`, `maquilador`,
+   `laboratorio`, `semillero` (el chip "Verificadora" manda `verificador`); otro valor → 400
+   `invalid-parameter`.
+2. El directorio pagina por cursor en orden de última modificación: la app muestra lo cargado en orden
+   alfabético (sin repetir socios entre páginas). `roles` puede venir como lista de códigos o de objetos
+   `{role, label, state}`; `city` / `province` pueden venir `false`.
+3. La clave de act-as caduca a las 8 h pero nunca después de la de supervisor: la app usa siempre el
+   `expires_at` de la respuesta de act-as (solo si faltara, 8 h acotadas a la caducidad del supervisor).
+4. Un reintento idempotente de act-as devuelve `"api_key": null` (el servidor no guarda el secreto): la app
+   hace un act-as NUEVO, con otra `Idempotency-Key` y otra firma (otra huella). Repetir act-as sobre el mismo
+   socio revoca la clave anterior de ese socio.
+5. El `me` de act-as trae `read_only: true` y `viewed_by: {"name"}`: la franja muestra "Supervisor: *nombre*".
+   El `me` de supervisor trae además `id`, `email`, `active_role` y `api_key` (la app no le pide `GET /me`).
+6. Con la clave de supervisor solo se llama a `/supervisor/*`, `/me/devices` y `/auth/logout`; con la de
+   act-as, solo a `GET` y a `/auth/logout` (nunca `POST /me/devices`, que da `insufficient-scope`).
+7. Errores con mensaje propio: 403 `supervisor-key`, `supervisor-only`, `act-as-internal-user`,
+   `insufficient-scope` (con la clave del socio: "Solo lectura en modo supervisor…"), 422
+   `partner-not-approved`, `partner-without-portal-user`, 404 `not-found`, 400 `invalid-parameter`.
+8. `X-Shrimp-Role` funciona con la clave de act-as igual que con una clave normal.
+
 ## Datos y red
 
 * Técnico y verificadora: bandeja local en SQLite (`verificaciones`), funciona sin internet.

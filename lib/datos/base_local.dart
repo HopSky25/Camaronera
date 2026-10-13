@@ -398,6 +398,19 @@ class BaseLocal {
   static Future<Directory> carpetaFotos() async =>
       Directory(p.join((await getApplicationDocumentsDirectory()).path, 'fotos'));
 
+  /// Modo supervisor: al cambiar de socio (o al caducar su acceso) se borra
+  /// lo que se bajó con la clave de "actuar como" (bandeja, caché de listas)
+  /// sin tocar la configuración de la sesión del supervisor.
+  Future<void> borrarDatosDeSocio() async {
+    final db = await bd;
+    await db.transaction((t) async {
+      await t.delete('verificaciones');
+      await t.delete('cola');
+      await t.delete('fotos');
+      await t.delete('cache_listas');
+    });
+  }
+
   /// Borra todo lo guardado en el teléfono (cerrar sesión): tablas y fotos,
   /// en una sola transacción para no dejar la base a medias.
   Future<void> borrarTodo() async {

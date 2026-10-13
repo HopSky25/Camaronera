@@ -12,7 +12,12 @@ class ErrorApi implements Exception {
 
   /// Sufijo del `type`: invalid-credentials, account-not-approved, rate-limited...
   final String tipo;
-  const ErrorApi(this.status, this.titulo, this.detalle, this.tipo);
+
+  /// Llegó por una clave de solo lectura (modo supervisor, "actuar como").
+  final bool soloLectura;
+  const ErrorApi(this.status, this.titulo, this.detalle, this.tipo, {this.soloLectura = false});
+
+  ErrorApi _deSoloLectura() => ErrorApi(status, titulo, detalle, tipo, soloLectura: true);
 
   /// 4xx distintos de 401/429 son errores del dato o de permiso: reintentar
   /// no sirve (la cola lo deja a la vista para corregir o descartar).
@@ -38,7 +43,9 @@ class ErrorApi implements Exception {
         'missing-api-key' || 'invalid-api-key' => 'La clave de API no es válida.',
         'expired-api-key' => 'La sesión caducó. Vuelve a entrar.',
         'revoked-api-key' => 'La sesión fue cerrada desde el portal. Vuelve a entrar.',
-        'insufficient-scope' => 'Tu clave no tiene permiso para esta operación.',
+        'insufficient-scope' => soloLectura
+            ? 'Solo lectura en modo supervisor: el servidor no permite hacer cambios en nombre del socio.'
+            : 'Tu clave no tiene permiso para esta operación.',
         'ip-not-allowed' => 'Esta clave no admite conexiones desde tu red.',
         'invalid-state' => detalle.isEmpty ? 'El registro ya no está en el estado necesario.' : detalle,
         // Firma del dispositivo (docs/app/CONTRATO-FIRMA-DISPOSITIVO.md, sección 5)
@@ -51,11 +58,28 @@ class ErrorApi implements Exception {
           'La confirmación caducó (pasaron más de 7 días o la hora del teléfono está mal). Vuelve a confirmarla en Pendientes.',
         'not-an-app-key' => 'Esta clave de API no es de la app. Entra con tu correo y contraseña para proteger tu cuenta.',
         'signature-replayed' => 'Esta confirmación ya se usó para otra operación. Descarta este envío y vuelve a hacerlo.',
+        // Modo supervisor (Anexo B)
+        'supervisor-key' => 'Con la sesión de supervisor solo se puede elegir un socio. Elige uno para ver su app.',
+        'supervisor-only' => 'Esta opción es solo para supervisores de la app.',
+        'act-as-internal-user' => 'Ese usuario es interno de CamaronMarket: solo se puede ver la app de socios.',
+        'partner-not-approved' => 'Ese socio todavía no está aprobado: no se puede ver su app.',
+        'partner-without-portal-user' => 'Ese socio no tiene usuario del portal activo: no se puede ver su app.',
+        'not-found' => detalle.isNotEmpty ? detalle : 'No se encontró lo que buscabas (puede que ya no exista).',
+        'invalid-parameter' => detalle.isNotEmpty ? 'Filtro no válido: $detalle' : 'Filtro no válido.',
         _ => detalle.isNotEmpty ? detalle : titulo,
       };
 
   @override
   String toString() => '$titulo ($status): $detalle';
+}
+
+/// Acción de escritura intentada en modo supervisor (solo lectura): la app
+/// la corta antes de encolar o firmar nada.
+class ErrorSoloLectura implements Exception {
+  const ErrorSoloLectura();
+  String get mensaje => 'Solo lectura en modo supervisor: no se puede hacer cambios en nombre del socio.';
+  @override
+  String toString() => mensaje;
 }
 
 class SinConexion implements Exception {
@@ -67,6 +91,7 @@ class SinConexion implements Exception {
 String mensajeDeError(Object e) {
   if (e is ErrorApi) return e.mensaje;
   if (e is ErrorSeguridad) return e.mensaje;
+  if (e is ErrorSoloLectura) return e.mensaje;
   if (e is SinConexion) return 'Sin internet. Revisa la señal e inténtalo otra vez.';
   if (e is FormatException || e is ArgumentError) return 'La dirección del servidor no es válida.';
   return 'Algo falló. Inténtalo otra vez y, si sigue, avisa a soporte.';
@@ -100,7 +125,12 @@ class ApiCliente {
   /// cuenta en el servidor (eso movería los menús del portal web).
   String? rolActivo;
 
-  ApiCliente({required this.baseUrl, required this.clave, http.Client? cliente}) : _http = cliente ?? http.Client();
+  /// Clave de solo lectura (modo supervisor): un 403 insufficient-scope se
+  /// explica como "solo lectura en modo supervisor".
+  final bool soloLectura;
+
+  ApiCliente({required this.baseUrl, required this.clave, http.Client? cliente, this.soloLectura = false})
+      : _http = cliente ?? http.Client();
 
   /// `rol` fuerza el perfil de esta petición (las operaciones de la cola
   /// viajan con el perfil con el que se hicieron, no con el actual).
@@ -159,6 +189,7 @@ class ApiCliente {
     } on ErrorApi catch (e) {
       if (e.esNoAutorizado) alNoAutorizado?.call(e);
       if (e.dispositivoRevocado || e.dispositivoNoRegistrado) alErrorDispositivo?.call(e);
+      if (soloLectura && e.tipo == 'insufficient-scope') throw e._deSoloLectura();
       rethrow;
     }
   }

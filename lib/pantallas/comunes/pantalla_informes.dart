@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../datos/repositorio.dart';
+import '../../datos/sesion.dart';
 import '../../datos/sincronizador.dart';
 import '../../modelos/cuerpos.dart';
 import '../../modelos/operacion_pendiente.dart';
@@ -114,6 +115,7 @@ class _Detalle extends StatelessWidget {
     final lineas = (clasif['lines'] as List?) ?? [];
     final posturas = (j['acceptances'] as List?) ?? [];
     final hayInforme = pesos['plant_lb'] is num && (pesos['plant_lb'] as num) > 0 || lineas.isNotEmpty || larva != null;
+    final soloLectura = context.select<Sesion, bool>((s) => s.soloLectura);
 
     return RefreshIndicator(
       color: Marca.brand,
@@ -189,7 +191,10 @@ class _Detalle extends StatelessWidget {
                 '${decisionEtiqueta(a['decision'] as String?)}${a['counter_price'] != null ? ' · ${dinero(a['counter_price'])}' : ''}${a['reason'] != null ? ' · ${a['reason']}' : ''}',
               ),
           ]),
-          if (v.puedoDecidir) ...[
+          if (v.puedoDecidir && soloLectura) ...[
+            const SizedBox(height: 16),
+            const AvisoSoloLectura(),
+          ] else if (v.puedoDecidir) ...[
             const SizedBox(height: 16),
             BotonAccion(
               estilo: FilledButton.styleFrom(backgroundColor: Marca.verde),

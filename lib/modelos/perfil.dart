@@ -80,6 +80,10 @@ class Yo {
   final Referencia? empresa;
   final String? perfilActivo;
   final List<Perfil> perfiles;
+
+  /// Usuario interno con el grupo "Supervisor de la app" (Anexo B del
+  /// contrato): su clave solo sirve para el directorio y "actuar como".
+  final bool esSupervisor;
   final Map<String, dynamic> crudo;
 
   const Yo({
@@ -91,6 +95,7 @@ class Yo {
     required this.empresa,
     required this.perfilActivo,
     required this.perfiles,
+    this.esSupervisor = false,
     required this.crudo,
   });
 
@@ -103,6 +108,7 @@ class Yo {
         empresa: json['company'] is Map ? Referencia.desde(json['company']) : null,
         perfilActivo: jsonTexto(json['active_role']),
         perfiles: (json['roles'] is List ? json['roles'] as List : const []).whereType<Map>().map(Perfil.desde).toList(),
+        esSupervisor: json['supervisor'] == true,
         crudo: json,
       );
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../datos/sesion.dart';
 import '../../datos/sincronizador.dart';
 import '../../modelos/cuerpos.dart';
 import '../../modelos/operacion_pendiente.dart';
@@ -74,7 +75,10 @@ class _PantallaSolicitudesState extends State<PantallaSolicitudes> {
                     style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: Marca.brand),
                   ),
                 ),
-              if (abierta) ...[
+              if (abierta && context.read<Sesion>().soloLectura) ...[
+                const SizedBox(height: 10),
+                const AvisoSoloLectura(),
+              ] else if (abierta) ...[
                 const SizedBox(height: 10),
                 BotonAccion(
                   estilo: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),

@@ -176,10 +176,16 @@ class _PantallaProtegeCuentaState extends State<PantallaProtegeCuenta> with Widg
   List<Widget> _conBloqueo(EstadoProteccion? estado, bool soloRegistro) => [
         if (!soloRegistro) ...[
           const PuntoSeguridad(icono: Icons.lock_open_outlined, texto: 'Al abrir la app te pediremos tu huella (o el PIN del teléfono).'),
-          const PuntoSeguridad(
-              icono: Icons.draw_outlined,
-              texto: 'Las operaciones importantes (compras, veredictos, informes, despachos, maquila) se confirman con tu huella, '
-                  'también sin internet.'),
+          if (context.read<Sesion>().esSupervisor)
+            const PuntoSeguridad(
+                icono: Icons.visibility_outlined,
+                texto: 'Modo supervisor: cada vez que abras la app de un socio lo confirmarás con tu huella, '
+                    'y quedará anotado en su historial. Todo es de solo lectura.')
+          else
+            const PuntoSeguridad(
+                icono: Icons.draw_outlined,
+                texto: 'Las operaciones importantes (compras, veredictos, informes, despachos, maquila) se confirman con tu huella, '
+                    'también sin internet.'),
           const PuntoSeguridad(icono: Icons.verified_user_outlined, texto: textoHuellaNoSale),
           if (estado != null && !estado.hayHuella)
             Container(

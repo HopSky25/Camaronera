@@ -23,7 +23,10 @@ class ResultadoEnvio {
 
   /// La persona no confirmó con la huella / PIN: no se guardó nada.
   final bool sinConfirmar;
-  const ResultadoEnvio({required this.enviado, this.error, this.sinConfirmar = false});
+
+  /// Modo supervisor: no se guardó ni se envió nada (solo lectura).
+  final bool soloLectura;
+  const ResultadoEnvio({required this.enviado, this.error, this.sinConfirmar = false, this.soloLectura = false});
 
   /// Guardada en el teléfono, se enviará cuando haya señal.
   bool get enEspera => !enviado && error == null;
@@ -47,6 +50,9 @@ class ResultadoEnvio {
 /// enviarla se mandan esos mismos bytes con las cabeceras de la firma. Una
 /// operación sensible sin firma válida NO se envía: queda en Pendientes con
 /// el botón "Confirmar con huella" ([volverAFirmar]).
+///
+/// Modo supervisor (solo lectura): no se encola, no se firma y no se sube
+/// nada; solo se baja la bandeja del socio que se está viendo.
 class Sincronizador extends ChangeNotifier {
   final BaseLocal _bd;
   final Sesion sesion;
@@ -134,7 +140,8 @@ class Sincronizador extends ChangeNotifier {
     ultimoMensaje = null;
     notifyListeners();
     try {
-      await _subirCola(api);
+      // En modo supervisor no se sube nada (ni lo que hubiera quedado).
+      if (!sesion.soloLectura) await _subirCola(api);
       if (_usaBandeja) await _bajarBandeja(api);
       ultimaSincronizacion = DateTime.now();
       await _bd.escribirConfig('ultima_sincronizacion', ultimaSincronizacion!.toUtc().toIso8601String());
@@ -265,6 +272,7 @@ class Sincronizador extends ChangeNotifier {
   /// confirma: en ese caso no se guarda nada en la cola.
   Future<int> _encolar(TipoOperacion tipo, String recursoId, Map<String, dynamic> cuerpo,
       {String? despachoId, bool reemplazarTipo = false}) async {
+    _exigirEscritura();
     final sinFirma = OperacionPendiente(
       tipo: tipo,
       recursoId: recursoId,
@@ -287,6 +295,7 @@ class Sincronizador extends ChangeNotifier {
   /// rechazada por la firma): mismo cuerpo, misma Idempotency-Key, hora
   /// nueva. Lanza [ErrorSeguridad] si no se confirma.
   Future<void> volverAFirmar(OperacionPendiente op, {bool conPin = false}) async {
+    _exigirEscritura();
     final firma = await sesion.firmarOperacion(op, conPin: conPin);
     if (firma != null) await _bd.guardarFirma(op.idLocal!, firma);
     await recargarLocal();
@@ -310,6 +319,8 @@ class Sincronizador extends ChangeNotifier {
       idLocal = await _encolar(tipo, recursoId, cuerpo, despachoId: despachoId);
     } on ErrorSeguridad catch (e) {
       return ResultadoEnvio(enviado: false, error: e.mensaje, sinConfirmar: true);
+    } on ErrorSoloLectura catch (e) {
+      return ResultadoEnvio(enviado: false, error: e.mensaje, soloLectura: true);
     }
     await sincronizar();
     var op = await _bd.operacion(idLocal);
@@ -337,6 +348,7 @@ class Sincronizador extends ChangeNotifier {
   /// vale el último guardado. Si no se confirma con la huella / PIN lanza
   /// [ErrorSeguridad]; el informe queda guardado en el teléfono.
   Future<void> guardarInforme(Verificacion v, InformeCampo informe, {bool enviar = true}) async {
+    _exigirEscritura();
     await _bd.guardarInformeLocal(v.id, informe, modificado: true);
     if (enviar) {
       await _encolar(TipoOperacion.informe, v.id, informe.aCuerpoApi(), reemplazarTipo: true);
@@ -350,6 +362,7 @@ class Sincronizador extends ChangeNotifier {
   /// El estado local NO se adelanta: la bandeja cambia cuando el servidor
   /// responde.
   Future<List<String>> darVeredicto(Verificacion v, String veredicto, String notas) async {
+    _exigirEscritura();
     final informe = await informeDe(v);
     final faltan = informe.faltantesParaVeredicto(larva: v.esLarva);
     if (faltan.isNotEmpty) return faltan;
@@ -360,6 +373,7 @@ class Sincronizador extends ChangeNotifier {
 
   /// Llegada del camión. Sin despacho asociado no hay a qué registrarla.
   Future<bool> registrarLlegadaCamion(Verificacion v, DateTime cuando) async {
+    _exigirEscritura();
     final despacho = v.despachoId;
     if (despacho == null || despacho.isEmpty) return false;
     await _encolar(TipoOperacion.llegadaCamion, v.id, cuerpoLlegadaCamion(cuando), despachoId: despacho);
@@ -391,7 +405,15 @@ class Sincronizador extends ChangeNotifier {
     await recargarLocal();
   }
 
-  Future<void> guardarFoto(Verificacion v, String ruta) => _bd.guardarFoto(v.id, ruta);
+  Future<void> guardarFoto(Verificacion v, String ruta) async {
+    _exigirEscritura();
+    await _bd.guardarFoto(v.id, ruta);
+  }
+
+  /// En modo supervisor (solo lectura) ninguna acción llega a la cola.
+  void _exigirEscritura() {
+    if (sesion.soloLectura) throw const ErrorSoloLectura();
+  }
   Future<List<String>> fotosDe(Verificacion v) => _bd.fotos(v.id);
 
   @override

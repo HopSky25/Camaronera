@@ -39,29 +39,42 @@ class _PantallaElegirPerfilState extends State<PantallaElegirPerfil> {
     final perfiles = sesion.yo?.perfiles ?? [];
     final orden = ['camaronera', 'empacadora', 'semillero', 'laboratorio', 'maquilador', 'verificador'];
     final ordenados = [...perfiles]..sort((a, b) => orden.indexOf(a.rol).compareTo(orden.indexOf(b.rol)));
+    // Modo supervisor: perfiles del socio que se está viendo.
+    final supervisor = sesion.soloLectura;
     return Scaffold(
       appBar: AppBar(
         title: Image.asset('assets/logo.png', height: 30),
         actions: [
-          TextButton.icon(
-            onPressed: () => sesion.cerrarSesion(),
-            icon: const Icon(Icons.logout, size: 18),
-            label: const Text('Salir'),
-          ),
+          if (supervisor)
+            TextButton.icon(
+              onPressed: () => sesion.cambiarDeSocio(),
+              icon: const Icon(Icons.groups_outlined, size: 18),
+              label: const Text('Otro socio'),
+            )
+          else
+            TextButton.icon(
+              onPressed: () => sesion.cerrarSesion(),
+              icon: const Icon(Icons.logout, size: 18),
+              label: const Text('Salir'),
+            ),
         ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
         children: [
-          Text('Hola, ${sesion.nombre}', style: Theme.of(context).textTheme.titleLarge),
+          Text(supervisor ? sesion.nombre : 'Hola, ${sesion.nombre}', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 6),
-          const Text('¿Con qué perfil quieres trabajar?', style: TextStyle(fontSize: 16, color: Marca.tintaSuave)),
+          Text(supervisor ? '¿Con qué perfil quieres ver su app?' : '¿Con qué perfil quieres trabajar?',
+              style: const TextStyle(fontSize: 16, color: Marca.tintaSuave)),
           const SizedBox(height: 18),
           if (_error != null) ...[CajaError(texto: _error!), const SizedBox(height: 12)],
           if (perfiles.isEmpty)
-            const Tarjeta(
-              child: Text('Tu cuenta todavía no tiene perfiles. Pídelos desde el portal web.',
-                  style: TextStyle(color: Marca.tintaSuave)),
+            Tarjeta(
+              child: Text(
+                  supervisor
+                      ? 'Este socio todavía no tiene perfiles.'
+                      : 'Tu cuenta todavía no tiene perfiles. Pídelos desde el portal web.',
+                  style: const TextStyle(color: Marca.tintaSuave)),
             ),
           for (final p in ordenados) ...[
             _TarjetaPerfil(
@@ -72,8 +85,12 @@ class _PantallaElegirPerfilState extends State<PantallaElegirPerfil> {
             const SizedBox(height: 12),
           ],
           const SizedBox(height: 8),
-          const Text('Puedes cambiar de perfil cuando quieras desde el menú de la cuenta.',
-              textAlign: TextAlign.center, style: TextStyle(color: Marca.tintaSuave, fontSize: 13)),
+          Text(
+              supervisor
+                  ? 'Elegir un perfil aquí no cambia nada en la cuenta del socio: solo decide qué parte de su app ves.'
+                  : 'Puedes cambiar de perfil cuando quieras desde el menú de la cuenta.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Marca.tintaSuave, fontSize: 13)),
         ],
       ),
     );

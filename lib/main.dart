@@ -13,6 +13,8 @@ import 'pantallas/maquilador/panel_maquilador.dart';
 import 'pantallas/pantalla_bandeja.dart';
 import 'pantallas/seguridad/pantalla_desbloqueo.dart';
 import 'pantallas/seguridad/pantalla_protege_cuenta.dart';
+import 'pantallas/supervisor/franja_supervisor.dart';
+import 'pantallas/supervisor/pantalla_directorio_socios.dart';
 import 'pantallas/vendedor/panel_vendedor.dart';
 import 'tema.dart';
 
@@ -43,10 +45,12 @@ class AppCamaronMarket extends StatelessWidget {
           title: 'CamaronMarket',
           debugShowCheckedModeBanner: false,
           theme: temaCamaronMarket(),
+          navigatorKey: claveNavegador,
           // La pantalla de desbloqueo tapa TODO (también las pantallas
           // abiertas encima de la raíz), sin cerrarlas: al desbloquear se
-          // sigue donde se estaba (p. ej. un informe a medio llenar).
-          builder: (context, child) => _CapaBloqueo(child: child ?? const SizedBox()),
+          // sigue donde se estaba (p. ej. un informe a medio llenar). En
+          // modo supervisor, la franja "Viendo como…" queda fija arriba.
+          builder: (context, child) => _CapaBloqueo(child: CapaSupervisor(child: child ?? const SizedBox())),
           home: const _Raiz(),
         ),
       ),
@@ -132,7 +136,7 @@ class _RaizState extends State<_Raiz> {
     final sesion = context.watch<Sesion>();
     // Si la sesión caduca o se cambia de perfil estando en una pantalla
     // interior, se vuelve a la raíz para que no quede nada encima.
-    final clave = '${sesion.conectado}/${sesion.necesitaProteger}/${sesion.perfil}';
+    final clave = '${sesion.conectado}/${sesion.necesitaProteger}/${sesion.comoSocio?.socio.id}/${sesion.perfil}';
     if (_clave != null && _clave != clave) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) Navigator.of(context).popUntil((r) => r.isFirst);
@@ -146,6 +150,8 @@ class _RaizState extends State<_Raiz> {
     if (sesion.bloqueada && !sesion.conectado) return const Scaffold();
     if (!sesion.conectado) return const PantallaInicioSesion();
     if (sesion.necesitaProteger) return const PantallaProtegeCuenta();
+    // Modo supervisor sin socio elegido (o tras caducar su acceso).
+    if (sesion.esSupervisor && sesion.comoSocio == null) return const PantallaDirectorioSocios();
     if (sesion.necesitaElegirPerfil) return const PantallaElegirPerfil();
     final perfil = sesion.perfil!;
     if (perfil == perfilTecnico) return const PantallaBandeja(titulo: 'Mis verificaciones');

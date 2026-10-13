@@ -44,7 +44,7 @@ class _PantallaAsignarTecnicoState extends State<PantallaAsignarTecnico> {
 
   Future<void> _cargarTecnicos() async {
     final sinc = context.read<Sincronizador>();
-    final api = context.read<Sesion>().api;
+    final api = context.read<Sesion>().apiOperativa;
     List<Referencia> lista = [];
     if (api == null) {
       _avisoLista = 'La sesión caducó: se muestran los técnicos ya vistos en la bandeja.';

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../datos/sesion.dart';
 import '../datos/sincronizador.dart';
 import '../modelos/verificacion.dart';
 import '../seguridad/firmador.dart';
@@ -21,6 +22,7 @@ class PantallaVerificacion extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sinc = context.watch<Sincronizador>();
+    final soloLectura = context.select<Sesion, bool>((s) => s.soloLectura);
     final v = sinc.bandeja.where((e) => e.id == id).firstOrNull;
     if (v == null) {
       return Scaffold(appBar: AppBar(), body: const Center(child: Text('Esta verificación ya no está en tu bandeja.')));
@@ -84,6 +86,11 @@ class PantallaVerificacion extends StatelessWidget {
               ('Fotos', '${v.crudo['photo_count'] ?? 0}'),
             ]),
           const Rotulo('Acciones'),
+          if (soloLectura) ...[
+            // Modo supervisor: ni asignar, ni campo, ni informe, ni fotos, ni veredicto.
+            const AvisoSoloLectura(),
+            if (v.cerrada) const SizedBox(height: 10),
+          ] else ...[
           if (v.soyVerificadora && !v.cerrada) ...[
             OutlinedButton.icon(
               onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PantallaAsignarTecnico(id: v.id))),
@@ -152,6 +159,7 @@ class PantallaVerificacion extends StatelessWidget {
               icon: const Icon(Icons.gavel_rounded),
               label: const Text('Dar veredicto'),
             ),
+          ],
           if (v.cerrada)
             const Tarjeta(
               child: Text('Esta verificación está cerrada. Puedes consultarla, pero ya no se edita.',

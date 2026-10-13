@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../datos/repositorio.dart';
+import '../../datos/sesion.dart';
 import '../../datos/sincronizador.dart';
 import '../../modelos/cuerpos.dart';
 import '../../modelos/operacion_pendiente.dart';
@@ -141,7 +142,9 @@ class PantallaLotePublico extends StatelessWidget {
                   ]),
                 ],
                 const SizedBox(height: 16),
-                if (p['requires_verification'] == true)
+                if (context.read<Sesion>().soloLectura)
+                  const AvisoSoloLectura()
+                else if (p['requires_verification'] == true)
                   FilledButton.icon(
                     onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PantallaComprar(p: p))),
                     icon: const Icon(Icons.verified_outlined),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../datos/repositorio.dart';
+import '../../datos/sesion.dart';
 import '../../datos/sincronizador.dart';
 import '../../modelos/cuerpos.dart';
 import '../../modelos/operacion_pendiente.dart';
@@ -97,6 +98,8 @@ class _Detalle extends StatelessWidget {
     final firmas = ((o['signatures'] as List?) ?? []).whereType<Map>().toList();
     final miFirma = firmas.where((f) => f['role'] == (soyMaquilador ? 'copacker' : 'client')).firstOrNull;
     final puedoFirmar = (o['acceptance_state'] == 'open' || o['acceptance_state'] == 'disputed') && miFirma != null && miFirma['decision'] == 'pending';
+    final soloLectura = context.select<Sesion, bool>((s) => s.soloLectura);
+    final hayAcciones = (soyMaquilador && (estado == 'confirmed' || estado == 'received')) || puedoFirmar;
 
     return RefreshIndicator(
       color: Marca.brand,
@@ -136,6 +139,10 @@ class _Detalle extends StatelessWidget {
               (f['role'] == 'copacker' ? 'Maquilador' : 'Cliente', '${_decision(f['decision'] as String?)}${f['reason'] != null ? ' · ${f['reason']}' : ''}'),
           ]),
           const SizedBox(height: 16),
+          if (soloLectura && hayAcciones) ...[
+            const AvisoSoloLectura(),
+            const SizedBox(height: 10),
+          ] else ...[
           if (soyMaquilador && estado == 'confirmed') ...[
             BotonAccion(onPressed: () => _recepcion(context), icono: Icons.move_to_inbox_outlined, texto: 'Registrar recepción en planta'),
             const SizedBox(height: 10),
@@ -160,6 +167,7 @@ class _Detalle extends StatelessWidget {
               texto: 'No conforme',
             ),
             const SizedBox(height: 10),
+          ],
           ],
           if (estado == 'closed' || estado == 'cancelled')
             const Tarjeta(child: Text('Esta orden está cerrada. Puedes consultarla, pero ya no se edita.', style: TextStyle(color: Marca.tintaSuave)))

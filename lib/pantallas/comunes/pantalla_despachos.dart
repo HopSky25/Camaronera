@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../datos/repositorio.dart';
+import '../../datos/sesion.dart';
 import '../../datos/sincronizador.dart';
 import '../../modelos/cuerpos.dart';
 import '../../modelos/operacion_pendiente.dart';
@@ -94,6 +95,7 @@ class PantallaDespacho extends StatelessWidget {
           final d = r.datos.first;
           final esVendedor = d['my_role'] == 'seller';
           final llegado = d['state'] == 'llegado';
+          final soloLectura = context.read<Sesion>().soloLectura;
           return RefreshIndicator(
             color: Marca.brand,
             onRefresh: recargar,
@@ -130,7 +132,9 @@ class PantallaDespacho extends StatelessWidget {
                   ]),
                 ],
                 const SizedBox(height: 16),
-                if (esVendedor && !llegado)
+                if (esVendedor && !llegado && soloLectura)
+                  const AvisoSoloLectura()
+                else if (esVendedor && !llegado)
                   FilledButton.icon(
                     onPressed: () async {
                       final cambiado = await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => PantallaProgramarDespacho(d: d)));

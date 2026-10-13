@@ -8,6 +8,7 @@ import '../../modelos/perfil.dart';
 import '../../tema.dart';
 import '../pantalla_pendientes.dart';
 import '../seguridad/pantalla_seguridad.dart';
+import '../supervisor/franja_supervisor.dart';
 
 /// Barra superior común a todos los perfiles: logo, pendientes de enviar,
 /// sincronizar y el menú de la cuenta (cambiar perfil, datos y privacidad,
@@ -22,20 +23,23 @@ class BarraCuenta extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     final sinc = context.watch<Sincronizador>();
+    final soloLectura = context.select<Sesion, bool>((s) => s.soloLectura);
     return AppBar(
       titleSpacing: 16,
       title: titulo == null ? Image.asset('assets/logo.png', height: 30) : Text(titulo!),
       actions: [
-        IconButton(
-          tooltip: 'Pendientes de enviar',
-          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaPendientes())),
-          icon: Badge(
-            isLabelVisible: sinc.pendientes > 0,
-            backgroundColor: Marca.ambar,
-            label: Text('${sinc.pendientes}'),
-            child: const Icon(Icons.cloud_upload_outlined),
+        // Modo supervisor: no hay nada que enviar.
+        if (!soloLectura)
+          IconButton(
+            tooltip: 'Pendientes de enviar',
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaPendientes())),
+            icon: Badge(
+              isLabelVisible: sinc.pendientes > 0,
+              backgroundColor: Marca.ambar,
+              label: Text('${sinc.pendientes}'),
+              child: const Icon(Icons.cloud_upload_outlined),
+            ),
           ),
-        ),
         IconButton(
           tooltip: 'Sincronizar',
           onPressed: sinc.sincronizando ? null : () => sinc.sincronizar(),
@@ -56,6 +60,7 @@ class MenuCuenta extends StatelessWidget {
   Widget build(BuildContext context) {
     final sesion = context.watch<Sesion>();
     final puedeCambiar = !sesion.esTecnico && (sesion.yo?.aprobados.length ?? 0) > 1;
+    final supervisor = sesion.soloLectura;
     return PopupMenuButton<String>(
       icon: const Icon(Icons.account_circle_outlined),
       onSelected: (v) => _accion(context, v),
@@ -64,15 +69,28 @@ class MenuCuenta extends StatelessWidget {
           enabled: false,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
             Text(sesion.nombre, style: const TextStyle(fontWeight: FontWeight.w700, color: Marca.navy)),
-            Text(nombreDePerfil(sesion.perfil ?? ''), style: const TextStyle(fontSize: 12.5, color: Marca.tintaSuave)),
+            Text(
+                supervisor
+                    ? '${nombreDePerfil(sesion.perfil ?? '')} · solo lectura'
+                    : nombreDePerfil(sesion.perfil ?? ''),
+                style: const TextStyle(fontSize: 12.5, color: Marca.tintaSuave)),
+            if (supervisor && sesion.yoPropio != null)
+              Text('Supervisor: ${sesion.yoPropio!.nombre}', style: const TextStyle(fontSize: 12, color: Marca.tintaSuave)),
           ]),
         ),
         const PopupMenuDivider(),
+        // Cambiar de perfil solo cambia X-Shrimp-Role (lectura), también en modo supervisor.
         if (puedeCambiar)
           const PopupMenuItem(value: 'perfil', child: ListTile(leading: Icon(Icons.swap_horiz), title: Text('Cambiar de perfil'))),
+        if (supervisor)
+          const PopupMenuItem(value: 'socio', child: ListTile(leading: Icon(Icons.groups_outlined), title: Text('Cambiar de socio'))),
         const PopupMenuItem(value: 'seguridad', child: ListTile(leading: Icon(Icons.shield_outlined), title: Text('Seguridad'))),
-        const PopupMenuItem(value: 'datos', child: ListTile(leading: Icon(Icons.privacy_tip_outlined), title: Text('Mis datos y privacidad'))),
-        const PopupMenuItem(value: 'salir', child: ListTile(leading: Icon(Icons.logout), title: Text('Cerrar sesión'))),
+        if (!supervisor)
+          const PopupMenuItem(value: 'datos', child: ListTile(leading: Icon(Icons.privacy_tip_outlined), title: Text('Mis datos y privacidad'))),
+        if (supervisor)
+          const PopupMenuItem(value: 'supervisor', child: ListTile(leading: Icon(Icons.logout), title: Text('Salir del modo supervisor')))
+        else
+          const PopupMenuItem(value: 'salir', child: ListTile(leading: Icon(Icons.logout), title: Text('Cerrar sesión'))),
       ],
     );
   }
@@ -84,6 +102,11 @@ class MenuCuenta extends StatelessWidget {
       case 'perfil':
         Navigator.popUntil(context, (r) => r.isFirst);
         await sesion.volverAElegirPerfil();
+      case 'socio':
+        Navigator.popUntil(context, (r) => r.isFirst);
+        await sesion.cambiarDeSocio();
+      case 'supervisor':
+        await confirmarSalirSupervisor(context);
       case 'seguridad':
         await Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaSeguridad()));
       case 'datos':
@@ -157,8 +180,8 @@ class FranjaPerfil extends StatelessWidget {
                 style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800)),
             Text(
               sesion.esTecnico && sesion.yo?.empresa != null
-                  ? '${nombreDePerfil(rol)} · ${sesion.yo!.empresa!.nombre}'
-                  : nombreDePerfil(rol),
+                  ? '${nombreDePerfil(rol)} · ${sesion.yo!.empresa!.nombre}${sesion.soloLectura ? ' · solo lectura' : ''}'
+                  : '${nombreDePerfil(rol)}${sesion.soloLectura ? ' · solo lectura' : ''}',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 13),

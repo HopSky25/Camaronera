@@ -17,3 +17,4 @@ from . import test_rutas_ingles
 from . import test_api_login
 from . import test_api_technicians
 from . import test_api_dispositivos
+from . import test_api_supervisor

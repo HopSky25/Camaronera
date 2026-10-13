@@ -1,6 +1,6 @@
 {
     "name": "Camaronera — API externa (v1)",
-    "version": "19.0.1.5.0",
+    "version": "19.0.1.6.0",
     "summary": "API REST/JSON versionada (/api/v1) con claves con hash, scopes, "
                "webhooks firmados, trazabilidad pública por token y OpenAPI 3.1",
     "description": """
@@ -28,6 +28,8 @@ La guía para integradores está en README.md.
     "category": "Industries",
     "depends": ["shrimp_copacking", "portal", "website"],
     "data": [
+        # Grupo «Supervisor de la app» (antes del CSV, que lo referencia).
+        "security/shrimp_api_groups.xml",
         "security/ir.model.access.csv",
         "security/shrimp_api_security.xml",
         "data/api_scope_data.xml",

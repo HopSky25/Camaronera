@@ -28,11 +28,17 @@ SELLER_TYPES = ("semillero", "laboratorio", "camaronera")
 # ---------------------------------------------------------------------------
 # /me
 # ---------------------------------------------------------------------------
-@api_route("GET", "/me", tags=[TAG_ME], summary="Mi perfil y los datos de esta clave",
+@api_route("GET", "/me", supervisor=True, tags=[TAG_ME], summary="Mi perfil y los datos de esta clave",
+           description="Con una clave de supervisor (modo supervisor) devuelve {name, type: null, "
+                       "supervisor: true, roles: []} y los datos de la clave. Con una clave de "
+                       "«actuar como», el perfil del socio con read_only: true y viewed_by.",
            response=obj(id="uuid", name="string", type="string", email="string",
                         active_role="string", roles={"type": "array"},
+                        supervisor="boolean", read_only="boolean",
                         api_key={"type": "object"}))
 def me_get(ctx):
+    if ctx.key.is_supervisor_key:
+        return S.supervisor_me(ctx.user, ctx.key)
     return S.me(ctx.user, ctx.key)
 
 

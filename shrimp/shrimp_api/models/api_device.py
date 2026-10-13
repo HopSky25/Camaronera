@@ -269,10 +269,19 @@ class ShrimpApiSignedOperation(models.Model):
     ip = fields.Char(string="IP", readonly=True)
     request_id = fields.Char(string="request_id", readonly=True)
     status_code = fields.Integer(string="Respuesta HTTP", readonly=True)
+    # Modo supervisor (POST /supervisor/act-as): el socio cuya cuenta se vio
+    # y la clave de solo lectura emitida.
+    act_as_partner_id = fields.Many2one("res.partner", string="Socio visto (supervisor)",
+                                        readonly=True, index="btree_not_null", ondelete="set null")
+    act_as_key_id = fields.Many2one("shrimp.api.key", string="Clave de solo lectura emitida",
+                                    readonly=True, ondelete="set null")
 
-    # Solo el despachador escribe aquí (en sudo y con este contexto).
+    _AUDIT_WRITABLE = {"status_code", "act_as_partner_id", "act_as_key_id"}
+
+    # Solo el despachador (y el act-as del supervisor) escriben aquí, en sudo
+    # y con este contexto.
     def write(self, vals):
-        if not self.env.context.get("shrimp_api_audit") or set(vals) - {"status_code"}:
+        if not self.env.context.get("shrimp_api_audit") or set(vals) - self._AUDIT_WRITABLE:
             raise UserError(_("La auditoría de operaciones firmadas es de solo lectura."))
         return super().write(vals)
 

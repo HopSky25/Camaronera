@@ -99,6 +99,7 @@
                 <field name="signed_at"/>
                 <field name="status_code"/>
                 <field name="ip" optional="show"/>
+                <field name="act_as_partner_id" optional="show"/>
                 <field name="signature_hash" optional="hide"/>
             </list>
         </field>
@@ -128,6 +129,10 @@
                             <field name="status_code"/>
                         </group>
                     </group>
+                    <group string="Modo supervisor (actuar como)" invisible="not act_as_partner_id">
+                        <field name="act_as_partner_id"/>
+                        <field name="act_as_key_id"/>
+                    </group>
                     <group string="Firma">
                         <field name="idempotency_key"/>
                         <field name="signature_hash"/>
@@ -150,6 +155,9 @@
                 <field name="device_id"/>
                 <field name="signature_hash"/>
                 <field name="request_id"/>
+                <field name="act_as_partner_id"/>
+                <filter name="f_act_as" string="Actuar como (supervisor)"
+                        domain="[('act_as_partner_id', '!=', False)]"/>
                 <group>
                     <filter name="g_user" string="Usuario" context="{'group_by': 'user_id'}"/>
                     <filter name="g_device" string="Dispositivo" context="{'group_by': 'device_id'}"/>

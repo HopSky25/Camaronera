@@ -64,7 +64,9 @@ class ShrimpApiPortal(http.Controller):
     def my_api_key_new(self, **post):
         if not self._api_user_ok():
             return self._render_keys(error=_("Las claves de la API externa son para socios del portal."))
-        active = self._keys().filtered(lambda k: k.status == "active")
+        # Las de «actuar como» de un supervisor (modo supervisor de la app)
+        # no cuentan: no las creó el socio y caducan en horas.
+        active = self._keys().filtered(lambda k: k.status == "active" and not k.supervisor_key_id)
         if len(active) >= MAX_ACTIVE_KEYS:
             return self._render_keys(error=_("Tienes %s claves activas: revoca alguna antes de crear otra.")
                                      % MAX_ACTIVE_KEYS)

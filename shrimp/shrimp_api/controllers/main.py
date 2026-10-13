@@ -18,8 +18,9 @@ from odoo.service.model import PG_CONCURRENCY_EXCEPTIONS_TO_RETRY
 from ..models.api_key import KEY_RE
 from .framework import (API_PREFIX, DEVICE_HEADER, MONEY_SCHEMA, REF_SCHEMA, ROUTES,
                         SIGNATURE_HEADER, SIGNATURE_MAX_AGE, SIGNATURE_MAX_SKEW,
-                        SIGNATURE_TS_HEADER, SIGNED_IF_DEVICE, ApiCtx, ApiError, ApiResponse, PROBLEM_TITLES,
-                        api_route, canonical_string, object_schema, resolve)
+                        SIGNATURE_TS_HEADER, SIGNED_IF_DEVICE, SUPERVISOR_ONLY, ApiCtx, ApiError,
+                        ApiResponse, PROBLEM_TITLES, api_route, canonical_string, object_schema,
+                        resolve)
 
 _logger = logging.getLogger(__name__)
 
@@ -359,7 +360,7 @@ class ShrimpApiController(http.Controller):
         if not request.env["shrimp.api.signature.nonce"].sudo()._api_consume(
                 sig["signature_hash"], device.id):
             raise _signature_error("signature-replayed")
-        sig["audit"] = request.env["shrimp.api.signed.operation"].sudo().create({
+        sig["audit"] = ctx.signed_operation = request.env["shrimp.api.signed.operation"].sudo().create({
             "user_id": ctx.user.id,
             "device_id": device.id,
             "device_ref": device.uuid_ref,
@@ -413,6 +414,7 @@ class ShrimpApiController(http.Controller):
         if origin and key._api_origin_allowed(origin):
             extra += [("Access-Control-Allow-Origin", origin), ("Vary", "Origin"),
                       ("Access-Control-Expose-Headers", EXPOSE)]
+        self._check_supervisor(key, route, method)
         scopes = key._api_scope_codes()
         if route.scopes and not (set(route.scopes) & scopes):
             raise ApiError(403, "insufficient-scope",
@@ -448,7 +450,12 @@ class ShrimpApiController(http.Controller):
         # Operación sensible con clave de la app: dispositivo + firma, ANTES
         # de mirar la idempotencia (un reintento también tiene que venir
         # firmado por un dispositivo vigente) y sin escribir nada todavía.
-        sig = self._check_signature(key, method, route) if route.signed and key.is_app_key else None
+        # La clave de «actuar como» (modo supervisor) no tiene dispositivo
+        # propio: la autenticó el dispositivo del supervisor al emitirla, y
+        # como solo lee nunca llega aquí con una ruta firmada (antes da
+        # insufficient-scope en _check_supervisor o en los scopes).
+        sig = self._check_signature(key, method, route) \
+            if route.signed and key.is_app_key and not key.supervisor_key_id else None
         ctx = ApiCtx(request.env, key.with_env(request.env).sudo(), self._params(), body,
                      method, path, rid, ip, route)
         if sig:
@@ -463,6 +470,33 @@ class ShrimpApiController(http.Controller):
         if sig:
             return self._run_signed(route, ctx, pparams, sig, headers)
         return self._render(self._run(route, ctx, pparams), headers)
+
+    def _check_supervisor(self, key, route, method):
+        """Modo supervisor (contrato, Anexo B), antes que los scopes.
+
+        * Clave de supervisor: solo las rutas marcadas supervisor=True o
+          SUPERVISOR_ONLY; cualquier otra (todas las de datos) → 403
+          supervisor-key.
+        * Las rutas SUPERVISOR_ONLY no las admite ninguna otra clave (tampoco
+          una de «actuar como»: no se encadena) → 403 supervisor-only.
+        * Clave de «actuar como»: solo lectura. Sus scopes ya son *:read, pero
+          hay rutas de escritura sin scope (registrar o revocar dispositivos):
+          toda escritura salvo cerrar sesión → 403 insufficient-scope.
+        """
+        if key.is_supervisor_key:
+            if not route.supervisor:
+                raise ApiError(403, "supervisor-key",
+                               "Una clave de supervisor no lee ni escribe datos de socios: usa "
+                               "/supervisor/partners y /supervisor/act-as para ver la cuenta de "
+                               "un socio (solo lectura).")
+            return
+        if route.supervisor == SUPERVISOR_ONLY:
+            raise ApiError(403, "supervisor-only",
+                           "Esta operación es solo para la clave de supervisor de la app.")
+        if key.supervisor_key_id and method in WRITE_METHODS and route.path != "/auth/logout":
+            raise ApiError(403, "insufficient-scope",
+                           "Clave de solo lectura («actuar como» de un supervisor): no admite "
+                           "operaciones de escritura.")
 
     def _idempotent(self, route, ctx, pparams, key, raw, headers, sig=None):
         hr = request.httprequest
@@ -524,9 +558,26 @@ class ShrimpApiController(http.Controller):
             record.unlink()
         else:
             record.write({"state": "done", "status_code": response.status_code,
-                          "response_body": response.get_data(as_text=True),
+                          "response_body": self._storable_body(route, response),
                           "response_type": response.headers.get("Content-Type")})
         return response
+
+
+    def _storable_body(self, route, response):
+        """Cuerpo que se guarda para la idempotencia: sin los secretos de la
+        ruta (route.secret_fields), que no se guardan nunca en claro."""
+        text = response.get_data(as_text=True)
+        if not route.secret_fields or not text:
+            return text
+        try:
+            data = json.loads(text)
+        except ValueError:
+            return text
+        if isinstance(data, dict):
+            for name in route.secret_fields:
+                if name in data:
+                    data[name] = None
+        return json.dumps(data, ensure_ascii=False, default=str)
 
 
 # ---------------------------------------------------------------------------
@@ -607,6 +658,13 @@ def build_openapi(base_url, installed):
                                      "\n\n**Operación firmada:** con una clave de la app móvil exige "
                                      "dispositivo registrado y firma ES256 (README, «Dispositivos y firma "
                                      "de operaciones»). Las demás claves no la necesitan.").strip()
+        if route.supervisor == SUPERVISOR_ONLY:
+            op["x-supervisor"] = "only"
+            op["description"] = (op.get("description", "") +
+                                 "\n\n**Solo con clave de supervisor** (README, «Modo supervisor»); "
+                                 "cualquier otra clave recibe 403 supervisor-only.").strip()
+        elif route.supervisor and not route.public:
+            op["x-supervisor"] = True
         if params:
             op["parameters"] = params
         if route.body:

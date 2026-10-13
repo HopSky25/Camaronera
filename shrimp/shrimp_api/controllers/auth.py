@@ -9,7 +9,9 @@ caducidad, revocación y la página del portal donde el socio ve sus claves.
 * La contraseña se comprueba con ``res.users._login`` (lo que hace
   /web/session/authenticate), sin guardar nada en la sesión.
 * Solo usuarios de portal activos; un usuario interno recibe 403, igual que
-  cuando intenta usar una clave.
+  cuando intenta usar una clave. Excepción: un usuario interno con el grupo
+  «Supervisor de la app» recibe una clave de SUPERVISOR (8 h, sin scopes de
+  datos; contrato, Anexo B y controllers/supervisor.py).
 * Mensajes genéricos: no se distingue «no existe» de «contraseña mala».
 * Como máximo LOGIN_MAX_FAILURES intentos fallidos por (IP, login) en
   LOGIN_WINDOW segundos, contados en ``shrimp.rate.limit`` (la misma tabla
@@ -24,6 +26,7 @@ from odoo import fields
 from odoo.exceptions import AccessDenied
 from odoo.http import request
 
+from ..models.api_key import SUPERVISOR_KEY_HOURS
 from ..models.api_scope import SCOPE_CODES
 from . import serializers as S
 from .framework import ApiError, F, api_route, invalid, iso_dt, obj
@@ -37,6 +40,7 @@ LOGIN_MAX_FAILURES = 5
 LOGIN_WINDOW = 15 * 60          # segundos
 LOGIN_KEY_DAYS = 365
 APP_KEY_PREFIX = "App móvil – "
+SUPERVISOR_KEY_PREFIX = "Supervisor (app) – "
 
 # Lo que la app necesita: todas las lecturas y las escrituras que hace un
 # socio desde el móvil. Nunca webhooks:manage (eso es para servidores).
@@ -67,7 +71,11 @@ LOGIN_RESPONSE = obj(api_key={"type": "string", "description": "Clave trz_… So
                                       "description": "Siempre true: la clave es de la app y las "
                                                      "operaciones sensibles exigen registrar el "
                                                      "dispositivo (POST /me/devices) y firmarlas."},
-                     me={"type": "object", "description": "Lo mismo que devuelve GET /me con esa clave."})
+                     me={"type": "object", "description": "Lo mismo que devuelve GET /me con esa clave."},
+                     supervisor={"type": "boolean",
+                                 "description": "Solo aparece (true) cuando entra un usuario interno "
+                                                "con el grupo «Supervisor de la app»: la clave es de "
+                                                "supervisor (8 h, sin scopes de datos)."})
 
 
 def _throttle_key(ip, login):
@@ -101,7 +109,10 @@ def _reject(ip, login, why):
                        "429 rate-limited (más de %s intentos fallidos en %s minutos desde la "
                        "misma IP para el mismo correo). La clave es «de la app» "
                        "(device_required: true): antes de una operación sensible hay que registrar "
-                       "el dispositivo (POST /me/devices) y firmar la petición."
+                       "el dispositivo (POST /me/devices) y firmar la petición. Un usuario interno "
+                       "con el grupo «Supervisor de la app» recibe en cambio una clave de "
+                       "supervisor (supervisor: true, 8 h, sin scopes de datos; ver "
+                       "/supervisor/partners y /supervisor/act-as)."
                        % (LOGIN_KEY_DAYS, LOGIN_MAX_FAILURES, LOGIN_WINDOW // 60))
 def auth_login(ctx):
     vals = ctx.clean(LOGIN_SPEC)
@@ -135,7 +146,9 @@ def auth_login(ctx):
     except AccessDenied as e:
         _reject(ip, login, e.args[0] if e.args else "AccessDenied")
     user = Users.sudo().browse(auth_info["uid"])
-    if not user.exists() or not user.active or not user.share:
+    Key = request.env["shrimp.api.key"].sudo()
+    supervisor = bool(user.exists()) and Key._api_is_app_supervisor(user)
+    if not supervisor and (not user.exists() or not user.active or not user.share):
         _logger.warning("API login rechazado para «%s» desde %s: usuario interno o inactivo", login, ip or "?")
         raise ApiError(403, "user-not-allowed",
                        "Este usuario no puede usar la API externa (inactivo o interno). "
@@ -144,6 +157,8 @@ def auth_login(ctx):
         raise ApiError(403, "mfa-not-supported",
                        "Tu usuario tiene verificación en dos pasos y la app todavía no la admite. "
                        "Crea una clave de API desde el portal (Mi cuenta → Integraciones).")
+    if supervisor:
+        return _login_supervisor(user, device, ip, login)
     partner = user.partner_id.sudo()
     titular = partner._shrimp_role_holder()
     if not titular.shrimp_user_type and not titular.shrimp_role_ids:
@@ -151,10 +166,11 @@ def auth_login(ctx):
                        "Tu cuenta no tiene ningún perfil (camaronera, laboratorio, empacadora…). "
                        "Completa el registro en el portal o pide a la administración que te asigne uno.")
 
-    Key = request.env["shrimp.api.key"].sudo()
     activas = Key.search([("user_id", "=", user.id), ("key_prefix", "!=", False),
                           ("revoked_at", "=", False)], order="id asc")
-    activas = activas.filtered(lambda k: k.status == "active")
+    # Las de «actuar como» de un supervisor no cuentan (no son del socio y
+    # caducan en horas).
+    activas = activas.filtered(lambda k: k.status == "active" and not k.supervisor_key_id)
     # El portal limita a MAX_ACTIVE_KEYS claves vivas. Si la app entra una y
     # otra vez (reinstalaciones, varios teléfonos) se revocan primero sus
     # propias claves más antiguas; las que el socio creó a mano no se tocan.
@@ -187,11 +203,38 @@ def auth_login(ctx):
     }
 
 
-@api_route("POST", "/auth/logout", tags=[TAG_AUTH], response=obj(revoked="boolean"),
+def _login_supervisor(user, device, ip, login):
+    """B.1: clave de supervisor para un usuario interno con el grupo."""
+    Key = request.env["shrimp.api.key"].sudo()
+    activas = Key.search([("user_id", "=", user.id), ("key_prefix", "!=", False),
+                          ("revoked_at", "=", False)], order="id asc")
+    activas = activas.filtered(lambda k: k.status == "active")
+    # Mismo tope que el socio: las más antiguas se revocan (y con ellas las
+    # de «actuar como» que emitieron).
+    while len(activas) >= MAX_ACTIVE_KEYS:
+        vieja = activas[:1]
+        vieja.action_revoke()
+        activas -= vieja
+    key, secret = Key.api_create_supervisor_key(user, SUPERVISOR_KEY_PREFIX + device)
+    key.write({"last_used": fields.Datetime.now(), "last_ip": ip[:64] or False})
+    request.env["shrimp.rate.limit"].sudo().search([("key", "=", _throttle_key(ip, login))]).unlink()
+    _logger.info("API login de SUPERVISOR para «%s» desde %s: clave trz_%s (%s h, sin scopes)",
+                 login, ip or "?", key.key_prefix, SUPERVISOR_KEY_HOURS)
+    return {
+        "supervisor": True,
+        "api_key": secret,
+        "expires_at": iso_dt(key.expires_at),
+        "me": S.supervisor_me(user, key),
+        "device_required": True,
+    }
+
+
+@api_route("POST", "/auth/logout", supervisor=True, tags=[TAG_AUTH], response=obj(revoked="boolean"),
            summary="Cierra la sesión de la app: revoca la clave con la que se llama",
            description="Mismo efecto que «Revocar» en el portal: la clave deja de servir en el "
                        "acto. No exige scope. La respuesta es la misma si la clave ya estaba "
-                       "revocada (una segunda llamada recibiría 401 revoked-api-key).")
+                       "revocada (una segunda llamada recibiría 401 revoked-api-key). Con una "
+                       "clave de supervisor revoca también las de «actuar como» que emitió.")
 def auth_logout(ctx):
     key = ctx.key.sudo()
     key.action_revoke()

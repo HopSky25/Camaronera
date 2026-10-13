@@ -35,6 +35,10 @@ API_PREFIX = "/api/v1"
 # Valor de api_route(signed=...): firma solo si la clave ya tiene un
 # dispositivo activo (sustituir el dispositivo de la app).
 SIGNED_IF_DEVICE = "if-device"
+# Valor de api_route(supervisor=...): la ruta es SOLO para claves de
+# supervisor (contrato, Anexo B). supervisor=True: también la admiten;
+# False (por defecto): una clave de supervisor recibe 403 supervisor-key.
+SUPERVISOR_ONLY = "only"
 DEFAULT_LIMIT = 50
 MAX_LIMIT = 200
 
@@ -120,7 +124,8 @@ def _compile(path):
 class Route:
     def __init__(self, method, path, func, *, scopes=(), public=False, summary="",
                  description="", tags=(), params=None, body=None, response=None,
-                 status=200, module=None, paginated=False, binary=None, signed=False):
+                 status=200, module=None, paginated=False, binary=None, signed=False,
+                 supervisor=False, secret_fields=()):
         self.method = method.upper()
         self.path = path
         self.func = func
@@ -143,6 +148,13 @@ class Route:
         if signed not in (True, False, SIGNED_IF_DEVICE):
             raise ValueError("signed admite True, False o SIGNED_IF_DEVICE")
         self.signed = signed
+        # Modo supervisor: qué claves de supervisor admite la ruta.
+        if supervisor not in (True, False, SUPERVISOR_ONLY):
+            raise ValueError("supervisor admite True, False o SUPERVISOR_ONLY")
+        self.supervisor = supervisor
+        # Campos de la respuesta que son un secreto: la respuesta guardada
+        # para la idempotencia los lleva a null (el secreto no se guarda).
+        self.secret_fields = tuple(secret_fields or ())
         self.patterns = [_compile(path)]
         # Las acciones se publican como "/x/{id}:accion" (estilo Google AIP)
         # y se aceptan también como "/x/{id}/accion" para clientes o proxies
@@ -163,7 +175,7 @@ class Route:
 
 def api_route(method, path, *, scope=None, public=False, summary="", description="",
               tags=(), params=None, body=None, response=None, status=200,
-              paginated=False, binary=None, signed=False):
+              paginated=False, binary=None, signed=False, supervisor=False, secret_fields=()):
     """Declara una operación de /api/v1.
 
     ``scope`` puede ser un código o una tupla de códigos (basta con tener uno).
@@ -174,6 +186,11 @@ def api_route(method, path, *, scope=None, public=False, summary="", description
     la firma de la petición antes de ejecutarla. Las demás claves no cambian.
     ``signed=SIGNED_IF_DEVICE`` exige la firma solo si la clave ya tiene un
     dispositivo activo (POST /me/devices: sustituirlo lo firma el actual).
+    ``supervisor``: False (por defecto) = una clave de supervisor recibe 403
+    supervisor-key; True = también la admite; SUPERVISOR_ONLY = solo la
+    admite una clave de supervisor (las demás, 403 supervisor-only).
+    ``secret_fields``: campos de la respuesta que no se guardan para la
+    idempotencia (el reintento los recibe a null).
     """
     scopes = (scope,) if isinstance(scope, str) else tuple(scope or ())
 
@@ -183,7 +200,8 @@ def api_route(method, path, *, scope=None, public=False, summary="", description
         route = Route(method, path, func, scopes=scopes, public=public, summary=summary,
                       description=description or (func.__doc__ or "").strip(), tags=tags,
                       params=params, body=body, response=response, status=status,
-                      module=module, paginated=paginated, binary=binary, signed=signed)
+                      module=module, paginated=paginated, binary=binary, signed=signed,
+                      supervisor=supervisor, secret_fields=secret_fields)
         # Con --dev=reload un módulo puede importarse dos veces: se reemplaza
         # la ruta en vez de duplicarla.
         for i, existing in enumerate(ROUTES):
@@ -636,6 +654,9 @@ class ApiCtx:
         self.route = route
         # Dispositivo que firmó la petición (solo rutas firmadas con clave de app).
         self.device = None
+        # Registro de auditoría (shrimp.api.signed.operation) de la firma
+        # aceptada, si la hubo.
+        self.signed_operation = None
         # Perfil pedido para esta petición: cabecera X-Shrimp-Role, parámetro
         # ?acting_role= o clave "acting_role" del cuerpo (se retira del cuerpo
         # para que la validación estricta de campos no la rechace).

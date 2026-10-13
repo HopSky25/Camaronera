@@ -344,6 +344,76 @@ solo lectura y solo la ven los administradores; no se borra. El antirreplay sí:
 antirreplay de firmas de la app (limpieza)» borra cada hora los hashes de más de 8 días. Los dispositivos se
 ven en *Integraciones (API) → Dispositivos de la app* y en la ficha de cada clave.
 
+## 5 ter. Modo supervisor (app móvil)
+
+Contrato: `docs/app/CONTRATO-FIRMA-DISPOSITIVO.md`, Anexo B. Un usuario **interno** con el grupo
+**«Supervisor de la app»** (*Ajustes → Usuarios → Camaronera (app móvil)*; todo administrador del sistema
+lo tiene porque `base.group_system` lo implica) entra a la app y ve la cuenta de cualquier socio
+aprobado **en solo lectura**. Nunca transacciona en nombre de un socio.
+
+**1. Inicio de sesión (B.1).** `POST /auth/login` con su correo y contraseña. Mismos límites que el del
+socio (5 fallos en 15 min por IP y correo → 429, MFA → 403 `mfa-not-supported`, mismos logs). Responde 200:
+
+```json
+{"supervisor": true, "api_key": "trz_…", "expires_at": "2026-10-12T22:41:07Z",
+ "me": {"id": "…", "name": "Ana Supervisora", "email": "…", "type": null, "active_role": null,
+        "supervisor": true, "roles": [], "api_key": {"prefix": "…", "scopes": [], …}},
+ "device_required": true}
+```
+
+Es una **clave de supervisor** (`is_supervisor_key`): dueño = el usuario interno, de la app
+(`is_app_key`), **8 h**, **sin ningún scope**. Un usuario interno SIN el grupo sigue recibiendo 403
+`user-not-allowed`. Quitarle el grupo (o archivar el usuario) corta en el acto su clave y las que emitió.
+
+Con la clave de supervisor solo funcionan: `GET /me` (el `me` de arriba), `GET|POST /me/devices` y
+`POST /me/devices/{id}:revoke` (su propio teléfono, igual que el socio: el primer registro sin firma,
+sustituirlo firmado), `POST /auth/logout`, y las dos rutas de abajo. **Cualquier otra ruta** (todas las de
+datos, también `PATCH /me` y `POST /me/active-role`) → 403 `supervisor-key`. Las rutas `/supervisor/*` con
+cualquier otra clave → 403 `supervisor-only`.
+
+**2. Directorio (B.2).** `GET /supervisor/partners?q=&type=&limit=&cursor=` → lista paginada (cursor, como
+el resto) de socios con algún perfil aprobado y un usuario de portal activo (nunca cuentas que tengan un
+usuario interno): `{"id", "name", "type" (perfil activo), "roles" (aprobados), "city", "province"}`. `q`
+busca en nombre, correo y RUC/cédula; `type` filtra por perfil aprobado (valor desconocido → 400
+`invalid-parameter`).
+
+**3. Actuar como (B.3).** `POST /supervisor/act-as` `{"partner": "<uuid del socio>"}`, con
+`Idempotency-Key` y **firmado por el dispositivo de la clave de supervisor** (§5 bis; sin firma → 403
+`signature-required`, sin dispositivo → 403 `device-not-registered`). Responde 201:
+
+```json
+{"api_key": "trz_…", "expires_at": "…", "read_only": true,
+ "partner": {"id": "…", "name": "Camaronera A", "type": "camaronera", "roles": ["camaronera"], …},
+ "me": {…lo mismo que GET /me con esa clave, con "read_only": true y "viewed_by": {"name": "…"}…}}
+```
+
+La clave emitida es del **usuario de portal del socio** (el primero activo por id), así que se aplican las
+mismas reglas de acceso del portal; lleva `supervisor_user_id` y `supervisor_key_id`, **solo los scopes
+`*:read`**, `is_app_key`, y caduca a las 8 h — o antes, cuando caduque la clave de supervisor que la emitió
+(una vista no sobrevive a la sesión del supervisor). No tiene dispositivo propio ni lo registra: toda
+escritura con ella → 403 `insufficient-scope` (también `POST /me/devices` y `:revoke`), salvo
+`POST /auth/logout`, que la revoca. `X-Shrimp-Role` funciona igual (ver cada perfil del socio). Un nuevo
+act-as del mismo supervisor sobre el mismo socio revoca la clave anterior.
+
+Errores propios: 404 `not-found` (el socio no existe), 403 `act-as-internal-user` (la cuenta tiene un
+usuario interno), 422 `partner-not-approved` (ningún perfil aprobado), 422 `partner-without-portal-user`
+(sin usuario de portal activo).
+
+**Revocación en cascada.** Revocar la clave de supervisor (logout, portal, backend, revocar su dispositivo
+o el tope de 10 claves en un nuevo login) revoca todas las de «actuar como» que emitió. El socio también
+las ve en *Mi cuenta → Integraciones* con la etiqueta «Supervisor (solo lectura)» y puede revocarlas; no
+cuentan para su tope de 10 claves.
+
+**Rastro.** Cada act-as deja (a) una nota en el historial del socio: «El supervisor X vio tu cuenta desde
+la app (solo lectura) el dd/mm/aaaa a las hh:mm», con la clave, el dispositivo y la IP; y (b) un registro
+en la auditoría de operaciones firmadas (`shrimp.api.signed.operation`, la misma de §5 bis: usuario = el
+supervisor, dispositivo, firma, IP…) con dos campos propios: **Socio visto** (`act_as_partner_id`) y
+**Clave de solo lectura emitida** (`act_as_key_id`); filtro «Actuar como (supervisor)».
+
+**El secreto no se guarda.** Como en el resto de claves, solo queda el hash. La respuesta guardada para la
+idempotencia lleva `api_key: null`: un reintento con la misma `Idempotency-Key` recibe la misma respuesta
+sin el secreto; si se perdió, se pide otro act-as (nueva clave de idempotencia y nueva firma).
+
 ---
 
 ## 6. Errores (RFC 9457)
@@ -821,6 +891,7 @@ Sesión de la app móvil: `POST /auth/login` (correo + contraseña → clave de 
   `PATCH /verifications/{id}/report`, `POST /dispatches/{id}/arrival`, `PATCH /dispatches/{id}`,
   `POST /transactions/{id}:complete`, `POST /harvest/commitments/{id}:buy`, `POST /copack/requests/{id}/offers`,
   `POST /copack/orders/{id}:reception|:packing|:sign|:revert-signature|:reopen|:close` y `POST /me/active-role`
+* Modo supervisor (§5 ter, solo clave de supervisor): `GET /supervisor/partners`, `POST /supervisor/act-as` (firmada)
 * Perfil: `GET /me`, `PATCH /me`, `POST /me/active-role`
 * Instalaciones: `GET|POST /facilities`, `GET|PATCH|PUT|DELETE /facilities/{id}`; piscinas: ídem en `/ponds`
 * Productos: `GET|POST /products`, `GET|PATCH|PUT|DELETE /products/{id}`, `POST /products/{id}:publish|:archive|:unarchive`, `GET|POST /products/{id}/evolutions`

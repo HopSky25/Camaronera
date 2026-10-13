@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Modo supervisor de la app (docs/app/CONTRATO-FIRMA-DISPOSITIVO.md,
+         Anexo B). Un usuario INTERNO con este grupo entra a la app y ve la
+         cuenta de cualquier socio aprobado en SOLO LECTURA; nunca transacciona
+         en su nombre. Todo administrador del sistema lo tiene. -->
+    <record id="res_groups_privilege_shrimp_app" model="res.groups.privilege">
+        <field name="name">Camaronera (app móvil)</field>
+        <field name="sequence">61</field>
+    </record>
+
+    <record id="group_shrimp_app_supervisor" model="res.groups">
+        <field name="name">Supervisor de la app</field>
+        <field name="sequence">10</field>
+        <field name="privilege_id" ref="res_groups_privilege_shrimp_app"/>
+        <field name="comment">Entra a la app móvil con su usuario interno y ve la cuenta de cualquier socio aprobado, en solo lectura (cada vista queda en el historial del socio y en la auditoría).</field>
+    </record>
+
+    <record id="base.group_system" model="res.groups">
+        <field name="implied_ids" eval="[(4, ref('group_shrimp_app_supervisor'))]"/>
+    </record>
+</odoo>

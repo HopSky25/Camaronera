@@ -19,6 +19,8 @@
                 <field name="call_count"/>
                 <field name="is_legacy" optional="hide"/>
                 <field name="is_app_key" optional="show"/>
+                <field name="is_supervisor_key" optional="hide"/>
+                <field name="supervisor_user_id" optional="hide"/>
             </list>
         </field>
     </record>
@@ -46,6 +48,9 @@
                             <field name="partner_id" readonly="1"/>
                             <field name="is_legacy" readonly="1"/>
                             <field name="is_app_key" readonly="1"/>
+                            <field name="is_supervisor_key" readonly="1" invisible="not is_supervisor_key"/>
+                            <field name="supervisor_user_id" readonly="1" invisible="not supervisor_user_id"/>
+                            <field name="supervisor_key_id" readonly="1" invisible="not supervisor_key_id"/>
                         </group>
                         <group string="Uso">
                             <field name="last_used"/>
@@ -79,6 +84,18 @@
                             </list>
                         </field>
                     </group>
+                    <group string="Claves de «actuar como» emitidas (solo lectura)"
+                           invisible="not is_supervisor_key">
+                        <field name="act_as_key_ids" nolabel="1" colspan="2">
+                            <list decoration-muted="status != 'active'">
+                                <field name="name"/>
+                                <field name="partner_id"/>
+                                <field name="create_date" string="Emitida el"/>
+                                <field name="expires_at"/>
+                                <field name="status"/>
+                            </list>
+                        </field>
+                    </group>
                     <div class="alert alert-info" role="alert">
                         El secreto no se guarda: solo un hash PBKDF2. Los socios crean y
                         revocan sus claves en <code>/my/api-keys</code>; el secreto se les
@@ -101,6 +118,8 @@
                 <filter name="f_revoked" string="Revocadas" domain="[('revoked_at', '!=', False)]"/>
                 <filter name="f_legacy" string="Heredadas" domain="[('is_legacy', '=', True)]"/>
                 <filter name="f_app" string="De la app" domain="[('is_app_key', '=', True)]"/>
+                <filter name="f_supervisor" string="De supervisor" domain="[('is_supervisor_key', '=', True)]"/>
+                <filter name="f_act_as" string="Actuar como (supervisor)" domain="[('supervisor_key_id', '!=', False)]"/>
             </search>
         </field>
     </record>

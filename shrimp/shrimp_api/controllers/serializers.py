@@ -146,7 +146,13 @@ def me(user, key):
             "scopes": sorted(key._api_scope_codes()),
             "expires_at": iso_dt(key.expires_at),
         },
+        # Modo supervisor (contrato, Anexo B): false para el socio. Con una
+        # clave de «actuar como» read_only es true y viewed_by dice quién mira.
+        "supervisor": False,
+        "read_only": bool(key.supervisor_key_id),
     })
+    if key.supervisor_key_id:
+        out["viewed_by"] = {"name": key.sudo().supervisor_user_id.name}
     # Varios perfiles: "type" sigue siendo el perfil ACTIVO (compatibilidad);
     # "roles" lista todos con su estado de aprobación.
     titular = p._shrimp_role_holder()
@@ -162,6 +168,39 @@ def me(user, key):
     if "maquilador" in mios:
         out["preferences"]["listed_in_directory"] = bool(p.pack_en_directorio)
     return out
+
+
+def supervisor_me(user, key):
+    """GET /me con una clave de supervisor (contrato, B.1): no es un socio."""
+    p = user.partner_id.sudo()
+    return {
+        "id": p.uuid_ref,
+        "name": user.name,
+        "email": user.email or None,
+        "type": None,
+        "active_role": None,
+        "supervisor": True,
+        "roles": [],
+        "api_key": {
+            "prefix": key.key_prefix,
+            "name": key.name,
+            "scopes": [],
+            "expires_at": iso_dt(key.expires_at),
+        },
+    }
+
+
+def supervisor_partner(p):
+    """Socio en el directorio del supervisor (B.2)."""
+    p = p.sudo()
+    return {
+        "id": p.uuid_ref,
+        "name": p.name,
+        "type": p.shrimp_user_type or None,
+        "roles": p._shrimp_roles(),
+        "city": p.city or None,
+        "province": p.state_id.name or None,
+    }
 
 
 # ---------------------------------------------------------------------------

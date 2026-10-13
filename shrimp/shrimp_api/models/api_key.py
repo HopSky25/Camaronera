@@ -42,6 +42,10 @@ _logger = logging.getLogger(__name__)
 
 KEY_RE = re.compile(r"^trz_([0-9a-f]{8})_([A-Za-z0-9_\-]{20,})$")
 MAX_PORTAL_DAYS = 365
+# Modo supervisor de la app (contrato, Anexo B): la clave del supervisor y
+# las de «actuar como» duran como mucho esto.
+SUPERVISOR_KEY_HOURS = 8
+SUPERVISOR_GROUP = "shrimp_api.group_shrimp_app_supervisor"
 
 # Verificar PBKDF2 en cada petición cuesta unos milisegundos. Se recuerda, por
 # proceso, qué clave en claro (por su sha256) ya se verificó contra QUÉ hash.
@@ -121,6 +125,28 @@ class ShrimpApiKey(models.Model):
              "exigen un dispositivo registrado y una firma ES256.")
     device_ids = fields.One2many("shrimp.api.device", "api_key_id", string="Dispositivos",
                                  readonly=True, context={"active_test": False})
+    # Modo supervisor (docs/app/CONTRATO-FIRMA-DISPOSITIVO.md, Anexo B).
+    # Clave de supervisor: dueño = un usuario INTERNO con el grupo «Supervisor
+    # de la app», sin scopes; solo sirve para el directorio de socios y para
+    # «actuar como» (y para registrar su dispositivo, /me y cerrar sesión).
+    is_supervisor_key = fields.Boolean(
+        string="Clave de supervisor", readonly=True, copy=False, index=True,
+        help="Emitida por el inicio de sesión de la app a un usuario interno con el grupo "
+             "«Supervisor de la app». No lee datos de ningún socio: solo emite claves de "
+             "solo lectura con «actuar como».")
+    # Clave de «actuar como»: dueño = el usuario de portal del socio, solo
+    # scopes *:read. Se revoca en cascada con la clave de supervisor que la
+    # emitió.
+    supervisor_user_id = fields.Many2one(
+        "res.users", string="Emitida por el supervisor", readonly=True, copy=False, index=True,
+        ondelete="cascade",
+        help="Clave de solo lectura emitida con «actuar como» desde la app del supervisor.")
+    supervisor_key_id = fields.Many2one(
+        "shrimp.api.key", string="Clave de supervisor que la emitió", readonly=True, copy=False,
+        index=True, ondelete="cascade")
+    act_as_key_ids = fields.One2many(
+        "shrimp.api.key", "supervisor_key_id", string="Claves de «actuar como» emitidas",
+        readonly=True, context={"active_test": False})
     status = fields.Selection(
         [("active", "Activa"), ("expired", "Caducada"), ("revoked", "Revocada"),
          ("inactive", "Inactiva")],
@@ -171,14 +197,27 @@ class ShrimpApiKey(models.Model):
         # fila de la clave en todas las peticiones concurrentes.
         return True
 
-    @api.constrains("scope_ids", "user_id")
+    @api.constrains("scope_ids", "user_id", "is_supervisor_key")
     def _check_api_owner(self):
         for rec in self:
+            if rec.is_supervisor_key:
+                # La única clave de un usuario interno: sin ningún scope de datos.
+                if rec.scope_ids:
+                    raise ValidationError(_("Una clave de supervisor no lleva scopes."))
+                continue
             if rec.key_prefix and rec.user_id and not rec.user_id.share and rec.active \
                     and not rec.revoked_at:
                 raise ValidationError(_(
                     "Las claves de la API externa son para usuarios del portal "
                     "(socios). Las integraciones internas usan la API JSON-2 de Odoo."))
+
+    @api.constrains("supervisor_key_id", "scope_ids")
+    def _check_act_as_read_only(self):
+        # Red de seguridad: una clave de «actuar como» nunca escribe.
+        for rec in self:
+            if rec.supervisor_key_id and any(
+                    not c.endswith(":read") for c in rec.sudo().scope_ids.mapped("code")):
+                raise ValidationError(_("Una clave de «actuar como» solo puede tener scopes de lectura."))
 
     # ------------------------------------------------------------------
     # Emisión
@@ -214,12 +253,7 @@ class ShrimpApiKey(models.Model):
         self._check_ip_list(ip_allowlist)
         self._check_origins(allowed_origins)
 
-        for _attempt in range(5):
-            prefix = secrets.token_hex(4)
-            if not self.sudo().with_context(active_test=False).search_count(
-                    [("key_prefix", "=", prefix)]):
-                break
-        raw = "trz_%s_%s" % (prefix, secrets.token_urlsafe(32))
+        prefix, raw, hashed = self._api_new_secret()
         scopes = self.env["shrimp.api.scope"].sudo().search([("code", "in", codes)])
         rec = self.sudo().create({
             "name": name,
@@ -227,13 +261,93 @@ class ShrimpApiKey(models.Model):
             "scope": "read",
             "key": False,
             "key_prefix": prefix,
-            "key_hash": KEY_CRYPT_CONTEXT.hash(raw),
+            "key_hash": hashed,
             "scope_ids": [(6, 0, scopes.ids)],
             "expires_at": expires_at,
             "ip_allowlist": ip_allowlist or False,
             "allowed_origins": allowed_origins or False,
         })
         _logger.info("API key trz_%s creada para %s (scopes: %s)", prefix, user.login, ",".join(codes))
+        return rec, raw
+
+    @api.model
+    def _api_new_secret(self):
+        """(prefijo, clave_en_claro, hash) de una clave nueva."""
+        for _attempt in range(5):
+            prefix = secrets.token_hex(4)
+            if not self.sudo().with_context(active_test=False).search_count(
+                    [("key_prefix", "=", prefix)]):
+                break
+        raw = "trz_%s_%s" % (prefix, secrets.token_urlsafe(32))
+        return prefix, raw, KEY_CRYPT_CONTEXT.hash(raw)
+
+    # ------------------------------------------------------------------
+    # Modo supervisor (contrato, Anexo B)
+    # ------------------------------------------------------------------
+    @api.model
+    def _api_is_app_supervisor(self, user):
+        """Usuario interno activo con el grupo «Supervisor de la app»."""
+        user = user.sudo()
+        return bool(user) and user.active and not user.share and user._has_group(SUPERVISOR_GROUP)
+
+    @api.model
+    def api_create_supervisor_key(self, user, name, expires_at=None):
+        """Clave de supervisor (B.1): del usuario interno, de la app, sin
+        scopes y de SUPERVISOR_KEY_HOURS horas como mucho. Devuelve
+        (registro, clave_en_claro)."""
+        user = user.sudo()
+        if not self._api_is_app_supervisor(user):
+            raise ValidationError(_("Solo un usuario interno con el grupo «Supervisor de la app» "
+                                    "puede tener una clave de supervisor."))
+        now = fields.Datetime.now()
+        tope = now + timedelta(hours=SUPERVISOR_KEY_HOURS)
+        expires_at = min(expires_at or tope, tope)
+        if expires_at <= now:
+            raise ValidationError(_("La caducidad tiene que estar en el futuro."))
+        prefix, raw, hashed = self._api_new_secret()
+        rec = self.sudo().create({
+            "name": (name or "").strip() or "Supervisor",
+            "user_id": user.id,
+            "scope": "read",
+            "key": False,
+            "key_prefix": prefix,
+            "key_hash": hashed,
+            "scope_ids": [(5, 0, 0)],
+            "expires_at": expires_at,
+            "is_app_key": True,
+            "is_supervisor_key": True,
+        })
+        _logger.info("API key de supervisor trz_%s creada para %s", prefix, user.login)
+        return rec, raw
+
+    def api_create_act_as_key(self, portal_user):
+        """Clave de «actuar como» (B.3) emitida con ESTA clave de supervisor:
+        del usuario de portal del socio, solo scopes *:read, de la app y con
+        la caducidad de la clave de supervisor como tope (8 h como mucho).
+        Devuelve (registro, clave_en_claro)."""
+        self.ensure_one()
+        sup_key = self.sudo()
+        if not sup_key.is_supervisor_key or sup_key.status != "active":
+            raise ValidationError(_("«Actuar como» solo se hace con una clave de supervisor vigente."))
+        if not self._api_is_app_supervisor(sup_key.user_id):
+            raise ValidationError(_("El dueño de la clave ya no es supervisor de la app."))
+        portal_user = portal_user.sudo()
+        if not portal_user.active or not portal_user.share:
+            raise ValidationError(_("«Actuar como» solo sobre usuarios de portal activos."))
+        now = fields.Datetime.now()
+        expires_at = now + timedelta(hours=SUPERVISOR_KEY_HOURS)
+        if sup_key.expires_at:
+            expires_at = min(expires_at, sup_key.expires_at)
+        # Nunca escritura: solo los scopes de lectura, aunque mañana se añada
+        # uno nuevo de escritura.
+        read_codes = [c for c in SCOPE_CODES if c.endswith(":read")]
+        rec, raw = self.api_create_key(
+            portal_user, "Supervisor – %s" % sup_key.user_id.name, read_codes, expires_at=expires_at)
+        rec.sudo().write({"is_app_key": True, "supervisor_user_id": sup_key.user_id.id,
+                          "supervisor_key_id": sup_key.id})
+        _logger.info("API key trz_%s (actuar como %s, solo lectura) emitida por el supervisor %s "
+                     "con trz_%s", rec.key_prefix, portal_user.login, sup_key.user_id.login,
+                     sup_key.key_prefix)
         return rec, raw
 
     @api.model
@@ -298,8 +412,24 @@ class ShrimpApiKey(models.Model):
         if rec.expires_at and rec.expires_at < fields.Datetime.now():
             return None, "expired"
         user = rec.user_id
+        if rec.is_supervisor_key:
+            # Interno, activo y todavía supervisor (quitarle el grupo corta
+            # su sesión de la app en el acto).
+            if not self._api_is_app_supervisor(user):
+                return None, "user"
+            return rec, None
         if not user or not user.active or not user.share:
             return None, "user"
+        if rec.supervisor_key_id:
+            # «Actuar como»: vale mientras valga la clave de supervisor que la
+            # emitió (la revocación ya cae en cascada; esto cubre lo demás).
+            sup = rec.supervisor_key_id
+            if sup.revoked_at or not sup.active:
+                return None, "revoked"
+            if sup.expires_at and sup.expires_at < fields.Datetime.now():
+                return None, "expired"
+            if not self._api_is_app_supervisor(rec.supervisor_user_id):
+                return None, "user"
         return rec, None
 
     def _api_scope_codes(self):
@@ -356,6 +486,11 @@ class ShrimpApiKey(models.Model):
             [("api_key_id", "in", self.ids), ("active", "=", True)])
         if devices:
             devices._api_revoke(revoke_key=False)
+        # Revocar una clave de supervisor revoca las de «actuar como» que emitió.
+        act_as = self.sudo().with_context(active_test=False).search(
+            [("supervisor_key_id", "in", self.ids), ("revoked_at", "=", False)])
+        if act_as:
+            act_as.action_revoke()
         return True
 
     def write(self, vals):

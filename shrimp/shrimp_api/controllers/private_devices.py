@@ -56,7 +56,7 @@ def device_json(rec, key=None):
     }
 
 
-@api_route("POST", "/me/devices", signed=SIGNED_IF_DEVICE, tags=[TAG], body=DEVICE_SPEC, status=201,
+@api_route("POST", "/me/devices", signed=SIGNED_IF_DEVICE, supervisor=True, tags=[TAG], body=DEVICE_SPEC, status=201,
            response=DEVICE_SCHEMA,
            summary="Registra (o sustituye) el teléfono que firma las operaciones sensibles",
            description="Solo con una clave de la app (la de POST /auth/login); con otra clave, 409 "
@@ -123,7 +123,7 @@ def _note_device(ctx, dev, previos):
     partner.message_post(body=body, message_type="comment", subtype_xmlid="mail.mt_note")
 
 
-@api_route("GET", "/me/devices", tags=[TAG], response=obj(data={"type": "array", "items": DEVICE_SCHEMA}),
+@api_route("GET", "/me/devices", supervisor=True, tags=[TAG], response=obj(data={"type": "array", "items": DEVICE_SCHEMA}),
            summary="Dispositivos registrados con mis claves de la app (activos y revocados)")
 def device_list(ctx):
     devices = ctx.env["shrimp.api.device"].with_context(active_test=False).search(
@@ -131,7 +131,7 @@ def device_list(ctx):
     return {"data": [device_json(d, ctx.key) for d in devices]}
 
 
-@api_route("POST", "/me/devices/{id}:revoke", tags=[TAG], response=DEVICE_SCHEMA,
+@api_route("POST", "/me/devices/{id}:revoke", supervisor=True, tags=[TAG], response=DEVICE_SCHEMA,
            summary="Revoca un dispositivo y su clave de API",
            description="El dispositivo deja de firmar y su clave de API queda revocada en el acto "
                        "(si es la clave con la que se llama, las siguientes peticiones reciben 401 "

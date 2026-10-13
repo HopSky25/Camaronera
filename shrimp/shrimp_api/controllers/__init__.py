@@ -16,3 +16,5 @@ from . import auth
 from . import private_profile_transfer
 # Dispositivos de la app móvil (registro de la clave pública para firmar).
 from . import private_devices
+# Modo supervisor de la app: directorio de socios y «actuar como» (solo lectura).
+from . import supervisor

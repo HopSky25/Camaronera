@@ -62,7 +62,7 @@
                             <tbody>
                                 <tr t-if="not keys"><td colspan="7" class="text-muted">Todavía no tienes claves.</td></tr>
                                 <tr t-foreach="keys" t-as="k">
-                                    <td><t t-esc="k.name"/> <span t-if="k.is_app_key" class="badge text-bg-info">App</span></td>
+                                    <td><t t-esc="k.name"/> <span t-if="k.is_app_key" class="badge text-bg-info">App</span> <span t-if="k.supervisor_user_id" class="badge text-bg-warning" t-att-title="'Solo lectura, emitida por el supervisor ' + (k.supervisor_user_id.name or '')">Supervisor (solo lectura)</span></td>
                                     <td><code t-esc="k.display_key"/></td>
                                     <td><small t-esc="', '.join(k.scope_ids.mapped('code'))"/></td>
                                     <td><span t-field="k.expires_at" t-options="{'widget': 'date'}"/></td>

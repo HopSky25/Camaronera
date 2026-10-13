@@ -763,7 +763,11 @@ class Sesion extends ChangeNotifier {
   Future<void> cerrarSesion() async {
     final socio = comoSocio;
     comoSocio = null;
-    if (socio != null) await _revocarComoSocio(socio);
+    if (socio != null) {
+      try {
+        await _revocarComoSocio(socio).timeout(const Duration(seconds: 12));
+      } catch (_) {}
+    }
     final cliente = api;
     api = null;
     if (cliente != null) {
@@ -774,13 +778,23 @@ class Sesion extends ChangeNotifier {
       }
       cliente.cerrar();
     }
-    await _credenciales.borrar();
+    // Cada paso por separado y con tiempo límite: cerrar sesión SIEMPRE tiene
+    // que terminar, aunque falle uno (p. ej. datos de una versión anterior).
     try {
-      await firmador.borrarClaves();
+      await _credenciales.borrar().timeout(const Duration(seconds: 5));
+    } catch (e) {
+      debugPrint('No se pudieron borrar las credenciales: $e');
+    }
+    try {
+      await firmador.borrarClaves().timeout(const Duration(seconds: 5));
     } catch (e) {
       debugPrint('No se pudieron borrar las claves del teléfono: $e');
     }
-    await _bd.borrarTodo();
+    try {
+      await _bd.borrarTodo().timeout(const Duration(seconds: 10));
+    } catch (e) {
+      debugPrint('No se pudo vaciar la base local: $e');
+    }
     protegida = false;
     bloqueada = false;
     dispositivo = null;

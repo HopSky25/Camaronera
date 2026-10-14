@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- noupdate: una vez instalados, los valores los decide el administrador
+       (Ajustes › Técnico › Parámetros del sistema) y una actualización del
+       módulo no los pisa.
+
+       shrimp_firma.tsa_url (URL del servidor de sellado de tiempo, RFC 3161)
+       NO se crea: vacío = firma PAdES-B-B; con una URL = PAdES-B-T. -->
+  <data noupdate="1">
+
+    <!-- Subcadenas del DN del EMISOR del certificado, una por línea, sin
+         distinguir mayúsculas ni tildes. Entidades de certificación
+         acreditadas en Ecuador: REVISAR contra la lista vigente que publica
+         ARCOTEL antes de salir a producción (cambia con los años). -->
+    <record id="param_emisores_aceptados" model="ir.config_parameter">
+      <field name="key">shrimp_firma.emisores_aceptados</field>
+      <field name="value">Banco Central del Ecuador
+Security Data
+Uanataca
+ANF AC
+ANF Autoridad de Certificacion
+ANF High Assurance
+Datil
+Consejo de la Judicatura
+ECIBCE
+Lazzate
+Eclipsoft
+Firmasegura
+ArgosData</field>
+    </record>
+
+    <!-- True: se rechazan los certificados de emisores que no estén en la
+         lista anterior. En la base de pruebas se pone en False para poder
+         firmar con certificados autofirmados. -->
+    <record id="param_solo_emisores_acreditados" model="ir.config_parameter">
+      <field name="key">shrimp_firma.solo_emisores_acreditados</field>
+      <field name="value">True</field>
+    </record>
+
+    <!-- True: comprador y vendedor no pueden aceptar el informe hasta que la
+         verificadora lo firme. False: la firma es opcional pero visible. -->
+    <record id="param_obligatoria" model="ir.config_parameter">
+      <field name="key">shrimp_firma.obligatoria</field>
+      <field name="value">False</field>
+    </record>
+
+    <!-- True: el formulario de firma solo acepta peticiones HTTPS (salvo
+         desde localhost, para desarrollo). -->
+    <record id="param_exigir_https" model="ir.config_parameter">
+      <field name="key">shrimp_firma.exigir_https</field>
+      <field name="value">True</field>
+    </record>
+
+  </data>
+</odoo>

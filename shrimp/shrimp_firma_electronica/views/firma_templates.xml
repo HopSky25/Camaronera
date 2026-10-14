@@ -1,0 +1,309 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- ================================================================
+       Bloque «firma electrónica del informe» para las partes (aceptación y
+       trazabilidad). Recibe `v` (la verificación, en sudo).
+       ================================================================ -->
+  <template id="firma_bloque_partes" name="Firma electrónica - bloque para las partes">
+    <t t-if="v and v.verification_mode == 'platform' and v.state in ('approved', 'approved_obs', 'rejected')">
+      <t t-set="firma" t-value="v.sudo().firma_vigente()"/>
+      <div t-if="firma" class="sv-alert sv-alert--ok sfe-firma mb-3" id="sfe_firma_bloque">
+        <i class="fa fa-certificate me-1"/>
+        <strong>Informe firmado electrónicamente por <t t-esc="firma.signer_name"/>
+          (<t t-esc="firma.signer_issuer"/>) el <t t-esc="firma.fecha_local()"/></strong>
+        <div class="small mt-1">
+          <a t-att-href="firma.pdf_path()" class="me-3">
+            <i class="fa fa-file-pdf-o me-1"/>Descargar el informe firmado (PDF)
+          </a>
+          <a t-att-href="firma.public_path()" target="_blank">
+            <i class="fa fa-check-square-o me-1"/>Comprobar la firma
+          </a>
+        </div>
+      </div>
+      <div t-else="" class="sv-alert sv-alert--wait sfe-firma mb-3" id="sfe_firma_bloque">
+        <i class="fa fa-hourglass-half me-1"/>
+        <strong>Pendiente de firma electrónica de la verificadora</strong>
+        <div class="small mt-1" t-if="v.firma_bloquea_aceptacion()">
+          La plataforma exige el informe firmado: podrás aceptarlo en cuanto la
+          verificadora lo firme, y el plazo para responder empezará a correr desde
+          ese momento.
+        </div>
+      </div>
+    </t>
+  </template>
+
+  <!-- Aceptación del informe (comprador y vendedor) -->
+  <template id="verification_acceptance_firma"
+            inherit_id="shrimp_verification.verification_acceptance"
+            name="Aceptación - firma electrónica del informe">
+    <xpath expr="//div[@t-if=&quot;v.verification_mode == 'declared'&quot;]" position="after">
+      <t t-call="shrimp_firma_electronica.firma_bloque_partes"/>
+    </xpath>
+    <!-- Con la firma obligatoria y el informe sin firmar no se ofrece aceptar
+         ni contraofertar (el servidor también lo impide). Rechazar sí. -->
+    <xpath expr="//form[@t-attf-action='/marketplace/verifications/#{v.uuid_ref}/accept']" position="attributes">
+      <attribute name="t-if">not v.firma_bloquea_aceptacion()</attribute>
+    </xpath>
+    <xpath expr="//t[@t-if=&quot;postura.role == 'buyer' and not cumple&quot;]" position="attributes">
+      <attribute name="t-if">postura.role == 'buyer' and not cumple and not v.firma_bloquea_aceptacion()</attribute>
+    </xpath>
+  </template>
+
+  <!-- Trazabilidad en pantalla -->
+  <template id="traceability_screen_firma"
+            inherit_id="shrimp_marketplace.traceability_screen"
+            name="Trazabilidad - firma electrónica del informe">
+    <xpath expr="//div[@t-if='ver.verdict_notes']" position="after">
+      <div class="mt-3">
+        <t t-call="shrimp_firma_electronica.firma_bloque_partes">
+          <t t-set="v" t-value="ver"/>
+        </t>
+      </div>
+    </xpath>
+  </template>
+
+  <!-- Certificado de trazabilidad en PDF -->
+  <template id="report_traceability_firma"
+            inherit_id="shrimp_marketplace.report_shrimp_full_traceability"
+            name="Certificado de trazabilidad - firma electrónica del informe">
+    <xpath expr="//table[@t-if='ver.incident_notes or ver.verdict_notes']" position="after">
+      <t t-if="ver.verification_mode == 'platform' and ver.state in ('approved', 'approved_obs', 'rejected')">
+        <t t-set="firma_v" t-value="ver.sudo().firma_vigente()"/>
+        <table class="st-tbl">
+          <tbody>
+            <tr>
+              <th style="width:28%;">Firma electrónica del informe</th>
+              <td>
+                <t t-if="firma_v">
+                  Informe firmado electrónicamente por <t t-esc="firma_v.signer_name"/>
+                  (<t t-esc="firma_v.signer_issuer"/>) el <t t-esc="firma_v.fecha_local()"/>.
+                  Comprobación: <t t-esc="ver.firma_url_publica()"/>
+                </t>
+                <t t-else="">Pendiente de firma electrónica de la verificadora.</t>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </t>
+    </xpath>
+  </template>
+
+  <!-- ================================================================
+       Portal del verificador: sección de firma en la verificación cerrada
+       ================================================================ -->
+  <template id="verifier_detail_firma"
+            inherit_id="shrimp_verification.verifier_detail"
+            name="Verificador - firma electrónica del informe">
+    <xpath expr="//t[@t-if='saved']" position="attributes">
+      <attribute name="t-if">saved and saved != 'firmado'</attribute>
+    </xpath>
+    <xpath expr="//t[@t-if=&quot;saved and saved != 'firmado'&quot;]" position="after">
+      <div t-if="saved == 'firmado'" class="alert alert-success">
+        <i class="fa fa-certificate me-1"/> Informe firmado electrónicamente.
+      </div>
+    </xpath>
+    <xpath expr="//div[starts-with(@t-attf-class, 'sv-veredicto ')]" position="after">
+      <t t-if="v.verification_mode == 'platform' and v.state in ('approved', 'approved_obs', 'rejected')">
+        <t t-set="firma" t-value="v.sudo().firma_vigente()"/>
+        <div class="sv-section" id="sfe_firma_verificador">
+          <h3><i class="fa fa-certificate me-1"/> Firma electrónica del informe</h3>
+          <t t-if="firma">
+            <div class="sv-alert sv-alert--ok mb-2">
+              Informe firmado electrónicamente por <strong t-esc="firma.signer_name"/>
+              (<t t-esc="firma.signer_issuer"/>) el <t t-esc="firma.fecha_local()"/>.
+            </div>
+            <div class="sv-datos">
+              <div><span>Identificación del certificado</span><strong t-esc="firma.signer_id_number or '—'"/></div>
+              <div><span>Serie del certificado</span><strong t-esc="firma.signer_cert_serial"/></div>
+              <div><span>Nivel de firma</span><strong t-esc="dict(firma._fields['signature_level'].selection).get(firma.signature_level)"/></div>
+              <div><span>Huella SHA-256 del PDF</span><strong style="word-break:break-all;" t-esc="firma.signed_pdf_sha256"/></div>
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-3">
+              <a class="s-btn s-btn-primary" t-att-href="firma.pdf_path()">
+                <i class="fa fa-file-pdf-o me-1"/> Descargar el informe firmado
+              </a>
+              <a class="s-btn s-btn-ghost" t-att-href="firma.public_path()" target="_blank">
+                <i class="fa fa-check-square-o me-1"/> Página pública de comprobación
+              </a>
+            </div>
+          </t>
+          <t t-else="">
+            <p class="sv-muted mb-3">
+              Firma el informe con tu firma electrónica (.p12 o .pfx) emitida por una
+              entidad de certificación acreditada en Ecuador. El PDF firmado tiene la
+              misma validez que un informe firmado a mano y las partes lo pueden
+              comprobar con FirmaEC o Adobe Reader.
+            </p>
+            <div class="d-flex flex-wrap gap-2">
+              <a t-if="v._puede_dictaminar(request.env.user.partner_id)" class="s-btn s-btn-primary"
+                 t-attf-href="/verifier/verifications/#{v.uuid_ref}/firmar">
+                <i class="fa fa-pencil me-1"/> Firmar informe con firma electrónica
+              </a>
+              <a class="s-btn s-btn-ghost" target="_blank"
+                 t-attf-href="/verifier/verifications/#{v.uuid_ref}/informe.pdf">
+                <i class="fa fa-eye me-1"/> Ver el informe en PDF (sin firmar)
+              </a>
+            </div>
+            <p t-if="not v._puede_dictaminar(request.env.user.partner_id)" class="sv-muted small mt-2 mb-0">
+              Lo firma el técnico asignado o el administrador de la empresa verificadora.
+            </p>
+          </t>
+        </div>
+      </t>
+    </xpath>
+  </template>
+
+  <!-- ================================================================
+       Formulario de firma (sitio de verificadores)
+       ================================================================ -->
+  <template id="firma_formulario" name="Verificador - Firmar el informe">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page py-4 sf-fields" style="max-width:760px;">
+
+          <a t-attf-href="/verifier/verifications/#{v.uuid_ref}" class="s-back mb-3">
+            <i class="fa fa-arrow-left"></i>
+            <span>Volver a la verificación</span>
+          </a>
+
+          <div class="sf-banner mb-4">
+            <div class="sf-banner-row">
+              <div class="sf-banner-txt">
+                <h1>Firmar el informe <t t-esc="v.name"/></h1>
+                <p><t t-esc="v.product_id.name"/> · veredicto: <t t-esc="v.etiqueta('state')"/></p>
+              </div>
+              <span class="sf-kicker"><i class="fa fa-certificate"></i> Firma electrónica</span>
+            </div>
+          </div>
+
+          <div t-if="error" class="alert alert-danger">
+            <i class="fa fa-exclamation-triangle me-1"/><t t-esc="error"/>
+          </div>
+          <div t-if="not https_ok" class="alert alert-danger">
+            <i class="fa fa-lock me-1"/>
+            Por seguridad, la firma electrónica solo se envía por una conexión
+            segura (HTTPS). Entra a la plataforma con https:// para firmar.
+          </div>
+
+          <div class="mp-table-card mb-4"><div class="card-body p-4">
+            <div class="mp-sec-head">
+              <span class="mp-sec-ico"><i class="fa fa-file-pdf-o"></i></span>
+              <h3 class="mp-sec-title">Qué vas a firmar</h3>
+            </div>
+            <p class="mb-2">
+              El informe completo de la verificación en PDF: partes, lote, pesos,
+              clasificación, análisis, incidencias, veredicto y conclusión. Revísalo
+              antes de firmar: una vez firmado no se vuelve a firmar.
+            </p>
+            <a class="s-btn s-btn-ghost btn-sm" target="_blank"
+               t-attf-href="/verifier/verifications/#{v.uuid_ref}/informe.pdf">
+              <i class="fa fa-eye me-1"/> Ver el informe en PDF
+            </a>
+          </div></div>
+
+          <form t-if="https_ok" method="post" enctype="multipart/form-data" autocomplete="off"
+                t-attf-action="/verifier/verifications/#{v.uuid_ref}/firmar">
+            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+            <div class="mp-table-card mb-4"><div class="card-body p-4">
+              <div class="mp-sec-head">
+                <span class="mp-sec-ico"><i class="fa fa-key"></i></span>
+                <h3 class="mp-sec-title">Tu firma electrónica</h3>
+              </div>
+              <div class="mb-3">
+                <label class="form-label fw-bold" for="sfe_p12">Archivo de firma (.p12 o .pfx)</label>
+                <input type="file" class="form-control" id="sfe_p12" name="certificado"
+                       accept=".p12,.pfx,application/x-pkcs12" required="required"/>
+              </div>
+              <div class="mb-3">
+                <label class="form-label fw-bold" for="sfe_clave">Contraseña de la firma</label>
+                <input type="password" class="form-control" id="sfe_clave" name="contrasena"
+                       autocomplete="off" required="required"/>
+              </div>
+              <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" id="sfe_acepto" name="acepto"
+                       value="1" required="required"/>
+                <label class="form-check-label" for="sfe_acepto">
+                  Declaro que la firma electrónica es mía y que firmo este informe de
+                  verificación en nombre de <strong t-esc="v.verifier_partner_id.name"/>.
+                </label>
+              </div>
+              <p class="sv-muted small">
+                <i class="fa fa-shield me-1"/>
+                Tu archivo y tu contraseña se usan solo para firmar este informe, en
+                memoria: la plataforma no los guarda en ningún lugar. Del certificado
+                se registra lo público: titular, identificación, emisor, serie y huella.
+              </p>
+              <button type="submit" class="s-btn s-btn-primary">
+                <i class="fa fa-pencil me-1"/> Firmar el informe
+              </button>
+            </div></div>
+          </form>
+
+        </div>
+      </div>
+    </t>
+  </template>
+
+  <!-- ================================================================
+       Página pública de comprobación (/verificacion/firma/<token>)
+       ================================================================ -->
+  <template id="firma_comprobacion" name="Comprobación pública de la firma del informe">
+    <t t-call="website.layout">
+      <div class="shrimp-bg">
+        <div class="shrimp-page py-4" style="max-width:760px;">
+          <t t-set="vigente" t-value="firma.state == 'vigente'"/>
+          <div t-attf-class="sf-banner mb-4 #{'sf-banner--ok' if vigente else 'sf-banner--ko'}">
+            <div class="sf-banner-row">
+              <div class="sf-banner-txt">
+                <h1>
+                  <t t-if="vigente">Informe firmado electrónicamente</t>
+                  <t t-else="">Firma archivada: no es la versión vigente</t>
+                </h1>
+                <p>Informe de verificación <t t-esc="v.name"/></p>
+              </div>
+              <span class="sf-kicker">
+                <i t-attf-class="fa #{'fa-check-circle' if vigente else 'fa-archive'}"></i>
+                <t t-if="vigente">Firmado: sí</t><t t-else="">Archivada</t>
+              </span>
+            </div>
+          </div>
+
+          <div t-if="not vigente" class="alert alert-warning">
+            <i class="fa fa-exclamation-triangle me-1"/>
+            La verificación se reabrió después de esta firma, así que este PDF ya no
+            es el informe vigente.
+            <t t-if="firma.archived_at">Archivada el <t t-esc="v._firma_fecha_local(firma.archived_at)"/>.</t>
+          </div>
+
+          <div class="mp-table-card mb-4"><div class="card-body p-4">
+            <div class="mp-sec-head">
+              <span class="mp-sec-ico"><i class="fa fa-certificate"></i></span>
+              <h3 class="mp-sec-title">Datos de la firma</h3>
+            </div>
+            <div class="sv-datos">
+              <div><span>Informe firmado</span><strong><t t-if="vigente">Sí</t><t t-else="">Sí (versión archivada)</t></strong></div>
+              <div><span>Verificadora</span><strong t-esc="v.verifier_partner_id.name"/></div>
+              <div><span>Firmante (titular del certificado)</span><strong t-esc="firma.signer_name"/></div>
+              <div><span>Emisor del certificado</span><strong t-esc="firma.signer_issuer"/></div>
+              <div><span>Fecha y hora de la firma</span><strong t-esc="firma.fecha_local()"/></div>
+              <div><span>Nivel de firma</span><strong t-esc="dict(firma._fields['signature_level'].selection).get(firma.signature_level)"/></div>
+              <div><span>Veredicto del informe</span><strong t-esc="v.etiqueta('state')"/></div>
+            </div>
+            <h4 class="sv-h4 mt-3">Huella SHA-256 del PDF firmado</h4>
+            <p style="font-family:monospace; word-break:break-all;" class="mb-2" t-esc="firma.signed_pdf_sha256"/>
+            <p class="sv-muted small">
+              Si la huella del archivo que tienes en tus manos coincide con esta, es
+              exactamente el mismo PDF que firmó la verificadora. Además, puedes
+              abrirlo con FirmaEC o con Adobe Reader para validar la firma.
+            </p>
+            <a class="s-btn s-btn-primary" t-att-href="firma.pdf_path()">
+              <i class="fa fa-download me-1"/> Descargar el PDF firmado
+            </a>
+          </div></div>
+        </div>
+      </div>
+    </t>
+  </template>
+
+</odoo>

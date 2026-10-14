@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <record id="view_shrimp_verification_form_firma" model="ir.ui.view">
+    <field name="name">shrimp.verification.form.firma</field>
+    <field name="model">shrimp.verification</field>
+    <field name="inherit_id" ref="shrimp_verification.view_shrimp_verification_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//field[@name='verdict_notes']/ancestor::page[1]" position="after">
+        <page string="Firma electrónica" name="firma_electronica"
+              invisible="verification_mode != 'platform'">
+          <field name="verification_mode" invisible="1"/>
+          <div class="alert alert-info" role="alert" invisible="signed_at">
+            Pendiente de firma electrónica de la verificadora. La firma la hace el
+            técnico asignado o el administrador de la empresa verificadora desde
+            su portal, con su certificado .p12/.pfx; aquí solo se consulta.
+          </div>
+          <group invisible="not signed_at">
+            <group string="Firmante">
+              <field name="signer_name" readonly="1"/>
+              <field name="signer_id_number" readonly="1"/>
+              <field name="signer_issuer" readonly="1"/>
+              <field name="signed_by_user_id" readonly="1"/>
+              <field name="signed_at" readonly="1"/>
+            </group>
+            <group string="Certificado y documento">
+              <field name="signer_cert_serial" readonly="1"/>
+              <field name="signer_cert_sha256" readonly="1"/>
+              <field name="signed_pdf_sha256" readonly="1"/>
+              <field name="signed_pdf_attachment_id" readonly="1"/>
+              <field name="firma_id" readonly="1" invisible="1"/>
+            </group>
+          </group>
+          <field name="firma_ids" readonly="1" invisible="not firma_ids">
+            <list string="Historial de firmas" create="0" delete="0" edit="0">
+              <field name="signed_at"/>
+              <field name="signer_name"/>
+              <field name="signer_issuer"/>
+              <field name="signature_level"/>
+              <field name="state" widget="badge"
+                     decoration-success="state == 'vigente'" decoration-muted="state == 'archivada'"/>
+              <field name="archived_reason" optional="show"/>
+              <field name="signed_pdf_sha256" optional="hide"/>
+              <field name="attachment_id" optional="show"/>
+            </list>
+          </field>
+        </page>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="view_shrimp_verification_firma_form" model="ir.ui.view">
+    <field name="name">shrimp.verification.firma.form</field>
+    <field name="model">shrimp.verification.firma</field>
+    <field name="arch" type="xml">
+      <form string="Firma electrónica del informe" create="0" edit="0" delete="0">
+        <sheet>
+          <group>
+            <group>
+              <field name="verification_id"/>
+              <field name="state"/>
+              <field name="signed_at"/>
+              <field name="signed_by_user_id"/>
+              <field name="signer_partner_id"/>
+              <field name="signature_level"/>
+            </group>
+            <group>
+              <field name="signer_name"/>
+              <field name="signer_id_number"/>
+              <field name="signer_issuer"/>
+              <field name="signer_cert_serial"/>
+              <field name="signer_cert_sha256"/>
+              <field name="signer_cert_valid_until"/>
+            </group>
+          </group>
+          <group>
+            <field name="signed_pdf_sha256"/>
+            <field name="attachment_id"/>
+            <field name="archived_at" invisible="state != 'archivada'"/>
+            <field name="archived_reason" invisible="state != 'archivada'"/>
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+</odoo>

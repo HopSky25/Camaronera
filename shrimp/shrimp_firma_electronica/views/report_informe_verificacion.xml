@@ -1,0 +1,313 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- Margen inferior amplio a propósito: la firma visible (pyHanko) se
+       estampa en la franja inferior de la ÚLTIMA página, y esa franja tiene
+       que estar libre en cualquier página que resulte ser la última. -->
+  <record id="paperformat_informe_verificacion" model="report.paperformat">
+    <field name="name">Informe de verificación firmado A4</field>
+    <field name="format">A4</field>
+    <field name="orientation">Portrait</field>
+    <field name="margin_top">12</field>
+    <field name="margin_bottom">40</field>
+    <field name="margin_left">12</field>
+    <field name="margin_right">12</field>
+    <field name="header_spacing">0</field>
+    <field name="header_line" eval="False"/>
+    <field name="dpi">90</field>
+  </record>
+
+  <record id="action_report_informe_verificacion" model="ir.actions.report">
+    <field name="name">Informe de verificación (PDF)</field>
+    <field name="model">shrimp.verification</field>
+    <field name="report_type">qweb-pdf</field>
+    <field name="report_name">shrimp_firma_electronica.report_informe_verificacion</field>
+    <field name="report_file">shrimp_firma_electronica.report_informe_verificacion</field>
+    <field name="print_report_name">'Informe de verificación - %s' % (object.name)</field>
+    <field name="paperformat_id" ref="paperformat_informe_verificacion"/>
+    <field name="binding_model_id" ref="shrimp_verification.model_shrimp_verification"/>
+    <field name="binding_type">report</field>
+  </record>
+
+  <template id="report_informe_verificacion">
+    <t t-call="web.html_container">
+      <t t-foreach="docs" t-as="v">
+        <t t-set="tx" t-value="v.transaction_id"/>
+        <t t-set="token" t-value="v.env.context.get('firma_token')"/>
+        <t t-set="url_firma" t-value="v.firma_url_publica(token) if token else ''"/>
+        <t t-set="qr" t-value="v.firma_qr_uri(url_firma) if url_firma else False"/>
+        <t t-set="emp" t-value="v.verifier_partner_id"/>
+        <t t-call="web.basic_layout">
+          <div class="page sfi">
+            <style>
+              .sfi { font-family: Helvetica, Arial, sans-serif; color:#0c1c28; font-size:10.5px; }
+              .sfi table { border-collapse:collapse; border:0 none; }
+              .sfi table, .sfi thead, .sfi tbody, .sfi tr, .sfi td, .sfi th { border:0 none; border-style:none; }
+              .sfi tr, .sfi .sfi-keep { page-break-inside:avoid; }
+              .sfi thead { display:table-header-group; }
+              .sfi .sfi-head { padding-bottom:10px; margin-bottom:14px; border-bottom:2px solid #123e5c; }
+              .sfi .sfi-head td { vertical-align:middle; padding:0; }
+              .sfi .sfi-title { margin:0; font-weight:bold; font-size:19px; color:#0c1c28; }
+              .sfi .sfi-sub { font-size:11px; color:#5a6b74; margin-top:4px; }
+              .sfi .sfi-qr { text-align:center; }
+              .sfi .sfi-qr img { width:92px; height:92px; }
+              .sfi .sfi-qrcap { font-size:7.5px; color:#5a6b74; line-height:1.2; }
+              .sfi .sfi-sec { font-size:11.5px; color:#123e5c; font-weight:bold; text-transform:uppercase; letter-spacing:.5px; margin:16px 0 7px; padding-bottom:4px; border-bottom:1px solid #d9e1e7; page-break-after:avoid; }
+              .sfi table.sfi-kv { width:100%; font-size:10.5px; }
+              .sfi table.sfi-kv td { padding:4px 7px; border-top:1px solid #d9e1e7; vertical-align:top; }
+              .sfi table.sfi-kv td.k { width:24%; color:#5a6b74; background:#f4f7f9; font-weight:bold; }
+              .sfi table.sfi-kv td.v { width:26%; }
+              .sfi table.sfi-tbl { width:100%; font-size:10px; }
+              .sfi table.sfi-tbl thead th { background:#eef3f6; color:#123e5c; padding:5px 7px; text-align:left; font-size:8.5px; text-transform:uppercase; border-bottom:1px solid #c5d2db; }
+              .sfi table.sfi-tbl tbody td { padding:4px 7px; border-bottom:1px solid #d9e1e7; }
+              .sfi .r, .sfi table.sfi-tbl thead th.r { text-align:right; }
+              .sfi .sfi-verdict { padding:10px 12px; margin:6px 0 4px; font-size:13px; font-weight:bold; }
+              .sfi .sfi-verdict--ok { background:#e8f5ee; color:#1f7a4d; border-left:4px solid #1f7a4d; }
+              .sfi .sfi-verdict--ko { background:#fbeee7; color:#a4562a; border-left:4px solid #a4562a; }
+              .sfi .sfi-note { color:#5a6b74; font-size:9px; line-height:1.45; }
+              .sfi .sfi-legal { margin-top:16px; padding:8px 10px; border:1px solid #d9e1e7; background:#f9fbfc; font-size:9px; color:#3c4b55; line-height:1.5; page-break-inside:avoid; }
+            </style>
+
+            <!-- Cabecera -->
+            <div class="sfi-head">
+              <table style="width:100%;">
+                <tr>
+                  <td>
+                    <h2 class="sfi-title">Informe de verificación en campo</h2>
+                    <div class="sfi-sub">
+                      <strong t-esc="v.name"/> ·
+                      <t t-esc="emp.name or ''"/>
+                      <t t-if="emp.vat_or_id"> (RUC <t t-esc="emp.vat_or_id"/>)</t>
+                    </div>
+                    <div class="sfi-sub">Emitido el <t t-esc="tx.shrimp_fmt_dt(v.verified_date or datetime.datetime.now(), emp)"/></div>
+                  </td>
+                  <td style="width:120px; text-align:right;">
+                    <div t-if="qr" class="sfi-qr">
+                      <img t-att-src="qr" alt="Código QR de comprobación de la firma"/>
+                      <div class="sfi-qrcap">Escanea para comprobar<br/>la firma electrónica</div>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </div>
+
+            <!-- Veredicto, lo primero -->
+            <t t-set="favorable" t-value="v.state in ('approved', 'approved_obs')"/>
+            <div t-attf-class="sfi-verdict sfi-verdict--#{'ok' if favorable else 'ko'}">
+              Veredicto: <t t-esc="v.etiqueta('state')"/>
+            </div>
+
+            <!-- Partes y operación -->
+            <div class="sfi-sec">1. Partes y operación</div>
+            <table class="sfi-kv sfi-keep">
+              <tr>
+                <td class="k">Compra</td><td class="v"><t t-esc="tx.name or '—'"/></td>
+                <td class="k">Producto</td><td class="v"><t t-esc="v.product_id.name or '—'"/></td>
+              </tr>
+              <tr>
+                <td class="k">Vendedor</td><td class="v"><t t-esc="v.seller_partner_id.name or '—'"/></td>
+                <td class="k">Comprador</td><td class="v"><t t-esc="v.buyer_partner_id.name or '—'"/></td>
+              </tr>
+              <tr>
+                <td class="k">Cantidad comprada</td>
+                <td class="v"><t t-esc="tx.shrimp_fmt_qty(tx.transaction_qty, v.product_id.uom_id)"/></td>
+                <td class="k">Presentación publicada</td>
+                <td class="v"><t t-esc="dict(v.product_id._fields['presentation']._description_selection(v.env)).get(v.product_id.presentation) or '—' if 'presentation' in v.product_id._fields else '—'"/></td>
+              </tr>
+              <tr>
+                <td class="k">Verificadora</td><td class="v"><t t-esc="emp.name or '—'"/></td>
+                <td class="k">Técnico de campo</td><td class="v"><t t-esc="v.technician_partner_id.name or emp.name or '—'"/></td>
+              </tr>
+            </table>
+
+            <!-- Lote y fechas -->
+            <div class="sfi-sec">2. Lote, lugar y fechas</div>
+            <table class="sfi-kv sfi-keep">
+              <tr>
+                <td class="k">Lote</td><td class="v"><t t-esc="v.batch_code or '—'"/></td>
+                <td class="k">Piscina</td><td class="v"><t t-esc="v.pond_label or v.pond_id.name or '—'"/></td>
+              </tr>
+              <tr>
+                <td class="k">Instalación / sector</td><td class="v"><t t-esc="v.facility_id.name or '—'"/></td>
+                <td class="k">Planta procesadora</td><td class="v"><t t-esc="v.plant_name or '—'"/></td>
+              </tr>
+              <tr>
+                <td class="k">Fecha de cosecha</td><td class="v"><t t-esc="tx.shrimp_fmt_dt(v.harvest_date)"/></td>
+                <td class="k">Fecha de proceso</td><td class="v"><t t-esc="tx.shrimp_fmt_dt(v.process_date)"/></td>
+              </tr>
+              <tr>
+                <td class="k">Asignada</td><td class="v"><t t-esc="tx.shrimp_fmt_dt(v.assigned_date, emp)"/></td>
+                <td class="k">Inicio en campo</td><td class="v"><t t-esc="tx.shrimp_fmt_dt(v.field_start_date, emp)"/></td>
+              </tr>
+              <tr>
+                <td class="k">Veredicto</td><td class="v"><t t-esc="tx.shrimp_fmt_dt(v.verified_date, emp)"/></td>
+                <td class="k">Punto GPS</td>
+                <td class="v">
+                  <t t-if="v.gps_latitude or v.gps_longitude">
+                    <t t-esc="'{:.7f}, {:.7f}'.format(v.gps_latitude, v.gps_longitude)"/>
+                  </t>
+                  <t t-else="">—</t>
+                </td>
+              </tr>
+            </table>
+
+            <!-- ============ Camarón adulto ============ -->
+            <t t-if="v.scope != 'larvae'">
+              <div class="sfi-sec">3. Peso</div>
+              <table class="sfi-kv sfi-keep">
+                <tr>
+                  <td class="k">Peso enviado</td><td class="v"><t t-esc="tx.shrimp_fmt_num(v.weight_sent_lb, 2)"/> lb</td>
+                  <td class="k">Peso en planta</td><td class="v"><t t-esc="tx.shrimp_fmt_num(v.weight_plant_lb, 2)"/> lb</td>
+                </tr>
+                <tr>
+                  <td class="k">Basura</td><td class="v"><t t-esc="tx.shrimp_fmt_num(v.trash_lb, 2)"/> lb</td>
+                  <td class="k">Peso neto</td><td class="v"><t t-esc="tx.shrimp_fmt_num(v.net_weight_lb, 2)"/> lb</td>
+                </tr>
+                <tr>
+                  <td class="k">Sobrepeso</td><td class="v"><t t-esc="tx.shrimp_fmt_num(v.overweight_lb, 2)"/> lb</td>
+                  <td class="k">Factor de sobrepeso</td><td class="v"><t t-esc="tx.shrimp_fmt_num(v.overweight_factor, 4)"/></td>
+                </tr>
+              </table>
+
+              <div class="sfi-sec">4. Presentación y metabisulfito</div>
+              <table class="sfi-kv sfi-keep">
+                <tr>
+                  <td class="k">Presentación verificada</td><td class="v"><t t-esc="v.etiqueta('presentation')"/></td>
+                  <td class="k">Coincide con lo publicado</td><td class="v"><t t-esc="'Sí' if v.presentation_matches_product else 'No'"/></td>
+                </tr>
+                <tr>
+                  <td class="k">Metabisulfito</td><td class="v"><t t-esc="tx.shrimp_fmt_num(v.metabisulfite_ppm, 2)"/> ppm (límite <t t-esc="tx.shrimp_fmt_num(v.metabisulfite_limit_ppm, 0)"/>)</td>
+                  <td class="k">Resultado</td><td class="v"><t t-esc="v.etiqueta('metabisulfite_result')"/></td>
+                </tr>
+                <tr t-if="v.metabisulfite_notes">
+                  <td class="k">Observaciones</td><td colspan="3"><t t-esc="v.metabisulfite_notes"/></td>
+                </tr>
+              </table>
+
+              <div class="sfi-sec">5. Clasificación por clase y talla</div>
+              <table class="sfi-tbl" t-if="v.line_ids">
+                <thead>
+                  <tr><th>Clase</th><th>Talla</th><th class="r">Libras</th><th class="r">% del total</th></tr>
+                </thead>
+                <tbody>
+                  <t t-foreach="v.line_ids" t-as="ln">
+                    <tr>
+                      <td><t t-esc="dict(ln._fields['quality_class']._description_selection(v.env)).get(ln.quality_class, ln.quality_class)"/></td>
+                      <td><t t-esc="ln.size_code"/></td>
+                      <td class="r"><t t-esc="tx.shrimp_fmt_num(ln.weight_lb, 2)"/></td>
+                      <td class="r"><t t-esc="tx.shrimp_fmt_num(ln.percent_of_total, 2)"/></td>
+                    </tr>
+                  </t>
+                  <tr style="font-weight:bold;">
+                    <td colspan="2">Total procesado</td>
+                    <td class="r"><t t-esc="tx.shrimp_fmt_num(v.total_processed_lb, 2)"/></td>
+                    <td class="r">100,00</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div t-else="" class="sfi-note">Sin clasificación registrada.</div>
+              <table class="sfi-kv sfi-keep" style="margin-top:6px;">
+                <tr>
+                  <td class="k">Rendimiento</td><td class="v"><t t-esc="tx.shrimp_fmt_num(v.yield_pct, 2)"/> %</td>
+                  <td class="k">Clase A</td><td class="v"><t t-esc="tx.shrimp_fmt_num(v.class_a_lb, 2)"/> lb · <t t-esc="tx.shrimp_fmt_num(v.yield_class_a_pct, 2)"/> %</td>
+                </tr>
+                <tr>
+                  <td class="k">Clase B</td><td class="v"><t t-esc="tx.shrimp_fmt_num(v.class_b_lb, 2)"/> lb · <t t-esc="tx.shrimp_fmt_num(v.yield_class_b_pct, 2)"/> %</td>
+                  <td class="k">Clase C</td><td class="v"><t t-esc="tx.shrimp_fmt_num(v.class_c_lb, 2)"/> lb · <t t-esc="tx.shrimp_fmt_num(v.yield_class_c_pct, 2)"/> %</td>
+                </tr>
+              </table>
+
+              <div class="sfi-sec">6. Sabor, gramaje y conteos</div>
+              <table class="sfi-kv sfi-keep">
+                <tr>
+                  <td class="k">Sabor</td><td class="v"><t t-esc="v.etiqueta('taste_result')"/></td>
+                  <td class="k">Criterios de cata correctos</td>
+                  <td class="v"><t t-esc="', '.join(v.taste_criteria_ok_ids.mapped('name')) or '—'"/></td>
+                </tr>
+                <tr t-if="v.taste_notes">
+                  <td class="k">Observaciones de sabor</td><td colspan="3"><t t-esc="v.taste_notes"/></td>
+                </tr>
+                <tr>
+                  <td class="k">Gramaje camaronera</td><td class="v"><t t-esc="tx.shrimp_fmt_num(v.grams_farm, 2)"/> g</td>
+                  <td class="k">Gramaje planta</td>
+                  <td class="v"><t t-esc="tx.shrimp_fmt_num(v.grams_plant_1, 2)"/> / <t t-esc="tx.shrimp_fmt_num(v.grams_plant_2, 2)"/> g</td>
+                </tr>
+                <tr>
+                  <td class="k">Variación de gramaje</td><td class="v"><t t-esc="tx.shrimp_fmt_num(v.grams_variation, 2)"/> g</td>
+                  <td class="k">Conteos</td>
+                  <td class="v">
+                    <t t-if="v.count_ids">
+                      <t t-foreach="v.count_ids" t-as="c">
+                        <t t-esc="tx.shrimp_fmt_num(c.value, 0)"/><t t-if="c.note"> (<t t-esc="c.note"/>)</t><t t-if="not c_last">; </t>
+                      </t>
+                    </t>
+                    <t t-else="">—</t>
+                  </td>
+                </tr>
+              </table>
+            </t>
+
+            <!-- ============ Larva ============ -->
+            <t t-else="">
+              <div class="sfi-sec">3. Verificación de larva</div>
+              <table class="sfi-kv sfi-keep">
+                <tr>
+                  <td class="k">Cantidad verificada</td><td class="v"><t t-esc="tx.shrimp_fmt_num(v.larvae_qty_verified, 2)"/></td>
+                  <td class="k">Desvío de cantidad</td><td class="v"><t t-esc="tx.shrimp_fmt_num(v.larvae_qty_diff_pct, 2)"/> %</td>
+                </tr>
+                <tr>
+                  <td class="k">Supervivencia medida</td><td class="v"><t t-esc="tx.shrimp_fmt_num(v.larvae_survival_rate, 2)"/> %</td>
+                  <td class="k">Desvío de supervivencia</td><td class="v"><t t-esc="tx.shrimp_fmt_num(v.larvae_survival_diff, 2)"/> pp</td>
+                </tr>
+                <tr>
+                  <td class="k">Tamaño promedio</td><td class="v"><t t-esc="tx.shrimp_fmt_num(v.larvae_avg_size_mg, 3)"/> mg</td>
+                  <td class="k">Estado sanitario</td><td class="v"><t t-esc="v.etiqueta('larvae_health_status')"/></td>
+                </tr>
+                <tr t-if="v.larvae_health_notes">
+                  <td class="k">Observaciones sanitarias</td><td colspan="3"><t t-esc="v.larvae_health_notes"/></td>
+                </tr>
+              </table>
+            </t>
+
+            <!-- Incidencias, veredicto y conclusión -->
+            <div class="sfi-sec">Incidencias y conclusión</div>
+            <table class="sfi-kv sfi-keep">
+              <tr>
+                <td class="k">Incidencias</td><td colspan="3"><t t-esc="v.incident_notes or 'Sin incidencias registradas.'"/></td>
+              </tr>
+              <tr>
+                <td class="k">Veredicto</td><td colspan="3"><strong t-esc="v.etiqueta('state')"/></td>
+              </tr>
+              <tr>
+                <td class="k">Conclusión del verificador</td><td colspan="3"><t t-esc="v.verdict_notes or '—'"/></td>
+              </tr>
+              <tr t-if="v.photo_ids">
+                <td class="k">Fotos de campo</td><td colspan="3"><t t-esc="len(v.photo_ids)"/> fotografías registradas en la plataforma.</td>
+              </tr>
+            </table>
+
+            <!-- Nota de la firma -->
+            <div class="sfi-legal">
+              <t t-if="token">
+                Este informe está firmado electrónicamente por la empresa verificadora
+                con un certificado de firma electrónica (firma PAdES, recuadro al pie
+                de esta página). Conforme a la Ley de Comercio Electrónico, Firmas
+                Electrónicas y Mensajes de Datos del Ecuador, la firma electrónica
+                emitida por una entidad de certificación acreditada tiene la misma
+                validez que la manuscrita. Cualquier modificación del archivo invalida
+                la firma. Compruébala con FirmaEC o Adobe Reader, o en
+                <t t-esc="url_firma"/>
+              </t>
+              <t t-else="">
+                Vista previa: este PDF todavía NO está firmado electrónicamente.
+                El documento con validez es el que firma la verificadora desde la
+                plataforma.
+              </t>
+            </div>
+          </div>
+        </t>
+      </t>
+    </t>
+  </template>
+
+</odoo>

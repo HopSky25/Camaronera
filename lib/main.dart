@@ -203,7 +203,12 @@ class _CapaVersion extends StatelessWidget {
       Offstage(offstage: obligatoria, child: TickerMode(enabled: !obligatoria, child: child)),
       if (obligatoria)
         Positioned.fill(
-          child: Navigator(onGenerateRoute: (_) => MaterialPageRoute(builder: (_) => const PantallaActualizar())),
+          // HeroControllerScope.none: sin él, este Navigator comparte el
+          // HeroController del MaterialApp y, al cerrarse, lo deja sin
+          // navigator: la siguiente pantalla que se abre queda en negro.
+          child: HeroControllerScope.none(
+            child: Navigator(onGenerateRoute: (_) => MaterialPageRoute(builder: (_) => const PantallaActualizar())),
+          ),
         )
       else
         const Positioned(left: 0, right: 0, bottom: 0, child: AvisoVersionNueva()),
@@ -226,7 +231,12 @@ class _CapaBloqueo extends StatelessWidget {
       if (bloqueada)
         // Navigator propio: los diálogos de la pantalla de desbloqueo.
         Positioned.fill(
-          child: Navigator(onGenerateRoute: (_) => MaterialPageRoute(builder: (_) => const PantallaDesbloqueo())),
+          // HeroControllerScope.none: sin él, este Navigator comparte el
+          // HeroController del MaterialApp y, al cerrarse, lo deja sin
+          // navigator: la siguiente pantalla que se abre queda en negro.
+          child: HeroControllerScope.none(
+            child: Navigator(onGenerateRoute: (_) => MaterialPageRoute(builder: (_) => const PantallaDesbloqueo())),
+          ),
         ),
     ]);
   }

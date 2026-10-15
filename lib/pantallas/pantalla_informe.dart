@@ -115,8 +115,13 @@ class _PantallaInformeState extends State<PantallaInforme> {
     final inf = _inf;
     final v = _v;
     if (inf == null || v == null || _guardando) return;
-    if (!(_form.currentState?.validate() ?? false)) {
-      _aviso('Revisa los campos marcados en rojo.');
+    final form = _form.currentState;
+    if (form == null) return;
+    final conError = form.validateGranularly();
+    if (conError.isNotEmpty) {
+      FocusManager.instance.primaryFocus?.unfocus();
+      _aviso('Revisa los campos marcados en rojo.', error: true);
+      _irAlPrimerError(conError);
       return;
     }
     _volcar(inf);
@@ -142,9 +147,23 @@ class _PantallaInformeState extends State<PantallaInforme> {
     Navigator.pop(context);
   }
 
-  void _aviso(String texto) {
+  void _aviso(String texto, {bool error = false}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(texto)));
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(texto), backgroundColor: error ? Marca.rojo : null));
+  }
+
+  /// Lleva la pantalla al primer campo con error (el de más arriba).
+  void _irAlPrimerError(Set<FormFieldState<Object?>> campos) {
+    double alto(FormFieldState<Object?> c) {
+      final r = c.context.findRenderObject();
+      return r is RenderBox && r.attached ? r.localToGlobal(Offset.zero).dy : double.infinity;
+    }
+
+    final primero = campos.reduce((a, b) => alto(a) <= alto(b) ? a : b);
+    if (!primero.mounted) return;
+    Scrollable.ensureVisible(primero.context, duration: const Duration(milliseconds: 350), alignment: 0.2);
   }
 
   Future<void> _tomarGps() async {
@@ -152,7 +171,7 @@ class _PantallaInformeState extends State<PantallaInforme> {
     setState(() => _buscandoGps = true);
     try {
       if (!await Geolocator.isLocationServiceEnabled()) {
-        _aviso('La ubicación del teléfono está apagada. Enciéndela e inténtalo otra vez.');
+        _aviso('Sin ubicación: activa la ubicación del teléfono.');
         return;
       }
       var permiso = await Geolocator.checkPermission();
@@ -169,6 +188,11 @@ class _PantallaInformeState extends State<PantallaInforme> {
         _inf?.latitud = pos.latitude;
         _inf?.longitud = pos.longitude;
       });
+    } on LocationServiceDisabledException {
+      // Se rechazó el diálogo de Google para encender la ubicación.
+      _aviso('Sin ubicación: activa la ubicación del teléfono.');
+    } on PermissionDeniedException {
+      _aviso('Sin permiso de ubicación. Actívalo en los ajustes del teléfono.');
     } catch (_) {
       _aviso('No se pudo leer el GPS. Sal a cielo abierto e inténtalo otra vez.');
     } finally {
@@ -209,8 +233,15 @@ class _PantallaInformeState extends State<PantallaInforme> {
       appBar: AppBar(title: Text('Informe · ${v.referencia}')),
       body: Form(
         key: _form,
-        child: ListView(
+        // El error se borra en cuanto se corrige el valor.
+        autovalidateMode: AutovalidateMode.onUserInteraction,
+        // Column (no ListView): todos los campos existen siempre, así se
+        // validan también los que están fuera de la pantalla y se puede
+        // llevar la vista al primero con error.
+        child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+          child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (larva) ...[
               const Rotulo('Larva'),
@@ -360,6 +391,7 @@ class _PantallaInformeState extends State<PantallaInforme> {
             TextButton(onPressed: _guardando ? null : () => _guardar(enviar: false), child: const Text('Guardar solo como borrador')),
             const SizedBox(height: 24),
           ],
+          ),
         ),
       ),
     );
@@ -433,7 +465,7 @@ class _FilaConteo extends StatelessWidget {
           child: TextFormField(
             initialValue: conteo.valor == 0 ? '' : conteo.valor.toString(),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(labelText: 'Camarones/lb'),
+            decoration: const InputDecoration(labelText: 'Cam./lb', hintText: 'camarones por libra'),
             onChanged: (v) => conteo.valor = numeroEscrito(v) ?? 0,
             validator: (v) => (numeroEscrito(v) ?? 0) <= 0 ? 'Más de 0' : null,
           ),

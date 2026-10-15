@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../datos/control_version.dart';
+import '../../datos/sesion.dart';
 import '../../tema.dart';
 
 /// Abre el enlace de descarga en el navegador / la tienda. Devuelve si se pudo.
@@ -28,9 +29,32 @@ class PantallaActualizar extends StatefulWidget {
 class _PantallaActualizarState extends State<PantallaActualizar> {
   bool _comprobando = false;
 
+  Future<void> _salir(BuildContext context, Sesion sesion) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Cerrar sesión'),
+        content: const Text('Se cierra la sesión y se borra lo guardado en este teléfono, también lo que no se haya enviado.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Cerrar sesión')),
+        ],
+      ),
+    );
+    if (ok == true) await sesion.cerrarSesion();
+  }
+
   @override
   Widget build(BuildContext context) {
     final cv = context.watch<ControlVersion>();
+    // En las pruebas la pantalla puede ir sin sesión.
+    Sesion? s;
+    try {
+      s = context.watch<Sesion>();
+    } on ProviderNotFoundException {
+      s = null;
+    }
+    final sesion = s;
     return PopScope(
       canPop: false,
       child: Scaffold(
@@ -83,6 +107,18 @@ class _PantallaActualizarState extends State<PantallaActualizar> {
                     },
               child: Text(_comprobando ? 'Comprobando…' : 'Ya la actualicé: comprobar de nuevo'),
             ),
+            // El servidor deja cerrar sesión con una versión vieja (logout no
+            // da 426): así nadie queda con la sesión abierta en un teléfono
+            // que no se puede actualizar.
+            if (sesion != null && (sesion.conectado || sesion.bloqueada)) ...[
+              const SizedBox(height: 20),
+              TextButton.icon(
+                style: TextButton.styleFrom(foregroundColor: Marca.tintaSuave),
+                onPressed: () => _salir(context, sesion),
+                icon: const Icon(Icons.logout),
+                label: const Text('Cerrar sesión'),
+              ),
+            ],
           ]),
         ),
       ),

@@ -23,7 +23,7 @@ Widget pantallaDe(Destino d, {String? perfil}) {
     TipoDestino.informePorAceptar => PantallaInformePartes(id: id),
     TipoDestino.verificacion =>
       perfil == perfilTecnico || perfil == 'verificador' ? PantallaVerificacion(id: id) : PantallaInformePartes(id: id),
-    TipoDestino.compra || TipoDestino.venta => PantallaTransaccion(id: id),
+    TipoDestino.compra || TipoDestino.venta || TipoDestino.despachoDeCompra => PantallaTransaccion(id: id),
     TipoDestino.despacho => PantallaDespacho(id: id),
     TipoDestino.ordenEmpaque => PantallaOrden(id: id),
     TipoDestino.lote => PantallaLotePublico(id: id),

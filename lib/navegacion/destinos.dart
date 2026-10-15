@@ -18,8 +18,12 @@ enum TipoDestino {
   /// `/marketplace/sales/<uuid>` → venta.
   venta,
 
-  /// `/marketplace/dispatch/<uuid>` → despacho.
+  /// Despacho por su propio uuid (`target` de los avisos de despacho).
   despacho,
+
+  /// `/marketplace/dispatch/<uuid>`: en el portal ese uuid es el de la
+  /// COMPRA (no el del despacho) → se abre la compra, que muestra su despacho.
+  despachoDeCompra,
 
   /// `/copacker/orders/<uuid>` → orden de empaque.
   ordenEmpaque,
@@ -84,7 +88,10 @@ Destino? destinoDeRuta(String ruta) {
     case ('marketplace', 'sales') when resto.isEmpty:
       return Destino(TipoDestino.venta, id);
     case ('marketplace', 'dispatch') when resto.isEmpty:
-      return Destino(TipoDestino.despacho, id);
+      return Destino(TipoDestino.despachoDeCompra, id);
+    case ('copacker', 'requests'):
+      // No es una ruta de C6, pero los avisos de solicitud la traen.
+      return const Destino(TipoDestino.solicitudesEmpaque);
     case ('copacker', 'orders') when resto.isEmpty:
       return Destino(TipoDestino.ordenEmpaque, id);
     case ('marketplace', 'products') when resto.isEmpty:
@@ -107,18 +114,17 @@ Destino? destinoDeEnlace(Uri uri) {
   return null;
 }
 
-/// Destino de un aviso: primero su `link` (ruta web de C6, relativa o
-/// completa); si no lo tiene o no se reconoce, su `target {type, id}`.
+/// Destino de un aviso: primero su `target {type, id}` (el `link` de los
+/// avisos de despacho lleva el uuid de la compra, no el del despacho); si
+/// no se reconoce, su `link` (ruta web de C6, relativa o completa).
 Destino? destinoDeAviso(Aviso a) {
+  final porObjetivo = destinoDeObjetivo(a.destinoTipo, a.destinoId);
+  if (porObjetivo != null) return porObjetivo;
   final enlace = a.enlace;
-  if (enlace != null) {
-    final uri = Uri.tryParse(enlace);
-    if (uri != null) {
-      final d = uri.hasScheme ? destinoDeEnlace(uri) : destinoDeRuta(uri.path);
-      if (d != null) return d;
-    }
-  }
-  return destinoDeObjetivo(a.destinoTipo, a.destinoId);
+  if (enlace == null) return null;
+  final uri = Uri.tryParse(enlace);
+  if (uri == null) return null;
+  return uri.hasScheme ? destinoDeEnlace(uri) : destinoDeRuta(uri.path);
 }
 
 /// `target.type` del servidor → destino.

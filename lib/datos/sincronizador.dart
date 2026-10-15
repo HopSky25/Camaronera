@@ -406,6 +406,45 @@ class Sincronizador extends ChangeNotifier {
     return true;
   }
 
+  // ---------------- compra directa (C5) ----------------
+
+  /// Compra directa de un lote sin verificación (larva, nauplio): arma el
+  /// cuerpo de `POST /purchases` y lo firma con la huella / PIN. NO va a la
+  /// cola: una compra sin señal no se deja para después (el stock cambia).
+  /// La operación firmada se guarda en la pantalla para reintentar con la
+  /// misma Idempotency-Key si se corta la señal (sin comprar dos veces).
+  Future<OperacionPendiente> firmarCompraDirecta(
+      {required String productoId, required double cantidad, String? notas, bool conPin = false}) async {
+    _exigirEscritura();
+    final op = OperacionPendiente(
+      tipo: TipoOperacion.compraDirecta,
+      recursoId: productoId,
+      cuerpoSerializado: jsonEncode(cuerpoCompraDirecta(productoId: productoId, cantidad: cantidad, notas: notas)),
+      claveIdempotencia: _uuid.v4(),
+      creadaEn: DateTime.now(),
+      rol: sesion.rolParaApi,
+    );
+    return op.conFirma(await sesion.firmarOperacion(op, conPin: conPin));
+  }
+
+  /// Envía la compra firmada. Devuelve la transacción (201). Lanza
+  /// [SinConexion] (reintentar con la MISMA operación) o [ErrorApi].
+  Future<Map<String, dynamic>> enviarCompraDirecta(OperacionPendiente op) async {
+    _exigirEscritura();
+    final api = sesion.apiOperativa;
+    if (api == null) throw const ErrorApi(401, 'Sin sesión', 'Vuelve a entrar.', 'expired-api-key');
+    await sesion.reintentarRegistro();
+    final d = sesion.dispositivo;
+    Map<String, String>? cabeceras;
+    final firma = op.firma;
+    if (firma != null && d != null) {
+      if (!d.listo) throw const ErrorApi(403, 'Teléfono sin registrar', '', 'device-not-registered');
+      cabeceras = firma.cabeceras(d.id!);
+    }
+    return api.enviarSerializado(op.metodo, op.ruta, op.cuerpoSerializado,
+        idempotencia: op.claveIdempotencia, rol: op.rol, firma: cabeceras);
+  }
+
   // ---------------- acciones de la verificadora ----------------
 
   Future<ResultadoEnvio> asignarTecnico(Verificacion v, String tecnicoId) =>
@@ -431,7 +470,7 @@ class Sincronizador extends ChangeNotifier {
   }
 
   /// Guarda en el teléfono una foto tomada en campo (sin subirla todavía).
-  Future<int> guardarFoto(Verificacion v, String ruta, {DateTime? tomadaEn, double? latitud, double? longitud}) {
+  Future<int> guardarFoto(Verificacion v, String ruta, {DateTime? tomadaEn, double? latitud, double? longitud}) async {
     _exigirEscritura();
     return _bd.guardarFoto(v.id, ruta, tomadaEn: tomadaEn, latitud: latitud, longitud: longitud);
   }

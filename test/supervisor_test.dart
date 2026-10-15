@@ -17,6 +17,7 @@ import 'package:verificador_campo/datos/repositorio.dart';
 import 'package:verificador_campo/datos/sesion.dart';
 import 'package:verificador_campo/datos/sincronizador.dart';
 import 'package:verificador_campo/modelos/cuerpos.dart';
+import 'package:verificador_campo/modelos/foto_campo.dart';
 import 'package:verificador_campo/modelos/operacion_pendiente.dart';
 import 'package:verificador_campo/modelos/supervisor.dart';
 import 'package:verificador_campo/modelos/verificacion.dart';
@@ -434,6 +435,10 @@ void main() {
       await expectLater(sinc.guardarInforme(v, InformeCampo.desdeServidor(v.crudo), enviar: false), throwsA(isA<ErrorSoloLectura>()));
       expect(await bd.informeLocal(v.id), isNull, reason: 'ni siquiera un borrador local');
       await expectLater(sinc.guardarFoto(v, '/tmp/x.jpg'), throwsA(isA<ErrorSoloLectura>()));
+      // C4 y C5: ni subir fotos ni compra directa.
+      await expectLater(sinc.subirFoto(FotoCampo(id: 1, verificacionId: v.id, ruta: '/tmp/x.jpg', tomadaEn: ahora)),
+          throwsA(isA<ErrorSoloLectura>()));
+      await expectLater(sinc.firmarCompraDirecta(productoId: 'p', cantidad: 1), throwsA(isA<ErrorSoloLectura>()));
 
       expect(await bd.cola(), isEmpty);
       expect(sinc.pendientes, 0);

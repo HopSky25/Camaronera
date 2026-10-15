@@ -12,6 +12,7 @@ import '../comunes/pantalla_despachos.dart';
 import '../comunes/pantalla_informes.dart';
 import '../comunes/pantalla_transacciones.dart';
 import '../comunes/widgets.dart';
+import '../empacadora/pantalla_catalogo.dart';
 import 'pantalla_mis_lotes.dart';
 
 /// Panel de quien vende (camaronera, semillero, laboratorio): lotes
@@ -24,6 +25,7 @@ class PanelVendedor extends StatelessWidget {
     final sinc = context.watch<Sincronizador>();
     final perfil = context.watch<Sesion>().perfil ?? '';
     final esCamaronera = perfil == 'camaronera';
+    final soloLectura = context.select<Sesion, bool>((s) => s.soloLectura);
     return Scaffold(
       appBar: const BarraCuenta(),
       body: Column(children: [
@@ -48,7 +50,7 @@ class PanelVendedor extends StatelessWidget {
                 return eta == null || eta.isAfter(ahora.subtract(const Duration(hours: 12)));
               }).toList();
               final libras = lotes.fold<double>(0, (s, p) => s + ((p['available_qty'] as num?)?.toDouble() ?? 0));
-              final unidad = lotes.isNotEmpty ? nombreDe(lotes.first['uom']) : (esCamaronera ? 'lb' : '');
+              final unidad = lotes.isNotEmpty ? unidadPlural(lotes.first['uom']) : (esCamaronera ? 'lb' : '');
               final proximo = despachos.map((d) => aFecha(d['eta'])).whereType<DateTime>().fold<DateTime?>(null, (a, b) => a == null || b.isBefore(a) ? b : a);
 
               return RefreshIndicator(
@@ -98,6 +100,12 @@ class PanelVendedor extends StatelessWidget {
                     FilaMenu(icono: Icons.sell_outlined, titulo: 'Mis ventas', subtitulo: 'Estado y trazabilidad de cada venta', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaTransacciones(rol: 'seller')))),
                     FilaMenu(icono: Icons.fact_check_outlined, titulo: 'Informes de verificación', subtitulo: 'Ver el resultado y aceptar o rechazar', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaInformes(rol: 'seller')))),
                     FilaMenu(icono: Icons.local_shipping_outlined, titulo: 'Despacho', subtitulo: 'Programar la cosecha, la salida y el camión', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaDespachos()))),
+                    // Compra directa (C5): la camaronera compra larva; el
+                    // laboratorio, nauplio. El servidor dice si el perfil puede.
+                    if (perfil == 'camaronera' && !soloLectura)
+                      FilaMenu(icono: Icons.shopping_cart_outlined, titulo: 'Comprar larva', subtitulo: 'Lotes de laboratorio: compra directa', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaCatalogo(tipoInicial: 'laboratorio', titulo: 'Comprar larva')))),
+                    if (perfil == 'laboratorio' && !soloLectura)
+                      FilaMenu(icono: Icons.shopping_cart_outlined, titulo: 'Comprar nauplio', subtitulo: 'Lotes de semillero: compra directa', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaCatalogo(tipoInicial: 'semillero', titulo: 'Comprar nauplio')))),
                     const SizedBox(height: 8),
                     const AvisoWeb(texto: 'Publicar lotes nuevos, cambiar precios, certificados y fotos se hace desde el portal web.'),
                   ],

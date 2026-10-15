@@ -4,23 +4,32 @@ import 'package:provider/provider.dart';
 import '../../datos/repositorio.dart';
 import '../../datos/sesion.dart';
 import '../../datos/sincronizador.dart';
+import '../../datos/api_cliente.dart';
+import '../../modelos/compra_directa.dart';
 import '../../modelos/cuerpos.dart';
 import '../../modelos/operacion_pendiente.dart';
+import '../../seguridad/firmador.dart';
 import '../../tema.dart';
 import '../comunes/formato.dart';
 import '../comunes/lista_remota.dart';
+import '../comunes/pantalla_transacciones.dart';
 import '../comunes/widgets.dart';
 
-/// Catálogo de lotes publicados (`GET /public/products`) y compra con
-/// verificación (`POST /verifications`).
+/// Catálogo de lotes publicados (`GET /public/products`): compra con
+/// verificación (`POST /verifications`) o, para larva, nauplio y lotes sin
+/// verificación obligatoria, compra directa (`POST /purchases`, C5).
 class PantallaCatalogo extends StatefulWidget {
-  const PantallaCatalogo({super.key});
+  /// Filtro inicial por tipo de vendedor: camaronera (camarón), laboratorio
+  /// (larva), semillero (nauplio) o todos.
+  final String tipoInicial;
+  final String titulo;
+  const PantallaCatalogo({super.key, this.tipoInicial = 'camaronera', this.titulo = 'Catálogo de lotes'});
   @override
   State<PantallaCatalogo> createState() => _PantallaCatalogoState();
 }
 
 class _PantallaCatalogoState extends State<PantallaCatalogo> {
-  String _tipo = 'camaronera';
+  late String _tipo = widget.tipoInicial;
   final _busqueda = TextEditingController();
   String _q = '';
 
@@ -33,7 +42,7 @@ class _PantallaCatalogoState extends State<PantallaCatalogo> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Catálogo de lotes')),
+      appBar: AppBar(title: Text(widget.titulo)),
       body: ListaRemota(
         ruta: '/public/products',
         params: {if (_tipo != 'todos') 'seller_type': _tipo, if (_q.isNotEmpty) 'q': _q},
@@ -67,6 +76,7 @@ class _PantallaCatalogoState extends State<PantallaCatalogo> {
                 segments: const [
                   ButtonSegment(value: 'camaronera', label: Text('Camarón')),
                   ButtonSegment(value: 'laboratorio', label: Text('Larva')),
+                  ButtonSegment(value: 'semillero', label: Text('Nauplio')),
                   ButtonSegment(value: 'todos', label: Text('Todos')),
                 ],
                 selected: {_tipo},
@@ -83,11 +93,11 @@ class _PantallaCatalogoState extends State<PantallaCatalogo> {
             if (p['size_grade'] is Map) 'talla ${nombreDe(p['size_grade'])}',
           ].join(' · '),
           estado: p['requires_verification'] == true ? 'assigned' : 'published',
-          estadoTexto: p['requires_verification'] == true ? 'Con verificación' : 'Publicado',
+          estadoTexto: p['requires_verification'] == true ? 'Con verificación' : 'Compra directa',
           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PantallaLotePublico(id: p['id'] as String))),
           datos: [
             Dato(icono: Icons.water_outlined, texto: '${nombreDe(p['seller'])}${p['location'] != null ? ' · ${p['location']}' : ''}'),
-            Dato(icono: Icons.scale_outlined, texto: '${cantidad(p['available_qty'], p['uom'])} · ${dinero(p['price'])} por ${nombreDe(p['uom'])}'),
+            Dato(icono: Icons.scale_outlined, texto: '${cantidad(p['available_qty'], p['uom'])} · ${precioPorUnidad(p['price'], p['uom'])}'),
           ],
         ),
       ),
@@ -129,7 +139,7 @@ class PantallaLotePublico extends StatelessWidget {
                   if (p['avg_size_mg'] != null) ('Tamaño medio', '${numero(p['avg_size_mg'])} mg'),
                   if (p['survival_rate'] != null) ('Supervivencia', porcentaje(p['survival_rate'])),
                   ('Disponible', cantidad(p['available_qty'], p['uom'])),
-                  ('Precio', '${dinero(p['price'])} por ${nombreDe(p['uom'])}'),
+                  ('Precio', precioPorUnidad(p['price'], p['uom'])),
                   if (p['location'] != null) ('Ubicación', '${p['location']}'),
                   if (p['expected_delivery_date'] != null) ('Entrega prevista', fecha(p['expected_delivery_date'])),
                   ('Verificación', p['requires_verification'] == true ? 'Se compra con verificación' : 'No requiere'),
@@ -151,7 +161,11 @@ class PantallaLotePublico extends StatelessWidget {
                     label: const Text('Comprar con verificación'),
                   )
                 else
-                  const AvisoWeb(texto: 'La compra de este lote (sin verificación en campo) se hace desde el portal web.'),
+                  FilledButton.icon(
+                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PantallaCompraDirecta(p: p))),
+                    icon: const Icon(Icons.shopping_cart_outlined),
+                    label: const Text('Comprar'),
+                  ),
               ],
             ),
           );
@@ -203,7 +217,7 @@ class _PantallaComprarState extends State<PantallaComprar> {
       context: context,
       builder: (c) => AlertDialog(
         title: const Text('Confirmar la compra'),
-        content: Text('Compras ${numero(qty)} ${nombreDe(widget.p['uom'])} de "${widget.p['name']}" a ${dinero(widget.p['price'])} por ${nombreDe(widget.p['uom'])}. '
+        content: Text('Compras ${cantidad(qty, widget.p['uom'])} de "${widget.p['name']}" a ${precioPorUnidad(widget.p['price'], widget.p['uom'])}. '
             '${_modo == 'platform' ? 'La verificación en campo la hace la verificadora elegida y su honorario se factura al iniciarla.' : 'La verificación la declaran las partes (sin verificadora de la plataforma).'}'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Volver')),
@@ -238,13 +252,13 @@ class _PantallaComprarState extends State<PantallaComprar> {
             ('Lote', '${p['name']}'),
             ('Vendedor', nombreDe(p['seller'])),
             ('Disponible', cantidad(p['available_qty'], p['uom'])),
-            ('Precio', '${dinero(p['price'])} por ${nombreDe(p['uom'])}'),
+            ('Precio', precioPorUnidad(p['price'], p['uom'])),
           ]),
           const Rotulo('Cantidad'),
           TextField(
             controller: _qty,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(labelText: 'Cantidad (${nombreDe(p['uom'])})', prefixIcon: const Icon(Icons.scale_outlined)),
+            decoration: InputDecoration(labelText: 'Cantidad (${unidadPlural(p['uom'])})', prefixIcon: const Icon(Icons.scale_outlined)),
           ),
           const Rotulo('Verificación'),
           Tarjeta(
@@ -298,6 +312,217 @@ class _PantallaComprarState extends State<PantallaComprar> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Compra directa (C5): cantidad (validada contra el disponible y la
+/// unidad) → confirmación → huella / PIN → `POST /purchases` firmado →
+/// compra registrada. Sin señal no se compra; el reintento usa la misma
+/// operación firmada (misma Idempotency-Key: nunca compra dos veces).
+class PantallaCompraDirecta extends StatefulWidget {
+  final Map<String, dynamic> p;
+  const PantallaCompraDirecta({super.key, required this.p});
+  @override
+  State<PantallaCompraDirecta> createState() => _PantallaCompraDirectaState();
+}
+
+class _PantallaCompraDirectaState extends State<PantallaCompraDirecta> {
+  final _qty = TextEditingController();
+  final _notas = TextEditingController();
+  final _form = GlobalKey<FormState>();
+  bool _ocupado = false;
+  String? _error;
+  bool _exigeVerificacion = false;
+
+  /// Operación ya firmada que no llegó por falta de señal: "Reintentar" la
+  /// reenvía tal cual.
+  OperacionPendiente? _firmada;
+
+  @override
+  void dispose() {
+    _qty.dispose();
+    _notas.dispose();
+    super.dispose();
+  }
+
+  Future<void> _comprar() async {
+    if (_ocupado) return;
+    final sinc = context.read<Sincronizador>();
+    var op = _firmada;
+    if (op == null) {
+      if (!(_form.currentState?.validate() ?? false)) return;
+      final qty = numeroEscrito(_qty.text)!;
+      final total = totalEstimado(widget.p, qty);
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: const Text('Confirmar la compra'),
+          content: Text('Compras ${cantidad(qty, widget.p['uom'])} de "${widget.p['name']}" a '
+              '${precioPorUnidad(widget.p['price'], widget.p['uom'])}'
+              '${total == null ? '' : ' (unos ${dinero({'amount': total, 'currency': (widget.p['price'] as Map)['currency']})})'}. '
+              'El precio final lo confirma CamaronMarket. Se te pedirá tu huella o el PIN del teléfono.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Volver')),
+            FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Comprar')),
+          ],
+        ),
+      );
+      if (ok != true || !mounted) return;
+      setState(() {
+        _ocupado = true;
+        _error = null;
+      });
+      try {
+        op = await sinc.firmarCompraDirecta(productoId: '${widget.p['id']}', cantidad: qty, notas: _notas.text);
+      } on ErrorSeguridad catch (e) {
+        if (mounted) setState(() => _error = e.cancelado ? null : e.mensaje);
+        if (mounted && e.cancelado) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.mensaje)));
+        }
+        if (mounted) setState(() => _ocupado = false);
+        return;
+      } catch (e) {
+        if (mounted) setState(() => _ocupado = false);
+        if (mounted) setState(() => _error = mensajeDeError(e));
+        return;
+      }
+    } else {
+      setState(() {
+        _ocupado = true;
+        _error = null;
+      });
+    }
+    try {
+      final tx = await sinc.enviarCompraDirecta(op);
+      if (!mounted) return;
+      await Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => PantallaCompraHecha(tx: tx, lote: widget.p)));
+    } on SinConexion {
+      if (mounted) {
+        setState(() {
+          _firmada = op;
+          _error = 'Sin internet: la compra NO se hizo. Cuando tengas señal pulsa "Reintentar" '
+              '(es la misma compra ya confirmada: no se duplica).';
+        });
+      }
+    } on ErrorApi catch (e) {
+      if (mounted) {
+        setState(() {
+          _firmada = null;
+          _exigeVerificacion = e.tipo == 'verification-required';
+          _error = _exigeVerificacion ? 'Este lote exige verificación en campo antes de comprarlo.' : e.mensaje;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = mensajeDeError(e));
+    } finally {
+      if (mounted) setState(() => _ocupado = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = widget.p;
+    final soloLectura = context.select<Sesion, bool>((s) => s.soloLectura);
+    return Scaffold(
+      appBar: AppBar(title: const Text('Compra directa')),
+      body: Form(
+        key: _form,
+        autovalidateMode: AutovalidateMode.onUserInteraction,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+          children: [
+            const Rotulo('Lote'),
+            SeccionDatos(filas: [
+              ('Lote', '${p['name']}'),
+              ('Vendedor', nombreDe(p['seller'])),
+              if (p['stage'] is Map) ('Estadío', nombreDe(p['stage'])),
+              ('Disponible', cantidad(p['available_qty'], p['uom'])),
+              ('Precio', precioPorUnidad(p['price'], p['uom'])),
+            ]),
+            if (soloLectura) ...[
+              const SizedBox(height: 16),
+              const AvisoSoloLectura(),
+            ] else ...[
+              const Rotulo('Cantidad'),
+              TextFormField(
+                controller: _qty,
+                enabled: _firmada == null && !_ocupado,
+                keyboardType: TextInputType.numberWithOptions(decimal: decimalesDeUnidad(p['uom']) > 0),
+                validator: (v) => validarCantidadCompra(v, p),
+                decoration: InputDecoration(
+                  labelText: 'Cantidad (${unidadPlural(p['uom'])})',
+                  helperText: 'Máximo ${cantidad(p['available_qty'], p['uom'])}',
+                  prefixIcon: const Icon(Icons.scale_outlined),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _notas,
+                enabled: _firmada == null && !_ocupado,
+                maxLength: 500,
+                maxLines: 2,
+                decoration: const InputDecoration(labelText: 'Nota para el vendedor (opcional)'),
+              ),
+              if (_error != null) ...[const SizedBox(height: 12), CajaError(texto: _error!)],
+              if (_exigeVerificacion) ...[
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () => Navigator.pushReplacement(
+                      context, MaterialPageRoute(builder: (_) => PantallaComprar(p: {...p, 'requires_verification': true}))),
+                  icon: const Icon(Icons.verified_outlined),
+                  label: const Text('Comprar con verificación'),
+                ),
+              ],
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                onPressed: _ocupado ? null : _comprar,
+                icon: _ocupado
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : Icon(_firmada == null ? Icons.fingerprint : Icons.refresh),
+                label: Text(_ocupado ? 'Comprando…' : (_firmada == null ? 'Comprar' : 'Reintentar')),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Confirmación de la compra directa: lo que devolvió el servidor.
+class PantallaCompraHecha extends StatelessWidget {
+  final Map<String, dynamic> tx;
+  final Map<String, dynamic> lote;
+  const PantallaCompraHecha({super.key, required this.tx, required this.lote});
+
+  @override
+  Widget build(BuildContext context) {
+    final id = tx['id'] is String ? tx['id'] as String : null;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Compra registrada')),
+      body: ListView(padding: const EdgeInsets.fromLTRB(16, 24, 16, 32), children: [
+        const Icon(Icons.check_circle_outline, size: 64, color: Marca.verde),
+        const SizedBox(height: 12),
+        Text('¡Compra registrada!', textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 16),
+        SeccionDatos(filas: [
+          if (tx['reference'] is String) ('Referencia', tx['reference'] as String) else if (tx['name'] is String) ('Referencia', tx['name'] as String),
+          ('Lote', '${lote['name']}'),
+          ('Cantidad', cantidad(tx['qty'] ?? tx['quantity'], lote['uom'])),
+          if (tx['amount_total'] != null) ('Total', dinero(tx['amount_total'])) else if (tx['total'] != null) ('Total', dinero(tx['total'])),
+          ('Estado', estadoTransaccion(tx['state'] as String?)),
+        ]),
+        const SizedBox(height: 20),
+        if (id != null)
+          FilledButton.icon(
+            onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => PantallaTransaccion(id: id))),
+            icon: const Icon(Icons.receipt_long_outlined),
+            label: const Text('Ver la compra'),
+          ),
+        const SizedBox(height: 8),
+        TextButton(onPressed: () => Navigator.popUntil(context, (r) => r.isFirst), child: const Text('Volver al inicio')),
+      ]),
     );
   }
 }

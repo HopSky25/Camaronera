@@ -55,7 +55,7 @@ class _PantallaMisLotesState extends State<PantallaMisLotes> {
           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PantallaLote(id: p['id'] as String))),
           datos: [
             Dato(icono: Icons.scale_outlined, texto: '${cantidad(p['available_qty'], p['uom'])} disponibles de ${cantidad(p['initial_qty'], p['uom'])}'),
-            Dato(icono: Icons.attach_money, texto: '${dinero(p['price'])} por ${nombreDe(p['uom'])}'),
+            Dato(icono: Icons.attach_money, texto: precioPorUnidad(p['price'], p['uom'])),
             if (p['origin_pond'] is Map) Dato(icono: Icons.water_outlined, texto: '${nombreDe(p['origin_facility'])} · ${nombreDe(p['origin_pond'])}'),
           ],
         ),
@@ -104,7 +104,7 @@ class PantallaLote extends StatelessWidget {
                   ('Disponible', cantidad(p['available_qty'], p['uom'])),
                   ('Reservado', cantidad(p['reserved_qty'], p['uom'])),
                   ('Inicial', cantidad(p['initial_qty'], p['uom'])),
-                  ('Precio', '${dinero(p['price'])} por ${nombreDe(p['uom'])}'),
+                  ('Precio', precioPorUnidad(p['price'], p['uom'])),
                   ('Requiere verificación', p['requires_verification'] == true ? 'Sí' : 'No'),
                   if (p['published_at'] != null) ('Publicado', fechaHora(p['published_at'])),
                 ]),

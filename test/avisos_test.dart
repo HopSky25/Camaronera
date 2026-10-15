@@ -117,13 +117,30 @@ void main() {
       expect(Aviso.desde({'title': 'x'}), isNull);
     });
 
-    test('destino: primero el link (C6), si no el target', () {
-      expect(destinoDeAviso(Aviso.desde(aviso('1', link: '/marketplace/dispatch/6f1c2a3b-0d4e-4f5a-8b6c-7d8e9f0a1b2c'))!),
-          const Destino(TipoDestino.despacho, '6f1c2a3b-0d4e-4f5a-8b6c-7d8e9f0a1b2c'));
-      expect(destinoDeAviso(Aviso.desde(aviso('1'))!), const Destino(TipoDestino.verificacion, '6f1c2a3b-0d4e-4f5a-8b6c-7d8e9f0a1b2c'));
+    test('destino: primero el target; el link solo si el target no se reconoce', () {
+      const tx = '11111111-2222-4333-8444-555555555555';
+      const dsp = '6f1c2a3b-0d4e-4f5a-8b6c-7d8e9f0a1b2c';
+      // Aviso de despacho: el link lleva el uuid de la COMPRA; se navega por target.
+      expect(destinoDeAviso(Aviso.desde(aviso('1', link: '/marketplace/dispatch/$tx', target: {'type': 'dispatch', 'id': dsp}))!),
+          const Destino(TipoDestino.despacho, dsp));
+      expect(destinoDeAviso(Aviso.desde(aviso('1'))!), const Destino(TipoDestino.verificacion, dsp));
       expect(destinoDeAviso(Aviso.desde(aviso('1', target: {'type': 'copack_request', 'id': 'x'}))!),
           const Destino(TipoDestino.solicitudesEmpaque));
+      // Sin target reconocible: el link.
+      expect(destinoDeAviso(Aviso.desde(aviso('1', link: '/marketplace/sales/$tx', target: {'type': '?', 'id': 'x'}))!),
+          const Destino(TipoDestino.venta, tx));
+      // copack_request_published: /copacker/requests/<uuid> no revienta.
+      expect(destinoDeAviso(Aviso.desde(aviso('1', link: '/copacker/requests/$tx', target: {}))!),
+          const Destino(TipoDestino.solicitudesEmpaque));
       expect(destinoDeAviso(Aviso.desde(aviso('1', target: {'type': 'algo_nuevo', 'id': 'x'}))!), isNull);
+    });
+
+    test('contador: meta.unread_count del servidor', () async {
+      final servidor = ServidorAvisos()..meta = {'unread_count': 7, 'next_cursor': null};
+      final s = ServicioAvisos(sesion: SesionFija(servidor.cliente), almacen: AlmacenEstadoFalso(), notificador: NotificadorFalso());
+      await asentar();
+      expect(s.noLeidos, 7);
+      s.dispose();
     });
 
     test('carga de la notificación → destino; sin destino → bandeja de avisos', () {

@@ -38,12 +38,56 @@ String entero(dynamic v) => v is num ? _entero.format(v) : '—';
 
 String libras(dynamic v) => v is num ? '${_numero.format(v)} lb' : '—';
 
-/// Cantidad con su unidad (`uom` es `{id, name}` en la API).
+/// Nombre de la unidad tal como lo manda la API (`uom` es `{id, name}`:
+/// "Libras", "Millares", "Unidades"), en minúscula.
+String unidadPlural(dynamic uom) => (uom is Map ? (uom['name'] as String? ?? '') : '').trim().toLowerCase();
+
+const _singulares = {
+  'libras': 'libra',
+  'millares': 'millar',
+  'unidades': 'unidad',
+  'kilogramos': 'kilogramo',
+  'kilos': 'kilo',
+  'gramos': 'gramo',
+  'toneladas': 'tonelada',
+  'larvas': 'larva',
+  'cajas': 'caja',
+};
+
+/// La unidad en singular y minúscula ("Libras" → "libra", "Millares" →
+/// "millar"), para `por <unidad>` y para una sola unidad.
+String unidadSingular(dynamic uom) {
+  final plural = unidadPlural(uom);
+  final conocida = _singulares[plural];
+  if (conocida != null) return conocida;
+  if (RegExp(r'[rldn]es$').hasMatch(plural)) return plural.substring(0, plural.length - 2);
+  if (plural.endsWith('s') && plural.length > 3) return plural.substring(0, plural.length - 1);
+  return plural;
+}
+
+/// "por libra", "por millar".
+String porUnidad(dynamic uom) {
+  final u = unidadSingular(uom);
+  return u.isEmpty ? '' : 'por $u';
+}
+
+/// "$ 2.97 por libra".
+String precioPorUnidad(dynamic precio, dynamic uom) => '${dinero(precio)} ${porUnidad(uom)}'.trim();
+
+/// Cantidad con su unidad: "1,200 libras", "1 millar".
 String cantidad(dynamic qty, dynamic uom) {
   if (qty is! num) return '—';
-  final nombre = uom is Map ? (uom['name'] as String? ?? '') : '';
+  final nombre = qty == 1 ? unidadSingular(uom) : unidadPlural(uom);
   return '${_numero.format(qty)} $nombre'.trim();
 }
+
+/// Decimales que admite una cantidad en esa unidad: unidades enteras;
+/// millares hasta 3 decimales (larvas enteras); el resto (libras…), 2.
+int decimalesDeUnidad(dynamic uom) => switch (unidadSingular(uom)) {
+      'unidad' || 'larva' || 'caja' => 0,
+      'millar' => 3,
+      _ => 2,
+    };
 
 /// `{"amount": 2.85, "currency": "USD"}` → `$ 2.85`
 String dinero(dynamic v) {

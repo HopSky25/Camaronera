@@ -81,6 +81,13 @@ Map<String, dynamic> cuerpoCompra({
       if (modo == 'platform') 'verifier': verificadoraId,
     };
 
+/// `POST /purchases` (compra directa, C5).
+Map<String, dynamic> cuerpoCompraDirecta({required String productoId, required double cantidad, String? notas}) => {
+      'product': productoId,
+      'qty': cantidad,
+      'notes': ?_limpio(notas),
+    };
+
 /// `POST /harvest/commitments/{id}:buy`
 Map<String, dynamic> cuerpoCompraReserva({required String modo, String? verificadoraId}) => {
       'verification_mode': modo,

@@ -204,7 +204,7 @@ class ServicioAvisos extends ChangeNotifier {
   }
 
   static int? _total(Map meta) {
-    for (final k in const ['unread', 'total', 'count', 'total_count']) {
+    for (final k in const ['unread_count', 'unread', 'total', 'count', 'total_count']) {
       if (meta[k] is int) return meta[k] as int;
     }
     return null;
@@ -280,8 +280,8 @@ class ServicioAvisos extends ChangeNotifier {
     if (soloLectura) throw const ErrorSoloLectura();
     final api = sesion.apiOperativa;
     if (api == null) throw const ErrorApi(401, 'Sin sesión', 'Vuelve a entrar.', 'expired-api-key');
-    await api.post('/me/notifications:read-all', const {}, idempotencia: _uuid.v4());
-    noLeidos = 0;
+    final r = await api.post('/me/notifications:read-all', const {}, idempotencia: _uuid.v4());
+    noLeidos = r['unread_count'] is int ? r['unread_count'] as int : 0;
     masDeLosContados = false;
     notifyListeners();
     await _guardarContador();

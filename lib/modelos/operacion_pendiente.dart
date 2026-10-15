@@ -27,6 +27,9 @@ enum TipoOperacion {
   // Empacadora
   compraVerificada,
   comprarReserva,
+  // Compra directa (larva, nauplio): no pasa por la cola, se firma y se envía
+  // en el momento (Sincronizador.firmarCompraDirecta).
+  compraDirecta,
   // Maquilador
   ofertaMaquila,
   recepcionMaquila,
@@ -146,6 +149,7 @@ class OperacionPendiente {
         TipoOperacion.aceptacionInforme => '/verifications/$recursoId/acceptance',
         TipoOperacion.programarDespacho => '/dispatches/$recursoId',
         TipoOperacion.compraVerificada => '/verifications',
+        TipoOperacion.compraDirecta => '/purchases',
         TipoOperacion.comprarReserva => '/harvest/commitments/$recursoId:buy',
         TipoOperacion.ofertaMaquila => '/copack/requests/$recursoId/offers',
         TipoOperacion.recepcionMaquila => '/copack/orders/$recursoId:reception',
@@ -163,6 +167,7 @@ class OperacionPendiente {
         TipoOperacion.aceptacionInforme => 'Decisión sobre el informe',
         TipoOperacion.programarDespacho => 'Programación del despacho',
         TipoOperacion.compraVerificada => 'Compra con verificación',
+        TipoOperacion.compraDirecta => 'Compra directa',
         TipoOperacion.comprarReserva => 'Compra del lote reservado',
         TipoOperacion.ofertaMaquila => 'Oferta de empaque',
         TipoOperacion.recepcionMaquila => 'Recepción en planta',

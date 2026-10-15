@@ -22,6 +22,16 @@ const _idGenerico = 1;
 class NotificacionesLocales implements Notificador {
   final _plugin = FlutterLocalNotificationsPlugin();
   bool _iniciado = false;
+  Future<void>? _iniciando;
+
+  // Quién atiende un aviso tocado (el enrutador). Se guarda aparte porque
+  // mostrar() puede iniciar el plugin antes de que exista el enrutador; si
+  // el callback fuera solo el de la primera llamada, el toque se perdería.
+  void Function(String? carga)? _alTocar;
+  // Un aviso tocado antes de que haya quien lo atienda: se entrega al
+  // registrarse el callback.
+  String? _cargaSinAtender;
+  bool _hayCargaSinAtender = false;
 
   static const _detalles = NotificationDetails(
     android: AndroidNotificationDetails(
@@ -39,8 +49,31 @@ class NotificacionesLocales implements Notificador {
   );
 
   /// [alTocar] recibe la carga del aviso tocado (ver [destinoDeCarga]).
-  Future<void> iniciar({void Function(String? carga)? alTocar}) async {
-    if (_iniciado) return;
+  Future<void> iniciar({void Function(String? carga)? alTocar}) {
+    if (alTocar != null) {
+      _alTocar = alTocar;
+      if (_hayCargaSinAtender) {
+        final carga = _cargaSinAtender;
+        _hayCargaSinAtender = false;
+        _cargaSinAtender = null;
+        alTocar(carga);
+      }
+    }
+    if (_iniciado) return Future.value();
+    return _iniciando ??= _inicializar();
+  }
+
+  void _tocado(String? carga) {
+    final atender = _alTocar;
+    if (atender != null) {
+      atender(carga);
+    } else {
+      _cargaSinAtender = carga;
+      _hayCargaSinAtender = true;
+    }
+  }
+
+  Future<void> _inicializar() async {
     try {
       await _plugin.initialize(
         settings: const InitializationSettings(
@@ -49,11 +82,13 @@ class NotificacionesLocales implements Notificador {
           iOS: DarwinInitializationSettings(
               requestAlertPermission: false, requestBadgePermission: false, requestSoundPermission: false),
         ),
-        onDidReceiveNotificationResponse: (r) => alTocar?.call(r.payload),
+        onDidReceiveNotificationResponse: (r) => _tocado(r.payload),
       );
       _iniciado = true;
     } catch (e) {
       debugPrint('No se pudieron preparar las notificaciones: $e');
+    } finally {
+      _iniciando = null;
     }
   }
 

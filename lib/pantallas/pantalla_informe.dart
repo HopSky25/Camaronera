@@ -431,7 +431,7 @@ class _FilaLinea extends StatelessWidget {
             initialValue: linea.talla,
             decoration: const InputDecoration(labelText: 'Talla', hintText: '21/25'),
             onChanged: (v) => linea.talla = v.trim(),
-            validator: (v) => (v == null || v.trim().isEmpty) ? 'Falta la talla' : null,
+            validator: (v) => (v == null || v.trim().isEmpty) ? 'Falta' : null,
           ),
         ),
         const SizedBox(width: 8),

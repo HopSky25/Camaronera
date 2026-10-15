@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../seguridad/firmador.dart';
+import 'version_app.dart';
 
 /// Error devuelto por la API (formato RFC 9457: title, detail, status, errors).
 /// `type` llega como `https://.../docs#problem-<slug>`; [tipo] es el slug.
@@ -135,6 +136,7 @@ class ApiCliente {
   /// `rol` fuerza el perfil de esta petición (las operaciones de la cola
   /// viajan con el perfil con el que se hicieron, no con el actual).
   Map<String, String> _cabeceras({String? idempotencia, String? rol}) => {
+        ...cabecerasApp(),
         'Authorization': 'Bearer $clave',
         'Accept': 'application/json',
         'Content-Type': 'application/json',
@@ -228,7 +230,7 @@ class ApiCliente {
     required String clavePublica,
     required String idempotencia,
   }) =>
-      post('/me/devices', {'name': nombre, 'platform': 'android', 'public_key': clavePublica, 'alg': 'ES256'},
+      post('/me/devices', {'name': nombre, 'platform': plataformaApp, 'public_key': clavePublica, 'alg': 'ES256'},
           idempotencia: idempotencia);
 
   /// `GET /me`: comprueba la clave y devuelve quién soy.
@@ -245,7 +247,7 @@ class ApiCliente {
   }) =>
       _enviarSinSesion(() => (cliente ?? http.Client()).post(
             Uri.parse('$baseUrl/api/v1/auth/login'),
-            headers: const {'Accept': 'application/json', 'Content-Type': 'application/json'},
+            headers: {...cabecerasApp(), 'Accept': 'application/json', 'Content-Type': 'application/json'},
             body: jsonEncode({'login': correo, 'password': contrasena, 'device': dispositivo}),
           ));
 

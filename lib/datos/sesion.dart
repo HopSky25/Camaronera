@@ -17,6 +17,7 @@ import '../seguridad/firmador.dart';
 import 'almacen_credenciales.dart';
 import 'api_cliente.dart';
 import 'base_local.dart';
+import 'version_app.dart';
 
 /// La cuenta con la que se entró y el perfil con el que se trabaja.
 ///
@@ -513,7 +514,7 @@ class Sesion extends ChangeNotifier {
     final nueva = await firmador.prepararClaveNueva();
     final nombre = await _nombreDispositivo();
     try {
-      final cuerpo = jsonEncode({'name': nombre, 'platform': 'android', 'public_key': nueva, 'alg': 'ES256'});
+      final cuerpo = jsonEncode({'name': nombre, 'platform': plataformaApp, 'public_key': nueva, 'alg': 'ES256'});
       final idem = _uuid.v4();
       final ts = segundosUnix(_reloj());
       final cadena = cadenaCanonica(

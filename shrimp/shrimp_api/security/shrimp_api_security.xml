@@ -83,6 +83,19 @@
         <field name="domain_force">[(1, '=', 1)]</field>
     </record>
 
+    <!-- Avisos de la app (bandeja): cada socio lee solo los suyos. Se marcan
+         como leídos por la API en sudo, tras encontrarlos con esta regla. -->
+    <record id="rule_app_notification_portal_own" model="ir.rule">
+        <field name="name">Avisos de la app: solo los propios (portal)</field>
+        <field name="model_id" ref="model_shrimp_app_notification"/>
+        <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+        <field name="domain_force">[('partner_id', '=', user.partner_id.id)]</field>
+    </record>
+
     <record id="rule_webhook_sub_portal_own" model="ir.rule">
         <field name="name">Webhooks: suscripciones propias</field>
         <field name="model_id" ref="model_shrimp_webhook_subscription"/>

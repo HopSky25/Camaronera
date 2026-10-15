@@ -31,4 +31,32 @@ env['shrimp.webhook.delivery']._cron_cleanup()</field>
         <field name="interval_type">hours</field>
         <field name="active" eval="True"/>
     </record>
+    <!-- App móvil (docs/app/CONTRATO-MEJORAS-APP.md). -->
+    <record id="ir_cron_app_error_cleanup" model="ir.cron">
+        <field name="name">App móvil: borrar errores de más de 90 días</field>
+        <field name="model_id" ref="model_shrimp_app_error"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_cleanup()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active" eval="True"/>
+    </record>
+    <record id="ir_cron_app_notification_cleanup" model="ir.cron">
+        <field name="name">App móvil: borrar avisos leídos de más de 60 días</field>
+        <field name="model_id" ref="model_shrimp_app_notification"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_cleanup()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active" eval="True"/>
+    </record>
+    <record id="ir_cron_app_acceptance_due" model="ir.cron">
+        <field name="name">App móvil: avisar de plazos de aceptación por vencer</field>
+        <field name="model_id" ref="shrimp_verification.model_shrimp_verification"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_api_acceptance_due()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">hours</field>
+        <field name="active" eval="True"/>
+    </record>
 </odoo>

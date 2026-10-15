@@ -18,3 +18,7 @@ from . import private_profile_transfer
 from . import private_devices
 # Modo supervisor de la app: directorio de socios y «actuar como» (solo lectura).
 from . import supervisor
+# Mejoras de la app móvil: versión mínima, errores, avisos, fotos de campo,
+# compra directa (docs/app/CONTRATO-MEJORAS-APP.md) y assetlinks.json (C6).
+from . import app
+from . import well_known

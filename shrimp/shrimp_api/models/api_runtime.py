@@ -42,20 +42,30 @@ class ShrimpApiRateBucket(models.Model):
             )
         """)
 
+    # Ventanas admitidas. «hour» la usan límites por hora (errores de la app,
+    # 30/h por IP) con su propio ``kind`` (HOURLY_KIND): el cron de limpieza
+    # conserva esas filas dos horas en vez de cinco minutos.
+    _PERIODS = {"minute": "1 minute", "hour": "1 hour"}
+    HOURLY_KIND = "h"
+
     @api.model
-    def _hit(self, cr, subject, kind, limit):
+    def _hit(self, cr, subject, kind, limit, period="minute"):
         """Suma una petición y dice si cabe. Devuelve (permitida, usadas,
-        segundos_hasta_el_próximo_minuto)."""
+        segundos_hasta_la_próxima_ventana). ``period``: "minute" u "hour"
+        (con "hour", usar ``kind=HOURLY_KIND``)."""
+        if period not in self._PERIODS:
+            raise ValueError(period)
+        step = self._PERIODS[period]
         cr.execute("""
             INSERT INTO shrimp_api_rate_bucket (subject, bucket, kind, hits)
-            VALUES (%s, date_trunc('minute', now() at time zone 'utc'), %s, 1)
+            VALUES (%s, date_trunc(%s, now() at time zone 'utc'), %s, 1)
             ON CONFLICT (subject, bucket, kind)
             DO UPDATE SET hits = shrimp_api_rate_bucket.hits + 1
             RETURNING hits,
-                      extract(epoch from (date_trunc('minute', now() at time zone 'utc')
-                                          + interval '1 minute'
+                      extract(epoch from (date_trunc(%s, now() at time zone 'utc')
+                                          + %s::interval
                                           - (now() at time zone 'utc')))
-        """, (subject[:64], kind))
+        """, (subject[:64], period, kind, period, step))
         hits, remaining = cr.fetchone()
         retry = max(1, int(math.ceil(float(remaining or 1))))
         return (not limit or hits <= limit), hits, retry
@@ -66,7 +76,8 @@ class ShrimpApiRateBucket(models.Model):
         self.env.cr.execute("""
             WITH old AS (
                 DELETE FROM shrimp_api_rate_bucket
-                 WHERE bucket < (now() at time zone 'utc') - interval '5 minutes'
+                 WHERE (kind <> 'h' AND bucket < (now() at time zone 'utc') - interval '5 minutes')
+                    OR (kind = 'h' AND bucket < (now() at time zone 'utc') - interval '2 hours')
              RETURNING subject, hits
             ), per_key AS (
                 SELECT substr(subject, 3)::int AS key_id, sum(hits) AS total

@@ -187,6 +187,24 @@ class ShrimpProduct(models.Model):
         return res
 
 
+class ShrimpCopackRequest(models.Model):
+    _inherit = "shrimp.copack.request"
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        _emit(self.env, "copack.request_published", records.filtered(lambda r: r.state == "published"))
+        return records
+
+    def write(self, vals):
+        if "state" not in vals:
+            return super().write(vals)
+        before = _snapshot(self, "state")
+        res = super().write(vals)
+        _emit(self.env, "copack.request_published", _changed(self, before, "state", ("published",)))
+        return res
+
+
 class ShrimpCopackOffer(models.Model):
     _inherit = "shrimp.copack.offer"
 

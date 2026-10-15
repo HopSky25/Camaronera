@@ -126,6 +126,24 @@ register_event("harvest.confirmation_reverted",
                "commitment", _parties("farmer_partner_id", "packer_partner_id"))
 register_event("export.registered", "Salida / exportación registrada (último eslabón de la cadena)",
                "export", _parties("partner_id"))
+# Una solicitud de empaque quedó publicada: la ven (y pueden ofertar) los
+# maquiladores de su bandeja (abierta a todos, o el maquilador al que va
+# dirigida). La regla de acceso del portal (bandeja del maquilador) decide
+# además con has_access.
+def _copack_request_audience(req, partner):
+    if req.state != "published" or partner == req.client_partner_id:
+        return False
+    if req.copacker_partner_id:
+        return partner == req.copacker_partner_id
+    return partner._shrimp_has_role("maquilador")
+
+
+register_event("copack.request_published", "Solicitud de empaque publicada (bandeja del maquilador)",
+               "copack_request", _copack_request_audience)
+# El plazo para aceptar el informe está por vencer (lo emite un cron horario
+# de shrimp_api una vez por plazo). Solo a las partes que aún no respondieron.
+register_event("verification.acceptance_due", "El plazo para aceptar el informe está por vencer",
+               "verification", _parties("buyer_partner_id", "seller_partner_id"))
 register_event("ping", "Prueba de la suscripción", "webhook_subscription",
                lambda rec, p: rec.partner_id == p, check_access=False)
 
@@ -244,9 +262,13 @@ class ShrimpWebhookDelivery(models.Model):
     # ------------------------------------------------------------------
     @api.model
     def _emit(self, event_type, records):
-        """Punto de entrada de los modelos de negocio. Nunca rompe el negocio."""
+        """Punto de entrada de los modelos de negocio. Nunca rompe el negocio.
+
+        Además de encolar webhooks, deja los avisos de la bandeja de la app
+        (shrimp.app.notification), con la misma regla de audiencia."""
         if not records or event_type not in EVENTS:
             return
+        self.env["shrimp.app.notification"].sudo()._from_event(event_type, records)
         try:
             subs = self.env["shrimp.webhook.subscription"].sudo().search([("active", "=", True)])
             subs = subs.filtered(lambda s: s._wants(event_type))
@@ -264,13 +286,19 @@ class ShrimpWebhookDelivery(models.Model):
 
     @api.model
     def _entitled(self, sub, spec, rec):
-        partner = sub.partner_id
-        if not partner or not sub.user_id.active:
+        return self._audience_allows(spec, rec, sub.partner_id, sub.user_id)
+
+    @api.model
+    def _audience_allows(self, spec, rec, partner, user):
+        """La regla de audiencia del evento Y las reglas de acceso del
+        usuario: las dos tienen que dar sí. La usan los webhooks y los
+        avisos de la app."""
+        if not partner or not user or not user.active:
             return False
         try:
             if not spec.audience(rec.sudo(), partner):
                 return False
-            if spec.check_access and not rec.with_user(sub.user_id).has_access("read"):
+            if spec.check_access and not rec.with_user(user).has_access("read"):
                 return False
         except Exception:  # noqa: BLE001
             _logger.debug("Audiencia no evaluable para %s", spec.code, exc_info=True)

@@ -1,6 +1,6 @@
 {
     "name": "Camaronera — API externa (v1)",
-    "version": "19.0.1.6.0",
+    "version": "19.0.1.7.0",
     "summary": "API REST/JSON versionada (/api/v1) con claves con hash, scopes, "
                "webhooks firmados, trazabilidad pública por token y OpenAPI 3.1",
     "description": """
@@ -26,7 +26,9 @@ La guía para integradores está en README.md.
     "author": "Carlos Carballo",
     "license": "LGPL-3",
     "category": "Industries",
-    "depends": ["shrimp_copacking", "portal", "website"],
+    # auth_passkey (auto_install en Odoo 19): sirve /.well-known/assetlinks.json
+    # y aquí se hereda para añadir la app de CamaronMarket (C6).
+    "depends": ["shrimp_copacking", "portal", "website", "auth_passkey"],
     "data": [
         # Grupo «Supervisor de la app» (antes del CSV, que lo referencia).
         "security/shrimp_api_groups.xml",
@@ -44,6 +46,9 @@ La guía para integradores está en README.md.
         "views/traceability_public_templates.xml",
         # Pasos internos entre perfiles de la misma empresa (por herencia).
         "views/profile_transfer_public_templates.xml",
+        # App móvil: errores reportados, avisos y Ajustes › CamaronMarket › App móvil.
+        "views/app_views.xml",
+        "views/res_config_settings_views.xml",
     ],
     "post_init_hook": "post_init_hook",
     "installable": True,

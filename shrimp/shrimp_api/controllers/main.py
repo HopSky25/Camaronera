@@ -16,20 +16,23 @@ from odoo.http import request
 from odoo.service.model import PG_CONCURRENCY_EXCEPTIONS_TO_RETRY
 
 from ..models.api_key import KEY_RE
-from .framework import (API_PREFIX, DEVICE_HEADER, MONEY_SCHEMA, REF_SCHEMA, ROUTES,
+from ..models.res_config_settings import app_version_info
+from .framework import (API_PREFIX, APP_PLATFORM_HEADER, APP_VERSION_HEADER, DEVICE_HEADER,
+                        MONEY_SCHEMA, REF_SCHEMA, ROUTES,
                         SIGNATURE_HEADER, SIGNATURE_MAX_AGE, SIGNATURE_MAX_SKEW,
                         SIGNATURE_TS_HEADER, SIGNED_IF_DEVICE, SUPERVISOR_ONLY, ApiCtx, ApiError,
                         ApiResponse, PROBLEM_TITLES, api_route, canonical_string, object_schema,
-                        resolve)
+                        parse_version, resolve)
 
 _logger = logging.getLogger(__name__)
 
 METHODS = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 WRITE_METHODS = ("POST", "PUT", "PATCH", "DELETE")
 MAX_BODY = 1024 * 1024
-PUBLIC_HEADERS = "Accept, Content-Type, If-None-Match"
+PUBLIC_HEADERS = "Accept, Content-Type, If-None-Match, X-App-Version, X-App-Platform"
 PRIVATE_HEADERS = ("Authorization, X-API-Key, Content-Type, Accept, Idempotency-Key, "
-                   "X-Shrimp-Role, X-Device-Id, X-Signature, X-Signature-Timestamp")
+                   "X-Shrimp-Role, X-Device-Id, X-Signature, X-Signature-Timestamp, "
+                   "X-App-Version, X-App-Platform")
 EXPOSE = "X-Request-Id, X-RateLimit-Limit, X-RateLimit-Remaining, Retry-After, Idempotent-Replayed"
 
 _AUTH_ERRORS = {
@@ -91,6 +94,8 @@ class ShrimpApiController(http.Controller):
         }
         if err.errors:
             payload["errors"] = err.errors
+        for k, v in (err.extra or {}).items():
+            payload.setdefault(k, v)
         return self._json(payload, status=err.status,
                           headers=list(headers or []) + list(err.headers),
                           content_type="application/problem+json; charset=utf-8")
@@ -165,12 +170,14 @@ class ShrimpApiController(http.Controller):
         return any(k._api_origin_allowed(origin) for k in keys)
 
     # ------------------------------------------------------------------
-    def _read_body(self, method):
+    def _read_body(self, method, route=None):
         hr = request.httprequest
         if method not in ("POST", "PUT", "PATCH"):
             return {}, b""
-        if hr.content_length and hr.content_length > MAX_BODY:
-            raise ApiError(413, "payload-too-large", "El cuerpo supera 1 MB.")
+        limit = (route.max_body if route is not None and route.max_body else None) or MAX_BODY
+        if hr.content_length and hr.content_length > limit:
+            raise ApiError(413, "payload-too-large", "El cuerpo supera %s MB."
+                           % ("%g" % round(limit / (1024 * 1024), 1)))
         is_json = hr.mimetype == "application/json" or hr.mimetype.endswith("+json")
         # Se mira el tipo ANTES de leer: si llega un formulario, werkzeug ya se
         # comió el cuerpo al parsearlo y parecería vacío.
@@ -253,7 +260,11 @@ class ShrimpApiController(http.Controller):
                                headers=[("Retry-After", str(retry))])
         # Las rutas públicas eran solo GET; el inicio de sesión de la app
         # (POST /auth/login) lleva cuerpo y su respuesta no se cachea.
-        body, _raw = self._read_body(method)
+        if route.path == "/auth/login":
+            # Versión mínima de la app (contrato de mejoras, C1): el inicio de
+            # sesión solo lo usa la app, así que también lo exige.
+            self._check_app_version()
+        body, _raw = self._read_body(method, route)
         ctx = ApiCtx(request.env, None, self._params(), body, method, path, rid,
                      request.httprequest.remote_addr, route)
         result = self._run(route, ctx, pparams)
@@ -414,6 +425,12 @@ class ShrimpApiController(http.Controller):
         if origin and key._api_origin_allowed(origin):
             extra += [("Access-Control-Allow-Origin", origin), ("Vary", "Origin"),
                       ("Access-Control-Expose-Headers", EXPOSE)]
+        if key.is_app_key and route.path != "/auth/logout":
+            # Solo las claves de la app (las de /auth/login, las de supervisor
+            # y las de «actuar como»); las de integraciones no envían versión.
+            # Cerrar sesión queda libre: una app vieja tiene que poder revocar
+            # su clave aunque ya no se admita para nada más.
+            self._check_app_version()
         self._check_supervisor(key, route, method)
         scopes = key._api_scope_codes()
         if route.scopes and not (set(route.scopes) & scopes):
@@ -446,7 +463,7 @@ class ShrimpApiController(http.Controller):
         context = dict(request.env.context, lang=user.lang or "es_EC", tz=user.tz or "America/Guayaquil",
                        shrimp_api_queue_mail=True, shrimp_api_request=rid)
         request.update_env(user=user.id, context=context)
-        body, raw = self._read_body(method)
+        body, raw = self._read_body(method, route)
         # Operación sensible con clave de la app: dispositivo + firma, ANTES
         # de mirar la idempotencia (un reintento también tiene que venir
         # firmado por un dispositivo vigente) y sin escribir nada todavía.
@@ -470,6 +487,26 @@ class ShrimpApiController(http.Controller):
         if sig:
             return self._run_signed(route, ctx, pparams, sig, headers)
         return self._render(self._run(route, ctx, pparams), headers)
+
+    def _check_app_version(self):
+        """426 app-update-required si hay versión mínima y la app que llama
+        es más vieja o no dice su versión (contrato de mejoras, C1)."""
+        info = app_version_info(request.env)
+        minimo = parse_version(info["min_version"] or "")
+        if not minimo:
+            return
+        sent = (request.httprequest.headers.get(APP_VERSION_HEADER) or "").strip()
+        version = parse_version(sent)
+        if version and version >= minimo:
+            return
+        platform = (request.httprequest.headers.get(APP_PLATFORM_HEADER) or "").strip().lower()
+        _logger.info("API: app %s (%s) por debajo de la mínima %s -> 426",
+                     sent or "sin versión", platform or "?", info["min_version"])
+        raise ApiError(
+            426, "app-update-required",
+            info["message"] or ("Esta versión de la app ya no se admite. Actualízala a la %s o "
+                                "posterior para seguir." % info["min_version"]),
+            extra={"min_version": info["min_version"], "download_url": info["download_url"]})
 
     def _check_supervisor(self, key, route, method):
         """Modo supervisor (contrato, Anexo B), antes que los scopes.
@@ -701,6 +738,10 @@ def build_openapi(base_url, installed):
             "400": _problem_ref("Petición mal formada"),
             "404": _problem_ref("No existe o no tienes acceso"),
         })
+        if not route.public or route.path == "/auth/login":
+            op["responses"]["426"] = _problem_ref(
+                "Clave de la app (o inicio de sesión) con X-App-Version por debajo de la mínima "
+                "o sin ella: app-update-required, con min_version y download_url")
         if route.signed and not route.public:
             op["responses"]["403"] = _problem_ref(
                 "Sin scope, IP no permitida, sin derecho sobre el recurso o, con clave de la app: "

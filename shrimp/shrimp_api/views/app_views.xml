@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- App móvil (docs/app/CONTRATO-MEJORAS-APP.md): errores que reporta la
+         app (C2) y avisos de la bandeja (C3). Solo administradores. -->
+
+    <record id="view_app_error_list" model="ir.ui.view">
+        <field name="name">shrimp.app.error.list</field>
+        <field name="model">shrimp.app.error</field>
+        <field name="arch" type="xml">
+            <list string="Errores de la app" create="false" decoration-muted="resolved">
+                <field name="last_seen"/>
+                <field name="error_head"/>
+                <field name="stack_line" optional="show"/>
+                <field name="count"/>
+                <field name="platform" optional="show"/>
+                <field name="last_app_version" optional="show"/>
+                <field name="app_versions" optional="hide"/>
+                <field name="screen" optional="hide"/>
+                <field name="first_seen" optional="hide"/>
+                <field name="resolved" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_app_error_form" model="ir.ui.view">
+        <field name="name">shrimp.app.error.form</field>
+        <field name="model">shrimp.app.error</field>
+        <field name="arch" type="xml">
+            <form string="Error de la app" create="false">
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="error_head"/></h1>
+                        <field name="fingerprint"/>
+                    </div>
+                    <group>
+                        <group string="Frecuencia">
+                            <field name="count"/>
+                            <field name="first_seen"/>
+                            <field name="last_seen"/>
+                            <field name="last_occurred_at"/>
+                            <field name="resolved"/>
+                        </group>
+                        <group string="Último reporte">
+                            <field name="platform"/>
+                            <field name="os_version"/>
+                            <field name="device_model"/>
+                            <field name="screen"/>
+                            <field name="last_app_version"/>
+                            <field name="app_versions"/>
+                        </group>
+                    </group>
+                    <group string="Error">
+                        <field name="error" nolabel="1" colspan="2"/>
+                    </group>
+                    <group string="Pila">
+                        <field name="stack_line"/>
+                        <field name="stack" nolabel="1" colspan="2" class="font-monospace"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_app_error_search" model="ir.ui.view">
+        <field name="name">shrimp.app.error.search</field>
+        <field name="model">shrimp.app.error</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="error"/>
+                <field name="stack_line"/>
+                <field name="app_versions"/>
+                <field name="screen"/>
+                <field name="fingerprint"/>
+                <filter name="f_open" string="Sin resolver" domain="[('resolved', '=', False)]"/>
+                <filter name="f_android" string="Android" domain="[('platform', '=', 'android')]"/>
+                <filter name="f_ios" string="iOS" domain="[('platform', '=', 'ios')]"/>
+                <group>
+                    <filter name="g_version" string="Última versión" context="{'group_by': 'last_app_version'}"/>
+                    <filter name="g_screen" string="Pantalla" context="{'group_by': 'screen'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_app_errors" model="ir.actions.act_window">
+        <field name="name">Errores de la app</field>
+        <field name="res_model">shrimp.app.error</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_f_open': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Sin errores reportados por la app</p>
+            <p>La app móvil reporta aquí sus fallos (sin datos personales), agrupados por huella.
+               Se borran solos 90 días después del último reporte.</p>
+        </field>
+    </record>
+
+    <record id="view_app_notification_list" model="ir.ui.view">
+        <field name="name">shrimp.app.notification.list</field>
+        <field name="model">shrimp.app.notification</field>
+        <field name="arch" type="xml">
+            <list string="Avisos de la app" create="false" edit="false" decoration-muted="is_read">
+                <field name="create_date" string="Creado"/>
+                <field name="partner_id"/>
+                <field name="role" optional="show"/>
+                <field name="kind"/>
+                <field name="title"/>
+                <field name="body" optional="hide"/>
+                <field name="event_type" optional="hide"/>
+                <field name="link" optional="hide"/>
+                <field name="is_read"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_app_notification_search" model="ir.ui.view">
+        <field name="name">shrimp.app.notification.search</field>
+        <field name="model">shrimp.app.notification</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="partner_id"/>
+                <field name="kind"/>
+                <field name="title"/>
+                <field name="target_uuid"/>
+                <filter name="f_unread" string="No leídos" domain="[('is_read', '=', False)]"/>
+                <group>
+                    <filter name="g_kind" string="Tipo" context="{'group_by': 'kind'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_app_notifications" model="ir.actions.act_window">
+        <field name="name">Avisos de la app</field>
+        <field name="res_model">shrimp.app.notification</field>
+        <field name="view_mode">list</field>
+    </record>
+
+    <menuitem id="menu_app_errors" name="Errores de la app" parent="menu_api_root"
+              action="action_app_errors" sequence="60" groups="base.group_system"/>
+    <menuitem id="menu_app_notifications" name="Avisos de la app" parent="menu_api_root"
+              action="action_app_notifications" sequence="65" groups="base.group_system"/>
+</odoo>

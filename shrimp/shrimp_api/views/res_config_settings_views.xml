@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Ajustes › CamaronMarket › App móvil (docs/app/CONTRATO-MEJORAS-APP.md,
+         C1 y C6). Vacío = sin obligación / sin huellas. -->
+    <record id="res_config_settings_view_form_shrimp_api" model="ir.ui.view">
+        <field name="name">res.config.settings.form.shrimp.api</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="shrimp_marketplace.res_config_settings_view_form_shrimp"/>
+        <field name="arch" type="xml">
+            <xpath expr="//block[@name='shrimp_billing_block']" position="after">
+                <block title="App móvil" name="shrimp_app_block">
+                    <setting string="Versión de la app"
+                             help="Con versión mínima, la app más vieja (o que no dice su versión) deja de funcionar y pide actualizarse (426 app-update-required). Con solo la última, la app muestra un aviso que se puede descartar. Formato x.y.z; vacío = sin obligación.">
+                        <div class="content-group">
+                            <div class="row mt16">
+                                <label for="shrimp_app_min_version" class="col-lg-4 o_light_label"/>
+                                <field name="shrimp_app_min_version" placeholder="1.2.0"/>
+                            </div>
+                            <div class="row">
+                                <label for="shrimp_app_latest_version" class="col-lg-4 o_light_label"/>
+                                <field name="shrimp_app_latest_version" placeholder="1.3.0"/>
+                            </div>
+                        </div>
+                    </setting>
+                    <setting string="Descarga y mensaje"
+                             help="Enlace que abre el botón «Actualizar» de la app y el texto que acompaña al aviso.">
+                        <div class="content-group">
+                            <div class="row mt16">
+                                <label for="shrimp_app_download_url" class="col-lg-4 o_light_label"/>
+                                <field name="shrimp_app_download_url" placeholder="https://play.google.com/store/apps/details?id=…"/>
+                            </div>
+                            <div class="row">
+                                <label for="shrimp_app_update_message" class="col-lg-4 o_light_label"/>
+                                <field name="shrimp_app_update_message"/>
+                            </div>
+                        </div>
+                    </setting>
+                    <setting string="Enlaces directos (Android)"
+                             help="Huellas SHA-256 del certificado con el que se firma la app (AA:BB:…), separadas por coma. Se publican en /.well-known/assetlinks.json para que Android abra en la app los enlaces de CamaronMarket. Vacío = ninguna.">
+                        <div class="content-group">
+                            <div class="row mt16">
+                                <field name="shrimp_android_cert_sha256" placeholder="AA:BB:CC:…"/>
+                            </div>
+                        </div>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+</odoo>

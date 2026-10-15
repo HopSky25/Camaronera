@@ -139,6 +139,7 @@ curl -s -X POST https://TU-DOMINIO/api/v1/auth/login -H "Content-Type: applicati
 | 403 `account-not-approved` | la cuenta no tiene ningún perfil (ni activo ni solicitado) |
 | 403 `mfa-not-supported` | el usuario tiene verificación en dos pasos: que cree la clave desde el portal |
 | 429 `rate-limited` | más de **5 intentos fallidos en 15 minutos** desde la misma IP para el mismo correo (`Retry-After` en segundos) |
+| 426 `app-update-required` | hay versión mínima de la app y `X-App-Version` es menor o no viene (§5 quater) |
 
 `POST /api/v1/auth/logout` — privado (con la clave, exige `Idempotency-Key` como todo POST privado), sin
 scope: revoca la clave con la que se llama, igual que «Revocar» en el portal. Responde
@@ -285,8 +286,9 @@ Rutas firmadas (con clave de la app): `POST /verifications`, `POST /verification
 `POST /verifications/{id}/acceptance:revert`, `POST /verifications/{id}:assign|:start|:verdict`,
 `PATCH /verifications/{id}/report`, `POST /dispatches/{id}/arrival`, `PATCH /dispatches/{id}`,
 `POST /transactions/{id}:complete`, `POST /harvest/commitments/{id}:buy`,
-`POST /copack/requests/{id}/offers`, `POST /copack/orders/{id}:reception|:packing|:sign|:revert-signature|:reopen|:close`
-y `POST /me/active-role`. En `/api/v1/openapi.json` llevan `x-signed: true`. `POST /me/devices` se firma
+`POST /copack/requests/{id}/offers`, `POST /copack/orders/{id}:reception|:packing|:sign|:revert-signature|:reopen|:close`,
+`POST /me/active-role`, `POST /supervisor/act-as` y, desde 19.0.1.7.0 (contrato de mejoras de la app, §5 quater),
+`POST /verifications/{id}/photos` y `POST /purchases`. En `/api/v1/openapi.json` llevan `x-signed: true`. `POST /me/devices` se firma
 solo para sustituir el dispositivo (`x-signed: "if-device"`). Las lecturas (GET), `/auth/login` y
 `/auth/logout` no se firman.
 
@@ -416,6 +418,107 @@ sin el secreto; si se perdió, se pide otro act-as (nueva clave de idempotencia 
 
 ---
 
+## 5 quater. App móvil: versión mínima, errores, avisos, fotos, compra directa y enlaces
+
+Contrato: `docs/app/CONTRATO-MEJORAS-APP.md` (versión 1, C0–C6). La app envía siempre
+`X-App-Version: x.y.z` (la de `pubspec`; el `+compilación` no cuenta) y `X-App-Platform: android|ios`.
+
+**C1 · Versión mínima obligatoria.** `GET /api/v1/public/app-version?platform=android` (público):
+```json
+{"min_version": "1.2.0", "latest_version": "1.3.0",
+ "download_url": "https://play.google.com/store/apps/details?id=com.camaronmarket.verificador_campo",
+ "message": "Hay una versión nueva obligatoria."}
+```
+Se configura en **Ajustes › CamaronMarket › App móvil** (parámetros `shrimp_api.app_min_version`,
+`shrimp_api.app_latest_version`, `shrimp_api.app_download_url`, `shrimp_api.app_update_message`; vacíos por
+defecto = `null`, sin obligación). Con `min_version` fijada, **toda petición con una clave de la app**
+(las de `/auth/login`, las de supervisor y las de «actuar como») **y `POST /auth/login`** cuyo
+`X-App-Version` sea menor (comparación x.y.z) o no venga (o no sea una versión) recibe **426
+`app-update-required`**, con `min_version` y `download_url` dentro del problem+json:
+```json
+{"type": "https://TU-DOMINIO/api/v1/docs#problem-app-update-required", "title": "Actualiza la app",
+ "status": 426, "detail": "Hay una versión nueva obligatoria.", "request_id": "…",
+ "min_version": "1.2.0", "download_url": "https://…"}
+```
+Las claves manuales de integración y las rutas públicas no cambian.
+
+**C2 · Errores de la app (sin terceros).** `POST /api/v1/public/app-errors` (público, sin clave ni
+`Idempotency-Key`), cuerpo `{"app_version", "platform", "os_version", "device_model", "screen", "error"
+(obligatorio, ≤ 4000), "stack" (≤ 20000), "occurred_at" (ISO)}`; campos extra → 422. Responde **204**.
+Límite **30 por hora por IP** (`shrimp_api.app_errors_per_hour`; 429 `rate-limited` con `Retry-After`),
+contado en la misma tabla de límites (ventana horaria). Se agrupan por **huella** = sha256(error + primera
+línea útil de la pila, saltando marcos `dart:` y `package:flutter/`) en el modelo `shrimp.app.error`
+(primera/última vez, veces, versiones), visible solo para administradores en **Integraciones (API) ›
+Errores de la app**. Un cron diario borra los grupos sin reportes desde hace 90 días.
+
+**C3 · Bandeja de avisos.** Modelo `shrimp.app.notification` (destinatario, perfil, `kind`, título, texto,
+destino `{type, id}`, `link`, creado, leído). Nacen en el mismo punto que los webhooks
+(`shrimp.webhook.delivery._emit`) y pasan la misma regla de audiencia del evento más `has_access` del
+usuario. Qué evento deja qué aviso:
+
+| Evento | `kind` | Para | `link` |
+|---|---|---|---|
+| `verification.assigned` (al crearse) | `verification_assigned` | verificadora | `/verifier/verifications/<verificación>` |
+| `verification.assigned` (técnico) | `verification_assigned` | técnico asignado | `/verifier/verifications/<verificación>` |
+| `verification.verdict_issued` aprobada | `report_ready` | comprador y vendedor | `/marketplace/verifications/<verificación>/acceptance` |
+| `verification.verdict_issued` rechazada | `verification_rejected` | comprador y vendedor | ídem |
+| `verification.declared_submitted` | `report_ready` | la parte que debe confirmar | ídem |
+| `verification.acceptance_due` (nuevo) | `acceptance_due` | las partes que no respondieron | ídem |
+| `transaction.state_changed` (nace la compra) | `purchase_received` | vendedor | `/marketplace/sales/<compra>` |
+| `transaction.state_changed` → `confirmed` | `purchase_confirmed` | comprador (y vendedor si no recibió ya «Nueva compra» en la misma operación) | `/marketplace/purchases/<compra>` · `/marketplace/sales/<compra>` |
+| `dispatch.eta_changed` | `dispatch_scheduled` (1.ª vez) / `dispatch_eta_changed` | comprador, verificadora y técnico | comprador: `/marketplace/dispatch/<compra>`; verificadora/técnico: `/verifier/verifications/<verificación>` |
+| `dispatch.arrived` | `truck_arrived` | comprador | `/marketplace/dispatch/<compra>` |
+| `copack.request_published` (nuevo) | `copack_request_published` | maquiladores que la pueden ver | `/copacker/requests/<solicitud>` |
+| `copack.order_state_changed` (orden nacida de una oferta) | `copack_offer_accepted` | maquilador | `/copacker/orders/<orden>` |
+
+`target` lleva siempre el uuid del recurso de la API (`verification`, `transaction`, `dispatch`,
+`copack_request`, `copack_order`). Ojo: la página web del despacho se abre por la **compra**
+(`/marketplace/dispatch/<uuid de la compra>`), así que en ese enlace el uuid es el de la compra y el del
+despacho va en `target.id`.
+
+* `GET /api/v1/me/notifications?unread=true&limit=50&cursor=…` → `{"data": [{"id", "kind", "title", "body",
+  "target": {"type", "id"}, "link", "created_at", "read"}], "meta": {"next_cursor", "count", "limit",
+  "has_more", "unread_count"}}`, del más nuevo al más viejo. Con `X-Shrimp-Role`, solo los de ese perfil y
+  los que no tienen perfil. Sin scope especial. La clave de supervisor recibe la lista vacía; la de «actuar
+  como» ve los del socio.
+* `POST /api/v1/me/notifications/{id}:read` (devuelve el aviso) y `POST /api/v1/me/notifications:read-all`
+  (`{"updated": n, "unread_count": 0}`): con `Idempotency-Key`, sin firma y sin scope. La clave de «actuar
+  como» recibe 403 `insufficient-scope`; la de supervisor, 403 `supervisor-key`.
+* Retención: un cron diario borra los avisos **leídos** de más de 60 días. Un cron horario emite
+  `verification.acceptance_due` cuando quedan menos de 12 h del plazo de aceptación (una vez por plazo).
+
+**C4 · Fotos de campo.** `POST /api/v1/verifications/{id}/photos` — **firmada**, `Idempotency-Key`, scope
+`verifications:write`. Cuerpo `{"filename", "mime": "image/jpeg"|"image/png", "data": "<base64>", "taken_at",
+"latitude", "longitude", "note"}` (esta ruta admite cuerpos de hasta 8 MB). Solo el técnico asignado o el
+administrador de la verificadora, con la verificación `in_field` o `done` (si no, 409 `invalid-state`). La
+imagen se valida por su cabecera real (JPEG `FF D8 FF` o PNG; si no, 422) y como máximo 5 MB decodificada
+(413 `payload-too-large`). Se guarda **igual que en el portal**: `ir.attachment` privado de la verificación
+con token, enlazado en `photo_ids` (la ve el portal en su galería); `taken_at`, la nota y la ubicación se
+guardan en el adjunto (la ubicación solo la ven usuarios internos). Respuesta 201
+`{"id": "<token de la foto>", "filename", "taken_at", "size"}`. `GET /api/v1/verifications/{id}/photos` →
+`{"data": [{"id", "filename", "mime", "size", "taken_at", "note", "created_at"}]}` (sin binario ni GPS; lo
+pide quien ve la verificación).
+
+**C5 · Compra directa.** `POST /api/v1/purchases` — **firmada**, `Idempotency-Key`, scope
+`transactions:write`. Cuerpo `{"product": "<uuid del lote publicado>", "qty": 100, "notes": null}`. La
+misma lógica que «Comprar» en el portal (`shrimp.product.execute_purchase_flow`): stock, perfil que puede
+comprar (`motivo_no_comprable`, con el perfil de `X-Shrimp-Role`), unidad y precio para el comprador. Errores:
+422 `verification-required` si el lote exige verificación (usar `POST /verifications`), 403 `forbidden`
+con el motivo si el perfil no puede comprar ese lote, 422 `business-rule` sin stock suficiente. Respuesta
+201: la compra, con el mismo serializer que `GET /transactions/{id}`. La nota queda en el historial de la
+compra.
+
+**C6 · Enlaces directos.** `GET /.well-known/assetlinks.json` (público, `application/json`) publica
+`com.camaronmarket.verificador_campo` (parámetro opcional `shrimp_api.android_package_name`) con las huellas
+SHA-256 del parámetro `shrimp_api.android_cert_sha256` (Ajustes › CamaronMarket › App móvil, separadas por
+coma; se normalizan a `AA:BB:…` y se descartan las mal formadas). Sin huellas no hay entrada de
+CamaronMarket. Odoo 19 ya sirve esa ruta desde `auth_passkey` (auto_install) con la app oficial de Odoo
+(`com.odoo.mobile`, para passkeys); `shrimp_api` hereda ese controlador y **añade** la entrada de
+CamaronMarket delante sin quitar la de Odoo, así que sin huellas la respuesta es la de Odoo (y `[]` solo si
+`auth_passkey` no está instalado).
+
+---
+
 ## 6. Errores (RFC 9457)
 
 ```json
@@ -434,8 +537,9 @@ sin el secreto; si se perdió, se pide otro act-as (nueva clave de idempotencia 
 | 404 | `not-found` | no existe **o no es tuyo** (no se distingue a propósito) |
 | 405 | `method-not-allowed` | cabecera `Allow` con los métodos válidos |
 | 409 | `invalid-state`, `conflict`, `idempotency-in-progress`, `too-many-keys`, `signature-replayed`, `not-an-app-key` | el recurso no está en el estado necesario / firma repetida (§5 bis) |
-| 413 / 415 | `payload-too-large`, `unsupported-media-type` | cuerpo > 1 MB / no es JSON |
-| 422 | `validation-error`, `business-rule`, `idempotency-key-reused` | datos inválidos o regla de negocio (el `detail` es el mensaje del negocio) |
+| 413 / 415 | `payload-too-large`, `unsupported-media-type` | cuerpo > 1 MB (8 MB en las fotos de campo; foto > 5 MB) / no es JSON |
+| 422 | `validation-error`, `business-rule`, `idempotency-key-reused`, `verification-required` | datos inválidos o regla de negocio (el `detail` es el mensaje del negocio); `verification-required`: `POST /purchases` de un lote que exige verificación |
+| 426 | `app-update-required` | clave de la app (o `/auth/login`) con `X-App-Version` menor que la mínima o sin ella; lleva `min_version` y `download_url` (§5 quater) |
 | 429 | `rate-limited` | ver §7 |
 | 500 | `internal-error` | nunca lleva trazas; da el `request_id` a soporte |
 
@@ -527,6 +631,8 @@ Otras operaciones: `GET /webhooks`, `GET|PATCH|DELETE /webhooks/{id}`, `POST /we
 | `copack.order_state_changed` / `copack.acta_signed` | copack_order | cliente y maquilador |
 | `copack.signature_reverted` | copack_order | cliente y maquilador (una parte deshizo su firma del acta) |
 | `export.registered` | export | quien despacha (salida / exportación registrada) |
+| `copack.request_published` | copack_request | maquiladores que la pueden ver (el de destino si va dirigida; si es abierta, los que pueden actuar como maquilador) |
+| `verification.acceptance_due` | verification | comprador y vendedor (el plazo para aceptar el informe vence en menos de 12 h; una vez por plazo) |
 | `invoice.authorized` | invoice (uuid = clave de acceso) | receptor del comprobante (`shrimp_api_sri`) |
 | `ping` | webhook_subscription | la propia suscripción |
 
@@ -882,6 +988,8 @@ Solo aparecen comprobantes **autorizados o anulados** cuyo receptor es la empres
 `GET /public/verification-fee/quote?lb=`, `GET /public/traceability/{token}`,
 `GET /openapi.json`, `GET /docs`. HTML: `GET /t/{token}`.
 Sesión de la app móvil: `POST /auth/login` (correo + contraseña → clave de API; sin `Idempotency-Key`).
+App móvil (§5 quater): `GET /public/app-version`, `POST /public/app-errors`. Fuera de `/api/v1`:
+`GET /.well-known/assetlinks.json`.
 
 ### Privados
 * Sesión de la app: `POST /auth/logout` (revoca la clave con la que se llama y su dispositivo)
@@ -890,15 +998,18 @@ Sesión de la app móvil: `POST /auth/login` (correo + contraseña → clave de 
   `POST /verifications/{id}/acceptance:revert`, `POST /verifications/{id}:assign|:start|:verdict`,
   `PATCH /verifications/{id}/report`, `POST /dispatches/{id}/arrival`, `PATCH /dispatches/{id}`,
   `POST /transactions/{id}:complete`, `POST /harvest/commitments/{id}:buy`, `POST /copack/requests/{id}/offers`,
-  `POST /copack/orders/{id}:reception|:packing|:sign|:revert-signature|:reopen|:close` y `POST /me/active-role`
+  `POST /copack/orders/{id}:reception|:packing|:sign|:revert-signature|:reopen|:close`, `POST /me/active-role`,
+  `POST /verifications/{id}/photos` y `POST /purchases`
+* App móvil (§5 quater): `GET /me/notifications`, `POST /me/notifications/{id}:read`,
+  `POST /me/notifications:read-all`, `GET|POST /verifications/{id}/photos`, `POST /purchases`
 * Modo supervisor (§5 ter, solo clave de supervisor): `GET /supervisor/partners`, `POST /supervisor/act-as` (firmada)
 * Perfil: `GET /me`, `PATCH /me`, `POST /me/active-role`
 * Instalaciones: `GET|POST /facilities`, `GET|PATCH|PUT|DELETE /facilities/{id}`; piscinas: ídem en `/ponds`
 * Productos: `GET|POST /products`, `GET|PATCH|PUT|DELETE /products/{id}`, `POST /products/{id}:publish|:archive|:unarchive`, `GET|POST /products/{id}/evolutions`
 * Lotes: `GET /lots`, `GET /lots/{id}`, `GET /lots/{id}/moves`, `GET|POST /lots/{id}/allocations`
-* Compras/ventas: `GET /transactions`, `GET /transactions/{id}`, `GET /transactions/{id}/traceability`, `GET /transactions/{id}/traceability.pdf`, `POST /transactions/{id}:receive|:complete`, `POST /transactions/{id}/trace-token:rotate`, `GET /charges`
+* Compras/ventas: `POST /purchases` (compra directa, firmada), `GET /transactions`, `GET /transactions/{id}`, `GET /transactions/{id}/traceability`, `GET /transactions/{id}/traceability.pdf`, `POST /transactions/{id}:receive|:complete`, `POST /transactions/{id}/trace-token:rotate`, `GET /charges`
 * Chequeo: `GET /check-requests`, `GET /check-requests/{id}`, `POST /check-requests/{id}:approve|:reject`
-* Verificación: `GET /me/technicians`, `GET /verifications`, `GET /verifications/{id}`, `POST /verifications/{id}/acceptance`, `POST /verifications/{id}/acceptance:revert`, `POST /verifications/{id}:assign|:start|:verdict`, `PATCH /verifications/{id}/report`, `GET /suppliers/ranking`
+* Verificación: `GET /me/technicians`, `GET /verifications`, `GET /verifications/{id}`, `GET|POST /verifications/{id}/photos`, `POST /verifications/{id}/acceptance`, `POST /verifications/{id}/acceptance:revert`, `POST /verifications/{id}:assign|:start|:verdict`, `PATCH /verifications/{id}/report`, `GET /suppliers/ranking`
 * Despacho: `GET /dispatches`, `GET /dispatches/{id}`, `PATCH /dispatches/{id}`, `POST /dispatches/{id}/arrival`
 * Listas de precios: `GET|POST /price-lists`, `GET|PUT /price-lists/{id}`, `POST /price-lists/{id}:publish|:archive`, `GET /lot-alerts`
 * Reserva: `GET|POST /harvest/forecasts`, `GET /harvest/forecasts/{id}`, `POST /harvest/forecasts/{id}:publish|:cancel|:harvest`, `POST /harvest/forecasts/{id}/commitments`, `GET /harvest/commitments`, `GET /harvest/commitments/{id}`, `POST /harvest/commitments/{id}:accept|:reject|:withdraw|:desist|:buy`, `POST /harvest/commitments/{id}/confirmation`, `POST /harvest/commitments/{id}/confirmation:revert`
@@ -919,7 +1030,7 @@ Sesión de la app móvil: `POST /auth/login` (correo + contraseña → clave de 
 | Archivos (certificados, fotos de campo, PDF de acreditación) | Suelen llevar datos personales; se publican sus **metadatos** (nombre, emisor, número, vigencia) |
 | GPS de la inspección, técnicos en la trazabilidad pública | Ubicación exacta de fincas y personas |
 | Claves, hashes, secretos de webhooks (salvo al crearlos), certificados y credenciales del SRI, XML no autorizados | Credenciales |
-| Comprar desde la API, registrar socios, gestionar técnicos o subir fotos | Flujos con verificación humana, pagos o archivos; siguen en el portal |
+| Registrar socios o gestionar técnicos | Flujos con verificación humana; siguen en el portal. (Desde 19.0.1.7.0 sí se compra —`POST /verifications`, `POST /purchases`— y se suben fotos de campo, firmadas con la app) |
 
 ---
 
@@ -954,9 +1065,8 @@ Sesión de la app móvil: `POST /auth/login` (correo + contraseña → clave de 
 * `GET /verifications/{id}/report.pdf`: no existe un informe PDF propio de la verificación en el sistema; el
   bloque de verificación va dentro del certificado de trazabilidad (`GET /transactions/{id}/traceability.pdf`,
   solo comprador). Queda pendiente si se diseña ese informe.
-* Comprar por API (`POST` de compra con/sin verificación): no se expuso a propósito (pagos y elección de
-  verificador con validación humana).
-* Subida de archivos (fotos de campo, certificados): pendiente; necesitaría antivirus y control de tamaño.
+* Subida de certificados por API: pendiente (necesitaría antivirus). Las fotos de campo ya se suben
+  (§5 quater, C4: solo JPEG/PNG reales de hasta 5 MB, firmadas).
 * `/register/certificates` (formulario de registro) sigue devolviendo ids enteros del **catálogo** de
   certificados: cambiarlo exige tocar el registro web de dos módulos; no son datos personales.
 
@@ -982,11 +1092,20 @@ sudo -u odoo /opt/odoo/venv/bin/python /opt/odoo/odoo/odoo-bin -c /etc/odoo/odoo
 
 Parámetros de sistema opcionales: `shrimp_api.rate_read_per_min` (600), `shrimp_api.rate_write_per_min`
 (60), `shrimp_api.public_rate_per_min` (0 = sin límite en Odoo), `shrimp_api.webhook_allow_insecure`
-(solo pruebas: permite `http://` y destinos privados).
+(solo pruebas: permite `http://` y destinos privados), `shrimp_api.app_errors_per_hour` (30). Los de la app
+(`shrimp_api.app_min_version`, `app_latest_version`, `app_download_url`, `app_update_message`,
+`android_cert_sha256`) se editan en Ajustes › CamaronMarket › App móvil (§5 quater).
 
 Crons: «API externa: enviar webhooks pendientes» (cada minuto), «API externa: contadores de uso e
 idempotencia» (cada 10 min) y «API externa: antirreplay de firmas de la app (limpieza)» (cada hora; borra
-los hashes de firma de más de 8 días, la auditoría se conserva).
+los hashes de firma de más de 8 días, la auditoría se conserva). Desde 19.0.1.7.0: «App móvil: borrar errores
+de más de 90 días» y «App móvil: borrar avisos leídos de más de 60 días» (diarios) y «App móvil: avisar de
+plazos de aceptación por vencer» (cada hora).
+
+Al actualizar a 19.0.1.7.0 no hay migración de datos: se crean las tablas de errores y avisos y cuatro
+columnas en `ir_attachment` (metadatos de las fotos de la app). La versión mínima nace vacía, así que
+ninguna app deja de funcionar hasta que se fije en Ajustes. Si hay nginx delante, sube
+`client_max_body_size` a 8m para `/api/v1/verifications/` (fotos de campo).
 
 Al actualizar a 19.0.1.5.0, la migración marca como claves de la app (`is_app_key`) las que se llaman
 «App móvil – …» (las emitió `POST /auth/login`): desde ese momento sus operaciones sensibles exigen

@@ -56,6 +56,7 @@ PROBLEM_TITLES = {
     413: "Cuerpo demasiado grande",
     415: "Tipo de contenido no soportado",
     422: "Datos no válidos",
+    426: "Actualiza la app",
     429: "Demasiadas peticiones",
     500: "Error interno",
 }
@@ -65,7 +66,7 @@ class ApiError(Exception):
     """Error que se convierte tal cual en un application/problem+json."""
 
     def __init__(self, status, slug, detail=None, title=None, errors=None, headers=None,
-                 keep_changes=False):
+                 keep_changes=False, extra=None):
         super().__init__(detail or slug)
         self.status = status
         self.slug = slug
@@ -78,6 +79,9 @@ class ApiError(Exception):
         # constancia de un intento fallido (p. ej. de inicio de sesión) que
         # tiene que contar aunque la respuesta sea un error.
         self.keep_changes = keep_changes
+        # Miembros adicionales del problem+json (RFC 9457 §3.2), p. ej.
+        # min_version y download_url en el 426 app-update-required.
+        self.extra = dict(extra or {})
 
 
 def not_found(what="El recurso"):
@@ -125,7 +129,7 @@ class Route:
     def __init__(self, method, path, func, *, scopes=(), public=False, summary="",
                  description="", tags=(), params=None, body=None, response=None,
                  status=200, module=None, paginated=False, binary=None, signed=False,
-                 supervisor=False, secret_fields=()):
+                 supervisor=False, secret_fields=(), max_body=None):
         self.method = method.upper()
         self.path = path
         self.func = func
@@ -155,6 +159,9 @@ class Route:
         # Campos de la respuesta que son un secreto: la respuesta guardada
         # para la idempotencia los lleva a null (el secreto no se guarda).
         self.secret_fields = tuple(secret_fields or ())
+        # Tope del cuerpo en bytes (None = el general de 1 MB). Lo amplían
+        # solo las rutas que suben archivos en base64 (fotos de campo).
+        self.max_body = max_body
         self.patterns = [_compile(path)]
         # Las acciones se publican como "/x/{id}:accion" (estilo Google AIP)
         # y se aceptan también como "/x/{id}/accion" para clientes o proxies
@@ -175,7 +182,8 @@ class Route:
 
 def api_route(method, path, *, scope=None, public=False, summary="", description="",
               tags=(), params=None, body=None, response=None, status=200,
-              paginated=False, binary=None, signed=False, supervisor=False, secret_fields=()):
+              paginated=False, binary=None, signed=False, supervisor=False, secret_fields=(),
+              max_body=None):
     """Declara una operación de /api/v1.
 
     ``scope`` puede ser un código o una tupla de códigos (basta con tener uno).
@@ -191,6 +199,7 @@ def api_route(method, path, *, scope=None, public=False, summary="", description
     admite una clave de supervisor (las demás, 403 supervisor-only).
     ``secret_fields``: campos de la respuesta que no se guardan para la
     idempotencia (el reintento los recibe a null).
+    ``max_body``: tope del cuerpo en bytes si la ruta necesita más de 1 MB.
     """
     scopes = (scope,) if isinstance(scope, str) else tuple(scope or ())
 
@@ -201,7 +210,7 @@ def api_route(method, path, *, scope=None, public=False, summary="", description
                       description=description or (func.__doc__ or "").strip(), tags=tags,
                       params=params, body=body, response=response, status=status,
                       module=module, paginated=paginated, binary=binary, signed=signed,
-                      supervisor=supervisor, secret_fields=secret_fields)
+                      supervisor=supervisor, secret_fields=secret_fields, max_body=max_body)
         # Con --dev=reload un módulo puede importarse dos veces: se reemplaza
         # la ruta en vez de duplicarla.
         for i, existing in enumerate(ROUTES):
@@ -251,6 +260,29 @@ def canonical_string(method, path, timestamp, idempotency_key, body):
         (method or "").upper(), path or "", str(timestamp), idempotency_key or "",
         hashlib.sha256(body or b"").hexdigest(),
     ]).encode("utf-8")
+
+
+# ---------------------------------------------------------------------------
+# Versión de la app móvil (docs/app/CONTRATO-MEJORAS-APP.md, C0 y C1)
+# ---------------------------------------------------------------------------
+APP_VERSION_HEADER = "X-App-Version"
+APP_PLATFORM_HEADER = "X-App-Platform"
+_VERSION_RE = re.compile(r"^\s*v?(\d{1,6})(?:\.(\d{1,6}))?(?:\.(\d{1,6}))?(?:[-+][0-9A-Za-z.+-]*)?\s*$")
+
+
+def parse_version(value):
+    """«x.y.z» (de pubspec) -> (x, y, z), o None si no es una versión.
+
+    Se admite lo que escribe Flutter en pubspec («1.2.0+7»: el número de
+    compilación tras «+» no cuenta) y «1.2» / «1» (lo que falta vale 0). La
+    pre-versión («1.2.0-beta») se compara como su versión base.
+    """
+    if not isinstance(value, str):
+        return None
+    m = _VERSION_RE.match(value)
+    if not m:
+        return None
+    return tuple(int(g or 0) for g in m.groups())
 
 
 # ---------------------------------------------------------------------------

@@ -11,3 +11,10 @@ from . import mail_queue
 from . import website_navbar
 # Mover producto propio entre perfiles: webhook y trazabilidad pública.
 from . import profile_transfer_api
+# App móvil (docs/app/CONTRATO-MEJORAS-APP.md): ajustes (versión mínima,
+# huellas de Android), errores de la app, bandeja de avisos y metadatos de
+# las fotos de campo subidas desde la app.
+from . import res_config_settings
+from . import app_error
+from . import app_notification
+from . import ir_attachment

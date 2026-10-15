@@ -18,3 +18,4 @@ from . import test_api_login
 from . import test_api_technicians
 from . import test_api_dispositivos
 from . import test_api_supervisor
+from . import test_api_mejoras_app

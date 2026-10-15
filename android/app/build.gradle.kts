@@ -12,6 +12,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // flutter_local_notifications (avisos) lo exige.
+        isCoreLibraryDesugaringEnabled = true
     }
 
     defaultConfig {
@@ -55,4 +57,6 @@ dependencies {
     // FlutterFragmentActivity + tema AppCompat (el diálogo de huella en
     // Android 7-8 lo necesita).
     implementation("androidx.appcompat:appcompat:1.7.0")
+    // Desugaring de java.time para flutter_local_notifications.
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }

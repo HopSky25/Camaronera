@@ -9,9 +9,10 @@ import '../../tema.dart';
 import '../pantalla_pendientes.dart';
 import '../seguridad/pantalla_seguridad.dart';
 import '../supervisor/franja_supervisor.dart';
+import 'pantalla_avisos.dart';
 
-/// Barra superior común a todos los perfiles: logo, pendientes de enviar,
-/// sincronizar y el menú de la cuenta (cambiar perfil, datos y privacidad,
+/// Barra superior común a todos los perfiles: logo, avisos, pendientes de
+/// enviar, sincronizar y el menú de la cuenta (cambiar perfil, datos y privacidad,
 /// cerrar sesión).
 class BarraCuenta extends StatelessWidget implements PreferredSizeWidget {
   final String? titulo;
@@ -28,6 +29,7 @@ class BarraCuenta extends StatelessWidget implements PreferredSizeWidget {
       titleSpacing: 16,
       title: titulo == null ? Image.asset('assets/logo.png', height: 30) : Text(titulo!),
       actions: [
+        const CampanaAvisos(),
         // Modo supervisor: no hay nada que enviar.
         if (!soloLectura)
           IconButton(

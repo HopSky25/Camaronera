@@ -1,7 +1,23 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+// Llave de subida (Google Play). key.properties y el .jks viven FUERA del
+// repositorio. Se busca, en orden: la variable de entorno
+// CAMARONMARKET_KEY_PROPERTIES, android/key.properties (ignorado por git) y
+// C:/dev/llaves/key.properties. Si no hay ninguno (p. ej. otro equipo), el
+// release se firma con la llave de depuración para no romper la compilación.
+val propiedadesLlave: Properties? = listOfNotNull(
+    System.getenv("CAMARONMARKET_KEY_PROPERTIES")?.let { file(it) },
+    rootProject.file("key.properties"),
+    file("C:/dev/llaves/key.properties"),
+).firstOrNull { it.isFile }?.let { archivo ->
+    Properties().apply { FileInputStream(archivo).use { load(it) } }
 }
 
 android {
@@ -17,7 +33,7 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
+        // Id publicado (assetlinks.json de C6 lo usa): no cambiarlo.
         applicationId = "com.camaronmarket.verificador_campo"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
@@ -31,11 +47,20 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (propiedadesLlave != null) {
+            create("subida") {
+                keyAlias = propiedadesLlave.getProperty("keyAlias")
+                keyPassword = propiedadesLlave.getProperty("keyPassword")
+                storeFile = file(propiedadesLlave.getProperty("storeFile"))
+                storePassword = propiedadesLlave.getProperty("storePassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (propiedadesLlave != null) signingConfigs.getByName("subida") else signingConfigs.getByName("debug")
         }
     }
 }

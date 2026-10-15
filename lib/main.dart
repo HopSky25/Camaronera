@@ -1,9 +1,14 @@
+import 'dart:async';
+
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'datos/api_cliente.dart';
 import 'datos/control_version.dart';
+import 'datos/reporte_errores.dart';
 import 'datos/repositorio.dart';
 import 'datos/sesion.dart';
 import 'datos/sincronizador.dart';
@@ -21,13 +26,25 @@ import 'pantallas/supervisor/pantalla_directorio_socios.dart';
 import 'pantallas/vendedor/panel_vendedor.dart';
 import 'tema.dart';
 
+/// Reporte de errores de la app (C2). En depuración no envía nada.
+final reporteErrores = ReporteErrores(habilitado: !kDebugMode);
+
 void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.dark,
-  ));
-  runApp(const AppCamaronMarket());
+  // Errores de zonas asíncronas que nadie atrapó; los de Flutter y los de la
+  // plataforma se enganchan dentro (reporteErrores.instalar).
+  runZonedGuarded(() {
+    WidgetsFlutterBinding.ensureInitialized();
+    reporteErrores.instalar();
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+    ));
+    // Con señal de nuevo: se envían los reportes guardados.
+    Connectivity().onConnectivityChanged.listen((estados) {
+      if (!estados.contains(ConnectivityResult.none)) reporteErrores.enviar();
+    });
+    runApp(const AppCamaronMarket());
+  }, reporteErrores.capturar);
 }
 
 /// La app de CamaronMarket para todos los perfiles: una sola app, un panel
@@ -49,6 +66,8 @@ class AppCamaronMarket extends StatelessWidget {
           ApiCliente.alActualizacionObligatoria = control.alRecibir426;
           // Al abrir: en cuanto se sabe a qué servidor preguntar.
           sesion.listo.then((_) => control.comprobar());
+          reporteErrores.servidor = () => sesion.url;
+          sesion.listo.then((_) => reporteErrores.enviar());
           return control;
         }),
       ],
@@ -58,6 +77,7 @@ class AppCamaronMarket extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           theme: temaCamaronMarket(),
           navigatorKey: claveNavegador,
+          navigatorObservers: [ObservadorPantallas()],
           // La pantalla de desbloqueo tapa TODO (también las pantallas
           // abiertas encima de la raíz), sin cerrarlas: al desbloquear se
           // sigue donde se estaba (p. ej. un informe a medio llenar). En
@@ -103,6 +123,7 @@ class _GuardiaBloqueoState extends State<_GuardiaBloqueo> with WidgetsBindingObs
         sesion.alVolver();
         // Versión mínima: como mucho una consulta por hora.
         context.read<ControlVersion>().comprobar();
+        reporteErrores.enviar();
       default:
         break;
     }

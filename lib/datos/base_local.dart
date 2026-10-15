@@ -46,7 +46,9 @@ class BaseLocal {
   ///      la 4, cola.cuerpo es el cuerpo serializado EXACTO que se firmó y se
   ///      envía (antes ya se guardaba con jsonEncode, así que las filas
   ///      viejas valen tal cual; solo les falta la firma).
-  static const version = 4;
+  ///  5 + errores_app y errores_envios (reporte de errores de la app, C2;
+  ///      sin datos personales y fuera del borrado al cerrar sesión).
+  static const version = 5;
 
   Future<Database> get bd {
     final propia = _abrirPropia;
@@ -108,6 +110,7 @@ class BaseLocal {
       )''');
     await db.execute('CREATE TABLE config (clave TEXT PRIMARY KEY, valor TEXT)');
     await _crearCache(db);
+    await _crearErrores(db);
   }
 
   static Future<void> migrar(Database db, int desde, int _) async {
@@ -122,15 +125,27 @@ class BaseLocal {
         'ultimo_error_tipo': 'TEXT',
       });
     }
+    if (desde < 5) await _crearErrores(db);
+  }
+
+  static Future<void> _crearErrores(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS errores_app (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        huella TEXT NOT NULL,
+        cuerpo TEXT NOT NULL,
+        creado_en TEXT NOT NULL
+      )''');
+    await db.execute('CREATE TABLE IF NOT EXISTS errores_envios (dia TEXT PRIMARY KEY, enviados INTEGER NOT NULL)');
   }
 
   static Future<void> _crearCache(Database db) => db.execute(
       'CREATE TABLE IF NOT EXISTS cache_listas (clave TEXT PRIMARY KEY, json TEXT NOT NULL, guardado_en TEXT NOT NULL)');
 
-  static Future<void> _agregarColumnas(Database db, Map<String, String> columnas) async {
-    final existentes = (await db.rawQuery('PRAGMA table_info(cola)')).map((c) => c['name']).toSet();
+  static Future<void> _agregarColumnas(Database db, Map<String, String> columnas, {String tabla = 'cola'}) async {
+    final existentes = (await db.rawQuery('PRAGMA table_info($tabla)')).map((c) => c['name']).toSet();
     for (final c in columnas.entries) {
-      if (!existentes.contains(c.key)) await db.execute('ALTER TABLE cola ADD COLUMN ${c.key} ${c.value}');
+      if (!existentes.contains(c.key)) await db.execute('ALTER TABLE $tabla ADD COLUMN ${c.key} ${c.value}');
     }
   }
 
@@ -351,6 +366,46 @@ class BaseLocal {
     final db = await bd;
     final filas = await db.query('fotos', where: 'verificacion_id = ?', whereArgs: [verificacionId], orderBy: 'id ASC');
     return filas.map((f) => f['ruta'] as String).toList();
+  }
+
+  // ---------------- errores de la app (C2) ----------------
+
+  /// Guarda un reporte en la cola. Si ya hay uno igual ([huella]) no se
+  /// repite; la cola no pasa de [maximo] (se descartan los más viejos).
+  Future<bool> encolarError(String huella, String cuerpo, {int maximo = 50}) async {
+    final db = await bd;
+    final repetido = await db.query('errores_app', columns: ['id'], where: 'huella = ?', whereArgs: [huella], limit: 1);
+    if (repetido.isNotEmpty) return false;
+    await db.insert('errores_app', {'huella': huella, 'cuerpo': cuerpo, 'creado_en': DateTime.now().toUtc().toIso8601String()});
+    await db.execute(
+        'DELETE FROM errores_app WHERE id NOT IN (SELECT id FROM errores_app ORDER BY id DESC LIMIT ?)', [maximo]);
+    return true;
+  }
+
+  /// Reportes por enviar, del más viejo al más nuevo: (id, cuerpo JSON).
+  Future<List<(int, String)>> erroresPendientes() async {
+    final db = await bd;
+    final filas = await db.query('errores_app', orderBy: 'id ASC');
+    return [for (final f in filas) (f['id'] as int, f['cuerpo'] as String)];
+  }
+
+  Future<void> quitarError(int id) async {
+    final db = await bd;
+    await db.delete('errores_app', where: 'id = ?', whereArgs: [id]);
+  }
+
+  /// Reportes enviados el [dia] (`yyyy-mm-dd`, hora local).
+  Future<int> erroresEnviados(String dia) async {
+    final db = await bd;
+    final filas = await db.query('errores_envios', where: 'dia = ?', whereArgs: [dia]);
+    return filas.isEmpty ? 0 : filas.first['enviados'] as int;
+  }
+
+  Future<void> contarErrorEnviado(String dia) async {
+    final db = await bd;
+    final n = await erroresEnviados(dia);
+    await db.insert('errores_envios', {'dia': dia, 'enviados': n + 1}, conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.delete('errores_envios', where: 'dia < ?', whereArgs: [dia]);
   }
 
   // ---------------- caché de listas (perfiles en línea) ----------------

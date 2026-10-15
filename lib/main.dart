@@ -90,6 +90,9 @@ class AppCamaronMarket extends StatelessWidget {
         ChangeNotifierProvider(
             create: (c) => ServicioAvisos(sesion: c.read<Sesion>(), notificador: notificaciones, atenderFondo: true)),
         Provider<Enrutador>(
+          // Sin lazy: false nadie lo crea hasta que una pantalla lo lee, y el
+          // enlace o la notificación con que se abrió la app se perdían.
+          lazy: false,
           create: (c) {
             final sinc = c.read<Sincronizador>();
             final enrutador = Enrutador(sesion: c.read<Sesion>(), navegador: claveNavegador, alAbrirVerificacion: sinc.sincronizar);

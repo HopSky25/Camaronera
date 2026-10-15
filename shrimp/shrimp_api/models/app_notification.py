@@ -9,6 +9,7 @@ aquí es a quién de la audiencia le interesa cada evento y con qué texto.
 """
 
 import logging
+import re
 from datetime import timedelta
 
 import pytz
@@ -49,8 +50,10 @@ def _qty(env, value, uom):
 
 
 def _item(partner, role, kind, title, body, target_type, target_id, link):
+    # Un nombre que termina en punto («… S.A.») al final de la frase dejaba «..».
+    body = re.sub(r"(?<!\.)\.\.$", ".", (body or "").strip())
     return {"partner": partner, "role": role or False, "kind": kind, "title": title[:120],
-            "body": (body or "")[:500], "target_type": target_type, "target_uuid": target_id,
+            "body": body[:500], "target_type": target_type, "target_uuid": target_id,
             "link": link}
 
 

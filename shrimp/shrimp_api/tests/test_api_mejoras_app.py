@@ -623,3 +623,11 @@ class TestApiMejorasApp(ApiCase):
         self.assertIn("/api/v1/public/app-errors", paths)
         self.assertIn("/api/v1/me/notifications", paths)
         self.assertIn("426", paths["/api/v1/me"]["get"]["responses"])
+
+    def test_c3_texto_sin_punto_doble(self):
+        from odoo.addons.shrimp_api.models.app_notification import _item
+        partner = self.env["res.partner"]
+        body = _item(partner, False, "x", "T", "Te asignaron VER-1 de Río Chone S.A..", "v", "u", "/l")["body"]
+        self.assertEqual(body, "Te asignaron VER-1 de Río Chone S.A.")
+        body = _item(partner, False, "x", "T", "Espera...", "v", "u", "/l")["body"]
+        self.assertEqual(body, "Espera...")

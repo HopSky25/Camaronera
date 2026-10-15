@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
+import '../modelos/foto_campo.dart';
 import '../modelos/operacion_pendiente.dart';
 import '../modelos/verificacion.dart';
 import '../seguridad/firma_operacion.dart';
@@ -21,8 +22,8 @@ class ListaGuardada {
 ///    (JSON del servidor) más el informe capturado en campo.
 ///  - cola: operaciones hechas en la app, en el orden en que se hicieron, que
 ///    se envían al servidor cuando hay señal (todos los perfiles).
-///  - fotos: fotos tomadas en campo (archivo local; la API todavía no recibe
-///    archivos, así que se suben luego desde el portal).
+///  - fotos: fotos tomadas en campo (archivo local) y su subida por la cola
+///    firmada (`POST /verifications/{id}/photos`, C4).
 ///  - cache_listas: última respuesta de cada lista de los perfiles en línea
 ///    (lotes, ventas, despachos...) para mostrarla sin señal.
 ///  - config: pares clave/valor (última sincronización, quién soy, perfil).
@@ -48,7 +49,8 @@ class BaseLocal {
   ///      viejas valen tal cual; solo les falta la firma).
   ///  5 + errores_app y errores_envios (reporte de errores de la app, C2;
   ///      sin datos personales y fuera del borrado al cerrar sesión).
-  static const version = 5;
+  ///  6 + fotos.operacion_id, latitud, longitud (subida de fotos, C4).
+  static const version = 6;
 
   Future<Database> get bd {
     final propia = _abrirPropia;
@@ -106,7 +108,10 @@ class BaseLocal {
         verificacion_id TEXT NOT NULL,
         ruta TEXT NOT NULL,
         tomada_en TEXT NOT NULL,
-        subida INTEGER NOT NULL DEFAULT 0
+        subida INTEGER NOT NULL DEFAULT 0,
+        operacion_id INTEGER,
+        latitud REAL,
+        longitud REAL
       )''');
     await db.execute('CREATE TABLE config (clave TEXT PRIMARY KEY, valor TEXT)');
     await _crearCache(db);
@@ -126,6 +131,9 @@ class BaseLocal {
       });
     }
     if (desde < 5) await _crearErrores(db);
+    if (desde < 6) {
+      await _agregarColumnas(db, const {'operacion_id': 'INTEGER', 'latitud': 'REAL', 'longitud': 'REAL'}, tabla: 'fotos');
+    }
   }
 
   static Future<void> _crearErrores(Database db) async {
@@ -353,19 +361,46 @@ class BaseLocal {
 
   // ---------------- fotos ----------------
 
-  Future<void> guardarFoto(String verificacionId, String ruta) async {
+  /// Guarda una foto tomada en campo; devuelve su id local.
+  Future<int> guardarFoto(String verificacionId, String ruta, {DateTime? tomadaEn, double? latitud, double? longitud}) async {
     final db = await bd;
-    await db.insert('fotos', {
+    return db.insert('fotos', {
       'verificacion_id': verificacionId,
       'ruta': ruta,
-      'tomada_en': DateTime.now().toIso8601String(),
+      'tomada_en': (tomadaEn ?? DateTime.now()).toIso8601String(),
+      'latitud': latitud,
+      'longitud': longitud,
     });
   }
 
-  Future<List<String>> fotos(String verificacionId) async {
+  Future<List<FotoCampo>> fotos(String verificacionId) async {
     final db = await bd;
     final filas = await db.query('fotos', where: 'verificacion_id = ?', whereArgs: [verificacionId], orderBy: 'id ASC');
-    return filas.map((f) => f['ruta'] as String).toList();
+    return [
+      for (final f in filas)
+        FotoCampo(
+          id: f['id'] as int,
+          verificacionId: verificacionId,
+          ruta: f['ruta'] as String,
+          tomadaEn: DateTime.tryParse(f['tomada_en'] as String? ?? '') ?? DateTime.now(),
+          subida: (f['subida'] as int? ?? 0) == 1,
+          operacionId: f['operacion_id'] as int?,
+          latitud: (f['latitud'] as num?)?.toDouble(),
+          longitud: (f['longitud'] as num?)?.toDouble(),
+        ),
+    ];
+  }
+
+  /// La foto ya está firmada en la cola (operación [operacionId]).
+  Future<void> vincularFoto(int fotoId, int operacionId) async {
+    final db = await bd;
+    await db.update('fotos', {'operacion_id': operacionId}, where: 'id = ?', whereArgs: [fotoId]);
+  }
+
+  /// El servidor recibió la foto de la operación [operacionId].
+  Future<void> marcarFotoSubida(int operacionId) async {
+    final db = await bd;
+    await db.update('fotos', {'subida': 1}, where: 'operacion_id = ?', whereArgs: [operacionId]);
   }
 
   // ---------------- errores de la app (C2) ----------------

@@ -37,7 +37,8 @@ String cadenaCanonica({
 /// Segundos Unix (entero) de un instante.
 int segundosUnix(DateTime t) => t.toUtc().millisecondsSinceEpoch ~/ 1000;
 
-/// Las 19 rutas firmadas del servidor (sección 4 del contrato), con `{id}`
+/// Las rutas firmadas del servidor (sección 4 del contrato de firma y C4/C5
+/// del de mejoras), con `{id}`
 /// como un segmento. La acción final se acepta como `:accion` o `/accion`
 /// (el servidor admite las dos formas).
 final _rutasSensibles = <String, List<RegExp>>{
@@ -47,6 +48,8 @@ final _rutasSensibles = <String, List<RegExp>>{
       r'/verifications/[^/:]+/acceptance',
       r'/verifications/[^/:]+/acceptance[:/]revert',
       r'/verifications/[^/:]+[:/](assign|start|verdict)',
+      // Fotos de campo (CONTRATO-MEJORAS-APP.md, C4).
+      r'/verifications/[^/:]+/photos',
       r'/dispatches/[^/:]+/arrival',
       r'/transactions/[^/:]+[:/]complete',
       r'/harvest/commitments/[^/:]+[:/]buy',

@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'dart:isolate';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 import '../modelos/cuerpos.dart';
+import '../modelos/foto_campo.dart';
 import '../modelos/operacion_pendiente.dart';
 import '../modelos/perfil.dart';
 import '../modelos/verificacion.dart';
@@ -171,6 +174,10 @@ class Sincronizador extends ChangeNotifier {
     final bloqueados = <String>{};
     for (final op in await _bd.cola()) {
       if (bloqueados.contains(op.recursoId)) continue;
+      // Una foto que el servidor ya rechazó (p. ej. 409 invalid-state: la
+      // verificación se cerró) no se vuelve a subir en cada pasada: queda en
+      // Pendientes con el motivo hasta que se descarte.
+      if (op.tipo == TipoOperacion.fotoCampo && op.ultimoErrorTipo == fotoRechazada) continue;
       if (op.tipo == TipoOperacion.llegadaCamion && (op.despachoId ?? '').isEmpty) {
         await _bd.anotarError(op.idLocal!, op.intentos + 1, 'Esta verificación no tiene despacho asociado.');
         continue;
@@ -198,6 +205,7 @@ class Sincronizador extends ChangeNotifier {
         final resp = await api.enviarSerializado(op.metodo, op.ruta, op.cuerpoSerializado,
             idempotencia: op.claveIdempotencia, rol: op.rol, firma: cabecerasFirma);
         await _bd.quitarDeCola(op.idLocal!);
+        if (op.tipo == TipoOperacion.fotoCampo) await _bd.marcarFotoSubida(op.idLocal!);
         // La respuesta trae la verificación al día: se guarda en la bandeja.
         if (op.respondeVerificacion && _usaBandeja && Verificacion.tieneId(resp)) {
           await _bd.guardarVerificaciones([resp]);
@@ -210,7 +218,8 @@ class Sincronizador extends ChangeNotifier {
         // (vuelta a la entrada / a "Protege tu cuenta"); la operación sigue
         // intacta en la cola.
         if (e.dispositivoRevocado || e.dispositivoNoRegistrado) rethrow;
-        await _bd.anotarError(op.idLocal!, op.intentos + 1, e.mensaje, tipo: e.tipo);
+        final definitivoFoto = op.tipo == TipoOperacion.fotoCampo && e.esDefinitivo && !e.pideFirmarDeNuevo;
+        await _bd.anotarError(op.idLocal!, op.intentos + 1, mensajeDeRechazo(op, e), tipo: definitivoFoto ? fotoRechazada : e.tipo);
         if (e.esDefinitivo) {
           // El servidor rechazó el dato: se deja en la cola con el error a la
           // vista para que el usuario lo corrija o lo descarte. Lo que dependa
@@ -220,12 +229,28 @@ class Sincronizador extends ChangeNotifier {
             // El estado local se había adelantado a "en campo": se revierte.
             await _bd.cambiarEstadoLocal(op.recursoId, 'assigned');
           }
-          ultimoMensaje = '${op.descripcion}: ${e.mensaje}';
+          ultimoMensaje = '${op.descripcion}: ${mensajeDeRechazo(op, e)}';
           continue;
         }
         rethrow; // 401/429/5xx: se para aquí y se reintenta en la próxima pasada
       }
     }
+  }
+
+  /// Tipo de error con el que se anota una foto que el servidor rechazó del
+  /// todo (no se vuelve a enviar sola).
+  static const fotoRechazada = 'foto-rechazada';
+
+  /// Motivo de un rechazo del servidor, dicho para la operación concreta.
+  static String mensajeDeRechazo(OperacionPendiente op, ErrorApi e) {
+    if (op.tipo == TipoOperacion.fotoCampo) {
+      if (e.tipo == 'invalid-state' || e.status == 409) {
+        return 'La verificación ya no admite fotos (solo en campo o con el informe sin cerrar). '
+            'Descarta esta foto; sigue guardada en el teléfono.';
+      }
+      if (e.status == 413) return 'La foto pesa demasiado para el servidor (máximo 5 MB). Descártala y toma otra.';
+    }
+    return e.mensaje;
   }
 
   /// Texto para Pendientes de una operación que hay que (volver a) confirmar.
@@ -405,16 +430,59 @@ class Sincronizador extends ChangeNotifier {
     await recargarLocal();
   }
 
-  Future<void> guardarFoto(Verificacion v, String ruta) async {
+  /// Guarda en el teléfono una foto tomada en campo (sin subirla todavía).
+  Future<int> guardarFoto(Verificacion v, String ruta, {DateTime? tomadaEn, double? latitud, double? longitud}) {
     _exigirEscritura();
-    await _bd.guardarFoto(v.id, ruta);
+    return _bd.guardarFoto(v.id, ruta, tomadaEn: tomadaEn, latitud: latitud, longitud: longitud);
+  }
+
+  /// Sube una foto guardada (C4): la comprime (lado mayor ≤ 1600 px, JPEG
+  /// 75) fuera del hilo de la pantalla, la firma con la huella / PIN como el
+  /// resto de operaciones y la deja en la cola (`POST
+  /// /verifications/{id}/photos`). Lanza [ErrorSeguridad] si no se confirma
+  /// (la foto sigue guardada, "sin confirmar").
+  Future<void> subirFoto(FotoCampo f, {String? nota, Future<Uint8List> Function(String ruta)? leer}) async {
+    _exigirEscritura();
+    final original = await (leer ?? _leerArchivo)(f.ruta);
+    final cuerpo = await Isolate.run(() => prepararFoto(
+          nombreArchivo: f.nombreArchivo,
+          original: original,
+          tomadaEn: f.tomadaEn,
+          latitud: f.latitud,
+          longitud: f.longitud,
+          nota: nota,
+        ));
+    final idLocal = await _encolar(TipoOperacion.fotoCampo, f.verificacionId, cuerpo);
+    await _bd.vincularFoto(f.id, idLocal);
+    await recargarLocal();
+    unawaited(sincronizar());
+  }
+
+  static Future<Uint8List> _leerArchivo(String ruta) => File(ruta).readAsBytes();
+
+  /// Las fotos de una verificación con su estado (sin confirmar, pendiente,
+  /// subida o con error) según la cola.
+  Future<List<FotoCampo>> fotosDe(String verificacionId) async {
+    final fotos = await _bd.fotos(verificacionId);
+    final porId = {for (final op in await _bd.cola()) op.idLocal: op};
+    return [
+      for (final f in fotos)
+        if (f.subida)
+          f.conEstado(EstadoFoto.subida)
+        else if (f.operacionId == null || !porId.containsKey(f.operacionId))
+          // Sin firmar, o se descartó en Pendientes: hay que volver a confirmarla.
+          f.conEstado(EstadoFoto.sinConfirmar)
+        else if (porId[f.operacionId]!.conError)
+          f.conEstado(EstadoFoto.error, porId[f.operacionId]!.ultimoError)
+        else
+          f.conEstado(EstadoFoto.pendiente),
+    ];
   }
 
   /// En modo supervisor (solo lectura) ninguna acción llega a la cola.
   void _exigirEscritura() {
     if (sesion.soloLectura) throw const ErrorSoloLectura();
   }
-  Future<List<String>> fotosDe(Verificacion v) => _bd.fotos(v.id);
 
   @override
   void dispose() {

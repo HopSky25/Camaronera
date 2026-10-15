@@ -20,6 +20,7 @@ enum TipoOperacion {
   veredicto,
   llegadaCamion,
   asignarTecnico,
+  fotoCampo,
   // Comprador y vendedor
   aceptacionInforme,
   programarDespacho,
@@ -141,6 +142,7 @@ class OperacionPendiente {
         TipoOperacion.veredicto => '/verifications/$recursoId:verdict',
         TipoOperacion.llegadaCamion => '/dispatches/$despachoId/arrival',
         TipoOperacion.asignarTecnico => '/verifications/$recursoId:assign',
+        TipoOperacion.fotoCampo => '/verifications/$recursoId/photos',
         TipoOperacion.aceptacionInforme => '/verifications/$recursoId/acceptance',
         TipoOperacion.programarDespacho => '/dispatches/$recursoId',
         TipoOperacion.compraVerificada => '/verifications',
@@ -157,6 +159,7 @@ class OperacionPendiente {
         TipoOperacion.veredicto => 'Veredicto',
         TipoOperacion.llegadaCamion => 'Llegada del camión',
         TipoOperacion.asignarTecnico => 'Asignación de técnico',
+        TipoOperacion.fotoCampo => 'Foto de campo',
         TipoOperacion.aceptacionInforme => 'Decisión sobre el informe',
         TipoOperacion.programarDespacho => 'Programación del despacho',
         TipoOperacion.compraVerificada => 'Compra con verificación',

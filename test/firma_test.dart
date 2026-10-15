@@ -77,7 +77,7 @@ void main() {
       }
     });
 
-    test('las 19 rutas del servidor y su forma alternativa /accion', () {
+    test('las rutas firmadas del servidor (19 + fotos C4) y su forma alternativa /accion', () {
       const firmadas = [
         ('POST', '/verifications'),
         ('POST', '/verifications/v1/acceptance'),
@@ -98,8 +98,9 @@ void main() {
         ('POST', '/copack/orders/o1:reopen'),
         ('POST', '/copack/orders/o1:close'),
         ('POST', '/me/active-role'),
+        ('POST', '/verifications/v1/photos'),
       ];
-      expect(firmadas, hasLength(19));
+      expect(firmadas, hasLength(20));
       for (final (m, r) in firmadas) {
         expect(esRutaSensible(m, r), isTrue, reason: '$m $r');
         expect(esRutaSensible(m, '/api/v1$r'), isTrue, reason: 'con prefijo: $m $r');

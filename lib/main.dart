@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:app_links/app_links.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -97,6 +98,15 @@ class AppCamaronMarket extends StatelessWidget {
               final carga = await notificaciones.cargaDeLanzamiento();
               if (carga != null) enrutador.ir(destinoDeCarga(carga));
             });
+            // Enlaces directos (C6): https de CamaronMarket y camaronmarket://.
+            // El flujo trae también el enlace con el que se abrió la app. Una
+            // ruta desconocida (destino nulo) lleva al inicio.
+            try {
+              AppLinks().uriLinkStream.listen((uri) => enrutador.ir(destinoDeEnlace(uri)),
+                  onError: (Object e) => debugPrint('Enlace no válido: $e'));
+            } catch (e) {
+              debugPrint('Sin enlaces directos: $e');
+            }
             return enrutador;
           },
           dispose: (_, e) => e.dispose(),

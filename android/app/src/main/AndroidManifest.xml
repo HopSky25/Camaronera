@@ -31,9 +31,40 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <!-- Los enlaces los atiende app_links (no el enrutador por defecto de Flutter). -->
+            <meta-data android:name="flutter_deeplinking_enabled" android:value="false" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <!-- Enlaces directos (CONTRATO-MEJORAS-APP.md, C6): App Links verificados
+                 con /.well-known/assetlinks.json de cada dominio. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https"/>
+                <data android:host="camaronmarket.com"/>
+                <data android:host="www.camaronmarket.com"/>
+                <data android:host="demo.camaronmarket.com"/>
+                <data android:host="verificadores.camaronmarket.com"/>
+                <data android:host="empaque.camaronmarket.com"/>
+                <data android:host="verificadores.demo.camaronmarket.com"/>
+                <data android:host="empaque.demo.camaronmarket.com"/>
+                <data android:pathPrefix="/marketplace/verifications/"/>
+                <data android:pathPrefix="/verifier/verifications/"/>
+                <data android:pathPrefix="/marketplace/purchases/"/>
+                <data android:pathPrefix="/marketplace/sales/"/>
+                <data android:pathPrefix="/marketplace/dispatch/"/>
+                <data android:pathPrefix="/copacker/orders/"/>
+                <data android:pathPrefix="/marketplace/products/"/>
+            </intent-filter>
+            <!-- Esquema propio: camaronmarket://<la misma ruta> -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="camaronmarket"/>
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

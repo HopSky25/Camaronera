@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import 'datos/api_cliente.dart';
+import 'datos/control_version.dart';
 import 'datos/repositorio.dart';
 import 'datos/sesion.dart';
 import 'datos/sincronizador.dart';
 import 'modelos/perfil.dart';
 import 'pantallas/empacadora/panel_empacadora.dart';
+import 'pantallas/inicio/pantalla_actualizar.dart';
 import 'pantallas/inicio/pantalla_elegir_perfil.dart';
 import 'pantallas/inicio/pantalla_inicio_sesion.dart';
 import 'pantallas/maquilador/panel_maquilador.dart';
@@ -39,6 +42,15 @@ class AppCamaronMarket extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => Sesion()..iniciar()),
         ChangeNotifierProvider(create: (c) => Sincronizador(sesion: c.read<Sesion>())..iniciar()),
         Provider(create: (c) => Repositorio(sesion: c.read<Sesion>())),
+        ChangeNotifierProvider(create: (c) {
+          final sesion = c.read<Sesion>();
+          final control = ControlVersion(servidor: () => sesion.url);
+          // Cualquier 426 de la API (también login y rutas públicas) bloquea.
+          ApiCliente.alActualizacionObligatoria = control.alRecibir426;
+          // Al abrir: en cuanto se sabe a qué servidor preguntar.
+          sesion.listo.then((_) => control.comprobar());
+          return control;
+        }),
       ],
       child: _GuardiaBloqueo(
         child: MaterialApp(
@@ -50,7 +62,8 @@ class AppCamaronMarket extends StatelessWidget {
           // abiertas encima de la raíz), sin cerrarlas: al desbloquear se
           // sigue donde se estaba (p. ej. un informe a medio llenar). En
           // modo supervisor, la franja "Viendo como…" queda fija arriba.
-          builder: (context, child) => _CapaBloqueo(child: CapaSupervisor(child: child ?? const SizedBox())),
+          builder: (context, child) =>
+              _CapaVersion(child: _CapaBloqueo(child: CapaSupervisor(child: child ?? const SizedBox()))),
           home: const _Raiz(),
         ),
       ),
@@ -88,17 +101,42 @@ class _GuardiaBloqueoState extends State<_GuardiaBloqueo> with WidgetsBindingObs
         sesion.alSegundoPlano();
       case AppLifecycleState.resumed:
         sesion.alVolver();
+        // Versión mínima: como mucho una consulta por hora.
+        context.read<ControlVersion>().comprobar();
       default:
         break;
     }
   }
 
-  /// Con la app bloqueada, el botón atrás no mueve nada de lo de debajo.
+  /// Con la app bloqueada (o pidiendo actualizar), el botón atrás no mueve
+  /// nada de lo de debajo.
   @override
-  Future<bool> didPopRoute() async => context.read<Sesion>().bloqueada;
+  Future<bool> didPopRoute() async => context.read<Sesion>().bloqueada || context.read<ControlVersion>().obligatoria;
 
   @override
   Widget build(BuildContext context) => widget.child;
+}
+
+/// Versión mínima (C1): "Actualiza la app" tapa TODO (también el desbloqueo
+/// y la entrada); una versión nueva no obligatoria se avisa abajo, discreta.
+class _CapaVersion extends StatelessWidget {
+  final Widget child;
+  const _CapaVersion({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final obligatoria = context.select<ControlVersion, bool>((c) => c.obligatoria);
+    if (obligatoria) FocusManager.instance.primaryFocus?.unfocus();
+    return Stack(children: [
+      Offstage(offstage: obligatoria, child: TickerMode(enabled: !obligatoria, child: child)),
+      if (obligatoria)
+        Positioned.fill(
+          child: Navigator(onGenerateRoute: (_) => MaterialPageRoute(builder: (_) => const PantallaActualizar())),
+        )
+      else
+        const Positioned(left: 0, right: 0, bottom: 0, child: AvisoVersionNueva()),
+    ]);
+  }
 }
 
 class _CapaBloqueo extends StatelessWidget {

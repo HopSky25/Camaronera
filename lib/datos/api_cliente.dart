@@ -16,9 +16,16 @@ class ErrorApi implements Exception {
 
   /// Llegó por una clave de solo lectura (modo supervisor, "actuar como").
   final bool soloLectura;
-  const ErrorApi(this.status, this.titulo, this.detalle, this.tipo, {this.soloLectura = false});
 
-  ErrorApi _deSoloLectura() => ErrorApi(status, titulo, detalle, tipo, soloLectura: true);
+  /// Cuerpo completo del problema (p. ej. `download_url` y `min_version` del
+  /// 426 app-update-required).
+  final Map<String, dynamic> datos;
+  const ErrorApi(this.status, this.titulo, this.detalle, this.tipo, {this.soloLectura = false, this.datos = const {}});
+
+  ErrorApi _deSoloLectura() => ErrorApi(status, titulo, detalle, tipo, soloLectura: true, datos: datos);
+
+  /// 426: el servidor exige una versión más nueva de la app (contrato C1).
+  bool get exigeActualizar => status == 426 || tipo == 'app-update-required';
 
   /// 4xx distintos de 401/429 son errores del dato o de permiso: reintentar
   /// no sirve (la cola lo deja a la vista para corregir o descartar).
@@ -36,7 +43,9 @@ class ErrorApi implements Exception {
   bool get pideFirmarDeNuevo => const {'signature-expired', 'signature-required', 'invalid-signature'}.contains(tipo);
 
   /// Texto para la gente de campo, sin jerga.
-  String get mensaje => switch (tipo) {
+  String get mensaje => exigeActualizar
+      ? 'Esta versión de la app ya no se admite. Actualízala para seguir.'
+      : switch (tipo) {
         'invalid-credentials' => 'Correo o contraseña incorrectos.',
         'user-not-allowed' => 'Tu usuario no puede entrar a la app. Escribe a soporte de CamaronMarket.',
         'account-not-approved' => 'Tu cuenta todavía no está aprobada. Te avisaremos por correo cuando lo esté.',
@@ -147,6 +156,10 @@ class ApiCliente {
   Uri _uri(String ruta, [Map<String, String>? params]) =>
       Uri.parse('$baseUrl/api/v1$ruta').replace(queryParameters: params);
 
+  /// Se llama con cualquier 426 `app-update-required` (también del login y
+  /// de las rutas públicas): la app muestra "Actualiza la app" (C1).
+  static void Function(ErrorApi error)? alActualizacionObligatoria;
+
   static Future<Map<String, dynamic>> _enviarSinSesion(Future<http.Response> Function() llamada) async {
     http.Response resp;
     try {
@@ -158,7 +171,30 @@ class ApiCliente {
     } catch (_) {
       throw SinConexion();
     }
-    return _interpretar(resp);
+    try {
+      return _interpretar(resp);
+    } on ErrorApi catch (e) {
+      if (e.exigeActualizar) alActualizacionObligatoria?.call(e);
+      rethrow;
+    }
+  }
+
+  /// Petición a una ruta pública (`/public/...`), sin clave de API ni perfil,
+  /// con las cabeceras de la app.
+  static Future<Map<String, dynamic>> publica(
+    String baseUrl,
+    String metodo,
+    String ruta, {
+    Map<String, String>? params,
+    Map<String, dynamic>? cuerpo,
+    http.Client? cliente,
+  }) {
+    final uri = Uri.parse('$baseUrl/api/v1$ruta').replace(queryParameters: params);
+    final c = cliente ?? http.Client();
+    final cabeceras = {...cabecerasApp(), 'Accept': 'application/json', if (cuerpo != null) 'Content-Type': 'application/json'};
+    return _enviarSinSesion(() => metodo.toUpperCase() == 'POST'
+        ? c.post(uri, headers: cabeceras, body: jsonEncode(cuerpo ?? const {}))
+        : c.get(uri, headers: cabeceras));
   }
 
   static Map<String, dynamic> _interpretar(http.Response resp) {
@@ -182,6 +218,7 @@ class ApiCliente {
       _texto(m['title']) ?? 'Error',
       [?_texto(m['detail']), if (errores.isNotEmpty) errores].join(' '),
       tipo.split('#').last.replaceFirst(RegExp(r'^problem-'), ''),
+      datos: m is Map<String, dynamic> ? m : const {},
     );
   }
 

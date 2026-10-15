@@ -221,6 +221,11 @@ class Sesion extends ChangeNotifier {
   /// campo, el perfil activo de su cuenta (siempre válido para el servidor).
   String? get rolParaApi => perfil == perfilTecnico ? yo?.perfilActivo : perfil;
 
+  final _listo = Completer<void>();
+
+  /// Se completa cuando [iniciar] terminó de leer lo guardado (servidor incluido).
+  Future<void> get listo => _listo.future;
+
   /// Al abrir la app: lee lo guardado y, si hay clave, refresca `me`.
   Future<void> iniciar() async {
     try {
@@ -265,6 +270,7 @@ class Sesion extends ChangeNotifier {
       debugPrint('No se pudo leer la sesión guardada: $e');
     } finally {
       cargando = false;
+      if (!_listo.isCompleted) _listo.complete();
       notifyListeners();
     }
   }

@@ -190,6 +190,21 @@ String presentacion(String? s) => switch (s) {
       _ => s ?? '—',
     };
 
+String resultadoMetabisulfito(String? s) => switch (s) {
+      'pass' => 'Conforme',
+      'fail' => 'No conforme',
+      'na' => 'No aplica',
+      _ => s ?? '—',
+    };
+
+String resultadoSabor(String? s) => switch (s) {
+      'excellent' => 'Excelente',
+      'good' => 'Bueno',
+      'acceptable' => 'Aceptable',
+      'rejected' => 'Rechazado',
+      _ => s ?? '—',
+    };
+
 String decisionEtiqueta(String? s) => switch (s) {
       'pending' => 'Pendiente',
       'accepted' => 'Aceptó',

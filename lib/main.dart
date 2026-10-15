@@ -4,6 +4,7 @@ import 'package:app_links/app_links.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:workmanager/workmanager.dart';
@@ -115,6 +116,11 @@ class AppCamaronMarket extends StatelessWidget {
       child: _GuardiaBloqueo(
         child: MaterialApp(
           title: 'CamaronMarket',
+          // Textos propios de Flutter (contador de caracteres, selector de
+          // fecha, «Pegar»…) en español.
+          locale: const Locale('es', 'EC'),
+          supportedLocales: const [Locale('es', 'EC'), Locale('es')],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
           debugShowCheckedModeBanner: false,
           theme: temaCamaronMarket(),
           navigatorKey: claveNavegador,

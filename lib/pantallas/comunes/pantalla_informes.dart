@@ -160,8 +160,8 @@ class _Detalle extends StatelessWidget {
               ('Clase B', '${libras(clasif['class_b_lb'])} (${porcentaje(clasif['yield_class_b_pct'])})'),
               ('Clase C', '${libras(clasif['class_c_lb'])} (${porcentaje(clasif['yield_class_c_pct'])})'),
               ('Presentación', presentacion(j['presentation'] as String?)),
-              ('Metabisulfito', meta['ppm'] == null ? '—' : '${numero(meta['ppm'])} ppm · ${meta['result'] ?? ''}'),
-              ('Sabor', '${sabor['result'] ?? '—'}'),
+              ('Metabisulfito', meta['ppm'] == null ? '—' : '${numero(meta['ppm'])} ppm · ${resultadoMetabisulfito(meta['result'] as String?)}'),
+              ('Sabor', resultadoSabor(sabor['result'] as String?)),
               ('Gramaje finca / planta', '${numero(gramos['farm'])} / ${numero(gramos['plant_1'])} / ${numero(gramos['plant_2'])}'),
             ]),
             if (lineas.isNotEmpty) ...[

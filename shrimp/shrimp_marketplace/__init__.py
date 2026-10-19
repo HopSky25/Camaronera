@@ -38,3 +38,13 @@ def _shrimp_asignar_portal_demo(env):
     if users:
         # (6, 0, [portal]) reemplaza los grupos: deja el usuario como Portal.
         users.write({field: [(6, 0, [portal.id])]})
+
+
+# Lo que hay que hacer después de cargar la demo de este módulo cuando se
+# carga tarde (shrimp_user_registry/demo_utils.py).
+_shrimp_post_demo = _shrimp_asignar_portal_demo
+
+
+def pre_init_hook(env):
+    from odoo.addons.shrimp_user_registry.demo_utils import cargar_demo_pendiente
+    cargar_demo_pendiente(env, "shrimp_marketplace")

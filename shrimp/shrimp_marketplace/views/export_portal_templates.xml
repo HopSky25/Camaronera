@@ -62,8 +62,10 @@
                             </a>
                         </div>
                     </div>
-                    <div t-if="saved and saved != 'cancelled'" class="alert alert-success">Salida registrada. Ya consta como paso final en la trazabilidad de la compra.</div>
+                    <div t-if="saved and saved not in ('cancelled', 'cancel_pending')" class="alert alert-success">Salida registrada. Ya consta como paso final en la trazabilidad de la compra.</div>
                     <div t-if="saved == 'cancelled'" class="alert alert-info">Salida anulada: la cantidad volvió al lote.</div>
+                    <div t-if="saved == 'cancel_pending'" class="alert alert-warning">Anulación pedida. Como la salida ya tiene DAE o factura, queda pendiente de aprobación de la plataforma; mientras tanto sigue registrada.</div>
+                    <div t-if="error" class="alert alert-danger"><t t-esc="message or 'No se pudo anular la salida.'"/></div>
                     <div class="mp-table-card">
                         <div class="card-body p-4">
                             <t t-if="exports">
@@ -80,11 +82,22 @@
                                                     <td><t t-esc="exp.destination_buyer or '—'"/><t t-if="exp.destination_country_id"> · <t t-esc="exp.destination_country_id.name"/></t></td>
                                                     <td><t t-esc="exp.dae_number or '—'"/><t t-if="exp.invoice_number"> / <t t-esc="exp.invoice_number"/></t></td>
                                                     <td><t t-esc="exp.container or '—'"/></td>
-                                                    <td><span class="s-badge"><t t-esc="dict(exp._fields['state'].selection).get(exp.state)"/></span></td>
+                                                    <td>
+                                                        <span class="s-badge"><t t-esc="dict(exp._fields['state'].selection).get(exp.state)"/></span>
+                                                        <div t-if="exp.cancel_state == 'pending'" class="small text-warning mt-1">Anulación pendiente de aprobación</div>
+                                                        <div t-if="exp.cancel_state == 'rejected' and exp.state == 'registered'" class="small text-muted mt-1" t-att-title="exp.cancel_decision_note">Anulación rechazada</div>
+                                                    </td>
                                                     <td class="text-end">
-                                                        <form t-if="exp.state == 'registered'" method="post" t-attf-action="/marketplace/exports/#{exp.uuid_ref}/cancel"
-                                                              onsubmit="return confirm('¿Anular la salida? La cantidad vuelve al lote.');">
+                                                        <!-- D-35: el motivo es obligatorio. Con DAE o factura,
+                                                             la anulación espera la aprobación de la plataforma. -->
+                                                        <form t-if="exp.state == 'registered' and exp.cancel_state != 'pending'" method="post"
+                                                              class="d-flex gap-1 justify-content-end"
+                                                              t-attf-action="/marketplace/exports/#{exp.uuid_ref}/cancel"
+                                                              t-att-onsubmit="&quot;return confirm('¿Pedir la anulación? Con DAE o factura la debe aprobar la plataforma.');&quot; if (exp.dae_number or exp.invoice_number) else &quot;return confirm('¿Anular la salida? La cantidad vuelve al lote.');&quot;">
                                                             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                            <input type="text" name="reason" required="required" maxlength="300"
+                                                                   class="form-control form-control-sm" style="min-width:12rem;max-width:16rem;"
+                                                                   placeholder="Motivo"/>
                                                             <button class="s-btn s-btn-ghost btn-sm" type="submit">Anular</button>
                                                         </form>
                                                     </td>

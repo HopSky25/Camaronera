@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ==================================================================
+         Cancelación de la compra (models/shrimp_transaction_cancel.py):
+         estado de una compra cancelada (quién, por qué, qué se devolvió),
+         solicitud de mutuo acuerdo, «Cancelar venta» del vendedor.
+         Mismo lenguaje visual que «Entrega y recepción» (.rc-, .rd-).
+         ================================================================== -->
+    <template id="traceability_screen_cancel" inherit_id="shrimp_marketplace.traceability_screen"
+              priority="90" name="Trazabilidad - cancelación de la compra">
+        <xpath expr="//div[@id='shrimp_trace_summary']" position="after">
+            <t t-set="cx_tx" t-value="tx.sudo()"/>
+            <t t-set="cx_me" t-value="request.env.user.shrimp_actor_partner_id"/>
+            <t t-set="cx_side" t-value="'buyer' if cx_me == cx_tx.buyer_partner_id else ('seller' if cx_me == cx_tx.seller_partner_id else False)"/>
+            <t t-set="cx_done" t-value="cx_tx.state == 'cancel' and cx_tx.shrimp_cancellation()"/>
+            <t t-set="cx_open" t-value="cx_tx.state not in ('done', 'cancel')"/>
+            <t t-set="cx_req" t-value="cx_open and cx_tx.shrimp_cancel_request_open()"/>
+            <t t-set="cx_seller_ok" t-value="cx_open and cx_side == 'seller' and cx_tx.shrimp_seller_can_cancel()"/>
+            <t t-set="cx_mutual_ok" t-value="cx_open and cx_side and not cx_req and not cx_tx.shrimp_mutual_cancel_problem()"/>
+            <t t-set="cx_saved" t-value="request.params.get('saved') or ''"/>
+            <t t-set="cx_strikes" t-value="cx_side == 'seller' and 'shrimp.seller.strike' in request.env and request.env['shrimp.seller.strike'].sudo().search([('transaction_id', '=', cx_tx.id)])"/>
+            <div t-if="cx_side and (cx_done or cx_req or cx_seller_ok or cx_mutual_ok or cx_strikes or cx_saved.startswith('cancel_') or cx_saved == 'strike_appeal' or request.params.get('error') == 'cancel')"
+                 class="mp-table-card mb-4 rc-card rd-card cx-card" id="cancelacion">
+                <div class="card-body p-4">
+                    <div class="mp-sec-head">
+                        <span class="mp-sec-ico"><i class="fa fa-ban"></i></span>
+                        <h3 class="mp-sec-title">Cancelación</h3>
+                        <t t-if="cx_done">
+                            <span class="rc-chip rc-chip--danger ms-auto"><i class="fa fa-ban me-1"></i> <t t-esc="cx_tx.shrimp_cancel_label()"/></span>
+                        </t>
+                        <t t-elif="cx_req">
+                            <span class="rc-chip rc-chip--warn ms-auto"><i class="fa fa-handshake-o me-1"></i> Solicitud de cancelación abierta</span>
+                        </t>
+                    </div>
+
+                    <div t-if="cx_saved == 'cancel_seller'" class="rc-alert rc-alert--ok">
+                        <i class="fa fa-check-circle me-1"></i> Venta cancelada. El producto volvió a tu lote y el comprador ya fue avisado.
+                    </div>
+                    <div t-if="cx_saved == 'cancel_requested'" class="rc-alert rc-alert--ok">
+                        <i class="fa fa-paper-plane me-1"></i> Solicitud enviada. La otra parte tiene <t t-esc="cx_tx._shrimp_cancel_response_hours()"/> horas para responder.
+                    </div>
+                    <div t-if="cx_saved == 'cancel_accepted'" class="rc-alert rc-alert--ok">
+                        <i class="fa fa-check-circle me-1"></i> Compra cancelada de mutuo acuerdo.
+                    </div>
+                    <div t-if="cx_saved == 'cancel_rejected'" class="rc-alert rc-alert--warn">
+                        <i class="fa fa-times-circle me-1"></i> Rechazaste la solicitud: la compra sigue.
+                    </div>
+                    <div t-if="cx_saved == 'cancel_withdrawn'" class="rc-alert rc-alert--info">
+                        <i class="fa fa-undo me-1"></i> Retiraste tu solicitud de cancelación.
+                    </div>
+                    <div t-if="request.params.get('error') == 'cancel'" class="rc-alert rc-alert--warn">
+                        <i class="fa fa-exclamation-triangle me-1"></i>
+                        <t t-esc="request.params.get('message') or 'No se pudo completar la acción.'"/>
+                    </div>
+
+                    <!-- Compra cancelada: qué pasó -->
+                    <t t-if="cx_done">
+                        <dl class="rd-facts">
+                            <div><dt>Canceló</dt><dd><t t-esc="cx_done.shrimp_kind_label()"/></dd></div>
+                            <div><dt>Causa</dt><dd><t t-esc="cx_done.shrimp_cause_label() or '—'"/></dd></div>
+                            <div><dt>Fecha</dt><dd><t t-esc="cx_tx.shrimp_fmt_dt(cx_done.done_at)"/></dd></div>
+                            <div><dt>Cobros anulados</dt><dd><t t-esc="cx_done.charges_voided"/></dd></div>
+                        </dl>
+                        <p t-if="cx_done.reason" class="rc-step-n mb-1">“<t t-esc="cx_done.reason"/>”</p>
+                        <p class="rc-help mb-0">
+                            <t t-if="cx_done.stock_returned_qty">El producto volvió al lote del vendedor (<t t-esc="cx_tx.shrimp_fmt_qty(cx_done.stock_returned_qty, cx_tx.product_id.uom_id)"/>). </t>
+                            <t t-elif="cx_done.from_state in ('pending_verification', 'pending_acceptance')">Se liberó el stock reservado. </t>
+                            La plataforma anuló sus cobros de esta compra (nota de crédito si ya estaban facturados).
+                        </p>
+                    </t>
+
+                    <!-- Solicitud de mutuo acuerdo -->
+                    <t t-if="cx_req">
+                        <t t-set="cx_back" t-value="'/marketplace/purchases/%s/traceability#cancelacion' % cx_tx.uuid_ref"/>
+                        <div t-if="cx_req.requested_side == cx_side" class="rc-alert rc-alert--info">
+                            <i class="fa fa-hourglass-half me-1"></i> Pediste cancelar la compra de mutuo acuerdo. La otra parte responde hasta el <t t-esc="cx_tx.shrimp_fmt_dt(cx_req.response_deadline)"/>; si no responde, la solicitud caduca y la compra sigue.
+                            <form method="post" class="rc-form mt-2" t-att-action="'/marketplace/purchases/%s/cancel/request/withdraw' % cx_tx.uuid_ref">
+                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                <input type="hidden" name="next" t-att-value="cx_back"/>
+                                <button type="submit" class="s-btn s-btn-ghost btn-sm"><i class="fa fa-undo me-1"></i> Retirar solicitud</button>
+                            </form>
+                        </div>
+                        <div t-else="" class="rd-box rd-box--warn">
+                            <div class="rd-box-t">
+                                El <t t-esc="'comprador' if cx_req.requested_side == 'buyer' else 'vendedor'"/> pide cancelar la compra de mutuo acuerdo.
+                            </div>
+                            <p class="rc-help mt-1 mb-0">Motivo: <t t-esc="cx_req.reason"/>. Responde hasta el <t t-esc="cx_tx.shrimp_fmt_dt(cx_req.response_deadline)"/>. Si aceptas, la compra se cancela sin strike: el stock vuelve al vendedor y la plataforma anula sus cobros.</p>
+                            <div class="rc-actions">
+                                <form method="post" class="rc-form" t-att-action="'/marketplace/purchases/%s/cancel/request/accept' % cx_tx.uuid_ref">
+                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                    <input type="hidden" name="next" t-att-value="cx_back"/>
+                                    <button type="submit" class="s-btn rc-btn-danger"><i class="fa fa-check me-1"></i> Aceptar y cancelar</button>
+                                </form>
+                                <form method="post" class="rc-form" t-att-action="'/marketplace/purchases/%s/cancel/request/reject' % cx_tx.uuid_ref">
+                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                    <input type="hidden" name="next" t-att-value="cx_back"/>
+                                    <button type="submit" class="s-btn s-btn-ghost"><i class="fa fa-times me-1"></i> Rechazar</button>
+                                </form>
+                            </div>
+                        </div>
+                    </t>
+
+                    <!-- Vendedor: cancelar la venta -->
+                    <details t-if="cx_seller_ok" class="rc-issue rd-cancel mt-3" t-att-open="'open' if request.params.get('error') == 'cancel' else None">
+                        <summary><i class="fa fa-ban me-1"></i> Cancelar la venta</summary>
+                        <form method="post" class="rc-form" t-att-action="'/marketplace/sales/%s/cancel' % cx_tx.uuid_ref">
+                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                            <input type="hidden" name="next" t-att-value="'/marketplace/purchases/%s/traceability#cancelacion' % cx_tx.uuid_ref"/>
+                            <ul class="rd-effects">
+                                <li>La compra queda cancelada y el comprador no paga nada.</li>
+                                <li t-if="cx_tx.state == 'confirmed'">El producto vuelve a tu lote y se anula la comisión.</li>
+                                <li t-else="">Se libera el stock reservado y se cancela la verificación (el comprador no la paga).</li>
+                                <li><strong>Recibes un strike</strong> por no cumplir la venta.</li>
+                            </ul>
+                            <label class="rc-label" for="cxSellerReason">Motivo para el comprador</label>
+                            <textarea class="form-control" name="reason" id="cxSellerReason" rows="2" maxlength="2000" required="required"
+                                      placeholder="Ej.: mortalidad en la piscina, el lote ya no está disponible."></textarea>
+                            <div class="rc-actions">
+                                <button type="submit" class="s-btn rc-btn-danger"><i class="fa fa-ban me-1"></i> Confirmar cancelación</button>
+                            </div>
+                            <p class="rc-help">Esta acción no se puede deshacer. Si el comprador está de acuerdo, mejor propón cancelar de mutuo acuerdo: no da strike.</p>
+                        </form>
+                    </details>
+
+                    <!-- Vendedor: strikes de esta venta y «Solicitar anulación» -->
+                    <div t-if="cx_saved == 'strike_appeal'" class="rc-alert rc-alert--ok">
+                        <i class="fa fa-paper-plane me-1"></i> Solicitud enviada. La plataforma la revisará y te avisará.
+                    </div>
+                    <div t-if="cx_strikes" class="rd-box mt-3 cx-strikes">
+                        <div class="rd-box-t"><i class="fa fa-exclamation-circle me-1"></i> Strikes de esta venta</div>
+                        <t t-foreach="cx_strikes" t-as="cx_st">
+                            <t t-set="cx_ap" t-value="cx_st.shrimp_appeal_last()"/>
+                            <div class="cx-strike mt-2">
+                                <div>
+                                    <strong t-esc="dict(cx_st._fields['reason']._description_selection(request.env)).get(cx_st.reason)"/>
+                                    · <t t-esc="cx_tx.shrimp_fmt_dt(cx_st.date, with_time=False)"/>
+                                    <span t-if="cx_st.annulled" class="rc-chip rc-chip--ok ms-1">Anulado</span>
+                                    <span t-elif="not cx_st.is_active" class="rc-chip ms-1">Vencido</span>
+                                    <span t-elif="cx_ap and cx_ap.state == 'pending'" class="rc-chip rc-chip--warn ms-1">Anulación en revisión</span>
+                                    <span t-elif="cx_ap and cx_ap.state == 'rejected'" class="rc-chip rc-chip--danger ms-1">Anulación rechazada</span>
+                                </div>
+                                <p t-if="cx_ap and cx_ap.state == 'rejected' and cx_ap.decision_note" class="rc-help mb-1">Respuesta de la plataforma: <t t-esc="cx_ap.decision_note"/></p>
+                                <details t-if="cx_st.shrimp_can_appeal()" class="rc-issue mt-2">
+                                    <summary><i class="fa fa-gavel me-1"></i> Solicitar anulación</summary>
+                                    <form method="post" enctype="multipart/form-data" class="rc-form"
+                                          t-att-action="'/marketplace/sales/%s/strike/%s/appeal' % (cx_tx.uuid_ref, cx_st.id)">
+                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                        <input type="hidden" name="next" t-att-value="'/marketplace/purchases/%s/traceability#cancelacion' % cx_tx.uuid_ref"/>
+                                        <label class="rc-label" t-att-for="'cxAppeal%s' % cx_st.id">Justificación</label>
+                                        <textarea class="form-control" name="reason" rows="3" maxlength="2000" required="required"
+                                                  t-att-id="'cxAppeal%s' % cx_st.id"
+                                                  placeholder="Ej.: mortalidad masiva por mancha blanca, certificada por el laboratorio (adjunto el informe)."></textarea>
+                                        <label class="rc-label mt-2" t-att-for="'cxAppealFile%s' % cx_st.id">Evidencia <span class="rc-opt">(opcional: foto o PDF)</span></label>
+                                        <input type="file" class="form-control" name="photo" t-att-id="'cxAppealFile%s' % cx_st.id"
+                                               accept="image/jpeg,image/png,image/webp,application/pdf"/>
+                                        <div class="rc-actions">
+                                            <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-paper-plane me-1"></i> Enviar solicitud</button>
+                                        </div>
+                                        <p class="rc-help">Una cancelación por fuerza mayor (mortalidad, problema sanitario) también suma strike; la plataforma lo anula si la justificación lo amerita.</p>
+                                    </form>
+                                </details>
+                            </div>
+                        </t>
+                    </div>
+
+                    <!-- Cualquiera: proponer mutuo acuerdo -->
+                    <details t-if="cx_mutual_ok" class="rc-issue rd-cancel mt-3">
+                        <summary><i class="fa fa-handshake-o me-1"></i> Proponer cancelar de mutuo acuerdo</summary>
+                        <form method="post" class="rc-form" t-att-action="'/marketplace/purchases/%s/cancel/request' % cx_tx.uuid_ref">
+                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                            <input type="hidden" name="next" t-att-value="'/marketplace/purchases/%s/traceability#cancelacion' % cx_tx.uuid_ref"/>
+                            <label class="rc-label" for="cxMutualReason">Motivo</label>
+                            <textarea class="form-control" name="reason" id="cxMutualReason" rows="2" maxlength="2000" required="required"
+                                      placeholder="Ej.: acordamos dejar la compra para el próximo ciclo."></textarea>
+                            <div class="rc-actions">
+                                <button type="submit" class="s-btn s-btn-ghost"><i class="fa fa-paper-plane me-1"></i> Enviar solicitud</button>
+                            </div>
+                            <p class="rc-help">La otra parte tiene <t t-esc="cx_tx._shrimp_cancel_response_hours()"/> horas para aceptar. Si acepta, la compra se cancela sin strike, el stock vuelve al vendedor y la plataforma anula sus cobros; un honorario de verificación ya realizada lo sigue pagando el comprador.</p>
+                        </form>
+                    </details>
+                </div>
+            </div>
+        </xpath>
+    </template>
+
+    <!-- «Entrega y recepción»: compra «No entregada» (venció el plazo sin
+         despacho; no se confirma sola). -->
+    <template id="traceability_screen_reception_not_delivered" inherit_id="shrimp_marketplace.traceability_screen_reception"
+              name="Trazabilidad - compra no entregada">
+        <xpath expr="//t[@t-elif=&quot;rc_tx.reception_status == 'incidence'&quot;]" position="after">
+            <t t-elif="rc_tx.reception_status == 'not_delivered'">
+                <span class="rc-chip rc-chip--danger ms-auto"><i class="fa fa-truck me-1"></i> No entregada</span>
+            </t>
+        </xpath>
+        <xpath expr="//div[hasclass('rc-incidence')]" position="before">
+            <div t-if="rc_tx.state == 'confirmed' and rc_tx.reception_status == 'not_delivered'" class="rc-alert rc-alert--warn" id="no_entregada">
+                <i class="fa fa-exclamation-triangle me-1"></i>
+                Venció el plazo de recepción y el vendedor nunca marcó el despacho: la compra <strong>no se confirmó automáticamente</strong> ni cuenta como entrega cumplida.
+                <t t-if="rc_buyer">Si la recibiste, confírmalo abajo; si no, puedes cancelarla sin costo (sección «Retraso de entrega»).</t>
+                <t t-if="rc_tx.shrimp_not_delivered_cancel_date()"> Si nadie la resuelve, se cancela automáticamente sin costo el <t t-esc="rc_tx.shrimp_not_delivered_cancel_date().strftime('%d/%m/%Y')"/>.</t>
+            </div>
+        </xpath>
+    </template>
+    <!-- Lista y tarjeta («Mis compras» / Ventas): chip «No entregada». -->
+    <template id="s_reception_countdown_not_delivered" inherit_id="shrimp_marketplace.s_reception_countdown"
+              name="Recepción: chip no entregada">
+        <xpath expr="//t[@t-elif]" position="before">
+            <t t-elif="tx.state == 'confirmed' and tx.reception_status == 'not_delivered'">
+                <span class="rc-chip rc-chip--danger"><i class="fa fa-truck me-1"></i> No entregada</span>
+            </t>
+        </xpath>
+    </template>
+</odoo>

@@ -53,14 +53,22 @@
 
   <!-- ================================================================
        «Mi cuenta ▾» a la derecha (sitio principal): el menú de usuario de
-       Odoo muestra «Mi cuenta» y, dentro, la sección "account" de la misma
-       tabla (Datos de la empresa · Certificados · Mi vitrina pública ·
-       Integraciones (API)) antes de «Cerrar sesión». En los sitios de
-       verificadores y de empaque no cambia nada.
+       Odoo muestra «Mi cuenta» y, dentro, de la MISMA tabla
+       (website._shrimp_nav_tree):
+         Mi panel (respaldo del menú «Mi panel» de la barra)
+         Más herramientas: Mis reportes · Disponibilidad del catálogo ·
+           Instalaciones y piscinas · Registrar siembra · Mi historial…
+         Datos de la empresa · Certificados · Mi vitrina pública ·
+           Integraciones (API) · Contraseña y seguridad · Panel completo
+       antes de «Cerrar sesión». «Panel completo» (/my) sustituye al enlace
+       nativo de Odoo «Mi cuenta» (/my/home, la misma página). En los sitios
+       de verificadores y de empaque no cambia nada.
        ================================================================ -->
   <template id="user_dropdown_mi_cuenta" inherit_id="portal.user_dropdown" name="Mi cuenta (marketplace)">
     <xpath expr="//li[@t-if='is_connected']" position="before">
-      <t t-set="shrimp_acct" t-value="is_connected and not editable and website and website.sudo().shrimp_platform == 'main' and website._shrimp_nav_tree()['sections'].get('account')"/>
+      <t t-set="shrimp_nav_all" t-value="is_connected and not editable and website and website.sudo().shrimp_platform == 'main' and website._shrimp_nav_tree()['sections']"/>
+      <t t-set="shrimp_acct" t-value="shrimp_nav_all and shrimp_nav_all.get('account')"/>
+      <t t-set="shrimp_more" t-value="shrimp_acct and shrimp_nav_all.get('panel')"/>
     </xpath>
     <xpath expr="//span[@t-if='_user_name']" position="after">
       <span t-if="_user_name and shrimp_acct" t-attf-class="#{_user_name_class} shrimp-account-toggle">Mi cuenta</span>
@@ -69,18 +77,42 @@
     <xpath expr="//span[@t-if='_user_name']" position="attributes">
       <attribute name="t-if">_user_name and not shrimp_acct</attribute>
     </xpath>
-    <!-- Arriba del todo, antes de «Apps» (interno) y «Mi cuenta / My
-         Account» de Odoo (/my/home, el panel completo). -->
+    <!-- Arriba del todo, antes de «Apps» (interno). -->
     <xpath expr="//a[@id='o_backend_user_dropdown_link']" position="before">
       <t t-if="shrimp_acct">
         <h6 class="dropdown-header shrimp-account-name" t-esc="user_id.name"/>
-        <t t-foreach="shrimp_acct['items']" t-as="shrimp_it">
+        <t t-foreach="[it for it in shrimp_acct['items'] if it['key'] == 'dashboard']" t-as="shrimp_it">
           <a role="menuitem" class="dropdown-item ps-3 shrimp-account-item" t-att-href="shrimp_it['url']" t-att-data-shrimp-nav="shrimp_it['key']">
+            <i t-attf-class="fa fa-fw #{shrimp_it.get('icon') or 'fa-circle-o'} me-1 small text-primary-emphasis"/> <t t-esc="shrimp_it['label']"/>
+          </a>
+        </t>
+        <t t-if="shrimp_more">
+          <div class="dropdown-divider"/>
+          <h6 class="dropdown-header shrimp-account-group" t-esc="shrimp_more['label']"/>
+          <t t-foreach="shrimp_more['items']" t-as="shrimp_it">
+            <a role="menuitem" class="dropdown-item ps-3 shrimp-account-item" t-att-href="shrimp_it['url']" t-att-data-shrimp-nav="shrimp_it['key']" data-shrimp-section="panel">
+              <i t-attf-class="fa fa-fw #{shrimp_it.get('icon') or 'fa-circle-o'} me-1 small text-primary-emphasis"/> <t t-esc="shrimp_it['label']"/>
+            </a>
+          </t>
+          <div class="dropdown-divider"/>
+        </t>
+        <t t-foreach="[it for it in shrimp_acct['items'] if it['key'] != 'dashboard']" t-as="shrimp_it">
+          <a role="menuitem" class="dropdown-item ps-3 shrimp-account-item" t-att-href="shrimp_it['url']" t-att-data-shrimp-nav="shrimp_it['key']" data-shrimp-section="account">
             <i t-attf-class="fa fa-fw #{shrimp_it.get('icon') or 'fa-circle-o'} me-1 small text-primary-emphasis"/> <t t-esc="shrimp_it['label']"/>
           </a>
         </t>
         <div class="dropdown-divider"/>
       </t>
+    </xpath>
+  </template>
+
+  <!-- El enlace nativo «Mi cuenta / My Account» (/my/home, de
+       portal.my_account_link) se oculta en el marketplace: «Panel completo»
+       (/my) de la tabla ya lleva a esa página. Prioridad alta para aplicarse
+       DESPUÉS de portal.my_account_link. -->
+  <template id="user_dropdown_sin_my_home" inherit_id="portal.user_dropdown" priority="99" name="Mi cuenta (marketplace): sin /my/home duplicado">
+    <xpath expr="//a[@href='/my/home']" position="attributes">
+      <attribute name="t-if">not shrimp_acct</attribute>
     </xpath>
   </template>
 
@@ -108,7 +140,7 @@
           <span t-if="shrimp_ps['active_pending']" class="badge text-bg-warning ms-1">pendiente</span>
         </a>
         <div class="dropdown-menu dropdown-menu-end shrimp-profile-menu" role="menu">
-          <h6 class="dropdown-header">Actuar como</h6>
+          <h6 class="dropdown-header" t-if="shrimp_ps['roles']">Actuar como</h6>
           <t t-foreach="shrimp_ps['roles']" t-as="r">
             <form method="post" action="/my/profile/activate" class="m-0">
               <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
@@ -128,6 +160,20 @@
             <span class="dropdown-item disabled shrimp-profile-pending" t-att-data-role="r[0]">
               <i class="fa fa-fw fa-clock-o me-1"/><t t-esc="r[1]"/> (pendiente de aprobación)
             </span>
+          </t>
+          <!-- Perfiles de la cuenta que se usan en otro sitio (verificadora,
+               maquilador en el marketplace...): enlace a ese sitio, nunca
+               «activar» aquí. -->
+          <t t-if="shrimp_ps.get('offsite')">
+            <div class="dropdown-divider"/>
+            <h6 class="dropdown-header">Se usan en su sitio</h6>
+            <t t-foreach="shrimp_ps['offsite']" t-as="o">
+              <a role="menuitem" class="dropdown-item shrimp-profile-offsite" t-att-href="o['url']"
+                 t-att-data-role="o['role']" rel="noopener">
+                <i class="fa fa-fw fa-external-link me-1"/><t t-esc="o['label']"/>
+                <small class="text-muted">· <t t-esc="o['site']"/></small>
+              </a>
+            </t>
           </t>
           <div class="dropdown-divider"/>
           <a role="menuitem" class="dropdown-item" href="/marketplace/my-account#perfiles">

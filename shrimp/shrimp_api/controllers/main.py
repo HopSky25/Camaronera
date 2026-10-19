@@ -30,7 +30,7 @@ _AUTH_ERRORS = {
     "missing": (401, "missing-api-key", "Falta la clave de API. Envíala en «Authorization: "
                                         "Bearer <clave>» o en «X-API-Key»."),
     "invalid": (401, "invalid-api-key", "La clave de API no es válida."),
-    "expired": (401, "expired-api-key", "La clave de API caducó. Pide una nueva en /my/api-keys."),
+    "expired": (401, "expired-api-key", "La clave de API caducó. Renuévala en /my/api-keys (Integraciones (API) › Renovar)."),
     "revoked": (401, "revoked-api-key", "La clave de API fue revocada."),
     "user": (403, "user-not-allowed", "El usuario dueño de la clave no puede usar la API externa "
                                       "(inactivo o interno: las integraciones internas usan JSON-2)."),
@@ -67,6 +67,8 @@ class ShrimpApiController(http.Controller):
         }
         if err.errors:
             payload["errors"] = err.errors
+        for k, v in (getattr(err, "extra", None) or {}).items():
+            payload.setdefault(k, v)
         return self._json(payload, status=err.status,
                           headers=list(headers or []) + list(err.headers),
                           content_type="application/problem+json; charset=utf-8")
@@ -240,7 +242,10 @@ class ShrimpApiController(http.Controller):
         key, reason = Key._api_authenticate(bearer or xkey)
         if not key:
             status, slug, detail = _AUTH_ERRORS.get(reason, _AUTH_ERRORS["invalid"])
-            raise ApiError(status, slug, detail,
+            # D-46: código estable para que el integrador distinga la caducidad
+            # (se renueva en el portal) de una clave inválida o revocada.
+            extra = {"code": "key-expired", "renew_url": "/my/api-keys"} if reason == "expired" else None
+            raise ApiError(status, slug, detail, extra=extra,
                            headers=[("WWW-Authenticate", 'Bearer realm="api"')] if status == 401 else [])
         return key
 
@@ -281,6 +286,11 @@ class ShrimpApiController(http.Controller):
         ctx = ApiCtx(request.env, key.with_env(request.env).sudo(), self._params(), body,
                      method, path, rid, ip, route)
         headers = list(extra) + [("Cache-Control", "no-store")]
+        # Aprobación de la cuenta y documentos legales MAYORES: las mismas
+        # reglas que el portal (403 con código y, si toca, la URL para aceptar).
+        ctx.enforce_account_gate()
+        # Permisos del subusuario (CR-12): la misma matriz que el portal.
+        ctx.enforce_member_permission()
 
         if method != "POST":
             return self._render(self._run(route, ctx, pparams), headers)
@@ -412,8 +422,13 @@ def build_openapi(base_url, installed):
                 op["description"] = (op.get("description", "") + "\n\n**Scope:** `%s`"
                                      % "` o `".join(route.scopes)).strip()
             op["responses"].update({
-                "401": _problem_ref("Clave ausente, inválida, caducada o revocada"),
-                "403": _problem_ref("Sin scope, IP no permitida o sin derecho sobre el recurso"),
+                "401": _problem_ref("Clave ausente, inválida, caducada (expired-api-key, con "
+                                    "code=key-expired y renew_url: se renueva en /my/api-keys) "
+                                    "o revocada"),
+                "403": _problem_ref("Sin scope, IP no permitida, sin derecho sobre el recurso, "
+                                    "cuenta pendiente (solo lectura) o rechazada "
+                                    "(account-pending / account-rejected) o documentos legales "
+                                    "por aceptar (legal-acceptance-required, con accept_url)"),
                 "429": _problem_ref("Límite de peticiones superado (ver Retry-After)"),
             })
         op["responses"].update({
@@ -454,6 +469,9 @@ def build_openapi(base_url, installed):
                     "type": {"type": "string", "format": "uri"},
                     "title": {"type": "string"}, "status": {"type": "integer"},
                     "detail": {"type": "string"}, "request_id": {"type": "string"},
+                    "code": {"type": "string", "description": "Código estable de algunos errores "
+                             "(key-expired, account_pending, account_rejected, "
+                             "legal_acceptance_required, seller_suspended)"},
                     "errors": {"type": "array", "items": {"type": "object", "properties": {
                         "field": {"type": "string"}, "message": {"type": "string"}}}}}},
             },

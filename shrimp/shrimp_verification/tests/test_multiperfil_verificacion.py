@@ -9,6 +9,8 @@ from odoo.tests import TransactionCase, tagged
 
 from odoo.addons.shrimp_marketplace.tests.common import CLAVE, PDF_MIN, crear_socios, producto
 
+from .common_seguridad import matriz_abierta
+
 
 @tagged("post_install", "-at_install")
 class TestMultiPerfilVerificacion(TransactionCase):
@@ -17,6 +19,9 @@ class TestMultiPerfilVerificacion(TransactionCase):
     def setUpClass(cls):
         super().setUpClass()
         env = cls.env
+        # Prueba la maquinaria (conflicto de interés) con larva lab→camaronera,
+        # que la matriz del cliente deja en «no aplica»: lógica de siempre.
+        matriz_abierta(env)
         cls.s = crear_socios(env, "mpv")
         # La camaronera de la cadena también es verificadora acreditada.
         cls.multi = cls.s["cam"]

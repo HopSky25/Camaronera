@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Matriz de verificación: reglas iniciales (decisión del cliente, 2026-10).
+       noupdate: el administrador las cambia en Camaronera › Configuración ›
+       Matriz de verificación y una actualización del módulo no las pisa.
+       Lo que no tenga regla sigue la lógica de siempre: camarón adulto
+       (vendedor camaronera) = obligatoria; el resto = opcional.
+       La regla camaronera → empacadora vive en shrimp_packer (el perfil
+       «empacadora» lo agrega ese módulo).
+       «Confirmación de recepción» (2026-10): marcada en las cuatro parejas de
+       nauplio y larva; en el resto, la compra sigue como antes. -->
+  <data noupdate="1">
+    <record id="verification_rule_semillero_laboratorio" model="shrimp.verification.rule">
+      <field name="seller_role">semillero</field>
+      <field name="buyer_role">laboratorio</field>
+      <field name="policy">none</field>
+      <field name="requires_reception_confirmation" eval="True"/>
+      <field name="note">El laboratorio compra nauplio al naupliero: sin verificación.</field>
+    </record>
+    <record id="verification_rule_laboratorio_camaronera" model="shrimp.verification.rule">
+      <field name="seller_role">laboratorio</field>
+      <field name="buyer_role">camaronera</field>
+      <field name="policy">none</field>
+      <field name="requires_reception_confirmation" eval="True"/>
+      <field name="note">La camaronera compra larva al laboratorio: sin verificación.</field>
+    </record>
+    <record id="verification_rule_semillero_semillero" model="shrimp.verification.rule">
+      <field name="seller_role">semillero</field>
+      <field name="buyer_role">semillero</field>
+      <field name="policy">none</field>
+      <field name="requires_reception_confirmation" eval="True"/>
+      <field name="note">Mismo nivel (naupliero ↔ naupliero): sin verificación.</field>
+    </record>
+    <record id="verification_rule_laboratorio_laboratorio" model="shrimp.verification.rule">
+      <field name="seller_role">laboratorio</field>
+      <field name="buyer_role">laboratorio</field>
+      <field name="policy">none</field>
+      <field name="requires_reception_confirmation" eval="True"/>
+      <field name="note">Mismo nivel (laboratorio ↔ laboratorio): sin verificación.</field>
+    </record>
+    <record id="verification_rule_camaronera_camaronera" model="shrimp.verification.rule">
+      <field name="seller_role">camaronera</field>
+      <field name="buyer_role">camaronera</field>
+      <field name="policy">mandatory</field>
+      <field name="note">Camarón adulto entre camaroneras: verificación obligatoria (como hasta ahora).</field>
+    </record>
+  </data>
+</odoo>

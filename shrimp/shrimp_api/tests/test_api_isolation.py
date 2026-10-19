@@ -186,14 +186,18 @@ class TestApiIsolation(ApiCase):
                                     body={"preferences": {"accepts_harvest_reservations": True}}), 422)
         self.assertProblem(self.api("PATCH", "/me", raw=self.raw_a, body={"vat": "123"}), 422)
 
-    def test_check_request_only_seller_resolves(self):
-        cr = self.env["shrimp.check.request"].create({
+    def test_check_requests_retired_410(self):
+        """D-28: el flujo de chequeo se retiró; sus rutas responden 410 Gone
+        con la explicación (también para una solicitud histórica)."""
+        cr = self.env["shrimp.check.request"].with_context(shrimp_legacy_check_import=True).create({
             "product_id": self.product.id, "seller_partner_id": self.lab.id,
-            "buyer_partner_id": self.farm_a.id, "qty": 5})
-        # El comprador no puede aprobarse su propia solicitud.
-        self.assertProblem(self.api("POST", "/check-requests/%s:approve" % cr.uuid_ref, raw=self.raw_a), 403)
-        self.assertProblem(self.api("POST", "/check-requests/%s:approve" % cr.uuid_ref, raw=self.raw_b), 404)
-        resp = self.api("POST", "/check-requests/%s:approve" % cr.uuid_ref, raw=self.raw_lab)
-        self.assertEqual(resp.status_code, 200, resp.text)
-        self.assertEqual(resp.json()["state"], "approved")
-        self.assertTrue(resp.json()["transaction"])
+            "buyer_partner_id": self.farm_a.id, "qty": 5, "state": "rejected"})
+        for metodo, ruta, raw in (
+                ("GET", "/check-requests", self.raw_a),
+                ("GET", "/check-requests/%s" % cr.uuid_ref, self.raw_a),
+                ("POST", "/check-requests/%s:approve" % cr.uuid_ref, self.raw_lab),
+                ("POST", "/check-requests/%s:reject" % cr.uuid_ref, self.raw_lab)):
+            resp = self.api(metodo, ruta, raw=raw)
+            self.assertProblem(resp, 410)
+            self.assertIn("retiraron", resp.json()["detail"])
+        self.assertEqual(cr.state, "rejected")

@@ -11,7 +11,8 @@ shrimp_marketplace/models/website_navbar.py:
   disponible, Mis listas de precios, Cosechas ofrecidas, Rendimiento de
   proveedores. En «Mi cuenta»: Mi ficha pública.
 
-«Mi historial verificado» de la camaronera pasa a Mi panel (tarjeta).
+«Mi historial verificado» de la camaronera: sección «Más herramientas»
+(en la barra, dentro de «Mi cuenta ▾»; en Mi panel, en «Accesos»).
 """
 from odoo import api, models
 
@@ -50,6 +51,7 @@ class Website(models.Model):
              "label": "Oferta disponible",
              "url": "/marketplace/supply", "icon": "fa-cubes", "tone": "green",
              "caps": ("issue_price_lists",),
+             "headline": {"empacadora": 10},
              "desc": "Los lotes a la venta cruzados con tus precios."},
             {"section": "buy", "key": "price_lists", "sequence": 20,
              "label": {"empacadora": "Mis listas de precios", None: "Listas de precios"},
@@ -66,6 +68,13 @@ class Website(models.Model):
              "url": "/marketplace/suppliers", "icon": "fa-trophy", "tone": "amber",
              "caps": ("issue_price_lists",),
              "desc": "El rendimiento verificado de quienes te venden."},
+
+            # ===== Más herramientas (camaronera) =====
+            {"section": "panel", "key": "track_record", "sequence": 40,
+             "label": "Mi historial verificado",
+             "url": "/marketplace/my-track-record", "icon": "fa-check-circle", "tone": "green",
+             "caps": ("declare_harvest",),
+             "desc": "Lo que tus cosechas rindieron en planta, verificado."},
         ]
         if partner and partner.sudo().uuid_ref:
             entradas.append(

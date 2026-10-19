@@ -18,7 +18,7 @@ class TestSriDocument(TransactionCase):
         cls.company=cls.env['res.company'].create(dict(name='SRI TEST',vat='1790016919001',
             country_id=cls.env.ref('base.ec').id,ec_sri_enabled=True,ec_sri_address='Quito'))
         cls.partner=cls.env['res.partner'].create(dict(name='RECEPTOR TEST',vat='1790011674001',
-            country_id=cls.env.ref('base.ec').id,ec_sri_identification_type='04'))
+            country_id=cls.env.ref('base.ec').id,l10n_latam_identification_type_id=cls.env.ref('l10n_ec.ec_ruc').id))
         key=rsa.generate_private_key(public_exponent=65537,key_size=2048)
         name=x509.Name([x509.NameAttribute(x509.NameOID.COMMON_NAME,'TEST CERTIFICATE')])
         now=datetime.now(timezone.utc)

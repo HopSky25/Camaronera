@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Plazos del servicio de empaque (auditoría de procesos D-14 y D-47).
+       Antes no había ningún cron en este módulo: las actas sin firmar, las
+       solicitudes y las ofertas quedaban abiertas para siempre. -->
+  <data noupdate="1">
+    <record id="cron_copack_acta" model="ir.cron">
+      <field name="name">Empaque: plazo de firma del acta, aceptación por silencio y cierre</field>
+      <field name="model_id" ref="model_shrimp_copack_order"/>
+      <field name="state">code</field>
+      <field name="code">model._cron_copack_acta()</field>
+      <field name="user_id" ref="base.user_root"/>
+      <field name="interval_number">1</field>
+      <field name="interval_type">hours</field>
+      <field name="active" eval="True"/>
+    </record>
+    <record id="cron_copack_expiry" model="ir.cron">
+      <field name="name">Empaque: vencimiento de solicitudes y ofertas</field>
+      <field name="model_id" ref="model_shrimp_copack_request"/>
+      <field name="state">code</field>
+      <field name="code">model._cron_copack_expiry()</field>
+      <field name="user_id" ref="base.user_root"/>
+      <field name="interval_number">1</field>
+      <field name="interval_type">hours</field>
+      <field name="active" eval="True"/>
+    </record>
+  </data>
+</odoo>

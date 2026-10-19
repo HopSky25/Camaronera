@@ -1,14 +1,19 @@
 """Gestión de suscripciones a webhooks (scope webhooks:manage)."""
 
-from ..models.webhook import EVENTS
+from ..models.webhook import EVENTS, RESENDABLE_STATES
 from . import serializers as S
-from .framework import ApiResponse, F, api_route, clean, invalid, obj, paginate
+from .framework import ApiError, ApiResponse, F, api_route, clean, invalid, not_found, obj, paginate
 
 TAG = "webhooks"
 MAX_SUBSCRIPTIONS = 10
 SUB_SCHEMA = obj(id="uuid", name="string", url="string", events={"type": "array", "items": {"type": "string"}},
                  active="boolean", failure_count="integer", last_success_at="datetime",
-                 last_error="string")
+                 last_error="string", disabled_reason="string", auto_disabled_at="datetime",
+                 held_count="integer")
+DELIVERY_STATES = ["pending", "retrying", "success", "dead", "held"]
+DELIVERY_SCHEMA = obj(id="uuid", event_type="string", state="string", attempts="integer",
+                      resend_count="integer", last_status_code="integer", last_error="string",
+                      next_attempt_at="datetime", delivered_at="datetime")
 SUB_SPEC = {
     "name": F("string", required=True, max_length=128),
     "url": F("string", required=True, max_length=2048, description="https://…"),
@@ -83,7 +88,12 @@ def webhook_get(ctx, id):
 
 
 @api_route("PATCH", "/webhooks/{id}", scope="webhooks:manage", tags=[TAG], body=SUB_SPEC,
-           summary="Cambia nombre, URL, eventos o la activa/desactiva", response=SUB_SCHEMA)
+           summary="Cambia nombre, URL, eventos o la activa/desactiva",
+           description="Al reactivarla (active=true) se ponen a cero los fallos y se reenvían "
+                       "automáticamente los eventos no entregados de los últimos días "
+                       "(shrimp_api.webhook_resend_days, 7 por defecto): las entregas fallidas y "
+                       "los eventos retenidos (estado «held») mientras estuvo inactiva.",
+           response=SUB_SCHEMA)
 def webhook_patch(ctx, id):
     sub = _mine(ctx, id)
     vals = _clean(ctx, partial=True)
@@ -117,13 +127,35 @@ def webhook_rotate(ctx, id):
 
 @api_route("GET", "/webhooks/{id}/deliveries", scope="webhooks:manage", tags=[TAG], paginated=True,
            summary="Historial de entregas de una suscripción",
-           params={"state": F("enum", enum=["pending", "retrying", "success", "dead"])},
-           response=obj(id="uuid", event_type="string", state="string", attempts="integer",
-                        last_status_code="integer", delivered_at="datetime"))
+           params={"state": F("enum", enum=DELIVERY_STATES)},
+           response=DELIVERY_SCHEMA)
 def webhook_deliveries(ctx, id):
     sub = _mine(ctx, id)
     domain = [("subscription_id", "=", sub.id)]
-    state = ctx.enum_param("state", ["pending", "retrying", "success", "dead"])
+    state = ctx.enum_param("state", DELIVERY_STATES)
     if state:
         domain.append(("state", "=", state))
     return paginate(ctx, "shrimp.webhook.delivery", domain, S.webhook_delivery)
+
+
+@api_route("POST", "/webhooks/{id}/deliveries/{delivery}:resend", scope="webhooks:manage", tags=[TAG],
+           status=202, summary="Reenvía una entrega (fallida, en reintento o ya entregada)",
+           description="Vuelve a encolar la entrega con los intentos a cero y el MISMO id de evento "
+                       "(X-Trazul-Delivery), para que el receptor pueda deduplicar. La suscripción "
+                       "tiene que estar activa: al reactivarla se reenvían solos los eventos no "
+                       "entregados de los últimos días (shrimp_api.webhook_resend_days, 7).",
+           response=DELIVERY_SCHEMA)
+def webhook_delivery_resend(ctx, id, delivery):
+    sub = _mine(ctx, id)
+    rec = ctx.env["shrimp.webhook.delivery"].sudo().search(
+        [("subscription_id", "=", sub.id), ("uuid_ref", "=", delivery)], limit=1)
+    if not rec:
+        raise not_found("La entrega")
+    if not sub.active:
+        raise ApiError(409, "subscription-inactive",
+                       "La suscripción está inactiva: reactívala (PATCH active=true) y sus eventos "
+                       "no entregados de los últimos %s días se reenvían solos." % sub._resend_days())
+    if rec.state not in RESENDABLE_STATES:
+        raise ApiError(409, "invalid-state", "Esta entrega ya está en cola.")
+    rec.action_resend()
+    return ApiResponse(S.webhook_delivery(rec), status=202)

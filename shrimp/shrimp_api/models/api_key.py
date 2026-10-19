@@ -112,6 +112,13 @@ class ShrimpApiKey(models.Model):
     rate_write_per_min = fields.Integer(
         string="Escrituras/min", help="0 = valor por defecto del sistema.")
     last_ip = fields.Char(string="Última IP", readonly=True)
+    # BA-11: la clave actúa con el perfil fijado al crearla (el activo de su
+    # usuario en ese momento), no con el que el usuario elija después en el
+    # portal. Vacío (claves anteriores) = el perfil activo del usuario.
+    acting_role = fields.Selection(
+        selection=lambda self: list(self.env["res.partner"]._fields["shrimp_user_type"].selection),
+        string="Perfil de la clave", readonly=True, copy=False,
+        help="Perfil con el que actúa la integración. Se cambia con POST /me/active-role.")
     status = fields.Selection(
         [("active", "Activa"), ("expired", "Caducada"), ("revoked", "Revocada"),
          ("inactive", "Inactiva")],
@@ -196,12 +203,15 @@ class ShrimpApiKey(models.Model):
         if not codes:
             raise ValidationError(_("Elige al menos un scope."))
         now = fields.Datetime.now()
+        # D-46: duración por defecto y máxima = shrimp_api.key_lifetime_days
+        # (365 por defecto; ver api_key_expiry.py).
+        lifetime = self._lifetime_days()
         if not expires_at:
-            expires_at = now + timedelta(days=90)
+            expires_at = now + timedelta(days=lifetime)
         if expires_at <= now:
             raise ValidationError(_("La caducidad tiene que estar en el futuro."))
-        if expires_at > now + timedelta(days=MAX_PORTAL_DAYS + 1):
-            raise ValidationError(_("Una clave dura como máximo %s días.") % MAX_PORTAL_DAYS)
+        if expires_at > now + timedelta(days=lifetime + 1):
+            raise ValidationError(_("Una clave dura como máximo %s días.") % lifetime)
         self._check_ip_list(ip_allowlist)
         self._check_origins(allowed_origins)
 
@@ -212,7 +222,12 @@ class ShrimpApiKey(models.Model):
                 break
         raw = "trz_%s_%s" % (prefix, secrets.token_urlsafe(32))
         scopes = self.env["shrimp.api.scope"].sudo().search([("code", "in", codes)])
+        try:
+            rol_clave = user._shrimp_current_role() or False
+        except Exception:  # noqa: BLE001 - sin cuenta de empresa
+            rol_clave = False
         rec = self.sudo().create({
+            "acting_role": rol_clave,
             "name": name,
             "user_id": user.id,
             "scope": "read",

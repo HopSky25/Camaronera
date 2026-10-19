@@ -9,12 +9,17 @@ class ResConfigSettings(models.TransientModel):
     # (campo commission_cents en shrimp.uom), visible solo para el
     # administrador. En Ajustes solo hay un aviso con el enlace.
 
-    shrimp_check_fee = fields.Float(
-        string="Costo del chequeo",
-        config_parameter="shrimp_marketplace.check_fee",
-        default=0.0,
-        help="Valor fijo que se cobra al comprador por enviar un equipo a verificar "
-        "el producto cuando solicita un chequeo. Se cobra además del valor del producto.",
+    # «Costo del chequeo» (shrimp_marketplace.check_fee) se retiró con el flujo
+    # de solicitudes de chequeo (D-28): se compra directo o con verificación.
+    # Texto libre: aquí sí sirve config_parameter (vacío = sin parámetro). Lo
+    # leen las páginas de privacidad y el canal de derechos del titular
+    # (shrimp_user_registry); sin él no se muestra ninguna dirección.
+    shrimp_dpo_email = fields.Char(
+        string="Correo del responsable de datos personales",
+        config_parameter="shrimp.dpo_email",
+        help="Correo al que llegan las solicitudes de derechos (LOPDP) y que se muestra en la "
+        "Política de privacidad. Si se deja vacío, las páginas indican que se contacte al "
+        "administrador de la plataforma.",
     )
     # Los parámetros de abajo NO usan config_parameter: se leen y guardan con
     # _shrimp_param_specs() para que un 0 se guarde como 0 (ver
@@ -22,7 +27,7 @@ class ResConfigSettings(models.TransientModel):
     shrimp_featured_min_reviews = fields.Integer(
         string="Mínimo de reseñas para destacados",
         default=10,
-        help="Un laboratorio o semillero solo sale en «destacados» (catálogo de "
+        help="Un laboratorio o naupliero solo sale en «destacados» (catálogo de "
         "larva/nauplio y página de inicio) si tiene al menos estas reseñas como "
         "vendedor. Si no llegan suficientes, se muestran solo los que cumplen "
         "(o se oculta la sección si no cumple ninguno).",
@@ -41,6 +46,34 @@ class ResConfigSettings(models.TransientModel):
         "«Reintentar» en el cobro).",
     )
 
+    # Entregas y recepción (models/shrimp_transaction_reception.py).
+    shrimp_reception_days = fields.Integer(
+        string="Días para confirmar recepción",
+        default=10,
+        help="Días que tiene el comprador, desde el despacho o la fecha de entrega, para "
+        "confirmar que recibió la compra (o reportar un problema). Si no hace nada, la "
+        "recepción se confirma automáticamente y se da por cumplida la entrega del vendedor. "
+        "Solo en las parejas de perfiles marcadas en la matriz.",
+    )
+    shrimp_reception_reminder_1 = fields.Integer(
+        string="Primer recordatorio (días antes del vencimiento)",
+        default=3,
+        help="0 = sin este recordatorio.",
+    )
+    shrimp_reception_reminder_2 = fields.Integer(
+        string="Segundo recordatorio (días antes del vencimiento)",
+        default=1,
+        help="0 = sin este recordatorio.",
+    )
+    shrimp_delivery_alert_days = fields.Integer(
+        string="Días de anticipación para avisar entrega",
+        default=2,
+        help="Cuántos días antes de la fecha de entrega se avisa al vendedor (preparar el "
+        "despacho) y al comprador (preparar la recepción). Además se avisa el mismo día y, si "
+        "pasó la fecha sin despacho, se avisa del atraso. 0 = solo el día de la entrega y el "
+        "atraso.",
+    )
+
     # ------------------------------------------------------------------
     # Parámetros de negocio guardados a mano (también el 0)
     # ------------------------------------------------------------------
@@ -52,6 +85,10 @@ class ResConfigSettings(models.TransientModel):
             "shrimp_featured_min_reviews": ("shrimp_marketplace.featured_min_reviews", 10, 0, None),
             "shrimp_cert_alert_days": ("shrimp_marketplace.cert_alert_days", 30, 1, 3650),
             "shrimp_charge_max_attempts": ("shrimp_marketplace.charge_max_attempts", 5, 1, 100),
+            "shrimp_reception_days": ("shrimp_marketplace.reception_days", 10, 1, 365),
+            "shrimp_reception_reminder_1": ("shrimp_marketplace.reception_reminder_1", 3, 0, 365),
+            "shrimp_reception_reminder_2": ("shrimp_marketplace.reception_reminder_2", 1, 0, 365),
+            "shrimp_delivery_alert_days": ("shrimp_marketplace.delivery_alert_days", 2, 0, 60),
         }
 
     @api.model
@@ -83,6 +120,12 @@ class ResConfigSettings(models.TransientModel):
                     rango = _("entre %(a)s y %(b)s") % {"a": minimo, "b": maximo}
                 raise ValidationError(_("«%(campo)s» tiene que estar %(rango)s.") % {
                     "campo": field.string, "rango": rango})
+        for fname in ("shrimp_reception_reminder_1", "shrimp_reception_reminder_2"):
+            if fname in self._fields and self[fname] and \
+                    self[fname] >= (self.shrimp_reception_days or 0):
+                raise ValidationError(_(
+                    "«%s» tiene que ser menor que los días para confirmar la recepción.")
+                    % self._fields[fname].string)
 
     def set_values(self):
         for rec in self:

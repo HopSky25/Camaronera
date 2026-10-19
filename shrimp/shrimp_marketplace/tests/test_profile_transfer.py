@@ -243,7 +243,8 @@ class TestProfileChangeProduct(TransactionCase):
         self.assertEqual([c for c, _l in larva.shrimp_profile_move_targets()], ["camaronera"])
 
     def test_chequeo_activo_bloquea(self):
-        self.env["shrimp.check.request"].create({
+        # Solicitud histórica abierta (flujo retirado, D-28).
+        self.env["shrimp.check.request"].with_context(shrimp_legacy_check_import=True).create({
             "product_id": self.nauplio.id, "seller_partner_id": self.sem.id,
             "buyer_partner_id": self.s["lab2"].id, "qty": 5.0})
         with self.assertRaisesRegex(ValidationError, "chequeo"):

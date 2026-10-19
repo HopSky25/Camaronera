@@ -9,10 +9,14 @@ la plantilla. Estructura que devuelve _panel_data():
     {
       "role": "laboratorio", "role_label": "Laboratorio", "supported": True,
       "actions":   [{"label", "url", "icon", "primary"}],          # botones de la cabecera
+                   # (los de la tabla única con «headline» + los que agregue un módulo)
       "alerts":    [{"level": warning|danger|info, "text", "url", "link_label"}],
       "kpis":      [{"key", "label", "value", "sub", "icon", "tone", "url"}],
       "sections":  [{"key", "title", "icon", "columns", "rows", "empty", "more_url"}],
-      "shortcuts": [{"label", "url", "icon", "tone"}],
+      "shortcuts": [{"key", "label", "url", "icon", "tone", "section", "section_label"}],
+                   # «Accesos»: SOLO de la tabla única de la barra
+                   # (website._shrimp_nav_actions, models/website_navbar.py).
+                   # No se agregan a mano: así barra y panel no se separan.
       "other_roles": [{"role", "label", "alerts"}],                 # multi-perfil
     }
 
@@ -22,6 +26,7 @@ sudo y dominios filtrados por ese socio.
 from datetime import timedelta
 
 from odoo import api, fields, models, _
+from odoo.http import request
 
 PANEL_ROLES = ("semillero", "laboratorio", "camaronera", "empacadora")
 # Estados de una compra que ya no están «en curso».
@@ -88,6 +93,7 @@ class ShrimpDashboard(models.AbstractModel):
             "role_label": self._panel_role_label(role) if role else _("sin perfil"),
             "supported": self._panel_supported(role),
             "actions": [], "alerts": [], "kpis": [], "sections": [], "shortcuts": [],
+            "shortcut_groups": [],
             "other_roles": [],
         }
         if data["supported"]:
@@ -95,6 +101,17 @@ class ShrimpDashboard(models.AbstractModel):
             if builder:
                 builder(partner, data)
             self._panel_common(partner, role, data)
+            # Cabecera y «Accesos» salen de la tabla única de la barra, con
+            # el perfil ACTIVO (los resúmenes de otros perfiles no los usan).
+            if role == self._panel_active_role(partner):
+                data["actions"] = self._panel_headline_actions(partner) + data["actions"]
+                data["shortcuts"] = self._panel_shortcuts(partner)
+                grupos = []
+                for sc in data["shortcuts"]:
+                    if not grupos or grupos[-1]["section"] != sc["section"]:
+                        grupos.append({"section": sc["section"], "label": sc["section_label"], "items": []})
+                    grupos[-1]["items"].append(sc)
+                data["shortcut_groups"] = grupos
         if with_others:
             for otro in self._panel_roles(partner):
                 if otro == role or not self._panel_supported(otro):
@@ -320,28 +337,47 @@ class ShrimpDashboard(models.AbstractModel):
     # Accesos comunes a todos los perfiles
     # ------------------------------------------------------------------
     @api.model
+    def _panel_nav_partner(self, partner):
+        """El socio con el que la BARRA se calcula para este panel: el del
+        usuario de la petición si es la misma cuenta (un subusuario navega
+        con su contacto, el panel con la empresa); si no, `partner`."""
+        partner = partner.sudo()
+        if request:
+            propio = self.env["website"]._shrimp_nav_partner()
+            if propio and propio._shrimp_role_holder() == partner._shrimp_role_holder():
+                return propio
+        return partner
+
+    @api.model
+    def _panel_shortcuts(self, partner):
+        """«Accesos» de Mi panel: la tabla única de la barra (surface
+        "dashboard"), filtrada con la matriz de capacidades, el perfil activo
+        y los permisos del subusuario. Agrupados Vender · Comprar ·
+        Servicios · Más herramientas · Mi cuenta."""
+        return self.env["website"]._shrimp_nav_actions(
+            self._panel_nav_partner(partner), surface="dashboard")
+
+    @api.model
+    def _panel_headline_actions(self, partner):
+        return [{"key": a["key"], "label": a["label"], "url": a["url"],
+                 "icon": "fa-plus" if a["key"] == "publish" else "fa-shopping-cart",
+                 "primary": a["primary"]}
+                for a in self.env["website"]._shrimp_nav_headline(self._panel_nav_partner(partner))]
+
+    # ------------------------------------------------------------------
+    # Común a todos los perfiles
+    # ------------------------------------------------------------------
+    @api.model
     def _panel_common(self, partner, role, data):
-        data["shortcuts"] += [
-            {"label": _("Mis reportes"), "url": "/marketplace/reports", "icon": "fa-bar-chart", "tone": "green"},
-            {"label": _("Mi cuenta y certificados"), "url": "/marketplace/my-account", "icon": "fa-id-card-o", "tone": "navy"},
-            {"label": _("Panel completo"), "url": "/my", "icon": "fa-th", "tone": "navy"},
-        ]
-        puede_vender = (partner._shrimp_can_any("sell_products")
-                        if hasattr(partner, "_shrimp_can_any") else partner._shrimp_can("sell_products"))
-        if puede_vender:
-            data["shortcuts"].append({
-                "label": _("Mi vitrina pública"), "url": "/marketplace/sellers/%s" % partner.uuid_ref,
-                "icon": "fa-shopping-bag", "tone": "teal"})
+        """Gancho para lo común a todos los perfiles. Los accesos ya no se
+        declaran aquí: vienen de la tabla única (ver _panel_shortcuts)."""
+        return data
 
     # ------------------------------------------------------------------
     # Semillero
     # ------------------------------------------------------------------
     @api.model
     def _panel_semillero(self, partner, data):
-        data["actions"] += [
-            {"label": _("Publicar lote de nauplio"), "url": "/marketplace/products/new",
-             "icon": "fa-plus", "primary": True},
-        ]
         productos = self._seller_kpis(partner, "semillero", data)
         n_lotes = self._cert_alerts(partner, data, productos)
         data["kpis"].append({
@@ -354,13 +390,6 @@ class ShrimpDashboard(models.AbstractModel):
             self._active_lots_section(partner, productos),
             self._last_sales_section(partner, "semillero"),
         ]
-        data["shortcuts"] = [
-            {"label": _("Mis lotes"), "url": "/marketplace/products", "icon": "fa-cubes", "tone": "navy"},
-            {"label": _("Publicar nauplio"), "url": "/marketplace/products/new", "icon": "fa-plus-circle", "tone": "green"},
-            {"label": _("Ventas y despachos"), "url": "/marketplace/sales", "icon": "fa-truck", "tone": "teal"},
-            {"label": _("Precios de referencia (nauplio)"), "url": "/marketplace?tipo=nauplio",
-             "icon": "fa-tags", "tone": "amber"},
-        ] + data["shortcuts"]
 
     @api.model
     def _semillero_pl_survival(self, partner, data):
@@ -385,12 +414,6 @@ class ShrimpDashboard(models.AbstractModel):
     # ------------------------------------------------------------------
     @api.model
     def _panel_laboratorio(self, partner, data):
-        data["actions"] += [
-            {"label": _("Publicar lote de larva"), "url": "/marketplace/products/new",
-             "icon": "fa-plus", "primary": True},
-            {"label": _("Comprar nauplio"), "url": "/marketplace?tipo=nauplio",
-             "icon": "fa-shopping-cart", "primary": False},
-        ]
         productos = self._seller_kpis(partner, "laboratorio", data)
         self._quality_survival_kpi(productos, data)
         inventario = self._nauplio_inventory(partner)
@@ -419,14 +442,6 @@ class ShrimpDashboard(models.AbstractModel):
             self._active_lots_section(partner, productos, title=_("Lotes y corridas publicados")),
             self._last_sales_section(partner, "laboratorio"),
         ]
-        data["shortcuts"] = [
-            {"label": _("Mis lotes y corridas"), "url": "/marketplace/products", "icon": "fa-cubes", "tone": "navy"},
-            {"label": _("Publicar larva"), "url": "/marketplace/products/new", "icon": "fa-plus-circle", "tone": "green"},
-            {"label": _("Comprar nauplio"), "url": "/marketplace?tipo=nauplio", "icon": "fa-shopping-cart", "tone": "teal"},
-            {"label": _("Inventario de nauplio"), "url": "/marketplace/my-lots", "icon": "fa-flask", "tone": "teal"},
-            {"label": _("Mis compras"), "url": "/marketplace/purchases", "icon": "fa-shopping-basket", "tone": "navy"},
-            {"label": _("Ventas y despachos"), "url": "/marketplace/sales", "icon": "fa-truck", "tone": "amber"},
-        ] + data["shortcuts"]
 
     @api.model
     def _nauplio_inventory(self, partner):
@@ -469,7 +484,7 @@ class ShrimpDashboard(models.AbstractModel):
             })
         return {
             "key": "nauplio_inventory", "title": _("Inventario de nauplio comprado"), "icon": "fa-flask",
-            "columns": [_("Lote"), _("Semillero de origen"), _("Línea genética"), _("Disponible"), _("Recibido")],
+            "columns": [_("Lote"), _("Naupliero de origen"), _("Línea genética"), _("Disponible"), _("Recibido")],
             "rows": filas, "empty": _("No tienes nauplio comprado en inventario."),
             "more_url": "/marketplace/my-lots", "more_label": _("Ver mi inventario"),
         }
@@ -479,10 +494,6 @@ class ShrimpDashboard(models.AbstractModel):
     # ------------------------------------------------------------------
     @api.model
     def _panel_camaronera(self, partner, data):
-        data["actions"] += [
-            {"label": _("Comprar larva"), "url": "/marketplace?tipo=larva", "icon": "fa-shopping-cart", "primary": True},
-            {"label": _("Publicar cosecha"), "url": "/marketplace/products/new", "icon": "fa-plus", "primary": False},
-        ]
         Lot = self.env["shrimp.stock.lot"].sudo()
         larva = Lot.search([("owner_id", "=", partner.id), ("available_qty", ">", 0)]).filtered(
             lambda l: l.product_id._shrimp_tipo() == "larva")
@@ -502,38 +513,19 @@ class ShrimpDashboard(models.AbstractModel):
         ]
         productos = self._seller_kpis(partner, "camaronera", data, unit_default="lb")
         self._cert_alerts(partner, data, productos)
-        Tx = self.env["shrimp.transaction"].sudo()
-        por_recibir = Tx.search_count(self._purchases_domain(partner, "camaronera") + [("state", "=", "confirmed")])
-        if por_recibir:
-            data["alerts"].append({
-                "level": "info", "key": "to_receive",
-                "text": _("%s compras de larva esperan que confirmes la recepción.") % por_recibir,
-                "url": "/marketplace/purchases", "link_label": _("Ver compras"),
-            })
+        # «Compras que esperan que confirmes la recepción»: ahora para todos los
+        # perfiles, con el plazo de la confirmación automática
+        # (shrimp_dashboard_reception.py).
         data["sections"] += [
             self._active_lots_section(partner, productos, title=_("Cosechas publicadas")),
             self._last_sales_section(partner, "camaronera"),
         ]
-        data["shortcuts"] = [
-            {"label": _("Comprar larva"), "url": "/marketplace?tipo=larva", "icon": "fa-shopping-cart", "tone": "teal"},
-            {"label": _("Mis compras"), "url": "/marketplace/purchases", "icon": "fa-shopping-basket", "tone": "navy"},
-            {"label": _("Inventario y siembra"), "url": "/marketplace/my-lots", "icon": "fa-flask", "tone": "teal"},
-            {"label": _("Instalaciones y piscinas"), "url": "/marketplace/my-facilities", "icon": "fa-map-o", "tone": "navy"},
-            {"label": _("Registrar siembra"), "url": "/marketplace/sowings/new", "icon": "fa-tint", "tone": "teal"},
-            {"label": _("Publicar cosecha"), "url": "/marketplace/products/new", "icon": "fa-plus-circle", "tone": "green"},
-            {"label": _("Mis lotes"), "url": "/marketplace/products", "icon": "fa-cubes", "tone": "navy"},
-            {"label": _("Ventas"), "url": "/marketplace/sales", "icon": "fa-line-chart", "tone": "amber"},
-        ] + data["shortcuts"]
 
     # ------------------------------------------------------------------
     # Empacadora (shrimp_packer agrega listas, reservas y oferta)
     # ------------------------------------------------------------------
     @api.model
     def _panel_empacadora(self, partner, data):
-        data["actions"] += [
-            {"label": _("Ver camarón disponible"), "url": "/marketplace?tipo=camaron",
-             "icon": "fa-shopping-cart", "primary": True},
-        ]
         Tx = self.env["shrimp.transaction"].sudo()
         compras = self._purchases_domain(partner, "empacadora")
         en_curso = Tx.search(compras + [("state", "not in", TX_CERRADAS)])
@@ -569,8 +561,3 @@ class ShrimpDashboard(models.AbstractModel):
             "empty": _("Todavía no tienes compras cerradas."),
             "more_url": "/marketplace/purchases", "more_label": _("Ver mis compras"),
         })
-        data["shortcuts"] = [
-            {"label": _("Marketplace (camarón)"), "url": "/marketplace?tipo=camaron", "icon": "fa-shopping-bag", "tone": "teal"},
-            {"label": _("Mis compras"), "url": "/marketplace/purchases", "icon": "fa-shopping-basket", "tone": "navy"},
-            {"label": _("Inventario"), "url": "/marketplace/my-lots", "icon": "fa-flask", "tone": "teal"},
-        ] + data["shortcuts"]

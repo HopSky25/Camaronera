@@ -2,16 +2,41 @@
   <!-- ================================================================
        Comprobante de compra (NO fiscal).
 
-       Lo que descarga el portal desde "Factura" cuando la compra todavía no
-       tiene una factura contabilizada. Antes ese GET creaba un pedido de
-       venta, lo confirmaba y CONTABILIZABA una factura —con impuestos en
-       cero— cada vez que alguien abría el enlace: un documento fiscal
-       emitido por un clic, sin revisión. Hoy la plataforma NO factura
-       mercadería: la factura la emite el vendedor desde su sistema y la
-       registra en la compra (número, clave de acceso, archivo). Este
-       comprobante resume la operación; la plataforma solo emite facturas por
-       sus servicios (shrimp.charge).
+       Lo que descarga el portal desde «Descargar comprobante» cuando la
+       compra no tiene una factura histórica contabilizada. Antes ese GET
+       creaba un pedido de venta, lo confirmaba y CONTABILIZABA una factura
+       —con impuestos en cero— cada vez que alguien abría el enlace. Hoy la
+       plataforma NO factura mercadería: la factura la emite el vendedor
+       desde su sistema y la registra en la compra (número, clave de acceso,
+       archivo). La plataforma solo factura sus servicios (shrimp.charge).
+
+       Rediseño 2026-10: recibo profesional (logotipo, partes con RUC y
+       dirección, detalle, importes en dos pasos —servicio de la plataforma
+       y producto—, verificación, entrega, QR a la trazabilidad pública si
+       la compra ya tiene token y pie con nota legal y páginas).
+       wkhtmltopdf usa un WebKit antiguo: nada de grid/flex, todo con
+       tablas y CSS simple en la propia plantilla; logotipo y QR embebidos
+       (data URI); fuentes del servidor (Ubuntu / DejaVu Sans). Va dentro de
+       web.basic_layout (div.article): así el documento lleva su <meta
+       charset> (antes salían «CamarÃ³n») y el pie con «Página X de Y» se
+       sustituye por documento. No carga ninguna hoja del sitio (ni el modo
+       oscuro): solo web.report_assets_*.
+       Datos: shrimp.transaction.shrimp_receipt_* (models/
+       shrimp_purchase_receipt.py), que solo leen.
        ================================================================ -->
+  <record id="paperformat_shrimp_receipt" model="report.paperformat">
+    <field name="name">CamaronMarket comprobante A4</field>
+    <field name="format">A4</field>
+    <field name="orientation">Portrait</field>
+    <field name="margin_top">12</field>
+    <field name="margin_bottom">22</field>
+    <field name="margin_left">12</field>
+    <field name="margin_right">12</field>
+    <field name="header_spacing">0</field>
+    <field name="header_line" eval="False"/>
+    <field name="dpi">90</field>
+  </record>
+
   <record id="action_report_shrimp_purchase_receipt" model="ir.actions.report">
     <field name="name">Comprobante de compra (sin valor tributario)</field>
     <field name="model">shrimp.transaction</field>
@@ -19,43 +44,290 @@
     <field name="report_name">shrimp_marketplace.report_shrimp_purchase_receipt</field>
     <field name="report_file">shrimp_marketplace.report_shrimp_purchase_receipt</field>
     <field name="print_report_name">'Comprobante - %s' % (object.name)</field>
-    <field name="paperformat_id" ref="paperformat_shrimp_trace"/>
+    <field name="paperformat_id" ref="paperformat_shrimp_receipt"/>
   </record>
 
   <template id="report_shrimp_purchase_receipt">
     <t t-call="web.html_container">
       <t t-foreach="docs" t-as="doc">
-        <div class="page" style="font-family: Arial, sans-serif; font-size: 12px; color: #123e5c;">
-          <div style="border: 2px dashed #b45309; padding: 8px 12px; margin-bottom: 14px; color: #b45309; font-weight: bold; text-align: center;">
-            COMPROBANTE DE COMPRA — SIN VALOR TRIBUTARIO
-            <div style="font-weight: normal; font-size: 10px;">
-              Este documento no es una factura ni un comprobante electrónico autorizado por el SRI.
-            </div>
-          </div>
-          <h2 style="margin: 0 0 8px 0;">Compra <t t-esc="doc.name"/></h2>
-          <table style="width: 100%; border-collapse: collapse;">
-            <tr><td style="width: 35%; padding: 3px 0;"><strong>Fecha</strong></td>
-                <td><t t-esc="doc.shrimp_fmt_dt(doc.shrimp_operation_datetime(), doc.buyer_partner_id, with_time=False)"/></td></tr>
-            <tr><td style="padding: 3px 0;"><strong>Comprador</strong></td>
-                <td><t t-esc="doc.buyer_partner_id.name"/></td></tr>
-            <tr><td style="padding: 3px 0;"><strong>Vendedor</strong></td>
-                <td><t t-esc="doc.seller_partner_id.name"/></td></tr>
-            <tr><td style="padding: 3px 0;"><strong>Producto</strong></td>
-                <td><t t-esc="doc.product_id.name"/></td></tr>
-            <tr><td style="padding: 3px 0;"><strong>Cantidad</strong></td>
-                <td><t t-esc="doc.transaction_qty"/> <t t-esc="doc.product_id.uom_id.name or ''"/></td></tr>
-            <tr><td style="padding: 3px 0;"><strong>Precio unitario</strong></td>
-                <td><t t-esc="'%.2f' % (doc.price_unit or 0.0)"/></td></tr>
-            <tr><td style="padding: 3px 0;"><strong>Total</strong></td>
-                <td><strong><t t-esc="'%.2f' % (doc.amount_total or 0.0)"/></strong></td></tr>
-            <tr><td style="padding: 3px 0;"><strong>Estado</strong></td>
-                <td><t t-esc="dict(doc._fields['state']._description_selection(doc.env)).get(doc.state, doc.state)"/></td></tr>
+        <t t-set="amounts" t-value="doc.shrimp_receipt_amounts()"/>
+        <t t-set="buyer" t-value="doc.shrimp_receipt_party('buyer')"/>
+        <t t-set="seller" t-value="doc.shrimp_receipt_party('seller')"/>
+        <t t-set="verif" t-value="doc.shrimp_receipt_verification()"/>
+        <t t-set="logo" t-value="doc.shrimp_receipt_logo_uri()"/>
+        <t t-set="public_url" t-value="doc.shrimp_receipt_public_url()"/>
+        <t t-set="qr" t-value="doc.shrimp_receipt_qr_uri()"/>
+        <t t-set="prod" t-value="doc.product_id"/>
+        <t t-set="uom_name" t-value="prod.uom_id.name or ''"/>
+        <t t-set="money" t-value="lambda v: '$ ' + doc.shrimp_fmt_num(v or 0.0, 2)"/>
+        <t t-set="op_dt" t-value="doc.shrimp_operation_datetime()"/>
+        <t t-set="state_label" t-value="dict(doc._fields['state']._description_selection(doc.env)).get(doc.state, doc.state)"/>
+        <t t-set="chip" t-value="{'confirmed': ('#e4f4ec', '#17603f', '#bfe3cf'), 'done': ('#e4f4ec', '#17603f', '#bfe3cf'), 'cancel': ('#fbe9e7', '#a3301f', '#f2cbc5')}.get(doc.state, ('#fbf1de', '#8a5a12', '#f0dcb4'))"/>
+        <t t-set="brand" t-value="doc.shrimp_brand_name()"/>
+
+        <!-- Pie (uno por documento: minimal_layout elige el de cada página). -->
+        <div class="footer">
+          <table style="width:100%; border-collapse:collapse; font-family:'Ubuntu','DejaVu Sans',Arial,sans-serif; font-size:8.5px; color:#5a6b74; border-top:1px solid #d9e1e7;">
+            <tr>
+              <td style="padding:6px 0 0 0; vertical-align:top; border:0;">
+                <strong style="color:#123e5c;">Este comprobante no es una factura</strong> ni un comprobante electrónico
+                autorizado por el SRI. El producto lo factura el vendedor; los servicios de la plataforma se
+                facturan por separado con factura electrónica.
+              </td>
+              <td style="padding:6px 0 0 12px; vertical-align:top; text-align:right; white-space:nowrap; width:120px; border:0;">
+                <t t-esc="brand"/> · <t t-esc="doc.name"/><br/>
+                Página <span class="page"/> de <span class="topage"/>
+              </td>
+            </tr>
           </table>
-          <p style="margin-top: 18px; font-size: 10px; color: #5a6b74;">
-            La factura electrónica, cuando corresponda, la emite la administración de la
-            plataforma y se descarga desde este mismo enlace una vez contabilizada.
-          </p>
         </div>
+
+        <t t-call="web.basic_layout">
+          <div class="page sprc">
+            <style>
+              .sprc { font-family: 'Ubuntu', 'DejaVu Sans', Arial, sans-serif; color: #0d1b26; font-size: 10.5px; line-height: 1.4; }
+              .sprc table { border-collapse: collapse; border: 0 none; }
+              .sprc table, .sprc thead, .sprc tbody, .sprc tfoot, .sprc tr, .sprc td, .sprc th { border: 0 none; border-style: none; }
+              .sprc tr, .sprc .rc-keep { page-break-inside: avoid; }
+              .sprc thead { display: table-header-group; }
+              .sprc td { vertical-align: top; }
+              .sprc .rc-muted { color: #5a6b74; }
+              .sprc .rc-faint { color: #7c8794; }
+              .sprc .rc-r { text-align: right; }
+              .sprc .rc-nowrap { white-space: nowrap; }
+              .sprc .rc-head { width: 100%; }
+              .sprc .rc-head td { vertical-align: middle; padding: 0; }
+              .sprc .rc-title { font-size: 19px; font-weight: bold; color: #123e5c; letter-spacing: -.2px; margin: 0; }
+              .sprc .rc-sub { font-size: 9.5px; color: #5a6b74; margin-top: 2px; }
+              .sprc .rc-meta td { padding: 1px 0 1px 10px; font-size: 10px; }
+              .sprc .rc-meta td.rc-k { color: #5a6b74; text-align: right; }
+              .sprc .rc-meta td.rc-v { font-weight: bold; text-align: right; white-space: nowrap; }
+              .sprc .rc-chip { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 9.5px; font-weight: bold; border: 1px solid; }
+              .sprc .rc-rule { height: 3px; background: #123e5c; margin: 10px 0 0; }
+              .sprc .rc-rule2 { height: 3px; background: #0e8ea0; width: 22%; margin: 0 0 12px; }
+              .sprc .rc-notax { border: 1px solid #f0dcb4; background: #fbf6ea; color: #8a5a12; padding: 6px 10px; font-size: 9.5px; margin-bottom: 14px; }
+              .sprc .rc-cap { font-size: 8.5px; color: #123e5c; font-weight: bold; text-transform: uppercase; letter-spacing: .6px; padding: 0 0 5px; }
+              .sprc .rc-box { border: 1px solid #d9e1e7; background: #f7f9fb; padding: 9px 11px; }
+              .sprc .rc-box-n { font-size: 12px; font-weight: bold; color: #0d1b26; }
+              .sprc .rc-box td { padding: 1px 0; font-size: 9.8px; }
+              .sprc .rc-box td.rc-k { color: #5a6b74; width: 30%; padding-right: 6px; }
+              .sprc .rc-sec { font-size: 10px; color: #123e5c; font-weight: bold; text-transform: uppercase; letter-spacing: .6px; margin: 16px 0 6px; padding-bottom: 4px; border-bottom: 1px solid #d9e1e7; page-break-after: avoid; }
+              .sprc table.rc-tbl { width: 100%; font-size: 10px; }
+              .sprc table.rc-tbl thead th { background: #123e5c; color: #ffffff; padding: 6px 7px; text-align: left; font-weight: bold; font-size: 8.5px; text-transform: uppercase; letter-spacing: .3px; }
+              .sprc table.rc-tbl thead th.rc-r { text-align: right; }
+              .sprc table.rc-tbl tbody td { padding: 7px; border-bottom: 1px solid #d9e1e7; }
+              .sprc .rc-pname { font-weight: bold; font-size: 10.8px; }
+              .sprc table.rc-amt { width: 100%; font-size: 10px; }
+              .sprc table.rc-amt td { padding: 5px 8px; border-bottom: 1px solid #e4e8ec; }
+              .sprc table.rc-amt tr.rc-grp td { background: #eef3f6; color: #123e5c; font-weight: bold; font-size: 9px; text-transform: uppercase; letter-spacing: .4px; border-bottom: 0; padding-top: 6px; padding-bottom: 5px; }
+              .sprc table.rc-amt tr.rc-sum td { font-weight: bold; }
+              .sprc table.rc-amt tr.rc-total td { background: #123e5c; color: #ffffff; font-weight: bold; font-size: 12px; border-bottom: 0; padding: 8px; }
+              .sprc .rc-tag { display: inline-block; padding: 1px 6px; border-radius: 8px; font-size: 8.5px; font-weight: bold; }
+              .sprc .rc-tag-ok { background: #e4f4ec; color: #17603f; }
+              .sprc .rc-tag-info { background: #e2f3f5; color: #0b6b79; }
+              .sprc table.rc-kv { width: 100%; font-size: 9.8px; }
+              .sprc table.rc-kv td { padding: 4px 7px; border-bottom: 1px solid #e4e8ec; }
+              .sprc table.rc-kv td.rc-k { color: #5a6b74; background: #f4f7f9; font-weight: bold; width: 38%; }
+              .sprc .rc-qr img { width: 86px; height: 86px; }
+              .sprc .rc-url { font-size: 9px; color: #0b6b79; word-wrap: break-word; }
+            </style>
+
+            <!-- ============ Cabecera ============ -->
+            <table class="rc-head">
+              <tr>
+                <td style="width:52%;">
+                  <img t-if="logo" t-att-src="logo" alt="CamaronMarket" style="height:44px; width:auto;"/>
+                  <div t-else="" class="rc-title" t-esc="brand"/>
+                </td>
+                <td style="width:48%; text-align:right;">
+                  <div class="rc-title">Comprobante de compra</div>
+                  <div class="rc-sub">DOCUMENTO SIN VALOR TRIBUTARIO</div>
+                  <table class="rc-meta" style="margin-left:auto; margin-top:5px;">
+                    <tr><td class="rc-k">N.º</td><td class="rc-v" t-esc="doc.name"/></tr>
+                    <tr><td class="rc-k">Fecha de la operación</td><td class="rc-v" t-esc="doc.shrimp_fmt_dt(op_dt, doc.buyer_partner_id)"/></tr>
+                    <tr><td class="rc-k">Emitido</td><td class="rc-v" t-esc="doc.shrimp_fmt_dt(datetime.datetime.now(), doc.buyer_partner_id)"/></tr>
+                    <tr>
+                      <td class="rc-k">Estado</td>
+                      <td class="rc-v">
+                        <span class="rc-chip" t-attf-style="background:#{chip[0]}; color:#{chip[1]}; border-color:#{chip[2]};" t-esc="state_label"/>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+            <div class="rc-rule"/>
+            <div class="rc-rule2"/>
+
+            <div class="rc-notax">
+              <strong>Documento sin valor tributario.</strong>
+              Este documento no es una factura ni un comprobante electrónico autorizado por el SRI:
+              resume la operación registrada en <t t-esc="brand"/>.
+            </div>
+
+            <!-- ============ Partes ============ -->
+            <table style="width:100%;" class="rc-keep">
+              <tr>
+                <t t-foreach="[('Comprador', buyer), ('Vendedor', seller)]" t-as="pp">
+                  <td t-att-style="'width:50%; padding-right:6px;' if pp_index == 0 else 'width:50%; padding-left:6px;'">
+                    <div class="rc-cap" t-esc="pp[0]"/>
+                    <div class="rc-box">
+                      <div class="rc-box-n" t-esc="pp[1]['name']"/>
+                      <table style="width:100%; margin-top:4px;">
+                        <tr><td class="rc-k">RUC / Cédula</td><td t-esc="pp[1]['vat'] or '—'"/></tr>
+                        <tr t-if="pp[1]['street']"><td class="rc-k">Dirección</td><td t-esc="pp[1]['street']"/></tr>
+                        <tr t-if="pp[1]['place']"><td class="rc-k">Ciudad</td><td t-esc="pp[1]['place']"/></tr>
+                        <tr t-if="pp[1]['role']"><td class="rc-k">Perfil</td><td t-esc="pp[1]['role']"/></tr>
+                        <tr t-if="pp[1]['email'] or pp[1]['phone']"><td class="rc-k">Contacto</td><td t-esc="' · '.join(x for x in (pp[1]['email'], pp[1]['phone']) if x)"/></tr>
+                      </table>
+                    </div>
+                  </td>
+                </t>
+              </tr>
+            </table>
+
+            <!-- ============ Detalle ============ -->
+            <div class="rc-sec">Detalle</div>
+            <table class="rc-tbl">
+              <thead>
+                <tr>
+                  <th style="width:36%;">Producto</th>
+                  <th style="width:24%;">Etapa · talla · presentación</th>
+                  <th class="rc-r" style="width:14%;">Cantidad</th>
+                  <th class="rc-r" style="width:12%;">Precio unit.</th>
+                  <th class="rc-r" style="width:14%;">Subtotal</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <div class="rc-pname" t-esc="prod.name or '—'"/>
+                    <div class="rc-faint">
+                      <t t-esc="doc.shrimp_join(prod.species_id.name, prod.genetics_line_id.name, prod.batch_code and ('Lote %s' % prod.batch_code))"/>
+                    </div>
+                    <div class="rc-faint" t-if="doc.transaction_type" t-esc="dict(doc._fields['transaction_type']._description_selection(doc.env)).get(doc.transaction_type)"/>
+                  </td>
+                  <td>
+                    <t t-set="pres" t-value="dict(prod._fields['presentation']._description_selection(prod.env)).get(prod.presentation) if prod.presentation else False"/>
+                    <t t-esc="' · '.join(x for x in (prod.stage_id.name, prod.size_grade_id.name, pres) if x) or '—'"/>
+                  </td>
+                  <td class="rc-r rc-nowrap" t-esc="doc.shrimp_fmt_qty(doc.transaction_qty, uom_name)"/>
+                  <td class="rc-r rc-nowrap"><t t-esc="money(doc.price_unit)"/><div class="rc-faint" style="font-size:8.5px;">por <t t-esc="uom_name"/></div></td>
+                  <td class="rc-r rc-nowrap"><strong t-esc="money(amounts['product_total'])"/></td>
+                </tr>
+              </tbody>
+            </table>
+
+            <!-- ============ Importes + (verificación / entrega) ============ -->
+            <table style="width:100%; margin-top:14px;" class="rc-keep">
+              <tr>
+                <td style="width:47%; padding-right:12px;">
+                  <!-- Entrega -->
+                  <div class="rc-cap">Entrega</div>
+                  <table class="rc-kv">
+                    <tr><td class="rc-k">Fecha de entrega</td><td t-esc="doc.shrimp_fmt_dt(doc.delivery_date) if doc.delivery_date else '—'"/></tr>
+                    <tr t-if="doc.location"><td class="rc-k">Ubicación</td><td t-esc="doc.location"/></tr>
+                    <tr t-if="prod.origin_facility_id"><td class="rc-k">Instalación de origen</td><td t-esc="prod.origin_facility_id.name"/></tr>
+                    <tr t-if="doc.dispatched_at"><td class="rc-k">Despachado el</td><td t-esc="doc.shrimp_fmt_dt(doc.dispatched_at, doc.buyer_partner_id)"/></tr>
+                    <tr t-if="doc.received_date"><td class="rc-k">Recibido el</td><td t-esc="doc.shrimp_fmt_dt(doc.received_date, doc.buyer_partner_id)"/></tr>
+                    <tr t-if="doc.reception_status"><td class="rc-k">Recepción</td><td t-esc="dict(doc._fields['reception_status']._description_selection(doc.env)).get(doc.reception_status)"/></tr>
+                  </table>
+
+                  <!-- Verificación en campo -->
+                  <t t-if="verif">
+                    <div class="rc-cap" style="margin-top:12px;"><t t-esc="'Verificación declarada' if verif['declared'] else 'Verificación en campo'"/></div>
+                    <table class="rc-kv">
+                      <tr><td class="rc-k">Referencia</td><td t-esc="verif['name']"/></tr>
+                      <tr t-if="verif['label']"><td class="rc-k">Verificación</td><td t-esc="verif['label']"/></tr>
+                      <tr><td class="rc-k">Resultado</td><td t-esc="verif['state_label']"/></tr>
+                      <tr t-if="verif['date']"><td class="rc-k">Fecha del veredicto</td><td t-esc="doc.shrimp_fmt_dt(verif['date'], doc.buyer_partner_id, with_time=False)"/></tr>
+                    </table>
+                  </t>
+
+                  <!-- Factura del vendedor (paso 2) -->
+                  <div class="rc-cap" style="margin-top:12px;">Factura del producto</div>
+                  <table class="rc-kv">
+                    <t t-if="doc.has_seller_invoice">
+                      <tr t-if="doc.seller_invoice_number"><td class="rc-k">N.º (vendedor)</td><td t-esc="doc.seller_invoice_number"/></tr>
+                      <tr t-if="doc.seller_invoice_date"><td class="rc-k">Fecha</td><td t-esc="doc.shrimp_fmt_dt(doc.seller_invoice_date)"/></tr>
+                      <tr t-if="doc.seller_invoice_access_key"><td class="rc-k">Clave de acceso</td><td style="font-size:8.5px; word-wrap:break-word;" t-esc="doc.seller_invoice_access_key"/></tr>
+                    </t>
+                    <tr t-else=""><td colspan="2" class="rc-muted">La emite el vendedor desde su sistema; todavía no la registró en la compra.</td></tr>
+                  </table>
+                </td>
+
+                <td style="width:53%; padding-left:12px;">
+                  <div class="rc-cap">Importes</div>
+                  <table class="rc-amt">
+                    <!-- Paso 1: servicio de la plataforma -->
+                    <tr class="rc-grp">
+                      <td colspan="2">Servicio de la plataforma <span t-if="amounts['service_lines']" class="rc-tag rc-tag-ok" style="text-transform:none; letter-spacing:0;">pagado</span></td>
+                    </tr>
+                    <t t-if="amounts['service_lines']">
+                      <t t-foreach="amounts['service_lines']" t-as="sl">
+                        <tr>
+                          <td>
+                            <t t-esc="sl['label']"/>
+                            <div class="rc-faint" style="font-size:8.5px;">
+                              <t t-esc="sl['ref']"/><t t-if="sl['invoice']"> · factura electrónica <t t-esc="sl['invoice']"/></t>
+                            </div>
+                          </td>
+                          <td class="rc-r rc-nowrap" t-esc="money(sl['untaxed'])"/>
+                        </tr>
+                      </t>
+                      <t t-if="amounts['service_taxes_known']">
+                        <tr><td class="rc-muted">Impuestos (según la factura)</td><td class="rc-r rc-nowrap" t-esc="money(amounts['service_tax'])"/></tr>
+                      </t>
+                      <t t-else="">
+                        <tr><td class="rc-muted" colspan="2" style="font-size:8.8px;">Importe sin impuestos: los impuestos constan en la factura electrónica del servicio.</td></tr>
+                      </t>
+                      <tr class="rc-sum"><td>Total servicio</td><td class="rc-r rc-nowrap" t-esc="money(amounts['service_total'])"/></tr>
+                    </t>
+                    <tr t-else="">
+                      <td class="rc-muted">Sin cargo para el comprador: la comisión de la venta la paga el vendedor.</td>
+                      <td class="rc-r rc-nowrap" t-esc="money(0)"/>
+                    </tr>
+
+                    <!-- Paso 2: producto -->
+                    <tr class="rc-grp">
+                      <td colspan="2">Producto <span class="rc-tag rc-tag-info" style="text-transform:none; letter-spacing:0;">al vendedor</span></td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <t t-esc="doc.shrimp_fmt_qty(doc.transaction_qty, uom_name)"/> × <t t-esc="money(doc.price_unit)"/>
+                        <div class="rc-faint" style="font-size:8.5px;">
+                          <t t-esc="'Pagado al concluir la compra' if amounts['verified'] else 'Pagado al comprar'"/>.
+                          Lo factura el vendedor; sus impuestos constan en esa factura.
+                        </div>
+                      </td>
+                      <td class="rc-r rc-nowrap" t-esc="money(amounts['product_total'])"/>
+                    </tr>
+
+                    <tr class="rc-total">
+                      <td>Total de la operación</td>
+                      <td class="rc-r rc-nowrap" t-esc="money(amounts['grand_total'])"/>
+                    </tr>
+                  </table>
+                  <div class="rc-faint" style="font-size:8.5px; margin-top:4px;">
+                    Valores en <t t-esc="amounts['currency'].name or 'USD'"/>.
+                  </div>
+                </td>
+              </tr>
+            </table>
+
+            <!-- ============ Trazabilidad pública (solo si ya hay token) ============ -->
+            <table t-if="public_url" style="width:100%; margin-top:16px; border:1px solid #d9e1e7;" class="rc-keep">
+              <tr>
+                <td t-if="qr" class="rc-qr" style="width:96px; padding:8px;"><img t-att-src="qr" alt="Código QR de la trazabilidad"/></td>
+                <td style="padding:10px 12px; vertical-align:middle;">
+                  <div style="font-weight:bold; color:#123e5c; font-size:11px;">Trazabilidad pública del lote</div>
+                  <div class="rc-muted" style="margin:2px 0 4px;">Escanea el código o abre el enlace para ver el origen y la cadena de custodia.</div>
+                  <div class="rc-url" t-esc="public_url"/>
+                </td>
+              </tr>
+            </table>
+          </div>
+        </t>
       </t>
     </t>
   </template>

@@ -118,7 +118,10 @@ def compra_verificada(M, arch, n, pr, buyer, qty, off, tipo, scope, prefijo, ext
     vstate = {"received": "received", "assigned": "assigned", "in_field": "in_field",
               "done": "done", "rejected": "rejected", "cancelled": "cancelled"}.get(esc)
     if vstate is None:
-        vstate = RNG.choices(["approved", "approved_obs"], [50, 50] if esc == "waiting" else [70, 30])[0]
+        # extra["vstate"] fija el veredicto (escenarios guionizados, p. ej. el
+        # historial de AQUAGOLD); sin él, al azar como siempre.
+        vstate = extra.get("vstate") or RNG.choices(
+            ["approved", "approved_obs"], [50, 50] if esc == "waiting" else [70, 30])[0]
     cumple = vstate == "approved"
     acc_state, decisiones = "na", None
     if esc == "waiting":
@@ -366,11 +369,15 @@ def informe_adulto(v, pr, qty, vstate, t_campo, extra):
         sabor = RNG.choice(["good", "acceptable"])
     else:
         sabor = RNG.choice(["excellent", "good", "good", "acceptable"])
-    clasificado = neto * (RNG.uniform(0.93, 0.985) if pres == "entero" else RNG.uniform(0.6, 0.68))
+    # extra["rango_clasificado"] / extra["rango_clase_a"]: perfil de calidad de
+    # un proveedor guionizado. Mismo número de llamadas a RNG que sin ellos.
+    r_cls = extra.get("rango_clasificado") or ((0.93, 0.985) if pres == "entero" else (0.6, 0.68))
+    clasificado = neto * RNG.uniform(*r_cls)
     dom = idx
     if vstate == "approved_obs" and RNG.random() < 0.5:
         dom = min(len(escalera) - 1, idx + 1)
-    fa = RNG.uniform(0.55, 0.8) if vstate != "rejected" else RNG.uniform(0.3, 0.5)
+    r_a = extra.get("rango_clase_a") or ((0.55, 0.8) if vstate != "rejected" else (0.3, 0.5))
+    fa = RNG.uniform(*r_a)
     fb = RNG.uniform(0.12, min(0.3, 0.95 - fa))
     fc = max(0.02, 1 - fa - fb)
     ultimo = len(escalera) - 1
@@ -565,9 +572,9 @@ def construir(M):
             M["usuarios"].append((login, ux, t.replace(SV, ""), "tecnico", "shrimp_verification"))
     for login, nombre, grupos in [
             ("coordinador.verificaciones", "Coordinación de verificaciones",
-             ["base.group_user", "shrimp_marketplace.group_shrimp_user"]),
+             ["base.group_user", "shrimp_verification.group_verification_user"]),
             ("contabilidad", "Contabilidad de la plataforma",
-             ["base.group_user", "shrimp_marketplace.group_shrimp_user", "account.group_account_invoice"])]:
+             ["base.group_user", "shrimp_marketplace.group_marketplace_user", "account.group_account_invoice"])]:
         pid = f"demo_ms_int_{slug(login)}_partner"
         f8.rec(pid, "res.partner", {"name": nombre, "email": f"{login}@{DOMINIO_LOGIN}"})
         ux = f"demo_ms_user_int_{slug(login)}"

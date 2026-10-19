@@ -10,7 +10,7 @@ from odoo.http import request
 def es_maquilador(user):
     """True si quien navega es la cuenta de una planta maquiladora."""
     return bool(user) and not user._is_public() and \
-        user.partner_id.sudo().shrimp_user_type == "maquilador"
+        user.sudo()._shrimp_current_role() == "maquilador"
 
 
 def _url_en_sitio(sitio, ruta):

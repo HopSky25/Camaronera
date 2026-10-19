@@ -6,8 +6,17 @@
     <field name="arch" type="xml">
       <xpath expr="//block[@name='shrimp_commission_block']" position="after">
         <block title="Facturas de servicio de la plataforma (SRI)" name="shrimp_sri_block">
+          <setting string="Estado de la facturación electrónica"
+                   help="Con el SRI activo, sin diario, punto de emisión, forma de pago o certificado ningún cobro se factura: se queda «Por facturar» con el motivo a la vista.">
+            <field name="shrimp_sri_config_ok" invisible="1"/>
+            <field name="shrimp_sri_config_status" nolabel="1" readonly="1"/>
+            <div class="mt8">
+              <button name="%(shrimp_l10n_ec.action_shrimp_sri_queue)d" type="action"
+                      string="Abrir la Cola SRI" icon="oi-arrow-right" class="btn-link"/>
+            </div>
+          </setting>
           <setting string="Diario y punto de emisión"
-                   help="Con qué se emiten las facturas electrónicas de comisión, verificación y empaque. El punto de emisión tiene que tener habilitados los documentos 01 (Factura) y 04 (Nota de crédito).">
+                   help="Obligatorios con el SRI activo. El diario tiene que usar documentos del SRI y el punto de emisión emitir 01 (Factura) y 04 (Nota de crédito) en el ambiente de la compañía.">
             <div class="content-group">
               <div class="row mt8">
                 <label for="shrimp_service_journal_id" class="col-lg-5 o_light_label"/>
@@ -24,8 +33,43 @@
             </div>
           </setting>
           <setting string="Enviar al SRI al emitir"
-                   help="Al contabilizar la factura de servicio se crea y encola su comprobante electrónico.">
+                   help="Al contabilizar la factura de servicio se crea, firma y encola su comprobante electrónico.">
             <field name="shrimp_sri_auto_emit"/>
+          </setting>
+          <setting string="Notas de crédito al SRI automáticamente"
+                   help="Al anular un cobro con factura AUTORIZADA, la nota de crédito (04) se firma y envía sola. Desactivado: espera la revisión de contabilidad (actividad al responsable). Sobre una factura no autorizada no se emite nota de crédito: se anula en contabilidad.">
+            <field name="shrimp_sri_credit_auto_emit"/>
+          </setting>
+          <setting string="Consumidor final sin RUC/cédula"
+                   help="Si el pagador no tiene RUC ni cédula, se le factura a «consumidor final» solo si el total no pasa de USD 50 (límite del SRI). Por encima, el cobro espera y se le piden los datos. Una factura a consumidor final no admite nota de crédito ni anulación.">
+            <field name="shrimp_sri_final_consumer"/>
+          </setting>
+          <setting string="Responsable de facturación SRI"
+                   help="Recibe una actividad en cada cobro rechazado por el SRI o con los intentos agotados. Vacío: el primer administrador de CamaronMarket.">
+            <field name="shrimp_billing_responsible_user_id"/>
+          </setting>
+          <setting string="Resumen diario de la cola SRI"
+                   help="Correo diario a los administradores de CamaronMarket con los cobros pendientes, en error o rechazados (solo si hay alguno).">
+            <field name="shrimp_sri_daily_summary"/>
+          </setting>
+          <setting string="Cobros atrasados (backlog)"
+                   help="Cobros sin factura que ya agotaron sus intentos automáticos (por ejemplo, los creados antes de configurar el SRI). Nada se reenvía solo al actualizar: este botón los devuelve a la cola cuando la configuración está completa, y el proceso automático los factura de 200 en 200 cada hora. Los honorarios de compras canceladas sin verificación realizada se anulan.">
+            <div class="content-group">
+              <div class="mt8">
+                <field name="shrimp_sri_backlog_count" class="oe_inline" readonly="1"/>
+                <span> cobros por reencolar</span>
+              </div>
+              <div class="mt8">
+                <button name="action_shrimp_sri_requeue_backlog" type="object"
+                        string="Reencolar cobros atrasados" class="btn-secondary"
+                        icon="fa-refresh"
+                        invisible="not shrimp_sri_config_ok or not shrimp_sri_backlog_count"
+                        confirm="Los cobros atrasados volverán a la cola y se facturarán y enviarán al SRI de 200 en 200 cada hora. ¿Continuar?"/>
+                <div class="text-muted small" invisible="shrimp_sri_config_ok">
+                  Disponible cuando la configuración esté completa.
+                </div>
+              </div>
+            </div>
           </setting>
         </block>
       </xpath>

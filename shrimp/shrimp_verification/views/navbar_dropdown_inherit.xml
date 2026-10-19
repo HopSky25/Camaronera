@@ -33,12 +33,13 @@
           <span t-field="submenu.name"/>
         </a>
         <ul t-attf-class="dropdown-menu mp-menu #{dropdown_menu_classes}" role="menu">
-          <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/verifier/inbox?state=pending"><span class="mp-menu-ico mp-mi-teal"><i class="fa fa-hourglass-start"/></span><span>Por iniciar</span></a></li>
-          <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/verifier/inbox?state=in_field"><span class="mp-menu-ico mp-mi-amber"><i class="fa fa-map-marker"/></span><span>En campo</span></a></li>
-          <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/verifier/inbox?state=done"><span class="mp-menu-ico mp-mi-navy"><i class="fa fa-gavel"/></span><span>Por dictaminar</span></a></li>
-          <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/verifier/inbox?state=approved"><span class="mp-menu-ico mp-mi-green"><i class="fa fa-check-circle"/></span><span>Ya verificadas</span></a></li>
-          <li><hr class="dropdown-divider"/></li>
-          <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/verifier/inbox"><span class="mp-menu-ico mp-mi-blue"><i class="fa fa-list"/></span><span>Todas mis verificaciones</span></a></li>
+          <!-- La lista sale de website._shrimp_verifier_jobs()
+               (models/website_navbar.py): la misma de las tarjetas del
+               panel (/my) y de «Servicios ▾ > Verificación» del marketplace. -->
+          <t t-foreach="website._shrimp_verifier_jobs()" t-as="vj">
+            <li t-if="vj['key'] == 'all'"><hr class="dropdown-divider"/></li>
+            <li><a role="menuitem" class="dropdown-item mp-menu-item" t-att-href="vj['url']" t-att-data-shrimp-nav="'verify_%s' % vj['key']"><span t-attf-class="mp-menu-ico mp-mi-#{vj['tone']}"><i t-attf-class="fa #{vj['icon']}"/></span><span t-esc="vj['label']"/></a></li>
+          </t>
         </ul>
       </li>
 
@@ -51,13 +52,12 @@
           <span t-field="submenu.name"/>
         </a>
         <ul t-attf-class="dropdown-menu mp-menu #{dropdown_menu_classes}" role="menu">
-          <!-- El técnico (no admin de la empresa) ve el perfil en solo lectura
-               y no ve "Mi equipo": esa ruta le devuelve 403. -->
-          <t t-set="mp_es_admin_verif" t-value="request.env.user.partner_id.sudo().shrimp_is_verifier_admin()"/>
-          <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/verifier/profile"><span class="mp-menu-ico mp-mi-teal"><i class="fa fa-id-badge"/></span><span t-if="mp_es_admin_verif">Perfil y cuenta bancaria</span><span t-else="">Perfil de la empresa</span></a></li>
-          <li t-if="mp_es_admin_verif"><a role="menuitem" class="dropdown-item mp-menu-item" href="/verifier/technicians"><span class="mp-menu-ico mp-mi-blue"><i class="fa fa-users"/></span><span>Mi equipo</span></a></li>
-          <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/marketplace/my-certificates"><span class="mp-menu-ico mp-mi-coral"><i class="fa fa-certificate"/></span><span>Mi acreditación</span></a></li>
-          <li><a role="menuitem" class="dropdown-item mp-menu-item" href="/verifier/reports"><span class="mp-menu-ico mp-mi-green"><i class="fa fa-bar-chart"/></span><span>Mis reportes</span></a></li>
+          <!-- website._shrimp_verifier_company_links(): la misma lista de
+               las tarjetas del panel. El técnico (no admin de la empresa) ve
+               el perfil en solo lectura y no ve «Mi equipo» (403). -->
+          <t t-foreach="website._shrimp_verifier_company_links()" t-as="vc">
+            <li><a role="menuitem" class="dropdown-item mp-menu-item" t-att-href="vc['url']" t-att-data-shrimp-nav="vc['key']"><span t-attf-class="mp-menu-ico mp-mi-#{vc['tone']}"><i t-attf-class="fa #{vc['icon']}"/></span><span t-esc="vc['label']"/></a></li>
+          </t>
         </ul>
       </li>
 

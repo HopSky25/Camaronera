@@ -135,10 +135,32 @@
                         <t t-elif="l.state == 'draft'">Borrador</t>
                         <t t-else="">Archivada</t>
                       </span>
+                      <div t-if="l.state == 'published' and l.open_ended and l.expires_on" class="pk-muted small">
+                        Caduca el <t t-esc="l.expires_on.strftime('%d/%m/%Y')"/>
+                      </div>
+                      <div t-if="l.state == 'draft' and l.supersedes_id" class="pk-muted small">
+                        Corrige «<t t-esc="l.supersedes_id.name"/>»
+                      </div>
+                      <div t-if="l.state == 'archived' and l.archive_reason == 'expired'" class="pk-muted small">Caducó</div>
+                      <div t-if="l.state == 'archived' and l.archive_reason == 'replaced'" class="pk-muted small">Reemplazada</div>
                     </td>
                     <td class="text-end pk-acciones">
-                      <a class="s-btn s-btn-ghost btn-sm"
+                      <!-- D-15: solo el borrador se edita. La publicada se
+                           corrige en una copia que la reemplaza al publicarse. -->
+                      <a t-if="l.state == 'draft'" class="s-btn s-btn-ghost btn-sm"
                          t-attf-href="/marketplace/price-lists/#{l.uuid_ref}/edit">Editar</a>
+                      <a t-else="" class="s-btn s-btn-ghost btn-sm"
+                         t-attf-href="/marketplace/price-lists/#{l.uuid_ref}">Ver</a>
+                      <t t-if="l.state == 'published'">
+                        <form method="post" class="d-inline"
+                              t-attf-action="/marketplace/price-lists/#{l.uuid_ref}/correct">
+                          <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                          <button type="submit" class="s-btn s-btn-ghost btn-sm"
+                                  title="Crear un borrador con estos precios para corregirlos; al publicarlo reemplaza a esta lista">
+                            <i class="fa fa-pencil-square-o"/> Duplicar y corregir
+                          </button>
+                        </form>
+                      </t>
                       <!-- Partir de la anterior es como se arma la siguiente
                            semana: nadie escribe sesenta precios de cero. -->
                       <form method="post" class="d-inline"
@@ -149,20 +171,20 @@
                           <i class="fa fa-copy"/> Copiar
                         </button>
                       </form>
-                      <!-- Despublicar: vuelve a borrador y deja de verla el
-                           destinatario. Solo aplica si está publicada. -->
-                      <t t-if="l.state == 'published'">
+                      <!-- D-48: renovar la «hasta segunda orden» antes de que caduque. -->
+                      <t t-if="l.state == 'published' and l.open_ended">
                         <form method="post" class="d-inline"
-                              t-attf-action="/marketplace/price-lists/#{l.uuid_ref}/unpublish">
+                              t-attf-action="/marketplace/price-lists/#{l.uuid_ref}/renew">
                           <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                           <button type="submit" class="s-btn s-btn-ghost btn-sm"
-                                  title="Quitarla de la vista de los destinatarios y volverla a borrador">
-                            <i class="fa fa-eye-slash"/> Despublicar
+                                  title="Confirmar que los precios siguen valiendo y extender la vigencia">
+                            <i class="fa fa-refresh"/> Renovar
                           </button>
                         </form>
                       </t>
-                      <!-- Eliminar: destructivo, confirma con modal (no alert). -->
-                      <form method="post" class="d-inline"
+                      <!-- Eliminar: destructivo, confirma con modal (no alert).
+                           Solo borradores: lo publicado se archiva (D-15). -->
+                      <form t-if="l.state == 'draft'" method="post" class="d-inline"
                             t-attf-action="/marketplace/price-lists/#{l.uuid_ref}/delete">
                         <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                         <button type="button" class="s-btn s-btn-danger btn-sm pl-del-btn"
@@ -235,6 +257,15 @@
           <a class="pk-volver" href="/marketplace/price-lists">
             <i class="fa fa-arrow-left me-1"/> Volver a las listas
           </a>
+          <t t-if="mensaje">
+            <div class="pk-alert pk-alert--ok"><i class="fa fa-check-circle me-1"/>
+              <t t-if="mensaje == 'publicada'">Lista publicada.</t>
+              <t t-else="" t-esc="mensaje"/>
+            </div>
+          </t>
+          <t t-if="error">
+            <div class="pk-alert pk-alert--ko"><i class="fa fa-exclamation-triangle me-1"/><t t-esc="error"/></div>
+          </t>
 
           <div class="pk-doc">
             <div class="pk-doc-head">
@@ -270,7 +301,7 @@
                    la empacadora —y de paso qué competidoras están en ella—.
                    El formulario de emisión promete "solo ellas la verán", y
                    eso se cumplía con los precios pero no con los nombres. -->
-              <t t-if="lista.recipient_ids and lista.issuer_partner_id == request.env.user.partner_id">
+              <t t-if="lista.recipient_ids and lista.issuer_partner_id == request.env.user.shrimp_actor_partner_id">
                 <span class="pk-doc-para">
                   Para <t t-esc="', '.join(lista.recipient_ids.mapped('name'))"/>
                 </span>
@@ -393,10 +424,45 @@
 
             <t t-if="es_mia">
               <div class="mt-4">
-                <a class="s-btn s-btn-ghost"
-                   t-attf-href="/marketplace/price-lists/#{lista.uuid_ref}/edit">
-                  <i class="fa fa-pencil me-1"/> Editar esta lista
-                </a>
+                <t t-if="lista.state == 'published' and lista.open_ended and lista.expires_on">
+                  <p class="pk-muted mb-2">
+                    <i class="fa fa-hourglass-half me-1"/>
+                    Rige «hasta segunda orden»: caduca el
+                    <b t-esc="lista.expires_on.strftime('%d/%m/%Y')"/> si no la renuevas.
+                  </p>
+                </t>
+                <t t-if="lista.state == 'archived' and lista.superseded_by_id">
+                  <p class="pk-muted mb-2">Reemplazada por «<t t-esc="lista.superseded_by_id.name"/>».</p>
+                </t>
+                <div class="d-flex flex-wrap gap-2">
+                  <a t-if="lista.state == 'draft'" class="s-btn s-btn-ghost"
+                     t-attf-href="/marketplace/price-lists/#{lista.uuid_ref}/edit">
+                    <i class="fa fa-pencil me-1"/> Editar esta lista
+                  </a>
+                  <t t-if="lista.state == 'published'">
+                    <!-- D-15: una lista publicada no se edita: se corrige en
+                         una copia que la reemplaza al publicarse. -->
+                    <form method="post" class="d-inline"
+                          t-attf-action="/marketplace/price-lists/#{lista.uuid_ref}/correct">
+                      <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                      <button type="submit" class="s-btn s-btn-primary">
+                        <i class="fa fa-pencil-square-o me-1"/> Duplicar y corregir
+                      </button>
+                    </form>
+                    <form t-if="lista.open_ended" method="post" class="d-inline"
+                          t-attf-action="/marketplace/price-lists/#{lista.uuid_ref}/renew">
+                      <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                      <button type="submit" class="s-btn s-btn-ghost">
+                        <i class="fa fa-refresh me-1"/> Renovar
+                      </button>
+                    </form>
+                    <form method="post" class="d-inline"
+                          t-attf-action="/marketplace/price-lists/#{lista.uuid_ref}/archive">
+                      <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                      <button type="submit" class="s-btn s-btn-ghost"><i class="fa fa-archive me-1"/> Archivar</button>
+                    </form>
+                  </t>
+                </div>
               </div>
             </t>
           </div>
@@ -479,6 +545,11 @@
             </div>
           </div>
 
+          <div t-if="lista and lista.supersedes_id and lista.state == 'draft'" class="alert alert-info">
+            <i class="fa fa-pencil-square-o me-1"/> Borrador de corrección de «<t t-esc="lista.supersedes_id.name"/>»
+            (publicada el <t t-esc="lista.supersedes_id.issue_date.strftime('%d/%m/%Y') if lista.supersedes_id.issue_date else '—'"/>).
+            Al publicarlo, reemplaza a esa lista; los compromisos «a lista» ya firmados conservan sus precios.
+          </div>
           <t t-if="error">
             <div class="alert alert-danger"><i class="fa fa-exclamation-triangle me-1"/><t t-esc="error"/></div>
           </t>
@@ -610,7 +681,7 @@
                     fincas. Son camaroneras porque esta lista es de camarón adulto.
                   </div>
                   <t t-set="clientes"
-                     t-value="request.env['res.partner'].sudo().search(request.env['res.partner']._shrimp_role_domain('camaronera') + [('id','!=',request.env.user.partner_id.id)], order='name')"/>
+                     t-value="request.env['res.partner'].sudo().search(request.env['res.partner']._shrimp_role_domain('camaronera') + [('id','!=',request.env.user.shrimp_actor_partner_id.id)], order='name')"/>
                   <t t-if="clientes">
                     <div class="pl-recipients">
                       <div class="pl-recip-search">
@@ -932,7 +1003,12 @@
               <t t-if="lista.state != 'published'">
                 <p class="text-muted mb-3">
                   Al publicarla, los destinatarios la ven de inmediato y se archiva la lista
-                  anterior que tuvieras vigente con ellos.
+                  anterior que tuvieras vigente con ellos. Una vez publicada ya no se edita:
+                  para corregirla se duplica.
+                </p>
+                <p t-if="lista.supersedes_id" class="alert alert-info mb-3">
+                  <i class="fa fa-info-circle me-1"/> Este borrador corrige «<t t-esc="lista.supersedes_id.name"/>»:
+                  al publicarlo, la reemplaza.
                 </p>
                 <div class="d-flex flex-wrap gap-2">
                   <!-- Guardar borrador: envía la cabecera (form="plHeaderForm").
@@ -954,31 +1030,8 @@
                 </div>
               </t>
               <t t-else="">
-                <p class="text-muted mb-3"><i class="fa fa-check-circle sv-ok me-1"/> Esta lista está publicada.</p>
-                <div class="d-flex flex-wrap gap-2">
-                  <button type="submit" form="plHeaderForm" class="s-btn s-btn-ghost">
-                    <i class="fa fa-save me-1"/> Guardar borrador
-                  </button>
-                  <form method="post" class="d-inline"
-                        t-attf-action="/marketplace/price-lists/#{lista.uuid_ref}/unpublish">
-                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                    <button type="submit" class="s-btn s-btn-danger"
-                            title="Quitarla de la vista de los destinatarios y volverla a borrador">
-                      <i class="fa fa-eye-slash me-1"/> Despublicar
-                    </button>
-                  </form>
-                  <form method="post" class="d-inline"
-                        t-attf-action="/marketplace/price-lists/#{lista.uuid_ref}/archive">
-                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                    <button type="submit" class="s-btn s-btn-ghost"><i class="fa fa-archive me-1"/> Archivar</button>
-                  </form>
-                  <form method="post" class="d-inline"
-                        t-attf-action="/marketplace/price-lists/#{lista.uuid_ref}/delete">
-                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                    <button type="button" class="s-btn s-btn-danger pl-del-btn"
-                            t-att-data-nombre="lista.name"><i class="fa fa-trash me-1"/> Eliminar</button>
-                  </form>
-                </div>
+                <p class="text-muted mb-3"><i class="fa fa-lock me-1"/> Esta lista ya fue publicada y no se modifica.
+                  Usa «Duplicar y corregir» desde su ficha.</p>
               </t>
             </div></div>
 

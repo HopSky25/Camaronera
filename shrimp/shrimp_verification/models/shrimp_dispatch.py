@@ -266,6 +266,9 @@ class ShrimpDispatch(models.Model):
             return False
         if self.technician_partner_id and partner == self.technician_partner_id:
             return True
+        # Técnicos de apoyo: también son los ojos en planta (cargan datos de campo).
+        if self.verification_id and partner in self.verification_id.sudo().support_technician_ids:
+            return True
         return bool(self.verifier_partner_id) and partner == self.verifier_partner_id
 
     def _bloqueado(self):
@@ -372,7 +375,7 @@ class ShrimpDispatch(models.Model):
             (self.buyer_partner_id, "/marketplace/dispatch/%s" % self.transaction_id.uuid_ref),
             (self.verifier_partner_id, ruta_verificador),
             (self.technician_partner_id, ruta_verificador),
-        ]
+        ] + [(t, ruta_verificador) for t in self.verification_id.sudo().support_technician_ids]
         salida, vistos = [], set()
         for partner, ruta in mapa:
             if not partner or not partner.email or partner.id in vistos:

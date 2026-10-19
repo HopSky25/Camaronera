@@ -108,6 +108,19 @@ class ShrimpHarvestCommitment(models.Model):
         "shrimp.price.list", string="Lista aplicada", readonly=True,
         help="La lista vigente el día de la cosecha con la que se liquidó.")
 
+    # D-15: foto de los precios de la lista al FIRMAR (aceptar) un compromiso
+    # «a lista». Se liquida con esta foto y no con la lista que esté vigente
+    # el día de la cosecha: así ni una lista nueva ni el retiro de la lista
+    # cambian lo que se firmó. {id de talla (str): $/lb}.
+    price_snapshot = fields.Json(
+        string="Precios congelados al firmar", copy=False, readonly=True)
+    price_snapshot_list_id = fields.Many2one(
+        "shrimp.price.list", string="Lista de la foto", copy=False, readonly=True,
+        ondelete="set null",
+        help="La lista de la que se tomaron los precios al firmar el compromiso.")
+    price_snapshot_at = fields.Datetime(
+        string="Foto tomada el", copy=False, readonly=True)
+
     valid_until = fields.Date(
         string="Vale hasta", required=True,
         help="Hasta cuándo aguanta este compromiso si la camaronera no responde.")
@@ -339,6 +352,36 @@ class ShrimpHarvestCommitment(models.Model):
         linea = max(lineas, key=lambda l: l.price)
         return linea.price / LB_POR_KG if linea.uom == "kg" else linea.price
 
+    def _tomar_foto_precios(self):
+        """Congela los precios de la lista que rige para la cosecha esperada
+        (o, si ninguna la cubre, la vigente hoy) en el momento de firmar.
+
+        Se guarda el $/lb de cada talla que la lista cotiza, con las mismas
+        reglas con las que se liquidaría (cola por directa, mejor calidad,
+        entero convertido de $/Kg). Sin lista no hay foto: queda vacía.
+        """
+        for rec in self.filtered(lambda c: c.price_mode == "lista"):
+            fecha = rec.forecast_id.expected_date or fields.Date.context_today(rec)
+            lista = rec._lista_vigente(fecha) or rec._lista_vigente(
+                fields.Date.context_today(rec))
+            foto = {}
+            for talla in lista.line_ids.mapped("size_grade_id"):
+                precio = rec._precio_de_lista(lista, talla)
+                if precio is not None:
+                    foto[str(talla.id)] = round(precio, 6)
+            rec.sudo().write({
+                "price_snapshot": foto,
+                "price_snapshot_list_id": lista.id or False,
+                "price_snapshot_at": fields.Datetime.now(),
+            })
+            if lista:
+                rec.message_post(body=_(
+                    "Precios de la lista «%(l)s» congelados al firmar (%(n)s tallas). "
+                    "La liquidación usa esta foto, con el piso de %(p)s $/lb.") % {
+                    "l": lista.name, "n": len(foto),
+                    "p": "{:,.4f}".format(rec.price_floor_per_lb or 0.0)})
+        return True
+
     def _precio_liquidado(self, size_grade, fecha):
         """(precio $/lb, escalones aplicados, se usó el piso, lista aplicada).
 
@@ -359,9 +402,19 @@ class ShrimpHarvestCommitment(models.Model):
             precio = (self.price_per_lb or 0.0) - (self.step_delta_per_lb or 0.0) * pasos
             return max(precio, 0.0), pasos, False, self.env["shrimp.price.list"]
 
+        piso = self.price_floor_per_lb or 0.0
+        if self.price_snapshot:
+            # D-15: manda la foto tomada al firmar. Una talla que la lista de
+            # entonces no cotizaba se paga al piso.
+            lista = self.price_snapshot_list_id
+            de_foto = self.price_snapshot.get(str(size_grade.id)) if size_grade else None
+            if de_foto is None:
+                return piso, 0, True, lista
+            return max(de_foto, piso), 0, de_foto < piso, lista
+        # Sin foto (no había lista al firmar): la lista vigente el día de la
+        # cosecha, que ya no se puede editar una vez publicada.
         lista = self._lista_vigente(fecha)
         de_lista = self._precio_de_lista(lista, size_grade)
-        piso = self.price_floor_per_lb or 0.0
         if de_lista is None:
             # Sin lista que cubra ese día y esa talla, manda el piso. Es
             # exactamente para lo que existe: la camaronera pactó un peor caso
@@ -381,7 +434,7 @@ class ShrimpHarvestCommitment(models.Model):
         podría autoadjudicarse la cosecha.
         """
         self.ensure_one()
-        actor = actor or self.env.user.partner_id
+        actor = actor or self.env.user.shrimp_actor_partner_id
         declaracion = self.forecast_id
         if actor != declaracion.farmer_partner_id:
             raise AccessError(_(
@@ -404,6 +457,8 @@ class ShrimpHarvestCommitment(models.Model):
         # compradores existe en la vida real, pero repartir la desviación de la
         # banda entre dos no tiene solución honesta con una sola banda, y
         # fingir que la tiene produciría liquidaciones que nadie acepta.
+        # D-15: lo firmado «a lista» queda con la foto de precios de hoy.
+        self._tomar_foto_precios()
         (declaracion.commitment_ids - self).filtered(
             lambda c: c.state == "sent").write({"state": "rejected"})
         declaracion.state = "committed"
@@ -417,7 +472,7 @@ class ShrimpHarvestCommitment(models.Model):
     def action_reject(self, motivo=None, actor=None):
         """La camaronera descarta un compromiso que no le sirve."""
         self.ensure_one()
-        actor = actor or self.env.user.partner_id
+        actor = actor or self.env.user.shrimp_actor_partner_id
         if actor != self.farmer_partner_id:
             raise AccessError(_("Lo descarta quien declaró la cosecha."))
         if self.state != "sent":
@@ -435,7 +490,7 @@ class ShrimpHarvestCommitment(models.Model):
         corta en seco si el compromiso ya está aceptado.
         """
         self.ensure_one()
-        actor = actor or self.env.user.partner_id
+        actor = actor or self.env.user.shrimp_actor_partner_id
         if actor != self.packer_partner_id:
             raise AccessError(_(
                 "Un compromiso lo retira la empacadora que lo hizo."))
@@ -464,7 +519,7 @@ class ShrimpHarvestCommitment(models.Model):
         vuelve a comprometerse con esta.
         """
         self.ensure_one()
-        actor = actor or self.env.user.partner_id
+        actor = actor or self.env.user.shrimp_actor_partner_id
         if actor == self.farmer_partner_id:
             lado = "farmer"
         elif actor == self.packer_partner_id:
@@ -629,7 +684,7 @@ class ShrimpHarvestCommitment(models.Model):
         cuando las dos partes firman el informe.
         """
         self.ensure_one()
-        actor = actor or self.env.user.partner_id
+        actor = actor or self.env.user.shrimp_actor_partner_id
         if actor != self.packer_partner_id:
             raise AccessError(_("La compra la hace la empacadora comprometida."))
         if self.state != "honored":
@@ -645,7 +700,7 @@ class ShrimpHarvestCommitment(models.Model):
         # Modo de verificación (plataforma o declarada por las partes). Sin
         # modo explícito se deduce del verificador elegido, como antes.
         mode = mode or ("platform" if verifier else None)
-        if producto._shrimp_requires_verification() or mode:
+        if producto._shrimp_requires_verification(self.packer_partner_id, "empacadora") or mode:
             if mode == "declared":
                 resultado = producto.start_verified_purchase(
                     self.packer_partner_id, self.settled_lb, None, mode="declared")
@@ -660,7 +715,8 @@ class ShrimpHarvestCommitment(models.Model):
                     "verificador acreditado de la plataforma o la verificación "
                     "declarada por las partes para cerrar la reserva."))
             if fee is None:
-                fee = self.env["shrimp.verification.fee"].sudo().compute(self.settled_lb)
+                fee = self.env["shrimp.verification.fee"].sudo().compute(
+                    self.settled_lb, verifier)
             resultado = producto.start_verified_purchase(
                 self.packer_partner_id, self.settled_lb, verifier, fee=fee)
             nota = _("Compra iniciada sobre el lote reservado, con verificación en "

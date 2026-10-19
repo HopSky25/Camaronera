@@ -1,0 +1,47 @@
+<odoo>
+  <!-- Certificados de la planta empacadora (19.0.1.12.0).
+
+       El bloque de la empacadora del paso 3 del registro tenía casillas
+       BAP / ASC / HACCP: son certificados, así que pasan al paso 4 como
+       adjuntos del catálogo. Los del módulo base son de la camaronera o del
+       laboratorio (un certificado del catálogo aplica a un solo perfil y su
+       nombre es único), por eso la planta tiene los suyos. -->
+  <data noupdate="1">
+    <record id="shrimp_certificate_bap_planta" model="shrimp.certificate">
+      <field name="sequence">210</field>
+      <field name="name">BAP planta de proceso</field>
+      <field name="issuer">Global Seafood Alliance</field>
+      <field name="role">empacadora</field>
+      <field name="certificate_type">quality</field>
+      <field name="code">BAP-PLANTA</field>
+      <field name="description">Best Aquaculture Practices en su estándar para plantas de procesamiento de mariscos.</field>
+      <field name="expires_required">1</field>
+      <field name="duration_value">1</field>
+      <field name="duration_period">years</field>
+    </record>
+    <record id="shrimp_certificate_asc_coc" model="shrimp.certificate">
+      <field name="sequence">220</field>
+      <field name="name">ASC/MSC cadena de custodia</field>
+      <field name="issuer">Certificadoras acreditadas (ASC / MSC)</field>
+      <field name="role">empacadora</field>
+      <field name="certificate_type">sustainability</field>
+      <field name="code">ASC-COC</field>
+      <field name="description">Cadena de custodia que permite vender con el sello ASC el camarón de fincas certificadas.</field>
+      <field name="expires_required">1</field>
+      <field name="duration_value">3</field>
+      <field name="duration_period">years</field>
+    </record>
+    <record id="shrimp_certificate_haccp_planta" model="shrimp.certificate">
+      <field name="sequence">230</field>
+      <field name="name">HACCP planta de proceso</field>
+      <field name="issuer">Autoridad sanitaria o certificadora acreditada</field>
+      <field name="role">empacadora</field>
+      <field name="certificate_type">biosecurity</field>
+      <field name="code">HACCP-PLANTA</field>
+      <field name="description">Plan HACCP de la planta de proceso (inocuidad).</field>
+      <field name="expires_required">1</field>
+      <field name="duration_value">2</field>
+      <field name="duration_period">years</field>
+    </record>
+  </data>
+</odoo>

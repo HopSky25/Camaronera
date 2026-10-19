@@ -7,8 +7,8 @@
     'license': 'LGPL-3',
     'depends': ['point_of_sale', 'l10n_ec_sri_community'],
     'data': [
+        'security/ir.model.access.csv',
         'views/pos_config_views.xml',
-        'views/establishment_views.xml',
     ],
     # Puente POS <-> SRI: cada venta del POS en una caja con punto de emisión
     # asignado genera automáticamente su factura electrónica (comprobante 01),

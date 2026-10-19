@@ -19,7 +19,7 @@ class ShrimpPackerAlertsAccount(ShrimpAccountPortalController):
 
     def _guardar_extra(self, partner, post):
         res = super()._guardar_extra(partner, post)
-        if partner.shrimp_user_type != "empacadora":
+        if partner._shrimp_active_role() != "empacadora":
             return res
 
         # La frecuencia se valida contra las que existen de verdad. Si llegara

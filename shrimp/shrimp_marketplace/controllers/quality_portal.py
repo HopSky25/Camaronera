@@ -18,6 +18,7 @@ from odoo.addons.shrimp_user_registry.controllers.main import (
     binary_headers, current_partner, flash_message, pop_message, read_upload, to_number)
 
 from ..models.shrimp_product_quality import PCR_FIELDS, PCR_RESULTS
+from odoo.addons.shrimp_user_registry.controllers.main import require_permission
 
 PDF_ONLY = {"application/pdf"}
 
@@ -38,6 +39,9 @@ class ShrimpQualityPortal(http.Controller):
         partner = current_partner()
         if product.seller_partner_id != partner and not self._is_internal():
             raise Forbidden()
+        if request.httprequest.method != "GET":
+            # CR-12: escribir exige «Vender» en el perfil del producto.
+            require_permission("sell", role=product._shrimp_seller_role())
         return product
 
     @staticmethod
@@ -137,8 +141,15 @@ class ShrimpQualityPortal(http.Controller):
     def quality_delete(self, product_ref, quality_ref, **post):
         product = self._owned_product(product_ref)
         ficha = self._quality_of(product, quality_ref)
-        ficha.attachment_id.sudo().unlink()
-        ficha.unlink()
+        try:
+            with request.env.cr.savepoint():
+                # Una ficha con PCR positivo no se borra (D-30): lo impide el modelo.
+                adjunto = ficha.attachment_id.sudo()
+                ficha.unlink()
+                adjunto.unlink()
+        except ValidationError as e:
+            return request.redirect("%s?error=%s" % (self._base(product), flash_message(
+                e.args[0] if e.args else str(e))))
         return request.redirect("%s?saved=deleted" % self._base(product))
 
     @http.route("/marketplace/products/<product_ref>/quality/<quality_ref>/sampling", type="http",

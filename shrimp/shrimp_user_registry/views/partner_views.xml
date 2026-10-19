@@ -19,6 +19,7 @@
             <field name="shrimp_account_state" readonly="1" string="Estado del perfil activo"/>
             <field name="shrimp_privacy_accepted_at" readonly="1"/>
             <field name="shrimp_privacy_version" readonly="1"/>
+            <field name="shrimp_privacy_ip" readonly="1"/>
             <field name="shrimp_role_codes" invisible="1"/>
           </group>
           <!-- Varios perfiles por cuenta: cada uno con su aprobación. -->
@@ -39,7 +40,7 @@
                 <field name="notes" optional="hide"/>
                 <button name="action_approve" type="object" string="Aprobar" icon="fa-check"
                         class="btn-link" invisible="state == 'approved'" groups="base.group_system"/>
-                <button name="action_reject" type="object" string="Rechazar" icon="fa-times"
+                <button name="action_open_reject_wizard" type="object" string="Rechazar" icon="fa-times"
                         class="btn-link" invisible="state == 'rejected'" groups="base.group_system"/>
               </list>
             </field>
@@ -52,13 +53,29 @@
                     class="btn-secondary ms-2" icon="fa-times"
                     invisible="shrimp_account_state == 'rejected'"/>
           </div>
+          <!-- D-20: suspensión de la cuenta -->
+          <div class="mb-3" invisible="not shrimp_user_type" groups="base.group_system">
+            <div class="alert alert-danger mb-2" role="alert" invisible="not shrimp_suspended">
+              <b>Cuenta suspendida</b> desde <field name="shrimp_suspended_at" readonly="1" class="d-inline"/>.
+              <field name="shrimp_suspension_reason" readonly="1" nolabel="1"/>
+            </div>
+            <field name="shrimp_suspended" invisible="1"/>
+            <button name="action_shrimp_open_suspend_wizard" type="object" string="Suspender cuenta"
+                    class="btn-outline-danger" icon="fa-ban" invisible="shrimp_suspended"/>
+            <button name="action_shrimp_unsuspend_account" type="object" string="Levantar suspensión"
+                    class="btn-outline-success" icon="fa-unlock" invisible="not shrimp_suspended"
+                    confirm="¿Levantar la suspensión? La cuenta podrá volver a publicar y comprar."/>
+          </div>
 
           <!-- Perfil de empresa común a todos los roles (los campos lab_*,
                farm_*, emp_*, ver_*, pack_* son alias obsoletos de estos). -->
           <group col="2" name="shrimp_common_profile">
             <group string="Datos de la empresa" name="shrimp_company_data">
+              <field name="shrimp_person_type"/>
               <field name="shrimp_razon_social" placeholder="Ej. Camaronera ABC S.A."/>
-              <field name="shrimp_representante"/>
+              <field name="shrimp_nombre_comercial"/>
+              <field name="shrimp_representante" invisible="shrimp_person_type == 'natural'"/>
+              <field name="shrimp_representante_cedula" invisible="shrimp_person_type == 'natural'"/>
               <field name="shrimp_telefono"/>
               <field name="shrimp_ubicacion" placeholder="Ej. Durán, Guayas"/>
               <label for="shrimp_capacity_value" string="Capacidad"/>
@@ -76,7 +93,7 @@
             </group>
           </group>
 
-          <group string="Datos de Semillero" invisible="'semillero' not in (shrimp_role_codes or '')">
+          <group string="Datos de Naupliero" invisible="'semillero' not in (shrimp_role_codes or '')">
             <group col="2">
               <field name="sem_photo_attachment_ids" widget="many2many_binary" string="Fotos"/>
               <field name="sem_facility_photo_attachment_ids" widget="many2many_binary" string="Fotos de instalaciones"/>
@@ -103,6 +120,10 @@
                 <field name="certificate_number"/>
                 <field name="issue_date"/>
                 <field name="expiry_date"/>
+                <field name="validity_state" widget="badge" readonly="1"
+                       decoration-danger="validity_state == 'expired'"
+                       decoration-warning="validity_state == 'expiring'"
+                       decoration-success="validity_state == 'valid'"/>
                 <field name="status"/>
                 <field name="file_attachment_id"
                        string="Archivo"

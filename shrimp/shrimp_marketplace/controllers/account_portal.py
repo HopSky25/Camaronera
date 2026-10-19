@@ -120,7 +120,7 @@ class ShrimpAccountPortalController(http.Controller):
             except (TypeError, ValueError):
                 return 0.0
 
-        user_type = partner.shrimp_user_type
+        user_type = partner._shrimp_active_role()
         if user_type == "laboratorio":
             return {
                 "shrimp_razon_social": post.get("lab_razon_social") or False,
@@ -150,23 +150,52 @@ class ShrimpAccountPortalController(http.Controller):
         que se pueden agregar (con el catálogo de certificados de cada uno)."""
         socio = partner.sudo()._shrimp_role_holder()
         Partner = request.env["res.partner"].sudo()
-        es_cuenta = socio == partner.sudo()
+        # Solo el ADMINISTRADOR de la cuenta agrega perfiles (y acepta su anexo).
+        es_cuenta = socio == partner.sudo() and request.env.user.sudo()._shrimp_is_account_admin()
         exclusivos = set(Partner._shrimp_types_with("exclusive_profile"))
         tiene = set(socio._shrimp_roles(include_pending=True))
         agregables = []
         if es_cuenta and not (tiene & exclusivos):
-            agregables = [r for r in Partner._shrimp_addable_roles() if r not in tiene]
+            agotados = {ln.role for ln in socio.shrimp_role_ids
+                        if ln.state == "rejected" and not ln._shrimp_rerequests_left()}
+            agregables = [r for r in Partner._shrimp_addable_roles()
+                          if r not in tiene and r not in agotados]
+        # Perfiles por sitio: aquí solo se agregan los que se usan en este
+        # sitio; los de otra plataforma (verificadora, maquilador) se agregan
+        # en la suya y aquí solo se enlaza.
+        web = request.website.sudo()
+        agregables_fuera = web._shrimp_offsite_links(
+            [r for r in agregables if not web._shrimp_role_allowed_here(r)],
+            "/web/login?redirect=%2Fmarketplace%2Fmy-account%23perfiles")
+        agregables = web._shrimp_site_roles(agregables)
+        # Perfiles que la cuenta ya tiene pero se usan en otro sitio: sin
+        # «Actuar como» aquí, con el enlace a su sitio.
+        fuera = {d["role"]: d for d in web._shrimp_offsite_links(
+            [ln.role for ln in socio.shrimp_role_ids], "/web/login")}
+        sin_sitio = [ln.role for ln in socio.shrimp_role_ids
+                     if not web._shrimp_role_allowed_here(ln.role) and ln.role not in fuera]
         certs = request.env["shrimp.certificate"].sudo().search(
             [("active", "=", True), ("role", "in", agregables + ["all"])],
             order="sequence, name") if agregables else request.env["shrimp.certificate"]
         return {
             "shrimp_role_lines": socio.shrimp_role_ids,
-            "shrimp_active_role": socio.shrimp_user_type,
+            "shrimp_active_role": socio._shrimp_active_role(),
             "shrimp_addable_roles": [(r, Partner._shrimp_type_label(r),
                                       Partner._shrimp_type_can(r, "requires_approval"))
                                      for r in agregables],
             "shrimp_addable_certs": certs,
+            "shrimp_offsite_addable": agregables_fuera,
+            "shrimp_offsite_roles": fuera,
+            "shrimp_offsite_nolink": sin_sitio,
+            "shrimp_addable_need_approval": [Partner._shrimp_type_label(r) for r in agregables
+                                             if Partner._shrimp_type_can(r, "requires_approval")],
             "shrimp_role_label": Partner._shrimp_type_label,
+            # Anexo de cada perfil que se puede agregar (se acepta al agregarlo).
+            "shrimp_addable_annexes": [
+                (r, a, a.current_version_id) for r, a in (
+                    (r, request.env["shrimp.legal.document"].sudo()._shrimp_annex(r)) for r in agregables)
+                if a and a.current_version_id],
+            "shrimp_is_account_admin": request.env.user.sudo()._shrimp_is_account_admin(),
         }
 
     def _available_certificates(self, partner):
@@ -688,80 +717,27 @@ class ShrimpAccountPortalController(http.Controller):
             "/marketplace/my-facilities?saved=alloc_cancel" + (("&facility=%s" % rf) if rf else ""))
 
     # ==================================================================
-    # 5) SOLICITUDES DE CHEQUEO (VENDEDOR)
+    # 5) SOLICITUDES DE CHEQUEO: RETIRADAS (decisión D-28)
     # ==================================================================
-    @http.route("/marketplace/check-requests", type="http", auth="user", website=True)
-    def my_check_requests(self, **kw):
-        partner = self._partner()
-        # El usuario ve las solicitudes donde participa, ya sea como vendedor
-        # (quien aprueba) o como comprador (quien la solicitó).
-        domain = ["|", ("seller_partner_id", "=", partner.id),
-                  ("buyer_partner_id", "=", partner.id)]
-        CheckRequest = request.env["shrimp.check.request"].sudo()
-        # Un solo filtro (el estado): se queda como fila de chips, sin cajón.
-        # Solo los estados que la cuenta tiene; con uno no hay fila.
-        presentes = set(CheckRequest.search(domain).mapped("state"))
-        state = (kw.get("state") or "").strip()
-        if state:
-            domain.append(("state", "=", state))
-        requests = CheckRequest.search(domain, order="create_date desc")
-        return request.render("shrimp_marketplace.my_check_requests", {
-            "partner": partner,
-            "requests": requests,
-            "state_options": [
-                (v, l) for v, l in CheckRequest._fields["state"].selection
-                if v in presentes or v == state],
-            "filter_state": state,
-            "saved": kw.get("saved"),
-            "error": kw.get("error"),
-            "message": kw.get("message"),
-        })
+    # El flujo se retiró por completo: no hay listado, detalle, aprobación ni
+    # rechazo en el portal. Las rutas viejas (enlaces guardados, correos)
+    # llevan a «Mis compras» con la explicación; no hacen nada más. El
+    # histórico de solo lectura queda en el back-office (Ajustes › Técnico).
+    def _shrimp_check_requests_retired(self):
+        msg = flash_message(request.env["shrimp.check.request"]._shrimp_retired_text())
+        return request.redirect("/marketplace/purchases?error=validation&message=%s" % msg)
 
-    @http.route("/marketplace/check-requests/<cr_ref>/detail", type="http", auth="user",
-                website=True)
-    def check_request_detail(self, cr_ref, **kw):
-        """Detalle completo de una solicitud de chequeo, visible para el
-        comprador y el vendedor que participan en ella."""
-        partner = self._partner()
-        cr = request.env["shrimp.check.request"].sudo().resolve_ref(cr_ref)
-        if not cr or partner.id not in (
-                cr.seller_partner_id.id, cr.buyer_partner_id.id):
-            raise NotFound()
-        return request.render("shrimp_marketplace.check_request_detail", {
-            "partner": partner,
-            "cr": cr,
-            "is_seller": cr.seller_partner_id.id == partner.id,
-            "message": kw.get("message"),
-            "error": kw.get("error"),
-        })
+    @http.route(["/marketplace/check-requests",
+                 "/marketplace/check-requests/<cr_ref>/detail"],
+                type="http", auth="user", website=True, methods=["GET"])
+    def my_check_requests(self, cr_ref=None, **kw):
+        return self._shrimp_check_requests_retired()
 
-    def _owned_check_request(self, cr_ref):
-        cr = request.env["shrimp.check.request"].sudo().resolve_ref(cr_ref)
-        if not cr or cr.seller_partner_id.id != self._partner().id:
-            raise NotFound()
-        return cr
-
-    @http.route("/marketplace/check-requests/<cr_ref>/approve", type="http", auth="user",
-                website=True, methods=["POST"], csrf=True)
-    def check_request_approve(self, cr_ref, **post):
-        cr = self._owned_check_request(cr_ref)
-        if cr.state not in ("requested", "under_review"):
-            return request.redirect("/marketplace/check-requests?error=state")
-        try:
-            cr.action_approve()
-        except ValidationError as e:
-            return request.redirect(
-                "/marketplace/check-requests?error=validation&message=%s" % flash_message(e.args[0] if e.args else ""))
-        return request.redirect("/marketplace/check-requests?saved=approved")
-
-    @http.route("/marketplace/check-requests/<cr_ref>/reject", type="http", auth="user",
-                website=True, methods=["POST"], csrf=True)
-    def check_request_reject(self, cr_ref, **post):
-        cr = self._owned_check_request(cr_ref)
-        if cr.state not in ("requested", "under_review"):
-            return request.redirect("/marketplace/check-requests?error=state")
-        cr.action_reject()
-        return request.redirect("/marketplace/check-requests?saved=rejected")
+    @http.route(["/marketplace/check-requests/<cr_ref>/approve",
+                 "/marketplace/check-requests/<cr_ref>/reject"],
+                type="http", auth="user", website=True, methods=["POST"], csrf=False)
+    def check_request_resolve(self, cr_ref=None, **post):
+        return self._shrimp_check_requests_retired()
 
     # ==================================================================
     # 6) TRAZABILIDAD ON-SCREEN

@@ -7,19 +7,14 @@
     <!-- El panel de vendedor/comprador no aplica a un verificador: no publica
          lotes, no tiene piscinas ni inventario. Se oculta para ese rol. -->
     <xpath expr="//div[hasclass('mp-panel')]" position="attributes">
-      <attribute name="t-if">not request.env.user.partner_id.shrimp_verifier_company()</attribute>
+      <attribute name="t-if">not request.env.user.shrimp_actor_partner_id.shrimp_verifier_company()</attribute>
     </xpath>
 
     <xpath expr="//div[hasclass('mp-panel')]" position="before">
-      <t t-if="request.env.user.partner_id.shrimp_verifier_company()">
-        <t t-set="me" t-value="request.env.user.partner_id"/>
+      <t t-if="request.env.user.shrimp_actor_partner_id.shrimp_verifier_company()">
+        <t t-set="me" t-value="request.env.user.shrimp_actor_partner_id"/>
         <t t-set="Verif" t-value="request.env['shrimp.verification'].sudo()"/>
-        <t t-set="mine" t-value="[('verifier_partner_id', '=', me.shrimp_verifier_company().id)] if me.shrimp_is_verifier_admin() else [('technician_partner_id', '=', me.id)]"/>
-        <t t-set="n_assigned" t-value="Verif.search_count(mine + [('state', '=', 'assigned')])"/>
-        <t t-set="n_field" t-value="Verif.search_count(mine + [('state', '=', 'in_field')])"/>
-        <t t-set="n_done" t-value="Verif.search_count(mine + [('state', '=', 'done')])"/>
-        <t t-set="n_closed" t-value="Verif.search_count(mine + [('state', 'in', ['approved', 'approved_obs'])])"/>
-        <t t-set="n_rejected" t-value="Verif.search_count(mine + [('state', '=', 'rejected')])"/>
+        <t t-set="mine" t-value="[('verifier_partner_id', '=', me.shrimp_verifier_company().id)] if me.shrimp_is_verifier_admin() else ['|', ('technician_partner_id', '=', me.id), ('support_technician_ids', 'in', [me.id])]"/>
 
         <div class="mp-panel mt-4 mb-4">
           <div class="mp-panel-head">
@@ -38,96 +33,32 @@
 
           <div class="mp-grid">
 
-            <a href="/verifier/inbox?state=assigned" class="mp-tile mp-tile--accent">
-              <div class="mp-tile-ico mp-ico-teal"><i class="fa fa-inbox"/></div>
-              <div class="mp-tile-title">
-                Compras por verificar
-                <span t-if="n_assigned" class="vp-count"><t t-esc="n_assigned"/></span>
-              </div>
-              <div class="mp-tile-desc">
-                Órdenes asignadas que todavía no has empezado. Ábrelas para
-                iniciar el trabajo de campo.
-              </div>
-            </a>
-
-            <a href="/verifier/inbox?state=in_field" class="mp-tile">
-              <div class="mp-tile-ico mp-ico-amber"><i class="fa fa-flask"/></div>
-              <div class="mp-tile-title">
-                En campo
-                <span t-if="n_field" class="vp-count vp-count--amber"><t t-esc="n_field"/></span>
-              </div>
-              <div class="mp-tile-desc">
-                Inspecciones en curso. Aquí llenas el informe: peso, cuerpo o
-                cola, metabisulfito, clasificación y sabor.
-              </div>
-            </a>
-
-            <a href="/verifier/inbox?state=done" class="mp-tile">
-              <div class="mp-tile-ico mp-ico-blue"><i class="fa fa-gavel"/></div>
-              <div class="mp-tile-title">
-                Por dictaminar
-                <span t-if="n_done" class="vp-count vp-count--blue"><t t-esc="n_done"/></span>
-              </div>
-              <div class="mp-tile-desc">
-                Informes completos a la espera de tu veredicto: aprobar, aprobar
-                con observaciones o rechazar.
-              </div>
-            </a>
-
-            <a href="/verifier/inbox?state=approved" class="mp-tile">
-              <div class="mp-tile-ico mp-ico-green"><i class="fa fa-check-circle"/></div>
-              <div class="mp-tile-title">
-                Ya verificadas
-                <span t-if="n_closed" class="vp-count vp-count--green"><t t-esc="n_closed"/></span>
-              </div>
-              <div class="mp-tile-desc">
-                Verificaciones aprobadas. Consulta el informe y copia el parte
-                para WhatsApp.
-              </div>
-            </a>
-
-            <a href="/verifier/inbox?state=rejected" class="mp-tile">
-              <div class="mp-tile-ico mp-ico-coral"><i class="fa fa-times-circle"/></div>
-              <div class="mp-tile-title">
-                Rechazadas
-                <span t-if="n_rejected" class="vp-count vp-count--coral"><t t-esc="n_rejected"/></span>
-              </div>
-              <div class="mp-tile-desc">
-                Lotes que no pasaron la inspección y cuya compra se canceló.
-              </div>
-            </a>
-
-            <a href="/verifier/inbox" class="mp-tile">
-              <div class="mp-tile-ico mp-ico-blue"><i class="fa fa-list"/></div>
-              <div class="mp-tile-title">Todas mis verificaciones</div>
-              <div class="mp-tile-desc">
-                La bandeja completa, con buscador por referencia, lote o producto.
-              </div>
-            </a>
-
-            <t t-if="me.shrimp_is_verifier_admin()">
-              <a href="/verifier/technicians" class="mp-tile">
-                <div class="mp-tile-ico mp-ico-blue"><i class="fa fa-users"/></div>
+            <!-- Las mismas listas que el menú del sitio de verificadores
+                 (website._shrimp_verifier_jobs / _shrimp_verifier_company_links,
+                 models/website_navbar.py). -->
+            <t t-set="vp_tonos" t-value="{'teal': 'vp-count', 'amber': 'vp-count vp-count--amber', 'navy': 'vp-count vp-count--blue', 'green': 'vp-count vp-count--green', 'coral': 'vp-count vp-count--coral', 'blue': 'vp-count vp-count--blue'}"/>
+            <t t-foreach="website._shrimp_verifier_jobs()" t-as="vj">
+              <t t-set="vj_n" t-value="Verif.search_count(mine + [('state', 'in', list(vj['states']))]) if vj['states'] else 0"/>
+              <a t-att-href="vj['url']" t-attf-class="mp-tile #{'mp-tile--accent' if vj_first else ''}" t-att-data-shrimp-nav="'verify_%s' % vj['key']">
+                <div t-attf-class="mp-tile-ico mp-ico-#{'blue' if vj['tone'] == 'navy' else vj['tone']}"><i t-attf-class="fa #{vj['icon']}"/></div>
                 <div class="mp-tile-title">
-                  Mis técnicos
-                  <span t-if="me.field_tech_count" class="vp-count vp-count--blue">
-                    <t t-esc="me.field_tech_count"/>
-                  </span>
+                  <t t-esc="vj['label']"/>
+                  <span t-if="vj_n" t-att-class="vp_tonos.get(vj['tone'], 'vp-count')"><t t-esc="vj_n"/></span>
                 </div>
-                <div class="mp-tile-desc">
-                  Da de alta a los técnicos que van a campo y reparte el trabajo
-                  entre ellos.
-                </div>
+                <div class="mp-tile-desc" t-esc="vj['desc']"/>
               </a>
             </t>
 
-            <a href="/marketplace/my-certificates" class="mp-tile">
-              <div class="mp-tile-ico mp-ico-coral"><i class="fa fa-id-badge"/></div>
-              <div class="mp-tile-title">Mi acreditación</div>
-              <div class="mp-tile-desc">
-                Consulta o renueva el documento que te autoriza a verificar.
-              </div>
-            </a>
+            <t t-foreach="website._shrimp_verifier_company_links(me)" t-as="vc">
+              <a t-att-href="vc['url']" class="mp-tile" t-att-data-shrimp-nav="vc['key']">
+                <div t-attf-class="mp-tile-ico mp-ico-#{vc['tone']}"><i t-attf-class="fa #{vc['icon']}"/></div>
+                <div class="mp-tile-title">
+                  <t t-esc="vc['label']"/>
+                  <span t-if="vc['key'] == 'verifier_team' and me.field_tech_count" class="vp-count vp-count--blue"><t t-esc="me.field_tech_count"/></span>
+                </div>
+                <div class="mp-tile-desc" t-esc="vc['desc']"/>
+              </a>
+            </t>
 
             <a href="/marketplace/my-account" class="mp-tile">
               <div class="mp-tile-ico mp-ico-teal"><i class="fa fa-user-o"/></div>

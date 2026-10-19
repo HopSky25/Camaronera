@@ -1,0 +1,160 @@
+<odoo>
+
+  <!-- =================================================================
+       Ficha interna de la orden de empaque (auditoría de procesos D-14,
+       D-34). Antes la orden usaba la vista automática y la plataforma no
+       tenía por dónde mediar una disputa ni aprobar una cancelación: el
+       acta en disputa no tenía salida si las partes no se movían.
+
+       Las resoluciones abren una ventana con motivo obligatorio
+       (shrimp.copack.platform.wizard).
+       ================================================================= -->
+
+  <record id="action_copack_platform_wizard" model="ir.actions.act_window">
+    <field name="name">Resolución de la plataforma</field>
+    <field name="res_model">shrimp.copack.platform.wizard</field>
+    <field name="view_mode">form</field>
+    <field name="target">new</field>
+  </record>
+
+
+  <record id="view_copack_order_form" model="ir.ui.view">
+    <field name="name">shrimp.copack.order.form</field>
+    <field name="model">shrimp.copack.order</field>
+    <field name="arch" type="xml">
+      <form string="Orden de empaque">
+        <header>
+          <button name="%(action_copack_platform_wizard)d" type="action"
+                  string="Dar por buena el acta" class="btn-primary"
+                  context="{'default_order_id': id, 'default_action': 'uphold'}"
+                  invisible="state != 'packed' or acceptance_state != 'disputed'"
+                  groups="shrimp_copacking.group_copacking_manager"/>
+          <button name="%(action_copack_platform_wizard)d" type="action"
+                  string="Reabrir el acta para rectificar"
+                  context="{'default_order_id': id, 'default_action': 'reopen'}"
+                  invisible="state != 'packed' or acceptance_state != 'disputed'"
+                  groups="shrimp_copacking.group_copacking_manager"/>
+          <button name="%(action_copack_platform_wizard)d" type="action"
+                  string="Aprobar la cancelación" class="btn-primary"
+                  context="{'default_order_id': id, 'default_action': 'approve_cancel'}"
+                  invisible="not pending_cancellation_id"
+                  groups="shrimp_copacking.group_copacking_manager"/>
+          <button name="%(action_copack_platform_wizard)d" type="action"
+                  string="Rechazar la cancelación"
+                  context="{'default_order_id': id, 'default_action': 'reject_cancel'}"
+                  invisible="not pending_cancellation_id"
+                  groups="shrimp_copacking.group_copacking_manager"/>
+          <field name="state" widget="statusbar"
+                 statusbar_visible="confirmed,received,packed,signed,closed"/>
+        </header>
+        <sheet>
+          <div class="oe_title">
+            <h1><field name="name" readonly="1"/></h1>
+          </div>
+          <div class="alert alert-danger" role="alert"
+               invisible="acceptance_state != 'disputed'">
+            Acta en disputa desde <field name="dispute_date" readonly="1" class="oe_inline"/>.
+            Media entre las partes: «Dar por buena el acta» o «Reabrir el acta para rectificar».
+          </div>
+          <div class="alert alert-warning" role="alert" invisible="not pending_cancellation_id">
+            La planta pide cancelar con el camarón del cliente en planta
+            (<field name="pending_cancellation_id" readonly="1" class="oe_inline"/>).
+          </div>
+          <group>
+            <group string="Partes">
+              <field name="client_partner_id" readonly="1"/>
+              <field name="copacker_partner_id" readonly="1"/>
+              <field name="request_id" readonly="1"/>
+              <field name="offer_id" readonly="1"/>
+              <field name="transaction_id" readonly="1"/>
+              <field name="self_packing" readonly="1"/>
+            </group>
+            <group string="Acta">
+              <field name="acceptance_state"/>
+              <field name="acceptance_deadline"/>
+              <field name="tacit_acceptance"/>
+              <field name="signed_date"/>
+              <field name="mediation_resolution" invisible="not mediation_resolution"/>
+              <field name="mediation_note" invisible="not mediation_note"/>
+              <field name="es_facturable"/>
+            </group>
+          </group>
+          <group>
+            <group string="Cuadre">
+              <field name="agreed_qty_lb" readonly="1"/>
+              <field name="received_lb" readonly="1"/>
+              <field name="packed_lb" readonly="1"/>
+              <field name="difference_lb"/>
+              <field name="difference_pct"/>
+              <field name="tolerance_pct" readonly="1"/>
+              <field name="cuadra"/>
+            </group>
+            <group string="Importes">
+              <field name="currency_id" invisible="1"/>
+              <field name="rate_per_lb" readonly="1"/>
+              <field name="service_amount"/>
+              <field name="platform_rate_per_lb" readonly="1"/>
+              <field name="platform_amount"/>
+            </group>
+          </group>
+          <group string="Cancelación" invisible="state != 'cancelled'">
+            <field name="cancelled_by"/>
+            <field name="cancel_reason"/>
+          </group>
+          <notebook>
+            <page string="Firmas del acta" name="firmas">
+              <field name="acceptance_ids" readonly="1">
+                <list>
+                  <field name="ronda"/>
+                  <field name="role"/>
+                  <field name="partner_id"/>
+                  <field name="decision"/>
+                  <field name="auto"/>
+                  <field name="reason"/>
+                  <field name="decided_at"/>
+                </list>
+              </field>
+            </page>
+            <page string="Cancelaciones con el camarón en planta" name="cancelaciones"
+                  invisible="not cancellation_ids">
+              <field name="cancellation_ids" readonly="1">
+                <list>
+                  <field name="kind"/>
+                  <field name="state"/>
+                  <field name="requested_by_partner_id"/>
+                  <field name="requested_at"/>
+                  <field name="reason"/>
+                  <field name="returned_lb"/>
+                  <field name="decided_at"/>
+                  <field name="decision_note"/>
+                </list>
+              </field>
+            </page>
+          </notebook>
+        </sheet>
+        <chatter/>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_copack_platform_wizard_form" model="ir.ui.view">
+    <field name="name">shrimp.copack.platform.wizard.form</field>
+    <field name="model">shrimp.copack.platform.wizard</field>
+    <field name="arch" type="xml">
+      <form string="Resolución de la plataforma">
+        <group>
+          <field name="order_id" readonly="1"/>
+          <field name="action" readonly="1"/>
+          <field name="dispute_reason" invisible="action not in ('uphold', 'reopen')"/>
+          <field name="cancellation_reason" invisible="action not in ('approve_cancel', 'reject_cancel')"/>
+          <field name="note" placeholder="Lo que leen las dos partes: qué se revisó y por qué se resuelve así."/>
+        </group>
+        <footer>
+          <button name="action_confirm" type="object" string="Confirmar" class="btn-primary"/>
+          <button string="Cancelar" class="btn-secondary" special="cancel"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+</odoo>

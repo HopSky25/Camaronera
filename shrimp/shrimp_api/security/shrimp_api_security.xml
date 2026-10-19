@@ -55,7 +55,7 @@
         <field name="perm_write" eval="False"/>
         <field name="perm_create" eval="False"/>
         <field name="perm_unlink" eval="False"/>
-        <field name="domain_force">[('partner_id', '=', user.partner_id.id)]</field>
+        <field name="domain_force">[('partner_id', '=', user.shrimp_actor_partner_id.id)]</field>
     </record>
 
     <record id="rule_webhook_delivery_portal_own" model="ir.rule">
@@ -66,7 +66,7 @@
         <field name="perm_write" eval="False"/>
         <field name="perm_create" eval="False"/>
         <field name="perm_unlink" eval="False"/>
-        <field name="domain_force">[('subscription_id.partner_id', '=', user.partner_id.id)]</field>
+        <field name="domain_force">[('subscription_id.partner_id', '=', user.shrimp_actor_partner_id.id)]</field>
     </record>
 
     <record id="rule_api_facility_portal" model="ir.rule">
@@ -77,7 +77,7 @@
         <field name="perm_write" eval="False"/>
         <field name="perm_create" eval="False"/>
         <field name="perm_unlink" eval="False"/>
-        <field name="domain_force">[('partner_id', '=', user.partner_id.id)]</field>
+        <field name="domain_force">[('partner_id', '=', user.shrimp_actor_partner_id.id)]</field>
     </record>
 
     <record id="rule_api_pond_portal" model="ir.rule">
@@ -88,7 +88,7 @@
         <field name="perm_write" eval="False"/>
         <field name="perm_create" eval="False"/>
         <field name="perm_unlink" eval="False"/>
-        <field name="domain_force">[('partner_id', '=', user.partner_id.id)]</field>
+        <field name="domain_force">[('partner_id', '=', user.shrimp_actor_partner_id.id)]</field>
     </record>
 
     <record id="rule_api_stock_lot_portal" model="ir.rule">
@@ -99,7 +99,7 @@
         <field name="perm_write" eval="False"/>
         <field name="perm_create" eval="False"/>
         <field name="perm_unlink" eval="False"/>
-        <field name="domain_force">[('owner_id', '=', user.partner_id.id)]</field>
+        <field name="domain_force">[('owner_id', '=', user.shrimp_actor_partner_id.id)]</field>
     </record>
 
     <record id="rule_api_stock_move_portal" model="ir.rule">
@@ -110,7 +110,7 @@
         <field name="perm_write" eval="False"/>
         <field name="perm_create" eval="False"/>
         <field name="perm_unlink" eval="False"/>
-        <field name="domain_force">['|', ('source_partner_id', '=', user.partner_id.id), ('dest_partner_id', '=', user.partner_id.id)]</field>
+        <field name="domain_force">['|', ('source_partner_id', '=', user.shrimp_actor_partner_id.id), ('dest_partner_id', '=', user.shrimp_actor_partner_id.id)]</field>
     </record>
 
     <record id="rule_api_lot_allocation_portal" model="ir.rule">
@@ -121,7 +121,7 @@
         <field name="perm_write" eval="False"/>
         <field name="perm_create" eval="False"/>
         <field name="perm_unlink" eval="False"/>
-        <field name="domain_force">[('partner_id', '=', user.partner_id.id)]</field>
+        <field name="domain_force">[('partner_id', '=', user.shrimp_actor_partner_id.id)]</field>
     </record>
 
     <record id="rule_api_check_request_portal" model="ir.rule">
@@ -132,7 +132,7 @@
         <field name="perm_write" eval="False"/>
         <field name="perm_create" eval="False"/>
         <field name="perm_unlink" eval="False"/>
-        <field name="domain_force">['|', ('buyer_partner_id', '=', user.partner_id.id), ('seller_partner_id', '=', user.partner_id.id)]</field>
+        <field name="domain_force">['|', ('buyer_partner_id', '=', user.shrimp_actor_partner_id.id), ('seller_partner_id', '=', user.shrimp_actor_partner_id.id)]</field>
     </record>
 
     <record id="rule_api_charge_portal" model="ir.rule">
@@ -143,7 +143,7 @@
         <field name="perm_write" eval="False"/>
         <field name="perm_create" eval="False"/>
         <field name="perm_unlink" eval="False"/>
-        <field name="domain_force">[('payer_partner_id', '=', user.partner_id.id)]</field>
+        <field name="domain_force">[('payer_partner_id', '=', user.shrimp_actor_partner_id.id)]</field>
     </record>
 
     <record id="rule_api_product_cert_line_portal" model="ir.rule">
@@ -154,18 +154,18 @@
         <field name="perm_write" eval="False"/>
         <field name="perm_create" eval="False"/>
         <field name="perm_unlink" eval="False"/>
-        <field name="domain_force">[('product_id.seller_partner_id', '=', user.partner_id.id)]</field>
+        <field name="domain_force">[('product_id.seller_partner_id', '=', user.shrimp_actor_partner_id.id)]</field>
     </record>
 
     <record id="rule_api_verification_technician" model="ir.rule">
-        <field name="name">Verificación: también la lee el técnico asignado</field>
+        <field name="name">Verificación: también la leen los técnicos asignados (responsable y apoyo)</field>
         <field name="model_id" ref="shrimp_verification.model_shrimp_verification"/>
         <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
         <field name="perm_read" eval="True"/>
         <field name="perm_write" eval="False"/>
         <field name="perm_create" eval="False"/>
         <field name="perm_unlink" eval="False"/>
-        <field name="domain_force">[('technician_partner_id', '=', user.partner_id.id)]</field>
+        <field name="domain_force">['|', ('technician_partner_id', '=', user.shrimp_actor_partner_id.id), ('support_technician_ids', 'in', [user.shrimp_actor_partner_id.id])]</field>
     </record>
 
     <record id="rule_api_verification_line_technician" model="ir.rule">
@@ -176,7 +176,7 @@
         <field name="perm_write" eval="False"/>
         <field name="perm_create" eval="False"/>
         <field name="perm_unlink" eval="False"/>
-        <field name="domain_force">[('verification_id.technician_partner_id', '=', user.partner_id.id)]</field>
+        <field name="domain_force">['|', ('verification_id.technician_partner_id', '=', user.shrimp_actor_partner_id.id), ('verification_id.support_technician_ids', 'in', [user.shrimp_actor_partner_id.id])]</field>
     </record>
 
     <record id="rule_api_verification_count_technician" model="ir.rule">
@@ -187,7 +187,7 @@
         <field name="perm_write" eval="False"/>
         <field name="perm_create" eval="False"/>
         <field name="perm_unlink" eval="False"/>
-        <field name="domain_force">[('verification_id.technician_partner_id', '=', user.partner_id.id)]</field>
+        <field name="domain_force">['|', ('verification_id.technician_partner_id', '=', user.shrimp_actor_partner_id.id), ('verification_id.support_technician_ids', 'in', [user.shrimp_actor_partner_id.id])]</field>
     </record>
 
 </odoo>

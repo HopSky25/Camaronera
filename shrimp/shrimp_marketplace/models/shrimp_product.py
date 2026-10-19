@@ -139,7 +139,7 @@ class ShrimpProduct(models.Model):
     #
     # La empacadora NO entra: compra y exporta, no publica en el marketplace.
     seller_role = fields.Selection(
-        [("semillero", "Semillero"), ("laboratorio", "Laboratorio"),
+        [("semillero", "Naupliero"), ("laboratorio", "Laboratorio"),
          ("camaronera", "Camaronera")],
         string="Rol del vendedor",
         required=True,
@@ -263,12 +263,67 @@ class ShrimpProduct(models.Model):
         return self.price
 
     def has_purchases(self):
-        """True si el producto ya tiene transacciones de compra (confirmadas/hechas)."""
+        """True si el producto tiene compras que fijan sus datos críticos.
+
+        D-17 (auditoría de procesos): el precio se congela en la compra
+        (shrimp.transaction.price_unit) desde que se crea —compra directa,
+        verificación o reserva—, así que el bloqueo vale para TODA compra no
+        cancelada: en borrador, en verificación, por firmar, confirmada o
+        completada. Antes solo contaban las confirmadas y completadas, y el
+        vendedor podía cambiar el precio o la talla de un lote con una
+        verificación en curso. Las solicitudes de chequeo abiertas (flujo
+        legado) también lo bloquean: el chequeo se aprueba al precio de la
+        solicitud. Decisión del usuario (opción C): los datos críticos quedan
+        bloqueados para siempre desde la primera compra no cancelada; el
+        PRECIO, solo mientras haya compras abiertas (shrimp_price_locked)."""
         self.ensure_one()
-        return bool(self.env["shrimp.transaction"].sudo().search_count([
-            ("product_id", "=", self.id),
-            ("state", "in", ["confirmed", "done"]),
-        ]))
+        return bool(self._shrimp_lock_purchases(limit=1)) or bool(self._shrimp_open_check_requests())
+
+    def _shrimp_lock_purchases(self, limit=None):
+        """Compras no canceladas de este producto (las que lo bloquean)."""
+        self.ensure_one()
+        if not self.id:
+            return self.env["shrimp.transaction"]
+        return self.env["shrimp.transaction"].sudo().search([
+            ("product_id", "=", self.id), ("state", "!=", "cancel")],
+            limit=limit, order="id desc")
+
+    def _shrimp_open_purchases(self):
+        """Compras ABIERTAS (ni canceladas ni completadas)."""
+        self.ensure_one()
+        return self._shrimp_lock_purchases().filtered(lambda t: t.state != "done")
+
+    def _shrimp_open_check_requests(self):
+        self.ensure_one()
+        if not self.id or "shrimp.check.request" not in self.env:
+            return []
+        return self.env["shrimp.check.request"].sudo().search([
+            ("product_id", "=", self.id), ("state", "in", ("requested", "under_review"))])
+
+    def shrimp_price_locked(self):
+        """D-17 (opción C): el PRECIO solo se bloquea mientras haya compras
+        ABIERTAS (ni canceladas ni completadas) o solicitudes de chequeo
+        abiertas; después el vendedor puede volver a fijar el precio del stock
+        que le queda (cada compra conserva el suyo en price_unit)."""
+        self.ensure_one()
+        return bool(self._shrimp_open_purchases()) or bool(self._shrimp_open_check_requests())
+
+    def shrimp_purchase_lock_reason(self):
+        """Por qué el precio y los datos críticos están bloqueados (texto para
+        el portal, la API y el back-office) o cadena vacía."""
+        self.ensure_one()
+        abiertas = self._shrimp_open_purchases()
+        chequeos = self._shrimp_open_check_requests()
+        if abiertas or chequeos:
+            refs = (abiertas.mapped("name") + [c.name for c in chequeos])
+            muestra = ", ".join(refs[:3]) + ("…" if len(refs) > 3 else "")
+            return _("tiene compras en curso (%(n)s: %(r)s). El precio quedó fijado en esas "
+                     "compras y no se puede cambiar hasta que se completen o se cancelen; los "
+                     "datos críticos del lote ya no cambian") % {"n": len(refs), "r": muestra}
+        if self._shrimp_lock_purchases(limit=1):
+            return _("ya tiene ventas completadas: lo que se vendió se vendió con estos datos, "
+                     "y la trazabilidad de los compradores depende de ellos")
+        return ""
 
     # Campos críticos que NO pueden cambiar una vez que el producto tiene compras.
     _LOCKED_AFTER_PURCHASE = {
@@ -281,12 +336,34 @@ class ShrimpProduct(models.Model):
         "price": "Precio",
         "initial_qty": "Cantidad inicial",
         "seller_role": "Rol del vendedor",
+        # D-17: el origen del lote también es un dato crítico.
+        "origin_facility_id": "Instalación de origen",
+        "origin_pond_id": "Piscina de origen",
+        "origin_allocation_ids": "Siembras de origen",
     }
 
     @staticmethod
     def _field_value_changed(rec, fname, newval):
         """Compara el valor nuevo (tal como llega en vals) con el actual."""
         cur = rec[fname]
+        if isinstance(cur, models.BaseModel) and rec._fields[fname].type in ("many2many", "one2many"):
+            # Comandos x2many: se resuelven contra lo actual (solo (6,..),
+            # (4,..), (3,..) y (5,..), que es lo que escriben los flujos).
+            ids = set(cur.ids)
+            for cmd in newval or []:
+                if not isinstance(cmd, (list, tuple)) or not cmd:
+                    continue
+                if cmd[0] == 6:
+                    ids = set(cmd[2] or [])
+                elif cmd[0] == 4:
+                    ids.add(cmd[1])
+                elif cmd[0] in (2, 3):
+                    ids.discard(cmd[1])
+                elif cmd[0] == 5:
+                    ids = set()
+                else:
+                    return True
+            return ids != set(cur.ids)
         if isinstance(cur, models.BaseModel):        # Many2one
             return cur.id != (newval or False)
         if isinstance(cur, float):                   # Float (precio, cantidad)
@@ -329,6 +406,13 @@ class ShrimpProduct(models.Model):
         problemas = []
         if not self.active:
             problemas.append(_("el producto está dado de baja"))
+        vendedor = self.seller_partner_id.sudo()
+        if vendedor and hasattr(vendedor, "_shrimp_suspension_problem") \
+                and vendedor._shrimp_suspension_problem():
+            problemas.append(_("la cuenta del vendedor está suspendida"))
+        elif vendedor and self._shrimp_seller_role() \
+                and vendedor._shrimp_role_state(self._shrimp_seller_role()) == "rejected":
+            problemas.append(_("el perfil con el que se vende fue rechazado"))
         if check_stock and float_compare(self.available_qty or 0.0, 0.0, precision_digits=6) <= 0:
             problemas.append(_("no tiene stock disponible"))
         if self._shrimp_requires_size_grade(self.stage_id) and (
@@ -340,8 +424,13 @@ class ShrimpProduct(models.Model):
         """Publica el producto aplicando TODAS las validaciones de negocio."""
         user = self.env.user
         for rec in self:
-            if user.share and rec.seller_partner_id != user.partner_id:
+            # AL-22: un subusuario actúa en nombre de su empresa (actor), no
+            # con su propio contacto; y necesita «Vender» en el perfil del
+            # producto (CR-12).
+            if user.share and rec.seller_partner_id != user.sudo()._shrimp_actor_partner():
                 raise AccessError(_("Solo el vendedor publica sus productos."))
+            if user.share:
+                user._shrimp_require_perm("sell", role=rec._shrimp_seller_role())
             if rec.state != "draft":
                 raise ValidationError(_("Solo se publica un producto en borrador."))
             problemas = rec._shrimp_publish_problems()
@@ -383,12 +472,16 @@ class ShrimpProduct(models.Model):
                 if not rec.has_purchases():
                     continue
                 blocked = [f for f in present if self._field_value_changed(rec, f, vals[f])]
+                # D-17 (C): el precio solo mientras haya compras abiertas.
+                if "price" in blocked and not rec.shrimp_price_locked():
+                    blocked.remove("price")
                 if blocked:
                     labels = ", ".join(self._LOCKED_AFTER_PURCHASE[f] for f in blocked)
                     raise ValidationError(_(
-                        "No puedes modificar estos campos de «%s» porque ya tiene "
-                        "compras registradas: %s."
-                    ) % (rec.name, labels))
+                        "No puedes cambiar %(campos)s de «%(p)s»: %(motivo)s."
+                    ) % {"campos": labels, "p": rec.name,
+                         "motivo": rec.shrimp_purchase_lock_reason()
+                         or _("ya tiene compras registradas")})
 
         # Solo lo BIOLÓGICO deja fila de evolución. El stock y el estado
         # comercial (vendido, publicado) cambian con cada venta y llenaban el
@@ -425,7 +518,8 @@ class ShrimpProduct(models.Model):
         # Cambió la piscina o la fecha de producción y el dueño no eligió las
         # siembras a mano: se vuelven a proponer.
         if {"origin_pond_id", "production_date"} & set(vals) and "origin_allocation_ids" not in vals:
-            self._shrimp_autofill_origin_allocations()
+            # Con compras, el origen quedó fijado (D-17): no se re-propone.
+            self.filtered(lambda r: not r.has_purchases())._shrimp_autofill_origin_allocations()
 
         if a_fotografiar:
             for rec in a_fotografiar:
@@ -572,6 +666,24 @@ class ShrimpProduct(models.Model):
             if rec.origin_pond_id and rec.origin_facility_id and rec.origin_pond_id.facility_id != rec.origin_facility_id:
                 raise ValidationError(_("La piscina seleccionada no pertenece a la instalación de origen."))
 
+    @api.onchange("origin_facility_id")
+    def _onchange_origin_facility_clear_pond(self):
+        """Sin instalación no hay piscina ni siembras; con otra instalación,
+        la piscina de la anterior ya no vale."""
+        if not self.origin_facility_id:
+            self.origin_pond_id = False
+            self.origin_allocation_ids = [(5, 0, 0)]
+        elif self.origin_pond_id and self.origin_pond_id.facility_id != self.origin_facility_id:
+            self.origin_pond_id = False
+
+    @api.onchange("origin_pond_id")
+    def _onchange_origin_pond_allocations(self):
+        if not self.origin_pond_id:
+            self.origin_allocation_ids = [(5, 0, 0)]
+        else:
+            self.origin_allocation_ids = self.origin_allocation_ids.filtered(
+                lambda a: a.pond_id == self.origin_pond_id)
+
     @api.constrains("origin_allocation_ids", "seller_partner_id")
     def _check_origin_allocations(self):
         for rec in self:
@@ -581,17 +693,62 @@ class ShrimpProduct(models.Model):
                 raise ValidationError(_(
                     "Las siembras de origen tienen que ser de piscinas del propio vendedor."))
 
+    # Qué se siembra aguas arriba de cada tipo de producto (siembras de
+    # origen). La larva del laboratorio sale del nauplio sembrado en sus
+    # tanques (o de larva comprada a otro laboratorio); el camarón, de la
+    # larva sembrada en la piscina (o de juveniles comprados a otra
+    # camaronera). El nauplio sale de reproductores, que no son stock del
+    # marketplace: no tiene siembras de origen.
+    _SHRIMP_UPSTREAM_TIPOS = {
+        "nauplio": (),
+        "larva": ("nauplio", "larva"),
+        # El nauplio entra por si el laboratorio revendió su lote sin
+        # actualizar el estadío (en la piscina solo se siembra larva).
+        "camaron": ("larva", "camaron", "nauplio"),
+    }
+
+    # Instalaciones que pueden ser origen de un lote: las de producción. Una
+    # bodega de alimento o una oficina no tienen piscinas ni tanques.
+    _SHRIMP_NON_ORIGIN_FACILITY_TYPES = ("warehouse", "office")
+
+    @api.model
+    def _shrimp_facility_can_be_origin(self, facility):
+        return bool(facility) and facility.facility_type not in self._SHRIMP_NON_ORIGIN_FACILITY_TYPES
+
+    @api.model
+    def _shrimp_upstream_tipos(self, tipo):
+        return self._SHRIMP_UPSTREAM_TIPOS.get(tipo or "", ())
+
+    @api.model
+    def _shrimp_allocation_is_origin_for(self, alloc, tipo):
+        """True si la siembra puede ser origen de un producto de `tipo`:
+        insumo comprado a otro (no stock propio ubicado en el tanque) y del
+        tipo inmediatamente aguas arriba. El camarón adulto no se siembra."""
+        if not alloc._shrimp_is_upstream_input():
+            return False
+        sembrado = alloc._shrimp_seeded_tipo()
+        if sembrado not in self._shrimp_upstream_tipos(tipo):
+            return False
+        if sembrado == "camaron" and not alloc._shrimp_seeded_product()._shrimp_is_growout_seed():
+            return False
+        return True
+
     def _shrimp_candidate_origin_allocations(self):
-        """Siembras de la piscina de origen vigentes a la fecha de producción."""
+        """Siembras de la piscina de origen vigentes a la fecha de producción,
+        del tipo aguas arriba del producto (nauplio para la larva del
+        laboratorio, larva para el camarón de la camaronera)."""
         self.ensure_one()
+        Alloc = self.env["shrimp.lot.allocation"]
         if not self.origin_pond_id:
-            return self.env["shrimp.lot.allocation"]
+            return Alloc
         tope = self.production_date or fields.Date.context_today(self)
-        return self.env["shrimp.lot.allocation"].sudo().search([
+        tipo = self._shrimp_tipo()
+        return Alloc.sudo().search([
             ("pond_id", "=", self.origin_pond_id.id),
             ("state", "in", ("allocated", "released")),
             ("allocation_date", "<=", tope),
-        ], order="allocation_date asc, id asc")
+        ], order="allocation_date asc, id asc").filtered(
+            lambda a: self._shrimp_allocation_is_origin_for(a, tipo))
 
     def _shrimp_autofill_origin_allocations(self):
         for rec in self:
@@ -602,13 +759,16 @@ class ShrimpProduct(models.Model):
 
     @api.model
     def _shrimp_origin_allocation_options(self, partner):
-        """Siembras del vendedor que puede elegir como origen (portal)."""
+        """Siembras del vendedor que puede elegir como origen (portal): solo
+        insumos comprados a otros (lo propio ubicado en un tanque no es
+        origen). El formulario las filtra por piscina y por tipo."""
         if not partner:
             return self.env["shrimp.lot.allocation"]
         return self.env["shrimp.lot.allocation"].sudo().search([
             ("partner_id", "=", partner.id),
             ("state", "in", ("allocated", "released")),
-        ], order="allocation_date desc, id desc", limit=200)
+        ], order="allocation_date desc, id desc", limit=200).filtered(
+            lambda a: a._shrimp_is_upstream_input())
 
     def _shrimp_origin_moves(self):
         """Movimientos de los que procede físicamente este producto cuando su
@@ -632,7 +792,7 @@ class ShrimpProduct(models.Model):
         documenta el antes, el después y el motivo. Devuelve los movimientos.
         """
         self.ensure_one()
-        actor = actor or self.env.user.partner_id
+        actor = actor or self.env.user.shrimp_actor_partner_id
         if self.env.user.share and actor != self.seller_partner_id:
             raise AccessError(_("La producción la declara el dueño del lote."))
         actual_qty = float(actual_qty or 0.0)
@@ -738,17 +898,28 @@ class ShrimpProduct(models.Model):
     # ------------------------------------------------------------------
     # Verificación obligatoria
     # ------------------------------------------------------------------
-    def _shrimp_requires_verification(self):
+    def _shrimp_verification_policy(self, buyer_partner=None, buyer_role=None):
+        """«none» (no aplica), «optional» u «mandatory» para esta compra.
+
+        El marketplace no verifica nada: la política la decide
+        shrimp_verification con su matriz (vendedor → comprador). Sin ese
+        módulo no hay verificación posible.
+        """
+        self.ensure_one()
+        return "none"
+
+    def _shrimp_requires_verification(self, buyer_partner=None, buyer_role=None):
         """True si este lote solo se puede comprar con verificación en campo.
 
-        El marketplace no verifica nada: lo decide shrimp_verification (camarón
-        adulto). Se pregunta aquí para que TODOS los caminos de compra
-        (directa, chequeo, reserva, API) apliquen la misma regla.
+        Lo decide shrimp_verification (matriz de verificación). Se pregunta
+        aquí para que TODOS los caminos de compra (directa, chequeo, reserva,
+        API) apliquen la misma regla. Con comprador, la de esa compra; sin él,
+        la general del lote.
         """
         self.ensure_one()
         return False
 
-    def _shrimp_check_direct_purchase_allowed(self):
+    def _shrimp_check_direct_purchase_allowed(self, buyer_partner=None, buyer_role=None):
         """Corta la compra directa de un lote con verificación obligatoria.
 
         Solo la deja pasar el flujo verificado, que lo declara con el contexto
@@ -757,7 +928,7 @@ class ShrimpProduct(models.Model):
         compraban camarón adulto sin que nadie lo inspeccionara.
         """
         self.ensure_one()
-        if self._shrimp_requires_verification() and not self.env.context.get(
+        if self._shrimp_requires_verification(buyer_partner, buyer_role) and not self.env.context.get(
                 "shrimp_verified_flow"):
             raise ValidationError(_(
                 "Este lote exige verificación en campo antes de concretar la "
@@ -790,7 +961,7 @@ class ShrimpProduct(models.Model):
         if qty <= 0:
             raise ValidationError(_("La cantidad debe ser mayor a 0."))
 
-        self._shrimp_check_direct_purchase_allowed()
+        self._shrimp_check_direct_purchase_allowed(buyer_partner, buyer_role)
 
         if float_compare(qty, self.available_qty, precision_digits=6) == 1:
             raise ValidationError(_("La cantidad solicitada supera el stock disponible."))

@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Decisiones de la auditoría de procesos (19.0.1.38.0), portal:
+         D-30 PCR positivo bloquea el lote y D-31 caducidad de publicaciones.
+         Todo por herencia. -->
+
+    <!-- Ficha del producto: avisos al dueño (bloqueo por PCR, vencimiento de
+         la publicación) y el motivo cuando no se pudo publicar. -->
+    <template id="product_detail_decisiones" inherit_id="shrimp_marketplace.product_detail"
+              name="Ficha del producto - PCR y caducidad">
+        <xpath expr="//div[hasclass('pd-alerts')]" position="inside">
+            <div t-if="request.params.get('error') == 'validation'" class="pf-alert pf-a-warn" role="alert" id="pd_validation_error">
+                <i class="fa fa-exclamation-triangle" aria-hidden="true"/>
+                <div t-esc="request.params.get('message') or 'No se pudo completar la acción.'"/>
+            </div>
+            <t t-if="is_owner or is_internal">
+                <t t-set="dec_prod" t-value="product.sudo()"/>
+                <div t-if="dec_prod.pcr_blocked" class="pf-alert pf-a-bad" role="alert" id="pd_pcr_blocked">
+                    <i class="fa fa-ban" aria-hidden="true"/>
+                    <div>
+                        <span class="pd-alert-t">Lote bloqueado: <t t-esc="dec_prod._shrimp_pcr_block_text()"/>.</span>
+                        No se publica ni se vende hasta que registres una ficha de calidad nueva,
+                        con un muestreo posterior, sin ningún PCR positivo.
+                        <div class="pd-alert-act">
+                            <a t-att-href="'/marketplace/products/%s/quality' % product.uuid_ref">Ir a la ficha de calidad</a>
+                        </div>
+                    </div>
+                </div>
+                <t t-set="dec_vence" t-value="dec_prod.state == 'published' and dec_prod.publication_expires_at"/>
+                <div t-if="dec_vence" class="pf-alert pf-a-info" role="status" id="pd_expiry">
+                    <i class="fa fa-calendar-times-o" aria-hidden="true"/>
+                    <div>
+                        La publicación vence el
+                        <b t-esc="request.env['shrimp.transaction'].shrimp_fmt_dt(dec_vence, dec_prod.seller_partner_id)"/>:
+                        después pasa a borrador. Para alargarla, edita «Disponible hasta».
+                    </div>
+                </div>
+            </t>
+        </xpath>
+    </template>
+
+    <!-- Página de la compra: el lote resultó PCR positivo. El comprador puede
+         cancelar sin costo (sin strike para el vendedor). -->
+    <template id="traceability_screen_pcr" inherit_id="shrimp_marketplace.traceability_screen"
+              priority="14" name="Trazabilidad - PCR positivo">
+        <xpath expr="//div[@id='shrimp_trace_summary']" position="after">
+            <t t-set="pcr_tx" t-value="tx.sudo()"/>
+            <t t-set="pcr_me" t-value="request.env.user.shrimp_actor_partner_id"/>
+            <t t-set="pcr_buyer" t-value="pcr_me == pcr_tx.buyer_partner_id"/>
+            <t t-set="pcr_open" t-value="pcr_tx.shrimp_pcr_cancel_available()"/>
+            <div t-if="pcr_open" class="mp-table-card mb-4 rc-card rd-card" id="pcr_positivo">
+                <div class="card-body p-4">
+                    <div class="mp-sec-head">
+                        <span class="mp-sec-ico"><i class="fa fa-medkit"></i></span>
+                        <h3 class="mp-sec-title">PCR positivo en el lote</h3>
+                        <span class="rc-chip rc-chip--danger ms-auto"><i class="fa fa-ban me-1"></i> Lote bloqueado</span>
+                    </div>
+                    <p class="rc-help">
+                        El lote de esta compra tiene <t t-esc="pcr_tx.product_id._shrimp_pcr_block_text()"/>.
+                        La plataforma lo bloqueó: ya no se publica ni se vende.
+                    </p>
+                    <t t-if="pcr_buyer">
+                        <div class="rd-box rd-box--danger">
+                            <div class="rd-box-t"><i class="fa fa-unlock me-1"></i> Puedes cancelar esta compra sin costo</div>
+                            <p class="rc-help mt-1 mb-0">Si prefieres seguir con la compra, no tienes que hacer nada.</p>
+                            <details class="rc-issue rd-cancel mt-3">
+                                <summary><i class="fa fa-ban me-1"></i> Cancelar compra</summary>
+                                <form method="post" class="rc-form" t-att-action="'/marketplace/purchases/%s/cancel' % pcr_tx.uuid_ref">
+                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                    <input type="hidden" name="next" t-att-value="'/marketplace/purchases/%s/traceability#pcr_positivo' % pcr_tx.uuid_ref"/>
+                                    <ul class="rd-effects">
+                                        <li>La compra queda cancelada y no pagas nada por ella.</li>
+                                        <li>El producto vuelve al lote del vendedor (bloqueado).</li>
+                                        <li>La plataforma anula sus cobros de esta compra.</li>
+                                        <li>Es un evento sanitario: el vendedor no recibe strike.</li>
+                                    </ul>
+                                    <label class="rc-label" for="pcrCancelNote">Nota <span class="rc-opt">(opcional)</span></label>
+                                    <textarea class="form-control" name="note" id="pcrCancelNote" rows="2" maxlength="2000"></textarea>
+                                    <div class="rc-actions">
+                                        <button type="submit" class="s-btn rc-btn-danger"><i class="fa fa-ban me-1"></i> Confirmar cancelación</button>
+                                    </div>
+                                    <p class="rc-help">Esta acción no se puede deshacer.</p>
+                                </form>
+                            </details>
+                        </div>
+                    </t>
+                    <p t-else="" class="rc-help mb-0">
+                        El comprador puede cancelar esta compra sin costo y sin strike para ti.
+                    </p>
+                </div>
+            </div>
+        </xpath>
+    </template>
+
+    <!-- Ficha de calidad (vendedor): el lote está bloqueado por PCR positivo. -->
+    <template id="product_quality_page_pcr" inherit_id="shrimp_marketplace.product_quality_page"
+              name="Ficha de calidad - lote bloqueado por PCR">
+        <xpath expr="//div[@id='sp_quality_page']/div[hasclass('sp-head')]" position="after">
+            <div t-if="product.sudo().pcr_blocked" class="sp-alert sp-alert--danger" role="alert" id="sp_pcr_blocked">
+                <b>Lote bloqueado por <t t-esc="product.sudo()._shrimp_pcr_block_text()"/>.</b>
+                No se publica ni se vende. La ficha positiva queda en el historial y no se corrige
+                ni se borra: registra una ficha NUEVA, con un muestreo posterior y sin ningún PCR
+                positivo, para desbloquearlo.
+            </div>
+        </xpath>
+    </template>
+
+    <!-- Mis compras: el motivo cuando una ruta lleva aquí con un aviso
+         (p. ej. las rutas de la solicitud de chequeo retirada, D-28). -->
+    <template id="marketplace_purchased_products_aviso" inherit_id="shrimp_marketplace.marketplace_purchased_products"
+              name="Mis compras - aviso">
+        <xpath expr="//t[@t-if=&quot;request.params.get('error') == 'rating'&quot;]" position="before">
+            <div t-if="request.params.get('error') == 'validation' and request.params.get('message')"
+                 class="alert alert-warning" role="alert" id="tx_validation_message"
+                 style="border-radius:var(--shrimp-radius-sm);">
+                <i class="fa fa-info-circle me-1"></i> <t t-esc="request.params.get('message')"/>
+            </div>
+        </xpath>
+    </template>
+</odoo>

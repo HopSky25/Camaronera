@@ -28,8 +28,12 @@ class ShrimpTransaction(models.Model):
     # Una compra tiene a lo sumo UNA verificación (lo garantiza un unique en
     # shrimp.verification), pero la relación vive del lado de la verificación,
     # así que aquí es un One2many. Se llama en plural, como todo One2many.
+    # Solo la VIGENTE: la verificación superada por una segunda opinión (D-25)
+    # sigue existiendo (con su veredicto y su liquidación), pero la compra se
+    # rige por la segunda.
     verification_ids = fields.One2many(
-        "shrimp.verification", "transaction_id", string="Verificación")
+        "shrimp.verification", "transaction_id", string="Verificación",
+        domain=[("superseded", "=", False)])
 
     # Alias de compatibilidad (una versión): plantillas, la API y código de
     # terceros leían `verification_id` como si fuera la verificación. Ahora
@@ -128,6 +132,29 @@ class ShrimpTransaction(models.Model):
                 # partes hayan firmado que aceptan el informe.
                 and verificacion.acceptance_state == "closed"
             )
+
+    # ------------------------------------------------------------------
+    # Recepción por el comprador (shrimp_marketplace,
+    # shrimp_transaction_reception.py)
+    # ------------------------------------------------------------------
+    @api.model
+    def _shrimp_reception_policy(self, seller_role, buyer_role, product=None):
+        """La decide la matriz (columna «Confirmación de recepción»); sin
+        regla para la pareja, la tabla por defecto del marketplace."""
+        tipo = product._shrimp_tipo() if product else None
+        valor = self.env["shrimp.verification.rule"].sudo()._reception_for(
+            seller_role, buyer_role, tipo)
+        if valor is None:
+            return super()._shrimp_reception_policy(seller_role, buyer_role, product)
+        return valor
+
+    def _shrimp_is_direct_delivery(self):
+        """Una compra verificada no lleva este paso: se cierra con la
+        aceptación del informe y su entrega la sigue shrimp.dispatch."""
+        self.ensure_one()
+        if self.needs_verification or self.verification_ids:
+            return False
+        return super()._shrimp_is_direct_delivery()
 
     def action_await_acceptance(self):
         """Pasa la compra a la firma de las partes tras un veredicto favorable."""

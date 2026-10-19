@@ -120,6 +120,15 @@
                                                                             </button>
                                                                         </t>
                                                                     </t>
+                                                                    <!-- Despacho: lo marca el vendedor en la página de
+                                                                         la compra (nota opcional); arranca el plazo de
+                                                                         recepción del comprador. -->
+                                                                    <t t-if="tx.state == 'confirmed' and not tx.dispatched_at and tx.reception_status != 'incidence' and tx._shrimp_is_direct_delivery()">
+                                                                        <a class="s-btn s-btn-ghost btn-sm mt-1"
+                                                                           t-att-href="'/marketplace/purchases/%s/traceability#recepcion' % tx.uuid_ref">
+                                                                            <i class="fa fa-truck me-1"></i> Marcar despachado
+                                                                        </a>
+                                                                    </t>
                                                                     <!-- Paso 2 de la facturación: la factura de la
                                                                          mercadería la emite el VENDEDOR y aquí solo la
                                                                          registra (número, clave de acceso, archivo). -->
@@ -130,11 +139,13 @@
                                                                                     <i class="fa fa-file-text me-1"></i>
                                                                                     <t t-esc="tx.sudo().seller_invoice_number or 'Factura registrada'"/>
                                                                                 </span>
-                                                                                <a class="ms-1" t-att-href="'/marketplace/sales/%s/invoice' % tx.uuid_ref">editar</a>
+                                                                                <a t-if="tx.sudo().seller_invoice_status != 'locked'" class="ms-1" t-att-href="'/marketplace/sales/%s/invoice' % tx.uuid_ref">editar</a>
                                                                             </t>
                                                                             <a t-else="" class="s-btn s-btn-ghost btn-sm"
                                                                                t-att-href="'/marketplace/sales/%s/invoice' % tx.uuid_ref">
                                                                                 <i class="fa fa-file-text-o me-1"></i> Registrar mi factura
+                                                                                <t t-if="tx.sudo().seller_invoice_status == 'overdue'"> (vencida)</t>
+                                                                                <t t-elif="tx.sudo().seller_invoice_status == 'pending'"> (hasta el <t t-esc="tx.sudo().seller_invoice_due_date.strftime('%d/%m/%Y')"/>)</t>
                                                                             </a>
                                                                         </div>
                                                                     </t>
@@ -158,7 +169,7 @@
                                                             </td>
 
                                                             <td class="text-end text-nowrap">
-                                                                <t t-set="pu" t-value="tx.price_unit or (tx.product_id.price if tx.product_id else 0.0)"/>
+                                                                <t t-set="pu" t-value="tx.price_unit or 0.0"/>
                                                                 <!-- El signo sale de la moneda (widget monetary), no de
                                                                      un "$" escrito a mano. -->
                                                                 <span class="fw-semibold" t-esc="pu or 0.0"
@@ -210,7 +221,7 @@
                                              a todo el ancho. -->
                                         <div class="s-txc-list" id="sTxCards">
                                             <t t-foreach="transactions" t-as="tx">
-                                                <t t-set="c_pu" t-value="tx.price_unit or (tx.product_id.price if tx.product_id else 0.0)"/>
+                                                <t t-set="c_pu" t-value="tx.price_unit or 0.0"/>
                                                 <t t-set="c_qty" t-value="tx.transaction_qty or 0.0"/>
                                                 <t t-set="c_uom" t-value="tx.product_id.uom_id.name or 'u'"/>
                                                 <t t-set="c_cobro" t-value="charges_by_tx.get(tx.id) if mode == 'sales' else False"/>
@@ -239,6 +250,14 @@
                                                               class="s-badge s-badge--green" title="Factura registrada">
                                                             <i class="fa fa-file-text me-1"></i><t t-esc="tx.sudo().seller_invoice_number or 'Factura registrada'"/>
                                                         </span>
+                                                        <span t-if="mode == 'sales' and tx.sudo().seller_invoice_status == 'pending'"
+                                                              class="s-badge s-badge--warning" title="Registra la factura de la mercadería">
+                                                            <i class="fa fa-clock-o me-1"></i>Factura hasta el <t t-esc="tx.sudo().seller_invoice_due_date.strftime('%d/%m/%Y')"/>
+                                                        </span>
+                                                        <span t-if="mode == 'sales' and tx.sudo().seller_invoice_status == 'overdue'"
+                                                              class="s-badge s-badge--danger" title="Venció el plazo para registrar la factura">
+                                                            <i class="fa fa-exclamation-triangle me-1"></i>Factura vencida
+                                                        </span>
                                                     </div>
                                                     <dl class="s-txc-grid">
                                                         <div><dt>Precio unitario</dt>
@@ -262,10 +281,16 @@
                                                     <!-- Acciones a todo el ancho. Los módulos añaden las suyas
                                                          aquí (p. ej. «Declarar despacho», shrimp_verification). -->
                                                     <div class="s-txc-actions" data-s-tx-actions="1">
+                                                        <a t-if="mode == 'sales' and tx.state == 'confirmed' and not tx.dispatched_at and tx.reception_status != 'incidence' and tx._shrimp_is_direct_delivery()"
+                                                           class="s-btn s-btn-primary" t-att-href="'/marketplace/purchases/%s/traceability#recepcion' % tx.uuid_ref">
+                                                            <i class="fa fa-truck me-1"></i> Marcar despachado
+                                                        </a>
                                                         <t t-if="mode == 'sales' and tx.state in ('confirmed', 'done')">
-                                                            <a class="s-btn s-btn-ghost" t-att-href="'/marketplace/sales/%s/invoice' % tx.uuid_ref">
-                                                                <i class="fa fa-file-text-o me-1"></i>
-                                                                <t t-if="tx.sudo().has_seller_invoice">Editar mi factura</t>
+                                                            <t t-set="c_inv" t-value="tx.sudo().seller_invoice_status"/>
+                                                            <a t-attf-class="s-btn #{'s-btn-primary' if c_inv in ('pending', 'overdue') else 's-btn-ghost'}" t-att-href="'/marketplace/sales/%s/invoice' % tx.uuid_ref">
+                                                                <i t-att-class="'fa me-1 ' + ('fa-lock' if c_inv == 'locked' else 'fa-file-text-o')"></i>
+                                                                <t t-if="c_inv == 'locked'">Ver mi factura</t>
+                                                                <t t-elif="tx.sudo().has_seller_invoice">Editar mi factura</t>
                                                                 <t t-else="">Registrar mi factura</t>
                                                             </a>
                                                             <button t-if="tx.buyer_partner_id and not buyer_reviews_by_tx.get(tx.id)" type="button" class="s-btn s-btn-ghost"
@@ -348,7 +373,10 @@
          tarjetas móviles y «Mis compras». -->
     <template id="s_tx_state_badge" name="Transacción: insignia de estado">
         <t t-set="s_tx_label" t-value="dict(tx._fields['state'].selection).get(tx.state)"/>
-        <t t-if="tx.state == 'done'"><span class="s-badge s-badge--green"><t t-esc="s_tx_label"/></span></t>
+        <t t-if="tx.state == 'done' and tx.reception_auto_confirmed"><span class="s-badge s-badge--green" title="El comprador no respondió en el plazo: la recepción se confirmó automáticamente"><t t-esc="s_tx_label"/> · automática</span></t>
+        <t t-elif="tx.state == 'done'"><span class="s-badge s-badge--green"><t t-esc="s_tx_label"/></span></t>
+        <t t-elif="tx.state == 'confirmed' and tx.reception_status == 'incidence'"><span class="s-badge" style="background:rgba(220,53,69,.10); color:#dc3545;" title="El comprador reportó un problema con la entrega">Con incidencia</span></t>
+        <t t-elif="tx.state == 'confirmed' and tx.dispatched_at"><span class="s-badge s-badge--teal" title="El vendedor marcó el despacho">Despachada</span></t>
         <t t-elif="tx.state == 'confirmed'"><span class="s-badge s-badge--teal"><t t-esc="s_tx_label"/></span></t>
         <t t-elif="tx.state == 'pending_acceptance'"><span class="s-badge s-badge--amber" title="El veredicto fue favorable: falta que comprador y vendedor firmen el informe">Pendiente de firmas</span></t>
         <t t-elif="tx.state == 'pending_verification'"><span class="s-badge s-badge--amber"><t t-esc="s_tx_label"/></span></t>
@@ -476,6 +504,11 @@
                             <i class="fa fa-check-circle me-1"></i> Recepción confirmada. El producto se agregó a tu inventario en estado <strong>borrador</strong>; publícalo cuando quieras desde «Mis productos».
                         </div>
                     </t>
+                    <t t-if="request.params.get('saved') == 'incidence'">
+                        <div class="alert alert-warning" style="border-radius:var(--shrimp-radius-sm);">
+                            <i class="fa fa-flag me-1"></i> Reporte enviado. La plataforma y el vendedor ya fueron avisados; la compra no se confirmará automáticamente mientras se revisa.
+                        </div>
+                    </t>
                     <t t-if="request.params.get('error') == 'receive'">
                         <div class="alert alert-warning" style="border-radius:var(--shrimp-radius-sm);">
                             <i class="fa fa-exclamation-triangle me-1"></i> <t t-esc="request.params.get('message') or 'No se pudo confirmar la recepción.'"/>
@@ -564,7 +597,7 @@
                                                                 <div class="text-muted small">
                                                                     Precio</div>
                                                                 <div class="fw-semibold">
-                                                                    <t t-set="pu2" t-value="tx.price_unit or (tx.product_id.price if tx.product_id else 0.0)"/>
+                                                                    <t t-set="pu2" t-value="tx.price_unit or 0.0"/>
                                                                     <!-- Mismo caso que la tabla de transacciones: el signo
                                                                          venía escrito a mano, no de la moneda. -->
                                                                     <span t-esc="pu2 or 0.0"
@@ -606,20 +639,21 @@
                                                          efecto en el inventario, o el aviso de cuándo podrá tomarse. -->
                                                     <div class="d-flex flex-wrap gap-2 align-items-center justify-content-end s-pc-actions">
 
-                                                        <!-- Confirmar recepción: sube el inventario del comprador (borrador),
-                                                             respetando la fecha de entrega -->
-                                                        <t t-if="tx.state == 'confirmed'">
-                                                            <t t-set="deliv" t-value="tx._delivery_date()"/>
-                                                            <t t-if="deliv &lt;= today">
-                                                                <form method="post" t-att-action="'/marketplace/purchases/%s/receive' % tx.uuid_ref" class="m-0">
-                                                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                                                    <button type="submit" class="s-btn s-btn-primary btn-sm"
-                                                                            onclick="return confirm('¿Confirmar la recepción? Se subirá el producto a tu inventario en estado borrador.');">
-                                                                        <i class="fa fa-truck me-1"></i> Confirmar recepción
-                                                                    </button>
-                                                                </form>
+                                                        <!-- Confirmar recepción: abre el formulario (nota y foto
+                                                             opcionales, o «Reportar un problema»). Disponible desde la
+                                                             fecha de entrega o desde que el vendedor marcó el despacho;
+                                                             con plazo, se muestra cuánto queda antes de la confirmación
+                                                             automática (shrimp_transaction_reception.py). -->
+                                                        <t t-if="tx.state == 'confirmed' and tx.shrimp_reception_pending()">
+                                                            <t t-call="shrimp_marketplace.s_reception_countdown"/>
+                                                            <t t-if="tx.shrimp_reception_window_open()">
+                                                                <button type="button" class="s-btn s-btn-primary btn-sm"
+                                                                        data-bs-toggle="modal" t-att-data-bs-target="'#recvModal%s' % tx.uuid_ref">
+                                                                    <i class="fa fa-truck me-1"></i> Confirmar recepción
+                                                                </button>
                                                             </t>
                                                             <t t-else="">
+                                                                <t t-set="deliv" t-value="tx._delivery_date()"/>
                                                                 <div class="s-badge s-badge--teal" style="text-align:center;">
                                                                     <i class="fa fa-clock-o me-1"></i> Entrega: <t t-esc="deliv.strftime('%d/%m/%Y')"/>
                                                                 </div>
@@ -706,6 +740,30 @@
                                                             <t t-if="rv.comment"><div class="text-soft" style="font-size:13px; margin-top:6px;">“<t t-esc="rv.comment"/>”</div></t>
                                                         </div>
                                                     </t>
+                                                </t>
+
+                                                <!-- Modal de recepción -->
+                                                <t t-if="tx.state == 'confirmed' and tx.shrimp_reception_pending() and tx.shrimp_reception_window_open()">
+                                                    <div class="modal fade" t-att-id="'recvModal%s' % tx.uuid_ref" tabindex="-1" aria-hidden="true">
+                                                        <div class="modal-dialog modal-dialog-centered">
+                                                            <div class="modal-content">
+                                                                <div class="modal-header">
+                                                                    <h5 class="modal-title">Recepción de <t t-esc="tx.name"/></h5>
+                                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                                                                </div>
+                                                                <div class="modal-body">
+                                                                    <p class="text-soft mb-2" style="font-size:var(--fs-sm);">
+                                                                        <t t-esc="tx.product_id.name"/> · <t t-esc="tx.seller_partner_id.name"/>
+                                                                        <t t-if="tx.reception_required and tx.reception_deadline and tx.reception_status == 'waiting'">
+                                                                            · confirma hasta el <t t-esc="tx.reception_deadline.strftime('%d/%m/%Y')"/>
+                                                                        </t>
+                                                                    </p>
+                                                                    <t t-set="rc_next" t-value="'/marketplace/purchases'"/>
+                                                                    <t t-call="shrimp_marketplace.s_reception_form"/>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
                                                 </t>
 
                                                 <!-- Modal de calificación -->
@@ -949,6 +1007,28 @@
                         </div>
                     </div>
                     <div t-if="error" class="alert alert-danger" role="alert"><t t-esc="error"/></div>
+                    <!-- D-43: plazo y bloqueo de la factura del vendedor. -->
+                    <t t-set="si_tx" t-value="tx.sudo()"/>
+                    <div t-if="si_tx.seller_invoice_status == 'pending'" class="alert alert-warning" role="status" id="si_deadline">
+                        <i class="fa fa-clock-o me-1" aria-hidden="true"/>
+                        <b>Registro obligatorio:</b> tienes hasta el <b t-esc="si_tx.seller_invoice_due_date.strftime('%d/%m/%Y')"/>
+                        para registrar la factura de esta venta (<t t-esc="si_tx._shrimp_invoice_days()"/> días desde que la compra se completó).
+                        Podrás corregirla hasta el <t t-esc="si_tx.seller_invoice_lock_date.strftime('%d/%m/%Y')"/>.
+                    </div>
+                    <div t-elif="si_tx.seller_invoice_status == 'overdue'" class="alert alert-danger" role="alert" id="si_deadline">
+                        <i class="fa fa-exclamation-triangle me-1" aria-hidden="true"/>
+                        <b>Factura vencida:</b> el plazo para registrarla venció el <b t-esc="si_tx.seller_invoice_due_date.strftime('%d/%m/%Y')"/>.
+                        Regístrala cuanto antes: la plataforma ve las ventas con la factura vencida.
+                    </div>
+                    <div t-elif="si_tx.seller_invoice_status == 'registered' and si_tx.seller_invoice_lock_date" class="alert alert-info" role="status" id="si_deadline">
+                        <i class="fa fa-info-circle me-1" aria-hidden="true"/>
+                        Puedes corregir la factura hasta el <b t-esc="si_tx.seller_invoice_lock_date.strftime('%d/%m/%Y')"/>; después queda bloqueada.
+                    </div>
+                    <div t-elif="si_tx.seller_invoice_status == 'locked'" class="alert alert-secondary" role="status" id="si_deadline">
+                        <i class="fa fa-lock me-1" aria-hidden="true"/>
+                        <b>Factura bloqueada:</b> pasaron más de <t t-esc="si_tx._shrimp_invoice_lock_days()"/> días desde que la compra se completó
+                        (se podía corregir hasta el <t t-esc="si_tx.seller_invoice_lock_date.strftime('%d/%m/%Y')"/>). Si hay un error, escribe a la plataforma.
+                    </div>
                     <div class="mp-table-card">
                         <div class="card-body p-4">
                             <div class="small text-muted mb-3">
@@ -959,6 +1039,7 @@
                             <form method="post" enctype="multipart/form-data"
                                   t-att-action="'/marketplace/sales/%s/invoice' % tx.uuid_ref">
                                 <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                <fieldset t-att-disabled="'disabled' if si_tx.seller_invoice_status == 'locked' else None">
                                 <div class="row g-3">
                                     <div class="col-md-6">
                                         <label class="form-label" for="seller_invoice_number">N.º de factura</label>
@@ -986,8 +1067,9 @@
                                         </div>
                                     </div>
                                 </div>
+                                </fieldset>
                                 <div class="d-flex gap-2 mt-4">
-                                    <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-save me-1"></i> Guardar</button>
+                                    <button t-if="si_tx.seller_invoice_status != 'locked'" type="submit" class="s-btn s-btn-primary"><i class="fa fa-save me-1"></i> Guardar</button>
                                     <a href="/marketplace/sales" class="s-btn s-btn-ghost">Volver a mis ventas</a>
                                 </div>
                             </form>

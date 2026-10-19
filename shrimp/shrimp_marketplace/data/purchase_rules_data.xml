@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Reglas de la compra (auditoría de procesos §10–11):
+       * fija UNA vez desde cuándo es obligatoria la factura del vendedor
+         (D-43): las ventas completadas antes del -u no reciben recordatorios
+         ni aparecen como vencidas;
+       * actualiza UNA vez los BORRADORES de los textos legales (nunca una
+         versión publicada) con las reglas D-17, D-26, D-27, D-29, D-42 y D-43.
+       Ver models/shrimp_purchase_rules.py y shrimp_purchase_rules_policy.py. -->
+  <function model="shrimp.transaction" name="_shrimp_init_purchase_rules"/>
+  <function model="shrimp.purchase.rules.policy" name="_shrimp_update_rules_drafts"/>
+</odoo>

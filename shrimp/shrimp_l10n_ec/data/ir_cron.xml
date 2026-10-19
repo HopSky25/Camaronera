@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Resumen diario de la cola SRI a los administradores de CamaronMarket
+       (solo si hay cobros pendientes/en error/rechazados o falta
+       configuración). Se desactiva en Ajustes › CamaronMarket. -->
+  <record id="ir_cron_shrimp_sri_daily_summary" model="ir.cron">
+    <field name="name">CamaronMarket: resumen diario de la cola SRI</field>
+    <field name="model_id" ref="shrimp_marketplace.model_shrimp_charge"/>
+    <field name="state">code</field>
+    <field name="code">model._cron_sri_daily_summary()</field>
+    <field name="interval_number">1</field>
+    <field name="interval_type">days</field>
+    <field name="nextcall" eval="(DateTime.now() + relativedelta(days=1)).strftime('%Y-%m-%d 12:00:00')"/>
+    <field name="active" eval="True"/>
+  </record>
+</odoo>

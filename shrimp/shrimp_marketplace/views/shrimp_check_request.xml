@@ -3,7 +3,7 @@
         <field name="name">shrimp.check.request.tree</field>
         <field name="model">shrimp.check.request</field>
         <field name="arch" type="xml">
-            <list>
+            <list create="0" edit="0" delete="0">
                 <field name="name" />
                 <field name="product_id" />
                 <field name="seller_partner_id" />
@@ -11,6 +11,7 @@
                 <field name="qty" />
                 <field name="uom_id" />
                 <field name="state" widget="badge" />
+                <field name="response_deadline" optional="show" />
                 <field name="transaction_id" />
                 <field name="reviewed_by" />
                 <field name="reviewed_date" />
@@ -22,27 +23,15 @@
         <field name="name">shrimp.check.request.form</field>
         <field name="model">shrimp.check.request</field>
         <field name="arch" type="xml">
-            <form string="Solicitud de chequeo">
+            <form string="Solicitud de chequeo" create="0" edit="0" delete="0">
                 <header>
-                    <button name="action_mark_under_review" type="object"
-                        string="Marcar en revisión"
-                        invisible="state != 'requested'" class="btn-secondary" />
-                    <button name="action_approve" type="object" string="Aprobar"
-                        invisible="state not in ('requested','under_review')" class="btn-primary" />
-                    <button name="action_reject" type="object" string="Rechazar"
-                        invisible="state not in ('requested','under_review')" class="btn-danger" />
-                    <button name="action_cancel" type="object" string="Cancelar"
-                        invisible="state in ('done','cancelled','rejected')" class="btn-secondary" />
-                    <button name="action_generate_check_documents" type="object"
-                        string="Generar pedido y factura"
-                        invisible="sale_order_id or check_fee &lt;= 0" class="btn-secondary" />
-                    <button name="action_open_sale_order" type="object"
-                        string="Ver pedido" invisible="not sale_order_id" />
-                    <button name="action_open_invoice" type="object"
-                        string="Ver factura" invisible="not invoice_id" />
                     <field name="state" widget="statusbar"
-                        statusbar_visible="requested,under_review,approved,rejected,done,cancelled" />
+                        statusbar_visible="requested,under_review,approved,rejected,cancelled,expired" />
                 </header>
+                <div class="alert alert-warning" role="alert">
+                    Flujo retirado: las solicitudes de chequeo se conservan solo para consulta.
+                    Se compra directo o con verificación en campo.
+                </div>
                 <sheet>
                     <group>
                         <group>
@@ -50,6 +39,7 @@
                             <field name="product_id" readonly="1" />
                             <field name="seller_partner_id" readonly="1" />
                             <field name="buyer_partner_id" readonly="1" />
+                            <field name="response_deadline" readonly="1" />
                         </group>
                         <group>
                             <field name="qty" readonly="1" />
@@ -61,7 +51,7 @@
                     <group string="Cobro del chequeo">
                         <group>
                             <field name="currency_id" invisible="1" />
-                            <field name="check_fee" />
+                            <field name="check_fee" readonly="1" />
                         </group>
                         <group>
                             <field name="sale_order_id" readonly="1" />
@@ -70,7 +60,7 @@
                         </group>
                     </group>
                     <group>
-                        <field name="note" />
+                        <field name="note" readonly="1" />
                     </group>
                 </sheet>
                 <chatter />
@@ -79,9 +69,10 @@
     </record>
 
     <record id="action_shrimp_check_request" model="ir.actions.act_window">
-        <field name="name">Solicitudes de chequeo</field>
+        <field name="name">Solicitudes de chequeo (histórico)</field>
         <field name="res_model">shrimp.check.request</field>
         <field name="view_mode">list,form</field>
+        <field name="context">{'create': False, 'edit': False, 'delete': False}</field>
     </record>
 
 

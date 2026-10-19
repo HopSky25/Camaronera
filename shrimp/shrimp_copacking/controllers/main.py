@@ -376,6 +376,11 @@ class ShrimpCopackClient(ShrimpPortalMixin, http.Controller):
             # Ordenadas por tarifa: lo primero que quiere ver quien compara.
             "ofertas": sol.sudo().offer_ids.filtered(
                 lambda o: o.state in ("sent", "accepted")).sorted("rate_per_lb"),
+            # D-47: las que el cliente rechazó o vencieron, aparte y sin acciones.
+            "ofertas_cerradas": sol.sudo().offer_ids.filtered(
+                lambda o: o.state in ("rejected", "expired", "cancelled", "withdrawn")
+                and o.closed_reason != "award"),
+            "hoy": fields.Date.context_today(sol),
             "mensaje": kw.get("mensaje"),
             "error": kw.get("error"),
         })
@@ -391,13 +396,14 @@ class ShrimpCopackClient(ShrimpPortalMixin, http.Controller):
         """
         self._solo_cliente()
         sol = self._mi_solicitud(ref)
-        if sol.state not in ("draft", "published"):
-            # Adjudicada ya hay una orden viva detras, y cancelar la solicitud
-            # la dejaria huerfana. Eso se resuelve en la orden, no aqui.
+        # La regla es la del modelo (shrimp_cancel_problem), la misma que usa
+        # la API: antes cada puerta tenía la suya (D-47, «unificar»).
+        problema = sol.sudo().shrimp_cancel_problem(actor=self._partner())
+        if problema:
             return request.redirect(
                 "/marketplace/copacking/requests/%s?error=%s"
-                % (sol.uuid_ref, flash_message("Esta solicitud ya no se puede cancelar "
-                                       "desde aquí: hay que resolverlo en la orden.")))
+                % (sol.uuid_ref, flash_message(problema)))
+        corregible = sol.state in ("draft", "published", "expired")
         # Los valores se leen ANTES de cancelar: corregir es volver a publicar
         # con lo mismo delante, no empezar de cero.
         params = {
@@ -423,12 +429,13 @@ class ShrimpCopackClient(ShrimpPortalMixin, http.Controller):
         # publicar ni borrar, y libras empacadas que la validacion nego.
         try:
             with request.env.cr.savepoint():
-                sol.sudo().action_cancel()
-        except (ValidationError, ValueError) as e:
+                sol.sudo().action_cancel(actor=self._partner(),
+                                         reason=(post.get("motivo") or "").strip() or None)
+        except (ValidationError, AccessError, ValueError) as e:
             return request.redirect("/marketplace/copacking/requests/%s?error=%s"
                                     % (sol.uuid_ref,
                                        flash_message(str(e.args[0] if e.args else e))))
-        if post.get("corregir"):
+        if post.get("corregir") and corregible:
             # No se edita una solicitud que las plantas ya estan mirando: se
             # cancela y se publica otra. Asi ninguna oferta queda colgando de
             # unas condiciones que cambiaron por detras.
@@ -459,6 +466,27 @@ class ShrimpCopackClient(ShrimpPortalMixin, http.Controller):
                                        flash_message(e.args[0] if e.args else "")))
         return request.redirect("/marketplace/copacking/orders/%s?mensaje=adjudicada"
                                 % orden.uuid_ref)
+
+    @http.route("/marketplace/copacking/offers/<ref>/reject", type="http", auth="user",
+                website=True, methods=["POST"], csrf=True)
+    def copack_offer_reject(self, ref, **post):
+        """D-47: el cliente rechaza una oferta concreta (motivo opcional)."""
+        self._solo_cliente()
+        oferta = request.env["shrimp.copack.offer"].sudo().resolve_ref(ref)
+        if not oferta:
+            raise NotFound()
+        if oferta.request_id.client_partner_id != self._partner():
+            raise Forbidden()
+        try:
+            with request.env.cr.savepoint():
+                oferta.action_reject(actor=self._partner(),
+                                     reason=(post.get("motivo") or "").strip() or None)
+        except (ValidationError, AccessError) as e:
+            return request.redirect("/marketplace/copacking/requests/%s?error=%s"
+                                    % (oferta.request_id.uuid_ref,
+                                       flash_message(e.args[0] if e.args else "")))
+        return request.redirect("/marketplace/copacking/requests/%s?mensaje=rechazada#ofertas"
+                                % oferta.request_id.uuid_ref)
 
     # ==================================================================
     # 2b. Empaque propio: la empresa empaca su camarón en su planta
@@ -586,7 +614,7 @@ class ShrimpCopackClient(ShrimpPortalMixin, http.Controller):
             # Dominio explicito: con search([]) un usuario interno (sin las
             # reglas del portal) veia las ordenes de todos los clientes.
             "ordenes": O.search(_dominio_ordenes(socio)),
-            "soy_maquilador": socio.shrimp_user_type == "maquilador",
+            "soy_maquilador": socio._shrimp_active_role() == "maquilador",
             # Botón «Registrar empaque propio» (o el aviso de qué perfil falta).
             "puede_empaque_propio": socio.sudo()._shrimp_self_pack_allowed(),
             "es_duenio_camaron": socio.sudo()._shrimp_can_any("request_copack"),
@@ -636,6 +664,11 @@ class ShrimpCopackClient(ShrimpPortalMixin, http.Controller):
                           if orden.sudo().acceptance_ids.filtered(lambda f: f.role == rol)
                           else {}),
             "undo_url": "/marketplace/copacking/orders/%s/undo-signature" % orden.uuid_ref,
+            # D-14 / D-34
+            "cancel_problem": orden.sudo().shrimp_cancel_problem(actor=socio),
+            "cancelacion": orden.sudo().pending_cancellation_id,
+            "cancelaciones": orden.sudo().cancellation_ids,
+            "plazo_txt": orden.sudo()._cpk_fmt_dt(orden.sudo().acceptance_deadline),
         })
 
     @http.route("/marketplace/copacking/orders/<ref>/cancel", type="http", auth="user",
@@ -650,8 +683,11 @@ class ShrimpCopackClient(ShrimpPortalMixin, http.Controller):
         orden = self._mi_orden(ref)
         try:
             with request.env.cr.savepoint():
-                orden.sudo().action_cancel()
-        except ValidationError as e:
+                # Quién cancela decide la regla (D-34): la planta con motivo y
+                # antes de recibir; el cliente antes de empacar.
+                orden.sudo().action_cancel(actor=self._partner(),
+                                           reason=(post.get("motivo") or "").strip() or None)
+        except (ValidationError, AccessError) as e:
             return request.redirect("/marketplace/copacking/orders/%s?error=%s"
                                     % (ref, flash_message(str(e.args[0] if e.args else e))))
         return request.redirect("/marketplace/copacking/orders/%s?mensaje=cancelada" % ref)
@@ -754,6 +790,27 @@ class ShrimpCopackClient(ShrimpPortalMixin, http.Controller):
         return request.redirect("/marketplace/copacking/orders/%s?mensaje=cerrada"
                                 % orden.uuid_ref)
 
+    @http.route("/marketplace/copacking/orders/<ref>/cancel/sign", type="http",
+                auth="user", website=True, methods=["POST"], csrf=True)
+    def copack_order_return_sign(self, ref, **post):
+        """D-34: el cliente firma (o rechaza) el acta de devolución de la planta."""
+        orden = self._mi_orden(ref)
+        socio = self._partner()
+        acta = orden.sudo().pending_cancellation_id
+        if not acta or acta.kind != "return" or socio != orden.client_partner_id:
+            raise NotFound()
+        try:
+            with request.env.cr.savepoint():
+                acta.action_client_sign(post.get("decision") == "accepted",
+                                        note=(post.get("motivo") or "").strip() or None,
+                                        actor=socio)
+        except (ValidationError, AccessError) as e:
+            return request.redirect("/marketplace/copacking/orders/%s?error=%s"
+                                    % (orden.uuid_ref, flash_message(e.args[0] if e.args else "")))
+        return request.redirect("/marketplace/copacking/orders/%s?mensaje=%s" % (
+            orden.uuid_ref, "devolucion" if post.get("decision") == "accepted"
+            else "devolucion_rechazada"))
+
 
 class ShrimpCopacker(http.Controller):
     """Las pantallas de quien presta el servicio: el maquilador.
@@ -765,7 +822,7 @@ class ShrimpCopacker(http.Controller):
     """
 
     def _maq(self):
-        socio = request.env.user.partner_id
+        socio = request.env.user.shrimp_actor_partner_id
         if not socio._shrimp_can("provide_copack"):
             raise Forbidden()
         # Un maquilador registrado por la web no opera hasta que la
@@ -867,7 +924,9 @@ class ShrimpCopacker(http.Controller):
             raise NotFound()
         return request.render("shrimp_copacking.copacker_request", {
             "sol": sol, "maq": maq, "mi_oferta": mia,
-            "puede_ofertar": sol.state == "published",
+            # La planta que canceló la orden no vuelve a ofertar sobre la
+            # solicitud reabierta (D-14).
+            "puede_ofertar": sol.state == "published" and not (mia and mia.state == "cancelled"),
             "error": kw.get("error"), "mensaje": kw.get("mensaje"),
         })
 
@@ -1076,6 +1135,45 @@ class ShrimpCopacker(http.Controller):
                                     % (ref, flash_message(str(e.args[0] if e.args else e))))
         return request.redirect("/marketplace/copacking/orders/%s?mensaje=empacada" % ref)
 
+    @http.route("/copacker/orders/<ref>/cancel/submit", type="http", auth="user",
+                website=True, methods=["POST"], csrf=True)
+    def copacker_return(self, ref, **post):
+        """D-34: con el camarón en planta, la planta propone un acta de
+        devolución (la firma el cliente) o pide la aprobación de la plataforma."""
+        orden = self._mi_orden(ref)
+        maq = self._maq()
+        try:
+            with request.env.cr.savepoint():
+                if post.get("via") == "platform":
+                    orden.sudo().action_request_platform_cancel(
+                        (post.get("motivo") or "").strip(), actor=maq)
+                else:
+                    orden.sudo().action_request_return(
+                        (post.get("motivo") or "").strip(),
+                        returned_lb=_decimal(post.get("returned_lb")),
+                        notes=(post.get("return_notes") or "").strip() or None, actor=maq)
+        except (ValidationError, AccessError, ValueError) as e:
+            return request.redirect("/marketplace/copacking/orders/%s?error=%s"
+                                    % (ref, flash_message(str(e.args[0] if e.args else e))))
+        return request.redirect("/marketplace/copacking/orders/%s?mensaje=%s" % (
+            ref, "pide_plataforma" if post.get("via") == "platform" else "devolucion_pedida"))
+
+    @http.route("/copacker/orders/<ref>/cancel/withdraw", type="http", auth="user",
+                website=True, methods=["POST"], csrf=True)
+    def copacker_return_withdraw(self, ref, **post):
+        orden = self._mi_orden(ref)
+        maq = self._maq()
+        pendiente = orden.sudo().pending_cancellation_id
+        if not pendiente:
+            raise NotFound()
+        try:
+            with request.env.cr.savepoint():
+                pendiente.action_withdraw(actor=maq)
+        except (ValidationError, AccessError) as e:
+            return request.redirect("/marketplace/copacking/orders/%s?error=%s"
+                                    % (ref, flash_message(e.args[0] if e.args else "")))
+        return request.redirect("/marketplace/copacking/orders/%s?mensaje=retirada" % ref)
+
     # ==================================================================
     # Tarifas
     # ==================================================================
@@ -1281,8 +1379,16 @@ class ShrimpCopacker(http.Controller):
             ("copacker_partner_id", "=", maq.id),
             ("es_facturable", "=", True),
         ])
+        # D-14: lo empacado sin firmar NO se liquida, pero la planta lo ve
+        # aparte («Por cobrar (sin firmar)»): a la firma o en disputa.
+        sin_firmar = request.env["shrimp.copack.order"].search([
+            ("copacker_partner_id", "=", maq.id), ("self_packing", "=", False),
+            ("state", "=", "packed"), ("acceptance_state", "in", ("open", "disputed")),
+        ], order="acceptance_deadline, id")
         return request.render("shrimp_copacking.copacker_settlements", {
             "ordenes": ordenes,
+            "sin_firmar": sin_firmar,
+            "total_sin_firmar": sum(sin_firmar.mapped("service_amount")),
             "total_servicio": sum(ordenes.mapped("service_amount")),
             "total_comision": sum(ordenes.mapped("platform_amount")),
             "total_libras": sum(ordenes.mapped("packed_lb")),

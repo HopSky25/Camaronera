@@ -22,7 +22,7 @@ class ShrimpCertificate(models.Model):
 
     role = fields.Selection(
         [
-            ("semillero", "Semillero"),
+            ("semillero", "Naupliero"),
             ("laboratorio", "Laboratorio"),
             ("camaronera", "Camaronera"),
             ("all", "Todos"),
@@ -84,6 +84,9 @@ class ShrimpCertificate(models.Model):
         help="Unidad de tiempo de vigencia del certificado.",
     )
 
+    required_at_signup = fields.Boolean(
+        string="Obligatorio al registrarse",
+        help="El asistente de alta exige adjuntarlo a quien elige este perfil.")
     active = fields.Boolean(
         default=True,
         tracking=True,

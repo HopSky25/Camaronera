@@ -3,14 +3,82 @@
         <field name="name">account.move.sri.community</field><field name="model">account.move</field><field name="inherit_id" ref="account.view_move_form"/>
         <field name="arch" type="xml">
             <xpath expr="//header" position="inside">
-                <button name="action_ec_sri_document" type="object" string="Comprobante SRI" invisible="state != 'posted' or move_type not in ('out_invoice','out_refund','in_invoice')"/>
-                <button name="action_ec_sri_retention" type="object" string="Crear retención SRI" invisible="state != 'posted' or move_type != 'in_invoice'"/>
+                <button name="action_ec_sri_emit" type="object" string="Enviar al SRI" class="btn-primary" groups="l10n_ec_sri_community.group_sri_user"
+                        invisible="state != 'posted' or move_type not in ('out_invoice','out_refund') or ec_sri_state in ('queued','waiting','authorized')"/>
+                <button name="action_ec_sri_document" type="object" string="Comprobante SRI" groups="l10n_ec_sri_community.group_sri_user"
+                        invisible="state != 'posted' or move_type not in ('out_invoice','out_refund','in_invoice')"/>
+                <button name="action_ec_sri_retention" type="object" string="Crear retención SRI" groups="l10n_ec_sri_community.group_sri_user"
+                        invisible="state != 'posted' or move_type != 'in_invoice'"/>
             </xpath>
-            <xpath expr="//notebook" position="inside"><page string="SRI Community" invisible="move_type == 'entry'">
-                <group><group><field name="ec_sri_supplier_authorization"/><field name="ec_sri_support_code"/><field name="ec_sri_reason"/><field name="ec_sri_ats_treatment"/><field name="ec_sri_ats_exclusion_reason" invisible="ec_sri_ats_treatment != 'electronic_exclusion'"/></group>
-                <group><field name="ec_sri_received_vat"/><field name="ec_sri_received_income"/><field name="ec_sri_plate"/></group></group>
+            <!-- Sucursal y punto de emisión: obligatorios en los comprobantes propios del SRI -->
+            <xpath expr="//field[@name='l10n_latam_document_number']" position="after">
+                <field name="ec_sri_point_required" invisible="1"/>
+                <field name="ec_sri_allowed_point_ids" invisible="1"/>
+                <field name="ec_sri_establishment_id" invisible="not ec_sri_point_required"
+                       required="ec_sri_point_required" readonly="posted_before" options="{'no_create': True}"/>
+                <field name="ec_sri_point_id" invisible="not ec_sri_point_required"
+                       required="ec_sri_point_required" readonly="posted_before or not ec_sri_establishment_id"
+                       options="{'no_create': True}"/>
+                <field name="ec_sri_next_number" invisible="not ec_sri_point_required or posted_before or not ec_sri_next_number"/>
+            </xpath>
+            <!-- El número lo pone el punto de emisión: no se escribe a mano -->
+            <xpath expr="//field[@name='l10n_latam_document_number']" position="attributes">
+                <attribute name="invisible">ec_sri_point_required or ((not l10n_latam_use_documents or not l10n_latam_manual_document_number) and (not l10n_latam_use_documents or highest_name or state != 'draft'))</attribute>
+                <attribute name="required">partner_id and l10n_latam_use_documents and l10n_latam_manual_document_number and not ec_sri_point_required</attribute>
+            </xpath>
+            <!-- Aviso: la venta no podrá ir al SRI si el diario no usa documentos -->
+            <xpath expr="//div[@name='button_box']" position="before">
+                <div class="alert alert-warning" role="alert"
+                     invisible="not ec_sri_point_required or l10n_latam_use_documents or state != 'draft'">
+                    Este diario no usa documentos del SRI: esta factura no se podrá enviar al SRI.
+                    Use un diario de ventas con <b>Usar documentos</b> activado.
+                </div>
+            </xpath>
+            <!-- Botón inteligente con el conteo de comprobantes SRI -->
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_ec_sri_open_documents" type="object" class="oe_stat_button" icon="fa-file-text-o" groups="l10n_ec_sri_community.group_sri_user"
+                        invisible="ec_sri_document_count == 0">
+                    <field name="ec_sri_document_count" widget="statinfo" string="Comprob. SRI"/>
+                </button>
+            </xpath>
+            <xpath expr="//notebook" position="inside"><page string="SRI Community" invisible="move_type == 'entry'" groups="l10n_ec_sri_community.group_sri_user">
+                <group>
+                    <group>
+                        <field name="ec_sri_state" widget="badge"
+                               decoration-success="ec_sri_state == 'authorized'"
+                               decoration-danger="ec_sri_state in ('rejected','error')"
+                               decoration-warning="ec_sri_state in ('queued','waiting')"
+                               decoration-muted="ec_sri_state in ('draft','cancelled')"
+                               invisible="not ec_sri_state"/>
+                        <field name="ec_sri_access_key" invisible="not ec_sri_access_key"/>
+                        <field name="ec_sri_authorization_number" invisible="not ec_sri_authorization_number"/>
+                        <field name="ec_sri_supplier_authorization"/><field name="ec_sri_support_code"/>
+                        <field name="ec_sri_reason"/><field name="ec_sri_ats_treatment"/>
+                        <field name="ec_sri_ats_exclusion_reason" invisible="ec_sri_ats_treatment != 'electronic_exclusion'"/>
+                    </group>
+                    <group><field name="ec_sri_received_vat"/><field name="ec_sri_received_income"/><field name="ec_sri_plate"/></group>
+                </group>
                 <field name="ec_sri_document_ids" readonly="1"><list><field name="name"/><field name="document_type"/><field name="state"/><field name="environment"/></list></field>
             </page></xpath>
+        </field>
+    </record>
+    <!-- Diario: la entidad y el punto de emisión salen del punto de emisión SRI -->
+    <record id="account_journal_sri_point_form" model="ir.ui.view">
+        <field name="name">account.journal.sri.point</field><field name="model">account.journal</field>
+        <field name="inherit_id" ref="l10n_ec.view_account_journal_form"/>
+        <field name="arch" type="xml">
+            <field name="l10n_ec_entity" position="before">
+                <field name="ec_sri_point_id" invisible="not l10n_ec_require_emission" options="{'no_create': True}"/>
+                <field name="ec_sri_establishment_id" invisible="not l10n_ec_require_emission or not ec_sri_point_id"/>
+            </field>
+            <field name="l10n_ec_entity" position="attributes">
+                <attribute name="readonly">ec_sri_point_id</attribute>
+                <attribute name="force_save">1</attribute>
+            </field>
+            <field name="l10n_ec_emission" position="attributes">
+                <attribute name="readonly">ec_sri_point_id</attribute>
+                <attribute name="force_save">1</attribute>
+            </field>
         </field>
     </record>
 </odoo>

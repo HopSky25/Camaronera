@@ -11,7 +11,13 @@
 | Concepto | Quién paga | Tarifa |
 |---|---|---|
 | **Comisión del marketplace** | El vendedor | **3 centavos por libra** |
-| **Honorario de verificación** | El comprador | **$250 base + 2 ¢/lb**, mínimo $300, máximo $800 |
+| **Honorario de verificación** | El comprador | **La tarifa publicada por la verificadora elegida** (base + USD por libra de su perfil). Solo si la verificadora no publicó tarifa: **$250 base + 2 ¢/lb**, mínimo $300, máximo $800 |
+
+> **Decisión D-40 (octubre 2026).** El honorario que se cobra es la tarifa
+> que cada verificadora publica en su perfil (`ver_fee_base` + `ver_fee_por_lb`
+> × cantidad), tal cual: el mínimo y el tope globales solo se aplican a la
+> tarifa global de respaldo. Si la orden pasa a otra verificadora, el honorario
+> se recalcula con la tarifa de la nueva (se anula o acredita el cobro anterior).
 
 ---
 

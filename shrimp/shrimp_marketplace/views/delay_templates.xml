@@ -1,0 +1,309 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ==================================================================
+         Retraso de entrega: aviso del vendedor, negociación de una ronda y
+         cancelación sin costo (models/shrimp_transaction_delay.py). Mismo
+         lenguaje que «Entrega y recepción» (.rc-) más lo propio (.rd-).
+         ================================================================== -->
+
+    <!-- Página de la compra: tarjeta «Retraso de entrega» debajo de
+         «Entrega y recepción». -->
+    <template id="traceability_screen_delay" inherit_id="shrimp_marketplace.traceability_screen"
+              priority="20" name="Trazabilidad - retraso de entrega">
+        <xpath expr="//div[@id='recepcion']" position="after">
+            <t t-set="rd_tx" t-value="tx.sudo()"/>
+            <t t-set="rd_me" t-value="request.env.user.shrimp_actor_partner_id"/>
+            <t t-set="rd_buyer" t-value="rd_me == rd_tx.buyer_partner_id"/>
+            <t t-set="rd_seller" t-value="rd_me == rd_tx.seller_partner_id"/>
+            <t t-set="rd_ok" t-value="rd_tx.reception_required and rd_tx._shrimp_is_direct_delivery()"/>
+            <t t-set="rd_hist" t-value="rd_ok and rd_tx.delay_ids.sorted(lambda d: (d.notice_date, d.id))"/>
+            <t t-set="rd_open" t-value="rd_ok and rd_tx.shrimp_delay_open()"/>
+            <t t-set="rd_can_notify" t-value="rd_ok and rd_seller and rd_tx.shrimp_delay_can_notify()"/>
+            <t t-set="rd_cause" t-value="rd_ok and rd_tx.shrimp_delay_cancel_cause()"/>
+            <t t-set="rd_live" t-value="rd_ok and rd_tx._shrimp_delay_applies() and not rd_tx.dispatched_at"/>
+            <div t-if="rd_ok and (rd_hist or rd_can_notify or rd_cause or (rd_live and rd_seller))"
+                 class="mp-table-card mb-4 rc-card rd-card" id="retraso">
+                <div class="card-body p-4">
+                    <div class="mp-sec-head">
+                        <span class="mp-sec-ico"><i class="fa fa-calendar-times-o"></i></span>
+                        <h3 class="mp-sec-title">Retraso de entrega</h3>
+                        <t t-if="rd_tx.state == 'cancel'">
+                            <span class="rc-chip rc-chip--danger ms-auto"><i class="fa fa-ban me-1"></i> <t t-esc="rd_tx.shrimp_cancel_label() if 'cancellation_ids' in rd_tx._fields else 'Compra cancelada sin costo'"/></span>
+                        </t>
+                        <t t-elif="rd_open and rd_open.state == 'proposed'">
+                            <span class="rc-chip rc-chip--warn ms-auto"><i class="fa fa-hourglass-half me-1"></i> Espera al comprador</span>
+                        </t>
+                        <t t-elif="rd_open and rd_open.state == 'countered'">
+                            <span class="rc-chip rc-chip--warn ms-auto"><i class="fa fa-exchange me-1"></i> Espera al vendedor</span>
+                        </t>
+                        <t t-elif="rd_cause">
+                            <span class="rc-chip rc-chip--danger ms-auto"><i class="fa fa-unlock me-1"></i> Se puede cancelar sin costo</span>
+                        </t>
+                        <t t-elif="rd_hist">
+                            <span class="rc-chip rc-chip--info ms-auto"><i class="fa fa-calendar-check-o me-1"></i> Fecha acordada: <t t-esc="rd_tx.delivery_date and rd_tx.delivery_date.strftime('%d/%m/%Y')"/></span>
+                        </t>
+                    </div>
+
+                    <!-- Avisos de la acción que se acaba de hacer -->
+                    <t t-set="rd_saved" t-value="request.params.get('saved')"/>
+                    <div t-if="rd_saved == 'delay_notified'" class="rc-alert rc-alert--ok">
+                        <i class="fa fa-paper-plane me-1"></i> Aviso enviado. El comprador tiene <t t-esc="rd_tx._shrimp_delay_response_hours()"/> horas para responder; si no responde, la nueva fecha queda aceptada.
+                    </div>
+                    <div t-if="rd_saved == 'delay_accepted'" class="rc-alert rc-alert--ok">
+                        <i class="fa fa-check-circle me-1"></i> Aceptaste la nueva fecha de entrega. Te avisaremos antes de la entrega.
+                    </div>
+                    <div t-if="rd_saved == 'delay_countered'" class="rc-alert rc-alert--ok">
+                        <i class="fa fa-exchange me-1"></i> Propuesta enviada. El vendedor tiene <t t-esc="rd_tx._shrimp_delay_response_hours()"/> horas para aceptarla o rechazarla.
+                    </div>
+                    <div t-if="rd_saved == 'delay_counter_accepted'" class="rc-alert rc-alert--ok">
+                        <i class="fa fa-check-circle me-1"></i> Aceptaste la fecha del comprador. La entrega quedó para el <t t-esc="rd_tx.delivery_date and rd_tx.delivery_date.strftime('%d/%m/%Y')"/>.
+                    </div>
+                    <div t-if="rd_saved == 'delay_counter_rejected'" class="rc-alert rc-alert--warn">
+                        <i class="fa fa-times-circle me-1"></i> Rechazaste la propuesta. La entrega sigue el <t t-esc="rd_tx.delivery_date and rd_tx.delivery_date.strftime('%d/%m/%Y')"/> y el comprador puede cancelar sin costo.
+                    </div>
+                    <div t-if="rd_saved == 'delay_cancelled'" class="rc-alert rc-alert--ok">
+                        <i class="fa fa-check-circle me-1"></i> Compra cancelada sin costo. El vendedor y la plataforma ya fueron avisados.
+                    </div>
+                    <div t-if="request.params.get('error') == 'delay'" class="rc-alert rc-alert--warn">
+                        <i class="fa fa-exclamation-triangle me-1"></i>
+                        <t t-esc="request.params.get('message') or 'No se pudo completar la acción.'"/>
+                    </div>
+
+                    <!-- Fechas -->
+                    <dl class="rd-facts">
+                        <div><dt>Fecha original</dt><dd><t t-esc="rd_tx.shrimp_delay_original_date() and rd_tx.shrimp_delay_original_date().strftime('%d/%m/%Y') or '—'"/></dd></div>
+                        <div><dt>Fecha acordada</dt><dd><t t-esc="rd_tx.delivery_date and rd_tx.delivery_date.strftime('%d/%m/%Y') or '—'"/></dd></div>
+                        <div><dt>Fecha máxima</dt><dd><t t-esc="rd_tx.shrimp_delay_cap_date() and rd_tx.shrimp_delay_cap_date().strftime('%d/%m/%Y') or '—'"/></dd></div>
+                        <div><dt>Avisos usados</dt><dd><t t-esc="len(rd_tx._shrimp_delay_notices())"/> de <t t-esc="rd_tx._shrimp_delay_max_notices()"/></dd></div>
+                    </dl>
+
+                    <!-- Historial -->
+                    <ol t-if="rd_hist" class="rd-tl">
+                        <t t-foreach="rd_hist" t-as="rd_d">
+                            <t t-foreach="rd_d.shrimp_events()" t-as="ev">
+                                <li t-att-class="'rd-ev rd-ev--%s' % ev['tone']">
+                                    <span class="rd-ev-dot"><i t-att-class="'fa %s' % ev['icon']"></i></span>
+                                    <div class="rd-ev-b">
+                                        <div class="rd-ev-t"><t t-esc="ev['title']"/></div>
+                                        <div class="rd-ev-d">
+                                            <t t-if="ev.get('pending')">hasta el <t t-esc="ev['date_label']"/></t>
+                                            <t t-else=""><t t-esc="ev['date_label']"/></t>
+                                            <t t-if="ev['detail']"> · <t t-esc="ev['detail']"/></t>
+                                        </div>
+                                        <div t-if="ev['note']" class="rc-step-n">“<t t-esc="ev['note']"/>”</div>
+                                    </div>
+                                </li>
+                            </t>
+                        </t>
+                    </ol>
+
+                    <t t-set="rd_back" t-value="'/marketplace/purchases/%s/traceability#retraso' % rd_tx.uuid_ref"/>
+
+                    <!-- ===================== Vendedor ===================== -->
+                    <t t-if="rd_seller and rd_tx.state == 'confirmed'">
+                        <div t-if="rd_open and rd_open.state == 'countered'" class="rd-box">
+                            <div class="rd-box-t">
+                                El comprador propone entregar el <strong t-esc="rd_open.counter_date.strftime('%d/%m/%Y')"/>
+                                (tú propusiste el <t t-esc="rd_open.new_date.strftime('%d/%m/%Y')"/>).
+                            </div>
+                            <p class="rc-help mt-1 mb-0">Responde hasta el <t t-esc="rd_tx.shrimp_fmt_dt(rd_open.seller_deadline)"/>. Si la rechazas o no respondes, la entrega sigue el <t t-esc="rd_tx.delivery_date.strftime('%d/%m/%Y')"/> y el comprador puede cancelar sin costo; si cancela, recibes un strike.</p>
+                            <div class="rc-actions">
+                                <form method="post" class="rc-form" t-att-action="'/marketplace/sales/%s/delay/accept' % rd_tx.uuid_ref">
+                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                    <input type="hidden" name="next" t-att-value="rd_back"/>
+                                    <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-check me-1"></i> Aceptar <t t-esc="rd_open.counter_date.strftime('%d/%m/%Y')"/></button>
+                                </form>
+                                <form method="post" class="rc-form" t-att-action="'/marketplace/sales/%s/delay/reject' % rd_tx.uuid_ref">
+                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                    <input type="hidden" name="next" t-att-value="rd_back"/>
+                                    <button type="submit" class="s-btn rd-btn-ghost-danger"><i class="fa fa-times me-1"></i> Rechazar</button>
+                                </form>
+                            </div>
+                        </div>
+                        <div t-elif="rd_open and rd_open.state == 'proposed'" class="rc-alert rc-alert--info">
+                            <i class="fa fa-hourglass-half me-1"></i> Esperando la respuesta del comprador hasta el <t t-esc="rd_tx.shrimp_fmt_dt(rd_open.buyer_deadline)"/>. Si no responde, tu nueva fecha queda aceptada.
+                        </div>
+                        <details t-elif="rd_can_notify" class="rc-issue rd-notify" t-att-open="'open' if request.params.get('error') == 'delay' else None">
+                            <summary><i class="fa fa-calendar-times-o me-1"></i> Notificar retraso de entrega</summary>
+                            <form method="post" class="rc-form" t-att-action="'/marketplace/sales/%s/delay' % rd_tx.uuid_ref">
+                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                <input type="hidden" name="next" t-att-value="rd_back"/>
+                                <div class="rd-grid">
+                                    <div>
+                                        <label class="rc-label" for="rdNewDate">Nueva fecha de entrega</label>
+                                        <input type="date" class="form-control" name="new_date" id="rdNewDate" required="required"
+                                               t-att-min="rd_tx.shrimp_delay_min_new_date().isoformat()"
+                                               t-att-max="rd_tx.shrimp_delay_cap_date().isoformat()"/>
+                                    </div>
+                                    <div>
+                                        <label class="rc-label" for="rdReason">Motivo</label>
+                                        <select class="form-select" name="reason" id="rdReason" required="required">
+                                            <option value="">Elige…</option>
+                                            <option value="aguaje">Aguaje / clima</option>
+                                            <option value="production">Producción</option>
+                                            <option value="sanitary">Sanitario</option>
+                                            <option value="transport">Transporte</option>
+                                            <option value="other">Otro</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <label class="rc-label mt-2" for="rdNote">Nota para el comprador <span class="rc-opt">(opcional)</span></label>
+                                <textarea class="form-control" name="note" id="rdNote" rows="2" maxlength="2000"
+                                          placeholder="Ej.: el aguaje no permite cosechar hasta el lunes."></textarea>
+                                <div class="rc-actions">
+                                    <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-paper-plane me-1"></i> Enviar aviso al comprador</button>
+                                </div>
+                                <p class="rc-help">
+                                    Te quedan <t t-esc="rd_tx.shrimp_delay_notices_left()"/> aviso(s) en esta compra. La fecha nueva no puede pasar del
+                                    <t t-esc="rd_tx.shrimp_delay_cap_date().strftime('%d/%m/%Y')"/> (fecha original + <t t-esc="rd_tx._shrimp_delay_max_days()"/> días).
+                                    El comprador tiene <t t-esc="rd_tx._shrimp_delay_response_hours()"/> horas para aceptar o proponer otra fecha; si no responde, se da por aceptada.
+                                    Un retraso avisado y aceptado no da strike; solo cuenta en tus «Entregas a tiempo».
+                                </p>
+                            </form>
+                        </details>
+                        <p t-elif="rd_live" class="rc-help mb-0"><i class="fa fa-info-circle me-1"></i><t t-esc="rd_tx.shrimp_delay_notify_problem()"/></p>
+                    </t>
+
+                    <!-- ===================== Comprador ===================== -->
+                    <t t-if="rd_buyer and rd_tx.state == 'confirmed'">
+                        <div t-if="rd_open and rd_open.state == 'proposed'" class="rd-box rd-box--warn">
+                            <div class="rd-box-t">
+                                El vendedor propone entregar el <strong t-esc="rd_open.new_date.strftime('%d/%m/%Y')"/>
+                                en lugar del <t t-esc="rd_open.old_date.strftime('%d/%m/%Y')"/>.
+                            </div>
+                            <p class="rc-help mt-1 mb-0">Responde hasta el <t t-esc="rd_tx.shrimp_fmt_dt(rd_open.buyer_deadline)"/>. Si no respondes, la nueva fecha se da por aceptada. Puedes proponer otra fecha una sola vez.</p>
+                            <div class="rc-actions">
+                                <form method="post" class="rc-form" t-att-action="'/marketplace/purchases/%s/delay/accept' % rd_tx.uuid_ref">
+                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                    <input type="hidden" name="next" t-att-value="rd_back"/>
+                                    <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-check me-1"></i> Aceptar nueva fecha</button>
+                                </form>
+                            </div>
+                            <details class="rc-issue rd-counter mt-3" t-att-open="'open' if request.params.get('error') == 'delay' else None">
+                                <summary><i class="fa fa-exchange me-1"></i> Proponer otra fecha</summary>
+                                <form method="post" class="rc-form" t-att-action="'/marketplace/purchases/%s/delay/counter-offer' % rd_tx.uuid_ref">
+                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                    <input type="hidden" name="next" t-att-value="rd_back"/>
+                                    <label class="rc-label" for="rdCounter">Fecha que propones</label>
+                                    <input type="date" class="form-control rd-date" name="counter_date" id="rdCounter" required="required"
+                                           t-att-min="max(rd_open.old_date, rd_tx._shrimp_today()).isoformat()"
+                                           t-att-max="rd_tx.shrimp_delay_cap_date().isoformat()"/>
+                                    <label class="rc-label mt-2" for="rdCounterNote">Nota para el vendedor <span class="rc-opt">(opcional)</span></label>
+                                    <textarea class="form-control" name="note" id="rdCounterNote" rows="2" maxlength="2000"
+                                              placeholder="Ej.: necesito la larva antes del llenado de la piscina."></textarea>
+                                    <div class="rc-actions">
+                                        <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-paper-plane me-1"></i> Enviar propuesta</button>
+                                    </div>
+                                    <p class="rc-help">Hasta el <t t-esc="rd_tx.shrimp_delay_cap_date().strftime('%d/%m/%Y')"/>. El vendedor tiene <t t-esc="rd_tx._shrimp_delay_response_hours()"/> horas: si la rechaza o no responde, podrás cancelar la compra sin costo.</p>
+                                </form>
+                            </details>
+                        </div>
+                        <div t-elif="rd_open and rd_open.state == 'countered'" class="rc-alert rc-alert--info">
+                            <i class="fa fa-hourglass-half me-1"></i> Propusiste entregar el <t t-esc="rd_open.counter_date.strftime('%d/%m/%Y')"/>. El vendedor responde hasta el <t t-esc="rd_tx.shrimp_fmt_dt(rd_open.seller_deadline)"/>; si no responde, cuenta como rechazada y podrás cancelar sin costo.
+                        </div>
+                        <div t-if="rd_cause" class="rd-box rd-box--danger">
+                            <div class="rd-box-t"><i class="fa fa-unlock me-1"></i> Puedes cancelar esta compra sin costo</div>
+                            <p class="rc-help mt-1 mb-0">Motivo: <t t-esc="rd_tx.shrimp_delay_cancel_cause_label()"/>. También puedes seguir esperando la entrega.</p>
+                            <details class="rc-issue rd-cancel mt-3">
+                                <summary><i class="fa fa-ban me-1"></i> Cancelar compra</summary>
+                                <form method="post" class="rc-form" t-att-action="'/marketplace/purchases/%s/cancel' % rd_tx.uuid_ref">
+                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                    <input type="hidden" name="next" t-att-value="rd_back"/>
+                                    <ul class="rd-effects">
+                                        <li>La compra queda cancelada y no pagas nada por ella.</li>
+                                        <li>El producto vuelve al lote del vendedor.</li>
+                                        <li>La plataforma anula la comisión del vendedor y, si pagaste una verificación que no se hizo, también se anula.</li>
+                                        <li>El vendedor recibe un strike por el incumplimiento.</li>
+                                    </ul>
+                                    <label class="rc-label" for="rdCancelNote">Nota <span class="rc-opt">(opcional)</span></label>
+                                    <textarea class="form-control" name="note" id="rdCancelNote" rows="2" maxlength="2000"
+                                              placeholder="Ej.: ya compré a otro proveedor."></textarea>
+                                    <div class="rc-actions">
+                                        <button type="submit" class="s-btn rc-btn-danger"><i class="fa fa-ban me-1"></i> Confirmar cancelación</button>
+                                    </div>
+                                    <p class="rc-help">Esta acción no se puede deshacer.</p>
+                                </form>
+                            </details>
+                        </div>
+                    </t>
+                </div>
+            </div>
+        </xpath>
+    </template>
+
+    <!-- Ventas (tabla y tarjeta móvil): «Notificar retraso» y
+         «Responder contrapropuesta». -->
+    <template id="sales_list_delay" inherit_id="shrimp_marketplace.marketplace_transaction_history"
+              name="Ventas - retraso de entrega">
+        <xpath expr="//t[contains(@t-if, 'not tx.dispatched_at') and contains(@t-if, '_shrimp_is_direct_delivery')]" position="after">
+            <t t-if="mode == 'sales' and tx.state == 'confirmed'">
+                <t t-set="rd_open" t-value="tx.sudo().shrimp_delay_open()"/>
+                <a t-if="rd_open and rd_open.state == 'countered'" class="s-btn s-btn-primary btn-sm mt-1"
+                   t-att-href="'/marketplace/purchases/%s/traceability#retraso' % tx.uuid_ref">
+                    <i class="fa fa-exchange me-1"></i> Responder contrapropuesta
+                </a>
+                <a t-elif="tx.sudo().shrimp_delay_can_notify()" class="s-btn s-btn-ghost btn-sm mt-1"
+                   t-att-href="'/marketplace/purchases/%s/traceability#retraso' % tx.uuid_ref">
+                    <i class="fa fa-calendar-times-o me-1"></i> Notificar retraso
+                </a>
+                <span t-elif="rd_open" class="rc-chip rc-chip--warn mt-1"><i class="fa fa-hourglass-half me-1"></i> Retraso avisado</span>
+            </t>
+        </xpath>
+        <xpath expr="//div[@data-s-tx-actions]/a[contains(@t-if, 'dispatched_at')]" position="after">
+            <t t-if="mode == 'sales' and tx.state == 'confirmed'">
+                <t t-set="rd_open" t-value="tx.sudo().shrimp_delay_open()"/>
+                <a t-if="rd_open and rd_open.state == 'countered'" class="s-btn s-btn-primary"
+                   t-att-href="'/marketplace/purchases/%s/traceability#retraso' % tx.uuid_ref">
+                    <i class="fa fa-exchange me-1"></i> Responder contrapropuesta
+                </a>
+                <a t-elif="tx.sudo().shrimp_delay_can_notify()" class="s-btn s-btn-ghost"
+                   t-att-href="'/marketplace/purchases/%s/traceability#retraso' % tx.uuid_ref">
+                    <i class="fa fa-calendar-times-o me-1"></i> Notificar retraso
+                </a>
+            </t>
+        </xpath>
+    </template>
+
+    <!-- Mis compras: responder el aviso o cancelar sin costo. -->
+    <template id="purchases_list_delay" inherit_id="shrimp_marketplace.marketplace_purchased_products"
+              name="Compras - retraso de entrega">
+        <xpath expr="//div[hasclass('s-pc-actions')]/*[1]" position="before">
+            <t t-if="tx.state == 'confirmed'">
+                <t t-set="rd_open" t-value="tx.sudo().shrimp_delay_open()"/>
+                <a t-if="rd_open and rd_open.state == 'proposed'" class="s-btn s-btn-primary btn-sm"
+                   t-att-href="'/marketplace/purchases/%s/traceability#retraso' % tx.uuid_ref"
+                   t-att-title="'El vendedor propone entregar el %s' % rd_open.new_date.strftime('%d/%m/%Y')">
+                    <i class="fa fa-calendar-times-o me-1"></i> Retraso: responder
+                </a>
+                <span t-elif="rd_open" class="rc-chip rc-chip--info"><i class="fa fa-hourglass-half me-1"></i> Esperando al vendedor</span>
+                <a t-if="tx.sudo().shrimp_delay_cancel_cause()" class="s-btn rd-btn-ghost-danger btn-sm"
+                   t-att-href="'/marketplace/purchases/%s/traceability#retraso' % tx.uuid_ref">
+                    <i class="fa fa-ban me-1"></i> Cancelar sin costo
+                </a>
+            </t>
+        </xpath>
+    </template>
+
+    <!-- Perfil público del vendedor: cumplimiento de entregas (los strikes
+         NO se muestran en público). -->
+    <template id="seller_storefront_delivery" inherit_id="shrimp_marketplace.seller_storefront"
+              name="Vendedor - cumplimiento de entregas">
+        <xpath expr="//div[hasclass('col-lg-4')]/*[1]" position="before">
+            <t t-set="rd_seller" t-value="seller.sudo()"/>
+            <div t-if="rd_seller.shrimp_delivery_count" class="s-panel s-card--pad mb-4 rd-rep">
+                <h4 style="font-size:var(--fs-lg); font-weight:700; margin-bottom:12px;">Cumplimiento de entregas</h4>
+                <div class="rd-rep-row">
+                    <div class="rd-rep-item">
+                        <div class="rd-rep-n"><t t-esc="'%.0f' % rd_seller.shrimp_delivery_ok_pct"/> %</div>
+                        <div class="rd-rep-l">Entregas cumplidas</div>
+                    </div>
+                    <div class="rd-rep-item">
+                        <div class="rd-rep-n"><t t-esc="'%.0f' % rd_seller.shrimp_ontime_pct"/> %</div>
+                        <div class="rd-rep-l">Entregas a tiempo</div>
+                    </div>
+                </div>
+                <div class="rc-help">Sobre <t t-esc="rd_seller.shrimp_delivery_count"/> entrega(s) cerrada(s) en la plataforma.</div>
+            </div>
+        </xpath>
+    </template>
+</odoo>

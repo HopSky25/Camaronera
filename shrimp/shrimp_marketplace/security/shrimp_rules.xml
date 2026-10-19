@@ -22,7 +22,7 @@
     <field name="perm_write" eval="False"/>
     <field name="perm_create" eval="False"/>
     <field name="perm_unlink" eval="False"/>
-    <field name="domain_force">[('seller_partner_id', '=', user.partner_id.id)]</field>
+    <field name="domain_force">[('seller_partner_id', '=', user.shrimp_actor_partner_id.id)]</field>
   </record>
 
   <!-- Transacciones: portal LEE las suyas (comprador o vendedor) -->
@@ -34,6 +34,6 @@
     <field name="perm_write" eval="False"/>
     <field name="perm_create" eval="False"/>
     <field name="perm_unlink" eval="False"/>
-    <field name="domain_force">['|', ('seller_partner_id','=',user.partner_id.id), ('buyer_partner_id','=',user.partner_id.id)]</field>
+    <field name="domain_force">['|', ('seller_partner_id','=',user.shrimp_actor_partner_id.id), ('buyer_partner_id','=',user.shrimp_actor_partner_id.id)]</field>
   </record>
 </odoo>

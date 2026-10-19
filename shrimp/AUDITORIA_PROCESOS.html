@@ -1,0 +1,3050 @@
+<!DOCTYPE html><html lang='es'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Auditoría de procesos — CamaronMarket</title><style>body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:1200px;margin:2rem auto;padding:0 1.5rem;color:#1f2933;line-height:1.5;font-size:15px}
+h1{border-bottom:3px solid #0b6e79;padding-bottom:.4rem;color:#0b4f57}h2{border-bottom:1px solid #cbd2d9;padding-bottom:.3rem;margin-top:2.5rem;color:#0b4f57}h3{color:#334e68;margin-top:1.6rem}
+table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:13.5px;display:block;overflow-x:auto}th,td{border:1px solid #d9e2ec;padding:6px 8px;vertical-align:top;text-align:left}th{background:#f0f4f8}tr:nth-child(even) td{background:#fafbfc}
+pre{background:#f5f7fa;border:1px solid #d9e2ec;border-radius:6px;padding:12px;overflow-x:auto;font-size:12.5px;line-height:1.35}code{background:#f0f4f8;padding:1px 4px;border-radius:3px;font-size:90%}pre code{background:none;padding:0}
+blockquote{border-left:4px solid #f0b429;background:#fffbea;margin:1rem 0;padding:.5rem 1rem}strong{color:#102a43}a{color:#0b6e79}</style></head><body><h1 id="auditoria-de-procesos-de-negocio-camaronmarket-odoo-19">Auditoría de procesos de negocio — CamaronMarket (Odoo 19)</h1>
+<p><strong>Objetivo:</strong> encontrar toda <strong>rama no definida</strong>: un estado, condición o evento para el que el sistema no tiene comportamiento definido. Incluye:</p>
+<ul>
+<li>callejones sin salida y estados sin salida;</li>
+<li>falta de plazos, de cancelación o de reversa;</li>
+<li>rechazos no manejados y acciones sin inversa;</li>
+<li>crons que no cubren un estado y avisos que faltan;</li>
+<li>permisos indefinidos para un perfil o una sub-cuenta;</li>
+<li>datos que pueden quedar inconsistentes;</li>
+<li>flujos que dependen de una acción manual del administrador sin interfaz;</li>
+<li>contradicciones entre textos legales y código, entre Ajustes y código, y entre portal y API.</li>
+</ul>
+<p><strong>Alcance:</strong> <code>/opt/odoo/custom_addons/shrimp</code>, módulos <code>shrimp_user_registry</code>, <code>shrimp_marketplace</code>, <code>shrimp_verification</code>, <code>shrimp_packer</code>, <code>shrimp_copacking</code>, <code>shrimp_api</code>, <code>shrimp_api_sri</code> y <code>shrimp_l10n_ec</code>, más el módulo externo <code>l10n_ec_sri_community</code> en lo que toca a los cobros.</p>
+<p><strong>Fecha:</strong> 14-10-2026.</p>
+<p><strong>Método:</strong> auditoría de <strong>solo lectura</strong>.</p>
+<ul>
+<li>Se leyeron los modelos (campos de estado y métodos de transición), los controladores del portal y de la API, los crons (<code>data/*.xml</code>), las plantillas y avisos, los Ajustes, la matriz de verificación, el gate legal y los permisos de sub-cuentas.</li>
+<li>No se modificó ningún archivo de <code>custom_addons</code>, no se escribió en la base y no se reinició ningún servicio.</li>
+<li>La evidencia de la base <strong>Pruebas</strong> sale solo de consultas SELECT.</li>
+</ul>
+<p><strong>Leyenda de la tabla de ramas:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Estado</th>
+<th>Significado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Definida</strong></td>
+<td>El código cubre la rama.</td>
+</tr>
+<tr>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>No hay comportamiento.</td>
+</tr>
+<tr>
+<td><strong>Parcial</strong></td>
+<td>Está cubierta a medias: sin aviso, sin interfaz, sin plazo o solo por un canal.</td>
+</tr>
+<tr>
+<td><strong>Contradicción</strong></td>
+<td>Dos fuentes (código, Ajustes, texto legal, portal o API) dicen cosas distintas.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Prioridades:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Prioridad</th>
+<th>Criterio</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="background:#ffe3e3"><strong>Crítico</strong></td>
+<td>Inconsistencia de dinero, stock o legal, o transacciones atascadas.</td>
+</tr>
+<tr>
+<td><strong>Alto</strong></td>
+<td>Operación bloqueada o riesgo de abuso.</td>
+</tr>
+<tr>
+<td><strong>Medio</strong></td>
+<td>Fricción u omisión con salida manual.</td>
+</tr>
+<tr>
+<td><strong>Bajo</strong></td>
+<td>Limpieza.</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Advertencia sobre la evidencia en BD.</strong> Pruebas es una base de demostración cargada el 12-10-2026 y re-escrita el 14-10 a las 04:48. En <code>write_date</code> y <code>mail_tracking_value</code> la antigüedad máxima en el estado actual es de unos 2 días. Por eso la antigüedad real se mide con <strong>fechas de negocio</strong>: <code>sold_date</code>, <code>delivery_date</code>, <code>assigned_date</code>, <code>field_start_date</code>, <code>packed_date</code> y <code>needed_to</code>.</p>
+<p>Los registros atascados que se citan son <strong>estructurales</strong>: ningún código ni cron los saca de su estado. Se citan aunque su antigüedad venga de los datos sembrados.</p>
+<p>Muchos cobros tienen <code>invoice_attempts = 5</code> porque los sembró así el script de demo, para no facturar.</p>
+<p><strong>Trabajo en curso de otro agente.</strong> La implementación de avisos de retraso, negociación de una ronda, strikes y cancelación del comprador con reversa de stock <strong>ya está en el código</strong>: <code>shrimp_transaction_delay.py</code>, <code>shrimp_seller_strike.py</code>, <code>shrimp_delay_policy.py</code> y Ajustes, versión 19.0.1.27.0. Se audita tal como estaba a las 06:57.</p>
+<p>Esa implementación <strong>no está desplegada</strong> en Pruebas: no existen las tablas y la base está en 19.0.1.25.0.</p>
+</blockquote>
+<hr />
+<h2 id="indice">Índice</h2>
+<ol>
+<li><a href="#1-resumen-ejecutivo-los-10-huecos-principales">Resumen ejecutivo</a></li>
+<li><a href="#2-ciclo-de-vida-de-la-cuenta-proceso-a">Ciclo de vida de la cuenta</a></li>
+<li><a href="#3-ciclo-de-vida-del-producto-proceso-b">Ciclo de vida del producto</a></li>
+<li><a href="#4-ciclo-de-vida-de-la-compra-shrimptransaction-proceso-c">Ciclo de vida de la compra</a></li>
+<li><a href="#5-empacadora-listas-de-precios-reservas-de-cosecha-y-exportaciones-proceso-d">Empacadora: listas, reservas y exportaciones</a></li>
+<li><a href="#6-verificacion-y-verificador-proceso-f">Verificación y verificador</a></li>
+<li><a href="#7-copacking-maquila-proceso-e">Copacking / maquila</a></li>
+<li><a href="#8-facturacion-de-la-plataforma-y-sri-proceso-g">Facturación de la plataforma y SRI</a></li>
+<li><a href="#9-api-webhooks-crons-notificaciones-y-trazabilidad-procesos-h-i-j">API, webhooks, crons, notificaciones y trazabilidad</a></li>
+<li><a href="#10-lista-priorizada-de-huecos-y-recomendaciones">Lista priorizada de huecos</a></li>
+<li><a href="#11-decision-requerida-preguntas-para-el-usuario">Decisión requerida</a></li>
+</ol>
+<h2 id="1-resumen-ejecutivo-los-10-huecos-principales">1. Resumen ejecutivo — los 10 huecos principales</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Prioridad</th>
+<th>Hueco</th>
+<th>Efecto concreto</th>
+<th>Sección</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td style="background:#ffe3e3"><strong>Crítico</strong></td>
+<td><strong>Una compra verificada se queda en «confirmed» para siempre.</strong> Al aceptarse el informe pasa a «confirmed», pero no lleva confirmación de recepción. El portal no muestra el botón «Confirmar recepción» y el cron no la cierra; solo la API puede hacerlo.</td>
+<td><strong>35 compras atascadas</strong>, la más antigua con entrega del 19-12-2025. La empacadora nunca recibe su lote, así que no puede empacar ni exportar. Como camaronera→empacadora es <strong>obligatoria</strong>, afecta a <strong>toda compra de camarón adulto</strong>.</td>
+<td>§4</td>
+</tr>
+<tr>
+<td>2</td>
+<td style="background:#ffe3e3"><strong>Crítico</strong></td>
+<td><strong>La verificación de plataforma no tiene plazo ni salida.</strong> No hay timeout para received, assigned, in_field ni done. Nadie puede cancelarla desde una pantalla: el botón no existe en el portal ni en el back-office.</td>
+<td><strong>57 compras</strong> en <code>pending_verification</code> con stock reservado, vendidas entre marzo y julio de 2026. Ejemplo: si la verificadora no se presenta, la compra y el stock quedan retenidos indefinidamente.</td>
+<td>§6</td>
+</tr>
+<tr>
+<td>3</td>
+<td style="background:#ffe3e3"><strong>Crítico</strong></td>
+<td><strong>La recepción se confirma sola aunque el vendedor nunca despachó.</strong> El cron no mira <code>dispatched_at</code>.</td>
+<td>A D+11 la compra pasa a «done», se registra «el vendedor cumplió» y se crea inventario del comprador sin mercadería. Contradice los strikes y la cancelación sin costo. Hay 24 compras en esa ruta: 0 despachadas y autoconfirmación prevista para el 24-10.</td>
+<td>§4</td>
+</tr>
+<tr>
+<td>4</td>
+<td style="background:#ffe3e3"><strong>Crítico</strong></td>
+<td><strong>El SRI no cierra el circuito de facturación.</strong> Las notas de crédito nunca se envían al SRI. Si el SRI rechaza una factura, el cobro sigue «invoiced» y nadie recibe aviso. Con el SRI activo y sin diario de servicios, se usa «Sales», que no emite documentos.</td>
+<td><strong>0 cobros facturados</strong> en Pruebas. 17 en error (16 por el diario). 1.169 pendientes sin aviso, 1.029 con más de 30 días.</td>
+<td>§8</td>
+</tr>
+<tr>
+<td>5</td>
+<td style="background:#ffe3e3"><strong>Crítico</strong></td>
+<td><strong>No hay cancelación general de una compra.</strong> Ni el vendedor ni la plataforma (back-office) pueden cancelar una compra confirmada. Una incidencia solo se resuelve como «recibida» o «reabrir».</td>
+<td>Si el lote murió o la mercadería no llegó, no hay cómo devolver el stock ni anular la comisión. Hay que tocar la base.</td>
+<td>§4, §8</td>
+</tr>
+<tr>
+<td>6</td>
+<td style="background:#ffe3e3"><strong>Crítico</strong></td>
+<td><strong>La API ignora la aprobación de la cuenta y el gate legal MAYOR.</strong></td>
+<td>Una empacadora o un maquilador <strong>pendiente o rechazado</strong> puede crear claves API y operar: emitir listas, comprometer cosechas y ofertar maquila. Quien no aceptó los Términos MAYORES opera por POST o API.</td>
+<td>§2, §7, §9</td>
+</tr>
+<tr>
+<td>7</td>
+<td style="background:#ffe3e3"><strong>Crítico</strong></td>
+<td><strong>Los derechos LOPDP no tienen proceso.</strong> La solicitud es solo una nota interna, <code>shrimp.dpo_email</code> no está configurado y no hay eliminación ni anonimización. Tampoco se cumple la purga de rechazados a 12 meses que promete la Política de Privacidad §5.</td>
+<td>Hay un incumplimiento legal posible ante cualquier solicitud.</td>
+<td>§2</td>
+</tr>
+<tr>
+<td>8</td>
+<td style="background:#ffe3e3"><strong>Crítico</strong></td>
+<td><strong>Una reserva de cosecha cumplida no queda reservada.</strong> El lote nace publicado para cualquier comprador y sin plazo de compra para la empacadora comprometida. Si la declaración vence, un compromiso <strong>aceptado</strong> pasa a «lapsed» sin culpa.</td>
+<td>48 lotes cumplidos siguen publicados (138.170 lb). 161 avisos de esos lotes se enviaron a empacadoras competidoras.</td>
+<td>§5</td>
+</tr>
+<tr>
+<td>9</td>
+<td style="background:#ffe3e3"><strong>Crítico</strong></td>
+<td><strong>Hay stock y reservas sin dueño.</strong> Se puede dar de baja o eliminar un producto con chequeos o compras abiertas. Los chequeos no tienen plazo. Se puede reactivar desde el portal un producto ya eliminado.</td>
+<td>21 productos eliminados con 2,38 M de unidades «disponibles». 50 chequeos abiertos reservan 1,06 M de unidades. Hay 6 productos zombis.</td>
+<td>§3</td>
+</tr>
+<tr>
+<td>10</td>
+<td style="background:#ffe3e3"><strong>Crítico</strong></td>
+<td><strong>Faltan permisos para las sub-cuentas.</strong> Un sub-usuario con permiso «ver» puede editar la ficha de la empresa, borrar certificados, mover stock entre perfiles, editar o eliminar productos y registrar la factura del vendedor. El perfil activo es global: lo cambia cualquier miembro, para todos.</td>
+<td>Un empleado de solo lectura puede cambiar el correo de la empresa o borrar la acreditación.</td>
+<td>§2, §3, §4</td>
+</tr>
+</tbody>
+</table>
+<p>Le siguen de cerca, como Crítico o Alto:</p>
+<ul>
+<li>Certificados vencidos que siguen «aprobados»: 51 del socio y 194 de productos publicados.</li>
+<li>Actas de copacking abiertas o en disputa sin plazo: el maquilador no cobra.</li>
+<li>Una orden de copacking cancelada deja la solicitud «assigned» sin salida.</li>
+<li>La liquidación al verificador nunca se emitió: 0 de 261 veredictos.</li>
+<li>Un veredicto de rechazo se puede emitir sin haber ido a campo, y el honorario lo paga el vendedor.</li>
+</ul>
+<hr />
+<h2 id="2-ciclo-de-vida-de-la-cuenta-proceso-a">2. Ciclo de vida de la cuenta (proceso a)</h2>
+<p>Módulo principal <code>shrimp_user_registry</code> (rutas relativas a <code>/opt/odoo/custom_addons/shrimp/</code>; <code>main.py</code> = <code>shrimp_user_registry/controllers/main.py</code> salvo indicación).</p>
+<h3 id="21-diagramas-de-estado">2.1 Diagramas de estado</h3>
+<p><strong>A. Alta (asistente <code>/register</code>, main.py:707-938)</strong></p>
+<pre><code>[visitante] ── POST /register/submit
+   ├ honeypot lleno ─────────────► redirige a /web/login sin crear nada (main.py:720-722)
+   ├ límite por IP (5/h) / captcha ► vuelve al formulario con error (main.py:531-547, 724-726)
+   ├ ValidationError ─────────────► vuelve al formulario (main.py:931-934)
+   └ OK ► res.partner + res.users (portal, contraseña fijada) + miembro admin (main.py:854-927)
+        ├ perfil activo = primero que no requiere aprobación (main.py:794-796)
+        ├ shrimp_account_state = pending si el activo es empacadora/maquilador; si no approved (main.py:849)
+        ├ otros perfiles → _shrimp_request_role: pending o approved (main.py:875-876)
+        ├ certificados → status pending (main.py:997-1005)
+        └ aceptaciones legales «signup» (main.py:925-927)
+   SIN verificación de correo, SIN estado borrador, SIN aviso a la administración.
+</code></pre>
+<p><strong>B. Cuenta (<code>res.partner.shrimp_account_state</code>, res_partner.py:110-127, 722-740)</strong></p>
+<pre><code>pending ──approve──► approved   (correo al socio, res_partner.py:726-729)
+pending ──reject───► rejected   (solo nota interna; sin aviso ni motivo, res_partner.py:732-736)
+cualquiera ──reset──► pending   (sin aviso, res_partner.py:738-740)
+rejected ──► (portal) SIN SALIDA si es el perfil activo (res_partner.py:509)
+No existen: suspendida, cerrada, eliminada, anonimizada.
+</code></pre>
+<p><strong>C. Perfil (<code>shrimp.partner.role</code>, shrimp_partner_role.py)</strong></p>
+<pre><code>create ─► pending (empacadora, maquilador: requires_approval) | approved (resto)   (l.105-114)
+pending/approved ─action_approve─► approved (con aviso, l.143-150)
+             ─action_reject──► rejected (sin aviso ni motivo, l.152-157)
+             ─action_reset───► pending  (sin aviso, l.159-161)
+rejected ─► pending: el admin lo re-pide desde «Mi cuenta», salvo que sea el perfil ACTIVO (res_partner.py:508-510)
+unlink bloqueado si es el único aprobado y activo (l.126-141)
+Sin plazo de revisión, sin cron, sin aviso a la administración.
+</code></pre>
+<p><strong>D. Sub-usuario (<code>shrimp.account.member</code>)</strong></p>
+<pre><code>invitar (/my/team/invite, main.py:1557-1596) ─► «invited» (calculado: invite_date y sin login, l.68-75)
+   ─► «active» al primer acceso
+active ⇄ inactive (action_set_active, l.146-164; el admin no se puede desactivar)
+active ─action_make_admin─► admin; el anterior queda como sub-usuario con TODOS los permisos (l.166-184)
+reenviar invitación: action_reset_password (main.py:1631-1643)
+SIN borrado, SIN vencimiento de invitación.
+</code></pre>
+<p><strong>E. Documentos legales (<code>shrimp_legal.py</code>)</strong></p>
+<pre><code>versión: draft ─action_publish─► published ─(publicar la siguiente)─► superseded   (l.417-442)
+estado por usuario/empresa (_shrimp_status, l.219-251):
+  ok | minor/none → aviso en portal descartable por sesión (main.py:1489-1495)
+     | major → redirección a /my/legal/accept SOLO en GET web (ir_http.py:179-214)
+     | company_major → el sub-usuario queda bloqueado hasta que acepte el admin (l.278-281)
+comprobante PDF: pending → done | error tras 6 intentos, y ahí se queda (l.632-638)
+</code></pre>
+<p><strong>F. Certificado del socio (<code>shrimp.user.certificate.line</code>)</strong></p>
+<pre><code>pending ─► approved | rejected  (sin aviso al socio, salvo acreditación de verificador)
+renovar (account_portal.py:240-266): SOBRESCRIBE la línea y la deja pending (se pierde la versión aprobada)
+borrar (account_portal.py:268-273): libre
+NO existe estado «vencido» ni cron de vencimiento.
+</code></pre>
+<p><strong>G. Solicitud LOPDP (<code>/my/data/request</code>, main.py:1376-1417)</strong></p>
+<pre><code>POST ─► nota interna en chatter + correo a shrimp.dpo_email (si existe) ─► FIN
+Sin modelo, sin estado, sin plazo, sin responsable, sin respuesta, sin ejecución.
+</code></pre>
+<p><strong>H. Transferencia entre perfiles (<code>shrimp_profile_transfer.py</code>)</strong>: registro único e inmediato (l.288, 609, 643), sin estado ni reversa.</p>
+<h3 id="22-tabla-de-ramas">2.2 Tabla de ramas</h3>
+<table>
+<thead>
+<tr>
+<th>Rama</th>
+<th>Estado</th>
+<th>Evidencia</th>
+<th>Escenario del hueco</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Alta sin verificar el correo</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>main.py:863-870</td>
+<td>Alguien registra una cuenta con correo y RUC de un tercero y opera de inmediato con los perfiles base.</td>
+</tr>
+<tr>
+<td>Aviso a la administración de cuenta/perfil pendiente</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>main.py:849; res_partner.py:531-533</td>
+<td>Una empacadora espera días sin que nadie se entere.</td>
+</tr>
+<tr>
+<td>Plazo / recordatorio de pendientes</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>Ningún cron en data/*.xml</td>
+<td>Pendientes indefinidamente.</td>
+</tr>
+<tr>
+<td>Rechazo de cuenta notificado y con motivo</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>res_partner.py:732-736</td>
+<td>El socio no sabe que fue rechazado ni por qué.</td>
+</tr>
+<tr>
+<td>Rechazo de perfil notificado</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>shrimp_partner_role.py:152-157</td>
+<td>Ídem.</td>
+</tr>
+<tr>
+<td>Página que ve un rechazado</td>
+<td>Parcial / incorrecta</td>
+<td>views/templates.xml:30-42</td>
+<td>Muestra «en revisión… te avisaremos» a una cuenta RECHAZADA.</td>
+</tr>
+<tr>
+<td>Re-solicitar tras rechazo (perfil activo)</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>res_partner.py:509</td>
+<td>Empacadora rechazada con un único perfil no tiene ninguna salida.</td>
+</tr>
+<tr>
+<td>Re-solicitar perfil no activo rechazado</td>
+<td>Definida</td>
+<td>res_partner.py:521-522</td>
+<td>—</td>
+</tr>
+<tr>
+<td>«Pedir documentos adicionales» (Contrato §4)</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>No existe estado</td>
+<td>Solo rechazar o dejar pendiente sin comunicar.</td>
+</tr>
+<tr>
+<td>Suspender cuenta (Términos §6, Contrato §4 y §9)</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>Solo pending/approved/rejected</td>
+<td>Se usa «rechazada» o se archiva a mano; operaciones en curso sin regla.</td>
+</tr>
+<tr>
+<td>Volver a pending (reset)</td>
+<td>Parcial</td>
+<td>res_partner.py:738-740; shrimp_partner_role.py:159-161</td>
+<td>El socio deja de operar sin aviso.</td>
+</tr>
+<tr>
+<td>Cuenta pendiente/rechazada operando por <strong>API</strong></td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>shrimp_api/controllers/framework.py:691-696 (<code>_shrimp_can</code> no mira estado); res_partner.py:410-411; shrimp_api/controllers/portal.py:62</td>
+<td>Empacadora pendiente o rechazada crea clave API y emite listas de precios o compromisos.</td>
+</tr>
+<tr>
+<td>Cuenta pendiente/rechazada en portal</td>
+<td>Parcial</td>
+<td><code>require_operational</code> solo en rutas packer/copacking/dashboard</td>
+<td>Rutas del marketplace base y de transferencia de perfiles no comprueban estado.</td>
+</tr>
+<tr>
+<td>Perfil activo compartido entre miembros</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>res_partner.py:474-486 (escribe en la EMPRESA); main.py:1025-1043</td>
+<td>Un sub-usuario cambia a «camaronera» y el admin, a media sesión, pasa a operar como camaronera.</td>
+</tr>
+<tr>
+<td>Agregar un perfil</td>
+<td>Definida</td>
+<td>main.py:1083-1121</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Quitar un perfil desde el portal</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>Sin ruta</td>
+<td>Solo backoffice.</td>
+</tr>
+<tr>
+<td>Perfil rechazado después de operar</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>Sin hook en write de state</td>
+<td>Productos y listas de un perfil rechazado siguen publicados.</td>
+</tr>
+<tr>
+<td>Exclusividad del verificador</td>
+<td>Contradicción</td>
+<td>shrimp_partner_role.py:83-103 y res_partner.py:318-319 vs shrimp_verification/models/res_partner.py:326-339</td>
+<td>Documentación y selector desalineados.</td>
+</tr>
+<tr>
+<td>Invitación que vence</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>shrimp_account_member.py:68-75; main.py:1583-1586</td>
+<td>Un enlace de hace meses sigue sirviendo.</td>
+</tr>
+<tr>
+<td>Limpieza de invitaciones sin usar</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>Sin cron</td>
+<td>Cuentas fantasma con acceso potencial.</td>
+</tr>
+<tr>
+<td>Borrar un miembro</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>Solo /toggle (main.py:1608-1616)</td>
+<td>El correo del ex-empleado no se puede reutilizar (main.py:1571).</td>
+</tr>
+<tr>
+<td>Transferir admin a invitado que nunca entró</td>
+<td>Parcial</td>
+<td>main.py:1623; shrimp_account_member.py:170</td>
+<td>La cuenta queda sin administrador efectivo.</td>
+</tr>
+<tr>
+<td>Ex-administrador conserva todos los permisos</td>
+<td>Definida pero discutible</td>
+<td>shrimp_account_member.py:175-179</td>
+<td>Conserva comprar, vender y facturación.</td>
+</tr>
+<tr>
+<td>Administrador desaparecido</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td><code>_check_one_admin</code> (l.77-82)</td>
+<td>Sin recuperación; sub-usuarios bloqueados ante un MAYOR (shrimp_legal.py:278-281).</td>
+</tr>
+<tr>
+<td>Sub-usuario «ver» edita ficha de la empresa</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>account_portal.py:76-107</td>
+<td>Cambia correo, razón social, representante.</td>
+</tr>
+<tr>
+<td>Sub-usuario borra/renueva certificados</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>account_portal.py:198-273</td>
+<td>Borra la acreditación o un certificado obligatorio.</td>
+</tr>
+<tr>
+<td>Sub-usuario mueve inventario entre perfiles</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>profile_transfer_portal.py:56-69, 100-118; shrimp_profile_transfer.py:236-245</td>
+<td>Un sub-usuario de solo lectura traspasa stock.</td>
+</tr>
+<tr>
+<td>Sub-usuario crea claves API y webhooks</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>shrimp_api/controllers/portal.py:28-30, 62</td>
+<td>Clave de alcance amplio que sobrevive a sus permisos.</td>
+</tr>
+<tr>
+<td>Reactivar miembro de empresa rechazada</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>shrimp_account_member.py:155-158</td>
+<td>Se reactiva sin comprobar el estado de la empresa.</td>
+</tr>
+<tr>
+<td>Aviso por correo de versión legal nueva</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>shrimp_legal.py:417-442</td>
+<td>Quien opera solo por API nunca se entera.</td>
+</tr>
+<tr>
+<td>Puerta MAYOR en POST / JSON-RPC / API</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>ir_http.py:194-200; main.py:1167-1171 (exime /api/ y /web/)</td>
+<td>Sin aceptar los Términos MAYORES se sigue comprando por POST directo o API.</td>
+</tr>
+<tr>
+<td>Sub-usuario bloqueado por MAYOR de la empresa</td>
+<td>Parcial</td>
+<td>shrimp_legal.py:278-281</td>
+<td>No se avisa al admin; bloqueo sin plazo.</td>
+</tr>
+<tr>
+<td>Anexo de perfil exigido</td>
+<td>Parcial</td>
+<td>main.py:1033-1036</td>
+<td>La API con X-Acting-Role (framework.py:609-622) no lo exige.</td>
+</tr>
+<tr>
+<td>Comprobante PDF fallido 6 veces</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>shrimp_legal.py:632-638</td>
+<td>Queda en «error» sin alerta.</td>
+</tr>
+<tr>
+<td>Documento legal desactivado</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>shrimp_legal.py:199-207</td>
+<td>Deja de exigirse sin constancia.</td>
+</tr>
+<tr>
+<td>Ciclo de vida de solicitud de derechos (LOPDP)</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>main.py:1376-1417</td>
+<td>Sin estado, responsable, vencimiento a 15 días ni respuesta.</td>
+</tr>
+<tr>
+<td>DPO configurado</td>
+<td style="background:#ffe3e3"><strong>NO definida en BD</strong></td>
+<td>main.py:1498-1501; falta <code>shrimp.dpo_email</code></td>
+<td>Las solicitudes solo quedan como nota interna; nadie recibe aviso.</td>
+</tr>
+<tr>
+<td>Ejecutar eliminación/anonimización</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>grep anonymi/purge = 0; shrimp_legal.py:472-475 (ondelete=restrict)</td>
+<td>Derecho prometido sin implementación.</td>
+</tr>
+<tr>
+<td>Cierre de cuenta por el socio (Contrato §9)</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>Sin ruta</td>
+<td>Solo la solicitud libre «eliminación».</td>
+</tr>
+<tr>
+<td>«Registros rechazados se eliminan a los 12 meses» (Privacidad §5)</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>Sin cron</td>
+<td>Promesa legal incumplida.</td>
+</tr>
+<tr>
+<td>Solicitud LOPDP de un sub-usuario: ¿la suya o la de la empresa?</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>main.py:1396</td>
+<td>Ambiguo.</td>
+</tr>
+<tr>
+<td>Retiro del consentimiento comercial (Privacidad §3 y §6)</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>No existe el campo</td>
+<td>Promesa sin implementación.</td>
+</tr>
+<tr>
+<td>Vencimiento de certificados (estado, cron, correo)</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>shrimp_user_certificate_line.py:45-55; solo alerta en panel (shrimp_dashboard.py:218-250)</td>
+<td>51 certificados «aprobados» ya vencidos.</td>
+</tr>
+<tr>
+<td>Subir un certificado ya vencido</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>main.py:1002; account_portal.py:222</td>
+<td>Se acepta.</td>
+</tr>
+<tr>
+<td>Renovación sin perder lo aprobado</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>account_portal.py:240-266</td>
+<td>Durante la revisión se pierde el certificado válido.</td>
+</tr>
+<tr>
+<td>Aviso de aprobado/rechazado del certificado</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>shrimp_user_certificate_line.py:68-75</td>
+<td>El socio no se entera.</td>
+</tr>
+<tr>
+<td>Certificado obligatorio rechazado/borrado afecta la cuenta</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>main.py:688-705 (solo valida en el alta)</td>
+<td>La cuenta sigue operando sin el documento obligatorio.</td>
+</tr>
+<tr>
+<td>Límite de altas por IP</td>
+<td>Definida</td>
+<td>main.py:538-542; shrimp_rate_limit.py:23-33</td>
+<td>Los errores de validación consumen cupo: una oficina tras NAT queda bloqueada.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="23-evidencia-en-bd-pruebas-select">2.3 Evidencia en BD (Pruebas, SELECT)</h3>
+<ul>
+<li>Perfiles: aprobados 139; rechazados 2 (empacadora id 129 «Procesadora Delta Export S.A.», maquilador id 146 «Servicios de Glaseo Express S.A.»); pendientes 0. Las rechazadas no tienen <code>mail_tracking_value</code> del rechazo: no consta cuándo ni quién.</li>
+<li>6 empresas (empacadoras 13059-13061, maquiladores 13072-13074) sin usuario ni administrador: nadie a quien avisar ni que pueda re-solicitar.</li>
+<li>Certificados: 238 approved, <strong>51 ya vencidos</strong>; 43 pending (17 ya vencidos al subirlos); 27 rejected.</li>
+<li>Miembros: 126 administradores, 88 sub-usuarios; 207 miembros activos sin ningún inicio de sesión.</li>
+<li>Legal: privacidad y términos 2026-10 publicados como MAYOR; el contrato y todos los anexos están como MENOR con resumen «BORRADOR, pendiente de abogado». 208 usuarios portal sin aceptación de privacidad; 120 empresas sin aceptar el contrato.</li>
+<li><code>shrimp.dpo_email</code>: <strong>no configurado</strong>. Solicitudes LOPDP registradas: 0.</li>
+<li>Base de demostración (~2 días): el riesgo es estructural (ningún cron cubre estos estados), no hay hoy registros atascados por tiempo.</li>
+</ul>
+<hr />
+<h2 id="3-ciclo-de-vida-del-producto-proceso-b">3. Ciclo de vida del producto (proceso b)</h2>
+<p>Archivos: <code>shrimp_marketplace/models/shrimp_product.py</code>, <code>shrimp_stock_lot.py</code>, <code>shrimp_stock_move.py</code>, <code>shrimp_lot_allocation.py</code>, <code>shrimp_check_request.py</code>, <code>shrimp_product_certificate_line.py</code>, <code>shrimp_product_quality.py</code>, <code>shrimp_product_evolution.py</code>, <code>shrimp_profile_transfer.py</code>, <code>shrimp_larva.py</code>, <code>shrimp_larva_interest.py</code>; controladores <code>product_portal.py</code>, <code>quality_portal.py</code>; API <code>shrimp_api/controllers/private_core.py</code> y la API antigua <code>shrimp_marketplace/controllers/api.py</code>.</p>
+<h3 id="31-diagramas-de-estado">3.1 Diagramas de estado</h3>
+<p><strong><code>shrimp.product</code></strong> (<code>state</code> shrimp_product.py:124-130: draft / published / sold / cancel; <code>active</code> :102; <strong>sin tracking</strong>)</p>
+<pre><code>[crear] ──(portal/API: draft, active; crea lote base :670-688)──► DRAFT
+DRAFT ──publicar (action_publish :339-353 | API :publish private_core.py:400)──► PUBLISHED
+      exige: active, available_qty&gt;0, talla/presentación (engorde), vendedor no suspendido
+PUBLISHED ──stock a 0 (_update_state_from_stock :873-876)──► SOLD
+SOLD ──vuelve stock (devolución por retraso, producción, traspaso) :877-878──► PUBLISHED
+{DRAFT|PUBLISHED|SOLD} ──«Dar de baja» (portal :1115-1121 | API :archive)──► DRAFT + inactive   (SIN validaciones)
+{cualquiera} ──«Eliminar» (portal :1123-1136 | API DELETE | API antigua api.py:261-271)──► CANCEL + inactive (SIN validaciones)
+DRAFT+inactive ──«Reactivar»──► DRAFT + active
+CANCEL ──«Reactivar» por POST directo al portal (sin control)──► CANCEL + active   ← estado zombi
+Back-office: statusbar clicable (shrimp_product_views.xml:105-107) → cualquier estado a mano
+DRAFT y PUBLISHED sin caducidad (available_to, expected_delivery_date no se usan)
+</code></pre>
+<p><strong>Stock</strong>: lote AVAILABLE ⇄ CONSUMED (sin «bloqueado»/«cuarentena»); movimientos sin estado (reversas = ajuste «in»).
+<strong>Siembra (<code>shrimp.lot.allocation</code>)</strong>: crear → ALLOCATED (consume lote) → CANCELLED (devuelve stock, bloqueado si hay cosecha). DRAFT y RELEASED <strong>no los asigna ningún código</strong> (callejones).
+<strong>Solicitud de chequeo</strong>: REQUESTED → UNDER_REVIEW → APPROVED (compra al precio ACTUAL) / REJECTED / CANCELLED. Sin cron ni plazo; reserva disponible indefinidamente.
+<strong>Certificado del producto</strong>: PENDING → APPROVED ⇄ REJECTED; vencimiento sin estado ni cron.
+<strong>Calidad/PCR</strong>: <code>pcr_status</code> calculado; «positivo» no tiene consecuencia; ficha editable/borrable siempre.
+<strong>Traspaso entre perfiles</strong>: inmediato, bloqueado si hay operaciones abiertas (shrimp_profile_transfer.py:535-556); sin «deshacer».</p>
+<h3 id="32-tabla-de-ramas">3.2 Tabla de ramas</h3>
+<table>
+<thead>
+<tr>
+<th>Rama</th>
+<th>Estado</th>
+<th>Evidencia</th>
+<th>Escenario del hueco</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Publicar borrador</td>
+<td>Definida</td>
+<td>shrimp_product.py:339-353; product_portal.py:1084-1113</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Publicar siendo <strong>sub-usuario</strong></td>
+<td style="background:#ffe3e3"><strong>NO definida (bug)</strong></td>
+<td>shrimp_product.py:343 compara <code>user.partner_id</code> y no el actor (res_users.py:75-84)</td>
+<td>AccessError no capturado → error 500. Por API sí puede.</td>
+</tr>
+<tr>
+<td>Permisos de sub-usuario para editar/publicar/baja/eliminar/calidad</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>product_portal.py:209-219, 1115-1149; <code>_check_can_manage_products</code> solo al crear (:520, :586)</td>
+<td>Sub-usuario «ver» cambia precios o elimina lotes de su empresa.</td>
+</tr>
+<tr>
+<td>Baja con compras, chequeos o compromisos abiertos</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>product_portal.py:1115-1121; private_core.py:419-424</td>
+<td>Chequeos abiertos quedan reservando stock y no se pueden aprobar («producto no activo», :786-787). El traspaso de perfil sí bloquea.</td>
+</tr>
+<tr>
+<td>Eliminar con compras confirmadas o en verificación</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>product_portal.py:1123-1136; api.py:261-271</td>
+<td>La venta en tránsito apunta a un producto cancelado e inactivo.</td>
+</tr>
+<tr>
+<td>Stock de producto eliminado/archivado</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>BD</td>
+<td>21 productos con 2.381.960 unidades «available» en el limbo.</td>
+</tr>
+<tr>
+<td>Reactivar producto eliminado</td>
+<td>Parcial (portal ≠ API)</td>
+<td>API bloquea (private_core.py:431-432); portal no (product_portal.py:1138-1149)</td>
+<td>6 productos zombis (cancel + activo).</td>
+</tr>
+<tr>
+<td>Baja de producto «sold»</td>
+<td>Parcial</td>
+<td>product_portal.py:1120</td>
+<td>Se pierde el estado «Vendido».</td>
+</tr>
+<tr>
+<td>Eliminar archivado por API antigua</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>api.py:265 sin <code>active_test=False</code></td>
+<td>404 aunque exista.</td>
+</tr>
+<tr>
+<td>Cambio de estado desde back-office</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>shrimp_product_views.xml:105-107</td>
+<td>«Vendido» con stock, «Cancelado» activo, sin efecto en lotes.</td>
+</tr>
+<tr>
+<td>Campos bloqueados tras compra</td>
+<td>Parcial</td>
+<td>shrimp_product.py:265-284 (solo confirmed/done)</td>
+<td>Con compra pending_verification se cambia precio/talla/unidad (44 productos).</td>
+</tr>
+<tr>
+<td>Cambio de precio con chequeo abierto</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>shrimp_check_request.py:154-160; shrimp_product.py:829</td>
+<td>Pide a $2,20, el vendedor sube a $2,60 y la aprobación cobra $2,60.</td>
+</tr>
+<tr>
+<td>Cambio de piscina/origen tras la venta</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>shrimp_product.py:427-428</td>
+<td>Se reescribe la trazabilidad de un lote ya vendido.</td>
+</tr>
+<tr>
+<td><code>initial_qty</code> editable por API</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>private_core.py:266, 373-382; api.py:16-21</td>
+<td>Ficha y lote descuadran.</td>
+</tr>
+<tr>
+<td>API antigua: rol del vendedor</td>
+<td style="background:#ffe3e3"><strong>NO definida (bug)</strong></td>
+<td>api.py:209</td>
+<td>Camaronera crea lote con <code>seller_role='laboratorio'</code>.</td>
+</tr>
+<tr>
+<td>Vendedor con perfil rechazado/pendiente</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td><code>motivo_no_comprable</code> (:892-912); catálogo (marketplace.py:53-57)</td>
+<td>Sus lotes siguen publicados y comprables.</td>
+</tr>
+<tr>
+<td>Vendedor suspendido por strikes</td>
+<td>Parcial</td>
+<td>Catálogo excluye (delay_portal.py:105-110); API pública (public.py:100-101) y tienda (marketplace.py:648-653) <strong>no</strong></td>
+<td>Sigue visible por API pública y en <code>/seller/...</code>.</td>
+</tr>
+<tr>
+<td>Caducidad de publicación</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>shrimp_product.py:104-105, 150-153</td>
+<td>521 publicados con <code>available_to</code> vencido; 587 con entrega pasada (desde 2025-10-31).</td>
+</tr>
+<tr>
+<td>Certificado del producto vencido</td>
+<td>Parcial</td>
+<td>shrimp_dashboard.py:250-262; ficha pública :246-256</td>
+<td>194 líneas vencidas en 181 productos publicados se muestran como vigentes.</td>
+</tr>
+<tr>
+<td>Certificados del vendedor en ficha</td>
+<td><strong>Contradicción</strong></td>
+<td>marketplace.py:504-508 (vigencia a la fecha de publicación) vs tienda :667 (hoy)</td>
+<td>Certificado vencido ayer se muestra válido.</td>
+</tr>
+<tr>
+<td>PCR positivo</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>shrimp_product_quality.py:76-87</td>
+<td>Lote con WSSV positivo se publica y vende sin aviso (13 fichas positivas).</td>
+</tr>
+<tr>
+<td>Editar/borrar ficha de calidad tras venta</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>quality_portal.py:106-141; trazabilidad en vivo (:179-194)</td>
+<td>El vendedor borra el PCR y cambia el certificado del comprador.</td>
+</tr>
+<tr>
+<td>API de calidad</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>Sin endpoints</td>
+<td>Integrador no puede cargar PCR.</td>
+</tr>
+<tr>
+<td>Muestreo portal vs API</td>
+<td><strong>Contradicción</strong></td>
+<td>quality_portal.py:154-176 vs private_core.py:472-490</td>
+<td>Estadío del producto desfasado.</td>
+</tr>
+<tr>
+<td>Siembra por API</td>
+<td>Parcial</td>
+<td>private_core.py:565-572 sin <code>_shrimp_lot_is_sowable</code> ni <code>manage_ponds</code></td>
+<td>Se «siembra» camarón adulto por API.</td>
+</tr>
+<tr>
+<td>Siembra: editar/cancelar por API</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>private_core.py:553-572</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Siembra en <code>draft</code> / cierre <code>released</code></td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>shrimp_lot_allocation.py:57-62</td>
+<td>13 draft sin salida; 117 allocated que nunca se cierran.</td>
+</tr>
+<tr>
+<td>Chequeo sin respuesta</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>Sin cron</td>
+<td>50 abiertos reservan 1.058.467 unidades en 102 productos.</td>
+</tr>
+<tr>
+<td>Cancelación admin de compra con devolución de stock</td>
+<td>Parcial</td>
+<td>Solo por retraso (shrimp_transaction_delay.py:600-700), inactivo en BD</td>
+<td>Si el admin pone «cancel» a mano, el stock no vuelve.</td>
+</tr>
+<tr>
+<td>Devolución de stock a producto eliminado</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>shrimp_transaction_delay.py:697-699</td>
+<td>Más stock en el limbo.</td>
+</tr>
+<tr>
+<td>Lista de precios archivada</td>
+<td>Parcial</td>
+<td>packer shrimp_product.py:117-124</td>
+<td>Precio congelado de lista archivada.</td>
+</tr>
+<tr>
+<td>Destacados</td>
+<td>Definida</td>
+<td>shrimp_larva.py:132-195; seller_strike.py:447-453; <code>featured_min_reviews</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td>«Avísame» de larva</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>shrimp_larva_interest.py:14-37; larva_marketplace.py:238-262</td>
+<td>Sin vista, menú ni cron: el comprador recibe «ok» y nadie lo atiende.</td>
+</tr>
+<tr>
+<td>Avisos de baja/eliminación/reactivación</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>product_portal.py:1115-1149; sin tracking</td>
+<td>No queda rastro de quién eliminó un lote.</td>
+</tr>
+<tr>
+<td>Deshacer traspaso de perfil</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>shrimp_profile_transfer.py</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Ajustes ↔ código</td>
+<td>Definida (tras la implementación en curso)</td>
+<td>res_config_settings.py:86-97; res_config_settings_delay.py</td>
+<td>Los parámetros strike_<em>/delay_</em> ya tienen Ajustes en el código; falta el <code>-u</code> en Pruebas.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="33-evidencia-en-bd">3.3 Evidencia en BD</h3>
+<table>
+<thead>
+<tr>
+<th>Estado</th>
+<th>active</th>
+<th>N</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>published</td>
+<td>t</td>
+<td>784</td>
+</tr>
+<tr>
+<td>sold</td>
+<td>t</td>
+<td>28</td>
+</tr>
+<tr>
+<td>draft</td>
+<td>t</td>
+<td>31</td>
+</tr>
+<tr>
+<td>cancel</td>
+<td>f</td>
+<td>15</td>
+</tr>
+<tr>
+<td>cancel</td>
+<td>t</td>
+<td><strong>6</strong> (zombis)</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>21 productos inactivos/cancelados con 2.381.960 unidades disponibles. 102 productos con <code>reserved_qty</code> &gt; 0 (1.058.467 unidades) por 50 chequeos abiertos.</li>
+<li>521 publicados con <code>available_to</code> vencido; 587 con entrega tentativa pasada; 194 certificados vencidos en 181 publicados.</li>
+<li>Siembras: 13 draft, 117 allocated, 559 released (demo), 14 cancelled. PCR: 13 positivos (0 en publicados).</li>
+<li>Base en <code>shrimp_marketplace</code> 19.0.1.25.0 vs código 19.0.1.26.0.</li>
+</ul>
+<hr />
+<h2 id="4-ciclo-de-vida-de-la-compra-shrimptransaction-proceso-c">4. Ciclo de vida de la compra — <code>shrimp.transaction</code> (proceso c)</h2>
+<p>Archivos: <code>shrimp_marketplace/models/shrimp_transaction.py</code> (base), <code>shrimp_transaction_reception.py</code>, <code>shrimp_transaction_delay.py</code>, <code>shrimp_seller_strike.py</code>, <code>shrimp_charge.py</code>; <code>shrimp_verification/models/shrimp_transaction.py</code>, <code>shrimp_verification.py</code>, <code>shrimp_dispatch.py</code>, <code>shrimp_verification_rule.py</code>; <code>shrimp_api/controllers/private_trade.py</code>.</p>
+<h3 id="40-hallazgos-que-conviene-leer-primero">4.0 Hallazgos que conviene leer primero</h3>
+<ol>
+<li><strong>Retrasos y strikes: implementación en curso (otro agente), aún no desplegada en Pruebas.</strong> Al iniciar la auditoría faltaban manifest, ACL, vistas de back-office, Ajustes y la fecha <code>delay_rules_since</code>. <strong>Revisado de nuevo a las 06:57 del 14-10-2026</strong>: el código ya incluye <code>views/delay_templates.xml</code> y <code>views/shrimp_delay_views.xml</code> en <code>__manifest__.py</code> (versión 19.0.1.27.0), 6 líneas de ACL (security/ir.model.access.csv:68-73), vistas de strikes y suspensiones con «Anular strike» / «Levantar suspensión», Ajustes (<code>res_config_settings_delay.py</code>, <code>delay_settings_views.xml</code>) y <code>shrimp_delay_policy.py:167-168</code>, que fija <code>delay_rules_since</code> a la fecha del <code>-u</code> (evita los strikes retroactivos) y crea <strong>borradores</strong> de los textos legales con las nuevas reglas. <strong>Pendiente</strong>: el <code>-u</code> en Pruebas (no existen las tablas <code>shrimp_transaction_delay</code>, <code>shrimp_seller_strike</code>, <code>shrimp_seller_suspension</code>; la base está en 19.0.1.25.0) y la publicación de los borradores legales (hasta entonces el código aplica reglas que el contrato vigente no recoge).</li>
+<li><strong>Riesgo a vigilar en el despliegue</strong>: si <code>delay_rules_since</code> no quedara fijado (p. ej., si el hook no corre), la primera pasada del cron pondría <strong>21 strikes «atraso sin aviso» + 3 «sobre el tope»</strong> a compras antiguas (vendedor 12825 → 4 strikes; 12838 → 3; 12840 → 3). Verificar el parámetro tras el <code>-u</code>.</li>
+<li><strong>La recepción se autoconfirma aunque el vendedor nunca despachó</strong> (dominio de <code>_shrimp_cron_auto_confirm</code>, shrimp_transaction_reception.py:610-613, no mira <code>dispatched_at</code>; el plazo arranca en la fecha de entrega, :265-271). Al día D+11 la compra pasa a «done», se registra «el vendedor cumplió» (:430-431) y se crea inventario del comprador sin que llegara nada. Contradice la cancelación sin costo por retraso y los strikes.</li>
+<li><strong>Las compras verificadas que llegan a «confirmed» no tienen salida en el portal.</strong> En compra verificada <code>_shrimp_is_direct_delivery</code> = False (shrimp_verification/models/shrimp_transaction.py:147-153) → el portal oculta «Confirmar recepción» (transaction_portal_template.xml:635) y <code>reception_required</code> = False → el cron tampoco la cierra (reception.py:611). Solo la API <code>POST /transactions/{id}:receive</code> (private_trade.py:115-128). <strong>35 compras verificadas atascadas en «confirmed»</strong> (todas con aceptación <code>closed</code>); la más antigua con entrega 2025-12-19. El lote de la empacadora nunca se crea: no puede empacar ni exportar. Como la matriz pone camaronera→camaronera y camaronera→empacadora en <strong>obligatoria</strong>, <strong>toda compra de camarón adulto cae en este hueco</strong>.</li>
+</ol>
+<h3 id="41-diagrama-de-estados">4.1 Diagrama de estados</h3>
+<pre><code>COMPRA DIRECTA (política none/optional sin verificar)
+  execute_purchase_flow (shrimp_product.py:777-870)
+    create(draft) ──action_confirm() en la misma transacción (:861)──► CONFIRMED
+       [consume lotes, stock.move, comisión shrimp.charge (factura inmediata), _shrimp_init_reception]
+  (draft solo queda por error/legado: no hay acción para salir de draft)
+
+COMPRA VERIFICADA (mandatory, u optional + elige verificar; también reserva de empacadora)
+  start_verified_purchase (shrimp_verification/models/shrimp_product.py:198)
+    create(PENDING_VERIFICATION) + shrimp.verification + cobro de honorario al comprador
+       ├─ veredicto rechazado / verificación cancelada / trato caído ─► CANCEL (action_cancel_for_verification :254-264)
+       ├─ veredicto favorable ─► PENDING_ACCEPTANCE (:155-160)
+       │     ├─ ambas aceptan (o cron por silencio) ─► draft ─► CONFIRMED
+       │     └─ una rechaza ─► CANCEL
+       └─ (sin timeout del lado de la compra; depende de la verificadora — ver §6)
+
+CONFIRMED
+  ├─ directa con recepción (reception_required=True; columna «Confirmación de recepción»)
+  │    waiting ──comprador confirma──► received ─► DONE
+  │    waiting ──cron D+N+1 (N=10)──► auto ─► DONE   (¡aunque no haya despacho!)
+  │    waiting ──comprador reporta──► incidence
+  │        incidence ──plataforma «resolver recibida»──► DONE
+  │        incidence ──plataforma «reabrir»──► waiting (plazo desde hoy)
+  │        incidence ──(sin SLA, sin opción «cancelar»)──► ∞
+  │    + sub-flujo de retraso ──cancelación sin costo──► CANCEL (+devolución stock, anulación cobros, strike)
+  ├─ directa SIN recepción (posible si cambia la matriz): solo el comprador ─► DONE; si no ∞
+  └─ verificada: portal sin botón; API :receive ─► DONE; si no ∞
+DONE / CANCEL: terminales (no hay devolución de DONE ni reactivación de CANCEL)
+</code></pre>
+<p><strong>Sub-flujo de retraso (<code>shrimp.transaction.delay</code>)</strong> — solo compras directas con <code>reception_required</code>, confirmadas, con fecha, sin despacho y sin incidencia (delay.py:334-366):</p>
+<pre><code>[vendedor «Notificar retraso» ≤ fecha+gracia(2d), máx 2 avisos, fecha ≤ original+15]
+  PROPOSED ──comprador acepta──► ACCEPTED (nueva fecha)
+  PROPOSED ──48 h sin respuesta (cron)──► TACIT (nueva fecha)
+  PROPOSED ──comprador contrapropone (1 vez)──► COUNTERED
+      COUNTERED ──vendedor acepta──► ACCEPTED (fecha del comprador)
+      COUNTERED ──vendedor rechaza / 48 h──► REJECTED ──comprador cancela──► CANCELLED (tx=cancel)
+                                              └─ sin timeout: el derecho vive hasta despacho o autoconfirmación
+[sin aviso] fecha+gracia vencida ──cron──► strike «unnotified_delay» + «puedes cancelar»
+[original+15 vencida sin despacho] ──cron──► strike «delay_over_cap»; comprador puede cancelar
+</code></pre>
+<p><strong>Strikes y suspensión</strong></p>
+<pre><code>_shrimp_add_strike (1 por compra y causa) → activos = no anulados y no vencidos (90 d)
+  activos ≥3: aviso + baja en catálogo + fuera de destacados (se revierte solo al vencer)
+  activos ≥5: shrimp.seller.suspension ACTIVE ──solo admin «Levantar»──► LIFTED
+              (no se levanta sola al vencer o anular strikes)
+</code></pre>
+<h3 id="42-tabla-de-ramas">4.2 Tabla de ramas</h3>
+<table>
+<thead>
+<tr>
+<th>Rama</th>
+<th>Estado</th>
+<th>Evidencia</th>
+<th>Escenario del hueco</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Creación directa → confirmed</td>
+<td>Definida</td>
+<td>shrimp_product.py:777-870; shrimp_transaction.py:735-757</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Salida del estado draft</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>shrimp_transaction.py:25-30</td>
+<td>20 compras en draft sin acción ni limpieza; cuentan en paneles (shrimp_dashboard.py:33).</td>
+</tr>
+<tr>
+<td>Simulación de pago / estado «pagado»</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>No hay campo; <code>amount_total</code> se etiqueta «Total pagado» (shrimp_transaction.py:112)</td>
+<td>Se confirma y se factura comisión sin constancia de pago del comprador.</td>
+</tr>
+<tr>
+<td>Comisión al confirmar</td>
+<td>Definida</td>
+<td>shrimp_charge.py:157-196</td>
+<td>Si <code>commission_cents</code> ≤ 0 no hay cobro (:173) y nadie avisa.</td>
+</tr>
+<tr>
+<td>Comisión si la venta nunca se entrega</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>reception.py:491-513 no toca cobros</td>
+<td>Comisión ya facturada (SRI) en una venta fallida.</td>
+</tr>
+<tr>
+<td>Cobro en error tras agotar reintentos</td>
+<td>Parcial</td>
+<td>shrimp_charge.py:355-363</td>
+<td>Queda en «error»/«pending» para siempre sin alerta (ver §8).</td>
+</tr>
+<tr>
+<td>pending_verification sin timeout</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>verification/shrimp_transaction.py; solo cron de aceptación</td>
+<td>57 compras con stock reservado sin límite.</td>
+</tr>
+<tr>
+<td>Comprador cancela una verificada (verificadora de plataforma)</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>Solo declarada en borrador: controllers/main.py:965-978</td>
+<td>No puede desistir mientras la verificadora no actúa.</td>
+</tr>
+<tr>
+<td>pending_acceptance → confirmed</td>
+<td>Definida / Parcial</td>
+<td>verification.py:1183-1192; shrimp_transaction.py:162-174</td>
+<td>Si cambiaron los lotes, <code>_consume_source_lots</code> lanza (shrimp_transaction.py:584-585) y el cron de aceptación falla en bucle.</td>
+</tr>
+<tr>
+<td>Verificada confirmed → done</td>
+<td style="background:#ffe3e3"><strong>NO definida (portal)</strong> / Parcial (API)</td>
+<td>template :635 + reception.py:296-300; API private_trade.py:115-128</td>
+<td>35 atascadas.</td>
+</tr>
+<tr>
+<td>Verificada: fecha para recibir</td>
+<td>Parcial</td>
+<td>shrimp_transaction.py:785-789</td>
+<td>Ya llegó a planta (<code>shrimp.dispatch.actual_arrival</code>) pero no se puede recibir antes de <code>desired_date</code>.</td>
+</tr>
+<tr>
+<td>Despacho de verificada caído</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>shrimp_dispatch.py:297-302 dice «hay que cancelar la compra»</td>
+<td>No existe la acción de cancelar en ese estado.</td>
+</tr>
+<tr>
+<td>Despacho directo (marcar)</td>
+<td>Definida</td>
+<td>reception.py:354-377; portal :589-604; API :145-156</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Despacho marcado falsamente</td>
+<td>Parcial</td>
+<td>reception.py:385-387</td>
+<td>Marcar «despachado» le quita al comprador el derecho a cancelar; solo le queda la incidencia.</td>
+</tr>
+<tr>
+<td>Autoconfirmación por cron</td>
+<td><strong>Contradictoria</strong></td>
+<td>reception.py:606-622</td>
+<td>Autoconfirma sin despacho (hallazgo 3).</td>
+</tr>
+<tr>
+<td>Autoconfirmación con retraso abierto</td>
+<td>Parcial</td>
+<td>reception.py:610 no excluye <code>delay_open</code></td>
+<td>Sin regla explícita.</td>
+</tr>
+<tr>
+<td>Directa sin <code>reception_required</code></td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>reception.py:611</td>
+<td>Si la matriz desmarca la columna, la compra queda confirmada para siempre.</td>
+</tr>
+<tr>
+<td>Recordatorios de recepción / avisos de fecha</td>
+<td>Definida</td>
+<td>reception.py:624-717</td>
+<td>En verificadas no se envían (:673) ni hay aviso de «atrasada».</td>
+</tr>
+<tr>
+<td>Incidencia: reportar</td>
+<td>Definida</td>
+<td>reception.py:457-489</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Incidencia: SLA de plataforma</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>—</td>
+<td>Compra «con incidencia» indefinida, con stock en tránsito y comisión cobrada.</td>
+</tr>
+<tr>
+<td>Incidencia: resolver «no se entregó» (cancelar con devolución)</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>Solo resolve_received (:491) o reopen (:500)</td>
+<td>La plataforma no puede anular la venta ni devolver stock.</td>
+</tr>
+<tr>
+<td>Incidencia: aviso al resolver</td>
+<td>Parcial</td>
+<td><code>_shrimp_after_reception</code> (:437-442)</td>
+<td>Al vendedor le llega «el comprador confirmó» y al comprador nada.</td>
+</tr>
+<tr>
+<td>Incidencia: destinatarios en plataforma</td>
+<td>Parcial</td>
+<td>reception.py:566-584 (grupo manager, máx 5)</td>
+<td>Sin managers no avisa a nadie.</td>
+</tr>
+<tr>
+<td>Retraso: comprador no responde</td>
+<td>Definida (tácita)</td>
+<td>delay.py:583-598, cron :739-745</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Retraso: vendedor no responde contrapropuesta</td>
+<td>Definida (rechazada)</td>
+<td>delay.py:551-581, cron :746-752</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Retraso: REJECTED sin timeout</td>
+<td>Parcial</td>
+<td>delay.py:382-401</td>
+<td>El derecho a cancelar se extingue por despacho o por la autoconfirmación a favor del vendedor.</td>
+</tr>
+<tr>
+<td>Retraso: el vendedor despacha con aviso abierto</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>action_mark_dispatched (:354-377) no cierra el aviso</td>
+<td>El cron luego envía «puedes cancelar sin costo» cuando ya no se permite.</td>
+</tr>
+<tr>
+<td>Retraso durante incidencia</td>
+<td>Parcial</td>
+<td>report_issue no mira delays</td>
+<td>El aviso sigue venciendo y cambia fechas durante la incidencia.</td>
+</tr>
+<tr>
+<td>Retraso en verificadas o pares sin recepción</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>delay.py:337</td>
+<td>Camaronera→empacadora no tiene mecanismo de atraso ni cancelación.</td>
+</tr>
+<tr>
+<td>Cancelación sin costo: stock</td>
+<td>Definida</td>
+<td>delay.py:660-700</td>
+<td><code>_update_state_from_stock</code> (shrimp_product.py:871-876) re-publica un lote «sold» aunque esté vencido o el vendedor suspendido.</td>
+</tr>
+<tr>
+<td>Cancelación sin costo: cobros</td>
+<td>Parcial</td>
+<td>delay.py:702-719</td>
+<td>No anula <code>copack_platform</code> ni <code>check_fee</code>; la NC puede quedar en <code>to_credit</code> indefinidamente.</td>
+</tr>
+<tr>
+<td>Cancelación con factura del vendedor ya registrada</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>shrimp_transaction.py:165-195</td>
+<td>La factura queda en una compra cancelada; nadie pide la nota de crédito.</td>
+</tr>
+<tr>
+<td>Cancelación por el vendedor</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>—</td>
+<td>Mortalidad o lote perdido: solo puede esperar strikes.</td>
+</tr>
+<tr>
+<td>Cancelación por la plataforma (back-office)</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>Sin método ni botón genérico</td>
+<td>Fraude o error: hay que tocar la base.</td>
+</tr>
+<tr>
+<td>Cancelación de mutuo acuerdo</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Devolución de una compra DONE</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Cancelación / retrasos por API</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>private_trade.py sin <code>:cancel</code> ni endpoints de delay</td>
+<td>Integradores no pueden avisar retrasos ni cancelar.</td>
+</tr>
+<tr>
+<td>Factura del vendedor (paso 2): registro</td>
+<td>Definida (portal)</td>
+<td>shrimp_transaction.py:165-195; portal :927-953</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Factura del vendedor: permisos de sub-usuario</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>:173-175 no usa <code>_shrimp_check_party</code></td>
+<td>Un sub-usuario sin «vender» la registra o sobrescribe.</td>
+</tr>
+<tr>
+<td>Factura del vendedor: API</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>serializers.py:358 solo lectura</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Factura del vendedor: obligatoriedad / seguimiento</td>
+<td>Parcial</td>
+<td>reception.py:450-455 (un recordatorio)</td>
+<td>0 de 834 compras done tienen factura registrada.</td>
+</tr>
+<tr>
+<td>Factura del vendedor: edición después de done</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>Sin bloqueo</td>
+<td>Se cambia el número indefinidamente.</td>
+</tr>
+<tr>
+<td>Reseñas</td>
+<td>Parcial</td>
+<td>shrimp_review.py:49</td>
+<td>Se puede reseñar en «confirmed» antes de recibir; si se cancela, la reseña queda.</td>
+</tr>
+<tr>
+<td>Strikes: alta</td>
+<td>Definida</td>
+<td>strike.py:127-148</td>
+<td>Una sola venta puede dar 3 strikes (unnotified + over_cap + buyer_cancel).</td>
+</tr>
+<tr>
+<td>Strikes: anulación</td>
+<td>Definida</td>
+<td>strike.py:217-233; vista shrimp_delay_views.xml:118-124 (añadida durante la auditoría)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Suspensión: levantamiento</td>
+<td>Parcial</td>
+<td>strike.py:293-311; botón en shrimp_delay_views.xml:196, 240</td>
+<td>No se levanta sola al bajar del umbral (decisión de diseño a confirmar).</td>
+</tr>
+<tr>
+<td>Suspensión: alcance</td>
+<td>Parcial</td>
+<td>strike.py:431-461</td>
+<td>Aplica a todos los perfiles de la cuenta; no frena reservas en curso.</td>
+</tr>
+<tr>
+<td>Webhooks de la compra</td>
+<td>Parcial</td>
+<td>shrimp_api/models/events.py:39-47 (solo state_changed)</td>
+<td>Sin eventos de despacho, incidencia, retraso ni strike.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="43-evidencia-en-bd-pruebas-select">4.3 Evidencia en BD (Pruebas, SELECT)</h3>
+<ul>
+<li>Por estado: cancel 121, confirmed 59, done 834, draft 20, pending_verification 57, pending_acceptance 0.</li>
+<li><code>write_date</code> no sirve (todo reescrito 2026-10-14 04:48 por la recarga de demo); se usan fechas de negocio.</li>
+<li><strong>Confirmed (59)</strong>: 43 ya pasaron la fecha de entrega y <strong>0/59 marcadas como despachadas</strong>. 24 directas en <code>waiting</code> (floor 2026-10-13 → se autoconfirmarían el 2026-10-24 sin despacho). 35 verificadas sin recepción posible (camaronera→empacadora 23, laboratorio→camaronera 11, camaronera→camaronera 1); 16 de las camaronera→empacadora con entrega vencida hace más de 10 días.</li>
+<li><strong>pending_verification (57)</strong>: <code>sold_date</code> entre 2026-03-05 y 2026-07-22 (3 a 7 meses), verificación en received 10 / assigned 19 / in_field 11 / done 16 / declared_draft 1.</li>
+<li><strong>Despachos de verificación vs compra</strong> (<code>shrimp_dispatch</code>): 33 despachos «llegado» de compras <strong>canceladas</strong>; 12 «llegado» y 4 «en_ruta» de compras aún en pending_verification.</li>
+<li><strong>Cobros</strong>: 23 honorarios <code>pending</code> en compras <strong>canceladas</strong> (rechazo con pagador vendedor, por diseño, pero nunca facturados); 17 comisiones en <code>error</code> (diario sin documentos SRI).</li>
+<li><strong>Factura del vendedor</strong>: 0 de 834 compras done.</li>
+</ul>
+<hr />
+<h2 id="5-empacadora-listas-de-precios-reservas-de-cosecha-y-exportaciones-proceso-d">5. Empacadora: listas de precios, reservas de cosecha y exportaciones (proceso d)</h2>
+<p>Archivos: <code>shrimp_packer/models/shrimp_price_list.py</code>, <code>shrimp_harvest_forecast.py</code>, <code>shrimp_harvest_commitment.py</code>, <code>shrimp_harvest_confirmation.py</code>, <code>shrimp_lot_alert.py</code>, <code>shrimp_aguaje.py</code>, <code>shrimp_proveedores.py</code>; <code>shrimp_marketplace/models/shrimp_export.py</code>.</p>
+<h3 id="51-diagramas-de-estado">5.1 Diagramas de estado</h3>
+<p><strong><code>shrimp.price.list</code></strong></p>
+<pre><code>draft ──action_publish──► published ──(otra lista publicada, mismo emisor/destinatario/ventana)──► archived
+draft ──cron _cron_auto_publish (auto_publish_date ≤ hoy)──► published   [si falla: queda draft + nota]
+published ──action_archive_list──► archived
+published/archived ──action_back_to_draft──► draft   (SIN guardas)
+published con dispatch_to vencido: sigue «published» (solo cambia is_current). No hay estado «vencida».
+published «hasta segunda orden»: no vence nunca.
+</code></pre>
+<p><strong><code>shrimp.harvest.forecast</code> (declaración de cosecha)</strong></p>
+<pre><code>draft ──publish (≥3 días de anticipación)──► published ──commitment.accept──► committed
+published/committed ──action_registrar_cosecha──► harvested (crea lote: publicado si el compromiso se cumple; si no, borrador)
+draft/published/committed ──action_cancel(motivo)──► cancelled (aceptados → broken lado camaronera; enviados → lapsed)
+published/committed ──cron _cron_vencer (expected_date+tolerancia &lt; hoy)──► expired (enviados Y ACEPTADOS → lapsed)
+committed ──(compromiso roto)──► published
+</code></pre>
+<p><strong><code>shrimp.harvest.commitment</code> (compromiso)</strong></p>
+<pre><code>sent ──accept──► accepted (los demás enviados → rejected)
+sent ──reject──► rejected (sin salida)
+sent ──withdraw──► withdrawn ──editar condiciones──► sent
+sent ──cron (valid_until&lt;hoy) / cosecha / cancelación──► lapsed
+accepted ──cosecha dentro de banda──► honored ──action_comprar──► (transacción)   [SIN plazo]
+accepted ──cosecha fuera de banda──► to_confirm ──2 firmas──► honored | ──1 rechaza──► released
+accepted/to_confirm ──desistir(motivo)──► broken
+accepted ──cron de declaración expirada──► lapsed   (NO cuenta como incumplimiento)
+to_confirm: sin timeout
+</code></pre>
+<p><strong><code>shrimp.export</code></strong>: draft → registered (mueve stock) → cancelled (devuelve stock; sin plazo, motivo opcional).</p>
+<h3 id="52-tabla-de-ramas">5.2 Tabla de ramas</h3>
+<table>
+<thead>
+<tr>
+<th>Rama</th>
+<th>Estado</th>
+<th>Evidencia</th>
+<th>Escenario del hueco</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Lista publicada con <code>dispatch_to</code> vencido</td>
+<td>Parcial</td>
+<td>shrimp_price_list.py:186-203</td>
+<td>Queda «published» para siempre; nadie avisa a la empacadora que se quedó sin lista vigente.</td>
+</tr>
+<tr>
+<td>Lista «hasta segunda orden»</td>
+<td>Parcial</td>
+<td>shrimp_price_list.py:44, 457-470</td>
+<td>22 abiertas (la más antigua 2026-09-21); rige aunque la empacadora deje de comprar.</td>
+</tr>
+<tr>
+<td>Editar renglones de una lista publicada</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>write shrimp_price_list.py:595-612</td>
+<td>Baja precios sin aviso (<code>_avisar_cambios</code> solo al publicar, :466); los compromisos «a lista» se liquidan con el precio editado (commitment :300-369).</td>
+</tr>
+<tr>
+<td>Volver a borrador/archivar lista con compromisos «a lista» vivos</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>shrimp_price_list.py:580-586</td>
+<td>La empacadora retira la lista el día de la cosecha y solo paga el piso (commitment :365-369). Manipulable.</td>
+</tr>
+<tr>
+<td>Aviso de la primera lista a un destinatario</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>shrimp_price_list.py:496</td>
+<td>Lista nueva a productor nuevo no notifica.</td>
+</tr>
+<tr>
+<td>Fallo de publicación automática</td>
+<td>Definida</td>
+<td>shrimp_price_list.py:623-664</td>
+<td>Solo nota en chatter; reintento diario.</td>
+</tr>
+<tr>
+<td>Lote atado a lista archivada</td>
+<td>Parcial</td>
+<td>shrimp_product.py:117-124, 159-170</td>
+<td>Conserva el precio viejo. Hoy 0 casos.</td>
+</tr>
+<tr>
+<td>Cambiar aguaje usado por listas</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>shrimp_aguaje.py:209-221</td>
+<td>Listas publicadas contradicen su despacho; no se revalida.</td>
+</tr>
+<tr>
+<td>Declaración vencida con compromiso ACEPTADO</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>shrimp_harvest_forecast.py:745-750</td>
+<td>La camaronera vende por fuera; el compromiso pasa a «lapsed» sin incumplimiento ni aviso. Romper así sale gratis (contra :599-612).</td>
+</tr>
+<tr>
+<td>Compromiso <code>to_confirm</code> sin firma</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>shrimp_harvest_confirmation.py (sin cron)</td>
+<td>Lote en borrador para siempre.</td>
+</tr>
+<tr>
+<td>Compromiso <code>honored</code> y la empacadora no compra</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>commitment.py:615-675; forecast.py:716</td>
+<td>El lote reservado queda publicado para cualquiera. 48 lotes cumplidos publicados con 138.170 lb; 161 avisos de esos lotes fueron a OTRAS empacadoras.</td>
+</tr>
+<tr>
+<td>Otro comprador compra el lote reservado</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>shrimp_product.py:463-476 (<code>reserved_qty</code> solo cuenta chequeos)</td>
+<td><code>action_comprar</code> falla por stock; compromiso «honored» sin compra ni incumplimiento.</td>
+</tr>
+<tr>
+<td>Compra de la reserva cancelada</td>
+<td>Parcial</td>
+<td>commitment.py:637</td>
+<td>Se puede recomprar, sin plazo ni aviso.</td>
+</tr>
+<tr>
+<td>Compromiso roto y declaración republicada</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>commitment.py:172 (UNIQUE), :289-295, :470-471</td>
+<td>Las empacadoras descartadas («rejected») no pueden volver a comprometerse.</td>
+</tr>
+<tr>
+<td>Cambiar destinatarios de declaración publicada</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>forecast.py:409-430</td>
+<td>Se quita a una empacadora con compromiso vivo.</td>
+</tr>
+<tr>
+<td>Notificaciones de la reserva</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>Ni forecast ni commitment usan <code>_send_template</code>; <code>message_post</code> sin seguidores</td>
+<td>Las partes no se enteran salvo que entren al portal.</td>
+</tr>
+<tr>
+<td><code>released</code> → lote en borrador</td>
+<td>Parcial</td>
+<td>commitment.py:582-590</td>
+<td>La camaronera lo publica a mano sin guía.</td>
+</tr>
+<tr>
+<td>Traspaso de perfil de un lote reservado</td>
+<td>Parcial</td>
+<td>shrimp_profile_transfer.py:550-555</td>
+<td>No cuenta «honored» como bloqueo.</td>
+</tr>
+<tr>
+<td>Avisos de lotes a empacadora no aprobada</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>shrimp_lot_alert.py:258-262</td>
+<td>Recibe correos de lotes que no puede comprar.</td>
+</tr>
+<tr>
+<td>Avisos sin SMTP</td>
+<td>Parcial</td>
+<td>shrimp_lot_alert.py:281-307</td>
+<td><code>ultima_revision</code> se marca antes de enviar; lotes perdidos.</td>
+</tr>
+<tr>
+<td>Avisos a sub-cuentas</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>shrimp_lot_alert.py:339-341 (solo <code>packer.email</code>)</td>
+<td>Compradores de la empacadora no reciben aviso.</td>
+</tr>
+<tr>
+<td>Pesos del ranking</td>
+<td>Definida</td>
+<td>proveedores.py:85-87; res_config_settings.py</td>
+<td>Si no suman 100 vía <code>ir.config_parameter</code> se ignoran en silencio.</td>
+</tr>
+<tr>
+<td>Plazos de reserva (3 días, 45 días)</td>
+<td>No configurable</td>
+<td>forecast.py:78; commitment.py:44</td>
+<td>Fijos en código.</td>
+</tr>
+<tr>
+<td>Anular exportación registrada</td>
+<td>Parcial</td>
+<td>shrimp_export.py:149-161</td>
+<td>Sin motivo obligatorio, aun con DAE o factura; devuelve stock a lote quizá cerrado.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="53-evidencia-en-bd">5.3 Evidencia en BD</h3>
+<ul>
+<li>Listas: draft 10, published 24, archived 193; 22 «hasta segunda orden».</li>
+<li>Declaraciones: draft 5, published 30, committed 25, harvested 51, cancelled 7, expired 7.</li>
+<li>Compromisos: sent 49, accepted 25, honored 48, released 2, broken 1, lapsed 31, withdrawn 26, rejected 27. Los 48 cumplidos tienen compra (done 37, confirmed 8, pending_verification 3) y sus lotes siguen publicados (138.170 lb).</li>
+<li>Avisos de lotes: 801; 161 de lotes de reserva enviados a empacadoras distintas de la comprometida.</li>
+</ul>
+<hr />
+<h2 id="6-verificacion-y-verificador-proceso-f">6. Verificación y verificador (proceso f)</h2>
+<p>Módulos: <code>shrimp_verification</code> (+ extensión <code>shrimp_packer/models/shrimp_verification.py</code>). Abreviatura <strong>SV</strong> = <code>shrimp_verification/models/shrimp_verification.py</code>.</p>
+<h3 id="61-diagrama-de-estados">6.1 Diagrama de estados</h3>
+<p><strong>Modo plataforma (<code>verification_mode = platform</code>)</strong></p>
+<pre><code>[compra: start_verified_purchase (shrimp_verification/models/shrimp_product.py:108-245)]
+   │  tx.state = pending_verification (stock RESERVADO, shrimp_product.py:73-77)
+   │  cobro del honorario al comprador registrado al comprar (shrimp_product.py:243, SV:1454)
+   ▼
+received ──(admin verificadora asigna técnico; SV:695, main.py:1200)──► assigned
+   │                                     (técnico/admin «Iniciar»; SV:718)──► in_field
+   │                                     (action_mark_done; SV:762)        ──► done
+   │   veredicto _close (SV:780): NO comprueba estado de origen → también desde received/assigned
+   ├──► rejected (final): tx → cancel; paga el vendedor (SV:825-830); liquidación a verificadora
+   ├──► approved / approved_obs ──► ronda de aceptación (SV:1099)
+   │        acceptance_state na → waiting; tx → pending_acceptance
+   │          ├─ ambas aceptan (o contraoferta + vendedor acepta) → closed → tx confirmed (SV:1182)
+   │          ├─ una rechaza y la otra ya decidió → broken → tx cancel; reasigna pagador (SV:1194)
+   │          └─ vence plazo 48 h → cron acepta las pendientes (SV:1238-1257) → closed/broken
+   └──► cancelled: action_cancel (SV:1016) — SIN botón en portal ni backend para modo plataforma
+</code></pre>
+<p><strong>Modo declarado (<code>verification_mode = declared</code>)</strong></p>
+<pre><code>declared_draft ──(una parte presenta; SV:916)──► declared + ronda waiting (postura del declarante = aceptada)
+   │   ▲                                           ├─ la otra acepta / calla 48 h → closed (tx confirmed)
+   │   └─(declarante deshace antes de respuesta;   └─ la otra rechaza → broken (tx cancel, sin honorario)
+   │      SV:951, acceptance.py:253-259)
+   └──(SOLO el comprador cancela; main.py:967-977)──► cancelled
+</code></pre>
+<p><code>invoice_state</code> es calculado (SV:396-407) a partir del cobro vigente (<code>shrimp.charge</code>). La <strong>liquidación a la verificadora</strong> (<code>vendor_bill_id</code>) va por otro camino, sin estado ni reintento.</p>
+<h3 id="62-tabla-de-ramas">6.2 Tabla de ramas</h3>
+<table>
+<thead>
+<tr>
+<th>Rama</th>
+<th>Estado</th>
+<th>Evidencia</th>
+<th>Escenario del hueco</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Quién elige la verificadora</td>
+<td>Definida (comprador, manual)</td>
+<td>main.py:719-725; shrimp_product.py:172-189</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Asignación de técnico</td>
+<td>Definida (manual) / sin automática</td>
+<td>SV:695; main.py:1200-1225</td>
+<td>Si el admin de la verificadora nunca asigna, queda en <code>received</code> para siempre.</td>
+</tr>
+<tr>
+<td>Verificadora acepta / declina la orden</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>No existe acción; <code>received</code> nace en create (SV:676-689)</td>
+<td>Sin capacidad o con conflicto de interés no puede devolver la orden.</td>
+</tr>
+<tr>
+<td>Verificadora no se presenta / nunca entrega informe</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>ir_cron.xml solo <code>_cron_vencer_plazos</code></td>
+<td>received/assigned/in_field/done sin plazo ni aviso: compra en <code>pending_verification</code> y stock reservado indefinidamente.</td>
+</tr>
+<tr>
+<td>Cancelar verificación de plataforma (comprador/vendedor/admin)</td>
+<td style="background:#ffe3e3"><strong>NO definida en UI</strong></td>
+<td>SV:1016 existe; formulario backend (shrimp_verification_views.xml:58-75) sin botón; portal solo cancela <code>declared_draft</code> (main.py:974)</td>
+<td>Para destrabar hay que usar shell/SQL.</td>
+</tr>
+<tr>
+<td>Veredicto sin trabajo de campo</td>
+<td><strong>Contradicción</strong></td>
+<td><code>_close</code> solo bloquea estados cerrados (SV:780-783); main.py:646-680 y API private_verification.py:232-243 solo llaman <code>mark_done</code> si <code>in_field</code></td>
+<td>El admin puede <strong>rechazar</strong> desde <code>received</code>/<code>assigned</code> sin informe; el honorario se carga al vendedor.</td>
+</tr>
+<tr>
+<td>Guardar informe antes de iniciar campo</td>
+<td>Parcial</td>
+<td>main.py:476; API PATCH private_verification.py:202</td>
+<td>Se puede llenar y aprobar sin <code>field_start_date</code>.</td>
+</tr>
+<tr>
+<td>Baja de técnico con órdenes abiertas</td>
+<td>Parcial</td>
+<td>main.py:1124-1147 no revisa carga</td>
+<td>Órdenes colgadas hasta reasignación manual; nadie avisado.</td>
+</tr>
+<tr>
+<td>Reasignar técnico</td>
+<td>Parcial</td>
+<td>SV:695-716</td>
+<td>El técnico anterior no recibe aviso; su actividad no se cierra.</td>
+</tr>
+<tr>
+<td>Acreditación vence a mitad del proceso</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>Solo se valida al comprar (shrimp_product.py:183); <code>_close</code> no revisa; no hay cron</td>
+<td>Verificadora vencida sigue dictaminando y la etiqueta la presenta como acreditada (SV:1003).</td>
+</tr>
+<tr>
+<td>Perfil verificadora suspendido/quitado a mitad</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td><code>shrimp_verifier_company</code> exige tipo verificador (res_partner.py:362-376)</td>
+<td>Bandeja inaccesible, órdenes huérfanas, sin reasignación a otra verificadora.</td>
+</tr>
+<tr>
+<td>Admin de verificadora navegando con otro perfil</td>
+<td>Parcial</td>
+<td>res_partner.py:374 vs dominio SV:63-66</td>
+<td>Pierde la bandeja mientras su perfil activo no es verificador.</td>
+</tr>
+<tr>
+<td>Ronda de aceptación 48 h</td>
+<td>Definida</td>
+<td>SV:1094-1119, 1238-1257; acceptance.py</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Silencio del vendedor ante contraoferta</td>
+<td><strong>Contradicción</strong></td>
+<td>Cron acepta pendientes (SV:1254); contraoferta deja al vendedor en pending (acceptance.py:196)</td>
+<td>Si el vendedor calla, se le aplica el precio rebajado (SV:1191). Opuesto a la regla de retrasos (silencio del vendedor = rechazo).</td>
+</tr>
+<tr>
+<td>Plazo estirado con contraofertas</td>
+<td>Parcial</td>
+<td>acceptance.py:199 reinicia 48 h; undo acceptance.py:211-223</td>
+<td>El comprador puede ciclar contraoferta→deshacer→contraoferta y retener stock.</td>
+</tr>
+<tr>
+<td>Error de un registro en el cron</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>SV:1250-1256 sin savepoint por registro</td>
+<td>Un <code>action_confirm</code> que falla revierte todo el lote y se repite cada hora.</td>
+</tr>
+<tr>
+<td>Apelación / re-verificación tras rechazo</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td><code>unique(transaction_id)</code> (SV:665)</td>
+<td>Sin segunda opinión; el vendedor paga y solo cabe una compra nueva.</td>
+</tr>
+<tr>
+<td>Quién paga el honorario</td>
+<td>Definida</td>
+<td>SV:1182-1236, 825-830</td>
+<td>El vendedor no participa en la elección de la verificadora pero puede terminar pagando.</td>
+</tr>
+<tr>
+<td>Devolución del honorario al cancelar</td>
+<td>Definida (NC)</td>
+<td>SV:1021-1024; shrimp_charge.py:412-424</td>
+<td>Inalcanzable en la práctica: la cancelación no tiene UI.</td>
+</tr>
+<tr>
+<td>Liquidación a la verificadora</td>
+<td>Parcial</td>
+<td>SV:1491-1519</td>
+<td>Si falla solo queda mensaje en chatter (SV:1512-1516); reintento solo por botón; sin estado de pago en portal.</td>
+</tr>
+<tr>
+<td>Cuenta bancaria de la verificadora</td>
+<td>Parcial</td>
+<td>res_partner_bank.py; res_partner.py:66-157</td>
+<td>Se liquida sin cuenta; no se valida titular = RUC.</td>
+</tr>
+<tr>
+<td>Tarifa propia de la verificadora</td>
+<td><strong>Contradicción</strong></td>
+<td><code>ver_fee_base</code>/<code>ver_fee_por_lb</code> (res_partner.py:204-205) se piden en registro, pero el honorario usa parámetros globales (main.py:725; res_config_settings.py:98-122)</td>
+<td>La verificadora declara una tarifa que nunca se usa.</td>
+</tr>
+<tr>
+<td>Reseñas de verificadoras</td>
+<td>Parcial</td>
+<td>shrimp_verifier_review.py; main.py:1292-1307</td>
+<td>Solo califica el comprador; sin plazo, réplica ni moderación; el vendedor que pagó un rechazo no califica.</td>
+</tr>
+<tr>
+<td>Avisos de etapa</td>
+<td>Parcial</td>
+<td>AUDIENCIA_ETAPA (SV:1588)</td>
+<td>Verificadora no recibe aviso de «closed»; sin recordatorio antes de vencer 48 h; sin alerta si la cita pasó sin técnico.</td>
+</tr>
+<tr>
+<td>Permiso «verify» de sub-cuentas en API</td>
+<td><strong>Inconsistente</strong></td>
+<td>Portal lo exige (main.py:62-67); API <code>_as_verifier</code> no (private_verification.py:124-134)</td>
+<td>Un sub-usuario sin permiso podría asignar o dictaminar por API.</td>
+</tr>
+<tr>
+<td><code>declared_draft</code></td>
+<td>Parcial</td>
+<td>main.py:967-977</td>
+<td>Sin plazo; el vendedor no puede salir; stock reservado hasta que el comprador cancele.</td>
+</tr>
+<tr>
+<td>Retiro del informe declarado</td>
+<td>Definida</td>
+<td>acceptance.py:253-259; SV:951-975</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Matriz: política none/optional/mandatory</td>
+<td>Definida</td>
+<td>shrimp_verification_rule.py:103-114</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Matriz: modos permitidos por pareja</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>shrimp_product.py:161-189 permite plataforma y declarada siempre</td>
+<td>Con «obligatoria», las partes pueden «verificarse a sí mismas» (<code>declared_source=self</code>).</td>
+</tr>
+<tr>
+<td>Ninguna regla aplica</td>
+<td>Definida (camaronera = obligatoria; resto opcional)</td>
+<td>shrimp_verification_rule.py:97-100</td>
+<td>—</td>
+</tr>
+<tr>
+<td>«Confirmación de recepción» en compras verificadas</td>
+<td>Parcial</td>
+<td>shrimp_transaction.py:147-153; rule.py:62-67</td>
+<td>En compra verificada, la entrega posterior no se confirma de ninguna forma (ver §4).</td>
+</tr>
+<tr>
+<td>Archivar y recrear regla</td>
+<td>Parcial</td>
+<td>UNIQUE NULLS NOT DISTINCT (rule.py:69-72) incluye archivadas</td>
+<td>No se puede crear la sustituta mientras exista la archivada.</td>
+</tr>
+<tr>
+<td>Contraoferta sugerida desde lista de empacadora</td>
+<td>Definida</td>
+<td>shrimp_packer/models/shrimp_verification.py:20-106</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h3 id="63-evidencia-en-bd-pruebas-select">6.3 Evidencia en BD (Pruebas, SELECT)</h3>
+<table>
+<thead>
+<tr>
+<th>Modo</th>
+<th>Estado</th>
+<th>Aceptación</th>
+<th>N</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>plataforma</td>
+<td>received</td>
+<td>na</td>
+<td>10</td>
+</tr>
+<tr>
+<td>plataforma</td>
+<td>assigned</td>
+<td>na</td>
+<td>19</td>
+</tr>
+<tr>
+<td>plataforma</td>
+<td>in_field</td>
+<td>na</td>
+<td>11</td>
+</tr>
+<tr>
+<td>plataforma</td>
+<td>done</td>
+<td>na</td>
+<td>16</td>
+</tr>
+<tr>
+<td>plataforma</td>
+<td>approved</td>
+<td>closed / broken</td>
+<td>159 / 7</td>
+</tr>
+<tr>
+<td>plataforma</td>
+<td>approved_obs</td>
+<td>closed / broken</td>
+<td>74 / 2</td>
+</tr>
+<tr>
+<td>plataforma</td>
+<td>rejected</td>
+<td>na</td>
+<td>19</td>
+</tr>
+<tr>
+<td>plataforma</td>
+<td>cancelled</td>
+<td>na</td>
+<td>10</td>
+</tr>
+<tr>
+<td>declarada</td>
+<td>declared_draft / declared closed / broken</td>
+<td></td>
+<td>1 / 4 / 1</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>57 compras en <code>pending_verification</code> con stock reservado sin salida automática. Fechas de negocio: <code>assigned_date</code> mínima 2026-04-07, <code>field_start_date</code> mínima 2026-07-06 en <code>in_field</code>, <code>sold_date</code> de estas compras entre 2026-03-05 y 2026-07-22 (3 a 7 meses).</li>
+<li>9 verificaciones en received/assigned con la hora estimada de llegada del despacho ya vencida.</li>
+<li><strong>0 de 261 veredictos tienen <code>vendor_bill_id</code></strong> (liquidación a verificadora nunca emitida).</li>
+<li>48 approved, 11 approved_obs y 5 rejected <strong>sin ningún cobro de honorario</strong>.</li>
+<li>Advertencia: base de demostración cargada hace ~46 h; <code>write_date</code>/<code>mail_tracking_value</code> no sirven para antigüedad real, por eso se usan fechas de negocio.</li>
+</ul>
+<hr />
+<h2 id="7-copacking-maquila-proceso-e">7. Copacking / maquila (proceso e)</h2>
+<p>Archivos: <code>shrimp_copacking/models/shrimp_copack_request.py</code>, <code>shrimp_copack_offer.py</code>, <code>shrimp_copack_order.py</code>, <code>shrimp_copack_tariff.py</code>; <code>shrimp_copacking/controllers/main.py</code>; <code>shrimp_api/controllers/private_copack.py</code>.</p>
+<h3 id="71-diagramas-de-estado">7.1 Diagramas de estado</h3>
+<p><strong>Solicitud (<code>shrimp.copack.request</code>)</strong></p>
+<pre><code>draft ──publish──► published ──offer.accept──► assigned ──order.action_close──► done
+draft/published/assigned ──action_cancel (portal; cancela la orden si no está empacada)──► cancelled
+published: NO vence (no hay ningún cron en shrimp_copacking)
+assigned + orden cancelada desde la orden: la solicitud se queda «assigned»
+</code></pre>
+<p><strong>Oferta (<code>shrimp.copack.offer</code>)</strong>: sent → accepted | rejected (por adjudicación a otra o cancelación) | withdrawn → sent. El cliente no puede rechazar una oferta concreta; <code>available_to</code> no vence.</p>
+<p><strong>Orden (<code>shrimp.copack.order</code>) — estado / acta</strong></p>
+<pre><code>confirmed/na ──recepción──► received/na ──empaque──► packed/open
+packed/open ──2 aceptan──► signed/closed (comisión + stock) ──action_close──► closed (solicitud → done)
+packed/open ──1 rechaza──► packed/disputed ──reabrir acta(motivo)──► received/na
+confirmed/received ──action_cancel (cualquiera)──► cancelled
+open y disputed: SIN timeout.
+</code></pre>
+<p><strong>Tarifa</strong>: draft → published → archived (vencida sigue «published»). <strong>Perfil maquilador</strong>: requiere aprobación (res_partner.py:73).</p>
+<h3 id="72-tabla-de-ramas">7.2 Tabla de ramas</h3>
+<table>
+<thead>
+<tr>
+<th>Rama</th>
+<th>Estado</th>
+<th>Evidencia</th>
+<th>Escenario del hueco</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Solicitud publicada vencida (<code>needed_to</code> &lt; hoy)</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>Sin ir.cron en shrimp_copacking</td>
+<td>Abierta para siempre (SOL-EMP-000093).</td>
+</tr>
+<tr>
+<td>Oferta con <code>available_to</code> vencido</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>offer.py:144-181</td>
+<td>Se adjudica una oferta cuya planta ya no está disponible.</td>
+</tr>
+<tr>
+<td>El cliente rechaza una oferta concreta</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>No existe <code>action_reject</code></td>
+<td>22 ofertas «sent» solo salen al adjudicar o cancelar.</td>
+</tr>
+<tr>
+<td>Editar una solicitud publicada</td>
+<td>Parcial</td>
+<td>request.py sin guarda; portal hace cancelar+nueva (main.py:410-432)</td>
+<td>Por API/backoffice se cambian libras o fechas bajo ofertas hechas.</td>
+</tr>
+<tr>
+<td>Adjudicación parcial (capacidad &lt; pedido)</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>offer.py:166 <code>min(capacity, quantity)</code></td>
+<td>El resto no se re-oferta. 18 órdenes con menos libras que lo pedido.</td>
+</tr>
+<tr>
+<td>Orden cancelada desde la orden</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>order.py:676-707</td>
+<td>Solicitud «assigned» + oferta «accepted» con orden cancelada: callejón sin salida. 4 casos.</td>
+</tr>
+<tr>
+<td>Cancelación del maquilador con camarón en planta</td>
+<td>Parcial</td>
+<td>order.py:676-695; request.py:305-307</td>
+<td>Devolución física «fuera de la plataforma», sin acta. 2 órdenes «received» desde hace 10 días.</td>
+</tr>
+<tr>
+<td>Orden adjudicada que nunca se recibe</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>Sin cron</td>
+<td>3 «confirmed» con <code>needed_to</code> vencido hasta 8 días.</td>
+</tr>
+<tr>
+<td>Acta abierta sin firma</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>order.py:460-472</td>
+<td>El cliente no firma y el maquilador no cobra. 5 «packed/open» desde 2026-10-05.</td>
+</tr>
+<tr>
+<td>Acta en disputa que nadie reabre</td>
+<td>Parcial</td>
+<td>order.py:597-659</td>
+<td>Sin plazo, mediación ni herramienta de admin. 3 «packed/disputed», la más antigua de 11 días.</td>
+</tr>
+<tr>
+<td>Facturable antes de la firma</td>
+<td><strong>Contradicción</strong></td>
+<td>order.py:214-222; controllers/main.py:1278-1288; order.py:787-793</td>
+<td>Liquidación y certificado muestran empaques sin firma; la comisión solo al firmar (:471-472). 5 casos.</td>
+</tr>
+<tr>
+<td>Orden firmada sin cerrar</td>
+<td>Parcial</td>
+<td>order.py:661-674</td>
+<td>La solicitud nunca pasa a «done». 4 casos.</td>
+</tr>
+<tr>
+<td>Cancelan la compra de origen</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>copacking shrimp_transaction.py sin hook</td>
+<td>El empaque sigue vivo y facturable.</td>
+</tr>
+<tr>
+<td>Habilitación de planta vencida</td>
+<td>Parcial (según ajuste)</td>
+<td>order.py:373-398; <code>require_valid_license=False</code></td>
+<td>Planta vencida empaca y sale en el certificado.</td>
+</tr>
+<tr>
+<td>Tarifa publicada vencida</td>
+<td>Parcial</td>
+<td>tariff.py:69-91</td>
+<td>Sigue «published»; las ofertas no se ligan a tarifa.</td>
+</tr>
+<tr>
+<td>Maquilador pendiente opera por API</td>
+<td>Probable contradicción</td>
+<td>Portal main.py:769-773 <code>require_operational</code>; API private_copack.py:120 solo <code>require_type</code></td>
+<td>Oferta, recibe y empaca por API sin estar aprobado.</td>
+</tr>
+<tr>
+<td>Solicitud dirigida a maquilador no operativo</td>
+<td>Parcial</td>
+<td>request.py:141-158</td>
+<td>No valida que esté operativo.</td>
+</tr>
+<tr>
+<td>Cancelar solicitud: portal vs API</td>
+<td><strong>Contradicción</strong></td>
+<td>API private_copack.py:98-106 (solo draft/published) vs portal main.py:426 (también assigned)</td>
+<td>Mismo acto, reglas distintas.</td>
+</tr>
+<tr>
+<td>Notificaciones de copacking</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>Ninguna plantilla de correo</td>
+<td>Ni oferta recibida, ni adjudicación, ni acta pendiente, ni disputa avisan.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="73-evidencia-en-bd">7.3 Evidencia en BD</h3>
+<ul>
+<li>Solicitudes: draft 5, published 13, assigned 19, done 52, cancelled 6. Ofertas: sent 22, accepted 75, rejected 68, withdrawn 23.</li>
+<li>Órdenes: confirmed 5 (3 con <code>needed_to</code> vencido), received 2 (10 días), packed/open 5 (9 días), packed/disputed 3 (11 días), signed 4, closed 53, cancelled 4.</li>
+<li>Tarifas: draft 12, published 12, archived 36. Cobros <code>copack_platform</code>: 56 pending (41 sin compra asociada).</li>
+</ul>
+<hr />
+<h2 id="8-facturacion-de-la-plataforma-y-sri-proceso-g">8. Facturación de la plataforma y SRI (proceso g)</h2>
+<p>Recordatorio del modelo de negocio: facturación en dos pasos. La plataforma emite comprobantes SRI <strong>solo por sus servicios</strong> (comisión, honorario de verificación, cargo de copacking, chequeo); el vendedor emite su factura de mercadería en su sistema y la <strong>registra</strong> en la compra (paso 2).</p>
+<p>Archivos: <code>shrimp_marketplace/models/shrimp_charge.py</code>, <code>shrimp_check_request.py</code>; <code>shrimp_l10n_ec/models/shrimp_charge.py</code>, <code>res_company.py</code>; <code>shrimp_api_sri/models/sri_document.py</code>; módulo externo <code>/opt/odoo/custom_addons/sri/l10n_ec_sri_community</code> (SRI).</p>
+<h3 id="81-diagramas-de-estado">8.1 Diagramas de estado</h3>
+<p><strong><code>shrimp.charge</code></strong> (shrimp_charge.py:91-101)</p>
+<pre><code>crear (_register_charge :136) ──► pending ──_try_invoice OK (:327)──► invoiced ──action_cancel_charge (:419)──► to_credit ──_try_credit OK──► credited
+                                   │                                    │                                        └ falla: to_credit para siempre, sin contador (:403-407)
+                                   ├─ excepción ──► error (:318-326) ── cron mientras intentos &lt; 5 (:355-360)
+                                   ├─ importe ≤ 0 ──► cancelled
+                                   └─ action_cancel_charge ──► cancelled
+invoiced + factura cancelada o RECHAZADA por el SRI ──► (sin transición: sigue «invoiced»)
+pending/error con intentos ≥ 5 ──► (el cron ya no lo toma; sin aviso; solo botón manual :365)
+</code></pre>
+<p>Anulación por tipo: comisión solo en la cancelación por retraso (shrimp_transaction_delay.py:702-720); honorario en <code>shrimp_verification.py:1018-1025</code>; copacking sin camino de anulación.</p>
+<p><strong><code>ec.sri.document</code></strong> (SRI/models/document.py:46-48)</p>
+<pre><code>draft ─action_queue─► queued ─_cron_process (1 min, 5 por pasada)─► waiting ─► authorized ─► cancelled
+queued|waiting ─DEVUELTA / NO AUTORIZADO─► rejected ─action_correct (manual)─► draft
+queued|waiting ─error / 20 intentos─► error ─action_resume (manual)─► queued
+draft ──► (ningún cron lo mueve)
+</code></pre>
+<p><strong><code>shrimp.check.request</code></strong> (flujo legado): requested → under_review → approved (ejecuta compra) / rejected / cancelled. Sin guardas de estado en el modelo; la vista muestra un estado <code>done</code> inexistente; <code>check_fee</code> solo con botón manual.</p>
+<h3 id="82-tabla-de-ramas">8.2 Tabla de ramas</h3>
+<table>
+<thead>
+<tr>
+<th>Rama</th>
+<th>Estado</th>
+<th>Evidencia</th>
+<th>Escenario del hueco</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Error de facturación con reintento</td>
+<td>Definida</td>
+<td>shrimp_charge.py:304-363</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Cobro que agota los intentos</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>:355-360; sin aviso ni filtro (shrimp_reports.xml:90-93)</td>
+<td>Queda pendiente/error para siempre.</td>
+</tr>
+<tr>
+<td>Nota de crédito que falla</td>
+<td>Parcial</td>
+<td>:403-407; cron :362 sin límite</td>
+<td>Reintento horario indefinido sin aviso.</td>
+</tr>
+<tr>
+<td><strong>Nota de crédito enviada al SRI</strong></td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td><code>_try_credit</code> :398-402 no llama a <code>_after_service_invoice_posted</code>; shrimp_l10n_ec shrimp_charge.py:71-82 solo prepara datos</td>
+<td>La NC (doc. 04) se contabiliza pero nunca se emite al SRI.</td>
+</tr>
+<tr>
+<td><strong>SRI rechaza la factura de un cobro</strong></td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>SRI document.py:242-243, 269-270; shrimp_api_sri sri_document.py:25-32 solo reacciona a «authorized»</td>
+<td>El cobro sigue «invoiced»; el pagador no tiene comprobante válido; nadie avisado.</td>
+</tr>
+<tr>
+<td>Comprobante SRI en <code>draft</code></td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>document.py:285</td>
+<td>1 documento en draft para la factura <code>001-001-000002588</code>.</td>
+</tr>
+<tr>
+<td>Comprobante SRI en <code>error</code></td>
+<td>Parcial</td>
+<td>document.py:277-303</td>
+<td>Solo reanudación manual, sin aviso.</td>
+</tr>
+<tr>
+<td>Anular cobro con factura rechazada por SRI</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>:419-421</td>
+<td>Se emitiría una NC sobre factura no autorizada.</td>
+</tr>
+<tr>
+<td>Factura cancelada/borrador en contabilidad</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td><code>invoice_state</code> related (:113-114)</td>
+<td>Cobro «invoiced» inconsistente.</td>
+</tr>
+<tr>
+<td>Envío electrónico falla tras contabilizar</td>
+<td>Parcial</td>
+<td>:336-344</td>
+<td>Solo chatter.</td>
+</tr>
+<tr>
+<td>Pagador sin RUC</td>
+<td>Parcial</td>
+<td>res_partner.py:38-39</td>
+<td>5 reintentos con el mismo error; nadie pide los datos al pagador.</td>
+</tr>
+<tr>
+<td><strong>SRI activo sin diario de servicios</strong></td>
+<td><strong>Contradicción Ajustes ↔ código</strong></td>
+<td>res_company.py:13-17 («vacío usa el diario por defecto»); el diario «Sales» no usa documentos</td>
+<td>16 cobros en error por esta causa; compañías 1 y 2 sin <code>shrimp_service_journal_id</code>.</td>
+</tr>
+<tr>
+<td>Cancelación por retraso → anula cobros</td>
+<td>Definida</td>
+<td>delay.py:640, 702-720</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Cancelación por otra vía → comisión</td>
+<td>Parcial</td>
+<td>shrimp_verification/models/shrimp_transaction.py:254-264</td>
+<td>Hoy seguro solo porque la comisión nace al confirmar.</td>
+</tr>
+<tr>
+<td>Incidencia «no entregado» → comisión</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>reception.py:491-512</td>
+<td>La comisión nunca se acredita.</td>
+</tr>
+<tr>
+<td>Borrar transacción con cobros facturados</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>shrimp_charge.py:68-69 <code>ondelete="cascade"</code></td>
+<td>Factura huérfana.</td>
+</tr>
+<tr>
+<td>Anular cobro desde back-office</td>
+<td style="background:#ffe3e3"><strong>NO definida (sin UI)</strong></td>
+<td>shrimp_reports.xml:141-147</td>
+<td>Solo por shell.</td>
+</tr>
+<tr>
+<td>Liquidación al verificador</td>
+<td>Parcial</td>
+<td>shrimp_charge.py:475-480</td>
+<td>Queda en borrador sin actividad; 0 de 261 emitidas.</td>
+</tr>
+<tr>
+<td>Factura del vendedor (paso 2)</td>
+<td>Parcial</td>
+<td>shrimp_transaction.py:165-196; reception.py:450-455</td>
+<td>893 de 893 compras confirmadas/completadas sin factura del vendedor.</td>
+</tr>
+<tr>
+<td>Chequeo aprobado → <code>check_fee</code></td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>check_request.py:150-169 no llama <code>_create_check_sale_documents</code> (:184)</td>
+<td>34 aprobadas con tarifa y 0 cobros.</td>
+</tr>
+<tr>
+<td>Chequeo: guardas en el modelo</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>:147-179</td>
+<td>Por RPC se aprueba dos veces → dos compras.</td>
+</tr>
+<tr>
+<td>Cancelar chequeo aprobado</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>vista :34-35</td>
+<td>Queda «cancelled» con su compra viva.</td>
+</tr>
+<tr>
+<td>Aviso de aprobación/rechazo de chequeo</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>Plantilla huérfana; evento <code>check_request.created</code> muerto</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h3 id="83-evidencia-en-bd">8.3 Evidencia en BD</h3>
+<table>
+<thead>
+<tr>
+<th>Estado del cobro</th>
+<th>N</th>
+<th>Detalle</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>pending</td>
+<td>1.169</td>
+<td>commission 876, verification_fee 237, copack 56; todos con 5 intentos (sembrados por <code>scripts/demo_masivo/comun.py:44-49</code>)</td>
+</tr>
+<tr>
+<td>error</td>
+<td>17</td>
+<td>16 «El diario Sales no usa documentos del SRI», 1 <code>'NoneType' object has no attribute 'value'</code></td>
+</tr>
+<tr>
+<td>cancelled</td>
+<td>30</td>
+<td>—</td>
+</tr>
+<tr>
+<td>invoiced / to_credit / credited</td>
+<td><strong>0</strong></td>
+<td>Ningún cobro se ha facturado nunca en Pruebas</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>1029 cobros pendientes con fecha de más de 30 días (desde 2025-11-01).</li>
+<li>23 honorarios <code>pending</code> en compras canceladas (rechazo/trato caído: por diseño se cobran, pero no se facturan).</li>
+<li><code>ec_sri_document</code>: 1 draft; 14 facturas de venta posteadas sin comprobante SRI (desde 2026-10-06).</li>
+<li>Parámetros: <code>fee_min</code> = 300 &gt; <code>fee_base</code> = 250 (verificar que el mínimo sea intencional).</li>
+</ul>
+<h2 id="9-api-webhooks-crons-notificaciones-y-trazabilidad-procesos-h-i-j">9. API, webhooks, crons, notificaciones y trazabilidad (procesos h, i, j)</h2>
+<h3 id="91-diagramas-de-estado">9.1 Diagramas de estado</h3>
+<p><strong><code>shrimp.api.key</code></strong> (estado calculado, api_key.py:115-135): active ─expires_at&lt;ahora─► expired (sin aviso) · active ─action_revoke─► revoked (final) · active ⇄ inactive.</p>
+<p><strong><code>shrimp.webhook.delivery</code></strong> (webhook.py:231-234)</p>
+<pre><code>pending ─OK─► success
+pending|retrying ─fallo─► retrying (1,5,15,60,180,360,720,1440 min) ─8º intento─► dead
+pending ─suscripción inactiva─► dead
+dead|retrying ─action_retry (solo backoffice)─► pending
+excepción inesperada en _send_one ─► sigue pending SIN contar el intento (:408-410)  ← mensaje envenenado
+suscripción: se autodesactiva tras 50 «dead» seguidas (:386-391); reactivar no re-encola
+</code></pre>
+<p><strong><code>shrimp.api.idempotency</code></strong> (api_runtime.py:85-116; controllers/main.py:289-333): create in_progress → 2xx/4xx: done (respuesta guardada 24 h) | 5xx/excepción: se borra. Caída del proceso → rollback completo (definido).</p>
+<h3 id="92-tabla-de-ramas">9.2 Tabla de ramas</h3>
+<table>
+<thead>
+<tr>
+<th>Rama</th>
+<th>Estado</th>
+<th>Evidencia</th>
+<th>Escenario del hueco</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Idempotencia: caída a mitad</td>
+<td>Definida</td>
+<td>main.py:320-328</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Idempotencia: 4xx de negocio</td>
+<td>Parcial</td>
+<td>main.py:329-333</td>
+<td>Tras corregir la causa, el reintento con la misma clave recibe la 422/409 cacheada 24 h.</td>
+</tr>
+<tr>
+<td>API key: caducidad</td>
+<td>Parcial</td>
+<td>api_key.py:199-200, 289-290</td>
+<td>Sin aviso previo; 56 claves sin <code>expires_at</code> (nunca caducan).</td>
+</tr>
+<tr>
+<td>API key: revocación</td>
+<td>Definida</td>
+<td>:337-350</td>
+<td>—</td>
+</tr>
+<tr>
+<td>API key ligada a perfil</td>
+<td>Parcial</td>
+<td>framework.py:583</td>
+<td>La clave actúa sobre el perfil activo del usuario en cada momento.</td>
+</tr>
+<tr>
+<td>API ignora aprobación de la cuenta</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>framework.py:691-696 (ver §2)</td>
+<td>Cuenta pendiente/rechazada opera por API.</td>
+</tr>
+<tr>
+<td>API ignora puerta legal MAYOR</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>main.py:1167-1171 exime /api/</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Webhook: excepción inesperada</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>webhook.py:408-410</td>
+<td>Reintento cada minuto para siempre.</td>
+</tr>
+<tr>
+<td>Webhook: suscripción autodesactivada</td>
+<td>Parcial</td>
+<td>:386-391</td>
+<td>Sin aviso al socio; eventos perdidos sin reenvío.</td>
+</tr>
+<tr>
+<td>Webhook: reenviar «dead» desde portal/API</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>private_webhooks.py:118</td>
+<td>Solo backoffice.</td>
+</tr>
+<tr>
+<td>Webhook tras revocar todas las claves</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>Suscripción independiente de la clave</td>
+<td>Siguen llegando eventos.</td>
+</tr>
+<tr>
+<td>Eventos de cobro/factura/SRI rechazado</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>Solo <code>invoice.authorized</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td>Eventos de retraso, incidencia, recepción, strike</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>events.py:43-47 (solo <code>state</code>)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Paridad API ↔ portal: cancelar compra, retrasos, factura del vendedor, recepción de verificada</td>
+<td><strong>Divergente</strong></td>
+<td>private_trade.py</td>
+<td>Ver §4.</td>
+</tr>
+<tr>
+<td><code>/t/&lt;token&gt;</code>: compra cancelada o en borrador</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>transaction_trace.py:36-40; portal.py:185-198; public.py:256-262</td>
+<td>121 canceladas y 20 en borrador públicas sin indicar su estado.</td>
+</tr>
+<tr>
+<td><code>/t/&lt;token&gt;</code>: retirar sin reemplazar</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>Solo rotar (:48-51)</td>
+<td>No se puede retirar la página pública.</td>
+</tr>
+<tr>
+<td><code>/t/&lt;token&gt;</code>: rotar desde portal</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>Solo API (private_trade.py:103-108) y backoffice</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>/t/&lt;token&gt;</code>: contenido cambia tras la venta</td>
+<td style="background:#ffe3e3"><strong>NO definida</strong></td>
+<td>Ficha de calidad y origen editables (§3)</td>
+<td>La página pública de un lote vendido cambia si el vendedor edita su PCR.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="93-cobertura-de-crons-todos-activos">9.3 Cobertura de crons (todos activos)</h3>
+<table>
+<thead>
+<tr>
+<th>Cron</th>
+<th>Modelo.método</th>
+<th>Intervalo</th>
+<th>Cubre</th>
+<th>Estados en espera NO cubiertos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ir_cron_shrimp_charge_retry</td>
+<td>shrimp.charge._cron_retry_invoices</td>
+<td>1 h</td>
+<td>pending/error con &lt; 5 intentos; to_credit sin límite</td>
+<td>pending/error agotados; invoiced con SRI rechazado o factura cancelada</td>
+</tr>
+<tr>
+<td>ir_cron_shrimp_reception_delivery</td>
+<td>shrimp.transaction._cron_reception_and_delivery (+ retrasos y strikes)</td>
+<td>1 h</td>
+<td>recepción waiting vencida; retraso proposed/countered vencido; atraso sin aviso</td>
+<td>incidence; confirmed verificadas; confirmed sin reception_required; draft; pending_verification; factura del vendedor</td>
+</tr>
+<tr>
+<td>ir_cron_acceptance_deadline</td>
+<td>shrimp.verification._cron_vencer_plazos</td>
+<td>1 h</td>
+<td>acceptance_state waiting vencido</td>
+<td>received/assigned/in_field/done; declared_draft</td>
+</tr>
+<tr>
+<td>cron_reserva_vencer</td>
+<td>harvest.forecast + harvest.commitment ._cron_vencer</td>
+<td>1 día</td>
+<td>forecast published/committed; commitment sent</td>
+<td>commitment honored sin compra; to_confirm</td>
+</tr>
+<tr>
+<td>ir_cron_price_list_auto_publish</td>
+<td>shrimp.price.list._cron_auto_publish</td>
+<td>1 día</td>
+<td>publicación programada</td>
+<td>listas vencidas / «hasta segunda orden»</td>
+</tr>
+<tr>
+<td>ir_cron_avisos_lotes_nuevos</td>
+<td>shrimp.lot.alert._cron_avisar_lotes</td>
+<td>1 h</td>
+<td>avisos de lotes</td>
+<td>—</td>
+</tr>
+<tr>
+<td>ir_cron_aguaje_asegurar_calendario</td>
+<td>shrimp.aguaje._cron_asegurar_calendario</td>
+<td>1 día</td>
+<td>calendario</td>
+<td>—</td>
+</tr>
+<tr>
+<td>ir_cron_legal_receipts</td>
+<td>shrimp.legal.acceptance._cron_generate_receipts</td>
+<td>15 min</td>
+<td>comprobantes pendientes</td>
+<td>comprobantes en error</td>
+</tr>
+<tr>
+<td>ir_cron_webhook_send</td>
+<td>shrimp.webhook.delivery._cron_send</td>
+<td>1 min</td>
+<td>pending, retrying</td>
+<td>atascados por excepción; dead</td>
+</tr>
+<tr>
+<td>ir_cron_api_housekeeping</td>
+<td>rate_bucket/idempotency/delivery cleanup</td>
+<td>10 min</td>
+<td>limpieza</td>
+<td>—</td>
+</tr>
+<tr>
+<td>ir_cron_sri_queue (externo)</td>
+<td>ec.sri.document._cron_process</td>
+<td>1 min</td>
+<td>queued/waiting</td>
+<td>draft, rejected, error</td>
+</tr>
+<tr>
+<td><strong>(ninguno)</strong></td>
+<td>shrimp.check.request</td>
+<td>—</td>
+<td>—</td>
+<td>requested, under_review</td>
+</tr>
+<tr>
+<td><strong>(ninguno)</strong></td>
+<td>shrimp.product / certificados de producto y de socio</td>
+<td>—</td>
+<td>—</td>
+<td>publicados vencidos, certificados vencidos</td>
+</tr>
+<tr>
+<td><strong>(ninguno)</strong></td>
+<td>shrimp.partner.role / cuenta</td>
+<td>—</td>
+<td>—</td>
+<td>pending</td>
+</tr>
+<tr>
+<td><strong>(ninguno)</strong></td>
+<td>shrimp.account.member</td>
+<td>—</td>
+<td>—</td>
+<td>invitaciones sin usar</td>
+</tr>
+<tr>
+<td><strong>(ninguno)</strong></td>
+<td>shrimp_copacking (solicitud, oferta, orden, acta)</td>
+<td>—</td>
+<td>—</td>
+<td>published vencida, sent vencida, confirmed sin recibir, packed/open, packed/disputed, signed</td>
+</tr>
+<tr>
+<td><strong>(ninguno)</strong></td>
+<td>shrimp.api.key</td>
+<td>—</td>
+<td>—</td>
+<td>caducidad próxima</td>
+</tr>
+<tr>
+<td><strong>(ninguno)</strong></td>
+<td>solicitudes LOPDP / purga de rechazados a 12 meses</td>
+<td>—</td>
+<td>—</td>
+<td>todo</td>
+</tr>
+</tbody>
+</table>
+<h3 id="94-notificaciones">9.4 Notificaciones</h3>
+<p>Plantillas existentes: accreditation_approved, aviso_lotes_nuevos, dispatch_arrival, dispatch_eta, precios_cambiaron, shrimp_check_request (huérfana), product_created, product_published, signoff_reverted, verification_assigned, verification_assigned_admin, verification_stage, verification_verdict. Recepción y retrasos usan <code>_shrimp_notify</code> (reception.py:549); mixin en <code>shrimp_notify_mixin.py:25-75</code>.</p>
+<p><strong>Eventos sin ningún aviso (ni correo ni webhook):</strong> rechazo de cuenta/perfil/certificado; cuenta o perfil pendiente (a la administración); publicación de versión legal; cobro en error o agotado; nota de crédito emitida; SRI rechazado/error; aprobación/rechazo de chequeo; API key por caducar; webhook autodesactivado; liquidación al verificador; recordatorio de factura del vendedor; todo el flujo de reservas de cosecha (declaración, compromiso, firma); todo copacking (oferta, adjudicación, acta, disputa); verificación sin avance; incidencia resuelta (texto equivocado).</p>
+<h3 id="95-evidencia-en-bd">9.5 Evidencia en BD</h3>
+<ul>
+<li>Webhooks: 0 suscripciones, 0 entregas; idempotencia: 0 registros (la API no se ha usado en Pruebas).</li>
+<li>API keys: 47 activas, 9 inactivas sin revocar; las 56 con <code>expires_at</code> NULL.</li>
+<li>Las 1.091 compras tienen <code>trace_token</code>, incluidas 121 canceladas y 20 en borrador.</li>
+</ul>
+<hr />
+<h2 id="10-lista-priorizada-de-huecos-y-recomendaciones">10. Lista priorizada de huecos y recomendaciones</h2>
+<p>Columna <strong>Dec.</strong>: «Sí» = requiere decisión del usuario (pregunta en §11); «No» = corrección técnica sin decisión de negocio.</p>
+<h3 id="101-critico">10.1 Crítico</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Proceso</th>
+<th>Hueco</th>
+<th>Comportamiento recomendado</th>
+<th>Dec.</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CR-01</td>
+<td>Compra</td>
+<td>Compras verificadas atascadas en «confirmed» (35)</td>
+<td>Al cerrarse la aceptación del informe, la llegada a planta ya está verificada: pasar a «done» y crear el lote del comprador automáticamente (o mostrar el botón y aplicar la misma autoconfirmación que las directas).</td>
+<td>Sí (D-01)</td>
+</tr>
+<tr>
+<td>CR-02</td>
+<td>Verificación</td>
+<td>Verificación de plataforma sin plazo ni cancelación (57 compras retenidas)</td>
+<td>Plazos configurables para asignar técnico e ir a campo, con avisos; al vencer, el comprador puede cancelar (nota de crédito del honorario + liberar stock) o la plataforma reasigna; botón «Cancelar verificación» con motivo en back-office.</td>
+<td>Sí (D-02)</td>
+</tr>
+<tr>
+<td>CR-03</td>
+<td>Compra</td>
+<td>Autoconfirmación de recepción sin despacho</td>
+<td>No autoconfirmar sin <code>dispatched_at</code>; al vencer, escalar a la plataforma o habilitar la cancelación sin costo.</td>
+<td>Sí (D-03)</td>
+</tr>
+<tr>
+<td>CR-04</td>
+<td>Facturación</td>
+<td>Notas de crédito nunca enviadas al SRI</td>
+<td>Emitir la NC (04) automáticamente igual que la factura (01).</td>
+<td>Sí (D-04)</td>
+</tr>
+<tr>
+<td>CR-05</td>
+<td>Facturación</td>
+<td>Rechazo del SRI no vuelve al cobro; sin aviso</td>
+<td>Estado «Rechazado SRI» en el cobro, aviso a contabilidad, corregir y reenviar; no emitir NC sobre factura no autorizada.</td>
+<td>Sí (D-05)</td>
+</tr>
+<tr>
+<td>CR-06</td>
+<td>Facturación</td>
+<td>SRI activo sin diario de servicios (16 errores); cobros agotados sin aviso</td>
+<td>Validar en Ajustes que exista diario/punto de emisión con documentos SRI al activar; actividad al agotar intentos; filtro «Requieren atención».</td>
+<td>Sí (D-06)</td>
+</tr>
+<tr>
+<td>CR-07</td>
+<td>Compra</td>
+<td>No hay cancelación por vendedor ni por plataforma; incidencia sin desenlace «no entregado»</td>
+<td>Acción «Anular compra» (back-office y, con reglas, vendedor) que reutilice la reversa de stock y anulación de cobros de la cancelación por retraso; desenlace «Cancelar» en incidencias con SLA.</td>
+<td>Sí (D-07)</td>
+</tr>
+<tr>
+<td>CR-08</td>
+<td>Cuenta/API</td>
+<td>API ignora aprobación de cuenta/perfil y gate legal MAYOR</td>
+<td><code>require_capability</code> debe exigir perfil operativo; no emitir claves a cuentas no aprobadas; 403 «términos pendientes» en API y POST.</td>
+<td>Sí (D-08)</td>
+</tr>
+<tr>
+<td>CR-09</td>
+<td>Cuenta/legal</td>
+<td>LOPDP sin proceso; DPO no configurado; sin eliminación/anonimización; purga a 12 meses incumplida</td>
+<td>Modelo «solicitud de derechos» con estado y vencimiento (15 días), responsable y respuesta; flujo de cierre de cuenta con anonimización conservando lo tributario; cron de purga de altas rechazadas.</td>
+<td>Sí (D-09)</td>
+</tr>
+<tr>
+<td>CR-10</td>
+<td>Empacadora</td>
+<td>Lote de reserva cumplida abierto a cualquiera; compromiso aceptado vence sin culpa</td>
+<td>Reservar las libras liquidadas a la empacadora comprometida, excluirlas de avisos, plazo de compra; al vencer la declaración con compromiso aceptado, avisar y marcar incumplimiento salvo causa justificada.</td>
+<td>Sí (D-10)</td>
+</tr>
+<tr>
+<td>CR-11</td>
+<td>Producto</td>
+<td>Baja/eliminación con operaciones abiertas; stock en el limbo; chequeos sin plazo</td>
+<td>Bloquear baja/eliminación con operaciones abiertas (mismos bloqueos que el traspaso de perfil); al eliminar, ajuste de baja de stock; cron que vence chequeos y libera la reserva.</td>
+<td>Sí (D-11)</td>
+</tr>
+<tr>
+<td>CR-12</td>
+<td>Permisos</td>
+<td>Sub-usuario «ver» edita ficha, certificados, stock, productos y factura del vendedor; perfil activo global</td>
+<td>Ficha y certificados solo admin (o permiso «gestionar cuenta»); exigir permiso «vender» en producto, traspaso y factura; perfil activo por usuario, no por empresa.</td>
+<td>Sí (D-12)</td>
+</tr>
+<tr>
+<td>CR-13</td>
+<td>Cuenta/producto</td>
+<td>Certificados vencidos siguen «aprobados» (51 socio, 194 producto) y se muestran vigentes</td>
+<td>Estado/filtro «vencido», cron diario con aviso a 30 días y al vencer, marcar «vencido» en la ficha pública; decidir bloqueo.</td>
+<td>Sí (D-13)</td>
+</tr>
+<tr>
+<td>CR-14</td>
+<td>Copacking</td>
+<td>Acta abierta/disputada sin plazo; «facturable» y en certificado antes de firmar; orden cancelada deja solicitud «assigned»</td>
+<td>Plazo de firma con recordatorios y regla al vencer; mediación de plataforma; facturable solo desde «signed»; al cancelar la orden reabrir/cancelar solicitud y oferta.</td>
+<td>Sí (D-14)</td>
+</tr>
+<tr>
+<td>CR-15</td>
+<td>Empacadora</td>
+<td>Edición de renglones o retiro de una lista publicada altera compromisos «a lista»</td>
+<td>Bloquear edición de listas publicadas (duplicar y publicar); foto de precios al publicar; no volver a borrador una publicada.</td>
+<td>Sí (D-15)</td>
+</tr>
+<tr>
+<td>CR-16</td>
+<td>Verificación</td>
+<td>Veredicto (rechazo) sin trabajo de campo</td>
+<td>Exigir estado in_field/done en <code>_close</code>; evidencia mínima para rechazar.</td>
+<td>Sí (D-16)</td>
+</tr>
+<tr>
+<td>CR-17</td>
+<td>Producto</td>
+<td>Precio y campos críticos editables con compras en verificación o chequeos; chequeo aprobado al precio actual</td>
+<td>Congelar el precio al crear chequeo/verificación; ampliar el bloqueo a cualquier compra no cancelada.</td>
+<td>Sí (D-17)</td>
+</tr>
+<tr>
+<td>CR-18</td>
+<td>Despliegue</td>
+<td>Retrasos/strikes sin <code>-u</code> en Pruebas; borradores legales no publicados</td>
+<td>Ejecutar <code>-u</code>, verificar <code>delay_rules_since</code>, publicar (con abogado) los textos legales antes de aplicar strikes.</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h3 id="102-alto">10.2 Alto</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Proceso</th>
+<th>Hueco</th>
+<th>Comportamiento recomendado</th>
+<th>Dec.</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AL-01</td>
+<td>Cuenta</td>
+<td>Rechazo de cuenta/perfil/certificado sin aviso ni motivo; página dice «en revisión»</td>
+<td>Motivo obligatorio, correo al socio, página «rechazada» con instrucciones.</td>
+<td>No</td>
+</tr>
+<tr>
+<td>AL-02</td>
+<td>Cuenta</td>
+<td>Perfil activo rechazado = callejón sin salida</td>
+<td>Permitir «volver a solicitar» con nuevos documentos.</td>
+<td>Sí (D-18)</td>
+</tr>
+<tr>
+<td>AL-03</td>
+<td>Cuenta</td>
+<td>Sin aviso ni plazo para aprobar pendientes</td>
+<td>Actividad/correo al equipo aprobador; recordatorio a 48 h.</td>
+<td>Sí (D-19)</td>
+</tr>
+<tr>
+<td>AL-04</td>
+<td>Cuenta</td>
+<td>Sin estado «suspendida» (prometido en Términos §6 y Contrato §4, §9); perfil rechazado no despublica</td>
+<td>Estado «suspendida» con efectos definidos; despublicar lotes y listas del perfil rechazado/suspendido.</td>
+<td>Sí (D-20)</td>
+</tr>
+<tr>
+<td>AL-05</td>
+<td>Cuenta</td>
+<td>Sin recuperación de administrador; transferencia a invitado que nunca entró</td>
+<td>Exigir primer acceso al nuevo admin; procedimiento de back-office para reasignar.</td>
+<td>No</td>
+</tr>
+<tr>
+<td>AL-06</td>
+<td>Verificación</td>
+<td>Verificadora no puede declinar la orden</td>
+<td>Paso «aceptar/declinar» con plazo; si declina, el comprador elige otra y el cobro se reasigna.</td>
+<td>Sí (D-21)</td>
+</tr>
+<tr>
+<td>AL-07</td>
+<td>Verificación</td>
+<td>Silencio del vendedor ante contraoferta = acepta la rebaja (contrario a la regla de retrasos)</td>
+<td>Silencio ante contraoferta = rechazo de la contraoferta (o trato caído).</td>
+<td>Sí (D-22)</td>
+</tr>
+<tr>
+<td>AL-08</td>
+<td>Verificación</td>
+<td>Cron de vencimiento sin aislamiento de errores</td>
+<td>Savepoint por registro y error al chatter.</td>
+<td>No</td>
+</tr>
+<tr>
+<td>AL-09</td>
+<td>Verificación</td>
+<td>Acreditación vencida o perfil suspendido a mitad del proceso</td>
+<td>Bloquear veredicto, avisar al comprador, reasignar; cron de vencimiento de acreditación.</td>
+<td>Sí (D-23)</td>
+</tr>
+<tr>
+<td>AL-10</td>
+<td>Verificación</td>
+<td>Liquidación a la verificadora: 0 de 261 emitidas, sin reintento ni estado</td>
+<td>Cron de reintento y estado de pago visible en portal.</td>
+<td>Sí (D-24)</td>
+</tr>
+<tr>
+<td>AL-11</td>
+<td>Verificación</td>
+<td>Sin apelación/re-verificación tras rechazo</td>
+<td>Impugnación en N horas con segunda verificación a cargo de quien pierda.</td>
+<td>Sí (D-25)</td>
+</tr>
+<tr>
+<td>AL-12</td>
+<td>Compra</td>
+<td>Pares directos sin <code>reception_required</code> quedan confirmados para siempre</td>
+<td>Toda compra directa con plazo de recepción, o impedir esa configuración en la matriz.</td>
+<td>Sí (D-26)</td>
+</tr>
+<tr>
+<td>AL-13</td>
+<td>Compra</td>
+<td>Cron de aceptación falla si cambiaron los lotes reservados</td>
+<td>Bloquear ajustes de lotes reservados o cancelar con aviso.</td>
+<td>No</td>
+</tr>
+<tr>
+<td>AL-14</td>
+<td>Compra/API</td>
+<td>API sin cancelar, retrasos ni factura del vendedor</td>
+<td>Igualar la API al portal.</td>
+<td>No</td>
+</tr>
+<tr>
+<td>AL-15</td>
+<td>Compra</td>
+<td>Cancelar con factura del vendedor ya registrada</td>
+<td>Aviso al vendedor para emitir NC; marcar la factura como anulada.</td>
+<td>No</td>
+</tr>
+<tr>
+<td>AL-16</td>
+<td>Compra</td>
+<td>Comisión facturada en ventas fallidas</td>
+<td>Anularla en toda cancelación.</td>
+<td>Sí (D-27)</td>
+</tr>
+<tr>
+<td>AL-17</td>
+<td>Compra</td>
+<td>Comprador no puede desistir de una verificada (plataforma)</td>
+<td>Permitir antes de la visita a campo, con regla de honorario.</td>
+<td>Sí (D-02)</td>
+</tr>
+<tr>
+<td>AL-18</td>
+<td>Facturación</td>
+<td>Chequeo: sin guardas, cancelar aprobado deja compra viva, <code>check_fee</code> nunca se cobra</td>
+<td>Guardas en el modelo; quitar «cancelar» en aprobado; decidir el cobro.</td>
+<td>Sí (D-28)</td>
+</tr>
+<tr>
+<td>AL-19</td>
+<td>Trazabilidad</td>
+<td><code>/t/&lt;token&gt;</code> publica compras canceladas y en borrador</td>
+<td>Mostrar solo confirmadas/completadas o sello «Cancelada».</td>
+<td>Sí (D-29)</td>
+</tr>
+<tr>
+<td>AL-20</td>
+<td>Facturación</td>
+<td><code>ondelete=cascade</code> borra cobros facturados</td>
+<td>Prohibir borrar compras con cobros facturados.</td>
+<td>No</td>
+</tr>
+<tr>
+<td>AL-21</td>
+<td>Producto</td>
+<td>Reactivar producto eliminado (6 zombis); PCR positivo sin consecuencia; calidad/origen editables tras venta; publicaciones sin caducidad (521)</td>
+<td>Regla de la API en el portal; bloquear venta con PCR positivo; congelar calidad y origen tras la primera venta; cron de caducidad.</td>
+<td>Sí (D-30, D-31)</td>
+</tr>
+<tr>
+<td>AL-22</td>
+<td>Producto</td>
+<td>Bug: sub-usuario no puede publicar (error 500); API v1 asigna rol «laboratorio» a camaroneras</td>
+<td>Usar el actor en <code>action_publish</code>; derivar <code>seller_role</code> del perfil; retirar API v1.</td>
+<td>Sí (D-32)</td>
+</tr>
+<tr>
+<td>AL-23</td>
+<td>Empacadora</td>
+<td>Compromiso roto bloquea a las demás empacadoras; sin notificaciones en reservas</td>
+<td>Reabrir las descartadas al republicar; avisos en cada transición.</td>
+<td>Sí (D-33)</td>
+</tr>
+<tr>
+<td>AL-24</td>
+<td>Copacking</td>
+<td>Cancelación del maquilador con camarón en planta; compra de origen cancelada no cascada; maquilador pendiente por API</td>
+<td>Motivo y acta de devolución; bloquear o cascada; exigir perfil operativo en el modelo.</td>
+<td>Sí (D-34)</td>
+</tr>
+<tr>
+<td>AL-25</td>
+<td>Exportación</td>
+<td>Anular exportación registrada sin motivo, aun con DAE</td>
+<td>Motivo obligatorio; con DAE/factura, aprobación de la plataforma.</td>
+<td>Sí (D-35)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="103-medio">10.3 Medio</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Hueco</th>
+<th>Recomendación</th>
+<th>Dec.</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ME-01</td>
+<td>Invitaciones sin vencimiento; miembro no borrable; correo bloqueado</td>
+<td>Vencimiento a 7 días; borrar si nunca entró.</td>
+<td>No</td>
+</tr>
+<tr>
+<td>ME-02</td>
+<td>Renovación de certificado pisa la versión aprobada; fechas vencidas aceptadas</td>
+<td>Línea nueva; validar fecha.</td>
+<td>No</td>
+</tr>
+<tr>
+<td>ME-03</td>
+<td>Sin correo de versiones legales nuevas; anexo no exigido por API; sub-usuario bloqueado sin aviso al admin</td>
+<td>Correo a admins al publicar MAYOR; misma comprobación en API; aviso al admin.</td>
+<td>Sí (D-36)</td>
+</tr>
+<tr>
+<td>ME-04</td>
+<td>Ex-administrador conserva todos los permisos</td>
+<td>Definir permisos tras transferir.</td>
+<td>Sí (D-37)</td>
+</tr>
+<tr>
+<td>ME-05</td>
+<td>Límite de altas cuenta errores de validación</td>
+<td>Contar solo envíos válidos.</td>
+<td>No</td>
+</tr>
+<tr>
+<td>ME-06</td>
+<td>Sub-usuarios crean claves API y webhooks</td>
+<td>Solo admin o permiso propio.</td>
+<td>No</td>
+</tr>
+<tr>
+<td>ME-07</td>
+<td>Baja de técnico con órdenes abiertas; reasignación sin aviso</td>
+<td>Exigir reasignar; avisar.</td>
+<td>No</td>
+</tr>
+<tr>
+<td>ME-08</td>
+<td>Contraoferta/deshacer reinicia el plazo</td>
+<td>No reiniciar o una sola contraoferta.</td>
+<td>Sí (D-38)</td>
+</tr>
+<tr>
+<td>ME-09</td>
+<td>La matriz no restringe modos: «obligatoria» admite autodeclaración</td>
+<td>Columna «modos permitidos».</td>
+<td>Sí (D-39)</td>
+</tr>
+<tr>
+<td>ME-10</td>
+<td>Tarifa propia de verificadora capturada e ignorada</td>
+<td>Usarla o quitarla.</td>
+<td>Sí (D-40)</td>
+</tr>
+<tr>
+<td>ME-11</td>
+<td>Permiso «verify» no exigido en API; admin multi-perfil pierde la bandeja</td>
+<td>Alinear con portal; usar <code>_shrimp_has_role</code>.</td>
+<td>No</td>
+</tr>
+<tr>
+<td>ME-12</td>
+<td><code>declared_draft</code> sin plazo; vendedor sin salida</td>
+<td>Plazo para presentar; al vencer, cancelar.</td>
+<td>Sí (D-41)</td>
+</tr>
+<tr>
+<td>ME-13</td>
+<td>Despachar con retraso abierto envía «puedes cancelar» indebido</td>
+<td>Cerrar el aviso como «superado por despacho».</td>
+<td>No</td>
+</tr>
+<tr>
+<td>ME-14</td>
+<td>Hasta 3 strikes por una sola venta; suspensión no se levanta sola</td>
+<td>Máx. 1 por compra; levantar al bajar del umbral.</td>
+<td>Sí (D-42)</td>
+</tr>
+<tr>
+<td>ME-15</td>
+<td>Aviso equivocado al resolver incidencia</td>
+<td>Avisar a ambas partes «resolvió la plataforma».</td>
+<td>No</td>
+</tr>
+<tr>
+<td>ME-16</td>
+<td>Factura del vendedor editable sin límite; sin plazo ni recordatorio (0 de 834)</td>
+<td>Bloquear N días después de done; recordatorio periódico.</td>
+<td>Sí (D-43)</td>
+</tr>
+<tr>
+<td>ME-17</td>
+<td>Verificada que ya llegó a planta no se recibe antes de <code>desired_date</code></td>
+<td>Usar <code>actual_arrival</code> como despacho.</td>
+<td>No</td>
+</tr>
+<tr>
+<td>ME-18</td>
+<td>Devolución de stock re-publica lotes vencidos o de suspendidos</td>
+<td>Volver a borrador.</td>
+<td>No</td>
+</tr>
+<tr>
+<td>ME-19</td>
+<td>Webhook envenenado; autodesactivación sin aviso ni reenvío; NC fallida sin límite</td>
+<td>Contar intentos; avisar; reenvío desde portal/API; contador en NC.</td>
+<td>Sí (D-44)</td>
+</tr>
+<tr>
+<td>ME-20</td>
+<td>Cola SRI en draft/error sin aviso; pagador sin RUC</td>
+<td>Lista «pendientes SRI» y aviso diario; pedir datos fiscales.</td>
+<td>Sí (D-45)</td>
+</tr>
+<tr>
+<td>ME-21</td>
+<td>56 API keys sin caducidad; sin aviso</td>
+<td>Fijar caducidad y avisar 7 días antes.</td>
+<td>Sí (D-46)</td>
+</tr>
+<tr>
+<td>ME-22</td>
+<td><code>/t/</code> solo rotable por API/back-office; no se puede retirar</td>
+<td>Botón en portal; opción «retirar».</td>
+<td>Sí (D-29)</td>
+</tr>
+<tr>
+<td>ME-23</td>
+<td>Copacking: solicitudes y ofertas no vencen; cliente no rechaza ofertas; adjudicación parcial; API vs portal al cancelar; orden firmada sin cerrar</td>
+<td>Cron de vencimiento; <code>action_reject</code>; republicar remanente; unificar reglas; cierre automático.</td>
+<td>Sí (D-47)</td>
+</tr>
+<tr>
+<td>ME-24</td>
+<td>Avisos de lotes a empacadoras no aprobadas, sin sub-cuentas, perdidos sin SMTP; primera lista no avisa; listas «hasta segunda orden» indefinidas; destinatarios editables</td>
+<td>Filtrar operativas; marcar revisión tras envío; avisar siempre; caducidad; bloquear quitar destinatarios con compromisos.</td>
+<td>Sí (D-48)</td>
+</tr>
+<tr>
+<td>ME-25</td>
+<td>Producto: suspendidos visibles en API pública/tienda; siembras draft/released sin transición; lista archivada fija precio; estado sin tracking; statusbar clicable; muestreo portal≠API</td>
+<td><code>_shrimp_published_domain</code> en todos los listados; cerrar siembra al cosechar; desatar lista; <code>tracking=True</code>; botones con validación; un solo método.</td>
+<td>Sí (D-49)</td>
+</tr>
+<tr>
+<td>ME-26</td>
+<td>Idempotencia cachea 4xx 24 h</td>
+<td>No cachear 409/422 o documentarlo.</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h3 id="104-bajo">10.4 Bajo</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Hueco</th>
+<th>Recomendación</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>BA-01</td>
+<td>Comprobantes legales en error sin alerta; documento legal desactivado sin constancia</td>
+<td>Alerta; registro de la decisión.</td>
+</tr>
+<tr>
+<td>BA-02</td>
+<td>Contradicción documental sobre exclusividad del verificador</td>
+<td>Alinear comentarios y selector.</td>
+</tr>
+<tr>
+<td>BA-03</td>
+<td><code>duration_value</code> del catálogo de certificados sin uso</td>
+<td>Usarlo para sugerir vencimiento o quitarlo.</td>
+</tr>
+<tr>
+<td>BA-04</td>
+<td>Regla de verificación archivada bloquea su sustituta</td>
+<td>Unicidad solo en activas.</td>
+</tr>
+<tr>
+<td>BA-05</td>
+<td><code>action_cancel</code> de verificación sin control de estado</td>
+<td>Solo antes del veredicto.</td>
+</tr>
+<tr>
+<td>BA-06</td>
+<td>Reseñas: solo comprador, sin plazo ni réplica; reseña antes de recibir sobrevive a cancelación</td>
+<td>Plazo, réplica, reseñar solo en «done».</td>
+</tr>
+<tr>
+<td>BA-07</td>
+<td>Drafts de compra huérfanos (20); etiqueta «Total pagado» sin pago</td>
+<td>Limpieza; renombrar.</td>
+</tr>
+<tr>
+<td>BA-08</td>
+<td>Plazos de reserva fijos en código; pesos del ranking ignorados en silencio; aguaje editado no revalida listas</td>
+<td>Pasar a Ajustes; validar.</td>
+</tr>
+<tr>
+<td>BA-09</td>
+<td>Lote reservado traspasable de perfil; «Avísame» de larva sin atención</td>
+<td>Bloquear; vista y aviso.</td>
+</tr>
+<tr>
+<td>BA-10</td>
+<td>Barra con estado <code>done</code> inexistente en chequeos; plantilla huérfana; evento <code>check_request.created</code> muerto; anular cobro sin botón</td>
+<td>Limpieza; botón con motivo.</td>
+</tr>
+<tr>
+<td>BA-11</td>
+<td>Claves API siguen al perfil activo del usuario</td>
+<td>Fijar el socio/perfil en la clave.</td>
+</tr>
+<tr>
+<td>BA-12</td>
+<td><code>fee_min</code> (300) &gt; <code>fee_base</code> (250) en parámetros de verificación</td>
+<td>Confirmar que es intencional.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="11-decision-requerida-preguntas-para-el-usuario">11. Decisión requerida — preguntas para el usuario</h2>
+<p>Agrupadas por tema. Entre paréntesis, los huecos que dependen de cada respuesta. Donde hay una opción recomendada, va marcada con <strong>(rec.)</strong>.</p>
+<h3 id="compras-entrega-y-cancelacion">Compras, entrega y cancelación</h3>
+<ul>
+<li><strong>D-01</strong> (CR-01) ¿Una compra verificada pasa a «Completada» al aceptarse el informe? Opciones: sí, porque la llegada a planta ya está verificada <strong>(rec.)</strong>; o debe esperar la confirmación de recepción del comprador, con autoconfirmación.</li>
+<li><strong>D-03</strong> (CR-03) Si una compra nunca se marcó como despachada, ¿puede darse por recibida por silencio del comprador? Opciones: sí; o se escala a la plataforma o se abre la cancelación sin costo <strong>(rec.)</strong>.</li>
+<li><strong>D-07</strong> (CR-07) Cancelación general de compras:</li>
+<li>¿Puede cancelar el <strong>vendedor</strong> (por mortalidad o lote perdido) y con qué consecuencia (strike, comisión)?</li>
+<li>¿Puede cancelar la <strong>plataforma</strong>, y con qué justificación?</li>
+<li>¿Se admite la cancelación de mutuo acuerdo?</li>
+<li>¿Qué desenlaces tiene una incidencia (recibida, cancelada con devolución, entrega parcial) y en qué plazo debe resolverla la plataforma?</li>
+<li><strong>D-26</strong> (AL-12) ¿Toda compra directa debe tener un plazo de recepción, aunque la matriz no lo marque?</li>
+<li><strong>D-27</strong> (AL-16) ¿La comisión se factura al confirmar la compra (como ahora) o al recibirla? ¿Se anula en <strong>toda</strong> cancelación?</li>
+<li><strong>D-42</strong> (ME-14) ¿Cuántos strikes puede generar una sola venta como máximo (recomendado: 1)? ¿La suspensión se levanta sola cuando los strikes bajan del umbral?</li>
+<li><strong>D-43</strong> (ME-16) La factura del vendedor (paso 2):</li>
+<li>¿Es obligatoria y en qué plazo?</li>
+<li>¿Se bloquea su edición N días después de completada la compra?</li>
+</ul>
+<h3 id="verificacion">Verificación</h3>
+<ul>
+<li><strong>D-02</strong> (CR-02, AL-17) Plazos de la verificadora:</li>
+<li>¿Cuántas horas tiene para asignar técnico y cuántas para presentarse en planta?</li>
+<li>Al vencer, ¿se cancela sola, se reasigna a otra verificadora o decide el comprador?</li>
+<li>¿Puede el comprador desistir antes de la visita a campo, y quién paga el honorario en ese caso?</li>
+<li><strong>D-16</strong> (CR-16) ¿Se permite un rechazo por «producto no presentado» sin ir a campo? ¿Quién paga en ese caso?</li>
+<li><strong>D-21</strong> (AL-06) ¿La verificadora puede declinar una orden, y en qué plazo?</li>
+<li><strong>D-22</strong> (AL-07) Si el vendedor no responde una contraoferta del comprador, ¿qué pasa? Opciones: se aplica la rebaja (como ahora); se mantiene el precio original; o se cae el trato. La regla de retrasos trata ese silencio como rechazo.</li>
+<li><strong>D-23</strong> (AL-09) ¿Una verificadora cuya acreditación vence durante la orden puede terminarla?</li>
+<li><strong>D-24</strong> (AL-10) ¿Cuándo se le paga a la verificadora? Opciones: al emitir el veredicto, al cerrar la ronda de aceptación, o cuando la plataforma cobra el honorario.</li>
+<li><strong>D-25</strong> (AL-11) ¿Se habilita una segunda opinión (re-verificación) después de un rechazo? ¿Quién la paga?</li>
+<li><strong>D-38</strong> (ME-08) ¿Cuántas contraofertas se permiten? ¿Hacer una contraoferta reinicia el plazo de 48 h?</li>
+<li><strong>D-39</strong> (ME-09) En las parejas donde la verificación es obligatoria, ¿se admite la verificación declarada, incluida la autodeclaración?</li>
+<li><strong>D-40</strong> (ME-10) ¿El honorario lo fija la plataforma (parámetros globales) o cada verificadora con su tarifa?</li>
+<li><strong>D-41</strong> (ME-12) ¿Qué plazo tiene una declaración en preparación? ¿Puede el vendedor desistir de ella?</li>
+</ul>
+<h3 id="facturacion-y-sri">Facturación y SRI</h3>
+<ul>
+<li><strong>D-04</strong> (CR-04) ¿La nota de crédito se envía sola al SRI o la revisa contabilidad antes?</li>
+<li><strong>D-05</strong> (CR-05) ¿Quién corrige los comprobantes rechazados por el SRI y en qué plazo? ¿Qué se hace con una factura rechazada cuyo servicio se anula?</li>
+<li><strong>D-06</strong> (CR-06) ¿Cuáles son el diario y el punto de emisión oficiales de los servicios de la plataforma? ¿A quién se avisa cuando un cobro agota los intentos de facturación, y cuántos intentos se permiten?</li>
+<li><strong>D-28</strong> (AL-18) ¿Se cobra el chequeo (flujo legado) al aprobarse, o se elimina esa tarifa y el flujo?</li>
+<li><strong>D-45</strong> (ME-20) ¿Quién vigila la cola del SRI? ¿Se puede facturar a «consumidor final» cuando el pagador no tiene RUC?</li>
+</ul>
+<h3 id="cuenta-permisos-y-legal">Cuenta, permisos y legal</h3>
+<ul>
+<li><strong>D-08</strong> (CR-08) ¿Una cuenta pendiente de aprobación puede al menos <strong>leer</strong> por API? ¿La API debe exigir la aceptación de los términos MAYORES, igual que el portal?</li>
+<li><strong>D-09</strong> (CR-09) Derechos de datos personales (LOPDP):</li>
+<li>¿Quién es el responsable interno y qué correo usa?</li>
+<li>En una eliminación, ¿qué se anonimiza y qué se conserva durante 7 años por obligación tributaria?</li>
+<li>¿La solicitud de un sub-usuario se refiere a sus propios datos o a los de la empresa?</li>
+<li><strong>D-12</strong> (CR-12) ¿Hace falta un permiso nuevo «gestionar cuenta», separado de los demás? ¿Qué nivel de permiso permite editar precios y cuál permite eliminar productos? ¿El perfil activo debe ser por usuario?</li>
+<li><strong>D-13</strong> (CR-13) Si vence un certificado obligatorio, ¿se suspende el perfil o el producto, o solo se marca como vencido?</li>
+<li><strong>D-18</strong> (AL-02) ¿Cuántas veces puede volver a solicitarse un perfil rechazado?</li>
+<li><strong>D-19</strong> (AL-03) ¿Cuál es el plazo de servicio comprometido para aprobar cuentas y perfiles?</li>
+<li><strong>D-20</strong> (AL-04) Si una cuenta se suspende o se rechaza, ¿qué pasa con sus compras abiertas y sus publicaciones? ¿Se despublican automáticamente?</li>
+<li><strong>D-36</strong> (ME-03) ¿Se avisa por correo también de las versiones legales MENORES?</li>
+<li><strong>D-37</strong> (ME-04) Al transferir la administración, ¿con qué permisos queda el ex-administrador: todos, ninguno o los que se elijan?</li>
+<li><strong>D-46</strong> (ME-21) ¿En qué plazo deben caducar las claves API antiguas?</li>
+</ul>
+<h3 id="producto">Producto</h3>
+<ul>
+<li><strong>D-11</strong> (CR-11) Productos con operaciones abiertas:</li>
+<li>¿Se prohíbe darlos de baja, o la baja cancela los chequeos y avisa al comprador?</li>
+<li>El stock de un lote eliminado, ¿se da por perdido (ajuste) o se conserva por si se reactiva?</li>
+<li>¿Cuántas horas tiene el vendedor para responder un chequeo, y qué pasa al vencer?</li>
+<li><strong>D-17</strong> (CR-17) ¿Qué precio vale: el del momento de la solicitud o verificación, o el del momento de la aprobación?</li>
+<li><strong>D-30</strong> (AL-21) ¿Un PCR positivo despublica el lote automáticamente?</li>
+<li><strong>D-31</strong> (AL-21) ¿Qué fecha manda para retirar una publicación: <code>available_to</code> o la fecha tentativa de entrega?</li>
+<li><strong>D-32</strong> (AL-22) ¿Se retira la API v1 antigua (<code>/api/v1/products</code>)?</li>
+<li><strong>D-49</strong> (ME-25) ¿La cosecha cierra automáticamente la siembra? ¿Un lote atado a una lista archivada pasa a la nueva lista del mismo emisor?</li>
+</ul>
+<h3 id="empacadora-reservas-y-exportacion">Empacadora, reservas y exportación</h3>
+<ul>
+<li><strong>D-10</strong> (CR-10) Reservas de cosecha:</li>
+<li>¿Cuántos días tiene la empacadora para comprar una reserva cumplida? ¿No comprarla cuenta como incumplimiento suyo?</li>
+<li>Si la camaronera no registra la cosecha de una reserva aceptada, ¿cuenta como incumplimiento suyo?</li>
+<li><strong>D-15</strong> (CR-15) ¿Puede una empacadora corregir los precios de una lista ya publicada sin publicar una nueva?</li>
+<li><strong>D-33</strong> (AL-23) Cuando un compromiso se rompe, ¿se vuelve a ofrecer automáticamente a las empacadoras que habían sido descartadas?</li>
+<li><strong>D-35</strong> (AL-25) ¿Se puede anular una salida que ya tiene DAE o factura? ¿Quién la aprueba?</li>
+<li><strong>D-48</strong> (ME-24) ¿Una lista «hasta segunda orden» debe caducar a los N días?</li>
+</ul>
+<h3 id="copacking">Copacking</h3>
+<ul>
+<li><strong>D-14</strong> (CR-14) Actas de copacking:</li>
+<li>Si vence el plazo de firma del acta, ¿el silencio del cliente equivale a conformidad o a disputa?</li>
+<li>¿El maquilador ve los empaques sin firmar como «por cobrar» en una sección aparte?</li>
+<li>Si el maquilador cancela, ¿la solicitud se reabre a otras plantas automáticamente?</li>
+<li><strong>D-34</strong> (AL-24) ¿Puede el maquilador cancelar sin el consentimiento del cliente cuando ya tiene el camarón en su planta?</li>
+<li><strong>D-47</strong> (ME-23) Cuando la adjudicación es parcial, ¿el remanente se publica como una solicitud nueva?</li>
+</ul>
+<h3 id="api-webhooks-y-trazabilidad">API, webhooks y trazabilidad</h3>
+<ul>
+<li><strong>D-29</strong> (AL-19, ME-22) ¿Una compra cancelada conserva su trazabilidad pública? ¿Puede el socio retirar la página <code>/t/</code> desde el portal?</li>
+<li><strong>D-44</strong> (ME-19) Al reactivar una suscripción de webhooks, ¿se reenvían los eventos que se perdieron?</li>
+</ul>
+<hr />
+<p><em>Auditoría de solo lectura generada el 14-10-2026. No se modificó código ni datos.</em></p></body></html>

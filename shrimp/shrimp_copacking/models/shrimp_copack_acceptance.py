@@ -66,6 +66,11 @@ class ShrimpCopackAcceptance(models.Model):
         ],
         string="Decisión", default="pending", required=True, index=True)
     reason = fields.Text(string="Motivo")
+    # D-14: firma puesta por el sistema al vencer el plazo (el silencio vale
+    # conformidad). No se deshace (shrimp.signoff.mixin mira este campo).
+    auto = fields.Boolean(
+        string="Por silencio", readonly=True, copy=False,
+        help="La firma la puso el sistema al vencer el plazo sin respuesta.")
     decided_by_uid = fields.Many2one("res.users", string="Firmado por", readonly=True)
     decided_at = fields.Datetime(string="Fecha de firma", readonly=True)
 
@@ -105,7 +110,7 @@ class ShrimpCopackAcceptance(models.Model):
             if rec.ronda < 1:
                 raise ValidationError(_("La ronda del acta empieza en 1."))
 
-    def _firmar(self, decision, motivo=None, actor=None):
+    def _firmar(self, decision, motivo=None, actor=None, auto=False):
         """`actor` es quien dice firmar, y hay que comprobarlo SIEMPRE.
 
         El controlador resuelve el acta en sudo —lo necesita para leer las dos
@@ -118,7 +123,8 @@ class ShrimpCopackAcceptance(models.Model):
         # Quién firma, que la ronda siga vigente y que el «no conforme» traiga
         # motivo: las mismas reglas que las otras firmas de dos partes
         # (shrimp.signoff.mixin).
-        self._signoff_check_actor(actor)
+        if not auto:
+            self._signoff_check_actor(actor)
         self._signoff_check_open()
         self._signoff_check_reason(decision, motivo)
         orden = self.order_id
@@ -134,8 +140,9 @@ class ShrimpCopackAcceptance(models.Model):
             "signed_difference_lb": orden.difference_lb,
             "signed_difference_pct": orden.difference_pct,
             "signed_tolerance_pct": orden.tolerance_pct,
+            "auto": bool(auto),
         })
-        self._signoff_log("decision", antes, reason=motivo)
+        self._signoff_log("decision", antes, reason=motivo, auto=auto)
         orden._evaluar_acta()
 
     def _archivar(self, motivo):
@@ -182,7 +189,18 @@ class ShrimpCopackAcceptance(models.Model):
         orden = self.order_id.sudo()
         decisiones = orden.acceptance_ids.filtered("active").mapped("decision")
         if orden.acceptance_state == "disputed" and "rejected" not in decisiones:
-            orden.acceptance_state = "open"
+            # D-14: vuelve a estar a la firma. Si el plazo ya venció (o está
+            # por vencer), se da un margen para firmar antes de que el
+            # silencio cuente como conformidad.
+            from datetime import timedelta
+            from . import copack_plazos
+            minimo = fields.Datetime.now() + timedelta(
+                hours=min(24, copack_plazos.acceptance_hours(self.env)))
+            vals = {"acceptance_state": "open", "dispute_date": False}
+            if not orden.acceptance_deadline or orden.acceptance_deadline < minimo:
+                vals["acceptance_deadline"] = minimo
+            orden.write(vals)
+            orden._cpk_close_platform_activities(_("La disconformidad se retiró."))
         return True
 
     def _signoff_portal_url(self, partner):

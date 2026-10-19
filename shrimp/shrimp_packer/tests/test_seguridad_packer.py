@@ -1,6 +1,8 @@
 import json
+import re
 
 from odoo.exceptions import ValidationError
+from odoo.addons.shrimp_user_registry.tests.legal_utils import signup_post
 from odoo.tests import HttpCase, tagged
 
 from odoo.addons.shrimp_marketplace.tests.common import (
@@ -40,8 +42,13 @@ class TestSeguridadPacker(HttpCase):
                                  "quality": "ab", "price": 4.40})],
         })
         cls.lista.action_publish()
+        # D-15: una lista publicada no se edita; la bonificación se prueba en
+        # un borrador de la misma empacadora.
+        cls.borrador = env["shrimp.price.list"].create({
+            "name": "Borrador pk", "issuer_partner_id": cls.emp.id,
+            "recipient_ids": [(6, 0, cls.s["cam"].ids)]})
         cls.bono = env["shrimp.price.list.bonus"].create({
-            "price_list_id": cls.lista.id, "name": "Bono pk", "amount": 1.0})
+            "price_list_id": cls.borrador.id, "name": "Bono pk", "amount": 1.0})
 
     def _rpc(self, url, params):
         r = self.url_open(url, data=json.dumps({"jsonrpc": "2.0", "method": "call",
@@ -94,22 +101,64 @@ class TestSeguridadPacker(HttpCase):
 
     def test_alta_web_de_empacadora_queda_pendiente(self):
         token = csrf_de(self.url_open("/register/packer").text)
-        self.url_open("/register/submit", data={
-            "csrf_token": token, "shrimp_user_type": "empacadora",
-            "name": "Empacadora nueva pk", "email": "nueva.pk@prueba.test",
-            "password": "Clave-segura-123", "vat_or_id": "0922200009001"})
+        self.url_open("/register/submit", data=signup_post(
+            self.env, ["empacadora"], "nueva.pk@prueba.test", name="Empacadora nueva pk",
+            csrf_token=token))
         socio = self.env["res.partner"].sudo().search([("email", "=", "nueva.pk@prueba.test")])
         self.assertTrue(socio)
         self.assertEqual(socio.shrimp_account_state, "pending")
         self.assertFalse(socio.shrimp_is_operational())
 
+    def test_alta_empacadora_sin_planta_ni_mercados(self):
+        """shrimp_packer 19.0.1.14.1: el bloque ya no pide planta ni mercados;
+        la capacidad es referencial y opcional."""
+        html = self.url_open("/register/packer").text
+        bloque = re.search(r'id="section_empacadora".*?<div id="shrimp_prof_sections_end"', html, re.S).group(0)
+        self.assertNotIn('name="emp_planta_nombre"', bloque)
+        self.assertNotIn("emp_mercado_", bloque)
+        self.assertIn('name="emp_capacidad_lb_dia"', bloque)
+        self.assertIn("Capacidad referencial", bloque)
+        self.assertIn("Solo como referencia para los productores", bloque)
+        self.assertNotRegex(bloque, r'name="emp_capacidad_lb_dia"[^>]*data-req')
+        # Alta sin planta, sin mercados y sin capacidad: entra y queda pendiente.
+        token = csrf_de(html)
+        datos = signup_post(self.env, ["empacadora"], "sinplanta.pk@prueba.test",
+                            name="Exportadora sin planta pk", csrf_token=token)
+        r = self.url_open("/register/submit", data=datos, allow_redirects=False)
+        self.assertIn(r.status_code, (302, 303), r.text[:500])
+        socio = self.env["res.partner"].sudo().search([("email", "=", "sinplanta.pk@prueba.test")])
+        self.assertTrue(socio)
+        self.assertEqual(socio.shrimp_account_state, "pending")
+        self.assertFalse(socio.emp_planta_nombre)
+        self.assertFalse(socio.shrimp_capacity_value)
+        self.assertFalse(socio.emp_mercado_asia or socio.emp_mercado_europa
+                         or socio.emp_mercado_norteamerica or socio.emp_mercado_local)
+        # Con capacidad referencial: se guarda en lb/día.
+        datos = signup_post(self.env, ["empacadora"], "concap.pk@prueba.test",
+                            name="Exportadora con capacidad pk", csrf_token=token,
+                            emp_capacidad_lb_dia="50000")
+        r = self.url_open("/register/submit", data=datos, allow_redirects=False)
+        self.assertIn(r.status_code, (302, 303), r.text[:500])
+        socio2 = self.env["res.partner"].sudo().search([("email", "=", "concap.pk@prueba.test")])
+        self.assertEqual((socio2.shrimp_capacity_value, socio2.shrimp_capacity_unit), (50000.0, "lb_day"))
+        self.assertEqual(socio2.shrimp_account_state, "pending")
+        # Aprobada, su ficha pública usa el nombre de la empresa como planta y
+        # no muestra la sección de mercados.
+        socio.action_shrimp_approve_account()
+        r = self.url_open("/marketplace/packers/%s" % socio.uuid_ref)
+        self.assertEqual(r.status_code, 200, r.url)
+        self.assertIn("Planta de proceso", r.text)
+        self.assertIn(socio.commercial_partner_id.name, r.text)
+        self.assertNotIn("Mercados a los que exporta", r.text)
+        self.assertNotIn("No ha declarado sus mercados", r.text)
+
     # ---------------- A1: borrar bonificación por id ----------------
     def test_bonificacion_por_codigo(self):
         self.authenticate("emp.pk", CLAVE)
-        pagina = self.url_open("/marketplace/price-lists/%s/edit" % self.lista.uuid_ref).text
+        pagina = self.url_open("/marketplace/price-lists/%s/edit" % self.borrador.uuid_ref).text
         token = csrf_de(pagina)
         self.assertNotIn("bonuses/%d/delete" % self.bono.id, pagina)
-        base = "/marketplace/price-lists/%s/bonuses/" % self.lista.uuid_ref
+        base = "/marketplace/price-lists/%s/bonuses/" % self.borrador.uuid_ref
         self.url_open(base + "%d/delete" % self.bono.id, data={"csrf_token": token})
         self.assertTrue(self.bono.exists())
         self.url_open(base + "%s/delete" % self.bono.uuid_ref, data={"csrf_token": token})

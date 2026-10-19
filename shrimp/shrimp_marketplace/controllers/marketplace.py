@@ -199,7 +199,7 @@ class ShrimpMarketplacePublicController(http.Controller):
                 st = request.env["shrimp.stage"].sudo().browse(int(val)).exists()
             except (TypeError, ValueError):
                 st = False
-            return ("Estadío: %s" % st.name) if st else None
+            return ("Etapa: %s" % st.name) if st else None
         if key == "presentation":
             return {"entero": "Entero", "cola": "Cola"}.get(val)
         if key == "size_grade":
@@ -343,7 +343,8 @@ class ShrimpMarketplacePublicController(http.Controller):
             "count_url": "/marketplace/count",
             "total": total_count,
             "one": "producto", "many": "productos", "apply_label": "Ver productos",
-            "drawer_hidden": [("q", filters.get("q") or ""), ("stage", filters.get("stage") or ""),
+            # La etapa es una sección del cajón (radios «stage»): no va oculta.
+            "drawer_hidden": [("q", filters.get("q") or ""),
                               ("sort", sort if sort and sort != "recommended" else ""),
                               ("vista", vista)],
             "keep": ["q", "sort", "vista"],
@@ -500,13 +501,12 @@ class ShrimpMarketplacePublicController(http.Controller):
         ])
         # ids de certificados ya adjuntos directamente al producto (para no duplicar)
         product_cert_ids = product.certificate_line_ids.mapped("source_user_certificate_line_id").ids
-        valid_seller_certs = seller_certs.filtered(lambda c:
-            c.id not in product_cert_ids
-            and (not c.issue_date or c.issue_date <= publish_date)
-            and (not c.expiry_date or c.expiry_date >= publish_date)
-        )
+        # D-13: se muestran TODOS los aprobados del vendedor; los vencidos a
+        # hoy salen marcados «Vencido» (antes se filtraban a la fecha de
+        # publicación y uno vencido ayer seguía figurando como vigente).
+        valid_seller_certs = seller_certs.filtered(lambda c: c.id not in product_cert_ids)
 
-        buyer_partner = request.env.user.partner_id if not request.env.user._is_public() else False
+        buyer_partner = request.env.user.shrimp_actor_partner_id if not request.env.user._is_public() else False
         unit_price = product.price_for_partner(buyer_partner)
         has_custom_price = unit_price != product.price
 
@@ -660,11 +660,11 @@ class ShrimpMarketplacePublicController(http.Controller):
             cover_atts.generate_access_token()
 
         today = fields.Date.context_today(request.env.user)
+        # D-13: los vencidos también se listan, marcados «Vencido».
         certificate_lines = request.env["shrimp.user.certificate.line"].sudo().search([
             ("partner_id", "=", seller.id),
             ("status", "=", "approved"),
-            "|", ("expiry_date", "=", False), ("expiry_date", ">=", today),
-        ])
+        ], order="expiry_date desc, id desc")
 
         # Solo las reseñas recibidas como VENDEDOR: las que le dejaron como
         # comprador no hablan de lo que vende (y no cuentan en su nota).

@@ -20,20 +20,10 @@
                                         string="Ir a Unidades de medida" icon="oi-arrow-right" class="btn-link"/>
                             </div>
                         </setting>
-                        <setting string="Costo del chequeo"
-                                 help="Valor fijo que se cobra al comprador por enviar un equipo a verificar el producto al solicitar un chequeo. Se cobra además del valor del producto.">
-                            <div class="content-group">
-                                <div class="row mt16">
-                                    <label for="shrimp_check_fee" class="col-lg-6 o_light_label"/>
-                                    <field name="shrimp_check_fee"/>
-                                    <span class="text-muted">por solicitud de chequeo</span>
-                                </div>
-                            </div>
-                        </setting>
                     </block>
                     <block title="Marketplace" name="shrimp_marketplace_block">
                         <setting string="Mínimo de reseñas para destacados"
-                                 help="Un laboratorio o semillero solo aparece en «Laboratorios / Semilleros destacados» (catálogo y página de inicio) si tiene al menos estas reseñas como vendedor. No se rellena con vendedores con menos reseñas: si no cumple ninguno, la sección no se muestra.">
+                                 help="Un laboratorio o naupliero solo aparece en «Laboratorios / Nauplieros destacados» (catálogo y página de inicio) si tiene al menos estas reseñas como vendedor. No se rellena con vendedores con menos reseñas: si no cumple ninguno, la sección no se muestra.">
                             <div class="content-group">
                                 <div class="row mt16">
                                     <label for="shrimp_featured_min_reviews" class="col-lg-6 o_light_label"/>
@@ -49,6 +39,47 @@
                                     <label for="shrimp_cert_alert_days" class="col-lg-6 o_light_label"/>
                                     <field name="shrimp_cert_alert_days"/>
                                     <span class="text-muted">días de antelación</span>
+                                </div>
+                            </div>
+                        </setting>
+                    </block>
+                    <block title="Entregas y recepción" name="shrimp_reception_block">
+                        <setting string="Días para confirmar recepción"
+                                 help="Desde el despacho (o la fecha de entrega, si el vendedor no lo marcó), el comprador tiene estos días para confirmar que recibió la compra o reportar un problema. Si no hace nada y el vendedor marcó el despacho, la recepción se confirma automáticamente y se da por cumplida la entrega (sin despacho, la compra queda «No entregada»). Aplica a TODA compra directa; las compras verificadas se cierran con el informe aceptado.">
+                            <div class="content-group">
+                                <div class="row mt16">
+                                    <label for="shrimp_reception_days" class="col-lg-6 o_light_label"/>
+                                    <field name="shrimp_reception_days"/>
+                                    <span class="text-muted">días</span>
+                                </div>
+                                <div class="row mt8">
+                                    <label for="shrimp_reception_reminder_1" class="col-lg-6 o_light_label"/>
+                                    <field name="shrimp_reception_reminder_1"/>
+                                </div>
+                                <div class="row mt8">
+                                    <label for="shrimp_reception_reminder_2" class="col-lg-6 o_light_label"/>
+                                    <field name="shrimp_reception_reminder_2"/>
+                                </div>
+                            </div>
+                        </setting>
+                        <setting string="Avisos de la fecha de entrega"
+                                 help="Antes de la fecha de entrega se avisa al vendedor (preparar el despacho) y al comprador (preparar la recepción); también el mismo día y, si pasó la fecha sin despacho, a los dos por el atraso. Cada aviso sale una sola vez. Llegan al administrador de la cuenta y a los subusuarios con permiso de comprar / vender en ese perfil.">
+                            <div class="content-group">
+                                <div class="row mt16">
+                                    <label for="shrimp_delivery_alert_days" class="col-lg-6 o_light_label"/>
+                                    <field name="shrimp_delivery_alert_days"/>
+                                    <span class="text-muted">días de anticipación</span>
+                                </div>
+                            </div>
+                        </setting>
+                    </block>
+                    <block title="Protección de datos" name="shrimp_privacy_block">
+                        <setting string="Responsable de datos personales"
+                                 help="Correo que aparece en la Política de privacidad y al que llegan las solicitudes de acceso, rectificación, eliminación, portabilidad u oposición (LOPDP). Si se deja vacío, las páginas piden contactar al administrador de la plataforma.">
+                            <div class="content-group">
+                                <div class="row mt16">
+                                    <label for="shrimp_dpo_email" class="col-lg-6 o_light_label"/>
+                                    <field name="shrimp_dpo_email" placeholder="datos@tuempresa.com"/>
                                 </div>
                             </div>
                         </setting>

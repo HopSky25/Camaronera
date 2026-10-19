@@ -1,0 +1,378 @@
+<odoo>
+
+  <!-- ================================================================
+       MI CUENTA · «Instalaciones y piscinas» (19.0.1.28.0)
+
+       Sección #instalaciones de /marketplace/my-account para los perfiles
+       con instalaciones (camaronera, laboratorio, naupliero), con el
+       vocabulario del perfil activo (ma_fac.cfg: Fincas/Piscinas,
+       Laboratorios/Tanques, Centros de maduración/Tanques).
+
+       Cada instalación es una tarjeta (tipo, ubicación, n.º de piscinas o
+       tanques, área y volumen) y dentro va la TABLA de sus piscinas o
+       tanques (en el móvil, tarjetas: .shrimp-tech-table). «Agregar»,
+       «Editar» y «Archivar» abren modales (.shrimp-cmodal, el mismo patrón
+       de los certificados y del equipo de campo del alta) con formularios
+       que envían a las rutas de /marketplace/my-facilities con next=account
+       (controllers/my_account_facilities.py): mismos nombres de campo.
+
+       Sin permiso de gestión (subusuario sin «Vender»): solo lectura.
+       JS: static/src/js/shrimp_my_account.js · CSS: shrimp_my_account.css.
+       ================================================================ -->
+  <template id="my_account_facilities" name="Mi cuenta - instalaciones y piscinas">
+    <t t-set="cfg" t-value="ma_fac['cfg']"/>
+    <t t-set="can" t-value="ma_fac['can_manage']"/>
+    <t t-set="is_area" t-value="cfg['metric'] == 'area'"/>
+    <section class="ma-card" id="instalaciones" data-ma-sec="instalaciones"
+             t-att-data-focus="ma_fac['focus'] or None">
+      <header class="ma-card-h">
+        <span class="ma-card-ico" aria-hidden="true"><i t-attf-class="fa #{cfg['icon']}"/></span>
+        <div class="ma-card-htxt">
+          <h2 class="ma-card-title" id="maFacTitle">Instalaciones y piscinas
+            <span class="shrimp-sec-chip"><t t-esc="ma_fac['fac_count']"/> <t t-esc="cfg['fac_plural'].lower() if ma_fac['fac_count'] != 1 else cfg['fac_singular']"/>
+              · <t t-esc="ma_fac['pond_count']"/> <t t-esc="cfg['pond_plural'].lower() if ma_fac['pond_count'] != 1 else cfg['pond_singular']"/></span>
+          </h2>
+          <p class="ma-card-desc"><t t-esc="cfg['desc']"/></p>
+        </div>
+        <button type="button" class="ma-card-tg" aria-expanded="true" aria-controls="maFacBody" aria-label="Mostrar u ocultar">
+          <i class="fa fa-chevron-down" aria-hidden="true"/></button>
+      </header>
+      <div class="ma-card-b" id="maFacBody">
+        <div t-if="ma_fac_saved" class="pf-alert ma-a-ok" role="status">
+          <i class="fa fa-check-circle" aria-hidden="true"/>
+          <span>
+            <t t-if="ma_fac_saved == 'facility'">Instalación guardada.</t>
+            <t t-elif="ma_fac_saved == 'facility_arch'">Instalación archivada (con sus <t t-esc="cfg['pond_plural'].lower()"/>). Su historial se conserva.</t>
+            <t t-elif="ma_fac_saved == 'facility_del'">Instalación eliminada.</t>
+            <t t-elif="ma_fac_saved == 'pond'"><t t-esc="cfg['pond_singular'].capitalize()"/> guardad<t t-esc="'a' if cfg['pond_singular'] == 'piscina' else 'o'"/>.</t>
+            <t t-elif="ma_fac_saved == 'pond_arch'"><t t-esc="cfg['pond_singular'].capitalize()"/> archivad<t t-esc="'a' if cfg['pond_singular'] == 'piscina' else 'o'"/>. Su historial se conserva.</t>
+            <t t-else="">Cambios guardados.</t>
+          </span>
+        </div>
+
+        <!-- Totales -->
+        <div class="ma-fac-kpis" t-if="ma_fac['fac_count'] or ma_fac['pond_count']">
+          <div class="ma-kpi"><span class="ma-kpi-v"><t t-esc="ma_fac['fac_count']"/></span><span class="ma-kpi-l"><t t-esc="cfg['fac_plural']"/></span></div>
+          <div class="ma-kpi"><span class="ma-kpi-v"><t t-esc="ma_fac['pond_count']"/></span><span class="ma-kpi-l"><t t-esc="cfg['pond_plural']"/></span></div>
+          <div class="ma-kpi" t-if="is_area"><span class="ma-kpi-v"><t t-esc="'{:,.2f}'.format(ma_fac['area_ha'])"/> ha</span><span class="ma-kpi-l">Área total</span></div>
+          <div class="ma-kpi" t-if="not is_area or ma_fac['volume']"><span class="ma-kpi-v"><t t-esc="'{:,.1f}'.format(ma_fac['volume'])"/> m³</span><span class="ma-kpi-l">Volumen total</span></div>
+        </div>
+
+        <p t-if="not can" class="ma-note ma-note--ro">
+          <i class="fa fa-eye" aria-hidden="true"/>
+          <span><b>Solo lectura.</b> Para agregar, editar o archivar necesitas el permiso «Vender» del perfil activo.
+            Pídeselo al administrador de tu cuenta.</span>
+        </p>
+
+        <p t-if="not ma_fac['facilities'] and not ma_fac['orphans']" class="shrimp-cert-empty ma-fac-empty">
+          Aún no registras <t t-esc="cfg['fac_plural'].lower()"/>. Agrega la primera y luego sus <t t-esc="cfg['pond_plural'].lower()"/>:
+          podrás elegirlas como origen al publicar un producto.
+        </p>
+
+        <div class="ma-fac-list">
+          <t t-foreach="ma_fac['facilities'] + ([ma_fac['orphans']] if ma_fac['orphans'] else [])" t-as="b">
+            <t t-set="f" t-value="b['rec']"/>
+            <article t-attf-class="ma-fac #{'ma-fac--orphan' if not f else ''}"
+                     t-att-id="('fac-%s' % f.uuid_ref) if f else 'fac-sin-instalacion'"
+                     t-att-data-ref="f.uuid_ref if f else None">
+              <div class="ma-fac-h">
+                <span class="ma-fac-ico" aria-hidden="true"><i t-attf-class="fa #{'fa-building-o' if f else 'fa-question-circle-o'}"/></span>
+                <div class="ma-fac-htxt">
+                  <h3 class="ma-fac-name">
+                    <t t-if="f"><t t-esc="f.name"/><span t-if="f.code" class="shrimp-fac-code"><t t-esc="f.code"/></span></t>
+                    <t t-else="">Sin instalación asignada</t>
+                  </h3>
+                  <div class="ma-fac-meta">
+                    <t t-if="f">
+                      <span class="ma-fac-type"><t t-esc="b['type_label']"/></span>
+                      <span t-if="b['location']"><i class="fa fa-map-marker" aria-hidden="true"/> <t t-esc="b['location']"/></span>
+                      <span t-if="f.address" class="ma-fac-addr"><t t-esc="f.address"/></span>
+                    </t>
+                    <t t-else="">Edítalas para moverlas a una de tus instalaciones.</t>
+                  </div>
+                  <div class="ma-fac-stats">
+                    <span class="shrimp-chip"><t t-esc="len(b['ponds'])"/> <t t-esc="cfg['pond_plural'].lower() if len(b['ponds']) != 1 else cfg['pond_singular']"/></span>
+                    <span class="shrimp-chip" t-if="is_area"><t t-esc="'{:,.2f}'.format(b['area_ha'])"/> ha</span>
+                    <span class="shrimp-chip" t-if="not is_area or b['volume']"><t t-esc="'{:,.1f}'.format(b['volume'])"/> m³</span>
+                  </div>
+                </div>
+                <div class="ma-fac-acts" t-if="can and f">
+                  <button type="button" class="shrimp-cert-btn ma-fac-edit"
+                          t-att-data-id="f.uuid_ref" t-att-data-name="f.name"
+                          t-att-data-code="f.code or ''" t-att-data-type="f.facility_type"
+                          t-att-data-province="f.province or ''" t-att-data-city="f.city or ''"
+                          t-att-data-address="f.address or ''">
+                    <i class="fa fa-pencil" aria-hidden="true"/> Editar</button>
+                  <button type="button" class="shrimp-cert-btn is-del ma-arch-btn"
+                          t-att-data-url="'/marketplace/my-facilities/facility/%s/archive' % f.uuid_ref"
+                          t-att-data-name="f.name"
+                          t-att-data-msg="'Se archivará «%s» con sus %s. Dejan de aparecer aquí y al publicar, pero su historial (siembras, origen de productos) se conserva.' % (f.name, cfg['pond_plural'].lower())">
+                    <i class="fa fa-archive" aria-hidden="true"/> Archivar</button>
+                </div>
+              </div>
+
+              <div class="ma-fac-b">
+                <p t-if="not b['ponds']" class="shrimp-cert-empty">
+                  Esta instalación aún no tiene <t t-esc="cfg['pond_plural'].lower()"/>.
+                </p>
+                <div class="shrimp-tech-wrap" t-if="b['ponds']">
+                  <table class="shrimp-tech-table ma-pond-table">
+                    <caption class="visually-hidden"><t t-esc="cfg['pond_plural']"/> de <t t-esc="f.name if f else 'sin instalación'"/></caption>
+                    <thead>
+                      <tr>
+                        <th scope="col">Nombre</th>
+                        <th scope="col">Tipo</th>
+                        <th scope="col">Medidas</th>
+                        <t t-if="is_area"><th scope="col" class="ma-num">Área (ha)</th><th scope="col" class="ma-num">Volumen (m³)</th></t>
+                        <t t-else=""><th scope="col" class="ma-num">Volumen (m³)</th><th scope="col" class="ma-num">Área (m²)</th></t>
+                        <th scope="col" class="shrimp-tech-acts-h" t-if="can">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr t-foreach="b['ponds']" t-as="r">
+                        <t t-set="p" t-value="r['rec']"/>
+                        <td data-label="Nombre">
+                          <span class="shrimp-tech-name"><t t-esc="p.name"/></span>
+                          <span t-if="p.code" class="shrimp-fac-code"><t t-esc="p.code"/></span>
+                          <div t-if="p.location" class="ma-pond-loc"><t t-esc="p.location"/></div>
+                        </td>
+                        <td data-label="Tipo" class="shrimp-fac-type"><t t-esc="r['type_label']"/></td>
+                        <td data-label="Medidas" class="shrimp-fac-meas">
+                          <t t-if="r['dims']"><t t-esc="r['dims']"/></t>
+                          <t t-elif="p.capacity_mode == 'volume'">Volumen directo</t>
+                          <t t-else="">—</t>
+                        </td>
+                        <t t-if="is_area">
+                          <td data-label="Área (ha)" class="ma-num"><t t-esc="'{:,.2f}'.format(r['area_ha']) if r['area_ha'] else '—'"/></td>
+                          <td data-label="Volumen (m³)" class="ma-num"><t t-esc="'{:,.1f}'.format(r['volume']) if r['volume'] else '—'"/></td>
+                        </t>
+                        <t t-else="">
+                          <td data-label="Volumen (m³)" class="ma-num"><t t-esc="'{:,.1f}'.format(r['volume']) if r['volume'] else '—'"/></td>
+                          <td data-label="Área (m²)" class="ma-num"><t t-esc="'{:,.1f}'.format(p.area_m2) if p.area_m2 else '—'"/></td>
+                        </t>
+                        <td class="shrimp-tech-acts-c" t-if="can">
+                          <span class="shrimp-tech-acts">
+                            <button type="button" class="shrimp-cert-btn ma-pond-edit"
+                                    t-att-data-id="p.uuid_ref" t-att-data-facility="p.facility_id.uuid_ref or ''"
+                                    t-att-data-name="p.name or ''" t-att-data-code="p.code or ''"
+                                    t-att-data-type="p.pond_type or ''" t-att-data-mode="p.capacity_mode or 'dimensions'"
+                                    t-att-data-length="p.length_m or ''" t-att-data-width="p.width_m or ''"
+                                    t-att-data-depth="p.depth_m or ''" t-att-data-volume="p.manual_volume_m3 or ''"
+                                    t-att-data-location="p.location or ''" t-att-data-has-image="'1' if p.image else ''"
+                                    t-att-aria-label="'Editar %s' % p.name">
+                              <i class="fa fa-pencil" aria-hidden="true"/> Editar</button>
+                            <button type="button" class="shrimp-cert-btn is-del ma-arch-btn"
+                                    t-att-data-url="'/marketplace/my-facilities/pond/%s/archive' % p.uuid_ref"
+                                    t-att-data-name="p.name"
+                                    t-att-data-msg="'Se archivará «%s». Deja de aparecer aquí y al publicar, pero su historial (siembras, origen de productos) se conserva.' % p.name"
+                                    t-att-aria-label="'Archivar %s' % p.name">
+                              <i class="fa fa-archive" aria-hidden="true"/> Archivar</button>
+                          </span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <button t-if="can and f" type="button" class="shrimp-cert-addrow ma-pond-add" t-att-data-facility="f.uuid_ref">
+                  <i class="fa fa-plus" aria-hidden="true"/> Agregar <t t-esc="cfg['pond_singular']"/>
+                  <span class="shrimp-cert-addhint">en <t t-esc="f.name"/></span>
+                </button>
+              </div>
+            </article>
+          </t>
+        </div>
+
+        <button t-if="can" type="button" class="shrimp-cert-addrow ma-fac-add">
+          <i class="fa fa-plus" aria-hidden="true"/> Agregar instalación
+          <span class="shrimp-cert-addhint"><t t-esc="cfg['fac_singular'].capitalize()"/>, bodega u oficina</span>
+        </button>
+        <noscript><p class="small text-muted mt-2 mb-0">Activa JavaScript para agregar o editar desde aquí, o usa
+          <a href="/marketplace/my-facilities">la página de instalaciones</a>.</p></noscript>
+
+        <p class="ma-fac-more">
+          <a href="/marketplace/my-facilities"><i class="fa fa-external-link" aria-hidden="true"/>
+            <t t-if="ma_fac['can_sow']">Ver siembras y detalle por instalación</t>
+            <t t-else="">Ver la página de instalaciones (con fotos)</t></a>
+        </p>
+      </div>
+
+      <!-- ===== Modales (fuera del formulario de la empresa) ===== -->
+      <t t-if="can">
+        <!-- Instalación -->
+        <div class="modal fade shrimp-cmodal ma-modal" id="maFacModal" tabindex="-1" role="dialog" aria-modal="true"
+             aria-labelledby="maFacModalTitle" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
+            <form class="modal-content" method="post" id="maFacForm" action="/marketplace/my-facilities/facility/create"
+                  t-att-data-default-type="cfg['fac_default']" novalidate="novalidate">
+              <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+              <input type="hidden" name="next" value="account"/>
+              <div class="modal-header">
+                <h3 class="modal-title" id="maFacModalTitle"><i class="fa fa-map-marker" aria-hidden="true"/> <span>Agregar instalación</span></h3>
+                <button type="button" class="shrimp-cm-x" data-bs-dismiss="modal" data-ma-close="1" aria-label="Cerrar"><i class="fa fa-times" aria-hidden="true"/></button>
+              </div>
+              <div class="modal-body">
+                <div class="row g-3">
+                  <div class="col-12">
+                    <label class="form-label" for="maFacType">Tipo de instalación</label>
+                    <select class="form-select" name="facility_type" id="maFacType">
+                      <t t-foreach="ma_fac['fac_types']" t-as="ft">
+                        <option t-att-value="ft[0]" t-att-selected="'selected' if ft[0] == cfg['fac_default'] else None"><t t-esc="ft[1]"/></option>
+                      </t>
+                    </select>
+                  </div>
+                  <div class="col-12 col-sm-8">
+                    <label class="form-label" for="maFacName">Nombre <span class="text-danger">*</span></label>
+                    <input class="form-control" name="name" id="maFacName" type="text" maxlength="120" autocomplete="off"
+                           required="required" aria-describedby="maFacNameErr"
+                           t-att-placeholder="'Ej. Finca El Porvenir' if is_area else ('Ej. Laboratorio Mar Bravo' if ma_fac['role'] == 'laboratorio' else 'Ej. Maduración Punta Carnero')"/>
+                    <div class="shrimp-cm-err" id="maFacNameErr" hidden="hidden" role="alert"></div>
+                  </div>
+                  <div class="col-12 col-sm-4">
+                    <label class="form-label" for="maFacCode">Código <span class="shrimp-optional">(opcional)</span></label>
+                    <input class="form-control" name="code" id="maFacCode" type="text" maxlength="40" autocomplete="off" placeholder="Ej. F-01"/>
+                  </div>
+                  <div class="col-12 col-sm-6">
+                    <label class="form-label" for="maFacProvince">Provincia</label>
+                    <select class="form-select" name="province" id="maFacProvince">
+                      <option value="">Elige…</option>
+                      <t t-foreach="ma_fac['provinces']" t-as="prov"><option t-att-value="prov"><t t-esc="prov"/></option></t>
+                    </select>
+                  </div>
+                  <div class="col-12 col-sm-6">
+                    <label class="form-label" for="maFacCity">Cantón o ciudad</label>
+                    <input class="form-control" name="city" id="maFacCity" type="text" maxlength="80" autocomplete="off" placeholder="Ej. Machala"/>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label" for="maFacAddress">Dirección o sector <span class="shrimp-optional">(opcional)</span></label>
+                    <input class="form-control" name="address" id="maFacAddress" type="text" maxlength="200" autocomplete="off" placeholder="Ej. Sitio Puerto Jelí"/>
+                  </div>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="s-btn s-btn-ghost" data-bs-dismiss="modal" data-ma-close="1">Cancelar</button>
+                <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-check me-1" aria-hidden="true"/>Guardar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Piscina o tanque -->
+        <div class="modal fade shrimp-cmodal ma-modal" id="maPondModal" tabindex="-1" role="dialog" aria-modal="true"
+             aria-labelledby="maPondModalTitle" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
+            <form class="modal-content" method="post" id="maPondForm" enctype="multipart/form-data"
+                  action="/marketplace/my-facilities/pond/create" novalidate="novalidate"
+                  t-att-data-default-type="cfg['pond_default']" t-att-data-default-mode="cfg['mode_default']"
+                  t-att-data-noun="cfg['pond_singular']" t-att-data-metric="cfg['metric']">
+              <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+              <input type="hidden" name="next" value="account"/>
+              <div class="modal-header">
+                <h3 class="modal-title" id="maPondModalTitle"><i class="fa fa-tint" aria-hidden="true"/> <span>Agregar <t t-esc="cfg['pond_singular']"/></span></h3>
+                <button type="button" class="shrimp-cm-x" data-bs-dismiss="modal" data-ma-close="1" aria-label="Cerrar"><i class="fa fa-times" aria-hidden="true"/></button>
+              </div>
+              <div class="modal-body">
+                <div class="row g-3">
+                  <div class="col-12">
+                    <label class="form-label" for="maPondFac">Instalación</label>
+                    <select class="form-select" name="facility_ref" id="maPondFac">
+                      <t t-foreach="ma_fac['facilities']" t-as="b">
+                        <option t-att-value="b['rec'].uuid_ref"><t t-esc="b['rec'].name"/> · <t t-esc="b['type_label']"/></option>
+                      </t>
+                    </select>
+                  </div>
+                  <div class="col-12 col-sm-8">
+                    <label class="form-label" for="maPondName">Nombre <span class="text-danger">*</span></label>
+                    <input class="form-control" name="name" id="maPondName" type="text" maxlength="80" autocomplete="off"
+                           required="required" aria-describedby="maPondNameErr" t-att-placeholder="'Ej. P1' if is_area else 'Ej. T-01'"/>
+                    <div class="shrimp-cm-err" id="maPondNameErr" hidden="hidden" role="alert"></div>
+                  </div>
+                  <div class="col-12 col-sm-4">
+                    <label class="form-label" for="maPondCode">Código <span class="shrimp-optional">(opcional)</span></label>
+                    <input class="form-control" name="code" id="maPondCode" type="text" maxlength="40" autocomplete="off"/>
+                  </div>
+                  <div class="col-12 col-sm-6">
+                    <label class="form-label" for="maPondType">Tipo</label>
+                    <select class="form-select" name="pond_type" id="maPondType">
+                      <t t-foreach="ma_fac['pond_types']" t-as="pt">
+                        <option t-att-value="pt[0]" t-att-selected="'selected' if pt[0] == cfg['pond_default'] else None"><t t-esc="pt[1]"/></option>
+                      </t>
+                    </select>
+                  </div>
+                  <div class="col-12">
+                    <fieldset class="shrimp-pm-mode">
+                      <legend class="form-label">Capacidad</legend>
+                      <div class="shrimp-seg">
+                        <label class="shrimp-seg-opt"><input type="radio" name="capacity_mode" id="maPondModeDim" value="dimensions"
+                               t-att-checked="'checked' if cfg['mode_default'] == 'dimensions' else None"/>
+                          <span>Por dimensiones</span></label>
+                        <label class="shrimp-seg-opt"><input type="radio" name="capacity_mode" id="maPondModeVol" value="volume"
+                               t-att-checked="'checked' if cfg['mode_default'] == 'volume' else None"/>
+                          <span>Volumen directo</span></label>
+                      </div>
+                    </fieldset>
+                  </div>
+                  <div class="col-4 ma-pm-dim">
+                    <label class="form-label" for="maPondLength">Largo (m)</label>
+                    <input class="form-control" name="length_m" id="maPondLength" type="number" step="0.01" min="0" max="100000" inputmode="decimal" aria-describedby="maPondDimErr"/>
+                  </div>
+                  <div class="col-4 ma-pm-dim">
+                    <label class="form-label" for="maPondWidth">Ancho (m)</label>
+                    <input class="form-control" name="width_m" id="maPondWidth" type="number" step="0.01" min="0" max="100000" inputmode="decimal" aria-describedby="maPondDimErr"/>
+                  </div>
+                  <div class="col-4 ma-pm-dim">
+                    <label class="form-label" for="maPondDepth">Prof. (m)</label>
+                    <input class="form-control" name="depth_m" id="maPondDepth" type="number" step="0.01" min="0" max="50" inputmode="decimal" aria-describedby="maPondDimErr"/>
+                  </div>
+                  <div class="col-12 ma-pm-dim">
+                    <div class="shrimp-cm-err" id="maPondDimErr" hidden="hidden" role="alert"></div>
+                  </div>
+                  <div class="col-12 col-sm-6 ma-pm-vol" hidden="hidden">
+                    <label class="form-label" for="maPondVolume">Volumen (m³)</label>
+                    <input class="form-control" name="manual_volume_m3" id="maPondVolume" type="number" step="0.01" min="0" max="10000000" inputmode="decimal" aria-describedby="maPondVolErr"/>
+                    <div class="shrimp-cm-err" id="maPondVolErr" hidden="hidden" role="alert"></div>
+                  </div>
+                  <div class="col-12">
+                    <div class="shrimp-pm-calc ma-pm-calc" id="maPondCalc" aria-live="polite"></div>
+                  </div>
+                  <div class="col-12 col-sm-6">
+                    <label class="form-label" for="maPondLoc">Ubicación <span class="shrimp-optional">(opcional)</span></label>
+                    <input class="form-control" name="location" id="maPondLoc" type="text" maxlength="120" autocomplete="off" placeholder="Ej. Sector norte"/>
+                  </div>
+                  <div class="col-12 col-sm-6">
+                    <label class="form-label" for="maPondImage">Foto <span class="shrimp-optional" id="maPondImgHint">(opcional)</span></label>
+                    <input class="form-control" name="image" id="maPondImage" type="file" accept="image/png,image/jpeg,image/gif,image/webp"/>
+                  </div>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="s-btn s-btn-ghost" data-bs-dismiss="modal" data-ma-close="1">Cancelar</button>
+                <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-check me-1" aria-hidden="true"/>Guardar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Confirmar «Archivar» -->
+        <div class="modal fade shrimp-cmodal ma-modal" id="maArchModal" tabindex="-1" role="dialog" aria-modal="true"
+             aria-labelledby="maArchTitle" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered">
+            <form class="modal-content" method="post" id="maArchForm" action="#">
+              <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+              <input type="hidden" name="next" value="account"/>
+              <div class="modal-header">
+                <h3 class="modal-title" id="maArchTitle"><i class="fa fa-archive" aria-hidden="true"/> <span>Archivar «<span id="maArchName"></span>»</span></h3>
+                <button type="button" class="shrimp-cm-x" data-bs-dismiss="modal" data-ma-close="1" aria-label="Cerrar"><i class="fa fa-times" aria-hidden="true"/></button>
+              </div>
+              <div class="modal-body"><p class="mb-0" id="maArchMsg"></p></div>
+              <div class="modal-footer">
+                <button type="button" class="s-btn s-btn-ghost" data-bs-dismiss="modal" data-ma-close="1">Cancelar</button>
+                <button type="submit" class="s-btn s-btn-danger"><i class="fa fa-archive me-1" aria-hidden="true"/>Archivar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </t>
+    </section>
+  </template>
+
+</odoo>

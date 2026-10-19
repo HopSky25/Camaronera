@@ -46,6 +46,15 @@ class ResConfigSettings(models.TransientModel):
     ec_sri_establishments = fields.Integer(
         related='company_id.ec_sri_establishments', readonly=False,
         string='Establecimientos registrados en RUC')
-    ec_sri_secret_name = fields.Char(
-        related='company_id.ec_sri_secret_name', readonly=False,
-        string='Prefijo de variables del certificado')
+    ec_sri_cert_file = fields.Binary(
+        related='company_id.ec_sri_cert_file', readonly=False,
+        string='Subir certificado .p12')
+    ec_sri_cert_filename = fields.Char(
+        related='company_id.ec_sri_cert_filename', readonly=False)
+    ec_sri_cert_password = fields.Char(
+        related='company_id.ec_sri_cert_password', readonly=False,
+        string='Contraseña del certificado')
+    ec_sri_cert_subject = fields.Char(
+        related='company_id.ec_sri_cert_subject', string='Certificado cargado')
+    ec_sri_cert_expiry = fields.Date(
+        related='company_id.ec_sri_cert_expiry', string='Vence')

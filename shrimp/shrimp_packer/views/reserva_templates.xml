@@ -507,6 +507,17 @@
                       </form>
                     </t>
 
+                    <div t-if="c.state == 'honored' and c.reservation_state == 'reserved' and c.purchase_deadline"
+                         class="alert alert-info mt-2 mb-0 small" id="reserva_plazo_camaronera">
+                      <i class="fa fa-lock me-1" aria-hidden="true"/>
+                      El lote está reservado para <b t-esc="c.packer_partner_id.name"/> hasta el
+                      <b t-esc="c.purchase_deadline" t-options="{'widget': 'datetime'}"/>:
+                      ninguna otra empacadora lo ve ni lo puede comprar. Si no lo compra a
+                      tiempo, queda libre y se ofrece a las demás.
+                    </div>
+                    <div t-if="c.reservation_state == 'lapsed'" class="small text-muted mt-2">
+                      La reserva del lote venció sin compra: el lote quedó libre.
+                    </div>
                     <t t-if="c.state in ('honored', 'released', 'to_confirm')">
                       <div class="mt-2 small">
                         <div>Liquidado: <b><t t-esc="round(c.settled_lb, 2)"/> lb</b>
@@ -848,6 +859,14 @@
                         a $ <t t-esc="round(mio.settled_price_per_lb, 4)"/> / lb
                         = $ <t t-esc="round(mio.settled_total, 2)"/>
                       </div>
+                      <div t-if="mio.reservation_state == 'reserved' and mio.purchase_deadline"
+                           class="alert alert-warning mt-2 mb-0 small" id="reserva_plazo_empacadora">
+                        <i class="fa fa-lock me-1" aria-hidden="true"/>
+                        El lote está reservado solo para ti hasta el
+                        <b t-esc="mio.purchase_deadline" t-options="{'widget': 'datetime'}"/>.
+                        Si no lo compras antes, la reserva vence, cuenta como incumplimiento
+                        tuyo y el lote se ofrece a las demás empacadoras.
+                      </div>
                       <t t-if="(not mio.transaction_id or mio.transaction_id.state == 'cancel') and mio.product_id">
                         <!-- El camarón adulto se compra con verificación en campo,
                              también cuando viene de una reserva: la reserva fija
@@ -856,7 +875,7 @@
                               t-attf-action="/packer/commitments/#{mio.uuid_ref}/buy">
                           <input type="hidden" name="csrf_token"
                                  t-att-value="request.csrf_token()"/>
-                          <t t-set="exige_verif" t-value="mio.product_id.sudo()._shrimp_requires_verification()"/>
+                          <t t-set="exige_verif" t-value="mio.product_id.sudo()._shrimp_requires_verification(mio.packer_partner_id, 'empacadora')"/>
                           <t t-if="exige_verif">
                             <t t-set="verificadores" t-value="request.env['res.partner'].sudo().available_verifiers()"/>
                             <label class="form-label small mb-1" t-attf-for="modo_#{mio.uuid_ref}">

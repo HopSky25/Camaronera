@@ -262,8 +262,11 @@ class ShrimpLotAlert(models.Model):
             ("active", "=", True),
             ("emp_aviso_frecuencia", "!=", "off"),
         ])
+        # ME-24: una empacadora pendiente de aprobación (o rechazada) no puede
+        # comprar; avisarle de lotes es mandarle correos que no puede usar.
         pendientes = empacadoras.filtered(
-            lambda p: p.email and p._aviso_slot_pendiente(ahora))
+            lambda p: p.email and p.shrimp_is_operational("empacadora")
+            and p._aviso_slot_pendiente(ahora))
         if not pendientes:
             return 0
 
@@ -297,8 +300,13 @@ class ShrimpLotAlert(models.Model):
                     filas = self._digest_para(
                         packer, lotes, listas_por_vendedor, competencia_por_lote,
                         ahora, hoy)
-                    packer.emp_aviso_ultima_revision = ahora
-                    if filas and self._enviar_digest(packer, filas):
+                    # ME-24: la revisión se marca DESPUÉS de enviar. Si el
+                    # correo no sale (sin SMTP, fallo), esos lotes vuelven a
+                    # entrar en la siguiente tanda en vez de perderse.
+                    if not filas:
+                        packer.emp_aviso_ultima_revision = ahora
+                    elif self._enviar_digest(packer, filas):
+                        packer.emp_aviso_ultima_revision = ahora
                         enviados += 1
             except Exception:  # noqa: BLE001 - el cron sigue con la siguiente
                 _logger.exception(

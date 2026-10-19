@@ -1,16 +1,39 @@
 <odoo>
-  <!-- Sección de la app «Camaronera» (antes era una aplicación aparte). -->
+  <!-- =================================================================
+       App «Verificador» del backoffice (19.0.1.19.0).
+
+       Vuelve a ser una aplicación propia, con su raíz y su icono en el
+       selector de apps (estuvo un tiempo como sección de la app única
+       «Camaronera»). Al desinstalar este módulo se va entera y la app
+       CamaronMarket queda intacta.
+
+         Operaciones (10)    verificaciones y despachos a planta
+         Verificadoras (20)  empresas, técnicos de campo, acreditaciones, reseñas
+         Configuración (90)  ajustes, matriz de verificación, criterios de
+                             cata, cargos de técnico
+
+       Las líneas de clasificación, los conteos y las firmas del informe son
+       tablas internas: se ven dentro de cada verificación, sin menú.
+       Grupos: security/shrimp_verification_rules.xml.
+       ================================================================= -->
   <menuitem id="menu_shrimp_verification_root"
-            name="Verificación"
-            parent="shrimp_marketplace.menu_shrimp_root"
-            groups="shrimp_marketplace.group_shrimp_user"
-            sequence="50"/>
+            name="Verificador"
+            web_icon="shrimp_verification,static/description/icon_menu.png"
+            groups="shrimp_verification.group_verification_user"
+            sequence="11"/>
+
+  <!-- ===== Operaciones ===== -->
+  <menuitem id="menu_shrimp_verification_ops"
+            name="Operaciones"
+            parent="menu_shrimp_verification_root"
+            groups="shrimp_verification.group_verification_user"
+            sequence="10"/>
 
   <menuitem id="menu_shrimp_verification_all"
             name="Verificaciones"
-            parent="menu_shrimp_verification_root"
+            parent="menu_shrimp_verification_ops"
             action="action_shrimp_verification"
-            groups="shrimp_marketplace.group_shrimp_user"
+            groups="shrimp_verification.group_verification_user"
             sequence="10"/>
 
   <!-- La cita del técnico. Va justo debajo de las verificaciones porque es lo
@@ -18,26 +41,78 @@
        la hora en que entra el camarón, no hay informe. -->
   <menuitem id="menu_shrimp_dispatch"
             name="Despachos a planta"
-            parent="menu_shrimp_verification_root"
+            parent="menu_shrimp_verification_ops"
             action="action_shrimp_dispatch"
-            groups="shrimp_marketplace.group_shrimp_user"
+            groups="shrimp_verification.group_verification_user"
             sequence="15"/>
 
-  <menuitem id="menu_shrimp_verifiers"
-            name="Verificadores"
+  <!-- ===== Verificadoras ===== -->
+  <menuitem id="menu_shrimp_verifiers_root"
+            name="Verificadoras"
             parent="menu_shrimp_verification_root"
+            groups="shrimp_verification.group_verification_user"
+            sequence="20"/>
+
+  <menuitem id="menu_shrimp_verifiers"
+            name="Empresas verificadoras"
+            parent="menu_shrimp_verifiers_root"
             action="action_shrimp_verifiers"
-            groups="shrimp_marketplace.group_shrimp_user"
+            groups="shrimp_verification.group_verification_user"
+            sequence="10"/>
+
+  <!-- Los técnicos de campo son contactos hijos de su empresa verificadora. -->
+  <record id="action_shrimp_field_techs" model="ir.actions.act_window">
+    <field name="name">Técnicos de campo</field>
+    <field name="res_model">res.partner</field>
+    <field name="view_mode">list,form</field>
+    <field name="domain">[('shrimp_is_field_tech', '=', True)]</field>
+    <field name="context">{'default_shrimp_is_field_tech': True}</field>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">Aún no hay técnicos de campo.</p>
+      <p>Cada empresa verificadora registra a sus técnicos desde su portal
+         (Mi equipo); son los que hacen las inspecciones en planta.</p>
+    </field>
+  </record>
+
+  <menuitem id="menu_shrimp_field_techs"
+            name="Técnicos de campo"
+            parent="menu_shrimp_verifiers_root"
+            action="action_shrimp_field_techs"
+            groups="shrimp_verification.group_verification_user"
             sequence="20"/>
 
   <!-- Acreditar es dar o quitar el permiso de inspeccionar: no es trabajo
        operativo, decide quién puede emitir un dictamen vinculante. -->
-  <!-- Va en «Aprobaciones», junto al resto de certificados por revisar: los
-       certificados se gestionaban en tres sitios distintos. -->
   <menuitem id="menu_shrimp_verifier_accreditation"
-            name="Acreditaciones de verificadores"
-            parent="shrimp_marketplace.menu_shrimp_approvals_root"
+            name="Acreditaciones por aprobar"
+            parent="menu_shrimp_verifiers_root"
             action="action_verifier_accreditation"
-            groups="shrimp_marketplace.group_shrimp_manager"
+            groups="shrimp_verification.group_verification_manager"
             sequence="30"/>
+
+  <!-- La nota del comprador ordena el ranking de verificadores: desde aquí
+       se retira una reseña falsa o duplicada. -->
+  <menuitem id="menu_shrimp_verifier_review"
+            name="Reseñas del verificador"
+            parent="menu_shrimp_verifiers_root"
+            action="action_shrimp_verifier_review"
+            groups="base.group_system"
+            sequence="40"/>
+
+  <!-- ===== Configuración =====
+       Matriz de verificación, criterios de cata y cargos de técnico se
+       añaden desde sus propios archivos. Las tarifas (honorario por libra,
+       mínimo…) están en Ajustes › CamaronMarket › Verificación. -->
+  <menuitem id="menu_shrimp_verification_config"
+            name="Configuración"
+            parent="menu_shrimp_verification_root"
+            groups="shrimp_verification.group_verification_manager"
+            sequence="90"/>
+
+  <menuitem id="menu_shrimp_verification_settings"
+            name="Ajustes y tarifas"
+            parent="menu_shrimp_verification_config"
+            action="shrimp_marketplace.action_shrimp_config_settings"
+            groups="base.group_system"
+            sequence="1"/>
 </odoo>

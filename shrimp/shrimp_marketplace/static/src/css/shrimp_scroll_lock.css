@@ -1,0 +1,49 @@
+/* ShrimpScrollLock (ver static/src/js/shrimp_scroll_lock.js).
+   Clases que pone el JS mientras hay un modal / cajón / overlay abierto:
+     html.shrimp-sl-on             página bloqueada
+     html.shrimp-sl-root           <html> tiene overflow propio: se bloquea él
+     #wrapwrap.shrimp-sl-scroller  #wrapwrap es el scroller: se bloquea él
+     .shrimp-sl-fixed              elemento fijo al que se devuelve el hueco
+                                   de la barra de scroll
+   Variables: --shrimp-sl-gap (ancho de la barra quitada, en <html>) y
+   --shrimp-sl-pr0 (padding-right original del elemento). */
+
+/* overflow en <body> (Odoo: <html> es el scroller y el overflow del body se
+   propaga al viewport, como hace Bootstrap). Nunca en <html> y <body> a la
+   vez: con html/body al 100% del viewport la página saltaba arriba. */
+html.shrimp-sl-on:not(.shrimp-sl-root) body {
+    overflow: hidden !important;
+    padding-right: calc(var(--shrimp-sl-pr0, 0px) + var(--shrimp-sl-gap, 0px)) !important;
+}
+html.shrimp-sl-on.shrimp-sl-root {
+    overflow: hidden !important;
+}
+html.shrimp-sl-on.shrimp-sl-root body {
+    padding-right: calc(var(--shrimp-sl-pr0, 0px) + var(--shrimp-sl-gap, 0px)) !important;
+}
+html.shrimp-sl-on #wrapwrap.shrimp-sl-scroller {
+    overflow-y: hidden !important;
+}
+html.shrimp-sl-on .shrimp-sl-fixed {
+    padding-right: calc(var(--shrimp-sl-pr0, 0px) + var(--shrimp-sl-gap, 0px)) !important;
+}
+
+/* El scroll de dentro del modal / cajón no se encadena a la página. */
+.modal, .modal-body, .offcanvas, .offcanvas-body,
+.s-drawer-panel, .s-drawer-body,
+.sf-modal, .sf-modal-card, .buy-modal, .buy-modal-card,
+.cv-modal, .cv-card, .sv-info-modal, .sv-info-card, .sv-info-body,
+.pl-modal, .pl-modal-box, .tech-modal-card, .s-pay-overlay, .shrimp-sg {
+    overscroll-behavior: contain;
+}
+/* Fondos sin contenido: el dedo no mueve nada detrás. */
+.modal-backdrop, .offcanvas-backdrop, .s-drawer-backdrop {
+    touch-action: none;
+}
+/* Overlays propios cuya tarjeta no tenía alto máximo: con la página
+   bloqueada, una tarjeta más alta que la pantalla necesita su propio scroll. */
+.pl-modal-box, .s-pay-box {
+    max-height: calc(100vh - 40px);
+    max-height: calc(100dvh - 40px);
+    overflow-y: auto;
+}

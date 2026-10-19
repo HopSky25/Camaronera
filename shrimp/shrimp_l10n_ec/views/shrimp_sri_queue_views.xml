@@ -1,0 +1,159 @@
+<odoo>
+  <!-- =================================================================
+       COLA SRI: seguimiento de la facturación electrónica de los cobros de
+       la plataforma (factura 01 y nota de crédito 04). Todo lo que no está
+       autorizado o cerrado: bloqueados por configuración, pendientes, en
+       error, rechazados por el SRI y por reintentar.
+       ================================================================= -->
+  <record id="view_shrimp_charge_sri_queue_list" model="ir.ui.view">
+    <field name="name">shrimp.charge.sri.queue.list</field>
+    <field name="model">shrimp.charge</field>
+    <field name="priority">30</field>
+    <field name="arch" type="xml">
+      <list string="Cola SRI" create="0" delete="0"
+            decoration-danger="sri_queue_status in ('sri_rejected', 'exhausted', 'error')"
+            decoration-warning="sri_queue_status in ('blocked', 'credit_pending', 'sri_not_sent')"
+            decoration-info="sri_queue_status in ('to_invoice', 'sri_pending')">
+        <header>
+          <button name="action_retry_invoice" type="object" string="Reintentar"
+                  class="btn-primary"/>
+        </header>
+        <field name="name"/>
+        <field name="date"/>
+        <field name="charge_type"/>
+        <field name="payer_partner_id"/>
+        <field name="origin" optional="hide"/>
+        <field name="currency_id" column_invisible="1"/>
+        <field name="amount" sum="Total" widget="monetary"/>
+        <field name="state" widget="badge"
+               decoration-success="state == 'invoiced'"
+               decoration-danger="state in ('error', 'sri_rejected')"
+               decoration-warning="state in ('pending', 'to_credit')"/>
+        <field name="sri_queue_status" widget="badge"
+               decoration-danger="sri_queue_status in ('sri_rejected', 'exhausted', 'error')"
+               decoration-warning="sri_queue_status in ('blocked', 'credit_pending', 'sri_not_sent')"
+               decoration-info="sri_queue_status in ('to_invoice', 'sri_pending')"
+               decoration-success="sri_queue_status == 'ok'"/>
+        <field name="invoice_id" optional="show"/>
+        <field name="sri_invoice_state" optional="show"/>
+        <field name="refund_id" optional="hide"/>
+        <field name="sri_refund_state" optional="hide"/>
+        <field name="invoice_attempts" optional="show"/>
+        <field name="last_attempt_at" optional="show"/>
+        <field name="sri_short_error" optional="show"/>
+        <field name="invoice_error" optional="hide"/>
+        <field name="activity_ids" widget="list_activity" optional="show"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_shrimp_charge_sri_queue_search" model="ir.ui.view">
+    <field name="name">shrimp.charge.sri.queue.search</field>
+    <field name="model">shrimp.charge</field>
+    <field name="priority">30</field>
+    <field name="arch" type="xml">
+      <search string="Cola SRI">
+        <field name="name"/>
+        <field name="payer_partner_id"/>
+        <field name="origin"/>
+        <field name="invoice_id"/>
+        <filter string="Requieren atención" name="sri_attention"
+                domain="['|', '|', '|', ('sri_q_pending', '=', True), ('sri_q_error', '=', True), ('sri_q_rejected', '=', True), ('sri_q_exhausted', '=', True)]"/>
+        <separator/>
+        <filter string="Pendientes" name="sri_pending" domain="[('sri_q_pending', '=', True)]"/>
+        <filter string="En error" name="sri_error" domain="[('sri_q_error', '=', True)]"/>
+        <filter string="Rechazados por el SRI" name="sri_rejected" domain="[('sri_q_rejected', '=', True)]"/>
+        <filter string="Por reintentar" name="sri_retry" domain="[('sri_q_retry', '=', True)]"/>
+        <filter string="Intentos agotados" name="sri_exhausted" domain="[('sri_q_exhausted', '=', True)]"/>
+        <filter string="Bloqueados (configuración / datos del pagador)" name="sri_blocked"
+                domain="[('sri_queue_status', '=', 'blocked')]"/>
+        <separator/>
+        <filter string="Más de 30 días" name="old"
+                domain="[('date', '&lt;', (context_today() - relativedelta(days=30)).strftime('%Y-%m-%d'))]"/>
+        <separator/>
+        <filter string="Con actividad pendiente" name="with_activity" domain="[('activity_ids', '!=', False)]"/>
+        <group>
+          <filter string="Estado del cobro" name="g_state" context="{'group_by': 'state'}"/>
+          <filter string="Tipo" name="g_type" context="{'group_by': 'charge_type'}"/>
+          <filter string="Paga" name="g_payer" context="{'group_by': 'payer_partner_id'}"/>
+          <filter string="Mes" name="g_month" context="{'group_by': 'date:month'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
+  <record id="action_shrimp_sri_queue" model="ir.actions.act_window">
+    <field name="name">Cola SRI</field>
+    <field name="res_model">shrimp.charge</field>
+    <field name="view_mode">list,form</field>
+    <field name="view_ids" eval="[(5, 0, 0),
+        (0, 0, {'view_mode': 'list', 'view_id': ref('view_shrimp_charge_sri_queue_list')}),
+        (0, 0, {'view_mode': 'form', 'view_id': ref('shrimp_marketplace.view_shrimp_charge_form')})]"/>
+    <field name="search_view_id" ref="view_shrimp_charge_sri_queue_search"/>
+    <field name="context">{'search_default_sri_attention': 1}</field>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">La cola SRI está al día.</p>
+      <p>Aquí aparecen los cobros de la plataforma cuya factura o nota de crédito aún no
+        está autorizada por el SRI: bloqueados por configuración, pendientes, en error,
+        rechazados o con los intentos agotados. «Reintentar» los vuelve a procesar.</p>
+    </field>
+  </record>
+
+  <menuitem id="menu_shrimp_sri_queue" name="Cola SRI"
+            parent="shrimp_marketplace.menu_shrimp_reports_root"
+            action="action_shrimp_sri_queue" sequence="25"
+            groups="shrimp_marketplace.group_marketplace_manager"/>
+
+  <!-- Ficha del cobro: estado SRI, reintento también en «Rechazado por el SRI»
+       y en la nota de crédito rechazada, actividades. -->
+  <record id="view_shrimp_charge_form_sri" model="ir.ui.view">
+    <field name="name">shrimp.charge.form.sri</field>
+    <field name="model">shrimp.charge</field>
+    <field name="inherit_id" ref="shrimp_marketplace.view_shrimp_charge_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//button[@name='action_retry_invoice']" position="attributes">
+        <attribute name="invisible">state not in ('pending', 'error', 'to_credit', 'sri_rejected') and sri_queue_status != 'sri_rejected' and sri_queue_status != 'sri_not_sent'</attribute>
+      </xpath>
+      <xpath expr="//sheet" position="before">
+        <field name="sri_queue_status" invisible="1"/>
+      </xpath>
+      <xpath expr="//field[@name='invoice_state']" position="after">
+        <field name="sri_invoice_state" widget="badge" invisible="not invoice_id"
+               decoration-success="sri_invoice_state == 'authorized'"
+               decoration-danger="sri_invoice_state in ('rejected', 'error')"/>
+        <field name="sri_refund_state" widget="badge" invisible="not refund_id"
+               decoration-success="sri_refund_state == 'authorized'"
+               decoration-danger="sri_refund_state in ('rejected', 'error')"/>
+        <field name="sri_last_message" invisible="not sri_last_message"/>
+      </xpath>
+    </field>
+  </record>
+
+  <!-- Lista y búsqueda de «Cobros de la plataforma»: el estado nuevo. -->
+  <record id="view_shrimp_charge_list_sri" model="ir.ui.view">
+    <field name="name">shrimp.charge.list.sri</field>
+    <field name="model">shrimp.charge</field>
+    <field name="inherit_id" ref="shrimp_marketplace.view_shrimp_charge_list"/>
+    <field name="arch" type="xml">
+      <xpath expr="//list" position="attributes">
+        <attribute name="decoration-danger">state in ('error', 'sri_rejected')</attribute>
+      </xpath>
+      <xpath expr="//field[@name='state']" position="attributes">
+        <attribute name="decoration-danger">state in ('error', 'sri_rejected')</attribute>
+      </xpath>
+    </field>
+  </record>
+  <record id="view_shrimp_charge_search_sri" model="ir.ui.view">
+    <field name="name">shrimp.charge.search.sri</field>
+    <field name="model">shrimp.charge</field>
+    <field name="inherit_id" ref="shrimp_marketplace.view_shrimp_charge_search"/>
+    <field name="arch" type="xml">
+      <xpath expr="//filter[@name='con_error']" position="after">
+        <filter string="Rechazados por el SRI" name="rechazados_sri"
+                domain="[('state', '=', 'sri_rejected')]"/>
+        <filter string="Requieren atención" name="requieren_atencion"
+                domain="['|', '|', '|', ('sri_q_pending', '=', True), ('sri_q_error', '=', True), ('sri_q_rejected', '=', True), ('sri_q_exhausted', '=', True)]"/>
+      </xpath>
+    </field>
+  </record>
+</odoo>

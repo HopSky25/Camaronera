@@ -1595,7 +1595,7 @@
             <field name="active" eval="True"/>
             <field name="status">pending</field>
         </record>
-        <record id="demo_mv_prod_001_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_001_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_001"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-64, hours=16, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -1605,8 +1605,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Biometría de rutina.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_06"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_001_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_001_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_001"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-58, hours=12, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -1616,8 +1617,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_06"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_001_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_001_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_001"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-52, hours=18, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
@@ -1627,6 +1629,7 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_06"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_002_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_002"/>
@@ -1639,7 +1642,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_002_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_002_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_002"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-137, hours=20, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_zoea"/>
@@ -1649,8 +1652,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_11"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_002_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_002_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_002"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-135, hours=14, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -1660,8 +1664,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_11"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_002_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_002_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_002"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-133, hours=15, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -1671,8 +1676,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_11"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_002_ev_4" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_002_ev_4" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_002"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-131, hours=15, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -1682,8 +1688,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Recambio de agua y control de oxígeno.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_11"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_002_ev_5" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_002_ev_5" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_002"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-129, hours=14, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl10"/>
@@ -1693,8 +1700,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Ajuste de ración por consumo.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_11"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_002_ev_6" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_002_ev_6" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_002"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-127, hours=16, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl10"/>
@@ -1704,6 +1712,7 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_11"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_003_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_003"/>
@@ -1727,7 +1736,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_003_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_003_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_003"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-201, hours=19, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_zoea"/>
@@ -1737,8 +1746,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Biometría de rutina.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_01"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_003_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_003_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_003"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-198, hours=20, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -1748,8 +1758,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Ajuste de ración por consumo.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_01"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_003_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_003_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_003"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-194, hours=14, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -1759,8 +1770,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Biometría de rutina.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_01"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_003_ev_4" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_003_ev_4" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_003"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-191, hours=20, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
@@ -1770,8 +1782,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_01"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_003_ev_5" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_003_ev_5" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_003"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-188, hours=18, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
@@ -1781,6 +1794,7 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Ajuste de ración por consumo.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_01"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_004_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_004"/>
@@ -1804,7 +1818,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_004_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_004_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_004"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-245, hours=20, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_zoea"/>
@@ -1814,8 +1828,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_05"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_004_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_004_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_004"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-244, hours=12, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -1825,8 +1840,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Ajuste de ración por consumo.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_05"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_004_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_004_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_004"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-243, hours=17, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -1836,8 +1852,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Recambio de agua y control de oxígeno.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_05"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_004_ev_4" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_004_ev_4" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_004"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-241, hours=18, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -1847,8 +1864,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Ajuste de ración por consumo.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_05"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_004_ev_5" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_004_ev_5" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_004"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-240, hours=13, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl15"/>
@@ -1858,8 +1876,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Control sanitario: sin novedades.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_05"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_004_ev_6" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_004_ev_6" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_004"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-239, hours=18, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl15"/>
@@ -1869,6 +1888,7 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Recambio de agua y control de oxígeno.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_05"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_005_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_005"/>
@@ -1881,7 +1901,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_005_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_005_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_005"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-197, hours=12, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_zoea"/>
@@ -1891,8 +1911,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Control sanitario: sin novedades.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_03"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_005_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_005_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_005"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-194, hours=13, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -1902,8 +1923,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_03"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_005_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_005_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_005"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-191, hours=21, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -1913,8 +1935,9 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_03"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_005_ev_4" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_005_ev_4" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_005"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-188, hours=21, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
@@ -1924,6 +1947,7 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Ajuste de ración por consumo.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_03"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_006_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_006"/>
@@ -1936,7 +1960,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_006_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_006_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_006"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-221, hours=14, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -1946,8 +1970,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Ajuste de ración por consumo.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_02"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_006_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_006_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_006"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-219, hours=14, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -1957,8 +1982,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_02"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_006_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_006_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_006"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-217, hours=14, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
@@ -1968,6 +1994,7 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_02"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_007_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_007"/>
@@ -1980,7 +2007,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_007_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_007_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_007"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-139, hours=20, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_zoea"/>
@@ -1990,8 +2017,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Recambio de agua y control de oxígeno.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_15"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_007_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_007_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_007"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-136, hours=15, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -2001,8 +2029,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Recambio de agua y control de oxígeno.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_15"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_007_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_007_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_007"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-132, hours=16, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -2012,8 +2041,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_15"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_007_ev_4" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_007_ev_4" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_007"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-129, hours=15, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
@@ -2023,6 +2053,7 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Recambio de agua y control de oxígeno.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_15"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_008_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_008"/>
@@ -2046,7 +2077,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_008_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_008_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_008"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-152, hours=16, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -2056,8 +2087,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Biometría de rutina.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_14"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_008_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_008_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_008"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-148, hours=17, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -2067,8 +2099,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Recambio de agua y control de oxígeno.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_14"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_008_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_008_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_008"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-144, hours=19, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl10"/>
@@ -2078,6 +2111,7 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_14"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_009_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_009"/>
@@ -2101,7 +2135,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_009_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_009_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_009"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-340, hours=15, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_zoea"/>
@@ -2111,8 +2145,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Biometría de rutina.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_13"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_009_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_009_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_009"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-337, hours=17, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -2122,8 +2157,9 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Biometría de rutina.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_13"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_009_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_009_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_009"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-334, hours=16, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -2133,8 +2169,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Biometría de rutina.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_13"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_009_ev_4" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_009_ev_4" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_009"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-331, hours=16, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
@@ -2144,6 +2181,7 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Biometría de rutina.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_13"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_010_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_010"/>
@@ -2156,7 +2194,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_010_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_010_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_010"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-106, hours=12, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_zoea"/>
@@ -2166,8 +2204,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Recambio de agua y control de oxígeno.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_14"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_010_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_010_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_010"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-102, hours=12, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -2177,8 +2216,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_14"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_010_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_010_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_010"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-98, hours=20, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -2188,8 +2228,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_14"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_010_ev_4" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_010_ev_4" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_010"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-95, hours=16, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
@@ -2199,6 +2240,7 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Control sanitario: sin novedades.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_14"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_011_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_011"/>
@@ -2211,7 +2253,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_011_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_011_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_011"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-232, hours=21, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_zoea"/>
@@ -2221,8 +2263,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Recambio de agua y control de oxígeno.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_06"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_011_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_011_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_011"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-230, hours=15, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -2232,8 +2275,9 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_06"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_011_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_011_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_011"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-228, hours=16, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -2243,8 +2287,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Recambio de agua y control de oxígeno.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_06"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_011_ev_4" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_011_ev_4" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_011"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-226, hours=13, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -2254,8 +2299,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Control sanitario: sin novedades.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_06"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_011_ev_5" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_011_ev_5" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_011"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-224, hours=12, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
@@ -2265,8 +2311,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Biometría de rutina.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_06"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_011_ev_6" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_011_ev_6" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_011"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-222, hours=12, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
@@ -2276,6 +2323,7 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Control sanitario: sin novedades.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_06"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_012_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_012"/>
@@ -2288,7 +2336,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_012_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_012_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_012"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-134, hours=20, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_zoea"/>
@@ -2298,8 +2346,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_15"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_012_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_012_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_012"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-130, hours=17, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -2309,8 +2358,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_15"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_012_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_012_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_012"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-126, hours=16, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -2320,8 +2370,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Biometría de rutina.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_15"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_012_ev_4" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_012_ev_4" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_012"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-122, hours=20, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl10"/>
@@ -2331,6 +2382,7 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_15"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_013_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_013"/>
@@ -2343,7 +2395,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_013_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_013_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_013"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-157, hours=13, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_zoea"/>
@@ -2353,8 +2405,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Recambio de agua y control de oxígeno.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_05"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_013_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_013_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_013"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-153, hours=16, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -2364,8 +2417,9 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Biometría de rutina.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_05"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_013_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_013_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_013"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-149, hours=19, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -2375,8 +2429,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Biometría de rutina.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_05"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_013_ev_4" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_013_ev_4" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_013"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-146, hours=15, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl10"/>
@@ -2386,6 +2441,7 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Ajuste de ración por consumo.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_05"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_014_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_014"/>
@@ -2409,7 +2465,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_014_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_014_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_014"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-331, hours=21, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_zoea"/>
@@ -2419,8 +2475,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Control sanitario: sin novedades.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_03"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_014_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_014_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_014"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-327, hours=16, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -2430,8 +2487,9 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Biometría de rutina.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_03"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_014_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_014_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_014"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-324, hours=20, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -2441,8 +2499,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_03"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_014_ev_4" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_014_ev_4" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_014"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-320, hours=20, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl10"/>
@@ -2452,8 +2511,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Control sanitario: sin novedades.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_03"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_014_ev_5" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_014_ev_5" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_014"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-317, hours=21, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl10"/>
@@ -2463,6 +2523,7 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Recambio de agua y control de oxígeno.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_03"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_015_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_015"/>
@@ -2475,7 +2536,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_015_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_015_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_015"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-305, hours=13, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_zoea"/>
@@ -2485,8 +2546,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Recambio de agua y control de oxígeno.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_04"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_015_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_015_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_015"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-302, hours=21, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -2496,8 +2558,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Recambio de agua y control de oxígeno.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_04"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_015_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_015_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_015"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-300, hours=20, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -2507,8 +2570,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_04"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_015_ev_4" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_015_ev_4" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_015"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-297, hours=20, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl10"/>
@@ -2518,8 +2582,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Control sanitario: sin novedades.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_04"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_015_ev_5" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_015_ev_5" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_015"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-295, hours=19, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl10"/>
@@ -2529,6 +2594,7 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Ajuste de ración por consumo.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_04"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_016_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_016"/>
@@ -2552,7 +2618,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_016_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_016_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_016"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-321, hours=19, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_zoea"/>
@@ -2562,8 +2628,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Recambio de agua y control de oxígeno.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_08"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_016_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_016_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_016"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-318, hours=18, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -2573,8 +2640,9 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Control sanitario: sin novedades.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_08"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_016_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_016_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_016"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-315, hours=18, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -2584,8 +2652,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_08"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_016_ev_4" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_016_ev_4" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_016"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-312, hours=12, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -2595,8 +2664,9 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_08"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_016_ev_5" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_016_ev_5" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_016"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-309, hours=13, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl10"/>
@@ -2606,8 +2676,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_08"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_016_ev_6" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_016_ev_6" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_016"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-306, hours=19, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl10"/>
@@ -2617,6 +2688,7 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Control sanitario: sin novedades.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_08"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_017_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_017"/>
@@ -2629,7 +2701,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_017_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_017_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_017"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-240, hours=14, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_zoea"/>
@@ -2639,8 +2711,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_15"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_017_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_017_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_017"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-236, hours=15, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -2650,8 +2723,9 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Control sanitario: sin novedades.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_15"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_017_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_017_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_017"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-232, hours=18, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -2661,8 +2735,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Biometría de rutina.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_15"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_017_ev_4" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_017_ev_4" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_017"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-229, hours=19, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
@@ -2672,6 +2747,7 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_15"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_018_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_018"/>
@@ -2684,7 +2760,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_018_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_018_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_018"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-234, hours=21, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_zoea"/>
@@ -2694,8 +2770,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Control sanitario: sin novedades.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_14"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_018_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_018_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_018"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-229, hours=21, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -2705,8 +2782,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_14"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_018_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_018_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_018"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-224, hours=14, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -2716,8 +2794,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Ajuste de ración por consumo.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_14"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_018_ev_4" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_018_ev_4" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_018"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-220, hours=14, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl10"/>
@@ -2727,6 +2806,7 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_14"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_019_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_019"/>
@@ -2750,7 +2830,7 @@
             <field name="active" eval="True"/>
             <field name="status">rejected</field>
         </record>
-        <record id="demo_mv_prod_019_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_019_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_019"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-14, hours=16, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_zoea"/>
@@ -2760,8 +2840,9 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_05"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_019_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_019_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_019"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-13, hours=16, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -2771,8 +2852,9 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Recambio de agua y control de oxígeno.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_05"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_019_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_019_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_019"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-12, hours=14, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -2782,8 +2864,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Biometría de rutina.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_05"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_019_ev_4" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_019_ev_4" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_019"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-11, hours=12, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -2793,8 +2876,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Control sanitario: sin novedades.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_05"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_019_ev_5" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_019_ev_5" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_019"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-10, hours=20, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl10"/>
@@ -2804,8 +2888,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Recambio de agua y control de oxígeno.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_05"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_019_ev_6" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_019_ev_6" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_019"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-10, hours=17, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl10"/>
@@ -2815,6 +2900,7 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_05"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_020_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_020"/>
@@ -2838,7 +2924,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_020_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_020_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_020"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-272, hours=21, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_zoea"/>
@@ -2848,8 +2934,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Biometría de rutina.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_01"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_020_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_020_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_020"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-269, hours=13, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -2859,8 +2946,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Control sanitario: sin novedades.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_01"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_020_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_020_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_020"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-266, hours=18, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -2870,8 +2958,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_01"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_020_ev_4" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_020_ev_4" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_020"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-263, hours=21, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -2881,8 +2970,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_01"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_020_ev_5" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_020_ev_5" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_020"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-260, hours=14, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
@@ -2892,8 +2982,9 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_01"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_020_ev_6" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_020_ev_6" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_020"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-258, hours=16, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
@@ -2903,6 +2994,7 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_01"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_021_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_021"/>
@@ -2915,7 +3007,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_021_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_021_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_021"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-218, hours=13, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_zoea"/>
@@ -2925,8 +3017,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Ajuste de ración por consumo.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_11"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_021_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_021_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_021"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-217, hours=12, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -2936,8 +3029,9 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_11"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_021_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_021_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_021"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-216, hours=12, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -2947,8 +3041,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_11"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_021_ev_4" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_021_ev_4" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_021"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-215, hours=20, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -2958,8 +3053,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_11"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_021_ev_5" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_021_ev_5" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_021"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-214, hours=13, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl15"/>
@@ -2969,8 +3065,9 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_11"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_021_ev_6" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_021_ev_6" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_021"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-214, hours=21, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl15"/>
@@ -2980,6 +3077,7 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_11"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_022_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_022"/>
@@ -3003,7 +3101,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_022_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_022_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_022"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-148, hours=15, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -3013,8 +3111,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Biometría de rutina.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_15"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_022_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_022_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_022"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-145, hours=12, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -3024,8 +3123,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Biometría de rutina.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_15"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_022_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_022_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_022"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-143, hours=20, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
@@ -3035,6 +3135,7 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_15"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_023_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_023"/>
@@ -3047,7 +3148,7 @@
             <field name="active" eval="True"/>
             <field name="status">rejected</field>
         </record>
-        <record id="demo_mv_prod_023_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_023_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_023"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-317, hours=14, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_zoea"/>
@@ -3057,8 +3158,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_04"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_023_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_023_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_023"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-315, hours=17, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -3068,8 +3170,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_04"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_023_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_023_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_023"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-314, hours=17, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -3079,8 +3182,9 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_04"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_023_ev_4" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_023_ev_4" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_023"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-312, hours=12, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
@@ -3090,8 +3194,9 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Control sanitario: sin novedades.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_04"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_023_ev_5" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_023_ev_5" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_023"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-311, hours=17, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
@@ -3101,6 +3206,7 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_04"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_024_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_024"/>
@@ -3124,7 +3230,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_024_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_024_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_024"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-99, hours=13, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_zoea"/>
@@ -3134,8 +3240,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Recambio de agua y control de oxígeno.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_01"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_024_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_024_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_024"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-96, hours=17, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -3145,8 +3252,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Recambio de agua y control de oxígeno.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_01"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_024_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_024_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_024"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-93, hours=12, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -3156,8 +3264,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Ajuste de ración por consumo.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_01"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_024_ev_4" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_024_ev_4" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_024"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-90, hours=21, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
@@ -3167,6 +3276,7 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Recambio de agua y control de oxígeno.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_01"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_025_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_025"/>
@@ -3179,7 +3289,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_025_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_025_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_025"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-258, hours=16, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_zoea"/>
@@ -3189,8 +3299,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Recambio de agua y control de oxígeno.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_08"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_025_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_025_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_025"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-255, hours=12, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -3200,8 +3311,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Recambio de agua y control de oxígeno.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_08"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_025_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_025_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_025"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-251, hours=16, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -3211,8 +3323,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Ajuste de ración por consumo.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_08"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_025_ev_4" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_025_ev_4" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_025"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-248, hours=14, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
@@ -3222,6 +3335,7 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_08"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_026_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_026"/>
@@ -3234,7 +3348,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_026_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_026_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_026"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-314, hours=18, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_zoea"/>
@@ -3244,8 +3358,9 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Ajuste de ración por consumo.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_08"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_026_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_026_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_026"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-309, hours=13, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -3255,8 +3370,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Control sanitario: sin novedades.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_08"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_026_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_026_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_026"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-304, hours=12, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -3266,8 +3382,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Recambio de agua y control de oxígeno.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_08"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_026_ev_4" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_026_ev_4" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_026"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-300, hours=20, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
@@ -3277,6 +3394,7 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_08"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_027_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_027"/>
@@ -3289,7 +3407,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_027_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_027_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_027"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-292, hours=12, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_zoea"/>
@@ -3299,8 +3417,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Ajuste de ración por consumo.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_15"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_027_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_027_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_027"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-288, hours=13, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -3310,8 +3429,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Ajuste de ración por consumo.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_15"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_027_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_027_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_027"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-284, hours=20, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -3321,8 +3441,9 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Biometría de rutina.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_15"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_027_ev_4" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_027_ev_4" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_027"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-280, hours=15, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl10"/>
@@ -3332,6 +3453,7 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_15"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_028_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_028"/>
@@ -3344,7 +3466,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_028_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_028_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_028"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-25, hours=17, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -3354,8 +3476,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_01"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_028_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_028_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_028"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-19, hours=18, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -3365,8 +3488,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Ajuste de ración por consumo.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_01"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_028_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_028_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_028"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-14, hours=19, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
@@ -3376,6 +3500,7 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Control sanitario: sin novedades.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_01"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_029_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_029"/>
@@ -3399,7 +3524,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_029_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_029_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_029"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-166, hours=15, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_zoea"/>
@@ -3409,8 +3534,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Control sanitario: sin novedades.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_12"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_029_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_029_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_029"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-164, hours=15, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -3420,8 +3546,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_12"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_029_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_029_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_029"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-162, hours=16, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -3431,8 +3558,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_12"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_029_ev_4" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_029_ev_4" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_029"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-160, hours=19, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl10"/>
@@ -3442,6 +3570,7 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_12"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_030_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_030"/>
@@ -3465,7 +3594,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_030_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_030_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_030"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-254, hours=20, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_zoea"/>
@@ -3475,8 +3604,9 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Recambio de agua y control de oxígeno.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_05"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_030_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_030_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_030"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-252, hours=12, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -3486,8 +3616,9 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Ajuste de ración por consumo.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_05"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_030_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_030_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_030"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-249, hours=15, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -3497,8 +3628,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Biometría de rutina.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_05"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_030_ev_4" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_030_ev_4" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_030"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-247, hours=15, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl10"/>
@@ -3508,8 +3640,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Recambio de agua y control de oxígeno.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_05"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_030_ev_5" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_030_ev_5" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_030"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-245, hours=12, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl10"/>
@@ -3519,6 +3652,7 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Ajuste de ración por consumo.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_05"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_031_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_031"/>
@@ -3531,7 +3665,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_031_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_031_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_031"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-199, hours=19, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_zoea"/>
@@ -3541,8 +3675,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Control sanitario: sin novedades.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_10"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_031_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_031_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_031"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-197, hours=19, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -3552,8 +3687,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_10"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_031_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_031_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_031"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-195, hours=19, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -3563,8 +3699,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_10"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_031_ev_4" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_031_ev_4" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_031"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-192, hours=15, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -3574,8 +3711,9 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_10"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_031_ev_5" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_031_ev_5" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_031"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-190, hours=16, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
@@ -3585,8 +3723,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Ajuste de ración por consumo.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_10"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_031_ev_6" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_031_ev_6" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_031"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-188, hours=15, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
@@ -3596,6 +3735,7 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_10"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_032_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_032"/>
@@ -3608,7 +3748,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_032_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_032_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_032"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-286, hours=17, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_zoea"/>
@@ -3618,8 +3758,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Recambio de agua y control de oxígeno.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_05"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_032_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_032_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_032"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-283, hours=14, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -3629,8 +3770,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Control sanitario: sin novedades.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_05"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_032_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_032_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_032"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-280, hours=14, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -3640,8 +3782,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Biometría de rutina.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_05"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_032_ev_4" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_032_ev_4" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_032"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-277, hours=14, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
@@ -3651,6 +3794,7 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Recambio de agua y control de oxígeno.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_05"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_033_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_033"/>
@@ -3663,7 +3807,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_033_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_033_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_033"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-91, hours=16, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_zoea"/>
@@ -3673,8 +3817,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_10"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_033_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_033_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_033"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-87, hours=13, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -3684,8 +3829,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Ajuste de ración por consumo.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_10"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_033_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_033_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_033"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-84, hours=17, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -3695,8 +3841,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_10"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_033_ev_4" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_033_ev_4" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_033"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-80, hours=18, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
@@ -3706,8 +3853,9 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Ajuste de ración por consumo.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_10"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_033_ev_5" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_033_ev_5" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_033"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-77, hours=15, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
@@ -3717,6 +3865,7 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_10"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_034_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_034"/>
@@ -3729,7 +3878,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_034_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_034_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_034"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-117, hours=21, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -3739,8 +3888,9 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_13"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_034_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_034_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_034"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-115, hours=18, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -3750,8 +3900,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_13"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_034_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_034_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_034"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-114, hours=19, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
@@ -3761,6 +3912,7 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_13"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_035_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_035"/>
@@ -3784,7 +3936,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_035_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_035_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_035"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-158, hours=21, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_zoea"/>
@@ -3794,8 +3946,9 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_07"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_035_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_035_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_035"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-154, hours=20, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -3805,8 +3958,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Ajuste de ración por consumo.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_07"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_035_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_035_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_035"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-150, hours=20, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -3816,8 +3970,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_07"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_035_ev_4" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_035_ev_4" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_035"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-146, hours=17, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
@@ -3827,8 +3982,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_07"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_035_ev_5" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_035_ev_5" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_035"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-143, hours=16, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
@@ -3838,6 +3994,7 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Biometría de rutina.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_07"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_036_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_036"/>
@@ -3850,7 +4007,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_036_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_036_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_036"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-76, hours=17, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -3860,8 +4017,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Ajuste de ración por consumo.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_04"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_036_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_036_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_036"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-72, hours=16, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -3871,8 +4029,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Ajuste de ración por consumo.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_04"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_036_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_036_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_036"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-68, hours=14, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl15"/>
@@ -3882,6 +4041,7 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Ajuste de ración por consumo.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_04"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_037_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_037"/>
@@ -3894,7 +4054,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_037_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_037_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_037"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-31, hours=16, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_zoea"/>
@@ -3904,8 +4064,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_05"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_037_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_037_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_037"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-29, hours=15, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -3915,8 +4076,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Recambio de agua y control de oxígeno.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_05"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_037_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_037_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_037"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-26, hours=18, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -3926,8 +4088,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Biometría de rutina.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_05"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_037_ev_4" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_037_ev_4" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_037"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-24, hours=17, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
@@ -3937,8 +4100,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Recambio de agua y control de oxígeno.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_05"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_037_ev_5" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_037_ev_5" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_037"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-22, hours=17, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
@@ -3948,6 +4112,7 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_05"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_038_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_038"/>
@@ -3971,7 +4136,7 @@
             <field name="active" eval="True"/>
             <field name="status">rejected</field>
         </record>
-        <record id="demo_mv_prod_038_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_038_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_038"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-155, hours=18, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_zoea"/>
@@ -3981,8 +4146,9 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Recambio de agua y control de oxígeno.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_14"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_038_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_038_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_038"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-151, hours=15, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -3992,8 +4158,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_14"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_038_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_038_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_038"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-147, hours=16, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -4003,8 +4170,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Ajuste de ración por consumo.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_14"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_038_ev_4" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_038_ev_4" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_038"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-143, hours=20, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
@@ -4014,6 +4182,7 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_14"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_039_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_039"/>
@@ -4026,7 +4195,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_039_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_039_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_039"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-235, hours=18, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_zoea"/>
@@ -4036,8 +4205,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Ajuste de ración por consumo.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_03"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_039_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_039_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_039"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-233, hours=20, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -4047,8 +4217,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Ajuste de ración por consumo.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_03"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_039_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_039_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_039"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-231, hours=19, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -4058,8 +4229,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Biometría de rutina.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_03"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_039_ev_4" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_039_ev_4" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_039"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-229, hours=20, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -4069,8 +4241,9 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Recambio de agua y control de oxígeno.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_03"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_039_ev_5" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_039_ev_5" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_039"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-227, hours=17, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl15"/>
@@ -4080,8 +4253,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Biometría de rutina.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_03"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_039_ev_6" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_039_ev_6" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_039"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-225, hours=19, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl15"/>
@@ -4091,6 +4265,7 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Control sanitario: sin novedades.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_03"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_040_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_040"/>
@@ -4103,7 +4278,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_040_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_040_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_040"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-164, hours=20, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_zoea"/>
@@ -4113,8 +4288,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Ajuste de ración por consumo.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_11"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_040_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_040_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_040"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-163, hours=14, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -4124,8 +4300,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_11"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_040_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_040_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_040"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-162, hours=15, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -4135,8 +4312,9 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_11"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_040_ev_4" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_040_ev_4" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_040"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-161, hours=12, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -4146,8 +4324,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Ajuste de ración por consumo.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_11"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_040_ev_5" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_040_ev_5" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_040"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-160, hours=14, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
@@ -4157,8 +4336,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_11"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_040_ev_6" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_040_ev_6" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_040"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-160, hours=20, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
@@ -4168,6 +4348,7 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Ajuste de ración por consumo.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_11"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_041_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_041"/>
@@ -4191,7 +4372,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_041_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_041_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_041"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-128, hours=19, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_zoea"/>
@@ -4201,8 +4382,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_07"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_041_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_041_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_041"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-125, hours=19, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -4212,8 +4394,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_07"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_041_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_041_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_041"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-122, hours=12, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -4223,8 +4406,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_07"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_041_ev_4" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_041_ev_4" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_041"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-119, hours=18, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
@@ -4234,8 +4418,9 @@
             <field name="health_status">Hepatopáncreas lleno y coloración normal. Sin necrosis visible.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_07"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_041_ev_5" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_041_ev_5" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_041"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-117, hours=20, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
@@ -4245,6 +4430,7 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_07"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_042_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_042"/>
@@ -4257,7 +4443,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_042_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_042_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_042"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-140, hours=13, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -4267,8 +4453,9 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Ajuste de ración por consumo.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_12"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_042_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_042_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_042"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-137, hours=13, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -4278,8 +4465,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Recambio de agua y control de oxígeno.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_12"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_042_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_042_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_042"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-134, hours=18, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl15"/>
@@ -4289,6 +4477,7 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Ajuste de ración por consumo.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_12"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_043_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_043"/>
@@ -4301,7 +4490,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_043_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_043_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_043"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-293, hours=14, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_zoea"/>
@@ -4311,8 +4500,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_04"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_043_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_043_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_043"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-292, hours=13, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -4322,8 +4512,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_04"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_043_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_043_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_043"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-291, hours=21, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -4333,8 +4524,9 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Control sanitario: sin novedades.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_04"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_043_ev_4" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_043_ev_4" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_043"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-289, hours=15, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -4344,8 +4536,9 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Control sanitario: sin novedades.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_04"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_043_ev_5" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_043_ev_5" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_043"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-288, hours=19, minutes=45)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl15"/>
@@ -4355,8 +4548,9 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Recambio de agua y control de oxígeno.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_04"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_043_ev_6" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_043_ev_6" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_043"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-287, hours=19, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl15"/>
@@ -4366,6 +4560,7 @@
             <field name="health_status">Muestra libre de EHP y Vibrio por debajo del umbral. Lote apto.</field>
             <field name="note">Muestreo previo a la venta.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_04"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_044_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_044"/>
@@ -4378,7 +4573,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_044_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_044_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_044"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-26, hours=16, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -4388,8 +4583,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Recambio de agua y control de oxígeno.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_09"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_044_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_044_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_044"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-20, hours=15, minutes=15)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -4399,8 +4595,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Control sanitario: sin novedades.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_09"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_044_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_044_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_044"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-14, hours=12, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl15"/>
@@ -4410,6 +4607,7 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Recambio de agua y control de oxígeno.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_09"/>
+            <field name="origin">observation</field>
         </record>
         <record id="demo_mv_prod_045_pc_1" model="shrimp.product.certificate.line" context="{'shrimp_keep_cert_status': True}">
             <field name="product_id" ref="demo_mv_prod_045"/>
@@ -4422,7 +4620,7 @@
             <field name="active" eval="True"/>
             <field name="status">approved</field>
         </record>
-        <record id="demo_mv_prod_045_ev_1" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_045_ev_1" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_045"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-320, hours=12, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_mysis"/>
@@ -4432,8 +4630,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Ajuste de ración por consumo.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_05"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_045_ev_2" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_045_ev_2" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_045"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-317, hours=21, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl5"/>
@@ -4443,8 +4642,9 @@
             <field name="health_status">Animales activos, buena respuesta al estrés por salinidad. PCR negativo.</field>
             <field name="note">Muestreo con atarraya en tres puntos.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_05"/>
+            <field name="origin">observation</field>
         </record>
-        <record id="demo_mv_prod_045_ev_3" model="shrimp.product.evolution">
+        <record id="demo_mv_prod_045_ev_3" model="shrimp.product.evolution" context="{'shrimp_evolution_no_notify': True}">
             <field name="product_id" ref="demo_mv_prod_045"/>
             <field name="date" eval="(DateTime.today().replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=-314, hours=17, minutes=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
             <field name="stage_id" ref="shrimp_marketplace.shrimp_stage_pl12"/>
@@ -4454,6 +4654,7 @@
             <field name="health_status">PCR negativo a WSSV, IHHNV y AHPND. Sin signos clínicos.</field>
             <field name="note">Biometría de rutina.</field>
             <field name="user_id" ref="shrimp_user_registry.demo_ms_user_lab_05"/>
+            <field name="origin">observation</field>
         </record>
 
         <!-- ===== Compras verificadas: compra, movimiento, despacho, verificación y posturas ===== -->

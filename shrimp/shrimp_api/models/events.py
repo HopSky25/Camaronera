@@ -48,14 +48,7 @@ class ShrimpTransaction(models.Model):
         return res
 
 
-class ShrimpCheckRequest(models.Model):
-    _inherit = "shrimp.check.request"
-
-    @api.model_create_multi
-    def create(self, vals_list):
-        records = super().create(vals_list)
-        _emit(self.env, "check_request.created", records)
-        return records
+# shrimp.check.request: flujo retirado (D-28), ya no emite eventos.
 
 
 class ShrimpVerification(models.Model):
@@ -68,16 +61,22 @@ class ShrimpVerification(models.Model):
         return records
 
     def write(self, vals):
-        watch = {"state", "technician_partner_id"} & set(vals)
+        watch = {"state", "technician_partner_id", "support_technician_ids"} & set(vals)
         if not watch:
             return super().write(vals)
         before_state = _snapshot(self, "state")
         before_tech = {r.id: r.technician_partner_id.id for r in self}
+        before_support = {r.id: set(r.support_technician_ids.ids) for r in self}
         res = super().write(vals)
+        moved = self.browse()
         if "technician_partner_id" in vals:
-            moved = self.filtered(
+            moved |= self.filtered(
                 lambda r: r.technician_partner_id and before_tech.get(r.id) != r.technician_partner_id.id)
-            _emit(self.env, "verification.assigned", moved)
+        if "support_technician_ids" in vals:
+            # Solo cuando se SUMA alguien al equipo (quitar no es asignar).
+            moved |= self.filtered(
+                lambda r: set(r.support_technician_ids.ids) - before_support.get(r.id, set()))
+        _emit(self.env, "verification.assigned", moved)
         if "state" in vals:
             _emit(self.env, "verification.verdict_issued",
                   _changed(self, before_state, "state", VERDICT_STATES))

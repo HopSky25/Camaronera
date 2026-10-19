@@ -162,6 +162,12 @@ class ShrimpVerificationAcceptance(models.Model):
         self._check_actor(actor=actor)
 
         verificacion = self.verification_id
+        # D-38: una sola contraoferta por compra (aunque se haya deshecho) y
+        # nunca después de que el vendedor rechazó la anterior (D-22).
+        if verificacion.counter_outcome or self._shrimp_counter_used():
+            raise UserError(_(
+                "Solo se permite una contraoferta por compra y ya hiciste la tuya. "
+                "Puedes aceptar el informe al precio pactado o rechazarlo."))
         cumple, _motivos = verificacion.cumple_lo_publicado()
         if cumple:
             # Sin esto, cualquier comprador regatearía después de una inspección
@@ -196,7 +202,13 @@ class ShrimpVerificationAcceptance(models.Model):
         vendedor.with_context(_shrimp_firma_ok=True).write({
             "decision": "pending", "decided_at": False, "auto": False})
         self._signoff_log("decision", antes, reason=reason, others_before=otras_antes)
-        verificacion._abrir_plazo()
+        # D-38: la contraoferta NO reinicia el plazo de la ronda (antes lo
+        # volvía a abrir 48 h y, con «deshacer», se podía retener el stock
+        # indefinidamente). Solo se garantiza el margen mínimo para que el
+        # vendedor pueda leerla (el mismo de «deshacer»).
+        minimo = fields.Datetime.now() + timedelta(minutes=self._signoff_margin_minutes())
+        if not verificacion.acceptance_deadline or verificacion.acceptance_deadline < minimo:
+            verificacion.sudo().acceptance_deadline = minimo
         verificacion._notify_acceptance("counter")
         return True
 

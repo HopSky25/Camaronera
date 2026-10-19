@@ -85,10 +85,18 @@ class TestApiTrazabilidad(ApiCase):
                         raw=self.raw_packer).json()
         self.assertEqual(priv["exports"][0]["destination_buyer"], "Importador Miami")
         self.assertTrue(any(m["type"] == "export" for m in priv["moves"]))
-        # Anular devuelve la cantidad.
+        # D-35: anular exige motivo; con DAE o factura queda pendiente de
+        # aprobación de la plataforma y la cantidad no vuelve hasta aprobarla.
+        self.assertProblem(self.api("POST", "/exports/%s:cancel" % exp["id"],
+                                    raw=self.raw_packer, body={}), 422)
         resp = self.api("POST", "/exports/%s:cancel" % exp["id"], raw=self.raw_packer,
                         body={"reason": "Error de captura"})
         self.assertEqual(resp.status_code, 200, resp.text)
+        salida = self.env["shrimp.export"].search([("uuid_ref", "=", exp["id"])])
+        if salida.dae_number or salida.invoice_number:
+            self.assertEqual(resp.json()["cancel_state"], "pending")
+            self.assertAlmostEqual(self.lot.available_qty, 200.0)
+            salida.action_approve_cancel()
         self.assertAlmostEqual(self.lot.available_qty, 4000.0)
 
     def test_scope_exports(self):

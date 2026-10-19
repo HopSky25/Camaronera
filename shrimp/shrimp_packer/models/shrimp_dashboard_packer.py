@@ -49,15 +49,53 @@ class ShrimpDashboardPacker(models.AbstractModel):
                 "text": _("%s reservas de cosecha esperan tu confirmación.") % por_confirmar,
                 "url": "/packer/reservations", "link_label": _("Responder"),
             })
-        extra = [
-            {"label": _("Oferta disponible"), "url": "/marketplace/supply", "icon": "fa-binoculars", "tone": "teal"},
-            {"label": _("Mis listas de precios"), "url": "/marketplace/price-lists", "icon": "fa-list-alt", "tone": "green"},
-            {"label": _("Cosechas ofrecidas"), "url": "/packer/reservations", "icon": "fa-calendar", "tone": "amber"},
-            {"label": _("Rendimiento de proveedores"), "url": "/marketplace/suppliers", "icon": "fa-trophy", "tone": "navy"},
-        ]
-        data["shortcuts"] = data["shortcuts"][:1] + extra + data["shortcuts"][1:]
-        data["actions"].append({"label": _("Nueva lista de precios"), "url": "/marketplace/price-lists/new",
-                                "icon": "fa-plus", "primary": False})
+        # Los accesos (Oferta disponible, Mis listas de precios, Cosechas
+        # ofrecidas, Rendimiento de proveedores) vienen de la tabla única de
+        # la barra (models/website_navbar.py). Aquí solo el botón de la
+        # cabecera para publicar una lista, si el usuario puede.
+        if partner._shrimp_can("issue_price_lists"):
+            data["actions"].append({"label": _("Nueva lista de precios"), "url": "/marketplace/price-lists/new",
+                                    "icon": "fa-plus", "primary": False})
+        self._seccion_mejores_proveedores(partner, data)
+
+    @api.model
+    def _seccion_mejores_proveedores(self, partner, data):
+        """El líder del ranking verificado y los que le siguen, en «Mi panel»:
+        tras iniciar sesión la empacadora llega a /my/dashboard, no a la
+        portada, así que el resumen tiene que estar también aquí. Mismo
+        cálculo y misma regla de acceso que /marketplace/suppliers."""
+        dash = self.env["shrimp.proveedor.ranking"].sudo().dashboard_para(partner)
+        if not dash:
+            return
+
+        def pct(valor, dec=1):
+            return ("%%.%df %%%%" % dec) % valor if valor is not None else "—"
+
+        filas = []
+        for pos, f in enumerate([dash["lider"]] + dash["resto"], 1):
+            nombre = f["proveedor"].name or ""
+            if pos == 1:
+                nombre = _("%s (líder)") % nombre
+            elif not f["suficiente"]:
+                nombre = _("%s (muestra corta)") % nombre
+            filas.append({
+                "cells": [
+                    nombre, str(f["lotes"]), pct(f["rendimiento"]), pct(f["clase_a"], 0),
+                    "%s / %s" % (f["lotes"] - f["incumplidos"], f["lotes"]),
+                    "%.0f" % f["puntaje"] if f["puntaje"] is not None else "—",
+                ],
+                "url": "/marketplace/sellers/%s" % f["proveedor"].uuid_ref,
+            })
+        data["sections"].insert(0, {
+            "key": "verified_suppliers",
+            "title": _("Tu mejor proveedor verificado: %s") % (dash["lider"]["proveedor"].name or ""),
+            "icon": "fa-trophy",
+            "columns": [_("Camaronera"), _("Lotes"), _("Rendimiento"), _("Clase A"),
+                        _("Fue lo publicado"), _("Puntaje")],
+            "rows": filas,
+            "empty": _("Todavía no hay lotes verificados con muestra suficiente."),
+            "more_url": "/marketplace/suppliers", "more_label": _("Ver el ranking completo"),
+        })
 
     @api.model
     def _panel_camaronera(self, partner, data):
@@ -78,12 +116,5 @@ class ShrimpDashboardPacker(models.AbstractModel):
                 "text": _("%s empacadoras se comprometieron con tus cosechas y esperan respuesta.") % ofertas,
                 "url": "/marketplace/reservations", "link_label": _("Responder"),
             })
-        extra = [
-            {"label": _("Reservas de cosecha"), "url": "/marketplace/reservations", "icon": "fa-calendar-check-o", "tone": "amber"},
-            {"label": _("Listas de precios recibidas"), "url": "/marketplace/price-lists", "icon": "fa-list-alt", "tone": "green"},
-            {"label": _("Empacadoras"), "url": "/marketplace/packers", "icon": "fa-industry", "tone": "navy"},
-            {"label": _("Simulador de cosecha"), "url": "/marketplace/simulator", "icon": "fa-sliders", "tone": "teal"},
-            {"label": _("Mi historial verificado"), "url": "/marketplace/my-track-record", "icon": "fa-check-circle", "tone": "green"},
-        ]
-        # Después de «Ventas» (los siete accesos propios de la camaronera).
-        data["shortcuts"] = data["shortcuts"][:7] + extra + data["shortcuts"][7:]
+        # Accesos (reservas, listas recibidas, empacadoras, simulador,
+        # historial verificado): tabla única de la barra.

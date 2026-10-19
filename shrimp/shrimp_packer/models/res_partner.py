@@ -52,16 +52,19 @@ class ResPartner(models.Model):
         string="Código de exportador",
         help="Código con el que exporta. Es lo que la identifica ante la "
              "autoridad sanitaria y en la declaración de exportación.")
-    emp_planta_nombre = fields.Char(string="Planta de proceso")
+    emp_planta_nombre = fields.Char(
+        string="Planta de proceso",
+        help="Opcional (no se pide al registrarse). Si está vacío, donde se "
+             "muestra la planta se usa el nombre de la empresa.")
     emp_planta_ubicacion = fields.Char(
         string="Ubicación de la planta", related="shrimp_ubicacion", readonly=False,
         help="Dónde entrega el productor. Pesa tanto como el precio: llevar "
              "camarón dos horas más lejos se come la diferencia.")
     emp_capacidad_lb_dia = fields.Float(
-        string="Capacidad (lb/día)",
+        string="Capacidad referencial (lb/día)",
         compute="_compute_capacity_alias_lb_day", inverse="_inverse_capacity_alias_lb_day",
-        help="Cuánto puede procesar al día. Le dice al productor si puede "
-             "recibirle una cosecha grande de una sola vez.")
+        help="Cuánto puede procesar al día, solo como referencia para los "
+             "productores. Opcional: no se pide al registrarse.")
 
     @api.model
     def _shrimp_profile_alias_map(self):

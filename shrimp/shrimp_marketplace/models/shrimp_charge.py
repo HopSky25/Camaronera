@@ -14,7 +14,7 @@ DECISIÓN DE NEGOCIO (facturación en dos pasos)
      nuevo pagador.
    - ``copack_platform``: la comisión de la plataforma por libra empacada (la
      paga el maquilador). Se emite cuando las dos partes firman el acta.
-   - ``check_fee``: el chequeo del flujo antiguo de solicitudes (legado).
+   - ``check_fee``: el chequeo del flujo de solicitudes, RETIRADO (D-28): solo histórico.
 2. La MERCADERÍA (el camarón, la larva) la factura el vendedor desde su propio
    sistema. La plataforma no emite esa factura: solo la REGISTRA (número, clave
    de acceso, archivo) en la compra; ver shrimp.transaction.seller_invoice_*.
@@ -27,7 +27,7 @@ fallara, y como el guardia era «ya tiene pedido», nunca se reintentaba.
 """
 import logging
 
-from odoo import _, api, fields, models
+from odoo import SUPERUSER_ID, _, api, fields, models
 from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
@@ -38,7 +38,9 @@ MAX_AUTO_ATTEMPTS = 5
 
 class ShrimpCharge(models.Model):
     _name = "shrimp.charge"
-    _inherit = ["mail.thread", "shrimp.uuid.mixin"]
+    # mail.activity.mixin: avisos a contabilidad (cobro agotado, rechazo del
+    # SRI). No agrega columnas: todos sus campos son calculados.
+    _inherit = ["mail.thread", "mail.activity.mixin", "shrimp.uuid.mixin"]
     _description = "Cobro de servicio de la plataforma"
     _order = "create_date desc, id desc"
     _rec_name = "name"
@@ -49,7 +51,7 @@ class ShrimpCharge(models.Model):
             ("commission", "Comisión por venta"),
             ("verification_fee", "Honorario de verificación"),
             ("copack_platform", "Comisión de empaque"),
-            ("check_fee", "Chequeo de producto (legado)"),
+            ("check_fee", "Chequeo de producto (retirado)"),
         ],
         string="Tipo de cobro", required=True, default="commission", index=True,
         tracking=True)
@@ -93,6 +95,9 @@ class ShrimpCharge(models.Model):
             ("pending", "Por facturar"),
             ("invoiced", "Facturado"),
             ("error", "Error al facturar"),
+            # La factura está contabilizada pero el SRI la devolvió, no la
+            # autorizó o quedó «requiere revisión» (shrimp_l10n_ec).
+            ("sri_rejected", "Rechazado por el SRI"),
             ("to_credit", "Por acreditar"),
             ("credited", "Acreditado (nota de crédito)"),
             ("cancelled", "Anulado"),
@@ -301,6 +306,29 @@ class ShrimpCharge(models.Model):
             raise UserError(_("La factura del cobro %s no quedó contabilizada.") % self.name)
         return order, invoice, product
 
+    def _invoicing_blocker(self):
+        """Gancho: motivo por el que este cobro NO se puede facturar todavía
+        sin que sea culpa del cobro (falta configurar la facturación de la
+        plataforma, el pagador no tiene datos fiscales...). Devuelve el texto
+        del motivo o False.
+
+        Un cobro bloqueado no consume intentos: se queda «Por facturar» con el
+        motivo a la vista y sale solo en cuanto se corrige la causa. Lo
+        amplía el puente SRI (shrimp_l10n_ec)."""
+        self.ensure_one()
+        return False
+
+    def _on_invoicing_blocked(self, reason):
+        """Gancho: el cobro acaba de quedar bloqueado por ``reason`` (solo la
+        primera vez que cambia el motivo; p. ej. pedir datos al pagador)."""
+        return True
+
+    def _shrimp_backlog_should_cancel(self):
+        """Gancho del reencolado del backlog: True si el cobro ya no debe
+        facturarse (p. ej. honorario de una verificación que no se hizo)."""
+        self.ensure_one()
+        return False
+
     def _try_invoice(self):
         """Factura los cobros pendientes o con error. Nunca lanza."""
         for charge in self.sudo():
@@ -309,6 +337,16 @@ class ShrimpCharge(models.Model):
             if (charge.amount or 0.0) <= 0:
                 charge.write({"state": "cancelled",
                               "cancel_reason": _("Importe cero: nada que facturar.")})
+                continue
+            bloqueo = charge._invoicing_blocker()
+            if bloqueo:
+                if charge.state != "pending" or charge.invoice_error != bloqueo:
+                    charge.write({"state": "pending", "invoice_error": bloqueo})
+                    try:
+                        with self.env.cr.savepoint():
+                            charge._on_invoicing_blocked(bloqueo)
+                    except Exception as e:  # noqa: BLE001
+                        _logger.warning("Cobro %s bloqueado; aviso fallido: %s", charge.name, e)
                 continue
             ahora = fields.Datetime.now()
             intentos = charge.invoice_attempts + 1
@@ -323,6 +361,11 @@ class ShrimpCharge(models.Model):
                     "invoice_attempts": intentos,
                     "last_attempt_at": ahora,
                 })
+                if intentos == self._shrimp_max_auto_attempts():
+                    charge._shrimp_escalate(_(
+                        "El cobro %(c)s agotó los %(n)s intentos automáticos de "
+                        "facturación. Último error: %(e)s") % {
+                            "c": charge.name, "n": intentos, "e": str(e)[:500]})
                 continue
             charge.write({
                 "state": "invoiced",
@@ -342,6 +385,77 @@ class ShrimpCharge(models.Model):
                 charge.message_post(body=_(
                     "La factura %(f)s quedó contabilizada, pero no se pudo completar "
                     "el envío electrónico: %(e)s") % {"f": invoice.name, "e": e})
+                charge._after_service_invoice_failed(invoice, e)
+        return True
+
+    def _after_service_invoice_failed(self, invoice, error):
+        """Gancho: la factura se contabilizó pero su envío electrónico falló
+        (sin certificado, p. ej.). El puente SRI lo deja visible en el cobro."""
+        return True
+
+    # ------------------------------------------------------------------
+    # Avisos a contabilidad
+    # ------------------------------------------------------------------
+    @api.model
+    def _shrimp_billing_responsible(self):
+        """Usuario que corrige la facturación de la plataforma.
+
+        Ajustes › CamaronMarket › «Responsable de facturación»; si está vacío,
+        el primer administrador de CamaronMarket (que no sea OdooBot)."""
+        valor = self.env["ir.config_parameter"].sudo().get_param(
+            "shrimp_marketplace.billing_responsible_user_id")
+        user = self.env["res.users"]
+        try:
+            user = user.sudo().browse(int(valor)).exists() if valor else user
+        except (TypeError, ValueError):
+            user = self.env["res.users"]
+        if user and user.active and user._is_internal():
+            return user
+        grupo = self.env.ref("shrimp_marketplace.group_marketplace_manager",
+                             raise_if_not_found=False)
+        if grupo:
+            candidatos = grupo.sudo().all_user_ids.filtered(
+                lambda u: u.active and u._is_internal() and u.id != SUPERUSER_ID)
+            if candidatos:
+                return candidatos.sorted("id")[:1]
+        return self.env.ref("base.user_admin", raise_if_not_found=False) or user
+
+    def _shrimp_escalate(self, message, summary=None):
+        """Deja el problema en el historial del cobro y una actividad «Por
+        hacer» al responsable de facturación (una abierta por cobro: no se
+        duplica si ya la tiene). Nunca lanza."""
+        tipo = self.env.ref("mail.mail_activity_data_todo", raise_if_not_found=False)
+        responsable = self._shrimp_billing_responsible()
+        for charge in self.sudo():
+            try:
+                with self.env.cr.savepoint():
+                    charge.message_post(body=message)
+                    if not tipo or not responsable:
+                        continue
+                    abierta = charge.activity_ids.filtered(
+                        lambda a: a.activity_type_id == tipo and a.user_id == responsable)
+                    if abierta:
+                        abierta[:1].note = message
+                        continue
+                    charge.activity_schedule(
+                        activity_type_id=tipo.id, user_id=responsable.id,
+                        summary=summary or _("Revisar la facturación del cobro"),
+                        note=message)
+            except Exception as e:  # noqa: BLE001
+                _logger.warning("No se pudo avisar del cobro %s: %s", charge.name, e)
+        return True
+
+    def _shrimp_close_escalations(self, feedback):
+        """Cierra las actividades de aviso cuando el problema se resolvió."""
+        tipo = self.env.ref("mail.mail_activity_data_todo", raise_if_not_found=False)
+        for charge in self.sudo():
+            acts = charge.activity_ids.filtered(lambda a: a.activity_type_id == tipo)
+            if acts:
+                try:
+                    with self.env.cr.savepoint():
+                        acts.action_feedback(feedback=feedback)
+                except Exception:  # noqa: BLE001
+                    _logger.warning("No se pudo cerrar el aviso del cobro %s", charge.name)
         return True
 
     @api.model
@@ -353,19 +467,40 @@ class ShrimpCharge(models.Model):
 
     @api.model
     def _cron_retry_invoices(self):
-        """Reintenta los cobros pendientes o con error (y las notas de crédito)."""
+        """Reintenta los cobros pendientes o con error (y las notas de crédito).
+
+        Los más antiguos primero (orden por último intento), para que un lote
+        grande no deje siempre los mismos al final."""
+        maximo = self._shrimp_max_auto_attempts()
         pendientes = self.sudo().search([
             ("state", "in", ("pending", "error")),
-            ("invoice_attempts", "<", self._shrimp_max_auto_attempts()),
-        ], limit=200)
+            ("invoice_attempts", "<", maximo),
+        ], limit=200, order="last_attempt_at asc nulls first, id asc")
         pendientes._try_invoice()
-        self.sudo().search([("state", "=", "to_credit")], limit=200)._try_credit()
+        self.sudo().search([("state", "=", "to_credit"),
+                            ("invoice_attempts", "<", maximo)],
+                           limit=200, order="id asc")._try_credit()
+        self._cron_retry_fiscal()
+        return True
+
+    @api.model
+    def _cron_retry_fiscal(self):
+        """Gancho del puente SRI: reenvío de comprobantes rechazados que ya se
+        corrigieron."""
+        return True
+
+    def _retry_fiscal(self, manual=False):
+        """Gancho: reenviar el comprobante de un cobro «Rechazado por el SRI»."""
         return True
 
     def action_retry_invoice(self):
         """Botón: reintentar ahora (también tras superar los intentos automáticos)."""
         self.filtered(lambda c: c.state in ("pending", "error"))._try_invoice()
-        self.filtered(lambda c: c.state == "to_credit")._try_credit()
+        self.filtered(lambda c: c.state == "to_credit")._try_credit(manual=True)
+        # Comprobante electrónico rechazado o sin enviar (factura o nota de
+        # crédito): lo decide el puente SRI.
+        self.filtered(lambda c: c.state in ("sri_rejected", "invoiced", "credited")) \
+            ._retry_fiscal(manual=True)
         return True
 
     # Compatibilidad con el botón y las llamadas antiguas.
@@ -387,12 +522,80 @@ class ShrimpCharge(models.Model):
         """Gancho del puente SRI (motivo de la nota de crédito, punto...)."""
         return refund
 
-    def _try_credit(self):
+    def _credit_precheck(self):
+        """Gancho: ¿se puede emitir ya la nota de crédito de este cobro?
+
+        Devuelve (decisión, motivo):
+        - ("proceed", None): emitirla.
+        - ("wait", motivo): todavía no (p. ej. la factura sigue esperando la
+          autorización del SRI); se queda «Por acreditar» sin gastar intentos.
+        - ("void", motivo): la factura no tiene validez fiscal (el SRI no la
+          autorizó): se anula en contabilidad en lugar de acreditarla.
+        """
+        self.ensure_one()
+        return "proceed", None
+
+    def _void_service_invoice(self, reason):
+        """Anula en contabilidad una factura que nunca tuvo validez fiscal (sin
+        nota de crédito): la pasa a borrador y la cancela."""
+        self.ensure_one()
+        invoice = self.invoice_id
+        if invoice.state == "posted":
+            invoice.button_draft()
+        if invoice.state == "draft":
+            invoice.button_cancel()
+        invoice.message_post(body=_("Anulada sin nota de crédito: %s") % (reason or ""))
+        return True
+
+    def _after_service_refund_posted(self, refund):
+        """Gancho tras contabilizar la nota de crédito (envío al SRI)."""
+        return True
+
+    def _try_credit(self, manual=False):
         """Emite la nota de crédito de los cobros ya facturados que se anulan."""
+        maximo = self._shrimp_max_auto_attempts()
         for charge in self.sudo().filtered(lambda c: c.state == "to_credit"):
             invoice = charge.invoice_id
             if not invoice or invoice.state != "posted":
                 charge.write({"state": "cancelled"})
+                continue
+            decision, motivo = charge._credit_precheck()
+            if decision == "wait":
+                if charge.invoice_error != motivo:
+                    charge.write({"invoice_error": motivo})
+                continue
+            ahora = fields.Datetime.now()
+            if decision == "keep":
+                # El comprobante queda vigente (p. ej. consumidor final: el SRI
+                # no admite nota de crédito ni anulación).
+                charge.write({"state": "cancelled", "invoice_error": False,
+                              "last_attempt_at": ahora})
+                charge._shrimp_escalate(_("Cobro %(c)s anulado sin nota de crédito: "
+                                          "%(m)s") % {"c": charge.name, "m": motivo or ""},
+                                        summary=_("Cobro anulado sin nota de crédito"))
+                continue
+            if decision == "void":
+                try:
+                    with self.env.cr.savepoint():
+                        charge._void_service_invoice(motivo)
+                except Exception as e:  # noqa: BLE001
+                    _logger.warning("No se pudo anular la factura del cobro %s: %s",
+                                    charge.name, e)
+                    intentos = charge.invoice_attempts + 1
+                    charge.write({"invoice_error": str(e)[:2000],
+                                  "invoice_attempts": intentos, "last_attempt_at": ahora})
+                    if intentos == maximo or manual:
+                        charge._shrimp_escalate(_(
+                            "No se pudo anular la factura %(f)s del cobro %(c)s: %(e)s") % {
+                                "f": invoice.name, "c": charge.name, "e": str(e)[:500]})
+                    continue
+                charge.write({"state": "cancelled", "invoice_error": False,
+                              "last_attempt_at": ahora})
+                charge.message_post(body=_(
+                    "Cobro anulado. La factura %(f)s no tenía autorización del SRI "
+                    "(%(m)s): se anuló en contabilidad, sin nota de crédito.") % {
+                        "f": invoice.name, "m": motivo or ""})
+                charge._shrimp_close_escalations(_("Cobro anulado."))
                 continue
             try:
                 with self.env.cr.savepoint():
@@ -402,11 +605,29 @@ class ShrimpCharge(models.Model):
                     refund.action_post()
             except Exception as e:  # noqa: BLE001
                 _logger.warning("No se pudo acreditar el cobro %s: %s", charge.name, e)
+                intentos = charge.invoice_attempts + 1
                 charge.write({"invoice_error": str(e)[:2000],
-                              "last_attempt_at": fields.Datetime.now()})
+                              "invoice_attempts": intentos,
+                              "last_attempt_at": ahora})
+                if intentos == maximo:
+                    charge._shrimp_escalate(_(
+                        "La nota de crédito del cobro %(c)s falló %(n)s veces. "
+                        "Último error: %(e)s") % {
+                            "c": charge.name, "n": intentos, "e": str(e)[:500]})
                 continue
             charge.write({"state": "credited", "refund_id": refund.id,
-                          "invoice_error": False})
+                          "invoice_error": False, "last_attempt_at": ahora})
+            try:
+                with self.env.cr.savepoint():
+                    charge._after_service_refund_posted(refund)
+            except Exception as e:  # noqa: BLE001
+                _logger.warning("Cobro %s: la nota de crédito %s se contabilizó pero "
+                                "su envío falló: %s", charge.name, refund.name, e)
+                charge.write({"invoice_error": str(e)[:2000]})
+                charge._shrimp_escalate(_(
+                    "La nota de crédito %(n)s del cobro %(c)s quedó contabilizada, pero "
+                    "no se pudo enviar al SRI: %(e)s") % {
+                        "n": refund.name, "c": charge.name, "e": str(e)[:500]})
         return True
 
     def action_cancel_charge(self, reason=None):
@@ -416,8 +637,10 @@ class ShrimpCharge(models.Model):
         for charge in self.sudo():
             if charge.state in ("cancelled", "credited", "to_credit"):
                 continue
-            if charge.state == "invoiced" and charge.invoice_id:
-                charge.write({"state": "to_credit", "cancel_reason": reason or False})
+            if charge.state in ("invoiced", "sri_rejected") and charge.invoice_id:
+                # Los intentos se vuelven a contar para la nota de crédito.
+                charge.write({"state": "to_credit", "cancel_reason": reason or False,
+                              "invoice_attempts": 0})
                 charge._try_credit()
             else:
                 charge.write({"state": "cancelled", "cancel_reason": reason or False})

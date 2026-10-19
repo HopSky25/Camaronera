@@ -3,7 +3,7 @@ import re
 
 from odoo import http, fields, _
 from odoo.http import request
-from odoo.exceptions import AccessError, ValidationError
+from odoo.exceptions import AccessError, UserError, ValidationError
 from werkzeug.exceptions import NotFound, Forbidden
 
 from odoo.addons.shrimp_user_registry.controllers.main import (
@@ -11,6 +11,7 @@ from odoo.addons.shrimp_user_registry.controllers.main import (
     resolve_catalog_certificate, to_int, to_number)
 
 from .filter_drawer import fd_context, fd_json_count, fd_tags, fd_url
+from odoo.addons.shrimp_user_registry.controllers.main import require_permission
 
 
 class ShrimpProductPortalController(http.Controller):
@@ -95,7 +96,7 @@ class ShrimpProductPortalController(http.Controller):
             uom_options = request.env["shrimp.uom"].sudo().search(
                 [("active", "=", True)], order="sequence, name")
         partner = seller or self._get_current_partner()
-        codigo = self._UOM_POR_ROL.get(partner.shrimp_user_type, "libra")
+        codigo = self._UOM_POR_ROL.get(partner._shrimp_active_role(), "libra")
         uom = uom_options.filtered(
             lambda u: (u.code or "").strip().lower() == codigo)
         return (uom[:1] or uom_options[:1])
@@ -215,7 +216,9 @@ class ShrimpProductPortalController(http.Controller):
         # El vendedor gestiona lo suyo; los internos/admin pueden gestionar cualquiera.
         if product.seller_partner_id.id != partner.id and not self._is_internal():
             raise Forbidden()
-
+        if request.httprequest.method != "GET":
+            # CR-12: escribir exige «Vender» en el perfil del producto.
+            require_permission("sell", role=product._shrimp_seller_role())
         return product
 
     def _create_attachment(self, file_obj, product, name_prefix="", public=False, images_only=False):
@@ -253,22 +256,40 @@ class ShrimpProductPortalController(http.Controller):
             return rec
         return request.env[model].sudo()
 
-    def _origin_vals(self, post, seller):
-        """Instalación y piscina de origen por su código, y solo del vendedor."""
+    def _origin_vals(self, post, seller, tipo=None):
+        """Instalación, piscina y siembras de origen por su código, y solo del
+        vendedor.
+
+        Sin instalación no hay piscina ni siembras (aunque lleguen en el POST:
+        el formulario las oculta, pero un POST a mano no manda). La piscina
+        tiene que ser de la instalación elegida y las siembras de esa piscina
+        y del tipo aguas arriba del producto (nauplio para la larva, larva
+        para el camarón).
+        """
         fac = self._resolve_owned("shrimp.partner.facility",
                                   post.get("origin_facility_ref"), seller)
+        Product = request.env["shrimp.product"]
+        if fac and not Product._shrimp_facility_can_be_origin(fac):
+            fac = fac.browse()
         pond = self._resolve_owned("shrimp.partner.pond",
-                                   post.get("origin_pond_ref"), seller)
+                                   post.get("origin_pond_ref"), seller) if fac else fac.browse()
+        if pond and pond.facility_id != fac:
+            pond = pond.browse()
         vals = {"origin_facility_id": fac.id or False, "origin_pond_id": pond.id or False}
-        # Siembras de origen elegidas a mano (solo del vendedor). Sin ninguna
-        # marcada, el modelo las propone solas a partir de la piscina.
+        if not pond:
+            vals["origin_allocation_ids"] = [(5, 0, 0)]
+            return vals
+        # Siembras de origen elegidas a mano. Sin ninguna marcada, el modelo
+        # las propone solas a partir de la piscina.
         if post.get("origin_allocation_present"):
             refs = request.httprequest.form.getlist("origin_allocation_ref")
             Alloc = request.env["shrimp.lot.allocation"].sudo()
             elegidas = Alloc.browse()
             for ref in refs:
                 alloc = Alloc.resolve_ref(ref)
-                if alloc and alloc.partner_id == seller:
+                if (alloc and alloc.partner_id == seller and alloc.pond_id == pond
+                        and alloc.state in ("allocated", "released")
+                        and (not tipo or Product._shrimp_allocation_is_origin_for(alloc, tipo))):
                     elegidas |= alloc
             if elegidas:
                 vals["origin_allocation_ids"] = [(6, 0, elegidas.ids)]
@@ -402,7 +423,17 @@ class ShrimpProductPortalController(http.Controller):
                      if r in set(base.mapped("seller_role")) or r == filters["role"]]
         prices = set(base.mapped("price"))
 
+        # «Etapa» en el cajón (antes, fila de chips): los estadíos que tiene
+        # el vendedor y, si llega por URL, el elegido (no se pierde al aplicar).
+        if filters["stage"]:
+            try:
+                stages |= request.env["shrimp.stage"].sudo().browse(int(filters["stage"])).exists()
+            except (TypeError, ValueError):
+                pass
+            stages = stages.sorted(lambda s: (s.sequence, s.name or ""))
+
         show = {
+            "stage": len(stages) > 1,
             "pstate": len(state_opts) > 1,
             "role": len(role_opts) > 1,
             "location": len(locations) > 1,
@@ -430,7 +461,7 @@ class ShrimpProductPortalController(http.Controller):
             if key == "stage":
                 nombre = stage_names.get(val) or request.env["shrimp.stage"].sudo().browse(
                     int(val)).exists().name
-                return ("Estadío: %s" % nombre) if nombre else None
+                return ("Etapa: %s" % nombre) if nombre else None
             if key == "role":
                 return "Perfil: %s" % role_labels.get(val, val)
             if key == "location":
@@ -441,15 +472,6 @@ class ShrimpProductPortalController(http.Controller):
 
         groups = [("pstate",), ("stage",), ("role",), ("location",), ("price_min", "price_max"), ("seller",)]
         tags, clear_url = fd_tags(url, filters, groups, label, keep=keep, anchor="#listado")
-
-        # Chips de estadío arriba (como en el catálogo), solo con los que hay;
-        # conservan el resto de filtros.
-        sin_stage = {k: v for k, v in dict(filters, vista=vista).items() if k != "stage"}
-        stage_chips = [{"label": "Todas", "active": not filters["stage"],
-                        "url": fd_url(url, sin_stage, "#listado")}]
-        for st in stages:
-            stage_chips.append({"label": st.name, "active": filters["stage"] == str(st.id),
-                                "url": fd_url(url, dict(sin_stage, stage=st.id), "#listado")})
 
         con_todo = {k: v for k, v in filters.items() if k != "vista"}
         fd = fd_context(
@@ -467,16 +489,17 @@ class ShrimpProductPortalController(http.Controller):
                   "grid_url": fd_url(url, dict(con_todo, vista="grid"), "#listado")},
             count_url="/marketplace/products/count",
             noun=("producto", "productos"),
-            drawer_hidden=[("q", filters["q"]), ("stage", filters["stage"]),
-                           ("seller", filters["seller"]), ("order", filters["order"]),
-                           ("vista", vista)],
+            # Sin sección «Etapa» (un solo estadío) la de la URL va oculta.
+            drawer_hidden=[("q", filters["q"])]
+            + ([] if show["stage"] else [("stage", filters["stage"])])
+            + [("seller", filters["seller"]), ("order", filters["order"]), ("vista", vista)],
             keep=["q", "order", "vista"],
             has_drawer=any(show.values()),
         )
         return {
             "fd": fd,
             "fd_show": show,
-            "stage_chips": stage_chips if len(stages) > 1 else [],
+            "stage_opts": stages,
             "state_opts": state_opts,
             "role_opts": role_opts,
             "location_options": locations,
@@ -519,7 +542,7 @@ class ShrimpProductPortalController(http.Controller):
         if not self._check_can_manage_products():
             raise Forbidden()
 
-        partner = request.env.user.partner_id
+        partner = request.env.user.shrimp_actor_partner_id
         is_internal = self._is_internal() and not partner._shrimp_can("sell_products")
 
         # El vendedor real ve sus certificados; el admin elige vendedor y sube archivos.
@@ -541,7 +564,7 @@ class ShrimpProductPortalController(http.Controller):
         # Perfil con el que se publica: el activo del vendedor. El usuario
         # interno lo elige al escoger vendedor (el formulario lo lee de la
         # opción del vendedor y el servidor lo vuelve a comprobar).
-        role = "" if is_internal else (partner.shrimp_user_type or "")
+        role = "" if is_internal else (partner._shrimp_active_role() or "")
         return request.render("shrimp_marketplace.product_new_form", {
             "back_url": back_url,
             "default_user_certificates": valid_cert_lines,
@@ -552,6 +575,7 @@ class ShrimpProductPortalController(http.Controller):
             "is_edit": False,
             "uom_locked": False,
             "purchase_locked": False,
+            "price_locked": False,
             "form_action": "/marketplace/products/create",
             **self._get_product_form_options(
                 owner=None if is_internal else partner, role=role),
@@ -590,7 +614,7 @@ class ShrimpProductPortalController(http.Controller):
         seller = self._resolve_seller(post)
         if not seller:
             return self._form_error(new_url, "seller")
-        seller_role = seller.shrimp_user_type
+        seller_role = seller._shrimp_active_role()
 
         name = (post.get("name") or "").strip()
         species_id = to_int(post.get("species_id"), 0) or False
@@ -646,7 +670,7 @@ class ShrimpProductPortalController(http.Controller):
             "batch_code": (post.get("batch_code") or "").strip() or False,
             "presentation": presentation,
             "size_grade_id": size_grade_id,
-            **self._origin_vals(post, seller),
+            **self._origin_vals(post, seller, tipo=stage._shrimp_tipo() if stage else None),
             "expected_delivery_date": expected_delivery_date,
             "available_from": available_from,
             "available_to": available_to,
@@ -978,6 +1002,8 @@ class ShrimpProductPortalController(http.Controller):
             "is_edit": True,
             "uom_locked": locked,
             "purchase_locked": locked,
+            # D-17 (C): el precio solo mientras haya compras abiertas.
+            "price_locked": product.shrimp_price_locked(),
             "form_action": f"/marketplace/products/{product.uuid_ref}/update",
             **self._get_product_form_options(
                 owner=product.seller_partner_id, role=product._shrimp_seller_role()),
@@ -1019,7 +1045,8 @@ class ShrimpProductPortalController(http.Controller):
             "location": post.get("location") or False,
             "presentation": presentation,
             "size_grade_id": size_grade_id,
-            **self._origin_vals(post, product.seller_partner_id),
+            **self._origin_vals(post, product.seller_partner_id,
+                                tipo=stage._shrimp_tipo() if stage else product._shrimp_tipo()),
             "uom_id": to_int(post.get("uom_id"), 0) or product.uom_id.id,
             "price": price,
             "batch_code": (post.get("batch_code") or "").strip() or False,
@@ -1033,7 +1060,10 @@ class ShrimpProductPortalController(http.Controller):
         # se descartan del vals para conservar su valor actual (los inputs del
         # formulario también van deshabilitados).
         if locked:
+            precio_libre = not product.shrimp_price_locked()
             for campo in product._LOCKED_AFTER_PURCHASE:
+                if campo == "price" and precio_libre and "price" in post:
+                    continue  # D-17 (C): sin compras abiertas, el precio se puede cambiar
                 vals.pop(campo, None)
 
         try:
@@ -1115,7 +1145,14 @@ class ShrimpProductPortalController(http.Controller):
         """Da de baja (archiva) un producto: sale del marketplace pero se conserva
         y puede reactivarse."""
         product = self._get_owned_product(product_ref)
-        product.write({"active": False, "state": "draft"})
+        # Con compras, verificaciones o reservas de cosecha abiertas no se
+        # archiva (la regla vive en shrimp.product.write; hueco #9).
+        try:
+            with request.env.cr.savepoint():
+                product.write({"active": False, "state": "draft"})
+        except (UserError, ValidationError) as e:
+            return request.redirect(f"/marketplace/product/{product.uuid_ref}?error=retire&message="
+                                    + flash_message(e.args[0] if e.args else ""))
         return request.redirect("/marketplace/products?baja=1")
 
     @http.route("/marketplace/products/<product_ref>/delete", type="http", auth="user", website=True, methods=["POST"], csrf=True)
@@ -1130,12 +1167,21 @@ class ShrimpProductPortalController(http.Controller):
         partner = self._get_current_partner()
         if product.seller_partner_id.id != partner.id and not self._is_internal():
             raise Forbidden()
-        product.write({"active": False, "state": "cancel"})
+        require_permission("sell", role=product._shrimp_seller_role())
+        # Bloquea con operaciones abiertas y da de baja el stock con un
+        # movimiento trazable (shrimp.product.write; hueco #9).
+        try:
+            with request.env.cr.savepoint():
+                product.write({"active": False, "state": "cancel"})
+        except (UserError, ValidationError) as e:
+            return request.redirect(f"/marketplace/product/{product.uuid_ref}?error=retire&message="
+                                    + flash_message(e.args[0] if e.args else ""))
         return request.redirect("/marketplace/products?eliminado=1")
 
     @http.route("/marketplace/products/<product_ref>/reactivate", type="http", auth="user", website=True, methods=["POST"], csrf=True)
     def marketplace_product_reactivate(self, product_ref, **post):
-        """Reactiva un producto dado de baja (queda en borrador para republicar)."""
+        """Reactiva un producto dado de baja (queda en borrador para republicar).
+        Un producto ELIMINADO no se reactiva (antes quedaba «cancel + activo»)."""
         product = request.env["shrimp.product"].sudo().with_context(
             active_test=False).resolve_ref(product_ref)
         if not product:
@@ -1143,6 +1189,13 @@ class ShrimpProductPortalController(http.Controller):
         partner = self._get_current_partner()
         if product.seller_partner_id.id != partner.id and not self._is_internal():
             raise Forbidden()
+        require_permission("sell", role=product._shrimp_seller_role())
+        if not product.shrimp_can_reactivate():
+            if product.active:
+                return request.redirect("/marketplace/products")
+            return request.redirect("/marketplace/products?error=retire&message=" + flash_message(_(
+                "«%s» fue eliminado y no se puede reactivar. Solo se reactivan los productos "
+                "archivados (dados de baja).") % (product.name or "")))
         product.write({"active": True})
         return request.redirect("/marketplace/products?reactivado=1")
 

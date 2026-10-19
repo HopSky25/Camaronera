@@ -72,3 +72,20 @@ def crear_perfiles_desde_tipo(cr):
                AND COALESCE(p.shrimp_role_count, 0) <> sub.n
         """)
     return creadas
+
+
+def reglas_con_actor(cr, module):
+    """Reglas de acceso del módulo: user.partner_id -> user.shrimp_actor_partner_id
+    (19.0.1.6.0, subusuarios). Hace falta para las reglas en noupdate, que el
+    -u no vuelve a cargar. Idempotente."""
+    cr.execute("""
+        UPDATE ir_rule r
+           SET domain_force = replace(replace(r.domain_force,
+                   'user.partner_id.id', 'user.shrimp_actor_partner_id.id'),
+                   'user.partner_id.shrimp_', 'user.shrimp_actor_partner_id.shrimp_')
+          FROM ir_model_data d
+         WHERE d.model = 'ir.rule' AND d.res_id = r.id AND d.module = %s
+           AND (r.domain_force LIKE '%%user.partner_id.id%%'
+                OR r.domain_force LIKE '%%user.partner_id.shrimp_%%')
+    """, (module,))
+    return cr.rowcount

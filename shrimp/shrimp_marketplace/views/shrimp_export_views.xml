@@ -20,7 +20,7 @@
         <field name="perm_write" eval="False"/>
         <field name="perm_create" eval="False"/>
         <field name="perm_unlink" eval="False"/>
-        <field name="domain_force">[('partner_id', '=', user.partner_id.id)]</field>
+        <field name="domain_force">[('partner_id', '=', user.shrimp_actor_partner_id.id)]</field>
     </record>
     <record id="rule_shrimp_export_line_own" model="ir.rule">
         <field name="name">Shrimp Export line: own (lectura)</field>
@@ -30,7 +30,7 @@
         <field name="perm_write" eval="False"/>
         <field name="perm_create" eval="False"/>
         <field name="perm_unlink" eval="False"/>
-        <field name="domain_force">[('export_id.partner_id', '=', user.partner_id.id)]</field>
+        <field name="domain_force">[('export_id.partner_id', '=', user.shrimp_actor_partner_id.id)]</field>
     </record>
 
     <!-- Movimientos: tipo, lote, motivo y saldos -->
@@ -87,14 +87,22 @@
                 <page string="Origen y siembras" name="origin_sowings">
                     <group>
                         <group>
-                            <field name="origin_facility_id"/>
-                            <field name="origin_pond_id"/>
+                            <field name="origin_facility_id"
+                                   domain="[('partner_id', '=', seller_partner_id), ('facility_type', 'not in', ('warehouse', 'office'))]"/>
+                            <field name="origin_pond_id"
+                                   invisible="not origin_facility_id and not origin_pond_id"
+                                   domain="[('facility_id', '=', origin_facility_id)]"/>
                             <field name="production_date"/>
                             <field name="batch_code"/>
                         </group>
                     </group>
-                    <field name="origin_allocation_ids"
-                           domain="[('partner_id', '=', seller_partner_id), ('state', 'in', ('allocated', 'released'))]">
+                    <div class="text-muted mb-2" invisible="not origin_pond_id">
+                        Lotes comprados que se sembraron en la piscina o tanque de origen antes de la
+                        fecha de producción (larva para el camarón, nauplio para la larva). Si se deja
+                        vacío, se proponen solos. Sin instalación ni piscina no hay siembras de origen.
+                    </div>
+                    <field name="origin_allocation_ids" invisible="not origin_pond_id"
+                           domain="[('pond_id', '=', origin_pond_id), ('state', 'in', ('allocated', 'released'))]">
                         <list>
                             <field name="allocation_date"/>
                             <field name="pond_id"/>
@@ -124,6 +132,8 @@
                 <field name="qty"/>
                 <field name="uom_id"/>
                 <field name="state" widget="badge"/>
+                <field name="cancel_state" widget="badge" optional="show"
+                       decoration-warning="cancel_state == 'pending'"/>
             </list>
         </field>
     </record>
@@ -136,12 +146,25 @@
                 <header>
                     <button name="action_register" type="object" string="Registrar salida"
                             class="btn-primary" invisible="state != 'draft'"/>
-                    <button name="action_cancel" type="object" string="Anular"
-                            invisible="state == 'cancelled'"
-                            confirm="Se devolverá la cantidad a los lotes. ¿Continuar?"/>
+                    <!-- D-35: anular pide motivo; con DAE o factura queda
+                         pendiente de aprobación de la plataforma. -->
+                    <button name="action_open_cancel_wizard" type="object" string="Anular"
+                            invisible="state == 'cancelled' or cancel_state == 'pending'"/>
+                    <button name="action_open_cancel_wizard" type="object" string="Aprobar anulación"
+                            class="btn-primary" context="{'shrimp_export_cancel_mode': 'approve'}"
+                            invisible="cancel_state != 'pending'"
+                            groups="shrimp_marketplace.group_marketplace_manager"/>
+                    <button name="action_open_cancel_wizard" type="object" string="Rechazar anulación"
+                            context="{'shrimp_export_cancel_mode': 'reject'}"
+                            invisible="cancel_state != 'pending'"
+                            groups="shrimp_marketplace.group_marketplace_manager"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,registered"/>
                 </header>
                 <sheet>
+                    <div class="alert alert-warning" role="alert" invisible="cancel_state != 'pending'">
+                        Anulación pendiente de aprobación de la plataforma. Motivo:
+                        <field name="cancel_reason" class="d-inline"/>
+                    </div>
                     <div class="oe_title"><h1><field name="name" readonly="1"/></h1></div>
                     <group>
                         <group string="Salida">
@@ -181,9 +204,57 @@
                         <page string="Observaciones">
                             <field name="notes"/>
                         </page>
+                        <page string="Anulación" invisible="not cancel_state and not cancel_reason">
+                            <group>
+                                <field name="cancel_state"/>
+                                <field name="cancel_reason"/>
+                                <field name="cancel_requested_uid"/>
+                                <field name="cancel_requested_at"/>
+                                <field name="cancel_decided_uid"/>
+                                <field name="cancel_decided_at"/>
+                                <field name="cancel_decision_note"/>
+                            </group>
+                        </page>
                     </notebook>
                 </sheet>
                 <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_shrimp_export_search" model="ir.ui.view">
+        <field name="name">shrimp.export.search</field>
+        <field name="model">shrimp.export</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="partner_id"/>
+                <field name="dae_number"/>
+                <filter name="f_cancel_pending" string="Anulación pendiente de aprobación"
+                        domain="[('cancel_state', '=', 'pending')]"/>
+                <filter name="f_registered" string="Registradas" domain="[('state', '=', 'registered')]"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_shrimp_export_cancel_wizard_form" model="ir.ui.view">
+        <field name="name">shrimp.export.cancel.wizard.form</field>
+        <field name="model">shrimp.export.cancel.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Anulación de la salida">
+                <field name="export_id" invisible="1"/>
+                <field name="mode" invisible="1"/>
+                <p invisible="mode != 'cancel'">
+                    Indica el motivo. Si la salida ya tiene DAE o factura, la anulación queda
+                    pendiente hasta que un administrador de la plataforma la apruebe.
+                </p>
+                <p invisible="mode != 'approve'">La cantidad volverá a los lotes y la salida quedará anulada.</p>
+                <p invisible="mode != 'reject'">La salida seguirá registrada. Indica por qué se rechaza.</p>
+                <field name="reason" required="mode != 'approve'" placeholder="Motivo"/>
+                <footer>
+                    <button name="action_confirm" type="object" string="Confirmar" class="btn-primary"/>
+                    <button special="cancel" string="Cancelar"/>
+                </footer>
             </form>
         </field>
     </record>
@@ -192,12 +263,28 @@
         <field name="name">Salidas / exportaciones</field>
         <field name="res_model">shrimp.export</field>
         <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_shrimp_export_search"/>
     </record>
+
+    <record id="action_shrimp_export_cancel_pending" model="ir.actions.act_window">
+        <field name="name">Anulaciones de salidas por aprobar</field>
+        <field name="res_model">shrimp.export</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_shrimp_export_search"/>
+        <field name="context">{'search_default_f_cancel_pending': 1}</field>
+    </record>
+
+    <menuitem id="menu_shrimp_export_cancel_pending"
+              name="Anulaciones de salidas por aprobar"
+              parent="menu_shrimp_catalog_root"
+              action="action_shrimp_export_cancel_pending"
+              sequence="41"
+              groups="shrimp_marketplace.group_marketplace_manager"/>
 
     <menuitem id="menu_shrimp_export"
               name="Salidas / exportaciones"
-              parent="menu_shrimp_inventory_root"
+              parent="menu_shrimp_catalog_root"
               action="action_shrimp_export"
               sequence="40"
-              groups="shrimp_marketplace.group_shrimp_user"/>
+              groups="shrimp_marketplace.group_marketplace_user"/>
 </odoo>

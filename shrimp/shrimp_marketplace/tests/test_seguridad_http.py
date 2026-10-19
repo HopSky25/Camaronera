@@ -24,7 +24,8 @@ class TestSeguridadHttp(HttpCase):
         cls.tx = cls.larva.execute_purchase_flow(cls.s["lab"], 5.0)["transaction"]
         cls.fac = cls.env["shrimp.partner.facility"].create({
             "partner_id": cls.s["sem"].id, "name": "Granja HTTP"})
-        cls.cr_req = cls.env["shrimp.check.request"].create({
+        cls.cr_req = cls.env["shrimp.check.request"].with_context(
+            shrimp_legacy_check_import=True).create({
             "product_id": cls.larva.id, "seller_partner_id": cls.s["sem"].id,
             "buyer_partner_id": cls.s["lab"].id, "qty": 1.0})
 
@@ -74,10 +75,12 @@ class TestSeguridadHttp(HttpCase):
 
     def test_rutas_del_portal_rechazan_ids(self):
         self._login("sem")
-        r = self.url_open("/marketplace/check-requests/%d/detail" % self.cr_req.id)
-        self.assertEqual(r.status_code, 404)
-        r = self.url_open("/marketplace/check-requests/%s/detail" % self.cr_req.uuid_ref)
-        self.assertEqual(r.status_code, 200)
+        # D-28: el detalle de una solicitud de chequeo ya no existe en el
+        # portal (ni por id ni por uuid): lleva a «Mis compras».
+        for ref in (self.cr_req.id, self.cr_req.uuid_ref):
+            r = self.url_open("/marketplace/check-requests/%s/detail" % ref, allow_redirects=False)
+            self.assertIn(r.status_code, (302, 303))
+            self.assertIn("/marketplace/purchases", r.headers.get("Location", ""))
         pagina = self.url_open("/marketplace/my-facilities").text
         token = csrf_de(pagina)
         self.assertTrue(token)

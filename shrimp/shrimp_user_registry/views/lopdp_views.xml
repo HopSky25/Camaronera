@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Solicitudes de derechos del titular (LOPDP) y purga de retención.
+       Los menús cuelgan en CamaronMarket › Documentos legales
+       (shrimp_marketplace/views/lopdp_menus.xml). -->
+
+  <record id="view_shrimp_data_request_list" model="ir.ui.view">
+    <field name="name">shrimp.data.request.list</field>
+    <field name="model">shrimp.data.request</field>
+    <field name="arch" type="xml">
+      <list string="Solicitudes de derechos (LOPDP)" create="0"
+            decoration-danger="is_overdue" decoration-muted="state in ('done', 'rejected')"
+            decoration-warning="state == 'on_hold'">
+        <field name="name"/>
+        <field name="received_at"/>
+        <field name="request_type"/>
+        <field name="requester_name"/>
+        <field name="account_id"/>
+        <field name="subject_scope" optional="hide"/>
+        <field name="origin" optional="hide"/>
+        <field name="responsible_id" widget="many2one_avatar_user"/>
+        <field name="deadline"/>
+        <field name="days_left" invisible="state not in ('received', 'in_progress', 'on_hold')"/>
+        <field name="is_overdue" column_invisible="1"/>
+        <field name="state" widget="badge" decoration-info="state == 'received'"
+               decoration-warning="state in ('in_progress', 'on_hold')"
+               decoration-success="state == 'done'"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_shrimp_data_request_form" model="ir.ui.view">
+    <field name="name">shrimp.data.request.form</field>
+    <field name="model">shrimp.data.request</field>
+    <field name="arch" type="xml">
+      <form string="Solicitud de derechos (LOPDP)" create="0">
+        <header>
+          <button name="action_start" type="object" string="Tomar y tramitar" class="btn-primary"
+                  invisible="state != 'received'"/>
+          <button name="action_generate_export" type="object" string="Generar copia de los datos (ZIP)"
+                  invisible="state not in ('received', 'in_progress', 'on_hold') or request_type not in ('acceso', 'portabilidad')"/>
+          <button name="action_anonymize" type="object" string="Anonimizar"
+                  invisible="state not in ('received', 'in_progress', 'on_hold') or request_type != 'eliminacion'"
+                  confirm="Se borran los datos personales del alcance indicado (usuarios desactivados, contactos, fotos y archivos de certificados). Se conservan nombre fiscal, RUC/cédula, compras, cobros, facturas y aceptaciones legales (retención de 7 años). No se puede deshacer. ¿Continuar?"/>
+          <button name="action_done" type="object" string="Responder y cerrar" class="btn-primary"
+                  invisible="state not in ('in_progress', 'on_hold')"/>
+          <button name="action_reject" type="object" string="Denegar (con respuesta)"
+                  invisible="state not in ('received', 'in_progress', 'on_hold')"/>
+          <button name="action_reopen" type="object" string="Reabrir"
+                  invisible="state not in ('done', 'rejected')"/>
+          <field name="state" widget="statusbar" statusbar_visible="received,in_progress,done"/>
+        </header>
+        <sheet>
+          <div class="alert alert-warning" role="alert" invisible="dpo_configured">
+            <strong>Falta el correo del responsable de datos personales (DPO).</strong>
+            Configúralo en Ajustes › CamaronMarket › Protección de datos: hasta entonces las
+            solicitudes no llegan por correo a nadie y las páginas públicas no muestran ninguna
+            dirección de contacto.
+          </div>
+          <div class="alert alert-danger" role="alert" invisible="not is_overdue">
+            El plazo legal de respuesta venció el <field name="deadline" readonly="1" class="oe_inline"/>.
+          </div>
+          <div class="alert alert-info" role="alert" invisible="not hold_reason">
+            <field name="hold_reason"/>
+          </div>
+          <div class="oe_title"><h1><field name="name"/></h1></div>
+          <group>
+            <group>
+              <field name="request_type"/>
+              <field name="subject_scope"/>
+              <field name="requester_name"/>
+              <field name="user_id"/>
+              <field name="account_id"/>
+              <field name="origin"/>
+            </group>
+            <group>
+              <field name="received_at"/>
+              <field name="deadline"/>
+              <field name="days_left" invisible="state not in ('received', 'in_progress', 'on_hold')"/>
+              <field name="is_overdue" invisible="1"/>
+              <field name="dpo_configured" invisible="1"/>
+              <field name="responsible_id"/>
+              <field name="response_date"/>
+            </group>
+          </group>
+          <group string="Lo que pide el titular">
+            <field name="detail" nolabel="1" colspan="2"/>
+          </group>
+          <group string="Respuesta al titular (se le envía al cerrar)">
+            <field name="response" nolabel="1" colspan="2"
+                   readonly="state not in ('received', 'in_progress', 'on_hold')"
+                   placeholder="Qué se hizo y, si se deniega, por qué (con la base legal)."/>
+          </group>
+          <group string="Ejecución" invisible="not export_attachment_id and not anonymized_at">
+            <field name="export_attachment_id"/>
+            <field name="anonymized_at"/>
+            <field name="retention_until"/>
+            <field name="anonymization_report"/>
+          </group>
+        </sheet>
+        <chatter/>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_shrimp_data_request_search" model="ir.ui.view">
+    <field name="name">shrimp.data.request.search</field>
+    <field name="model">shrimp.data.request</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="name"/>
+        <field name="requester_name"/>
+        <field name="account_id"/>
+        <filter name="f_open" string="Abiertas" domain="[('state', 'in', ('received', 'in_progress', 'on_hold'))]"/>
+        <filter name="f_overdue" string="Vencidas" domain="[('is_overdue', '=', True)]"/>
+        <filter name="f_mine" string="Mías" domain="[('responsible_id', '=', uid)]"/>
+        <separator/>
+        <filter name="f_retention" string="Purga automática" domain="[('origin', '=', 'retention')]"/>
+        <group>
+          <filter name="g_type" string="Tipo" context="{'group_by': 'request_type'}"/>
+          <filter name="g_state" string="Estado" context="{'group_by': 'state'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
+  <record id="action_shrimp_data_request" model="ir.actions.act_window">
+    <field name="name">Solicitudes de derechos (LOPDP)</field>
+    <field name="res_model">shrimp.data.request</field>
+    <field name="view_mode">list,form</field>
+    <field name="search_view_id" ref="view_shrimp_data_request_search"/>
+    <field name="context">{'search_default_f_open': 1}</field>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">Sin solicitudes abiertas</p>
+      <p>Los socios presentan solicitudes de acceso, rectificación, eliminación, oposición o
+        portabilidad desde «Mi cuenta › Mis datos». Cada una tiene un plazo legal de respuesta
+        (15 días por defecto) y avisos antes de vencer.</p>
+    </field>
+  </record>
+
+  <!-- Purga de retención -->
+  <record id="view_shrimp_data_retention_run_list" model="ir.ui.view">
+    <field name="name">shrimp.data.retention.run.list</field>
+    <field name="model">shrimp.data.retention.run</field>
+    <field name="arch" type="xml">
+      <list string="Purgas de retención" create="0" edit="0">
+        <header>
+          <button name="action_run_dry" type="object" string="Simular ahora" display="always"/>
+        </header>
+        <field name="run_at"/>
+        <field name="dry_run"/>
+        <field name="cutoff"/>
+        <field name="accounts_count"/>
+        <field name="accounts_skipped"/>
+        <field name="logs_count"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_shrimp_data_retention_run_form" model="ir.ui.view">
+    <field name="name">shrimp.data.retention.run.form</field>
+    <field name="model">shrimp.data.retention.run</field>
+    <field name="arch" type="xml">
+      <form string="Purga de retención" create="0" edit="0">
+        <sheet>
+          <div class="oe_title"><h1><field name="name"/></h1></div>
+          <group>
+            <group>
+              <field name="run_at"/>
+              <field name="dry_run"/>
+              <field name="cutoff"/>
+            </group>
+            <group>
+              <field name="accounts_count"/>
+              <field name="accounts_skipped"/>
+              <field name="logs_count"/>
+            </group>
+          </group>
+          <field name="report" widget="text" class="font-monospace"/>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="action_shrimp_data_retention_run" model="ir.actions.act_window">
+    <field name="name">Purgas de retención (LOPDP)</field>
+    <field name="res_model">shrimp.data.retention.run</field>
+    <field name="view_mode">list,form</field>
+    <field name="help" type="html">
+      <p>El cron semanal aplica la Política de privacidad §5: anonimiza las altas rechazadas hace
+        más de 12 meses que nunca operaron y borra los registros técnicos de acceso de más de 12
+        meses. Mientras el ajuste «Purga en simulación» esté marcado solo deja el informe.
+        Usa «Simular ahora» para ver qué haría.</p>
+    </field>
+  </record>
+</odoo>

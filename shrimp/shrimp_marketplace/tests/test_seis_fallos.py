@@ -181,7 +181,8 @@ class TestSeisFallos(HttpCase):
         self.assertIn("origen de una cosecha", r.text)
         self.url_open("/marketplace/sowings/%s/cancel" % alloc.uuid_ref, data={"csrf_token": token})
         alloc.invalidate_recordset()
-        self.assertEqual(alloc.state, "allocated")
+        # D-49: la cosecha cerró la siembra («released»); no se cancela.
+        self.assertEqual(alloc.state, "released")
         # El lote adulto no se ofrece para sembrar; la larva sí.
         sembrables = self.env["shrimp.lot.allocation"]._shrimp_sowable_lots(self.s["cam"])
         self.assertIn(self.lote, sembrables)

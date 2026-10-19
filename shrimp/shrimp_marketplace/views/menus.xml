@@ -1,25 +1,35 @@
 <odoo>
 
   <!-- =========================================================
-       UNA SOLA APLICACIÓN «Camaronera» en el backoffice.
+       App «CamaronMarket» (marketplace) del backoffice — 19.0.1.24.0
 
-       Antes cada módulo abría su propia raíz (Verificación era otra app) y
-       los certificados se gestionaban en tres sitios. Ahora todo cuelga de
-       aquí, por secciones:
-         Aprobaciones (10)   cuentas, certificados de usuario y de producto,
-                             acreditaciones de verificadores
-         Marketplace (20)    productos, transacciones, evolución
-         Inventario (30) · Socios e instalaciones (40)
-         Verificación (50)   shrimp_verification
-         Reservas y precios (55)  shrimp_packer
-         Empaque (60)        shrimp_copacking
-         Reportes (70)       ventas, cobros de la plataforma, movimientos
-         Configuración (90)  catálogos, certificados, API (shrimp_api)
+       El backoffice tiene TRES aplicaciones, cada una con su raíz e icono,
+       declaradas por su propio módulo (desinstalar uno no toca a los otros):
+         CamaronMarket  shrimp_marketplace (+ shrimp_user_registry, shrimp_packer)
+         Verificador    shrimp_verification
+         Copacking      shrimp_copacking
+       Antes todo colgaba de una sola raíz «Camaronera».
+
+       Secciones de esta app:
+         Aprobaciones (10)   cuentas, perfiles, certificados de usuario y de producto
+         Operaciones (20)    productos, compras, lotes, salidas
+         Empacadoras (30)    shrimp_packer: empacadoras, listas de precios, reservas
+         Socios (40)         cuentas, perfiles, usuarios, instalaciones, reseñas
+         Reportes (70) · Documentos legales (85)
+         Configuración (90)  ajustes, catálogos, certificados, API (shrimp_api)
+
+       Las tablas internas (historiales, movimientos, colas, bitácoras…) NO
+       van aquí: están en Ajustes › Técnico › CamaronMarket, solo en modo
+       desarrollador (carpeta de shrimp_user_registry).
+
+       Grupos: la app la ven «CamaronMarket · Usuario» (group_marketplace_user)
+       y la configuración «CamaronMarket · Administrador»
+       (group_marketplace_manager). Ver security/shrimp_groups.xml.
   ========================================================= -->
   <!-- ROOT -->
-  <menuitem id="menu_shrimp_root" name="Camaronera" sequence="10"
+  <menuitem id="menu_shrimp_root" name="CamaronMarket" sequence="10"
     web_icon="shrimp_marketplace,static/description/icon.png"
-    groups="shrimp_marketplace.group_shrimp_user" />
+    groups="shrimp_marketplace.group_marketplace_user" />
 
   <!-- =========================================================
        APROBACIONES (todo lo que el operador debe revisar/aprobar)
@@ -28,7 +38,7 @@
     name="Aprobaciones"
     parent="menu_shrimp_root"
     sequence="10"
-    groups="shrimp_marketplace.group_shrimp_user" />
+    groups="shrimp_marketplace.group_marketplace_user" />
 
   <!-- Empacadoras y maquiladores registrados por la web: no operan hasta
        que un administrador aprueba la cuenta (acción en shrimp_user_registry). -->
@@ -37,7 +47,7 @@
     parent="menu_shrimp_approvals_root"
     action="shrimp_user_registry.action_shrimp_account_approval"
     sequence="5"
-    groups="shrimp_marketplace.group_shrimp_manager" />
+    groups="shrimp_marketplace.group_marketplace_manager" />
 
   <!-- Varios perfiles por cuenta: cada perfil que requiere aprobación
        (empacadora, maquilador) se aprueba por separado. -->
@@ -46,128 +56,260 @@
     parent="menu_shrimp_approvals_root"
     action="shrimp_user_registry.action_shrimp_partner_role_approval"
     sequence="6"
-    groups="shrimp_marketplace.group_shrimp_manager" />
+    groups="shrimp_marketplace.group_marketplace_manager" />
 
-  <!-- "Certificados de usuario" se añade aquí desde
-       shrimp_user_cert_approval_views.xml (sequence 20) -->
+  <!-- "Certificados de usuario" (20) y "Certificados de producto" (25) se
+       añaden aquí desde shrimp_user_cert_approval_views.xml; sus grupos, en
+       shrimp_menu_groups.xml. Las acreditaciones de verificadores están en
+       la app Verificador. -->
 
   <!-- =========================================================
-       CATÁLOGO (productos y transacciones del marketplace)
+       OPERACIONES (productos, compras y su stock)
   ========================================================= -->
   <menuitem id="menu_shrimp_catalog_root"
-    name="Marketplace"
+    name="Operaciones"
     parent="menu_shrimp_root"
     sequence="20"
-    groups="shrimp_marketplace.group_shrimp_user" />
+    groups="shrimp_marketplace.group_marketplace_user" />
 
   <menuitem id="menu_shrimp_products"
     name="Productos"
     parent="menu_shrimp_catalog_root"
     action="action_shrimp_product"
     sequence="10"
-    groups="shrimp_marketplace.group_shrimp_user" />
+    groups="shrimp_marketplace.group_marketplace_user" />
 
   <menuitem id="menu_shrimp_transactions"
-    name="Transacciones"
+    name="Compras (transacciones)"
     parent="menu_shrimp_catalog_root"
     action="action_shrimp_transaction"
     sequence="20"
-    groups="shrimp_marketplace.group_shrimp_user" />
-
-  <!-- Solicitudes de chequeo: flujo RETIRADO (lo sustituye la compra con
-       verificación en campo). El menú se oculta; los datos y el modelo
-       siguen ahí y el administrador las encuentra en Marketplace. -->
-  <menuitem id="menu_shrimp_check_request"
-    name="Solicitudes de chequeo (legado)"
-    parent="menu_shrimp_catalog_root"
-    action="action_shrimp_check_request"
-    sequence="90"
-    groups="shrimp_marketplace.group_shrimp_manager" />
-
-  <!-- =========================================================
-       INVENTARIO
-  ========================================================= -->
-  <menuitem id="menu_shrimp_inventory_root"
-    name="Inventario"
-    parent="menu_shrimp_root"
-    sequence="30"
-    groups="shrimp_marketplace.group_shrimp_user" />
+    groups="shrimp_marketplace.group_marketplace_user" />
 
   <menuitem id="menu_shrimp_stock_lot"
     name="Lotes"
-    parent="menu_shrimp_inventory_root"
+    parent="menu_shrimp_catalog_root"
     action="shrimp_marketplace.action_shrimp_stock_lot"
-    sequence="10"
-    groups="shrimp_marketplace.group_shrimp_user" />
-
-  <menuitem id="menu_shrimp_stock_move"
-    name="Movimientos internos"
-    parent="menu_shrimp_inventory_root"
-    action="shrimp_marketplace.action_shrimp_stock_move"
-    sequence="20"
-    groups="shrimp_marketplace.group_shrimp_user" />
-
-  <menuitem id="menu_shrimp_lot_allocation"
-    name="Asignaciones"
-    parent="menu_shrimp_inventory_root"
-    action="action_shrimp_lot_allocation"
     sequence="30"
-    groups="shrimp_marketplace.group_shrimp_user" />
+    groups="shrimp_marketplace.group_marketplace_user" />
+
+  <!-- "Salidas / exportaciones" (40) se declara en shrimp_export_views.xml. -->
 
   <!-- =========================================================
-       SOCIOS E INSTALACIONES (datos de los partners)
+       SOCIOS (cuentas, perfiles, usuarios e instalaciones)
   ========================================================= -->
   <menuitem id="menu_shrimp_partners_root"
-    name="Socios e instalaciones"
+    name="Socios"
     parent="menu_shrimp_root"
     sequence="40"
-    groups="shrimp_marketplace.group_shrimp_user" />
+    groups="shrimp_marketplace.group_marketplace_user" />
+
+  <!-- Todas las cuentas registradas en la plataforma (las que tienen al
+       menos un perfil), no solo las pendientes de aprobación. -->
+  <record id="action_shrimp_accounts" model="ir.actions.act_window">
+    <field name="name">Cuentas</field>
+    <field name="res_model">res.partner</field>
+    <field name="view_mode">list,form</field>
+    <field name="domain">[('shrimp_role_ids', '!=', False)]</field>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">Aún no hay cuentas registradas.</p>
+      <p>Cada empresa que se registra en la plataforma es una cuenta, con uno o
+         varios perfiles (naupliero, laboratorio, camaronera, empacadora…).</p>
+    </field>
+  </record>
+
+  <menuitem id="menu_shrimp_accounts"
+    name="Cuentas"
+    parent="menu_shrimp_partners_root"
+    action="action_shrimp_accounts"
+    sequence="5"
+    groups="shrimp_marketplace.group_marketplace_user" />
+
+  <!-- Todos los perfiles (no solo los pendientes), con su estado. -->
+  <record id="action_shrimp_partner_roles" model="ir.actions.act_window">
+    <field name="name">Perfiles</field>
+    <field name="res_model">shrimp.partner.role</field>
+    <field name="view_mode">list,form</field>
+    <field name="search_view_id" ref="shrimp_user_registry.view_shrimp_partner_role_search"/>
+  </record>
+
+  <menuitem id="menu_shrimp_partner_roles"
+    name="Perfiles"
+    parent="menu_shrimp_partners_root"
+    action="action_shrimp_partner_roles"
+    sequence="8"
+    groups="shrimp_marketplace.group_marketplace_user" />
+
+  <menuitem id="menu_shrimp_account_members"
+    name="Usuarios de las cuentas"
+    parent="menu_shrimp_partners_root"
+    action="shrimp_user_registry.action_shrimp_account_member"
+    sequence="10"
+    groups="shrimp_marketplace.group_marketplace_manager" />
 
   <menuitem id="menu_shrimp_facility"
     name="Instalaciones"
     parent="menu_shrimp_partners_root"
     action="action_shrimp_facility"
-    sequence="10"
-    groups="shrimp_marketplace.group_shrimp_user" />
+    sequence="20"
+    groups="shrimp_marketplace.group_marketplace_user" />
 
   <menuitem id="menu_shrimp_pond"
     name="Piscinas"
     parent="menu_shrimp_partners_root"
     action="action_shrimp_pond"
+    sequence="30"
+    groups="shrimp_marketplace.group_marketplace_user" />
+
+  <!-- "Reseñas" (60) se declara en shrimp_review_views.xml. -->
+
+  <!-- =========================================================
+       DOCUMENTOS LEGALES (contrato virtual versionado)
+       Las aceptaciones son la bitácora inmutable que deja cada firma: se
+       consultan desde la ficha del socio (botón «Contratos aceptados») y,
+       en bloque, en Ajustes › Técnico › CamaronMarket.
+  ========================================================= -->
+  <menuitem id="menu_shrimp_legal_root"
+    name="Documentos legales"
+    parent="menu_shrimp_root"
+    sequence="85"
+    groups="shrimp_marketplace.group_marketplace_manager" />
+  <menuitem id="menu_shrimp_legal_documents"
+    name="Documentos"
+    parent="menu_shrimp_legal_root"
+    action="shrimp_user_registry.action_shrimp_legal_document"
+    sequence="10"
+    groups="shrimp_marketplace.group_marketplace_manager" />
+  <menuitem id="menu_shrimp_legal_versions"
+    name="Versiones"
+    parent="menu_shrimp_legal_root"
+    action="shrimp_user_registry.action_shrimp_legal_version"
     sequence="20"
-    groups="shrimp_marketplace.group_shrimp_user" />
+    groups="shrimp_marketplace.group_marketplace_manager" />
 
   <!-- =========================================================
        CONFIGURACIÓN
        (Reportes se define en shrimp_reports.xml, sequence 70;
-        Unidades de medida y Claves de API se añaden desde sus
-        propios archivos bajo esta raíz.)
+        Tallas, Unidades de medida, el catálogo de certificados, el
+        calendario de aguajes y las integraciones (API) se añaden desde sus
+        propios archivos / módulos bajo esta raíz.)
   ========================================================= -->
   <menuitem id="menu_shrimp_config_root"
     name="Configuración"
     parent="menu_shrimp_root"
     sequence="90"
-    groups="shrimp_marketplace.group_shrimp_manager" />
+    groups="shrimp_marketplace.group_marketplace_manager" />
+
+  <!-- Ajustes › CamaronMarket (comisiones, facturación, verificación,
+       empaque…). Las tres apps enlazan aquí: es una sola página de ajustes. -->
+  <record id="action_shrimp_config_settings" model="ir.actions.act_window">
+    <field name="name">Ajustes</field>
+    <field name="res_model">res.config.settings</field>
+    <field name="view_mode">form</field>
+    <field name="context">{'module': 'shrimp_marketplace', 'bin_size': False}</field>
+  </record>
+
+  <menuitem id="menu_shrimp_settings"
+    name="Ajustes"
+    parent="menu_shrimp_config_root"
+    action="action_shrimp_config_settings"
+    sequence="1"
+    groups="base.group_system" />
 
   <menuitem id="menu_shrimp_species"
     name="Especies"
     parent="menu_shrimp_config_root"
     action="action_shrimp_species"
     sequence="10"
-    groups="shrimp_marketplace.group_shrimp_manager" />
+    groups="shrimp_marketplace.group_marketplace_manager" />
 
   <menuitem id="menu_shrimp_stage"
     name="Estadíos"
     parent="menu_shrimp_config_root"
     action="action_shrimp_stage"
     sequence="20"
-    groups="shrimp_marketplace.group_shrimp_manager" />
+    groups="shrimp_marketplace.group_marketplace_manager" />
 
   <menuitem id="menu_shrimp_genetics"
     name="Genética"
     parent="menu_shrimp_config_root"
     action="action_shrimp_genetics"
     sequence="30"
-    groups="shrimp_marketplace.group_shrimp_manager" />
+    groups="shrimp_marketplace.group_marketplace_manager" />
+
+  <!-- =========================================================
+       TABLAS INTERNAS → Ajustes › Técnico › CamaronMarket (modo desarrollador)
+       Las llena el código y se ven dentro de su documento; aquí solo para
+       soporte. El resto (historial de firmas, evolución del producto,
+       transferencias entre perfiles) se declara en sus propios archivos.
+  ========================================================= -->
+  <!-- Flujo RETIRADO (lo sustituye la compra con verificación en campo):
+       los datos siguen ahí, solo para consulta. -->
+  <menuitem id="menu_shrimp_check_request"
+    name="Solicitudes de chequeo (legado)"
+    parent="shrimp_user_registry.menu_shrimp_technical_root"
+    action="action_shrimp_check_request"
+    sequence="10"
+    groups="base.group_system" />
+
+  <!-- Movimientos de stock: el libro que generan las compras, siembras y
+       salidas. El análisis agregado está en Reportes › Movimientos. -->
+  <menuitem id="menu_shrimp_stock_move"
+    name="Movimientos de stock"
+    parent="shrimp_user_registry.menu_shrimp_technical_root"
+    action="shrimp_marketplace.action_shrimp_stock_move"
+    sequence="20"
+    groups="base.group_system" />
+
+  <!-- Lote ↔ piscina: tabla de enlace que escribe la siembra. -->
+  <menuitem id="menu_shrimp_lot_allocation"
+    name="Asignaciones de lotes a piscinas"
+    parent="shrimp_user_registry.menu_shrimp_technical_root"
+    action="action_shrimp_lot_allocation"
+    sequence="30"
+    groups="base.group_system" />
+
+  <!-- Bitácora inmutable de aceptaciones de documentos legales. -->
+  <menuitem id="menu_shrimp_legal_acceptances"
+    name="Aceptaciones de documentos legales"
+    parent="shrimp_user_registry.menu_shrimp_technical_root"
+    action="shrimp_user_registry.action_shrimp_legal_acceptance"
+    sequence="40"
+    groups="base.group_system" />
+
+  <!-- Botón «Contratos aceptados» de la ficha: también para los
+       administradores de la plataforma (no solo Ajustes). -->
+  <record id="view_partner_form_shrimp_legal_manager" model="ir.ui.view">
+    <field name="name">res.partner.form.shrimp.legal.manager</field>
+    <field name="model">res.partner</field>
+    <field name="inherit_id" ref="shrimp_user_registry.view_partner_form_shrimp_legal"/>
+    <field name="arch" type="xml">
+      <xpath expr="//button[@name='action_view_shrimp_legal_acceptances']" position="attributes">
+        <attribute name="groups">shrimp_marketplace.group_shrimp_manager</attribute>
+      </xpath>
+      <xpath expr="//group[@name='shrimp_members']" position="attributes">
+        <attribute name="groups">shrimp_marketplace.group_shrimp_manager</attribute>
+      </xpath>
+    </field>
+  </record>
+
+  <!-- Camaronera (19.0.1.22.3): el área y las piscinas ya no se piden al
+       registrarse; la ficha muestra las que salen de las piscinas registradas
+       (o el dato manual, que sigue editable y opcional). -->
+  <record id="view_partner_form_shrimp_farm_effective" model="ir.ui.view">
+    <field name="name">res.partner.form.shrimp.farm.effective</field>
+    <field name="model">res.partner</field>
+    <field name="inherit_id" ref="shrimp_user_registry.view_partner_form_inherit_shrimp"/>
+    <field name="arch" type="xml">
+      <xpath expr="//field[@name='farm_area_ha']" position="attributes">
+        <attribute name="string">Área declarada (ha, opcional)</attribute>
+      </xpath>
+      <xpath expr="//field[@name='farm_area_ha']" position="before">
+        <field name="shrimp_farm_area_effective_ha"/>
+        <field name="shrimp_pond_count_effective"/>
+        <field name="shrimp_farm_area_source"/>
+      </xpath>
+    </field>
+  </record>
 
 </odoo>

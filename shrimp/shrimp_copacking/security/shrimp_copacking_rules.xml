@@ -57,9 +57,9 @@
                 ['|', '|',
                  '&amp;', ('copack_request_ids.state', '=', 'published'),
                           '|', ('copack_request_ids.is_open', '=', True),
-                               ('copack_request_ids.copacker_partner_id', '=', user.partner_id.id),
-                 ('copack_order_client_ids.copacker_partner_id', '=', user.partner_id.id),
-                 ('copack_order_copacker_ids.client_partner_id', '=', user.partner_id.id)]
+                               ('copack_request_ids.copacker_partner_id', '=', user.shrimp_actor_partner_id.id),
+                 ('copack_order_client_ids.copacker_partner_id', '=', user.shrimp_actor_partner_id.id),
+                 ('copack_order_copacker_ids.client_partner_id', '=', user.shrimp_actor_partner_id.id)]
             </field>
         </record>
 
@@ -75,7 +75,7 @@
             <field name="perm_write" eval="False"/>
             <field name="perm_create" eval="False"/>
             <field name="perm_unlink" eval="False"/>
-            <field name="domain_force">[('client_partner_id', '=', user.partner_id.id)]</field>
+            <field name="domain_force">[('client_partner_id', '=', user.shrimp_actor_partner_id.id)]</field>
         </record>
 
         <!-- Las reglas del mismo grupo se suman con O, asi que esta AMPLIA la
@@ -90,7 +90,7 @@
             <field name="perm_write" eval="False"/>
             <field name="perm_create" eval="False"/>
             <field name="perm_unlink" eval="False"/>
-            <field name="domain_force">['&amp;', ('state', '=', 'published'), '|', ('is_open', '=', True), ('copacker_partner_id', '=', user.partner_id.id)] if user.partner_id.shrimp_user_type == 'maquilador' else [(0, '=', 1)]</field>
+            <field name="domain_force">['&amp;', ('state', '=', 'published'), '|', ('is_open', '=', True), ('copacker_partner_id', '=', user.shrimp_actor_partner_id.id)] if user.shrimp_active_role == 'maquilador' else [(0, '=', 1)]</field>
         </record>
 
 
@@ -105,7 +105,7 @@
             <field name="perm_write" eval="False"/>
             <field name="perm_create" eval="False"/>
             <field name="perm_unlink" eval="False"/>
-            <field name="domain_force">[('copacker_partner_id', '=', user.partner_id.id)]</field>
+            <field name="domain_force">[('copacker_partner_id', '=', user.shrimp_actor_partner_id.id)]</field>
         </record>
 
         <record id="rule_copack_tariff_destinatario" model="ir.rule">
@@ -116,7 +116,7 @@
             <field name="perm_write" eval="False"/>
             <field name="perm_create" eval="False"/>
             <field name="perm_unlink" eval="False"/>
-            <field name="domain_force">['&amp;', ('state', '=', 'published'), ('recipient_ids', 'in', user.partner_id.shrimp_grupo_ids())]</field>
+            <field name="domain_force">['&amp;', ('state', '=', 'published'), ('recipient_ids', 'in', user.shrimp_actor_partner_id.shrimp_grupo_ids())]</field>
         </record>
 
         <record id="rule_copack_tariff_line" model="ir.rule">
@@ -127,7 +127,7 @@
             <field name="perm_write" eval="False"/>
             <field name="perm_create" eval="False"/>
             <field name="perm_unlink" eval="False"/>
-            <field name="domain_force">['|', ('tariff_id.copacker_partner_id', '=', user.partner_id.id), '&amp;', ('tariff_id.state', '=', 'published'), ('tariff_id.recipient_ids', 'in', user.partner_id.shrimp_grupo_ids())]</field>
+            <field name="domain_force">['|', ('tariff_id.copacker_partner_id', '=', user.shrimp_actor_partner_id.id), '&amp;', ('tariff_id.state', '=', 'published'), ('tariff_id.recipient_ids', 'in', user.shrimp_actor_partner_id.shrimp_grupo_ids())]</field>
         </record>
 
         <!-- === OFERTAS ===
@@ -142,8 +142,8 @@
             <field name="perm_unlink" eval="False"/>
             <field name="domain_force">
                 ['|',
-                 ('copacker_partner_id', '=', user.partner_id.id),
-                 ('request_id.client_partner_id', '=', user.partner_id.id)]
+                 ('copacker_partner_id', '=', user.shrimp_actor_partner_id.id),
+                 ('request_id.client_partner_id', '=', user.shrimp_actor_partner_id.id)]
             </field>
         </record>
 
@@ -158,8 +158,8 @@
             <field name="perm_unlink" eval="False"/>
             <field name="domain_force">
                 ['|',
-                 ('client_partner_id', '=', user.partner_id.id),
-                 ('copacker_partner_id', '=', user.partner_id.id)]
+                 ('client_partner_id', '=', user.shrimp_actor_partner_id.id),
+                 ('copacker_partner_id', '=', user.shrimp_actor_partner_id.id)]
             </field>
         </record>
 
@@ -174,10 +174,60 @@
             <field name="perm_unlink" eval="False"/>
             <field name="domain_force">
                 ['|',
-                 ('order_id.client_partner_id', '=', user.partner_id.id),
-                 ('order_id.copacker_partner_id', '=', user.partner_id.id)]
+                 ('order_id.client_partner_id', '=', user.shrimp_actor_partner_id.id),
+                 ('order_id.copacker_partner_id', '=', user.shrimp_actor_partner_id.id)]
+            </field>
+        </record>
+
+        <!-- === CANCELACIONES CON EL CAMARON EN PLANTA (D-34) === -->
+        <record id="rule_copack_cancellation_partes" model="ir.rule">
+            <field name="name">Cancelaciones de empaque: solo las partes</field>
+            <field name="model_id" ref="model_shrimp_copack_cancellation"/>
+            <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="False"/>
+            <field name="perm_create" eval="False"/>
+            <field name="perm_unlink" eval="False"/>
+            <field name="domain_force">
+                ['|',
+                 ('order_id.client_partner_id', '=', user.shrimp_actor_partner_id.id),
+                 ('order_id.copacker_partner_id', '=', user.shrimp_actor_partner_id.id)]
             </field>
         </record>
 
     </data>
+
+    <!-- ================================================================
+         App «Copacking» del backoffice (19.0.1.13.0). Fuera del bloque
+         noupdate: los grupos se actualizan con el módulo.
+
+         Quién VE la app y su configuración. El acceso a los datos no cambia:
+         «Usuario» implica Operador y «Administrador» implica Administrador de
+         los datos de la plataforma (shrimp_marketplace).
+         ================================================================ -->
+    <record id="res_groups_privilege_copacking" model="res.groups.privilege">
+        <field name="name">CamaronMarket · Copacking</field>
+        <field name="sequence">62</field>
+    </record>
+
+    <record id="group_copacking_user" model="res.groups">
+        <field name="name">Usuario</field>
+        <field name="sequence">10</field>
+        <field name="privilege_id" ref="res_groups_privilege_copacking"/>
+        <field name="implied_ids" eval="[(4, ref('shrimp_marketplace.group_shrimp_user'))]"/>
+        <field name="comment">Ve la app Copacking: órdenes y solicitudes de empaque, maquiladores y sus tarifas.</field>
+    </record>
+
+    <record id="group_copacking_manager" model="res.groups">
+        <field name="name">Administrador</field>
+        <field name="sequence">20</field>
+        <field name="privilege_id" ref="res_groups_privilege_copacking"/>
+        <field name="implied_ids" eval="[(4, ref('group_copacking_user')), (4, ref('shrimp_marketplace.group_shrimp_manager'))]"/>
+        <field name="comment">Además: configuración de la app (ajustes de empaque).</field>
+    </record>
+
+    <!-- Todo administrador del sistema administra también Copacking. -->
+    <record id="base.group_system" model="res.groups">
+        <field name="implied_ids" eval="[(4, ref('group_copacking_manager'))]"/>
+    </record>
 </odoo>

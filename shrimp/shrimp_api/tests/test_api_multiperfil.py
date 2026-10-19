@@ -34,11 +34,13 @@ class TestApiMultiPerfil(ApiCase):
         resp = self.api("POST", "/me/active-role", raw=self.raw_lab, body={"role": "camaronera"})
         self.assertEqual(resp.status_code, 200, resp.text)
         self.assertEqual(resp.json()["type"], "camaronera")
-        self.assertEqual(self.lab.shrimp_user_type, "camaronera")
+        self.assertEqual(resp.json()["api_key"]["acting_role"], "camaronera")
+        # Perfil activo POR USUARIO (CR-12): la empresa conserva su perfil por defecto.
+        self.assertEqual(self.lab.shrimp_user_type, "laboratorio")
         # A un perfil que no tiene, no.
         self.assertProblem(self.api("POST", "/me/active-role", raw=self.raw_lab,
                                     body={"role": "empacadora"}), 403)
-        self.assertEqual(self.lab.shrimp_user_type, "camaronera")
+        self.assertEqual(self.api("GET", "/me", raw=self.raw_lab).json()["active_role"], "camaronera")
 
     def _crear_producto(self, headers=None, path="/products", extra=None):
         body = {"name": "Lote multiperfil", "initial_qty": 10, "price": 1.5,

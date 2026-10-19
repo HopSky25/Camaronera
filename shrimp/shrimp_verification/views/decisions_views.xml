@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Back-office: decisiones de la auditoría de procesos (19.0.1.24.0).
+       D-21 respuesta de la verificadora, D-16 producto no presentado,
+       D-22 contraoferta, D-24 liquidación, D-25 segunda opinión. -->
+  <record id="view_shrimp_verification_form_decisions" model="ir.ui.view">
+    <field name="name">shrimp.verification.form.decisions</field>
+    <field name="model">shrimp.verification</field>
+    <field name="inherit_id" ref="shrimp_verification.view_shrimp_verification_form"/>
+    <field name="arch" type="xml">
+      <!-- D-16: rechazar sin campo solo por «Producto no presentado». -->
+      <xpath expr="//header/button[@name='action_reject']" position="attributes">
+        <attribute name="invisible">state not in ('in_field','done') and not (rejection_kind == 'not_presented' and state in ('received', 'assigned'))</attribute>
+      </xpath>
+      <xpath expr="//header/button[@name='action_generate_verification_documents']" position="after">
+        <button name="action_retry_payout" type="object" string="Reintentar liquidación a la verificadora"
+                invisible="payout_state not in ('pending', 'error')"
+                groups="shrimp_marketplace.group_shrimp_manager"/>
+      </xpath>
+      <xpath expr="//sheet/div[hasclass('oe_title')]" position="after">
+        <div class="alert alert-warning" role="alert" invisible="verifier_response != 'declined'">
+          La verificadora <b>declinó</b> la orden: <field name="verifier_decline_reason" readonly="1" class="d-inline"/>.
+          El comprador elige otra verificadora o cancela sin costo.
+        </div>
+        <div class="alert alert-info" role="status" invisible="contest_state not in ('open', 'contested')">
+          Rechazo <field name="contest_state" readonly="1" class="d-inline"/>
+          <span invisible="contest_state != 'open'"> hasta <field name="contest_deadline" readonly="1" class="d-inline"/></span>.
+        </div>
+        <div class="alert alert-info" role="status" invisible="not second_opinion_of_id">
+          Segunda opinión de <field name="second_opinion_of_id" readonly="1" class="d-inline"/>:
+          su honorario lo paga quien la pidió.
+        </div>
+      </xpath>
+      <xpath expr="//field[@name='vendor_bill_id']" position="after">
+        <field name="payout_state" readonly="1" invisible="verification_mode != 'platform'"/>
+        <field name="payout_due_date" readonly="1" invisible="not payout_due_date"/>
+        <field name="payout_paid" readonly="1" invisible="not vendor_bill_id"/>
+        <field name="payout_attempts" readonly="1" invisible="not payout_attempts"/>
+        <field name="payout_error" readonly="1" invisible="not payout_error"/>
+      </xpath>
+      <xpath expr="//field[@name='verdict_notes']" position="after">
+        <field name="verifier_response" readonly="1" invisible="verification_mode != 'platform'"/>
+        <field name="verifier_response_deadline" invisible="verification_mode != 'platform' or verifier_response != 'pending'"/>
+        <field name="verifier_response_date" invisible="not verifier_response_date"/>
+        <field name="rejection_kind" readonly="state not in ('received', 'assigned', 'in_field', 'done')"
+               invisible="verification_mode != 'platform'"/>
+        <field name="not_presented_arrival" invisible="rejection_kind != 'not_presented'"
+               readonly="state not in ('received', 'assigned', 'in_field', 'done')"/>
+        <field name="contest_state" readonly="1" invisible="not contest_state"/>
+        <field name="superseded" readonly="1" invisible="not superseded"/>
+        <field name="second_opinion_id" readonly="1" invisible="not second_opinion_id"/>
+      </xpath>
+      <xpath expr="//field[@name='fee_payer_partner_id']" position="after">
+        <field name="counter_outcome" readonly="1" invisible="not counter_outcome"/>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="res_config_settings_view_form_verification_decisions" model="ir.ui.view">
+    <field name="name">res.config.settings.form.shrimp.verification.decisions</field>
+    <field name="model">res.config.settings</field>
+    <field name="inherit_id" ref="shrimp_verification.res_config_settings_view_form_verification"/>
+    <field name="arch" type="xml">
+      <xpath expr="//block[@name='shrimp_verification_block']" position="inside">
+        <setting string="Respuesta de la verificadora y acreditación"
+                 help="Plazo para que la verificadora acepte o decline la orden (declinada o sin respuesta, el comprador elige otra o cancela sin costo) y aviso previo al vencimiento de su acreditación (con la acreditación vencida termina sus órdenes abiertas pero no recibe nuevas).">
+          <div class="content-group">
+            <div class="row mt16">
+              <label for="shrimp_ver_response_hours" class="col-lg-6 o_light_label"/>
+              <field name="shrimp_ver_response_hours"/>
+              <span class="text-muted">horas</span>
+            </div>
+            <div class="row">
+              <label for="shrimp_ver_accreditation_warn_days" class="col-lg-6 o_light_label"/>
+              <field name="shrimp_ver_accreditation_warn_days"/>
+              <span class="text-muted">días</span>
+            </div>
+          </div>
+        </setting>
+        <setting string="Contraoferta, segunda opinión y verificación declarada"
+                 help="Una sola contraoferta por compra, sin reiniciar el plazo; si el vendedor la rechaza o calla, la compra se cierra al precio original. Plazo del vendedor para impugnar un rechazo pidiendo una segunda opinión (0 = sin segunda opinión). Plazo para presentar la verificación declarada desde la fecha de entrega.">
+          <div class="content-group">
+            <div class="row mt16">
+              <label for="shrimp_ver_contest_hours" class="col-lg-6 o_light_label"/>
+              <field name="shrimp_ver_contest_hours"/>
+              <span class="text-muted">horas</span>
+            </div>
+            <div class="row">
+              <label for="shrimp_ver_declared_days" class="col-lg-6 o_light_label"/>
+              <field name="shrimp_ver_declared_days"/>
+              <span class="text-muted">días</span>
+            </div>
+          </div>
+        </setting>
+      </xpath>
+    </field>
+  </record>
+</odoo>

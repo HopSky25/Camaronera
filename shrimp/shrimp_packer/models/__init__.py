@@ -21,3 +21,10 @@ from . import shrimp_dashboard_packer
 # Entradas de la barra superior (Vender / Comprar) de la empacadora y la camaronera.
 from . import website_navbar
 from . import ir_http
+# La reserva cumplida queda reservada a la empacadora comprometida, con
+# plazo de compra e incumplimientos (auditoría de procesos, hueco #8).
+from . import shrimp_harvest_reservation
+# D-20: retirar listas de precios al suspender / rechazar
+from . import res_partner_withdraw
+# Lote atado a una lista archivada: pasa a la nueva lista del emisor (D-49).
+from . import shrimp_price_list_relink

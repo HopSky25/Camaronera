@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Reglas de la compra de la auditoría de procesos (§10–11):
+       D-43 factura del vendedor (plazo, vencida, bloqueo) en el back-office
+       y Ajustes. Ver models/shrimp_purchase_rules.py. -->
+
+  <record id="view_shrimp_transaction_tree_purchase_rules" model="ir.ui.view">
+    <field name="name">shrimp.transaction.list.purchase.rules</field>
+    <field name="model">shrimp.transaction</field>
+    <field name="inherit_id" ref="shrimp_marketplace.view_shrimp_transaction_tree"/>
+    <field name="arch" type="xml">
+      <xpath expr="//field[@name='has_seller_invoice']" position="after">
+        <field name="seller_invoice_status" optional="show" widget="badge"
+               decoration-danger="seller_invoice_status == 'overdue'"
+               decoration-warning="seller_invoice_status == 'pending'"
+               decoration-success="seller_invoice_status in ('registered', 'locked')"
+               groups="shrimp_marketplace.group_shrimp_manager"/>
+        <field name="seller_invoice_due_date" optional="hide"
+               groups="shrimp_marketplace.group_shrimp_manager"/>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="view_shrimp_transaction_form_purchase_rules" model="ir.ui.view">
+    <field name="name">shrimp.transaction.form.purchase.rules</field>
+    <field name="model">shrimp.transaction</field>
+    <field name="inherit_id" ref="shrimp_marketplace.view_shrimp_transaction_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//page[@name='seller_invoice']/group" position="before">
+        <div class="alert alert-danger" role="alert" invisible="seller_invoice_status != 'overdue'">
+          <strong>Factura del vendedor vencida:</strong> la compra se completó y el vendedor no
+          registró su factura dentro del plazo (vencía el <field name="seller_invoice_due_date" readonly="1" class="d-inline"/>).
+        </div>
+        <div class="alert alert-warning" role="alert" invisible="seller_invoice_status != 'pending'">
+          El vendedor tiene hasta el <field name="seller_invoice_due_date" readonly="1" class="d-inline" nolabel="1"/>
+          para registrar su factura (recibe recordatorios).
+        </div>
+        <div class="alert alert-info" role="alert" invisible="seller_invoice_status != 'locked'">
+          Factura bloqueada: pasó el plazo para modificarla
+          (editable hasta el <field name="seller_invoice_lock_date" readonly="1" class="d-inline" nolabel="1"/>).
+        </div>
+        <field name="seller_invoice_status" invisible="1"/>
+      </xpath>
+      <xpath expr="//field[@name='seller_invoice_number']" position="attributes">
+        <attribute name="readonly">seller_invoice_status == 'locked'</attribute>
+      </xpath>
+      <xpath expr="//field[@name='seller_invoice_access_key']" position="attributes">
+        <attribute name="readonly">seller_invoice_status == 'locked'</attribute>
+      </xpath>
+      <xpath expr="//field[@name='seller_invoice_date']" position="attributes">
+        <attribute name="readonly">seller_invoice_status == 'locked'</attribute>
+      </xpath>
+      <xpath expr="//field[@name='seller_invoice_attachment_id']" position="attributes">
+        <attribute name="readonly">seller_invoice_status == 'locked'</attribute>
+      </xpath>
+      <xpath expr="//field[@name='seller_invoice_registered_at']" position="after">
+        <field name="seller_invoice_lock_date" readonly="1"
+               invisible="not seller_invoice_lock_date"/>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="view_shrimp_transaction_search_purchase_rules" model="ir.ui.view">
+    <field name="name">shrimp.transaction.search.purchase.rules</field>
+    <field name="model">shrimp.transaction</field>
+    <field name="inherit_id" ref="shrimp_marketplace.view_shrimp_transaction_search_reception"/>
+    <field name="arch" type="xml">
+      <xpath expr="//filter[@name='f_done']" position="after">
+        <separator/>
+        <filter name="f_seller_invoice_overdue" string="Factura del vendedor vencida"
+                domain="[('seller_invoice_overdue', '=', True)]"
+                groups="shrimp_marketplace.group_shrimp_manager"/>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="action_shrimp_transaction_invoice_overdue" model="ir.actions.act_window">
+    <field name="name">Facturas del vendedor vencidas</field>
+    <field name="res_model">shrimp.transaction</field>
+    <field name="view_mode">list,form</field>
+    <field name="search_view_id" ref="shrimp_marketplace.view_shrimp_transaction_search_reception"/>
+    <field name="context">{'search_default_f_seller_invoice_overdue': 1}</field>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">Ninguna venta tiene la factura del vendedor vencida.</p>
+      <p>El vendedor registra la factura de la mercadería dentro de los días de Ajustes desde que
+        la compra se completa; aquí aparecen las que vencieron sin registrarla.</p>
+    </field>
+  </record>
+
+  <menuitem id="menu_shrimp_transaction_invoice_overdue"
+    name="Facturas del vendedor vencidas"
+    parent="menu_shrimp_catalog_root"
+    action="action_shrimp_transaction_invoice_overdue"
+    sequence="21"
+    groups="shrimp_marketplace.group_shrimp_manager"/>
+
+  <!-- Ajustes › Facturación -->
+  <record id="res_config_settings_view_form_shrimp_purchase_rules" model="ir.ui.view">
+    <field name="name">res.config.settings.form.shrimp.purchase.rules</field>
+    <field name="model">res.config.settings</field>
+    <field name="inherit_id" ref="shrimp_marketplace.res_config_settings_view_form_shrimp"/>
+    <field name="arch" type="xml">
+      <xpath expr="//block[@name='shrimp_billing_block']" position="inside">
+        <setting string="Factura del vendedor (paso 2)"
+                 help="La mercadería la factura el vendedor desde su sistema y la registra en la compra. Es obligatoria dentro de estos días desde que la compra se completa: el vendedor (administrador y usuarios con permiso de vender o de facturación) recibe recordatorios los días indicados (0 = sin ese recordatorio) y, al vencer, la venta aparece en «Facturas del vendedor vencidas». Pasados los días de edición, la factura registrada queda bloqueada.">
+          <div class="content-group">
+            <div class="row mt16">
+              <label for="shrimp_seller_invoice_days" class="col-lg-6 o_light_label"/>
+              <field name="shrimp_seller_invoice_days"/>
+              <span class="text-muted">días</span>
+            </div>
+            <div class="row mt8">
+              <label for="shrimp_seller_invoice_lock_days" class="col-lg-6 o_light_label"/>
+              <field name="shrimp_seller_invoice_lock_days"/>
+              <span class="text-muted">días</span>
+            </div>
+            <div class="row mt8">
+              <label for="shrimp_seller_invoice_reminder_1" class="col-lg-6 o_light_label"/>
+              <field name="shrimp_seller_invoice_reminder_1"/>
+            </div>
+            <div class="row mt8">
+              <label for="shrimp_seller_invoice_reminder_2" class="col-lg-6 o_light_label"/>
+              <field name="shrimp_seller_invoice_reminder_2"/>
+            </div>
+            <div class="row mt8">
+              <label for="shrimp_seller_invoice_reminder_3" class="col-lg-6 o_light_label"/>
+              <field name="shrimp_seller_invoice_reminder_3"/>
+            </div>
+          </div>
+        </setting>
+      </xpath>
+    </field>
+  </record>
+</odoo>

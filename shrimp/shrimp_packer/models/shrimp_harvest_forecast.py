@@ -425,7 +425,24 @@ class ShrimpHarvestForecast(models.Model):
                     "por debajo de quien esté mirándola. Cancélala indicando el "
                     "motivo y declara la cosecha corregida.")
                     % (bloqueadas[0].name or ""))
-        return super().write(vals)
+        res = super().write(vals)
+        if "recipient_ids" in vals:
+            self._check_destinatarios_comprometidos()
+        return res
+
+    def _check_destinatarios_comprometidos(self):
+        """ME-24/D-15: no se quita de los destinatarios a una empacadora que
+        tiene un compromiso vivo sobre la declaración."""
+        for rec in self:
+            vivos = rec.commitment_ids.sudo().filtered(
+                lambda c: c.state in ("sent", "accepted", "to_confirm", "honored"))
+            fuera = vivos.filtered(lambda c: not set(
+                c.packer_partner_id.shrimp_grupo_ids()) & set(rec.recipient_ids.ids))
+            if fuera:
+                raise ValidationError(_(
+                    "No puedes quitar a %s de los destinatarios: tiene(n) un "
+                    "compromiso vivo sobre esta cosecha.")
+                    % ", ".join(fuera.mapped("packer_partner_id.name")))
 
     # ==================================================================
     # Visibilidad
@@ -569,7 +586,7 @@ class ShrimpHarvestForecast(models.Model):
         pregunta por qué no se enteró.
         """
         self.ensure_one()
-        actor = actor or self.env.user.partner_id
+        actor = actor or self.env.user.shrimp_actor_partner_id
         if actor != self.farmer_partner_id:
             raise AccessError(_("Una cosecha la publica quien la va a cosechar."))
         if self.state != "draft":
@@ -610,7 +627,7 @@ class ShrimpHarvestForecast(models.Model):
         nadie se apoyó en ellos, no hay incumplimiento que anotar.
         """
         self.ensure_one()
-        actor = actor or self.env.user.partner_id
+        actor = actor or self.env.user.shrimp_actor_partner_id
         if actor != self.farmer_partner_id:
             raise AccessError(_("Una declaración la cancela quien la publicó."))
         if self.state not in ("draft", "published", "committed"):
@@ -658,7 +675,7 @@ class ShrimpHarvestForecast(models.Model):
           negociando sería peor que no publicarlo.
         """
         self.ensure_one()
-        actor = actor or self.env.user.partner_id
+        actor = actor or self.env.user.shrimp_actor_partner_id
         if actor != self.farmer_partner_id:
             raise AccessError(_("La cosecha la registra quien la cosechó."))
         if self.state not in ("published", "committed"):

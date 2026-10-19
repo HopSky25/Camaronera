@@ -1,15 +1,179 @@
 <odoo>
+  <!-- =================================================================
+       Sección «Empacadoras» de la app CamaronMarket (19.0.1.15.0).
+
+       La empacadora es parte del marketplace: sus entradas cuelgan de la raíz
+       shrimp_marketplace.menu_shrimp_root (antes «Reservas y precios» dentro
+       de la app única «Camaronera»). Las cosechas declaradas y las reservas
+       las crean las partes desde el portal con sus reglas de negocio; aquí
+       solo se consultan (sin crear ni editar).
+       ================================================================= -->
   <record id="action_price_list" model="ir.actions.act_window">
     <field name="name">Listas de precios de compra</field>
     <field name="res_model">shrimp.price.list</field>
     <field name="view_mode">list,form</field>
   </record>
 
-  <menuitem id="menu_price_list_root" name="Reservas y precios"
+  <record id="action_shrimp_packers" model="ir.actions.act_window">
+    <field name="name">Empacadoras</field>
+    <field name="res_model">res.partner</field>
+    <field name="view_mode">list,form</field>
+    <field name="domain">['|', ('shrimp_user_type', '=', 'empacadora'), ('shrimp_role_ids', 'any', [('role', '=', 'empacadora'), ('state', '=', 'approved')])]</field>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">Aún no hay empacadoras aprobadas.</p>
+      <p>Las empacadoras se registran por la web y operan cuando un
+         administrador aprueba su perfil (Aprobaciones › Perfiles por aprobar).</p>
+    </field>
+  </record>
+
+  <record id="view_harvest_forecast_list_backoffice" model="ir.ui.view">
+    <field name="name">shrimp.harvest.forecast.list.backoffice</field>
+    <field name="model">shrimp.harvest.forecast</field>
+    <field name="arch" type="xml">
+      <list string="Cosechas declaradas" create="false" edit="false" delete="false">
+        <field name="name"/>
+        <field name="farmer_partner_id"/>
+        <field name="pond_id" optional="show"/>
+        <field name="expected_date"/>
+        <field name="expected_lb" sum="Libras"/>
+        <field name="size_grade_id"/>
+        <field name="commitment_count" optional="show"/>
+        <field name="state" widget="badge"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_harvest_forecast_form_backoffice" model="ir.ui.view">
+    <field name="name">shrimp.harvest.forecast.form.backoffice</field>
+    <field name="model">shrimp.harvest.forecast</field>
+    <field name="arch" type="xml">
+      <form string="Cosecha declarada" create="false" edit="false" delete="false">
+        <header>
+          <field name="state" widget="statusbar"/>
+        </header>
+        <sheet>
+          <div class="oe_title"><h1><field name="name"/></h1></div>
+          <group>
+            <group>
+              <field name="farmer_partner_id"/>
+              <field name="facility_id"/>
+              <field name="pond_id"/>
+            </group>
+            <group>
+              <field name="expected_date"/>
+              <field name="expected_lb"/>
+              <field name="presentation"/>
+              <field name="size_grade_id"/>
+            </group>
+          </group>
+          <notebook>
+            <page string="Reservas" name="commitments">
+              <field name="commitment_ids"/>
+            </page>
+            <page string="Observaciones" name="notes">
+              <field name="notes"/>
+            </page>
+          </notebook>
+        </sheet>
+        <chatter/>
+      </form>
+    </field>
+  </record>
+
+  <record id="action_harvest_forecast" model="ir.actions.act_window">
+    <field name="name">Cosechas declaradas</field>
+    <field name="res_model">shrimp.harvest.forecast</field>
+    <field name="view_mode">list,form</field>
+    <field name="view_ids" eval="[(5, 0, 0),
+        (0, 0, {'view_mode': 'list', 'view_id': ref('view_harvest_forecast_list_backoffice')}),
+        (0, 0, {'view_mode': 'form', 'view_id': ref('view_harvest_forecast_form_backoffice')})]"/>
+  </record>
+
+  <record id="view_harvest_commitment_list_backoffice" model="ir.ui.view">
+    <field name="name">shrimp.harvest.commitment.list.backoffice</field>
+    <field name="model">shrimp.harvest.commitment</field>
+    <field name="arch" type="xml">
+      <list string="Reservas de cosecha" create="false" edit="false" delete="false">
+        <field name="forecast_id"/>
+        <field name="packer_partner_id"/>
+        <field name="farmer_partner_id"/>
+        <field name="committed_lb" sum="Libras"/>
+        <field name="price_mode" optional="show"/>
+        <field name="currency_id" column_invisible="1"/>
+        <field name="price_per_lb" optional="show"/>
+        <field name="valid_until" optional="show"/>
+        <field name="state" widget="badge"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_harvest_commitment_form_backoffice" model="ir.ui.view">
+    <field name="name">shrimp.harvest.commitment.form.backoffice</field>
+    <field name="model">shrimp.harvest.commitment</field>
+    <field name="arch" type="xml">
+      <form string="Reserva de cosecha" create="false" edit="false" delete="false">
+        <header>
+          <field name="state" widget="statusbar"/>
+        </header>
+        <sheet>
+          <group>
+            <group>
+              <field name="forecast_id"/>
+              <field name="packer_partner_id"/>
+              <field name="farmer_partner_id"/>
+              <field name="committed_lb"/>
+              <field name="valid_until"/>
+            </group>
+            <group>
+              <field name="currency_id" invisible="1"/>
+              <field name="price_mode"/>
+              <field name="price_per_lb"/>
+              <field name="step_delta_per_lb"/>
+              <field name="price_floor_per_lb"/>
+              <field name="price_list_id"/>
+            </group>
+          </group>
+          <group string="Liquidación">
+            <group>
+              <field name="settled_lb"/>
+              <field name="settled_price_per_lb"/>
+              <field name="settled_total"/>
+            </group>
+            <group>
+              <field name="product_id"/>
+              <field name="transaction_id"/>
+            </group>
+          </group>
+          <field name="notes" placeholder="Condiciones"/>
+        </sheet>
+        <chatter/>
+      </form>
+    </field>
+  </record>
+
+  <record id="action_harvest_commitment" model="ir.actions.act_window">
+    <field name="name">Reservas de cosecha</field>
+    <field name="res_model">shrimp.harvest.commitment</field>
+    <field name="view_mode">list,form</field>
+    <field name="view_ids" eval="[(5, 0, 0),
+        (0, 0, {'view_mode': 'list', 'view_id': ref('view_harvest_commitment_list_backoffice')}),
+        (0, 0, {'view_mode': 'form', 'view_id': ref('view_harvest_commitment_form_backoffice')})]"/>
+  </record>
+
+  <menuitem id="menu_price_list_root" name="Empacadoras"
             parent="shrimp_marketplace.menu_shrimp_root"
-            groups="shrimp_marketplace.group_shrimp_user" sequence="55"/>
+            groups="shrimp_marketplace.group_marketplace_user" sequence="30"/>
+  <menuitem id="menu_shrimp_packers" name="Empacadoras"
+            parent="menu_price_list_root" action="action_shrimp_packers"
+            groups="shrimp_marketplace.group_marketplace_user" sequence="5"/>
   <menuitem id="menu_price_list" name="Listas de precios de compra"
             parent="menu_price_list_root" action="action_price_list"
-            groups="shrimp_marketplace.group_shrimp_user" sequence="10"/>
+            groups="shrimp_marketplace.group_marketplace_user" sequence="10"/>
+  <menuitem id="menu_harvest_forecast" name="Cosechas declaradas"
+            parent="menu_price_list_root" action="action_harvest_forecast"
+            groups="shrimp_marketplace.group_marketplace_user" sequence="20"/>
+  <menuitem id="menu_harvest_commitment" name="Reservas de cosecha"
+            parent="menu_price_list_root" action="action_harvest_commitment"
+            groups="shrimp_marketplace.group_marketplace_user" sequence="30"/>
 
 </odoo>

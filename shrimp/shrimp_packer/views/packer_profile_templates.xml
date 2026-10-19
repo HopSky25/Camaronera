@@ -52,7 +52,7 @@
                   <div class="pk-card-pie">
                     <span>
                       <t t-if="e.shrimp_capacity_value">
-                        <t t-esc="'{:,.0f}'.format(e.shrimp_capacity_value)"/> lb/día
+                        <span title="Capacidad referencial">Cap. referencial <t t-esc="'{:,.0f}'.format(e.shrimp_capacity_value)"/> lb/día</span>
                       </t>
                     </span>
                     <span class="pk-ver">Ver ficha <i class="fa fa-chevron-right"/></span>
@@ -152,14 +152,16 @@
             <!-- La planta: dónde entrega el productor y cuánto puede recibir -->
             <h3 class="pk-seccion">La planta</h3>
             <div class="pk-datos">
-              <div t-if="emp.emp_planta_nombre">
-                <span>Planta de proceso</span><strong t-esc="emp.emp_planta_nombre"/>
+              <!-- Sin nombre de planta (ya no se pide al registrarse) se
+                   muestra el nombre de la empresa. -->
+              <div>
+                <span>Planta de proceso</span><strong t-esc="emp.emp_planta_nombre or emp.commercial_partner_id.name or emp.name"/>
               </div>
               <div t-if="emp.shrimp_ubicacion">
                 <span>Dónde se entrega</span><strong t-esc="emp.shrimp_ubicacion"/>
               </div>
               <div t-if="emp.shrimp_capacity_value">
-                <span>Capacidad</span>
+                <span>Capacidad referencial</span>
                 <strong t-esc="'{:,.0f} lb/día'.format(emp.shrimp_capacity_value)"/>
               </div>
               <div t-if="emp.emp_aprobacion_sanitaria">
@@ -200,9 +202,11 @@
             </t>
 
             <!-- Mercados: explican su estructura de precios -->
-            <h3 class="pk-seccion">Mercados a los que exporta</h3>
+            <!-- Sin mercados declarados (ya no se piden al registrarse) la
+                 sección no se muestra. -->
             <t t-set="tiene_mercado" t-value="emp.emp_mercado_asia or emp.emp_mercado_europa or emp.emp_mercado_norteamerica or emp.emp_mercado_local"/>
             <t t-if="tiene_mercado">
+              <h3 class="pk-seccion">Mercados a los que exporta</h3>
               <div class="pk-sellos">
                 <t t-if="emp.emp_mercado_asia"><span class="pk-mercado">Asia</span></t>
                 <t t-if="emp.emp_mercado_europa"><span class="pk-mercado">Europa</span></t>
@@ -214,9 +218,6 @@
                 A dónde exporta explica su estructura de precios: quien va a Asia
                 y Europa suele pagar mejor el entero; quien va a Norteamérica, la cola.
               </p>
-            </t>
-            <t t-else="">
-              <p class="pk-muted">No ha declarado sus mercados.</p>
             </t>
 
             <!-- Contacto -->

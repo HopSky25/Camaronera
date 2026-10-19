@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Decisiones de la auditoría de procesos (19.0.1.38.0), back-office:
+         D-30 PCR positivo bloquea el lote · D-31 caducidad de publicaciones ·
+         D-13 vigencia de certificados. Todo por herencia. -->
+
+    <!-- ===== Producto: búsqueda ===== -->
+    <record id="view_shrimp_product_search_decisiones" model="ir.ui.view">
+        <field name="name">shrimp.product.search.decisiones</field>
+        <field name="model">shrimp.product</field>
+        <field name="inherit_id" ref="shrimp_marketplace.view_shrimp_product_search"/>
+        <field name="arch" type="xml">
+            <xpath expr="//filter[@name='cancel']" position="after">
+                <separator/>
+                <filter string="Bloqueados por PCR positivo" name="pcr_blocked"
+                        domain="[('pcr_blocked', '=', True)]"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- ===== Producto: ficha ===== -->
+    <record id="view_shrimp_product_form_decisiones" model="ir.ui.view">
+        <field name="name">shrimp.product.form.decisiones</field>
+        <field name="model">shrimp.product</field>
+        <field name="inherit_id" ref="shrimp_marketplace.view_shrimp_product_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="before">
+                <field name="pcr_blocked" invisible="1"/>
+                <div class="alert alert-danger mb-0" role="alert" invisible="not pcr_blocked">
+                    Lote bloqueado por PCR positivo en su ficha de calidad más reciente: no se
+                    publica ni se vende hasta registrar una ficha nueva sin positivos.
+                </div>
+            </xpath>
+            <xpath expr="//field[@name='available_to']" position="after">
+                <field name="publication_expires_at" readonly="1"/>
+                <field name="expiry_notice_for" readonly="1" invisible="not expiry_notice_for"/>
+            </xpath>
+            <xpath expr="//field[@name='certificate_line_ids']/list/field[@name='expiry_date']" position="after">
+                <field name="validity_state" widget="badge" readonly="1"
+                       decoration-danger="validity_state == 'expired'"
+                       decoration-warning="validity_state == 'expiring'"
+                       decoration-success="validity_state == 'valid'"/>
+            </xpath>
+            <xpath expr="//field[@name='seller_certificate_line_ids']/list/field[@name='expiry_date']" position="after">
+                <field name="validity_state" widget="badge"
+                       decoration-danger="validity_state == 'expired'"
+                       decoration-warning="validity_state == 'expiring'"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- ===== Certificados del socio: columna y filtros de vigencia ===== -->
+    <record id="view_user_cert_line_search_vigencia" model="ir.ui.view">
+        <field name="name">shrimp.user.certificate.line.search.vigencia</field>
+        <field name="model">shrimp.user.certificate.line</field>
+        <field name="inherit_id" ref="shrimp_marketplace.view_user_cert_line_search"/>
+        <field name="arch" type="xml">
+            <xpath expr="//filter[@name='f_rejected']" position="after">
+                <separator/>
+                <filter name="f_expired" string="Vencidos" domain="[('validity_state','=','expired')]"/>
+                <filter name="f_expiring" string="Por vencer" domain="[('validity_state','=','expiring')]"/>
+            </xpath>
+            <xpath expr="//filter[@name='g_status']" position="after">
+                <filter name="g_validity" string="Vigencia" context="{'group_by':'validity_state'}"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_user_cert_line_list_vigencia" model="ir.ui.view">
+        <field name="name">shrimp.user.certificate.line.list.vigencia</field>
+        <field name="model">shrimp.user.certificate.line</field>
+        <field name="inherit_id" ref="shrimp_marketplace.view_user_cert_line_list"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='expiry_date']" position="after">
+                <field name="validity_state" widget="badge"
+                       decoration-danger="validity_state == 'expired'"
+                       decoration-warning="validity_state == 'expiring'"
+                       decoration-success="validity_state == 'valid'"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_user_cert_line_form_vigencia" model="ir.ui.view">
+        <field name="name">shrimp.user.certificate.line.form.vigencia</field>
+        <field name="model">shrimp.user.certificate.line</field>
+        <field name="inherit_id" ref="shrimp_marketplace.view_user_cert_line_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='expiry_date']" position="after">
+                <field name="validity_state" readonly="1"/>
+                <field name="expiry_notice_stage" readonly="1"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- ===== Certificados de producto: columna y filtros de vigencia ===== -->
+    <record id="view_product_cert_line_search_vigencia" model="ir.ui.view">
+        <field name="name">shrimp.product.certificate.line.search.vigencia</field>
+        <field name="model">shrimp.product.certificate.line</field>
+        <field name="inherit_id" ref="shrimp_marketplace.view_product_cert_line_search"/>
+        <field name="arch" type="xml">
+            <xpath expr="//filter[@name='f_rejected']" position="after">
+                <separator/>
+                <filter name="f_expired" string="Vencidos" domain="[('validity_state','=','expired')]"/>
+                <filter name="f_expiring" string="Por vencer" domain="[('validity_state','=','expiring')]"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_product_cert_line_list_vigencia" model="ir.ui.view">
+        <field name="name">shrimp.product.certificate.line.list.vigencia</field>
+        <field name="model">shrimp.product.certificate.line</field>
+        <field name="inherit_id" ref="shrimp_marketplace.view_product_cert_line_list"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='expiry_date']" position="after">
+                <field name="validity_state" widget="badge"
+                       decoration-danger="validity_state == 'expired'"
+                       decoration-warning="validity_state == 'expiring'"
+                       decoration-success="validity_state == 'valid'"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- ===== Ajustes › CamaronMarket › Marketplace: caducidad (D-31) ===== -->
+    <record id="res_config_settings_view_form_shrimp_expiry" model="ir.ui.view">
+        <field name="name">res.config.settings.form.shrimp.expiry</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="shrimp_marketplace.res_config_settings_view_form_shrimp"/>
+        <field name="arch" type="xml">
+            <xpath expr="//block[@name='shrimp_marketplace_block']" position="inside">
+                <setting string="Caducidad de las publicaciones"
+                         help="Una publicación vence en su fecha «Disponible hasta»; si no la tiene, estos días después de la fecha tentativa de entrega (o de la publicación). Al vencer pasa a borrador y se avisa al vendedor, que recibe además un aviso previo.">
+                    <div class="content-group">
+                        <div class="row mt16">
+                            <label for="shrimp_publication_expiry_days" class="col-lg-6 o_light_label"/>
+                            <field name="shrimp_publication_expiry_days"/>
+                            <span class="text-muted">días tras la entrega</span>
+                        </div>
+                        <div class="row">
+                            <label for="shrimp_publication_expiry_notice_days" class="col-lg-6 o_light_label"/>
+                            <field name="shrimp_publication_expiry_notice_days"/>
+                            <span class="text-muted">días de aviso previo</span>
+                        </div>
+                    </div>
+                </setting>
+            </xpath>
+        </field>
+    </record>
+</odoo>

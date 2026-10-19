@@ -246,17 +246,20 @@ def fee_quote(ctx):
            summary="Trazabilidad pública de una compra (la del QR del certificado)",
            description="Cadena de custodia (empresa, rol, provincia), especie, genética, fechas, "
                        "resumen de evolución, certificados vigentes, veredicto de verificación y "
-                       "planta. NO incluye precios, comisiones, GPS, teléfonos, técnicos ni archivos.",
-           response=obj(status="string", product={"type": "object"},
+                       "planta. NO incluye precios, comisiones, GPS, teléfonos, técnicos ni archivos. "
+                       "Solo compras confirmadas o completadas; una compra cancelada (que llegó a "
+                       "confirmarse) responde con cancelled=true y un aviso; 404 si la compra está en "
+                       "borrador o en verificación o si las partes retiraron la página.",
+           response=obj(status="string", cancelled="boolean", product={"type": "object"},
                         chain={"type": "array", "items": obj(company="string", role="string",
                                                              province="string", country="string")},
                         dates={"type": "object"}, evolution={"type": ["object", "null"]},
                         certificates={"type": "array"}, verification={"type": ["object", "null"]},
                         packing={"type": "array"}))
 def public_traceability(ctx, token):
-    if not token or len(token) < 16 or len(token) > 64:
-        raise not_found("La trazabilidad")
-    tx = ctx.env["shrimp.transaction"].sudo().search([("trace_token", "=", token)], limit=1)
+    # D-29: mismas reglas que la página /t/<token> (solo confirmadas o
+    # completadas; canceladas con "cancelled": true; 404 si se retiró).
+    tx = ctx.env["shrimp.transaction"].sudo()._shrimp_trace_by_token(token)
     if not tx:
         raise not_found("La trazabilidad")
     return tx._public_traceability_data()

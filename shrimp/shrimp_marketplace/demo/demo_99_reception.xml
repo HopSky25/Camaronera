@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Las compras de la demo se crean ya confirmadas (sin action_confirm):
+       se decide si llevan recepción y el plazo empieza hoy, como hace la
+       migración 19.0.1.25.0 con los datos reales. -->
+  <function model="shrimp.transaction" name="_shrimp_backfill_reception"/>
+  <!-- Caducidad de publicaciones (D-31): los lotes publicados de la demo con
+       fechas históricas reciben «Disponible hasta» = hoy + 30 días, igual que
+       la migración 19.0.1.35.0 con los datos reales. -->
+  <function model="shrimp.product" name="_shrimp_expiry_migrate"/>
+  <!-- Centinela de la demo (shrimp_user_registry/demo_utils.py: el ÚLTIMO
+       registro del último archivo de demo dice que la demo se cargó entera). -->
+  <record id="demo_reception_backfill_done" model="ir.config_parameter">
+    <field name="key">shrimp_marketplace.demo_reception_backfill</field>
+    <field name="value">1</field>
+  </record>
+</odoo>

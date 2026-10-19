@@ -107,27 +107,47 @@ class ResPartner(models.Model):
 
     def _shrimp_set_bank_account(self, bank_name=None, account_type=None, number=None,
                                  holder=None, holder_id=None):
-        """Crea o actualiza la primera cuenta bancaria del socio."""
+        """Crea o actualiza la primera cuenta bancaria del socio.
+
+        Todo lo que escribe queda en la base AL MOMENTO (flush), no pendiente
+        en la caché del ORM. Motivo: Odoo carga los datos de demo dentro de un
+        savepoint SIN flush (modules/loading.py, load_demo). Si la demo falla
+        más adelante, el ROLLBACK TO SAVEPOINT borra el res.bank que se creó
+        aquí (su INSERT ya se había ejecutado), pero una escritura de la
+        cuenta que siguiera pendiente en la caché apuntaría a ese banco
+        inexistente y reventaría en el siguiente flush — la instalación
+        entera caía con «violates foreign key res_partner_bank_bank_id_fkey»
+        en vez de quedarse solo sin demo. Con el flush, el UPDATE se ejecuta
+        dentro del savepoint y se deshace junto con el banco.
+
+        El banco se busca antes de crearlo (también los que quedaron de una
+        instalación anterior) y solo se crea si hace falta.
+        """
         self.ensure_one()
         number = (number or "").strip()
         cuenta = self.bank_ids[:1]
-        banco = self.env["res.bank"]
-        if bank_name and bank_name.strip():
-            banco = banco.search([("name", "=ilike", bank_name.strip())], limit=1) \
-                or banco.create({"name": bank_name.strip()})
+        bank_name = (bank_name or "").strip()
         vals = {
-            "bank_id": banco.id or False,
             "shrimp_account_type": account_type or False,
             "acc_holder_name": (holder or "").strip() or False,
             "shrimp_holder_id": (holder_id or "").strip() or False,
         }
+        if not cuenta and not number:
+            return True     # sin cuenta y sin número: nada que guardar
+        banco = self.env["res.bank"]
+        if bank_name:
+            banco = banco.search([("name", "=ilike", bank_name)], limit=1)
+            if not banco:
+                banco = banco.create({"name": bank_name})
+        vals["bank_id"] = banco.id or False
         if cuenta:
             if number:
                 vals["acc_number"] = number
             cuenta.write(vals)
-        elif number:
+        else:
             vals.update({"acc_number": number, "partner_id": self.id})
-            self.env["res.partner.bank"].create(vals)
+            cuenta = self.env["res.partner.bank"].create(vals)
+        cuenta.flush_recordset()
         return True
 
     # ---- Contacto operativo ----

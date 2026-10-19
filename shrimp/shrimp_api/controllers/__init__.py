@@ -12,3 +12,7 @@ from . import private_webhooks
 from . import portal
 # Mover producto propio entre los perfiles de la cuenta.
 from . import private_profile_transfer
+# Retraso de entrega (aviso, negociación y cancelación sin costo).
+from . import private_delay
+# «Estado real del lote»: observaciones del vendedor.
+from . import private_observations

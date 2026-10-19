@@ -31,7 +31,8 @@ En todos los ejemplos `https://TU-DOMINIO` es la URL pública del Odoo y `$KEY` 
 ## 2. Cómo conseguir una clave
 
 1. Entra al portal con tu usuario de socio → **Mi cuenta → Integraciones (API)** (`/my/api-keys`).
-2. «Crear una clave»: nombre, caducidad (30, 90, 180 días o 1 año), los **scopes** que la integración necesita
+2. «Crear una clave»: nombre, caducidad (30, 90, 180 días o 1 año; **por defecto y como máximo 1 año**,
+   parámetro `shrimp_api.key_lifetime_days`), los **scopes** que la integración necesita
    (solo esos), y opcionalmente:
    * **IPs permitidas** (una IP o red CIDR por línea): si se rellena, cualquier otra IP recibe 403.
    * **Orígenes CORS**: solo si vas a llamar desde un navegador (ver §9).
@@ -39,6 +40,11 @@ En todos los ejemplos `https://TU-DOMINIO` es la URL pública del Odoo y `$KEY` 
    hash PBKDF2-SHA512; si la pierdes, revócala y crea otra.
 4. Revocar es inmediato (botón «Revocar» en el portal, o el administrador desde
    *Camaronera → Configuración → Integraciones (API) → Claves de API*).
+5. **Caducidad y renovación** (D-46): toda clave caduca. 7 días antes (`shrimp_api.key_expiry_notice_days`)
+   llega un correo al dueño y aparece un aviso en `/my` y en `/my/api-keys`. El botón **«Renovar»** alarga la
+   **misma** clave (mismo secreto: no hay que tocar la integración) un periodo completo desde hoy; sirve
+   también para una clave ya caducada, pero no para una revocada o desactivada ni con la cuenta bloqueada.
+   Una clave caducada responde `401` con `"code": "key-expired"`.
 
 Las claves son de **socios del portal**. Un usuario interno no puede tener clave de esta API: sin las
 reglas del portal vería los datos de todos. Las integraciones internas usan la API JSON-2 nativa de Odoo
@@ -82,10 +88,19 @@ X-API-Key: trz_1a2b3c4d_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 |---|---|
 | 401 `missing-api-key` | no hay clave |
 | 401 `invalid-api-key` | no existe o el secreto no coincide |
-| 401 `expired-api-key` / `revoked-api-key` | caducada / revocada |
+| 401 `expired-api-key` (`code: key-expired`, `renew_url`) | caducada: se renueva en `/my/api-keys` |
+| 401 `revoked-api-key` | revocada |
 | 403 `user-not-allowed` | el usuario dueño está inactivo o no es de portal |
 | 403 `ip-not-allowed` | la IP no está en la lista de la clave |
 | 403 `insufficient-scope` | falta el scope; `detail` dice cuál |
+| 403 `account-pending` (`code: account_pending`) | la cuenta (el perfil con el que actúa la petición) está pendiente de aprobación: solo lectura (GET), las escrituras se rechazan; no se pueden crear claves nuevas |
+| 403 `account-rejected` (`code: account_rejected`) | la plataforma rechazó la cuenta: todo se rechaza salvo `GET /me`; al rechazarla se desactivan sus claves |
+| 403 `legal-acceptance-required` (`code`, `accept_url`, `pending_documents`) | hay versiones MAYORES de documentos legales sin aceptar: todo se rechaza salvo `GET /me` hasta aceptarlas en `accept_url` (/my/legal/accept), igual que en el portal |
+| 403 `seller-suspended` (`code: seller_suspended`) | publicación suspendida por strikes: `POST /products` y `POST /products/{id}:publish` se rechazan; el resto de la API sigue disponible |
+
+`GET /me` responde siempre (también a una cuenta bloqueada) e incluye
+`account_state` (approved / pending / rejected) y `legal`
+(`acceptance_required`, `pending_documents`, `accept_url`) para diagnosticar.
 
 Comprobar la clave:
 
@@ -289,9 +304,21 @@ La carga es mínima a propósito: con el `uuid` pides el detalle a la API (`GET 
 vuelve a pasar por los permisos. Responde 2xx en menos de 7 s; procesa en segundo plano.
 
 **Reintentos**: si no hay 2xx, se reintenta a los 1, 5, 15, 60 min, 3 h, 6 h, 12 h y 24 h. Tras 8 intentos
-la entrega queda `dead` (visible en `GET /webhooks/{id}/deliveries` y en el backend, con botón
-«Reintentar»). 50 entregas muertas seguidas desactivan la suscripción. La entrega es *al menos una vez*:
-deduplica por `id` (o por `X-Trazul-Delivery`).
+la entrega queda `dead` (visible en `GET /webhooks/{id}/deliveries`, en `/my/webhooks/{id}` y en el
+backend). Los fallos internos del envío también cuentan como intento: un evento «envenenado» acaba en `dead`
+en vez de reintentarse para siempre. La entrega es *al menos una vez*: deduplica por `id` (o por
+`X-Trazul-Delivery`).
+
+**Reenviar** (D-44): `POST /webhooks/{id}/deliveries/{delivery}:resend` o el botón «Reenviar» de
+`/my/webhooks/{id}` vuelven a poner en cola una entrega `dead`, `retrying` o `success` con los intentos a
+cero y el mismo `id` de evento (`resend_count` cuenta los reenvíos). La suscripción tiene que estar activa
+(si no, `409 subscription-inactive`).
+
+**Desactivación automática**: 50 entregas `dead` seguidas desactivan la suscripción (`auto_disabled_at`,
+`disabled_reason`). El dueño recibe un **correo** y ve un **aviso** en `/my` y en `/my/webhooks`. Mientras
+una suscripción está inactiva (desactivada sola o pausada) sus eventos se guardan en estado `held`; al
+**reactivarla** (portal, `PATCH active=true` o backend) se reenvían automáticamente las entregas `held` y
+`dead` de los **últimos 7 días** (`shrimp_api.webhook_resend_days`); lo retenido más antiguo se descarta.
 
 ### Verificar la firma
 
@@ -362,6 +389,13 @@ app.post("/hooks/trazul", express.raw({ type: "application/json" }), (req, res) 
 | `DELETE /facilities/{id}` borraba | archiva (`active=false`) |
 | `seller_role` de una camaronera = "laboratorio" | `seller_role` = tipo real del vendedor |
 | POST sin `Idempotency-Key` | obligatorio |
+
+**La API anterior está retirada (D-32).** Su controlador (`shrimp_marketplace/controllers/api.py`) ya no se
+cargaba desde que existe este módulo y se **eliminó** en 19.0.1.10.0: las mismas URLs
+(`/api/v1/products`, `/api/v1/facilities`, `/api/v1/ponds`, con `X-API-Key` o `Bearer`) las sirve
+`shrimp_api` con los alias de compatibilidad de la tabla. No hace falta una respuesta `410 Gone`: ninguna
+URL de la API anterior desaparece. Lo único que no tiene equivalente es el scope `admin` (crear o editar
+productos de **otro** vendedor), retirado a propósito: eso es una integración interna y va por JSON-2.
 
 ---
 
@@ -487,7 +521,7 @@ curl -s -X PATCH https://TU-DOMINIO/api/v1/dispatches/9a1… -H "Authorization: 
   -d '{"eta": "2026-10-02T19:30:00Z", "carrier_name": "Transportes Vera", "vehicle_plate": "GBA-1234"}'
 ```
 
-### 11.6 LIMS de laboratorio / semillero (scopes `products:*`, `lots:*`, `transactions:read`, `facilities:*`)
+### 11.6 LIMS de laboratorio / naupliero (scopes `products:*`, `lots:*`, `transactions:read`, `facilities:*`)
 
 * Alta de lotes de larva: `POST /products` (`stage`, `species`, `genetics_line`, `avg_size_mg`,
   `survival_rate`, `initial_qty`; unidad por defecto: millar) → `POST /products/{id}:publish`.
@@ -614,7 +648,7 @@ Solo aparecen comprobantes **autorizados o anulados** cuyo receptor es la empres
 * Listas de precios: `GET|POST /price-lists`, `GET|PUT /price-lists/{id}`, `POST /price-lists/{id}:publish|:archive`, `GET /lot-alerts`
 * Reserva: `GET|POST /harvest/forecasts`, `GET /harvest/forecasts/{id}`, `POST /harvest/forecasts/{id}:publish|:cancel|:harvest`, `POST /harvest/forecasts/{id}/commitments`, `GET /harvest/commitments`, `GET /harvest/commitments/{id}`, `POST /harvest/commitments/{id}:accept|:reject|:withdraw|:desist|:buy`, `POST /harvest/commitments/{id}/confirmation`, `POST /harvest/commitments/{id}/confirmation:revert`
 * Maquila: `GET|POST /copack/requests`, `GET /copack/requests/{id}`, `POST /copack/requests/{id}:cancel`, `POST /copack/requests/{id}/offers`, `POST /copack/offers/{id}:accept|:withdraw`, `GET /copack/orders`, `GET /copack/orders/{id}`, `POST /copack/orders/{id}:reception|:packing|:sign|:revert-signature|:reopen|:close|:cancel`, `GET|POST /copack/tariffs`, `GET|PUT /copack/tariffs/{id}`, `POST /copack/tariffs/{id}:publish|:archive`
-* Webhooks: `GET /webhooks/events`, `GET|POST /webhooks`, `GET|PATCH|DELETE /webhooks/{id}`, `POST /webhooks/{id}:ping|:rotate-secret`, `GET /webhooks/{id}/deliveries`
+* Webhooks: `GET /webhooks/events`, `GET|POST /webhooks`, `GET|PATCH|DELETE /webhooks/{id}`, `POST /webhooks/{id}:ping|:rotate-secret`, `GET /webhooks/{id}/deliveries`, `POST /webhooks/{id}/deliveries/{delivery}:resend`
 * SRI (`shrimp_api_sri`): `GET /invoices`, `GET /invoices/{clave}`, `GET /invoices/{clave}/xml`, `GET /invoices/{clave}/ride.pdf`
 
 ---
@@ -693,10 +727,12 @@ sudo -u odoo /opt/odoo/venv/bin/python /opt/odoo/odoo/odoo-bin -c /etc/odoo/odoo
 
 Parámetros de sistema opcionales: `shrimp_api.rate_read_per_min` (600), `shrimp_api.rate_write_per_min`
 (60), `shrimp_api.public_rate_per_min` (0 = sin límite en Odoo), `shrimp_api.webhook_allow_insecure`
-(solo pruebas: permite `http://` y destinos privados).
+(solo pruebas: permite `http://` y destinos privados), `shrimp_api.key_lifetime_days` (365: duración por
+defecto y máxima de una clave), `shrimp_api.key_expiry_notice_days` (7: aviso previo a la caducidad),
+`shrimp_api.webhook_resend_days` (7: ventana de reenvío al reactivar una suscripción).
 
-Crons: «API externa: enviar webhooks pendientes» (cada minuto) y «API externa: contadores de uso e
-idempotencia» (cada 10 min).
+Crons: «API externa: enviar webhooks pendientes» (cada minuto), «API externa: contadores de uso e
+idempotencia» (cada 10 min) y «API externa: avisar claves por caducar» (diario).
 
 Tests (en una base desechable, nunca en la de trabajo):
 
@@ -748,3 +784,19 @@ trae `can_revert` (solo `true` en la propia y mientras se pueda).
 Errores: `404` si el recurso no es tuyo, `403` si eres parte pero no titular de esa firma (p. ej. el verificador) o falta el scope de escritura, `422 business-rule` si ya no se puede deshacer o no hay decisión tuya que deshacer.
 Webhooks: `verification.acceptance_reverted`, `copack.signature_reverted`,
 `harvest.confirmation_reverted`.
+
+---
+
+## Cambios de la versión 19.0.1.10.0 (auditoría de procesos: D-32, D-44, D-46)
+
+* **D-32** — Se eliminó el controlador muerto de la API anterior (`shrimp_marketplace/controllers/api.py`).
+  Si alguien lo hubiera vuelto a importar, sus reglas estáticas (`/api/v1/products`…) habrían ganado en el
+  enrutador de werkzeug a la regla genérica `/api/v1/<path:subpath>` de este módulo y habrían vuelto el
+  bug de `seller_role` y las claves en claro. Ver §10.
+* **D-44** — Webhooks: cada intento cuenta (también los fallos internos); aviso por correo y en el portal al
+  desactivarse sola; eventos retenidos (`held`) mientras está inactiva y reenvío automático de los últimos
+  7 días al reactivarla; «Reenviar» por entrega en el portal (`/my/webhooks/{id}`), la API y el backend.
+  Campos nuevos: `shrimp_webhook_subscription.auto_disabled_at`, `shrimp_webhook_delivery.resend_count`.
+* **D-46** — Claves: caducidad por defecto de 365 días, aviso 7 días antes (correo + portal), `401` con
+  `"code": "key-expired"`, botón «Renovar». La migración da **un año desde la actualización** a las claves
+  sin caducidad. Campos nuevos: `shrimp_api_key.expiry_notice_sent_at`, `shrimp_api_key.renewed_at`.

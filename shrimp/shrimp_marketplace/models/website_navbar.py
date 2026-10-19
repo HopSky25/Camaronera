@@ -37,6 +37,26 @@ Formato de una entrada (dict):
     group     encabezado dentro del desplegable (opcional)
     new       marca «Nuevo» (opcional)
     desc      descripción corta para la tarjeta de /my (opcional)
+    surfaces  dónde se pinta: ("navbar", "dashboard"), por defecto en las dos
+    headline  {rol: orden}: botón de la cabecera de Mi panel para ese rol
+    panel_only  solo para los perfiles que tienen Mi panel (/my/dashboard)
+    consult   pantalla de consulta: basta con que el PERFIL tenga la
+              capacidad y el subusuario pueda «ver» (no pide sell / buy)
+
+UNA sola definición para la barra Y para «Accesos» de Mi panel
+(/my/dashboard): shrimp.dashboard._panel_shortcuts() lee
+_shrimp_nav_actions(partner, "dashboard") y la barra lee
+_shrimp_nav_tree(partner) ("navbar"). Antes cada panel por rol tenía su
+lista fija (sin matriz ni permisos de subusuario) y se separó de la barra:
+el naupliero no veía «Comprar nauplio» (compras al mismo nivel) y sí un
+«Precios de referencia (nauplio)» que era el mismo catálogo con otro nombre.
+
+En la barra, «Más herramientas» (sección "panel") y la sección "account" van
+dentro de «Mi cuenta ▾» (no caben como desplegables propios).
+
+Excepciones deliberadas (surfaces):
+* «Mi panel» (account/dashboard): solo barra; en el panel sería un enlace a
+  sí mismo.
 """
 import logging
 
@@ -55,9 +75,14 @@ SHRIMP_NAV_SECTIONS = [
     ("buy", "Comprar"),
     ("services", "Servicios"),
     ("account", "Mi cuenta"),
-    # No es un desplegable: lo que salió de la barra y vive en Mi panel / /my.
+    # No es un desplegable propio: en la barra va dentro de «Mi cuenta ▾»
+    # (encabezado «Más herramientas»); en Mi panel y /my es su propio grupo.
     ("panel", "Más herramientas"),
 ]
+
+# Orden de los grupos en «Accesos» de Mi panel (/my/dashboard).
+SHRIMP_NAV_DASHBOARD_ORDER = ("sell", "buy", "services", "panel", "account")
+SHRIMP_NAV_SURFACES = ("navbar", "dashboard")
 
 # Claves de website.menu que se pintan como desplegable, y a qué sección
 # corresponden. Las tres primeras son las de la barra anterior (Productos /
@@ -76,8 +101,10 @@ SHRIMP_NAV_DROPDOWN_KEYS = {
 # mientras tanto. Si un módulo las agrega a _shrimp_capability_matrix, manda
 # la matriz.
 SHRIMP_NAV_CAP_FALLBACK = {
-    # Instalaciones y piscinas (siembra).
+    # Siembra de larva/juvenil en piscinas (solo la camaronera).
     "manage_ponds": {"camaronera"},
+    # Instalaciones y piscinas/tanques en Mi cuenta (#instalaciones).
+    "manage_facilities": {"camaronera", "laboratorio", "semillero"},
     # Pre-reservas de larva / nauplio (F4): vende S y L; reserva L y C.
     "larva_preorders_sell": {"semillero", "laboratorio"},
     "larva_preorders_buy": {"laboratorio", "camaronera"},
@@ -103,7 +130,7 @@ class Website(models.Model):
     # Capacidades
     # ------------------------------------------------------------------
     @api.model
-    def _shrimp_nav_can(self, partner, capability):
+    def _shrimp_nav_can(self, partner, capability, consult=False):
         """¿El socio, con su perfil ACTIVO, tiene `capability`?
 
         Además de las de la matriz entiende:
@@ -115,12 +142,25 @@ class Website(models.Model):
         if not partner:
             return False
         socio = partner.sudo()
+        if consult:
+            # Pantallas de CONSULTA (mis lotes, ventas, compras, inventario,
+            # vitrina): basta con que el PERFIL tenga la capacidad y que el
+            # subusuario pueda «ver» ese perfil; publicar o comprar sigue
+            # pidiendo su permiso (sell / buy).
+            rol = socio._shrimp_effective_type()
+            if not socio._shrimp_user_allows("view", rol):
+                return False
         matriz = socio._shrimp_capability_matrix()
+        if consult:
+            def puede(cap):
+                return socio._shrimp_type_can(rol, cap)
+        else:
+            puede = socio._shrimp_can
         if capability == "buy_products":
-            return any(socio._shrimp_can(cap) for cap in matriz if cap.startswith("buy_from_"))
+            return any(puede(cap) for cap in matriz if cap.startswith("buy_from_"))
         if capability not in matriz and capability in SHRIMP_NAV_CAP_FALLBACK:
             return socio._shrimp_effective_type() in SHRIMP_NAV_CAP_FALLBACK[capability]
-        return socio._shrimp_can(capability)
+        return puede(capability)
 
     @api.model
     def _shrimp_nav_route_exists(self, path):
@@ -159,11 +199,12 @@ class Website(models.Model):
                        None: "Publicar producto"},
              "url": "/marketplace/products/new", "icon": "fa-plus-circle", "tone": "green",
              "caps": ("sell_products",), "untyped": True,
+             "headline": {"semillero": 10, "laboratorio": 10, "camaronera": 20},
              "desc": "Crea una publicación para ofrecer tu lote en el marketplace."},
             {"section": "sell", "key": "my_products", "sequence": 20,
              "label": {"laboratorio": "Mis lotes y corridas", None: "Mis lotes"},
              "url": "/marketplace/products", "icon": "fa-cubes", "tone": "blue",
-             "caps": ("sell_products",), "untyped": True,
+             "caps": ("sell_products",), "consult": True, "untyped": True,
              "desc": "Los lotes que publicaste y su estado."},
             {"section": "sell", "key": "preorders_in", "sequence": 30,
              "label": {"semillero": "Reservas de laboratorios",
@@ -182,7 +223,7 @@ class Website(models.Model):
              "label": {"semillero": "Ventas y despachos", "laboratorio": "Ventas y despachos",
                        None: "Ventas"},
              "url": "/marketplace/sales", "icon": "fa-line-chart", "tone": "green",
-             "caps": ("sell_products",), "untyped": True,
+             "caps": ("sell_products",), "consult": True, "untyped": True,
              "desc": "Lo que te compraron y el estado de cada despacho."},
 
             # ===== Comprar =====
@@ -198,18 +239,21 @@ class Website(models.Model):
             {"section": "buy", "key": "purchases", "sequence": 60,
              "label": "Mis compras",
              "url": "/marketplace/purchases", "icon": "fa-shopping-cart", "tone": "blue",
-             "caps": ("buy_products",), "untyped": True,
+             "caps": ("buy_products",), "consult": True, "untyped": True,
              "desc": "Tus compras (también las planificadas) y su trazabilidad."},
             {"section": "buy", "key": "inventory", "sequence": 70,
              # El laboratorio que solo compra nauplio ve «Inventario de
              # nauplio»; si la matriz le deja comprar también larva, es su
              # inventario a secas.
-             "label": {"laboratorio": ("Mi inventario" if socio and socio._shrimp_can("buy_from_laboratorio")
+             "label": {"laboratorio": ("Mi inventario" if socio and socio._shrimp_type_can(
+                                           socio._shrimp_effective_type(), "buy_from_laboratorio")
                                        else "Inventario de nauplio"),
                        "camaronera": "Inventario y siembra",
                        None: "Mi inventario"},
              "url": "/marketplace/my-lots", "icon": "fa-flask", "tone": "teal",
-             "caps": ("buy_from_semillero", "buy_from_laboratorio"), "untyped": True,
+             # Cualquiera que compre recibe lotes (también la empacadora: su
+             # camarón comprado queda en /marketplace/my-lots).
+             "caps": ("buy_products",), "consult": True, "untyped": True,
              "desc": "Los lotes que recibiste tras tus compras."},
             # Último eslabón de la trazabilidad: lo que sale de la planta.
             {"section": "buy", "key": "exports", "sequence": 75,
@@ -225,20 +269,44 @@ class Website(models.Model):
             {"section": "panel", "key": "reports", "sequence": 10,
              "label": "Mis reportes",
              "url": "/marketplace/reports", "icon": "fa-bar-chart", "tone": "green",
-             "caps": (), "untyped": True,
+             # Ventas, compras y comisiones: de los perfiles que compran o
+             # venden (los que tienen Mi panel). El verificador tiene los
+             # suyos en su sitio (/verifier/reports).
+             "caps": (), "untyped": True, "panel_only": True,
              "desc": "Tus ventas, compras y comisiones en gráficas."},
             {"section": "panel", "key": "availability", "sequence": 20,
              "label": "Disponibilidad del catálogo",
              "url": "/marketplace/calendar", "icon": "fa-calendar", "tone": "amber",
              "caps": (), "untyped": True,
              "desc": "Cuándo estarán listos los lotes publicados en el marketplace."},
+            # Instalaciones con el vocabulario de cada perfil (el de la
+            # sección «Instalaciones y piscinas» de Mi cuenta). Capacidad
+            # propia (manage_facilities): manage_ponds es la siembra y solo
+            # la tiene la camaronera. De consulta: un subusuario que solo
+            # «ve» el perfil entra y la sección se le muestra en lectura.
             {"section": "panel", "key": "facilities", "sequence": 30,
-             "label": "Instalaciones y piscinas",
-             "url": "/marketplace/my-facilities", "icon": "fa-map-o", "tone": "teal",
+             "label": {"camaronera": "Fincas y piscinas",
+                       "laboratorio": "Laboratorios y tanques",
+                       "semillero": "Centros y tanques",
+                       None: "Instalaciones"},
+             "url": "/marketplace/my-account#instalaciones", "icon": "fa-map-o", "tone": "teal",
+             "caps": ("manage_facilities",), "consult": True,
+             "desc": "Tus instalaciones y sus piscinas o tanques, con su área o volumen."},
+            {"section": "panel", "key": "sowing_new", "sequence": 35,
+             "label": "Registrar siembra",
+             "url": "/marketplace/sowings/new", "route": "/marketplace/sowings/new",
+             "icon": "fa-tint", "tone": "teal",
              "caps": ("manage_ponds",),
-             "desc": "Tus piscinas y la siembra de los lotes que compraste."},
+             "desc": "Siembra en una piscina un lote de larva que compraste."},
 
             # ===== Mi cuenta (derecha) =====
+            # «Mi panel» también dentro de «Mi cuenta ▾»: respaldo del
+            # website.menu «Mi panel» (si una base lo perdió, el usuario sigue
+            # teniendo cómo volver a su panel).
+            {"section": "account", "key": "dashboard", "sequence": 1,
+             "label": "Mi panel",
+             "url": "/my/dashboard", "icon": "fa-tachometer", "tone": "navy",
+             "caps": (), "panel_only": True, "surfaces": ("navbar",)},
             {"section": "account", "key": "account_data", "sequence": 10,
              "label": "Datos de la empresa",
              "url": "/marketplace/my-account", "icon": "fa-user-o", "tone": "coral",
@@ -253,6 +321,12 @@ class Website(models.Model):
              "label": "Contraseña y seguridad",
              "url": "/my/security", "icon": "fa-lock", "tone": "navy",
              "caps": (), "untyped": True},
+            # /my («panel completo»). En «Mi cuenta ▾» sustituye al enlace
+            # nativo de Odoo «Mi cuenta» (/my/home, la misma página).
+            {"section": "account", "key": "portal_home", "sequence": 90,
+             "label": "Panel completo",
+             "url": "/my", "icon": "fa-th", "tone": "navy",
+             "caps": (), "untyped": True},
         ]
         if socio and socio.uuid_ref:
             entradas.append(
@@ -260,7 +334,7 @@ class Website(models.Model):
                  "label": "Mi vitrina pública",
                  "url": "/marketplace/sellers/%s" % socio._shrimp_role_holder().uuid_ref,
                  "icon": "fa-shopping-bag", "tone": "teal",
-                 "caps": ("sell_products",)})
+                 "caps": ("sell_products",), "consult": True})
         # En el orden de la cadena: nauplio, larva, camarón.
         for i, (tipo, (texto, pestana, icono)) in enumerate(SHRIMP_NAV_BUY_FROM.items()):
             entradas.append(
@@ -271,6 +345,8 @@ class Website(models.Model):
                  # Quien emite listas de precios (empacadora) compra desde
                  # «Oferta disponible», que ya cruza el catálogo con sus precios.
                  "exclude": ("issue_price_lists",) if tipo == "camaronera" else (),
+                 "headline": {"semillero": {"laboratorio": 20},
+                              "laboratorio": {"camaronera": 10}}.get(tipo, {}),
                  "desc": "El catálogo filtrado por lo que puedes comprar."})
         return entradas
 
@@ -292,19 +368,23 @@ class Website(models.Model):
                 return False
         else:
             caps = entry.get("caps") or ()
-            if caps and not any(self._shrimp_nav_can(partner, c) for c in caps):
+            consulta = bool(entry.get("consult"))
+            if caps and not any(self._shrimp_nav_can(partner, c, consult=consulta) for c in caps):
                 return False
             if any(self._shrimp_nav_can(partner, c) for c in entry.get("exclude") or ()):
                 return False
+        if role and entry.get("panel_only") and not self.env["shrimp.dashboard"]._panel_supported(role):
+            return False
         if entry.get("route") and not self._shrimp_nav_route_exists(entry["route"]):
             return False
         return True
 
     @api.model
-    def _shrimp_nav_tree(self, partner=None):
+    def _shrimp_nav_tree(self, partner=None, surface="navbar"):
         """{"role": rol activo, "sections": {sección: {"key", "label",
         "items": [entradas resueltas]}}} para `partner` (por defecto, el
-        usuario de la petición). Solo las secciones con entradas.
+        usuario de la petición). Solo las secciones con entradas, y solo las
+        entradas de `surface` ("navbar" o "dashboard").
 
         Se calcula una vez por petición (la barra de escritorio, la del
         móvil y /my la piden varias veces)."""
@@ -314,7 +394,7 @@ class Website(models.Model):
             return {"role": False, "sections": {}}
         partner = partner.sudo()
         role = partner._shrimp_effective_type() or False
-        clave_cache = (partner.id, role, self.id or 0)
+        clave_cache = (partner.id, role, self.id or 0, surface)
         cache = None
         if request:
             cache = getattr(request, "_shrimp_nav_cache", None)
@@ -333,6 +413,8 @@ class Website(models.Model):
         entradas = sorted(self._shrimp_nav_entries(partner),
                           key=lambda e: (e.get("sequence", 50), e.get("key", "")))
         for entrada in entradas:
+            if surface not in (entrada.get("surfaces") or SHRIMP_NAV_SURFACES):
+                continue
             if not self._shrimp_nav_entry_visible(partner, entrada, role):
                 continue
             # Sin duplicados: la misma URL una sola vez en toda la barra.
@@ -376,3 +458,34 @@ class Website(models.Model):
             for item in arbol["sections"].get(seccion, {}).get("items", []):
                 res.append((seccion, item["key"], item["label"], item["url"]))
         return res
+
+    @api.model
+    def _shrimp_nav_actions(self, partner=None, surface="dashboard"):
+        """Lista plana de entradas resueltas para `surface`, en el orden de
+        los grupos de Mi panel (Vender · Comprar · Servicios · Más
+        herramientas · Mi cuenta). Es lo que pinta «Accesos» en
+        /my/dashboard: misma tabla, mismas capacidades y mismos textos que
+        la barra."""
+        arbol = self._shrimp_nav_tree(partner, surface=surface)
+        res = []
+        for seccion in SHRIMP_NAV_DASHBOARD_ORDER:
+            sec = arbol["sections"].get(seccion)
+            for item in (sec or {}).get("items", []):
+                res.append(dict(item, section=seccion, section_label=sec["label"]))
+        return res
+
+    @api.model
+    def _shrimp_nav_headline(self, partner=None):
+        """Botones de la cabecera de Mi panel para el perfil activo: las
+        entradas con `headline` para ese rol, en su orden (el primero es el
+        principal)."""
+        arbol = self._shrimp_nav_tree(partner, surface="dashboard")
+        role = arbol["role"]
+        res = []
+        for sec in arbol["sections"].values():
+            for item in sec["items"]:
+                orden = (item.get("headline") or {}).get(role)
+                if orden is not None:
+                    res.append((orden, item))
+        res.sort(key=lambda x: x[0])
+        return [dict(item, primary=(i == 0)) for i, (_o, item) in enumerate(res)]

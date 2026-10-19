@@ -116,18 +116,21 @@ class TestAguajeLista(TransactionCase):
 
     def test_historica_sigue_valiendo(self):
         # Cargada como historia (superusuario, como la demo y las migraciones).
+        # D-15: una lista que ya pasó por publicación (archivada) no se edita;
+        # un borrador histórico sí, sin que se le revalide el aguaje.
         vieja = self.env["shrimp.price.list"].create(self._vals(
-            aguaje_id=self.pasado.id, dispatch_from=datetime.date(2001, 1, 2),
-            state="archived"))
+            aguaje_id=self.pasado.id, dispatch_from=datetime.date(2001, 1, 2)))
         self.assertEqual(vieja.aguaje_id, self.pasado)
-        sin = self.env["shrimp.price.list"].create(self._vals(state="archived"))
+        sin = self.env["shrimp.price.list"].create(self._vals())
+        archivada = self.env["shrimp.price.list"].create(self._vals(state="archived"))
         # La empacadora la sigue pudiendo tocar sin cambiarle el aguaje...
         vieja_p = vieja.with_user(self.u_emp).sudo()
         vieja_p.write({"name": "Vieja renombrada", "aguaje_id": self.pasado.id})
         sin.with_user(self.u_emp).sudo().write({"name": "Sin aguaje renombrada"})
         self.assertEqual(vieja.name, "Vieja renombrada")
-        # ...pero no volver a publicarla para un aguaje que ya pasó.
-        vieja_p.action_back_to_draft()
+        with self.assertRaisesRegex(ValidationError, "Duplicar y corregir"):
+            archivada.with_user(self.u_emp).sudo().write({"name": "No"})
+        # ...pero no publicarla para un aguaje que ya pasó.
         with self.assertRaisesRegex(ValidationError, "ya pasó"):
             vieja_p.action_publish()
 

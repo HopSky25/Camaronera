@@ -1,0 +1,158 @@
+/* ==========================================================================
+   CamaronMarket — Página de compra (plantilla buy_product)
+   Rediseño 2026-10 en el lenguaje de la ficha del producto (.pd-) y del
+   formulario de publicación (.pf-): pasos en tarjetas .pf-sec a la
+   izquierda, resumen del pedido fijo (sticky) a la derecha. En móvil, una
+   columna y barra inferior con el total y «Confirmar».
+   Todo lo nuevo va bajo .bp- (buy page). También restiliza, SOLO dentro de
+   .bp, el bloque de verificación que inserta shrimp_verification (.sv-).
+   ========================================================================== */
+
+.bp .pf-sec { scroll-margin-top: 90px; }
+.bp .bp-sec-off { display: none; }
+.bp-err { margin: 0 0 16px; }
+
+/* ---------- Layout ---------- */
+.bp-layout { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 0 24px; align-items: start; }
+.bp-main { min-width: 0; }
+.bp-aside { position: sticky; top: calc(var(--pd-top, 0px) + 12px); min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+
+/* ---------- Paso 1: cantidad ---------- */
+.bp-qty-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.bp-qty-f .pf-igrp input { font-size: 20px; font-weight: 700; padding: 12px 14px; }
+.bp-qty-f .pf-igrp input::-webkit-outer-spin-button, .bp-qty-f .pf-igrp input::-webkit-inner-spin-button { opacity: .5; }
+.bp-qty-f.pf-err .pf-igrp { border-color: var(--shrimp-danger); box-shadow: 0 0 0 3px rgba(192, 57, 43, .10); }
+.bp-qty-f .pf-emsg.d-none { display: none !important; }
+.bp-link { border: 0; background: none; padding: 0; margin-left: 6px; color: var(--shrimp-teal); font-weight: 700; font-size: 12px; text-decoration: underline; cursor: pointer; }
+.bp-link:hover { color: var(--shrimp-brand); }
+.bp-kv { list-style: none; margin: 0; padding: 4px 14px; border-radius: 12px; background: var(--shrimp-bg); border: 1px solid var(--shrimp-border); }
+.bp-kv li { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 10px; padding: 9px 0; border-bottom: 1px solid var(--shrimp-border); font-size: 13px; color: var(--shrimp-ink-soft); }
+.bp-kv li:last-child { border-bottom: 0; }
+.bp-kv b { font-size: 17px; font-weight: 800; color: var(--shrimp-ink); letter-spacing: -.01em; }
+.bp-own { flex-basis: 100%; display: flex; justify-content: flex-end; align-items: center; gap: 6px; font-size: 12px; color: var(--shrimp-ink-faint); }
+.bp-bar { height: 6px; border-radius: 4px; background: var(--shrimp-bg-alt); margin-top: 16px; overflow: hidden; }
+.bp-bar span { display: block; height: 100%; width: 0; background: var(--shrimp-teal); border-radius: 4px; transition: width .2s ease; }
+.bp-bar.is-over span { background: var(--shrimp-danger); }
+.bp .sv-msg { margin-top: 12px; }
+
+/* ---------- Paso 3: verificación ---------- */
+.bp .bp-verif-b > form#checkForm { margin: 0; }
+.bp .bp-real-cta { display: flex; gap: 8px; margin-top: 12px; }
+.bp.bp-js .bp-real-cta, .bp.bp-js #btn_verify { display: none !important; }
+.bp-direct { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--shrimp-border); border-radius: 12px; background: var(--shrimp-bg); }
+.bp-direct b { display: block; font-size: 14px; color: var(--shrimp-ink); }
+.bp-direct span { font-size: 12.5px; color: var(--shrimp-ink-soft); }
+.bp-direct-ico { width: 32px; height: 32px; min-width: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--shrimp-brand-soft); color: var(--shrimp-brand); }
+/* Con el bloque de verificación presente, la tarjeta «compra directa» ya
+   está entre las opciones: no se repite. */
+.bp .sv-buybox ~ #buyForm .bp-direct { display: none; }
+
+.bp .sv-buybox { border: 0; background: none; padding: 0; margin: 0 0 4px; box-shadow: none; }
+.bp .sv-buybox-head { color: var(--shrimp-ink); font-weight: 800; font-size: 14px; }
+.bp .sv-buybox > form > label.fw-bold { display: block; font-size: 13px; color: var(--shrimp-ink); margin-bottom: 8px !important; }
+.bp .sv-modes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.bp .sv-modes--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.bp .sv-mode { display: flex; flex-direction: column; gap: 6px; padding: 14px 14px 12px; border: 1px solid var(--shrimp-border); border-radius: 12px; background: #fff; cursor: pointer; margin: 0; position: relative; min-width: 0; transition: border-color .15s, box-shadow .15s; }
+.bp .sv-mode:hover { border-color: var(--shrimp-border-strong); }
+.bp .sv-mode .sv-mode-radio { position: absolute; top: 14px; right: 14px; width: 18px; height: 18px; accent-color: var(--shrimp-teal); }
+.bp .sv-mode-title { font-weight: 800; font-size: 14px; color: var(--shrimp-ink); padding-right: 26px; line-height: 1.3; }
+.bp .sv-mode-title .fa { color: var(--shrimp-teal); }
+.bp .sv-mode-txt { font-size: 12.5px; color: var(--shrimp-ink-soft); line-height: 1.45; }
+.bp .sv-mode-cost { margin-top: auto; padding-top: 8px; border-top: 1px dashed var(--shrimp-border); font-size: 12px; font-weight: 700; color: var(--shrimp-brand); line-height: 1.4; }
+.bp .sv-mode.is-selected, .bp .sv-mode:has(input:checked) { border-color: var(--shrimp-teal); box-shadow: 0 0 0 3px rgba(14, 142, 160, .12); background: #fbfefe; }
+.bp .sv-mode:has(input:disabled) { opacity: .55; cursor: not-allowed; }
+.bp .sv-plazo { background: var(--shrimp-bg); border-radius: 10px; padding: 9px 12px; }
+.bp .sv-declared-box { border: 1px solid var(--shrimp-border); border-radius: 12px; padding: 12px 14px; background: var(--shrimp-bg); }
+.bp .sv-verifiers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.bp .sv-verifiers > .sv-info-modal, .bp .sv-verifiers > script { display: none; }
+.bp .sv-verifiers > .sv-info-modal.open { display: flex; }
+.bp .sv-verifiers > .sv-empty { grid-column: 1 / -1; }
+.bp .sv-verifier { border-radius: 12px; margin: 0; }
+.bp .sv-verifier-search input.form-control { padding-left: 36px; border-radius: 12px; min-height: 42px; }
+
+/* Modales de desglose (chequeo legado y verificación) */
+.buy-modal { position: fixed; inset: 0; background: rgba(13, 27, 38, .55); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px; }
+.buy-modal.open { display: flex; }
+.buy-modal-card { background: #fff; border-radius: 16px; max-width: 460px; width: 100%; padding: 22px 24px; box-shadow: var(--shrimp-shadow-hover); max-height: calc(100vh - 40px); overflow: auto; }
+.buy-modal-card .mp-sec-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.buy-modal-card .mp-sec-title { margin: 0; font-size: 17px; font-weight: 800; }
+.buy-modal-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--shrimp-border); font-size: 14px; color: var(--shrimp-ink); }
+.buy-modal-row.last { border-bottom: 0; }
+.buy-modal-total { font-weight: 800; font-size: 18px; color: var(--shrimp-brand); }
+
+/* ---------- Lote y reseñas ---------- */
+.bp .s-health { margin-top: 14px; }
+.bp-sub-h { display: flex; align-items: center; gap: 8px; margin: 18px 0 10px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--shrimp-ink-faint); }
+.bp-chip-link { margin-left: auto; text-decoration: none !important; gap: 4px; }
+.bp-chip-link:hover { background: var(--shrimp-brand-soft); color: var(--shrimp-brand); }
+.bp-reviews { max-height: 420px; overflow-y: auto; padding-right: 4px; }
+
+/* ---------- Resumen del pedido ---------- */
+.bp-sum { padding: 0 0 16px; }
+.bp-sum-h { padding: 14px 18px; border-bottom: 1px solid var(--shrimp-border); font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; color: var(--shrimp-ink-faint); }
+.bp-prod { display: flex; gap: 12px; align-items: center; padding: 14px 18px 4px; }
+.bp-thumb { width: 64px; height: 64px; flex: 0 0 auto; border-radius: 12px; object-fit: cover; border: 1px solid var(--shrimp-border); background: var(--shrimp-bg-alt); }
+.bp-thumb--none { display: grid; place-items: center; color: #a9b8c4; font-size: 22px; }
+.bp-prod-n { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.bp-prod-n > b { font-size: 14.5px; font-weight: 800; color: var(--shrimp-ink); line-height: 1.25; overflow-wrap: anywhere; }
+.bp-prod-n > span { font-size: 12.5px; color: var(--shrimp-ink-faint); display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.bp-prod-n a { color: var(--shrimp-brand); font-weight: 700; }
+.bp-avatar { width: 20px; height: 20px; border-radius: 6px; font-size: 9px; }
+.bp-rate .fa { color: #e0a53c; }
+.bp-lines { list-style: none; margin: 10px 18px 0; padding: 0; }
+.bp-lines li { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--shrimp-border); font-size: 13.5px; color: var(--shrimp-ink-soft); }
+.bp-lines li > b { color: var(--shrimp-ink); font-weight: 700; text-align: right; white-space: nowrap; }
+.bp-lines small { display: block; font-size: 11.5px; color: var(--shrimp-ink-faint); margin-top: 2px; line-height: 1.35; }
+.bp-strike { color: var(--shrimp-ink-faint); font-weight: 500; margin-right: 4px; font-size: 12px; }
+.bp-fee > span { min-width: 0; }
+.bp-pay { margin: 0 18px; padding: 10px 0 0; }
+.bp-pay-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; font-size: 13.5px; color: var(--shrimp-ink-soft); padding: 4px 0; }
+.bp-pay-row b { color: var(--shrimp-ink); white-space: nowrap; }
+.bp-pay-row small { display: block; font-size: 11.5px; color: var(--shrimp-ink-faint); }
+.bp-pay-now b { color: var(--shrimp-brand); font-size: 15px; }
+.bp-total { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-top: 8px; padding-top: 10px; border-top: 1px dashed var(--shrimp-border-strong); }
+.bp-total > span { font-size: 13px; font-weight: 700; color: var(--shrimp-ink); }
+.bp-total b span, .bp-lines b span { font: inherit; color: inherit; }
+.bp-total b { font-size: 26px; font-weight: 800; letter-spacing: -.02em; color: var(--shrimp-ink); }
+.bp-cta { display: flex; flex-direction: column; gap: 8px; margin: 14px 18px 0; }
+.bp-cta .s-btn { min-height: 48px; width: 100%; justify-content: center; font-size: 15px; }
+.bp-cta .s-btn-ghost { min-height: 40px; font-size: 14px; }
+.bp-cta .s-btn-primary:disabled { opacity: 1; background: var(--shrimp-bg-alt); border-color: var(--shrimp-border); color: var(--shrimp-ink-soft) !important; cursor: not-allowed; }
+.bp-cta-why { font-size: 12.5px; color: var(--shrimp-ink-faint); text-align: center; }
+.bp-cta-why.is-bad { color: var(--shrimp-danger); font-weight: 600; }
+.bp-noverif { margin: 12px 18px 0 !important; font-size: 12.5px; }
+.bp-bill { margin: 12px 18px 0; padding-top: 10px; border-top: 1px dashed var(--shrimp-border); display: flex; flex-direction: column; gap: 6px; }
+.bp-bill > div { display: flex; gap: 8px; font-size: 12px; color: var(--shrimp-ink-faint); line-height: 1.4; }
+.bp-bill .fa { width: 14px; text-align: center; margin-top: 2px; color: var(--shrimp-ink-faint); }
+.bp-bill b { color: var(--shrimp-ink-soft); }
+
+/* Barra móvil (usa .pd-mbar de la ficha) */
+.bp-mbar .pd-mbar-p b span { display: inline; font: inherit; color: inherit; }
+.bp-mbar .s-btn:disabled { opacity: 1; background: var(--shrimp-bg-alt); border-color: var(--shrimp-border); color: var(--shrimp-ink-soft) !important; }
+
+/* ========================================================================
+   Responsive
+   ======================================================================== */
+@media (max-width: 1199.98px) {
+    .bp-layout { grid-template-columns: minmax(0, 1fr) 340px; }
+    .bp .sv-modes--3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .bp .sv-modes--3 .sv-mode--direct { grid-column: 1 / -1; }
+    .bp .sv-verifiers { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 991.98px) {
+    .bp-layout { grid-template-columns: minmax(0, 1fr); }
+    .bp-aside { position: static; }
+    .bp-cta { display: none; }
+}
+@media (max-width: 640px) {
+    .bp-qty-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+    .bp .sv-modes, .bp .sv-modes--3 { grid-template-columns: minmax(0, 1fr); }
+    .bp .pf-sec-h { padding: 14px; }
+    .bp .pf-sec-b { padding: 14px; }
+    .bp-total b { font-size: 22px; }
+}
+@media print {
+    .bp-mbar, .bp-cta { display: none !important; }
+}
+/* En la variante opcional la cabecera del paso ya dice «Opcional»: no se repite. */
+.bp .sv-buybox--optional > p.sv-muted { display: none; }

@@ -134,7 +134,8 @@ def _my_list(ctx, id):
 
 
 @api_route("PUT", "/price-lists/{id}", scope="pricelists:write", tags=[TAG_PL], body=PL_SPEC,
-           summary="Reemplaza la cabecera y, si vienen, los renglones y bonificaciones",
+           summary="Reemplaza la cabecera y, si vienen, los renglones y bonificaciones "
+                   "(solo borradores: una lista publicada se corrige con :correct)",
            response=PL_SCHEMA)
 def price_list_put(ctx, id):
     lst = _my_list(ctx, id)
@@ -150,6 +151,26 @@ def price_list_put(ctx, id):
 def price_list_publish(ctx, id):
     lst = _my_list(ctx, id)
     lst.action_publish()
+    return S.price_list(lst, ctx.partner, detail=True)
+
+
+@api_route("POST", "/price-lists/{id}:correct", scope="pricelists:write", tags=[TAG_PL],
+           status=201,
+           summary="«Duplicar y corregir»: crea un borrador igual a la lista publicada; al "
+                   "publicarlo, la reemplaza (una lista publicada no se edita)",
+           response=PL_SCHEMA)
+def price_list_correct(ctx, id):
+    lst = _my_list(ctx, id)
+    accion = lst.action_duplicate_correct()
+    return S.price_list(lst.browse(accion["res_id"]), ctx.partner, detail=True)
+
+
+@api_route("POST", "/price-lists/{id}:renew", scope="pricelists:write", tags=[TAG_PL],
+           summary="Renueva una lista «hasta segunda orden» (extiende su caducidad)",
+           response=PL_SCHEMA)
+def price_list_renew(ctx, id):
+    lst = _my_list(ctx, id)
+    lst.action_renew()
     return S.price_list(lst, ctx.partner, detail=True)
 
 

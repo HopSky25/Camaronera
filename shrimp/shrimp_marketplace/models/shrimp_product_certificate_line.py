@@ -4,7 +4,7 @@ from odoo.exceptions import ValidationError
 
 class ShrimpProductCertificateLine(models.Model):
     _name = "shrimp.product.certificate.line"
-    _inherit = "shrimp.uuid.mixin"
+    _inherit = ["shrimp.uuid.mixin", "shrimp.cert.expiry.mixin"]
     _description = "Línea de certificado del producto"
     _order = "id desc"
 

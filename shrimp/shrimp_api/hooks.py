@@ -58,6 +58,9 @@ def migrate_legacy_keys(env):
             vals["active"] = False
             _logger.warning("shrimp_api: clave heredada %s de un usuario interno desactivada; "
                             "usar la API JSON-2 de Odoo", key_id)
+        # D-46: ninguna clave sin caducidad.
+        if not rec.expires_at:
+            vals["expires_at"] = Key._default_expiry()
         seen.add(prefix)
         # write en SQL de la columna de texto plano, después de guardar el hash
         rec.write(vals)

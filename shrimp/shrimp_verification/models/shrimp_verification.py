@@ -532,7 +532,7 @@ class ShrimpVerification(models.Model):
         return self.verification_mode == "declared"
 
     @api.constrains("verification_mode", "verifier_partner_id", "technician_partner_id",
-                    "fee", "state")
+                    "support_technician_ids", "fee", "state")
     def _check_mode_requirements(self):
         """Lo que exige cada modo.
 
@@ -554,7 +554,8 @@ class ShrimpVerification(models.Model):
                     raise ValidationError(_(
                         "Ese estado es de las verificaciones declaradas por las partes."))
             else:
-                if rec.verifier_partner_id or rec.technician_partner_id:
+                if rec.verifier_partner_id or rec.technician_partner_id \
+                        or rec.support_technician_ids:
                     raise ValidationError(_(
                         "Una verificación declarada por las partes no lleva verificadora "
                         "ni técnico de la plataforma: los datos de la verificadora "
@@ -632,12 +633,20 @@ class ShrimpVerification(models.Model):
     _FINAL_WRITABLE_FIELDS = frozenset({
         "acceptance_state", "acceptance_deadline", "fee_payer_partner_id",
         "margin_pct", "vendor_bill_id", "buyer_notified",
+        # Decisiones de la auditoría (19.0.1.24.0): liquidación (D-24),
+        # contraoferta (D-22), segunda opinión (D-25).
+        "payout_state", "payout_error", "payout_attempts", "payout_last_attempt",
+        "payout_due_date", "counter_outcome", "contest_state", "contest_deadline",
+        "superseded",
         "message_main_attachment_id", "activity_ids", "message_follower_ids",
     })
 
     def write(self, vals):
         user = self.env.user
-        if "fee" in vals and user.share:
+        # La única excepción: el propio servidor (sudo) recalculando el
+        # honorario con la tarifa de la nueva verificadora al reasignar (D-40).
+        if "fee" in vals and user.share and not (
+                self.env.su and self.env.context.get("shrimp_fee_from_tariff")):
             # El honorario lo fija la plataforma al crear la verificación; el
             # verificador no se lo sube por su cuenta, ni siquiera vía sudo.
             raise AccessError(_("El honorario de la verificación no se puede modificar."))
@@ -657,9 +666,17 @@ class ShrimpVerification(models.Model):
             if rec.weight_plant_lb and rec.trash_lb > rec.weight_plant_lb:
                 raise ValidationError(_("La basura no puede superar el peso recibido en planta."))
 
-    _uniq_verification_per_tx = models.Constraint(
-        "unique(transaction_id)",
+    # Una verificación VIGENTE por compra. La segunda opinión (D-25) crea
+    # otra verificación para la misma compra y deja la primera «superada»
+    # (superseded): la compra sigue viendo una sola (verification_ids filtra
+    # las superadas). Antes era un unique(transaction_id) sin excepciones.
+    _uniq_current_verification_per_tx = models.UniqueIndex(
+        "(transaction_id) WHERE superseded IS NOT TRUE",
         "Esa compra ya tiene una verificación asignada.",
+    )
+    _uniq_second_opinion = models.UniqueIndex(
+        "(second_opinion_of_id) WHERE second_opinion_of_id IS NOT NULL",
+        "Esa verificación ya tiene una segunda opinión.",
     )
 
     # ==================================================================
@@ -671,6 +688,9 @@ class ShrimpVerification(models.Model):
             if vals.get("name", _("Nuevo")) == _("Nuevo"):
                 vals["name"] = self.env["ir.sequence"].next_by_code(
                     "shrimp.verification") or _("VER-000000")
+            if vals.get("verification_mode", "platform") == "platform":
+                # D-21: la verificadora acepta o declina la orden.
+                vals.setdefault("verifier_response", "pending")
         records = super().create(vals_list)
         for rec in records:
             if rec.verification_mode == "declared":
@@ -701,7 +721,12 @@ class ShrimpVerification(models.Model):
             if rec.is_final:
                 raise UserError(_("Esta verificación ya está cerrada."))
             if technician is not None:
-                rec.technician_partner_id = technician
+                # Si el nuevo responsable estaba de apoyo, deja de estarlo (en
+                # el mismo write: nadie es responsable y apoyo a la vez).
+                vals = {"technician_partner_id": technician.id if technician else False}
+                if technician and technician in rec.support_technician_ids:
+                    vals["support_technician_ids"] = [(3, technician.id)]
+                rec.write(vals)
             if not rec.technician_partner_id:
                 raise UserError(_("Debes elegir un técnico de campo."))
             if rec.state == "received":
@@ -777,10 +802,15 @@ class ShrimpVerification(models.Model):
             return True
         return partner == self.verifier_partner_id
 
-    def _close(self, state, notes=None):
+    def _close(self, state, notes=None, rejection_kind=None):
         self.ensure_one()
         if self.state in ("approved", "approved_obs", "rejected", "cancelled"):
             raise UserError(_("Esta verificación ya está cerrada."))
+        # D-16: qué veredicto se puede emitir desde el estado actual (solo
+        # «Producto no presentado», con evidencia, se emite sin trabajo de
+        # campo). shrimp_verification_not_presented.py.
+        kind = (rejection_kind or "field") if state == "rejected" else False
+        self._shrimp_check_verdict_allowed(state, kind)
         if state in ("approved", "approved_obs"):
             missing = self._missing_report_fields()
             if missing:
@@ -817,16 +847,26 @@ class ShrimpVerification(models.Model):
         }
         if texto:
             vals["verdict_notes"] = texto
+        if kind:
+            vals["rejection_kind"] = kind
+        if self.verification_mode == "platform" and self.verifier_response != "accepted":
+            # D-21: dictaminar es haber aceptado la orden.
+            vals.update(verifier_response="accepted",
+                        verifier_response_date=fields.Datetime.now())
         self.write(vals)
-        # Al verificador se le liquida con el veredicto emitido, aprobado o
-        # rechazado: retribuye la inspección, no su resultado.
-        if state in ("approved", "approved_obs", "rejected"):
-            self._create_verifier_bill()
+        # D-24: a la verificadora ya NO se le liquida con el veredicto: se le
+        # liquida cuando se cierra la ronda de aceptación (aceptada o trato
+        # caído) o, en un rechazo, cuando el rechazo queda firme
+        # (shrimp_verification_payout.py). Retribuye la inspección, no su
+        # resultado: se le paga igual si aprueba o si rechaza.
         if state == "rejected":
-            # Nadie tiene que aceptar nada: el informe ya tumbó la compra y el
-            # honorario lo carga el vendedor, cuyo producto no pasó.
+            # El honorario lo carga el vendedor, cuyo producto no pasó. Si el
+            # rechazo admite segunda opinión (D-25), la compra queda
+            # retenida durante el plazo de impugnación y el cobro se
+            # reasigna recién cuando el rechazo queda firme
+            # (shrimp_verification_second_opinion.py).
             self.fee_payer_partner_id = self.seller_partner_id.id
-            self._create_payer_invoice()
+            self._shrimp_after_reject()
         self._notify_buyer_verdict()
         if state in ("approved", "approved_obs"):
             # El veredicto favorable no cierra la compra: la pone a la firma de
@@ -843,9 +883,10 @@ class ShrimpVerification(models.Model):
 
     def action_reject(self):
         for rec in self:
-            rec._close("rejected")
-            # Al rechazar, la compra se cancela y se libera la reserva de stock.
-            rec.transaction_id.action_cancel_for_verification()
+            # La compra se cancela (y se libera la reserva) cuando el rechazo
+            # queda firme: en el acto si no admite segunda opinión, o al vencer
+            # el plazo de impugnación (D-25, _shrimp_after_reject).
+            rec._close("rejected", rejection_kind=rec.rejection_kind or "field")
 
     # ==================================================================
     # VERIFICACIÓN DECLARADA POR LAS PARTES
@@ -890,6 +931,7 @@ class ShrimpVerification(models.Model):
         self._check_declared_editable(actor)
         prohibidos = set(vals) & {
             "state", "verification_mode", "verifier_partner_id", "technician_partner_id",
+            "support_technician_ids",
             "fee", "transaction_id", "declarant_partner_id", "declarant_role",
             "declared_submitted_date", "acceptance_state", "acceptance_deadline",
             "fee_payer_partner_id", "verified_date"}
@@ -1112,7 +1154,8 @@ class ShrimpVerification(models.Model):
                         "partner_id": partner.id,
                     })
             rec.acceptance_state = "waiting"
-            if rec.verification_mode == "platform":
+            if rec.verification_mode == "platform" and not rec.second_opinion_of_id:
+                # La segunda opinión (D-25) la paga siempre quien la pidió.
                 rec.fee_payer_partner_id = rec.buyer_partner_id.id
             rec._abrir_plazo()
             rec.transaction_id.action_await_acceptance()
@@ -1185,7 +1228,8 @@ class ShrimpVerification(models.Model):
         # El honorario lo paga el comprador: contrató la verificación y el
         # trato salió adelante. (La declarada no tiene honorario; la comisión
         # de la venta sí se cobra, en action_confirm, como en toda compra.)
-        if self.verification_mode == "platform":
+        # La segunda opinión (D-25) la paga siempre quien la pidió.
+        if self.verification_mode == "platform" and not self.second_opinion_of_id:
             self.fee_payer_partner_id = self.buyer_partner_id.id
         self._create_payer_invoice()
         self.transaction_id.action_complete_after_verification()
@@ -1196,20 +1240,7 @@ class ShrimpVerification(models.Model):
         verificación, y la regla es una sola: la carga el que se salió del
         trato sin un motivo medible en el informe."""
         self.ensure_one()
-        cumple, motivos = self.cumple_lo_publicado()
-        if cumple:
-            # El producto era lo prometido: paga el que se echó atrás.
-            culpable = rechazo.partner_id
-            explicacion = _(
-                "El informe confirmó lo publicado, así que la verificación la "
-                "paga quien se retiró del trato.")
-        else:
-            # El producto no era lo prometido: paga el vendedor, haya rechazado
-            # él o se haya retirado el comprador con razón.
-            culpable = self.seller_partner_id
-            explicacion = _(
-                "El producto no cumplió lo publicado (%s), así que la "
-                "verificación la paga el vendedor.") % "; ".join(motivos)
+        culpable, explicacion = self._shrimp_broken_culprit(rechazo)
 
         self.acceptance_state = "broken"
         if self.verification_mode == "declared":
@@ -1221,6 +1252,11 @@ class ShrimpVerification(models.Model):
             self.transaction_id.action_cancel_for_verification()
             self._notify_acceptance("broken")
             return
+        if self.second_opinion_of_id:
+            # Segunda opinión (D-25): su honorario lo paga quien la pidió; la
+            # regla de culpa se aplica al honorario de la primera.
+            culpable = self.fee_payer_partner_id or self.seller_partner_id
+            explicacion = _("La segunda opinión la paga quien la pidió.")
         self.fee_payer_partner_id = culpable.id
         self.sudo()._message_log(body=_(
             "Trato caído: lo rechazó %(quien)s. %(explicacion)s Se factura a "
@@ -1233,6 +1269,23 @@ class ShrimpVerification(models.Model):
         self._create_payer_invoice()
         self.transaction_id.action_cancel_for_verification()
         self._notify_acceptance("broken")
+
+    def _shrimp_broken_culprit(self, rechazo):
+        """(quién paga, explicación) cuando el trato se cae: el que se salió
+        sin un motivo medible en el informe; si el producto no cumplió lo
+        publicado, el vendedor."""
+        self.ensure_one()
+        cumple, motivos = self.cumple_lo_publicado()
+        if cumple:
+            # El producto era lo prometido: paga el que se echó atrás.
+            return rechazo.partner_id, _(
+                "El informe confirmó lo publicado, así que la verificación la "
+                "paga quien se retiró del trato.")
+        # El producto no era lo prometido: paga el vendedor, haya rechazado
+        # él o se haya retirado el comprador con razón.
+        return self.seller_partner_id, _(
+            "El producto no cumplió lo publicado (%s), así que la "
+            "verificación la paga el vendedor.") % "; ".join(motivos)
 
     @api.model
     def _cron_vencer_plazos(self):
@@ -1248,13 +1301,33 @@ class ShrimpVerification(models.Model):
             ("acceptance_deadline", "<=", fields.Datetime.now()),
         ])
         for rec in vencidas:
-            pendientes = rec.acceptance_ids.filtered(lambda a: a.decision == "pending")
-            if not pendientes:
-                continue
-            pendientes.action_accept(
-                reason=_("Aceptada automáticamente: venció el plazo sin respuesta."),
-                auto=True)
+            # Cada compra en su savepoint: un error en una (p. ej. al confirmar)
+            # no revierte el lote entero ni se repite cada hora para todas.
+            try:
+                with self.env.cr.savepoint():
+                    rec._shrimp_acceptance_expired()
+            except Exception as e:  # noqa: BLE001
+                _logger.exception("Plazo de aceptación de %s", rec.name)
+                try:
+                    rec._message_log(body=_(
+                        "No se pudo resolver el vencimiento del plazo de aceptación: %s") % e)
+                except Exception:  # noqa: BLE001
+                    pass
         return True
+
+    def _shrimp_acceptance_expired(self):
+        """Venció el plazo de la ronda: las posturas pendientes se dan por
+        aceptadas. Excepciones de la contraoferta (D-22,
+        shrimp_verification_counter.py): el silencio del vendedor ante la
+        contraoferta es RECHAZO de la contraoferta, y el silencio del
+        comprador cuando le toca elegir es cancelar sin costo."""
+        self.ensure_one()
+        pendientes = self.acceptance_ids.filtered(lambda a: a.decision == "pending")
+        if not pendientes:
+            return
+        pendientes.action_accept(
+            reason=_("Aceptada automáticamente: venció el plazo sin respuesta."),
+            auto=True)
 
     def _texto_plazo(self):
         self.ensure_one()
@@ -1406,7 +1479,7 @@ class ShrimpVerification(models.Model):
         una acción con plazo, esconderla dentro de una fila de la tabla haría
         que se venciera sin que nadie la viera.
         """
-        partner = partner or self.env.user.partner_id
+        partner = partner or self.env.user.shrimp_actor_partner_id
         if not partner:
             return self.browse()
         return self.sudo().search([
@@ -1486,16 +1559,20 @@ class ShrimpVerification(models.Model):
         for rec in self:
             rec.charge_ids.filtered(lambda c: c.state in ("pending", "error", "to_credit")) \
                 .action_retry_invoice()
-        self.filtered(lambda r: r.state in ("approved", "approved_obs", "rejected"))._create_verifier_bill()
+        # Solo las liquidaciones ya debidas (D-24: ronda cerrada o rechazo firme).
+        self.filtered(lambda r: r.payout_state in ("pending", "error"))._create_verifier_bill()
 
     def _create_verifier_bill(self):
         """Liquidación a la EMPRESA VERIFICADORA por su parte del honorario.
 
-        Se emite al cerrar el veredicto, sea aprobado o rechazado: el honorario
-        retribuye la inspección hecha, no su resultado. Pagarle solo cuando
-        aprueba le daría al verificador un incentivo a aprobar. Pasa por el
-        único creador de facturas de proveedor (shrimp.charge._create_vendor_bill),
-        que la deja en borrador cuando el diario exige documentos del SRI.
+        D-24: se emite cuando se cierra la ronda de aceptación (aceptada o
+        trato caído) o, en un rechazo, cuando el rechazo queda firme; nunca
+        con el veredicto. Retribuye la inspección hecha, no su resultado.
+        Pasa por el único creador de facturas de proveedor
+        (shrimp.charge._create_vendor_bill), que la deja en borrador cuando
+        el diario exige documentos del SRI. El estado queda en payout_state
+        (por liquidar / liquidada / error) y el cron la reintenta
+        (shrimp_verification_payout.py).
         """
         Charge = self.env["shrimp.charge"].sudo()
         for rec in self:
@@ -1504,6 +1581,7 @@ class ShrimpVerification(models.Model):
             rec._congelar_margen()
             if (rec.verifier_amount or 0.0) <= 0:
                 continue
+            ahora = fields.Datetime.now()
             try:
                 with self.env.cr.savepoint():
                     gasto = Charge._create_vendor_bill(
@@ -1513,10 +1591,16 @@ class ShrimpVerification(models.Model):
                         _("Honorario de verificación %s") % (rec.name or ""))
             except Exception as e:  # noqa: BLE001
                 _logger.exception("Verificación %s: fallo al liquidar al verificador", rec.name)
-                rec.message_post(body=_(
+                intentos = (rec.payout_attempts or 0) + 1
+                rec.sudo().write({"payout_state": "error", "payout_error": str(e)[:2000],
+                                  "payout_attempts": intentos, "payout_last_attempt": ahora})
+                rec.sudo()._message_log(body=_(
                     "No se pudo registrar la liquidación al verificador: %s") % e)
+                rec._shrimp_payout_failed(intentos, e)
                 continue
-            rec.sudo().write({"vendor_bill_id": gasto.id})
+            rec.sudo().write({"vendor_bill_id": gasto.id, "payout_state": "billed",
+                              "payout_error": False, "payout_last_attempt": ahora,
+                              "payout_attempts": (rec.payout_attempts or 0) + 1})
 
     def _create_payer_invoice(self):
         """Deja el honorario facturado a quien corresponda pagarlo.
@@ -1592,7 +1676,7 @@ class ShrimpVerification(models.Model):
         "assigned":     ("buyer", "seller"),
         "in_field":     ("buyer", "seller", "verifier"),
         "done":         ("buyer", "seller", "verifier"),
-        "cancelled":    ("buyer", "seller", "verifier", "technician"),
+        "cancelled":    ("buyer", "seller", "verifier", "technician", "support"),
         # Declarada: las dos partes se enteran de que el informe lo cargan ellas.
         "declared_draft": ("buyer", "seller"),
     }
@@ -1619,11 +1703,17 @@ class ShrimpVerification(models.Model):
             mapa["seller"] = (self.seller_partner_id, ruta_decl)
         salida, vistos = [], set()
         for rol in roles:
-            partner, ruta = mapa.get(rol, (None, ""))
-            if not partner or not partner.email or partner.id in vistos:
-                continue
-            vistos.add(partner.id)
-            salida.append((partner, base + ruta))
+            if rol == "support":
+                # Técnicos de apoyo: uno por uno, a la misma orden.
+                pares = [(p, "/verifier/verifications/%s" % self.uuid_ref)
+                         for p in self.support_technician_ids]
+            else:
+                pares = [mapa.get(rol, (None, ""))]
+            for partner, ruta in pares:
+                if not partner or not partner.email or partner.id in vistos:
+                    continue
+                vistos.add(partner.id)
+                salida.append((partner, base + ruta))
         return salida
 
     def _notify_stage(self):

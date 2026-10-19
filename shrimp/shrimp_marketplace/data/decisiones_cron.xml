@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Caducidad de las publicaciones (D-31): aviso previo al vendedor y, al
+       vencer, la publicación pasa a borrador. Cada aviso queda marcado en el
+       producto (expiry_notice_for): correr cada hora no repite ninguno. -->
+  <record id="ir_cron_shrimp_publication_expiry" model="ir.cron">
+    <field name="name">Camaronera: caducidad de publicaciones</field>
+    <field name="model_id" ref="model_shrimp_product"/>
+    <field name="state">code</field>
+    <field name="code">model._cron_publication_expiry()</field>
+    <field name="user_id" ref="base.user_root"/>
+    <field name="interval_number">1</field>
+    <field name="interval_type">hours</field>
+    <field name="active" eval="True"/>
+  </record>
+
+  <!-- Vencimiento de certificados del socio y del producto (D-13): refresca
+       «Vencido / Por vencer» y avisa a la cuenta y a la plataforma 30 días
+       antes y al vencer. -->
+  <record id="ir_cron_shrimp_certificate_expiry" model="ir.cron">
+    <field name="name">Camaronera: vencimiento de certificados</field>
+    <field name="model_id" ref="model_shrimp_product_certificate_line"/>
+    <field name="state">code</field>
+    <field name="code">model._cron_certificate_expiry()</field>
+    <field name="user_id" ref="base.user_root"/>
+    <field name="interval_number">1</field>
+    <field name="interval_type">days</field>
+    <field name="active" eval="True"/>
+  </record>
+</odoo>

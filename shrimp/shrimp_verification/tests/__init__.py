@@ -7,3 +7,13 @@ from . import test_trazabilidad_planta
 from . import test_verificacion_declarada
 from . import test_ajustes_verificacion
 from . import test_filter_drawer_verificacion
+from . import test_cuenta_bancaria_rollback
+from . import test_matriz_verificacion
+from . import test_registro_verificadora
+from . import test_menus_verificador
+from . import test_recepcion_matriz
+from . import test_backlog_honorario
+from . import test_cierre_y_plazos
+from . import test_equipo_campo
+from . import test_tarifa_verificadora
+from . import test_decisiones_verificacion

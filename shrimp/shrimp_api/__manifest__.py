@@ -1,6 +1,6 @@
 {
     "name": "Camaronera — API externa (v1)",
-    "version": "19.0.1.3.0",
+    "version": "19.0.1.14.0",
     "summary": "API REST/JSON versionada (/api/v1) con claves con hash, scopes, "
                "webhooks firmados, trazabilidad pública por token y OpenAPI 3.1",
     "description": """
@@ -8,7 +8,7 @@ API externa del marketplace de camarón
 ======================================
 
 Dueña de todo lo que cuelga de ``/api/v1``. Sustituye a la API que vivía en
-``shrimp_marketplace/controllers/api.py`` manteniendo las rutas de productos,
+``shrimp_marketplace/controllers/api.py`` (eliminada, D-32) manteniendo las rutas de productos,
 instalaciones y piscinas.
 
 * Claves ``trz_<prefijo>_<secreto>``: solo se guarda el prefijo y un hash
@@ -32,12 +32,15 @@ La guía para integradores está en README.md.
         "security/shrimp_api_security.xml",
         "data/api_scope_data.xml",
         "data/ir_cron.xml",
+        "data/mail_template_data.xml",
         "views/api_key_views.xml",
         "views/webhook_views.xml",
         "views/transaction_views.xml",
         "views/menus.xml",
         "views/portal_templates.xml",
         "views/traceability_public_templates.xml",
+        # D-29: sello «Compra cancelada» y Retirar / Renovar en la compra.
+        "views/trace_public_portal_templates.xml",
         # Pasos internos entre perfiles de la misma empresa (por herencia).
         "views/profile_transfer_public_templates.xml",
     ],

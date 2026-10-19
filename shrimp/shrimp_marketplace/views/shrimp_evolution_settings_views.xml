@@ -1,0 +1,35 @@
+<odoo>
+    <!-- Ajustes › CamaronMarket › «Estado real del lote» (observaciones del
+         vendedor). Bloque propio, después de «Marketplace». -->
+    <record id="res_config_settings_view_form_shrimp_evolution" model="ir.ui.view">
+        <field name="name">res.config.settings.form.shrimp.evolution</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="shrimp_marketplace.res_config_settings_view_form_shrimp"/>
+        <field name="arch" type="xml">
+            <xpath expr="//block[@name='shrimp_marketplace_block']" position="after">
+                <block title="Estado real del lote" name="shrimp_evolution_block">
+                    <setting string="Divergencia de talla"
+                             help="Cuando la observación del vendedor tiene otra etapa que la publicada, o una talla que se aparta más de este porcentaje, se avisa al vendedor (sugiriendo actualizar la publicación, nunca se cambia sola) y a los compradores con compras o reservas en curso. 0 = solo se compara la etapa.">
+                        <div class="content-group">
+                            <div class="row mt16">
+                                <label for="shrimp_evo_size_threshold" class="col-lg-6 o_light_label"/>
+                                <field name="shrimp_evo_size_threshold"/>
+                                <span class="text-muted">% de diferencia</span>
+                            </div>
+                        </div>
+                    </setting>
+                    <setting string="Plazo para corregir una observación"
+                             help="Horas, desde que se registra, en que el vendedor puede corregir o borrar su observación. Después queda fija como evidencia para los compradores.">
+                        <div class="content-group">
+                            <div class="row mt16">
+                                <label for="shrimp_evo_edit_hours" class="col-lg-6 o_light_label"/>
+                                <field name="shrimp_evo_edit_hours"/>
+                                <span class="text-muted">horas</span>
+                            </div>
+                        </div>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+</odoo>

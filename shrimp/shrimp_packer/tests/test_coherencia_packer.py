@@ -59,11 +59,12 @@ class TestCoherenciaPacker(TransactionCase):
             self.adulto.sudo().execute_purchase_flow(self.emp, 10.0)
 
     def test_adulto_no_se_compra_por_solicitud_de_chequeo(self):
-        cr = self.env["shrimp.check.request"].create({
-            "product_id": self.adulto.id, "seller_partner_id": self.s["cam"].id,
-            "buyer_partner_id": self.emp.id, "qty": 10.0})
-        with self.assertRaises(ValidationError):
-            cr.action_approve()
+        # D-28: la solicitud de chequeo ya no existe como camino de compra.
+        from odoo.exceptions import UserError
+        with self.assertRaises(UserError):
+            self.env["shrimp.check.request"].create({
+                "product_id": self.adulto.id, "seller_partner_id": self.s["cam"].id,
+                "buyer_partner_id": self.emp.id, "qty": 10.0})
 
     def test_adulto_con_verificacion(self):
         res = self.adulto.start_verified_purchase(self.emp, 10.0, self.verif, fee=20.0)

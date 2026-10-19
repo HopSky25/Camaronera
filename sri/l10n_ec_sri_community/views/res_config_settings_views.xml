@@ -8,7 +8,7 @@
             <xpath expr="//form" position="inside">
                 <app data-string="Ecuador SRI" string="Ecuador SRI" name="l10n_ec_sri_community"
                      logo="/l10n_ec_sri_community/static/description/icon.png"
-                     groups="account.group_account_manager">
+                     groups="l10n_ec_sri_community.group_sri_manager">
                     <block title="Facturación electrónica SRI" name="sri_general">
                         <setting string="Compañía" help="La configuración y el certificado de firma son POR compañía. Elige cuál estás configurando.">
                             <field name="company_id" options="{'no_create': True}"/>
@@ -59,11 +59,17 @@
                             <field name="ec_sri_provider_ruc"/>
                         </setting>
                     </block>
-                    <block title="Certificado de firma" name="sri_certificate" invisible="not ec_sri_enabled"
+                    <block title="Certificado de firma (.p12)" name="sri_certificate" invisible="not ec_sri_enabled"
                            groups="base.group_system">
-                        <setting string="Prefijo de variables del certificado"
-                                 help="Ej. EC_SRI_EMPRESA1. El servidor debe definir EC_SRI_EMPRESA1_P12_PATH y EC_SRI_EMPRESA1_P12_PASSWORD.">
-                            <field name="ec_sri_secret_name"/>
+                        <setting string="Subir certificado"
+                                 help="Se cifra con la llave EC_SRI_MASTER_KEY del servidor y se guarda solo cifrado. El .p12 y su contraseña nunca se almacenan en claro.">
+                            <field name="ec_sri_cert_file" filename="ec_sri_cert_filename"/>
+                            <field name="ec_sri_cert_filename" invisible="1"/>
+                            <field name="ec_sri_cert_password" password="True" placeholder="Contraseña del .p12"/>
+                        </setting>
+                        <setting string="Certificado cargado" help="Datos del certificado actualmente cifrado en la base.">
+                            <field name="ec_sri_cert_subject" readonly="1"/>
+                            <field name="ec_sri_cert_expiry" readonly="1"/>
                         </setting>
                     </block>
                 </app>

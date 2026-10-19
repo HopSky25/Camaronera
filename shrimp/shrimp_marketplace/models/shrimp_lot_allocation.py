@@ -57,7 +57,7 @@ class ShrimpLotAllocation(models.Model):
     state = fields.Selection([
         ("draft", "Borrador"),
         ("allocated", "Asignado"),
-        ("released", "Liberado"),
+        ("released", "Cerrada (cosechada)"),
         ("cancelled", "Cancelado"),
     ], string="Estado", default="allocated", required=True, index=True)
 
@@ -214,13 +214,51 @@ class ShrimpLotAllocation(models.Model):
         """None si el dueño puede editar o cancelar la siembra desde el portal;
         si no, el motivo (texto para el usuario)."""
         self.ensure_one()
-        if self.state != "allocated":
-            return _("Solo se modifica una siembra vigente.")
+        # La cosecha primero: al registrarla, la siembra se cierra (D-49) y el
+        # motivo útil para el usuario es ese, no «no está vigente».
         if self._shrimp_harvests():
             return _("Esta siembra ya es el origen de una cosecha publicada: "
                      "modificarla rompería su trazabilidad.")
+        if self.state != "allocated":
+            return _("Solo se modifica una siembra vigente.")
         return None
 
     def display_qty(self):
         self.ensure_one()
         return self.env["shrimp.transaction"].shrimp_fmt_qty(self.allocated_qty, self.stock_lot_id.uom_id)
+
+    # ------------------------------------------------------------------
+    # Origen de un producto: qué se sembró de verdad en la piscina/tanque
+    # ------------------------------------------------------------------
+    def _shrimp_seeded_product(self):
+        """Producto que se SEMBRÓ: el que se compró (movimiento de origen del
+        lote) o, si el lote no viene de una compra, el propio del lote.
+
+        El laboratorio recibe el nauplio como lote de SU producto republicado
+        (que luego avanza a zoea/PL): el nombre del lote ya dice «Postlarva…»,
+        pero el insumo real es el nauplio del naupliero."""
+        self.ensure_one()
+        lot = self.stock_lot_id.sudo()
+        return lot.origin_move_id.product_id or lot.product_id
+
+    def _shrimp_is_upstream_input(self):
+        """True si lo sembrado es un insumo comprado a otro, no stock propio
+        que el dueño solo ubicó en su tanque."""
+        self.ensure_one()
+        prod = self._shrimp_seeded_product()
+        return bool(prod) and prod.seller_partner_id != self.partner_id
+
+    def _shrimp_seeded_tipo(self):
+        """'nauplio', 'larva' o 'camaron' de lo sembrado ('' si no se sabe)."""
+        self.ensure_one()
+        prod = self._shrimp_seeded_product()
+        return prod._shrimp_tipo() if prod else ""
+
+    def _shrimp_seeded_label(self):
+        """«Nauplio SPR · de Nauplios del Pacífico Sur» para el formulario."""
+        self.ensure_one()
+        prod = self._shrimp_seeded_product()
+        if not prod:
+            return ""
+        vendedor = prod.seller_partner_id.name
+        return "%s · %s" % (prod.name, _("de %s") % vendedor) if vendedor else prod.name

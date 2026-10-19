@@ -40,11 +40,11 @@
       <field name="perm_create" eval="False"/>
       <field name="perm_unlink" eval="False"/>
       <field name="domain_force">['|',
-          ('farmer_partner_id','=',user.partner_id.id),
+          ('farmer_partner_id','=',user.shrimp_actor_partner_id.id),
           '&amp;',
           ('state','!=','draft'),
           ('recipient_ids','in',
-              [user.partner_id.id] + ([user.partner_id.parent_id.id] if user.partner_id.parent_id else []))]</field>
+              [user.shrimp_actor_partner_id.id] + ([user.partner_id.parent_id.id] if user.partner_id.parent_id else []))]</field>
     </record>
 
     <!-- === EL COMPROMISO ===
@@ -61,8 +61,8 @@
       <field name="perm_create" eval="False"/>
       <field name="perm_unlink" eval="False"/>
       <field name="domain_force">['|',
-          ('farmer_partner_id','=',user.partner_id.id),
-          ('packer_partner_id','=',user.partner_id.id)]</field>
+          ('farmer_partner_id','=',user.shrimp_actor_partner_id.id),
+          ('packer_partner_id','=',user.shrimp_actor_partner_id.id)]</field>
     </record>
 
     <!-- === LA CONFIRMACIÓN ===
@@ -77,8 +77,8 @@
       <field name="perm_create" eval="False"/>
       <field name="perm_unlink" eval="False"/>
       <field name="domain_force">['|',
-          ('commitment_id.farmer_partner_id','=',user.partner_id.id),
-          ('commitment_id.packer_partner_id','=',user.partner_id.id)]</field>
+          ('commitment_id.farmer_partner_id','=',user.shrimp_actor_partner_id.id),
+          ('commitment_id.packer_partner_id','=',user.shrimp_actor_partner_id.id)]</field>
     </record>
 
     <!-- === LA CONTRAPARTE ===
@@ -104,9 +104,9 @@
         ['|', '|',
          '&amp;', ('reserva_forecast_ids.state','!=','draft'),
                   ('reserva_forecast_ids.recipient_ids','in',
-                      [user.partner_id.id] + ([user.partner_id.parent_id.id] if user.partner_id.parent_id else [])),
-         ('reserva_commitment_packer_ids.farmer_partner_id','=',user.partner_id.id),
-         ('reserva_commitment_farmer_ids.packer_partner_id','=',user.partner_id.id)]
+                      [user.shrimp_actor_partner_id.id] + ([user.partner_id.parent_id.id] if user.partner_id.parent_id else [])),
+         ('reserva_commitment_packer_ids.farmer_partner_id','=',user.shrimp_actor_partner_id.id),
+         ('reserva_commitment_farmer_ids.packer_partner_id','=',user.shrimp_actor_partner_id.id)]
       </field>
     </record>
 

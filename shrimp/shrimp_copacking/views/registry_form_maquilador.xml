@@ -1,222 +1,118 @@
 <odoo>
 
   <!-- ================================================================
-       REGISTRO DEL MAQUILADOR (/register/copacker)
+       REGISTRO DEL MAQUILADOR (19.0.1.10.0)
 
-       Formulario propio y no un paso más del registro compartido: el
-       maquilador no compra ni vende camarón, así que nada de lo que pide
-       el formulario común (lotes, hectáreas, larvas) le aplica. Lo que
-       tiene que declarar es su habilitación y su capacidad, que es
-       exactamente lo que mira el cliente antes de mandarle producto.
-
-       El orden de los bloques es el orden en que la planta piensa: quién
-       soy, con qué permiso trabajo, cuánto puedo, cuánto cobro.
+       El maquilador ya no tiene formulario propio: /register/copacker abre
+       el asistente de alta común con el perfil marcado (en la plataforma de
+       empaque es el único perfil que se ofrece). Aquí va su bloque de datos:
+       habilitación, capacidad y tarifas de referencia. Sigue naciendo
+       pendiente de aprobación.
        ================================================================ -->
-  <template id="registry_form_maquilador" name="Registro - Maquilador">
-    <t t-call="website.layout">
-      <div class="shrimp-bg">
-        <div class="shrimp-page py-4 sf-fields">
-
-          <div class="sf-banner mb-4">
-            <div class="sf-banner-row">
-              <div class="sf-banner-txt">
-                <h1>Regístrate como maquilador</h1>
-                <p>Crea la cuenta de tu planta de empaque: tu habilitación, tu capacidad
-                   y desde cuánto empacas. Con eso apareces en el directorio y empiezas a
-                   recibir solicitudes de quien necesita planta.</p>
-              </div>
-              <span class="sf-kicker"><i class="fa fa-cubes"></i> Empaque</span>
-            </div>
+  <template id="signup_profile_sections_copacker" inherit_id="shrimp_user_registry.signup_profile_sections"
+            name="Registro - datos del maquilador">
+    <xpath expr="//div[@id='shrimp_prof_sections_end']" position="before">
+      <div t-if="'maquilador' in (signup_profile_codes or [])" class="shrimp-prof-sec" data-role="maquilador" id="section_maquilador">
+        <div class="shrimp-prof-sec-head">
+          <span class="shrimp-prof-sec-ico" aria-hidden="true"><i class="fa fa-cubes"/></span>
+          <div class="shrimp-prof-sec-htxt">
+            <h3 class="shrimp-prof-sec-title">Maquilador (planta de empaque)</h3>
+            <p class="shrimp-prof-sec-desc">El código de establecimiento sale impreso en el certificado de trazabilidad del lote.
+              Si lo tienes en trámite puedes registrarte igual y completarlo después. Los precios «desde» son públicos
+              (directorio); la tarifa firme se manda dirigida a cada cliente.</p>
           </div>
-
-          <t t-if="error">
-            <div class="alert alert-danger">
-              <i class="fa fa-exclamation-triangle me-1"/><t t-esc="error"/>
-            </div>
-          </t>
-
-          <form method="post" action="/register/submit"
-                t-att-data-captcha="'shrimp_signup' if request.env['ir.config_parameter'].sudo().get_param('recaptcha_public_key') else None">
-            <t t-call="shrimp_user_registry.signup_honeypot"/>
-            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-            <!-- El rol va fijo en el formulario: aquí no se elige perfil, y así
-                 el POST no depende de ningún JS que pueda no cargar. -->
-            <input type="hidden" name="shrimp_user_type" value="maquilador"/>
-
-            <div class="card mb-3">
-              <div class="card-body">
-                <h6 class="text-uppercase text-muted small mb-3">La planta</h6>
-                <div class="row g-3">
-                  <div class="col-md-6">
-                    <label class="form-label">Nombre comercial <span class="text-danger">*</span></label>
-                    <input type="text" name="name" class="form-control" required="required"
-                           placeholder="Ej. Empaques del Golfo"
-                           t-att-value="values and values.get('name') or ''"/>
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label">Razón social <span class="text-danger">*</span></label>
-                    <input type="text" name="pack_razon_social" class="form-control"
-                           required="required" placeholder="Ej. Empacadora del Golfo S.A."
-                           t-att-value="values and values.get('pack_razon_social') or ''"/>
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label">RUC <span class="text-danger">*</span></label>
-                    <input type="text" name="vat_or_id" class="form-control" required="required"
-                           placeholder="Ej. 0999999999001"
-                           t-att-value="values and values.get('vat_or_id') or ''"/>
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label">Ubicación de la planta <span class="text-danger">*</span></label>
-                    <!-- Obligatoria porque el cliente lleva el camarón hasta la
-                         puerta: sin saber dónde está, no puede ni cotizar el flete. -->
-                    <input type="text" name="pack_ubicacion" class="form-control"
-                           required="required" placeholder="Ej. Machala, El Oro"
-                           t-att-value="values and values.get('pack_ubicacion') or ''"/>
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label">Representante legal</label>
-                    <input type="text" name="pack_representante" class="form-control"
-                           t-att-value="values and values.get('pack_representante') or ''"/>
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label">Teléfono</label>
-                    <input type="text" name="pack_telefono" class="form-control"
-                           t-att-value="values and values.get('pack_telefono') or ''"/>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="card mb-3">
-              <div class="card-body">
-                <h6 class="text-uppercase text-muted small mb-1">Habilitación</h6>
-                <p class="text-muted small">
-                  El código de establecimiento sale impreso en el certificado de
-                  trazabilidad del lote: es lo que permite exportar el camarón que
-                  empacas. Si lo tienes en trámite puedes registrarte igual y
-                  completarlo después desde tu perfil.
-                </p>
-                <div class="row g-3">
-                  <div class="col-md-4">
-                    <label class="form-label">Código de establecimiento</label>
-                    <input type="text" name="pack_codigo_establecimiento" class="form-control"
-                           t-att-value="values and values.get('pack_codigo_establecimiento') or ''"/>
-                  </div>
-                  <div class="col-md-4">
-                    <label class="form-label">Vigente desde</label>
-                    <input type="date" name="pack_habilitacion_desde" class="form-control"
-                           t-att-value="values and values.get('pack_habilitacion_desde') or ''"/>
-                  </div>
-                  <div class="col-md-4">
-                    <label class="form-label">Vigente hasta</label>
-                    <input type="date" name="pack_habilitacion_hasta" class="form-control"
-                           t-att-value="values and values.get('pack_habilitacion_hasta') or ''"/>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="card mb-3">
-              <div class="card-body">
-                <h6 class="text-uppercase text-muted small mb-1">Capacidad y tarifas de referencia</h6>
-                <p class="text-muted small">
-                  Estos precios son públicos: salen en el directorio para que el cliente
-                  pueda preseleccionar. La tarifa firme se la mandas dirigida a él y no
-                  la ve nadie más. Puedes dejarlos en blanco y ponerlos luego.
-                </p>
-                <div class="row g-3">
-                  <div class="col-md-4">
-                    <label class="form-label">Capacidad (lb/semana)</label>
-                    <input type="number" step="1" min="0" name="pack_capacidad_lb_semana"
-                           class="form-control"
-                           t-att-value="values and values.get('pack_capacidad_lb_semana') or ''"/>
-                  </div>
-                  <div class="col-md-4">
-                    <label class="form-label">Lote mínimo (lb)</label>
-                    <input type="number" step="1" min="0" name="pack_lote_minimo_lb"
-                           class="form-control"
-                           t-att-value="values and values.get('pack_lote_minimo_lb') or ''"/>
-                  </div>
-                  <div class="col-md-4">
-                    <label class="form-label">Presentaciones que manejas</label>
-                    <input type="text" name="pack_presentaciones" class="form-control"
-                           placeholder="Entero, cola, valor agregado..."
-                           t-att-value="values and values.get('pack_presentaciones') or ''"/>
-                  </div>
-                  <div class="col-md-4">
-                    <label class="form-label">Entero, desde ($/lb)</label>
-                    <input type="number" step="0.001" min="0" name="pack_desde_entero"
-                           class="form-control"
-                           t-att-value="values and values.get('pack_desde_entero') or ''"/>
-                  </div>
-                  <div class="col-md-4">
-                    <label class="form-label">Cola, desde ($/lb)</label>
-                    <input type="number" step="0.001" min="0" name="pack_desde_cola"
-                           class="form-control"
-                           t-att-value="values and values.get('pack_desde_cola') or ''"/>
-                  </div>
-                  <div class="col-md-4">
-                    <label class="form-label">Valor agregado, desde ($/lb)</label>
-                    <input type="number" step="0.001" min="0" name="pack_desde_valor_agregado"
-                           class="form-control"
-                           t-att-value="values and values.get('pack_desde_valor_agregado') or ''"/>
-                  </div>
-                  <div class="col-12">
-                    <label class="form-label">Aclaración de la tarifa</label>
-                    <input type="text" name="pack_tarifa_nota" class="form-control"
-                           placeholder="Precios referenciales; la tarifa firme depende del volumen."
-                           t-att-value="values and values.get('pack_tarifa_nota') or ''"/>
-                  </div>
-                  <div class="col-12">
-                    <div class="form-check">
-                      <!-- Marcado de salida: una planta que se registra y no
-                           aparece en el directorio no recibe una sola solicitud.
-                           Quien no quiera salir lo desmarca a conciencia. -->
-                      <input type="checkbox" name="pack_en_directorio" value="1"
-                             class="form-check-input"
-                             t-att-checked="'checked' if (not values or not values.get('shrimp_user_type') or values.get('pack_en_directorio')) else None"/>
-                      <label class="form-check-label">
-                        <b>Aparecer en el directorio.</b>
-                        Si lo apagas dejas de salir a quien busca planta, y solo podrás
-                        trabajar con quien ya te conoce.
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="card mb-3">
-              <div class="card-body">
-                <h6 class="text-uppercase text-muted small mb-3">Tu cuenta</h6>
-                <div class="row g-3">
-                  <div class="col-md-6">
-                    <label class="form-label">Correo (será tu usuario) <span class="text-danger">*</span></label>
-                    <input type="email" name="email" class="form-control" required="required"
-                           placeholder="correo@ejemplo.com"
-                           t-att-value="values and values.get('email') or ''"/>
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label">Contraseña <span class="text-danger">*</span></label>
-                    <!-- No se repone al volver del error: la contraseña no viaja
-                         de vuelta al navegador ni aunque el alta haya fallado. -->
-                    <input type="password" name="password" class="form-control"
-                           required="required" minlength="8"
-                           placeholder="Mínimo 8 caracteres"/>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <button type="submit" class="btn btn-primary">
-              <i class="fa fa-check me-1"/> Crear mi cuenta
-            </button>
-            <a href="/web/login" class="btn btn-link">Ya tengo cuenta</a>
-          </form>
-
+        </div>
+        <div class="shrimp-prof-sec-body">
+        <div class="row g-3">
+          <div class="col-12 col-md-4">
+            <label class="form-label small text-muted" for="reg_pack_codigo_establecimiento">Código de establecimiento</label>
+            <input type="text" id="reg_pack_codigo_establecimiento" name="pack_codigo_establecimiento" class="form-control"
+                   t-att-value="values.get('pack_codigo_establecimiento')"/>
+          </div>
+          <div class="col-6 col-md-4">
+            <label class="form-label small text-muted" for="reg_pack_habilitacion_desde">Habilitación desde</label>
+            <input type="date" id="reg_pack_habilitacion_desde" name="pack_habilitacion_desde" class="form-control"
+                   t-att-value="values.get('pack_habilitacion_desde')"/>
+          </div>
+          <div class="col-6 col-md-4">
+            <label class="form-label small text-muted" for="reg_pack_habilitacion_hasta">Habilitación hasta</label>
+            <input type="date" id="reg_pack_habilitacion_hasta" name="pack_habilitacion_hasta" class="form-control"
+                   t-att-value="values.get('pack_habilitacion_hasta')"/>
+          </div>
+          <div class="col-6 col-md-4">
+            <label class="form-label small text-muted" for="reg_pack_capacidad_lb_semana">Capacidad (lb/semana) <span class="text-danger">*</span></label>
+            <input type="number" step="1" min="0" id="reg_pack_capacidad_lb_semana" name="pack_capacidad_lb_semana" class="form-control" data-req="1"
+                   t-att-value="values.get('pack_capacidad_lb_semana')"/>
+          </div>
+          <div class="col-6 col-md-4">
+            <label class="form-label small text-muted" for="reg_pack_lote_minimo_lb">Lote mínimo (lb)</label>
+            <input type="number" step="1" min="0" id="reg_pack_lote_minimo_lb" name="pack_lote_minimo_lb" class="form-control"
+                   t-att-value="values.get('pack_lote_minimo_lb')"/>
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label small text-muted" for="reg_pack_presentaciones">Presentaciones</label>
+            <input type="text" id="reg_pack_presentaciones" name="pack_presentaciones" class="form-control" placeholder="Entero, cola, valor agregado..."
+                   t-att-value="values.get('pack_presentaciones')"/>
+          </div>
+          <div class="col-12 col-sm-4">
+            <label class="form-label small text-muted" for="reg_pack_desde_entero">Entero desde ($/lb)</label>
+            <input type="number" step="0.001" min="0" id="reg_pack_desde_entero" name="pack_desde_entero" class="form-control"
+                   t-att-value="values.get('pack_desde_entero')"/>
+          </div>
+          <div class="col-12 col-sm-4">
+            <label class="form-label small text-muted" for="reg_pack_desde_cola">Cola desde ($/lb)</label>
+            <input type="number" step="0.001" min="0" id="reg_pack_desde_cola" name="pack_desde_cola" class="form-control"
+                   t-att-value="values.get('pack_desde_cola')"/>
+          </div>
+          <div class="col-12 col-sm-4">
+            <label class="form-label small text-muted" for="reg_pack_desde_valor_agregado">Valor agregado ($/lb)</label>
+            <input type="number" step="0.001" min="0" id="reg_pack_desde_valor_agregado" name="pack_desde_valor_agregado" class="form-control"
+                   t-att-value="values.get('pack_desde_valor_agregado')"/>
+          </div>
+          <div class="col-12">
+            <label class="form-label small text-muted" for="reg_pack_tarifa_nota">Aclaración de la tarifa <span class="shrimp-optional">(opcional)</span></label>
+            <input type="text" id="reg_pack_tarifa_nota" name="pack_tarifa_nota" class="form-control" placeholder="Ej. precios con hielo y transporte incluidos"
+                   t-att-value="values.get('pack_tarifa_nota')"/>
+          </div>
+          <div class="col-12">
+            <label class="form-check">
+              <input type="checkbox" name="pack_en_directorio" value="1" class="form-check-input"
+                     t-att-checked="'checked' if (not values or not values.get('email') or values.get('pack_en_directorio')) else None"/>
+              <span><b>Aparecer en el directorio</b> de plantas (si lo apagas, solo trabajas con quien ya te conoce).</span>
+            </label>
+          </div>
+        </div>
         </div>
       </div>
-    </t>
+    </xpath>
   </template>
+
+  <!-- Anexo de perfil del maquilador (versión inicial, borrador). -->
+  <data noupdate="1">
+    <record id="legal_doc_annex_maquilador" model="shrimp.legal.document">
+      <field name="name">Anexo de perfil: Maquilador (empaque)</field>
+      <field name="code">annex_maquilador</field>
+      <field name="doc_type">annex</field>
+      <field name="role">maquilador</field>
+      <field name="sequence">54</field>
+    </record>
+    <record id="legal_ver_annex_maquilador_202610" model="shrimp.legal.document.version">
+      <field name="document_id" ref="legal_doc_annex_maquilador"/>
+      <field name="name">2026-10</field>
+      <field name="change_type">minor</field>
+      <field name="change_summary">Versión inicial (BORRADOR) del anexo del perfil Maquilador. Debe revisarla un abogado antes de considerarla definitiva.</field>
+      <field name="state">published</field>
+      <field name="content" type="html"><div>
+<p><b>Anexo de perfil: Maquilador (empaque).</b> Complementa el Contrato de uso para la planta que presta el servicio de empaque a terceros.</p>
+<ol>
+<li><b>Aprobación y habilitación.</b> El perfil queda pendiente hasta que la Plataforma lo aprueba. El maquilador declara su código de establecimiento y la vigencia de su habilitación, y no acepta órdenes si la habilitación no está vigente.</li>
+<li><b>Tarifas.</b> Los precios «desde» del directorio son referenciales y públicos; la tarifa firme que envía a un cliente es confidencial y lo obliga en las condiciones indicadas.</li>
+<li><b>Órdenes de empaque.</b> Registra en la plataforma la recepción, el empaque y las actas de cada orden con datos verdaderos (pesos, presentaciones, rendimientos). Esos registros alimentan el certificado de trazabilidad, que muestra su planta.</li>
+<li><b>Custodia.</b> Responde por el producto recibido mientras está bajo su custodia, conforme a la normativa sanitaria aplicable.</li>
+<li><b>Comisión y facturación.</b> La Plataforma cobra y factura electrónicamente (SRI) su comisión de empaque según la tarifa vigente informada; el servicio de maquila lo factura el maquilador a su cliente.</li>
+</ol>
+</div></field>
+    </record>
+  </data>
 
 </odoo>

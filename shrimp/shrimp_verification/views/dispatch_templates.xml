@@ -454,11 +454,11 @@
   <template id="verifier_detail_dispatch"
             inherit_id="shrimp_verification.verifier_detail"
             name="Informe de campo - cita y llegada">
-    <xpath expr="//div[hasclass('sf-banner')]" position="after">
+    <!-- Rediseño 2026-10: ancla en el bloque de avisos (antes, sf-banner). -->
+    <xpath expr="//div[@id='vr_detail_alerts']" position="after">
       <t t-set="desp" t-value="v.dispatch_id"/>
       <t t-if="desp">
-        <div class="alert d-flex flex-wrap justify-content-between align-items-center gap-3"
-             style="border-radius:14px; background:#eef7f9; border:1px solid #bfe2e8; color:#123E5C;">
+        <div class="pf-alert pf-a-info d-flex flex-wrap justify-content-between align-items-center gap-3 vr-dispatch">
           <div>
             <t t-if="desp.eta">
               <strong><i class="fa fa-clock-o me-1"/>
@@ -566,11 +566,11 @@
     <!-- hasclass() y no @class='row g-4': un xpath por igualdad de @class solo
          casa si la clase es EXACTAMENTE esa, así que se rompe en cuanto
          alguien añade una utilidad más al div. -->
-    <xpath expr="//div[hasclass('row','g-4')]" position="after">
+    <!-- Rediseño 2026-10: va después de «¿Qué sigue?» (antes, row g-4). -->
+    <xpath expr="//section[@id='vr_pending_next']" position="after">
       <t t-set="desp" t-value="tx.dispatch_id"/>
       <t t-if="desp">
-        <div class="mt-4 p-3"
-             style="border:1px solid #bfe2e8; border-radius:14px; background:#eef7f9;">
+        <div class="pf-alert pf-a-info vr-dispatch">
           <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
             <div>
               <t t-if="desp.eta">

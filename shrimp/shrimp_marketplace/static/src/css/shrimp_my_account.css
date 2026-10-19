@@ -1,0 +1,159 @@
+/* ==========================================================================
+   CamaronMarket — Mi cuenta (/marketplace/my-account), rediseño 19.0.1.28.0
+   Lenguaje del formulario de producto (.pf-sec) y de las tarjetas del alta
+   (.shrimp-card-sec): tarjeta blanca con banda de cabecera (icono, título,
+   contador, descripción), cuerpo con relleno, subtarjetas grises y campos
+   BLANCOS con borde visible (tokens --shrimp-input-*, que el modo oscuro
+   redefine). Escritorio: navegación lateral fija; móvil: una columna y
+   tarjetas plegables. Prefijo .ma- (los retoques oscuros, en shrimp_dark.css).
+   ========================================================================== */
+
+.ma-page { max-width: 1180px; padding-bottom: 56px; }
+.ma-ph { margin-top: 4px; }
+.ma-page .pf-alert { margin-bottom: 14px; }
+.ma-a-ok { background: var(--shrimp-success-soft, #e4f4ec); color: #17603f; border: 1px solid #bfe3cf; }
+
+/* ---------- Layout: navegación + contenido ---------- */
+.ma-layout { display: grid; grid-template-columns: 236px minmax(0, 1fr); gap: 24px; align-items: start; }
+.ma-main { min-width: 0; }
+.ma-main > form { margin: 0; }
+
+.ma-nav { position: sticky; top: 96px; }
+.ma-nav-list { list-style: none; margin: 0; padding: 8px; background: var(--shrimp-surface, #fff); border: 1px solid var(--shrimp-border, #e4e8ec);
+  border-radius: 16px; box-shadow: var(--shrimp-shadow); }
+.ma-nav-a { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 11px; font-size: 14px; font-weight: 600;
+  color: var(--shrimp-ink-soft, #3d4b57) !important; text-decoration: none !important; line-height: 1.25; }
+.ma-nav-a .fa { width: 18px; text-align: center; color: var(--shrimp-ink-faint, #7c8794); }
+.ma-nav-a:hover { background: var(--shrimp-bg, #f6f8fa); color: var(--shrimp-ink, #0d1b26) !important; }
+.ma-nav-a.is-current { background: var(--shrimp-brand-soft, #e8eff5); color: var(--shrimp-brand, #123e5c) !important; }
+.ma-nav-a.is-current .fa { color: var(--shrimp-brand, #123e5c); }
+.ma-nav-a:focus-visible { outline: 2px solid var(--shrimp-teal, #0e8ea0); outline-offset: 2px; }
+.ma-nav-n { margin-left: auto; font-size: 11.5px; font-weight: 700; padding: 1px 8px; border-radius: 999px;
+  background: var(--shrimp-bg-alt, #eef2f6); color: var(--shrimp-ink-soft, #3d4b57); }
+
+/* ---------- Tarjeta de sección ---------- */
+.ma-card { background: var(--shrimp-surface, #fff); border: 1px solid var(--shrimp-border, #e4e8ec); border-radius: 16px;
+  box-shadow: var(--shrimp-shadow); margin-bottom: 18px; scroll-margin-top: 100px; }
+.ma-card-h { display: flex; align-items: flex-start; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--shrimp-border, #e4e8ec);
+  border-radius: 16px 16px 0 0; }
+.ma-card--link .ma-card-h { border-bottom: 0; border-radius: 16px; align-items: center; }
+.ma-card-ico { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 11px;
+  font-size: 16px; background: var(--shrimp-prof-ico-bg, rgba(18, 62, 92, .08)); color: var(--shrimp-brand, #123e5c); }
+.ma-card-htxt { min-width: 0; flex: 1 1 auto; }
+.ma-card-title { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0; font-size: 17px; font-weight: 800;
+  letter-spacing: -.01em; color: var(--shrimp-ink, #0d1b26); line-height: 1.3; }
+.ma-card-desc { margin: 3px 0 0; font-size: 13px; color: var(--shrimp-help-ink, #5f6b78); line-height: 1.5; max-width: 72ch; }
+.ma-card-b { padding: 18px 20px 20px; }
+.ma-card-b > :last-child { margin-bottom: 0; }
+.ma-card-cta { flex: none; white-space: nowrap; }
+.ma-card-tg { display: none; flex: none; width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--shrimp-card-border, #dde4ea);
+  background: var(--shrimp-input-bg, #fff); color: var(--shrimp-help-ink, #5f6b78); align-items: center; justify-content: center; padding: 0; }
+.ma-card-tg .fa { transition: transform .15s ease; }
+.ma-card.is-collapsed .ma-card-tg .fa { transform: rotate(-90deg); }
+.ma-card-tg:focus-visible { outline: 2px solid var(--shrimp-teal, #0e8ea0); outline-offset: 2px; }
+
+/* Subtarjetas (bloques del eslabón; también los que agregan otros módulos
+   con .mp-table-card > .card-body > .mp-sec-head). */
+.ma-card .mp-table-card { background: var(--shrimp-card-bg, #f6f8fa); border: 1px solid var(--shrimp-card-border, #dde4ea);
+  border-radius: 14px; box-shadow: none; margin: 0 0 14px !important; overflow: visible; }
+.ma-card .mp-table-card::before { display: none !important; }
+.ma-card .mp-table-card > .card-body { padding: 16px !important; }
+.ma-card .mp-table-card .mp-sec-head { display: flex; align-items: center; gap: 10px; margin: -16px -16px 14px; padding: 11px 16px;
+  border-bottom: 1px solid var(--shrimp-card-head-border, #e6ebf0); border-radius: 13px 13px 0 0; }
+.ma-card .mp-table-card .mp-sec-ico { width: 32px; height: 32px; border-radius: 9px; font-size: 14px;
+  background: var(--shrimp-prof-ico-bg, rgba(18, 62, 92, .08)); color: var(--shrimp-brand, #123e5c); box-shadow: none; }
+.ma-card .mp-table-card .mp-sec-title { font-size: 15px; font-weight: 700; margin: 0; color: var(--shrimp-ink, #0d1b26); }
+.ma-card .mp-table-card .card-body > p.text-muted { color: var(--shrimp-help-ink, #5f6b78) !important; }
+.ma-checks { display: flex; flex-wrap: wrap; gap: 8px 24px; }
+
+/* Barra de guardado (al pie de «Empresa», fija abajo mientras se edita). */
+.ma-actions { position: sticky; bottom: 12px; z-index: 5; justify-content: flex-end; align-items: center; padding: 10px 12px;
+  margin-top: 4px; background: var(--shrimp-surface, #fff); border: 1px solid var(--shrimp-border, #e4e8ec); border-radius: 14px;
+  box-shadow: 0 6px 18px rgba(13, 27, 38, .08); }
+.ma-row-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.ma-modal-acts { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+
+/* ---------- Campos: blancos con borde visible ---------- */
+.ma-page .form-label { font-weight: 600; font-size: 13px; color: var(--shrimp-label-ink, #33424e); margin-bottom: 6px; }
+.ma-page .form-control, .ma-modal .form-control, .ma-page .form-select, .ma-modal .form-select {
+  min-height: var(--shrimp-input-minh, 44px); border: 1px solid var(--shrimp-input-border, #c3cdd9);
+  border-radius: var(--shrimp-input-radius, 12px); background-color: var(--shrimp-input-bg, #fff);
+  color: var(--shrimp-input-ink, var(--shrimp-ink, #0d1b26)); font-size: 14.5px; box-shadow: none;
+  transition: border-color .15s ease, box-shadow .15s ease; }
+.ma-page .form-control-sm, .ma-modal .form-control-sm, .ma-page .form-select-sm, .ma-modal .form-select-sm { min-height: 38px; font-size: 13.5px; border-radius: 10px; }
+.ma-page .form-control::placeholder, .ma-modal .form-control::placeholder { color: var(--shrimp-input-placeholder, #66727f); opacity: 1; }
+.ma-page .form-control:hover:not(:focus):not(:disabled):not([readonly]), .ma-modal .form-control:hover:not(:focus):not(:disabled):not([readonly]), .ma-page .form-select:hover:not(:focus):not(:disabled), .ma-modal .form-select:hover:not(:focus):not(:disabled) { border-color: var(--shrimp-input-border-hover, #8796a6); }
+.ma-page .form-control:focus, .ma-modal .form-control:focus, .ma-page .form-select:focus, .ma-modal .form-select:focus { border-color: var(--shrimp-input-focus, var(--shrimp-teal, #0e8ea0));
+  box-shadow: 0 0 0 3px var(--shrimp-input-ring, rgba(14, 142, 160, .18)); }
+.ma-page .form-control[readonly], .ma-modal .form-control[readonly], .ma-page .form-control:disabled, .ma-modal .form-control:disabled, .ma-page .form-select:disabled, .ma-modal .form-select:disabled {
+  background-color: var(--shrimp-input-disabled-bg, #eef1f4); color: var(--shrimp-input-disabled-ink, #7c8794);
+  border-color: var(--shrimp-input-disabled-border, #dde3e9); }
+.ma-page .form-text, .ma-modal .form-text { color: var(--shrimp-help-ink, #5f6b78); font-size: 12.5px; }
+.ma-page .form-check-input, .ma-modal .form-check-input { border: 1.5px solid var(--shrimp-check-border, #8796a6); }
+.ma-page .shrimp-sub { background: var(--shrimp-card-bg, #f6f8fa); margin-top: 14px; }
+.ma-page .shrimp-tech-wrap { background: var(--shrimp-card-item-bg, #fff); }
+.ma-page .shrimp-tech-table td .badge { font-weight: 700; }
+
+/* ---------- Instalaciones y piscinas ---------- */
+.ma-fac-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.ma-kpi { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; border-radius: 12px; background: var(--shrimp-card-bg, #f6f8fa);
+  border: 1px solid var(--shrimp-card-border, #dde4ea); }
+.ma-kpi-v { font-size: 18px; font-weight: 800; color: var(--shrimp-ink, #0d1b26); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ma-kpi-l { font-size: 12px; font-weight: 600; color: var(--shrimp-help-ink, #5f6b78); }
+.ma-note { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; margin: 0 0 14px; padding: 10px 12px; border-radius: 10px;
+  background: var(--shrimp-brand-soft, #e8eff5); color: var(--shrimp-brand, #123e5c); }
+.ma-note .fa { margin-top: 3px; }
+.ma-fac-empty { margin-bottom: 4px !important; }
+.ma-fac-list { display: grid; gap: 14px; }
+.ma-fac { border: 1px solid var(--shrimp-card-border, #dde4ea); border-radius: 14px; background: var(--shrimp-card-bg, #f6f8fa);
+  scroll-margin-top: 100px; }
+.ma-fac.is-focus { border-color: var(--shrimp-teal, #0e8ea0); box-shadow: 0 0 0 3px var(--shrimp-input-ring, rgba(14, 142, 160, .18)); }
+.ma-fac--orphan { border-style: dashed; }
+.ma-fac-h { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--shrimp-card-head-border, #e6ebf0); }
+.ma-fac-ico { flex: none; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-size: 15px;
+  background: var(--shrimp-card-item-bg, #fff); color: var(--shrimp-brand, #123e5c); border: 1px solid var(--shrimp-card-border, #dde4ea); }
+.ma-fac-htxt { min-width: 0; flex: 1 1 auto; }
+.ma-fac-name { margin: 0; font-size: 15px; font-weight: 800; color: var(--shrimp-ink, #0d1b26); overflow-wrap: anywhere; }
+.ma-fac-meta { display: flex; flex-wrap: wrap; gap: 2px 12px; margin-top: 2px; font-size: 12.5px; color: var(--shrimp-help-ink, #5f6b78); }
+.ma-fac-type { font-weight: 700; color: var(--shrimp-teal, #0e8ea0); }
+.ma-fac-stats { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.ma-fac-acts { flex: none; display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.ma-fac-b { padding: 12px 14px 14px; }
+.ma-fac-b .shrimp-cert-addrow { margin-top: 10px; }
+.ma-pond-table .ma-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ma-pond-table .shrimp-fac-type, .ma-page .shrimp-tech-table .s-badge, .ma-page .shrimp-tech-table .badge { white-space: nowrap; }
+.ma-pond-loc { font-size: 12px; color: var(--shrimp-help-ink, #5f6b78); }
+.ma-card-b > .shrimp-cert-addrow { margin-top: 14px; }
+.ma-fac-more { margin: 12px 0 0; font-size: 13px; }
+.ma-fac-more a { font-weight: 600; }
+.ma-modal .shrimp-pm-mode { border: 0; padding: 0; margin: 0; }
+.ma-pm-calc:empty { display: none; }
+.ma-uc-card .form-label { font-weight: 600; }
+
+/* ---------- Móvil y tableta ---------- */
+@media (max-width: 991.98px) {
+  .ma-layout { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .ma-nav { position: static; }
+  .ma-nav-list { display: flex; gap: 6px; overflow-x: auto; padding: 6px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .ma-nav-list::-webkit-scrollbar { display: none; }
+  .ma-nav-a { white-space: nowrap; padding: 8px 12px; }
+  .ma-card-tg { display: inline-flex; }
+  .ma-card-h { cursor: pointer; }
+  .ma-card.is-collapsed > .ma-card-h { border-bottom: 0; border-radius: 16px; }
+  .ma-card.is-collapsed > .ma-card-b { display: none; }
+  .ma-card.is-collapsed .ma-card-desc { display: none; }
+}
+@media (max-width: 575.98px) {
+  .ma-card-h { padding: 14px; }
+  .ma-card-b { padding: 14px; }
+  .ma-card--link .ma-card-h { flex-wrap: wrap; }
+  .ma-card--link .ma-card-cta { width: 100%; justify-content: center; text-align: center; }
+  .ma-card .mp-table-card > .card-body { padding: 14px 12px !important; }
+  .ma-card .mp-table-card .mp-sec-head { margin: -14px -12px 12px; padding: 10px 12px; }
+  .ma-fac-h { flex-wrap: wrap; padding: 12px; }
+  .ma-fac-acts { width: 100%; justify-content: stretch; }
+  .ma-fac-acts > * { flex: 1 1 0; min-height: 40px; }
+  .ma-fac-b { padding: 10px 10px 12px; }
+  .ma-actions { bottom: 8px; }
+  .ma-actions > * { flex: 1 1 auto; justify-content: center; }
+}

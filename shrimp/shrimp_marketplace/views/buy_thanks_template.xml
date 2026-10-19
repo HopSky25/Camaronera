@@ -1,0 +1,463 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ================================================================
+         «¡Compra realizada!» (/marketplace/thanks/<tx_ref>)
+
+         Rediseño 2026-10 a todo el ancho, en el lenguaje de la ficha (.pd-),
+         la página de compra (.bp-, resumen fijo a la derecha) y el
+         formulario de producto (.pf-sec): banda de éxito a todo el ancho,
+         a la izquierda el detalle (producto, vendedor, entrega, próximos
+         pasos, verificación, reseña) y a la derecha el resumen del pago con
+         las acciones. En móvil, una columna y barra inferior fija.
+
+         Importes: facturación en dos pasos (shrimp.transaction.
+         shrimp_receipt_amounts): el SERVICIO de la plataforma que paga el
+         comprador (factura electrónica de la plataforma) y el PRODUCTO, que
+         factura el vendedor. Nada se calcula aquí.
+
+         Vivía en marketplace_public_template.xml; el controlador
+         (marketplace_thanks) y sus comprobaciones de acceso no cambian.
+         Estilos: static/src/css/shrimp_thanks.css (.tk-).
+         ================================================================ -->
+    <template id="buy_thanks" name="Compra realizada">
+        <t t-call="website.layout">
+            <t t-set="prod" t-value="tx.product_id"/>
+            <t t-set="seller" t-value="tx.seller_partner_id"/>
+            <t t-set="uom_name" t-value="prod.uom_id.name if prod else ''"/>
+            <t t-set="tk_ok" t-value="tx.state in ('confirmed', 'done')"/>
+            <t t-set="tk_is_buyer" t-value="tx.buyer_partner_id == request.env.user.shrimp_actor_partner_id"/>
+            <t t-set="amounts" t-value="tx.shrimp_receipt_amounts()"/>
+            <t t-set="verif" t-value="tx.shrimp_receipt_verification()"/>
+            <t t-set="money" t-value="lambda v: '$' + tx.shrimp_fmt_num(v or 0.0, 2)"/>
+            <t t-set="op_dt" t-value="tx.shrimp_operation_datetime()"/>
+            <t t-set="p_tipo" t-value="prod._shrimp_tipo() if prod else ''"/>
+            <t t-set="p_tipo_label" t-value="{'nauplio': 'Nauplio', 'larva': 'Larva', 'camaron': 'Camarón'}.get(p_tipo, '')"/>
+            <t t-set="seller_role_label" t-value="('Naupliero' if tx.seller_role == 'semillero' else tx.shrimp_role_label(tx.seller_role)) if tx.seller_role else ''"/>
+            <t t-set="seller_words" t-value="(seller.name or '?').split()"/>
+            <t t-set="seller_initials" t-value="''.join([w[:1] for w in seller_words[:2]]).upper()"/>
+            <t t-set="has_invoice" t-value="tx.sudo().invoice_id.state == 'posted'"/>
+            <t t-set="pdf_url" t-value="'/marketplace/purchases/%s/invoice/pdf?download=1' % tx.uuid_ref"/>
+            <t t-set="trace_url" t-value="'/marketplace/purchases/%s/traceability' % tx.uuid_ref"/>
+            <t t-set="tk_paid" t-value="request.params.get('paid')"/>
+            <t t-set="tk_verified" t-value="request.params.get('verified')"/>
+            <t t-set="state_label" t-value="dict(tx._fields['state'].selection).get(tx.state)"/>
+
+            <div class="shrimp-bg pd-bg tk">
+
+                <!-- ============ Banda de éxito (todo el ancho) ============ -->
+                <section t-att-class="'tk-hero ' + ('tk-hero--ok' if tk_ok else ('tk-hero--cancel' if tx.state == 'cancel' else 'tk-hero--wait'))"
+                         aria-labelledby="tk_title">
+                    <div class="tk-hero-in">
+                        <span class="tk-hero-ico" aria-hidden="true">
+                            <i t-att-class="'fa ' + ('fa-check' if tk_ok else ('fa-times' if tx.state == 'cancel' else 'fa-hourglass-half'))"/>
+                        </span>
+                        <div class="tk-hero-txt">
+                            <div class="tk-eyebrow">
+                                <span class="pd-tipo">Marketplace</span>
+                                <t t-if="p_tipo_label"><span class="pd-sep" aria-hidden="true"/><span t-esc="p_tipo_label"/></t>
+                            </div>
+                            <t t-if="tk_ok">
+                                <h1 id="tk_title">¡Compra realizada!</h1>
+                                <p>Tu operación ya quedó registrada en el marketplace.</p>
+                            </t>
+                            <t t-elif="tx.state == 'cancel'">
+                                <h1 id="tk_title">Compra cancelada</h1>
+                                <p>Esta operación no se concretó.</p>
+                            </t>
+                            <t t-else="">
+                                <h1 id="tk_title">Compra en curso</h1>
+                                <p>La operación todavía no se cerró: falta la verificación en campo o la firma de las partes.</p>
+                            </t>
+                            <!-- El comprobante también se abre desde «Mis compras» para
+                                 operaciones que aún no se cobran: anunciar «compra
+                                 confirmada» ahí sería mentir sobre el estado. -->
+                            <div class="tk-chips">
+                                <span t-if="tk_ok" class="tk-chip tk-chip--ok"><i class="fa fa-lock" aria-hidden="true"/> Compra confirmada</span>
+                                <span class="tk-chip"><i class="fa fa-check-circle" aria-hidden="true"/> <t t-esc="state_label"/></span>
+                                <span class="tk-chip"><i class="fa fa-hashtag" aria-hidden="true"/> <t t-esc="tx.name"/></span>
+                                <span t-if="op_dt" class="tk-chip"><i class="fa fa-calendar" aria-hidden="true"/> <t t-esc="tx.shrimp_fmt_dt(op_dt)"/></span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <div class="shrimp-page pd-page tk-page">
+
+                    <!-- Aviso de lo que se acaba de hacer -->
+                    <div t-if="tk_paid and tk_ok" class="pf-alert pf-a-info tk-note" role="status">
+                        <i class="fa fa-check-circle" aria-hidden="true"/>
+                        <div t-if="amounts['service_lines']">
+                            <b>Pago del servicio de la plataforma recibido.</b>
+                            La plataforma te emite su factura electrónica por el servicio; la
+                            factura del producto la emite el vendedor.
+                        </div>
+                        <div t-else="">
+                            <b>Pago recibido.</b> La compra quedó confirmada. La plataforma solo
+                            factura sus servicios y en esta compra no te cobra ninguno (la comisión
+                            de la venta la paga el vendedor); la factura del producto la emite el vendedor.
+                        </div>
+                    </div>
+                    <div t-if="tk_verified and tk_ok" class="pf-alert pf-a-info tk-note" role="status">
+                        <i class="fa fa-shield" aria-hidden="true"/>
+                        <div><b>Informe aceptado por las partes.</b> La compra verificada quedó cerrada.</div>
+                    </div>
+
+                    <div class="bp-layout tk-layout">
+
+                        <!-- ===================== DETALLE (izquierda) ===================== -->
+                        <div class="bp-main">
+
+                            <!-- Tu compra -->
+                            <section class="pf-sec" aria-labelledby="tk_prod_h">
+                                <div class="pf-sec-h">
+                                    <span class="pd-sec-ico"><i class="fa fa-cube" aria-hidden="true"/></span>
+                                    <div>
+                                        <h2 id="tk_prod_h">Tu compra</h2>
+                                        <p>Resumen de la operación</p>
+                                    </div>
+                                    <a t-if="prod" class="pf-chip-st pf-st-opt bp-chip-link" t-att-href="'/marketplace/product/%s' % prod.uuid_ref">Ver ficha <i class="fa fa-angle-right" aria-hidden="true"/></a>
+                                </div>
+                                <div class="pf-sec-b">
+                                    <div class="tk-prod" t-if="prod">
+                                        <span class="tk-thumb" aria-hidden="true">
+                                            <i class="fa fa-image"/>
+                                            <img t-if="prod.photo_attachment_ids" t-att-src="prod.shrimp_photo_url(prod.photo_attachment_ids[0])" alt="" onerror="this.remove()"/>
+                                        </span>
+                                        <div class="tk-prod-n">
+                                            <b t-esc="prod.name"/>
+                                            <span>
+                                                <t t-esc="tx.shrimp_fmt_qty(tx.transaction_qty, uom_name)"/>
+                                                · <t t-esc="money(tx.price_unit)"/> / <t t-esc="uom_name"/>
+                                            </span>
+                                        </div>
+                                        <div class="tk-prod-t">
+                                            <small>Producto</small>
+                                            <b t-esc="money(amounts['product_total'])"/>
+                                        </div>
+                                    </div>
+
+                                    <div class="mp-spec-grid tk-specs">
+                                        <div class="mp-spec" t-if="prod and prod.stage_id">
+                                            <span class="mp-spec-ico"><i class="fa fa-hourglass-half" aria-hidden="true"/></span>
+                                            <div class="mp-spec-body"><div class="mp-spec-label">Etapa</div><div class="mp-spec-value" t-esc="prod.stage_id.name"/></div>
+                                        </div>
+                                        <div class="mp-spec" t-if="prod and prod.size_grade_id">
+                                            <span class="mp-spec-ico"><i class="fa fa-arrows-h" aria-hidden="true"/></span>
+                                            <div class="mp-spec-body"><div class="mp-spec-label">Talla</div><div class="mp-spec-value" t-esc="prod.size_grade_id.name"/></div>
+                                        </div>
+                                        <div class="mp-spec" t-if="prod and prod.presentation">
+                                            <span class="mp-spec-ico"><i class="fa fa-archive" aria-hidden="true"/></span>
+                                            <div class="mp-spec-body"><div class="mp-spec-label">Presentación</div><div class="mp-spec-value" t-esc="dict(prod._fields['presentation']._description_selection(prod.env)).get(prod.presentation)"/></div>
+                                        </div>
+                                        <div class="mp-spec" t-if="prod and prod.species_id">
+                                            <span class="mp-spec-ico"><i class="fa fa-flask" aria-hidden="true"/></span>
+                                            <div class="mp-spec-body"><div class="mp-spec-label">Especie</div><div class="mp-spec-value" t-esc="prod.species_id.name"/></div>
+                                        </div>
+                                        <div class="mp-spec" t-if="prod and prod.genetics_line_id">
+                                            <span class="mp-spec-ico"><i class="fa fa-sitemap" aria-hidden="true"/></span>
+                                            <div class="mp-spec-body"><div class="mp-spec-label">Línea genética</div><div class="mp-spec-value" t-esc="prod.genetics_line_id.name"/></div>
+                                        </div>
+                                        <div class="mp-spec">
+                                            <span class="mp-spec-ico"><i class="fa fa-balance-scale" aria-hidden="true"/></span>
+                                            <div class="mp-spec-body"><div class="mp-spec-label">Cantidad</div><div class="mp-spec-value" t-esc="tx.shrimp_fmt_qty(tx.sold_qty or tx.desired_qty or tx.transaction_qty or 0, uom_name)"/></div>
+                                        </div>
+                                        <div class="mp-spec" t-if="tx.price_unit">
+                                            <span class="mp-spec-ico"><i class="fa fa-money" aria-hidden="true"/></span>
+                                            <div class="mp-spec-body"><div class="mp-spec-label">Precio unitario</div><div class="mp-spec-value"><t t-esc="money(tx.price_unit)"/> / <t t-esc="uom_name"/></div></div>
+                                        </div>
+                                        <div class="mp-spec" t-if="tx.transaction_type">
+                                            <span class="mp-spec-ico"><i class="fa fa-exchange" aria-hidden="true"/></span>
+                                            <div class="mp-spec-body"><div class="mp-spec-label">Tipo de transacción</div><div class="mp-spec-value" t-esc="dict(tx._fields['transaction_type'].selection).get(tx.transaction_type)"/></div>
+                                        </div>
+                                        <div class="mp-spec" t-if="prod and prod.origin_facility_id">
+                                            <span class="mp-spec-ico"><i class="fa fa-building" aria-hidden="true"/></span>
+                                            <div class="mp-spec-body"><div class="mp-spec-label">Instalación de origen</div><div class="mp-spec-value" t-esc="prod.origin_facility_id.name"/></div>
+                                        </div>
+                                        <div class="mp-spec" t-if="prod and prod.origin_pond_id">
+                                            <span class="mp-spec-ico"><i class="fa fa-tint" aria-hidden="true"/></span>
+                                            <div class="mp-spec-body"><div class="mp-spec-label">Piscina de origen</div><div class="mp-spec-value" t-esc="prod.origin_pond_id.display_name"/></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <!-- Partes -->
+                            <section class="pf-sec" aria-labelledby="tk_parties_h">
+                                <div class="pf-sec-h">
+                                    <span class="pd-sec-ico"><i class="fa fa-handshake-o" aria-hidden="true"/></span>
+                                    <div>
+                                        <h2 id="tk_parties_h">Vendedor y comprador</h2>
+                                        <p>Quién intervino en la operación</p>
+                                    </div>
+                                    <a class="pf-chip-st pf-st-opt bp-chip-link" t-att-href="'/marketplace/sellers/%s' % seller.uuid_ref">Ver perfil <i class="fa fa-angle-right" aria-hidden="true"/></a>
+                                </div>
+                                <div class="pf-sec-b tk-parties">
+                                    <div class="tk-party">
+                                        <span class="pd-avatar" aria-hidden="true" t-esc="seller_initials"/>
+                                        <div class="tk-party-n">
+                                            <small>Vendedor<t t-if="seller_role_label"> · <t t-esc="seller_role_label"/></t></small>
+                                            <a t-att-href="'/marketplace/sellers/%s' % seller.uuid_ref" t-esc="seller.name"/>
+                                            <span t-if="seller.shrimp_rating_count" class="bp-rate"><i class="fa fa-star" aria-hidden="true"/> <t t-esc="'%.1f' % seller.shrimp_rating_avg"/> (<t t-esc="seller.shrimp_rating_count"/>)</span>
+                                        </div>
+                                    </div>
+                                    <div class="tk-party">
+                                        <span class="pd-avatar tk-avatar-b" aria-hidden="true"><i class="fa fa-user"/></span>
+                                        <div class="tk-party-n">
+                                            <small>Comprador<t t-if="tx.buyer_role"> · <t t-esc="'Naupliero' if tx.buyer_role == 'semillero' else tx.shrimp_role_label(tx.buyer_role)"/></t></small>
+                                            <b t-esc="tx.buyer_partner_id.name"/>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <!-- Entrega -->
+                            <section class="pf-sec" aria-labelledby="tk_dlv_h" t-if="tx.state != 'cancel'">
+                                <div class="pf-sec-h">
+                                    <span class="pd-sec-ico"><i class="fa fa-truck" aria-hidden="true"/></span>
+                                    <div>
+                                        <h2 id="tk_dlv_h">Entrega</h2>
+                                        <p>Fecha y lugar comprometidos</p>
+                                    </div>
+                                    <span t-if="tx.shrimp_delivery_overdue()" class="pf-chip-st pf-st-bad"><i class="fa fa-clock-o" aria-hidden="true"/> Entrega atrasada</span>
+                                </div>
+                                <div class="pf-sec-b">
+                                    <ul class="bp-kv tk-kv">
+                                        <li><span>Fecha de entrega</span><b t-esc="tx.shrimp_fmt_dt(tx.delivery_date) if tx.delivery_date else (tx.shrimp_fmt_dt(tx.sold_date) if tx.sold_date else '—')"/></li>
+                                        <li t-if="tx.location"><span>Ubicación</span><b t-esc="tx.location"/></li>
+                                        <li t-if="tx.dispatched_at"><span>Despachado el</span><b t-esc="tx.shrimp_fmt_dt(tx.dispatched_at)"/></li>
+                                        <li t-if="tx.received_date"><span>Recibido el</span><b t-esc="tx.shrimp_fmt_dt(tx.received_date)"/></li>
+                                    </ul>
+                                </div>
+                            </section>
+
+                            <!-- Próximos pasos -->
+                            <section class="pf-sec" aria-labelledby="tk_next_h" t-if="tk_ok">
+                                <div class="pf-sec-h">
+                                    <span class="pd-sec-ico"><i class="fa fa-compass" aria-hidden="true"/></span>
+                                    <div>
+                                        <h2 id="tk_next_h">Próximos pasos</h2>
+                                        <p>Cómo sigue tu compra</p>
+                                    </div>
+                                </div>
+                                <div class="pf-sec-b">
+                                    <ol class="tk-tl">
+                                        <t t-if="verif">
+                                            <li class="tk-step is-done">
+                                                <span class="tk-dot"><i class="fa fa-check" aria-hidden="true"/></span>
+                                                <div>
+                                                    <div class="tk-step-t"><t t-esc="'Verificación declarada' if verif['declared'] else 'Verificación en campo'"/></div>
+                                                    <div class="tk-step-d"><t t-esc="verif['label']"/><t t-if="verif['date']"> · <t t-esc="tx.shrimp_fmt_dt(verif['date'], with_time=False)"/></t></div>
+                                                </div>
+                                            </li>
+                                            <li class="tk-step is-done">
+                                                <span class="tk-dot"><i class="fa fa-check" aria-hidden="true"/></span>
+                                                <div>
+                                                    <div class="tk-step-t">Informe aceptado por las partes</div>
+                                                    <div class="tk-step-d">Comprador y vendedor firmaron el informe.</div>
+                                                </div>
+                                            </li>
+                                        </t>
+                                        <li class="tk-step is-done">
+                                            <span class="tk-dot"><i class="fa fa-check" aria-hidden="true"/></span>
+                                            <div>
+                                                <div class="tk-step-t">Compra confirmada</div>
+                                                <div class="tk-step-d" t-if="op_dt"><t t-esc="tx.shrimp_fmt_dt(op_dt)"/></div>
+                                            </div>
+                                        </li>
+                                        <t t-if="not verif">
+                                            <!-- Despacho -->
+                                            <t t-set="dsp_done" t-value="bool(tx.dispatched_at or tx.state == 'done')"/>
+                                            <li t-att-class="'tk-step ' + ('is-done' if dsp_done else ('is-late' if tx.shrimp_delivery_overdue() else 'is-current'))">
+                                                <span class="tk-dot"><i t-att-class="'fa ' + ('fa-check' if dsp_done else 'fa-truck')" aria-hidden="true"/></span>
+                                                <div>
+                                                    <div class="tk-step-t">Despacho</div>
+                                                    <div class="tk-step-d">
+                                                        <t t-if="tx.dispatched_at">Despachado el <t t-esc="tx.shrimp_fmt_dt(tx.dispatched_at)"/></t>
+                                                        <t t-elif="tx.state == 'done'">Entregado</t>
+                                                        <t t-elif="tx.delivery_date">El vendedor prepara el envío · entrega prevista el <t t-esc="tx.shrimp_fmt_dt(tx.delivery_date)"/></t>
+                                                        <t t-else="">El vendedor prepara el envío.</t>
+                                                    </div>
+                                                </div>
+                                            </li>
+                                            <!-- Recepción -->
+                                            <t t-set="rcv_done" t-value="bool(tx.state == 'done' or tx.reception_status in ('received', 'auto'))"/>
+                                            <li t-att-class="'tk-step ' + ('is-done' if rcv_done else ('is-late' if tx.reception_status == 'incidence' else ''))">
+                                                <span class="tk-dot"><i t-att-class="'fa ' + ('fa-check' if rcv_done else ('fa-flag' if tx.reception_status == 'incidence' else 'fa-inbox'))" aria-hidden="true"/></span>
+                                                <div>
+                                                    <div class="tk-step-t">Recepción</div>
+                                                    <div class="tk-step-d">
+                                                        <t t-if="rcv_done">
+                                                            <t t-if="tx.reception_status == 'auto'">Confirmada automáticamente</t>
+                                                            <t t-else="">Recibida</t>
+                                                            <t t-if="tx.received_date"> el <t t-esc="tx.shrimp_fmt_dt(tx.received_date)"/></t>
+                                                        </t>
+                                                        <t t-elif="tx.reception_status == 'incidence'">Con incidencia: la revisa la plataforma.</t>
+                                                        <t t-elif="tx.reception_required">
+                                                            <t t-if="tk_is_buyer">Confirma</t><t t-else="">El comprador confirma</t>
+                                                            la recepción dentro de <b><t t-esc="tx._shrimp_reception_days()"/> días</b>
+                                                            desde el despacho o la fecha de entrega<t t-if="tx.reception_deadline"> (hasta el <t t-esc="tx.shrimp_fmt_dt(tx.reception_deadline)"/>)</t>.
+                                                            Si no hay respuesta, se confirma automáticamente.
+                                                        </t>
+                                                        <t t-else="">
+                                                            <t t-if="tk_is_buyer">Al recibir el lote, confírmalo desde tu compra.</t>
+                                                            <t t-else="">El comprador confirma la recepción al recibir el lote.</t>
+                                                        </t>
+                                                    </div>
+                                                </div>
+                                            </li>
+                                        </t>
+                                        <!-- Factura del vendedor (paso 2 de la facturación) -->
+                                        <li t-att-class="'tk-step ' + ('is-done' if tx.has_seller_invoice else '')">
+                                            <span class="tk-dot"><i t-att-class="'fa ' + ('fa-check' if tx.has_seller_invoice else 'fa-file-text-o')" aria-hidden="true"/></span>
+                                            <div>
+                                                <div class="tk-step-t">Factura del vendedor</div>
+                                                <div class="tk-step-d">
+                                                    <t t-if="tx.has_seller_invoice">Registrada<t t-if="tx.seller_invoice_number"> · N.º <t t-esc="tx.seller_invoice_number"/></t>.</t>
+                                                    <t t-else="">El vendedor emite la factura del producto desde su sistema y la registra en la compra.</t>
+                                                </div>
+                                            </div>
+                                        </li>
+                                    </ol>
+                                </div>
+                            </section>
+
+                            <!-- Calificar al vendedor / reseña ya enviada -->
+                            <section class="pf-sec tk-rate" t-if="can_rate or my_review" aria-labelledby="tk_rate_h">
+                                <div class="pf-sec-h">
+                                    <span class="pd-sec-ico"><i class="fa fa-star" aria-hidden="true"/></span>
+                                    <div>
+                                        <h2 id="tk_rate_h">Tu opinión</h2>
+                                        <p t-if="can_rate">Tu calificación ayuda a otros compradores.</p>
+                                    </div>
+                                </div>
+                                <div class="pf-sec-b">
+                                    <t t-if="can_rate">
+                                        <h3 class="tk-rate-q">¿Cómo fue tu experiencia con <t t-esc="tx.seller_partner_id.name"/>?</h3>
+                                        <form method="post" t-att-action="'/marketplace/purchases/%s/rate' % tx.uuid_ref">
+                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                            <div class="s-star-input">
+                                                <t t-foreach="[5,4,3,2,1]" t-as="star">
+                                                    <input type="radio" name="rating" t-att-value="star"
+                                                           t-att-id="'ts_%s_%s' % (tx.uuid_ref, star)" t-att-checked="star == 5"/>
+                                                    <label t-att-for="'ts_%s_%s' % (tx.uuid_ref, star)"><i class="fa fa-star"></i></label>
+                                                </t>
+                                            </div>
+                                            <textarea class="form-control mt-3" name="comment" rows="3"
+                                                      placeholder="Deja un comentario (opcional)"></textarea>
+                                            <div class="mt-3">
+                                                <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-star me-1"></i> Enviar calificación</button>
+                                            </div>
+                                        </form>
+                                    </t>
+                                    <t t-else="">
+                                        <h3 class="tk-rate-q">Ya calificaste a <t t-esc="tx.seller_partner_id.name"/></h3>
+                                        <div class="s-rating" style="font-size:22px;">
+                                            <t t-foreach="range(1,6)" t-as="i"><i t-att-class="'fa fa-star' + ('' if i &lt;= my_review.rating else ' s-rating-empty')"></i></t>
+                                        </div>
+                                        <p t-if="my_review.comment" class="text-soft tk-rate-c">“<t t-esc="my_review.comment"/>”</p>
+                                    </t>
+                                </div>
+                            </section>
+                        </div>
+
+                        <!-- ===================== RESUMEN (derecha, fijo) ===================== -->
+                        <aside class="bp-aside" aria-label="Resumen del pago">
+                            <div class="pf-panel bp-sum" id="tk_summary">
+                                <div class="bp-sum-h">Resumen del pago</div>
+                                <ul class="bp-lines">
+                                    <li>
+                                        <span>Precio / <t t-esc="uom_name"/></span>
+                                        <b t-esc="money(tx.price_unit)"/>
+                                    </li>
+                                    <li>
+                                        <span>Cantidad</span>
+                                        <b t-esc="tx.shrimp_fmt_qty(tx.sold_qty or tx.desired_qty or tx.transaction_qty or 0, uom_name)"/>
+                                    </li>
+                                    <li>
+                                        <span>
+                                            Producto
+                                            <small><t t-esc="'Pagado al concluir la compra' if verif else 'Pagado al comprar'"/> · lo factura el vendedor<t t-if="tx.has_seller_invoice and tx.seller_invoice_number"> (N.º <t t-esc="tx.seller_invoice_number"/>)</t></small>
+                                        </span>
+                                        <b t-esc="money(amounts['product_total'])"/>
+                                    </li>
+                                    <t t-foreach="amounts['service_lines']" t-as="sl">
+                                        <li class="bp-fee">
+                                            <span>
+                                                <t t-esc="sl['label']"/>
+                                                <small>
+                                                    Servicio de la plataforma · pagado al iniciar la compra
+                                                    <t t-if="sl['invoice']"> · factura <t t-esc="sl['invoice']"/> (impuestos incluidos)</t>
+                                                    <t t-else=""> · sin impuestos (constan en su factura electrónica)</t>
+                                                </small>
+                                            </span>
+                                            <b t-esc="money(sl['total'] if sl['invoice'] else sl['untaxed'])"/>
+                                        </li>
+                                    </t>
+                                    <li t-if="not amounts['service_lines']" class="bp-fee">
+                                        <span>
+                                            Servicio de la plataforma
+                                            <small t-if="tk_is_buyer">Sin cargo para ti: la comisión de la venta la paga el vendedor.</small>
+                                            <small t-else="">Sin cargo para el comprador: la comisión de la venta la paga el vendedor.</small>
+                                        </span>
+                                        <b t-esc="money(0)"/>
+                                    </li>
+                                </ul>
+
+                                <div class="bp-pay" t-if="tx.state != 'cancel'">
+                                    <div class="bp-total">
+                                        <span>Total de la operación</span>
+                                        <b t-esc="money(amounts['grand_total'])"/>
+                                    </div>
+                                </div>
+
+                                <div class="tk-actions">
+                                    <!-- El comprobante se emite contra una compra cerrada: en una
+                                         operación pendiente o cancelada no hay nada que descargar. -->
+                                    <t t-if="tk_ok">
+                                        <a class="s-btn s-btn-primary" t-att-href="pdf_url">
+                                            <i class="fa fa-file-pdf-o me-1" aria-hidden="true"/>
+                                            <t t-if="has_invoice">Descargar factura</t>
+                                            <span t-else="">Descargar comprobante <small class="tk-btn-sub">(sin valor tributario)</small></span>
+                                        </a>
+                                    </t>
+                                    <div t-else="" class="tk-actions-why">
+                                        <i class="fa fa-info-circle me-1" aria-hidden="true"/>
+                                        El comprobante estará disponible cuando la compra quede confirmada.
+                                    </div>
+                                    <a class="s-btn s-btn-ghost" t-att-href="trace_url"><i class="fa fa-sitemap me-1" aria-hidden="true"/> Ver mi compra y trazabilidad</a>
+                                    <div class="tk-actions-2">
+                                        <a class="s-btn s-btn-ghost" href="/marketplace/purchases"><i class="fa fa-list me-1" aria-hidden="true"/> Mis compras</a>
+                                        <a class="s-btn s-btn-ghost" href="/my/dashboard"><i class="fa fa-th-large me-1" aria-hidden="true"/> Mi panel</a>
+                                    </div>
+                                    <a class="s-btn s-btn-ghost" href="/marketplace"><i class="fa fa-shopping-bag me-1" aria-hidden="true"/> Seguir comprando</a>
+                                </div>
+
+                                <div class="bp-bill">
+                                    <div><i class="fa fa-file-text-o" aria-hidden="true"/>
+                                        <span>La plataforma solo factura <b>sus servicios</b> (factura electrónica). La factura del producto la emite el vendedor.</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </aside>
+                    </div>
+
+                    <!-- Barra fija móvil: total + comprobante -->
+                    <div class="pd-mbar tk-mbar">
+                        <div class="pd-mbar-p">
+                            <b t-esc="money(amounts['grand_total'])"/>
+                            <span><t t-esc="tx.name"/> · <t t-esc="state_label"/></span>
+                        </div>
+                        <div class="pd-mbar-act">
+                            <a class="s-btn s-btn-ghost" href="/marketplace/purchases" aria-label="Mis compras" title="Mis compras"><i class="fa fa-list" aria-hidden="true"/></a>
+                            <a t-if="tk_ok" class="s-btn s-btn-primary" t-att-href="pdf_url">
+                                <i class="fa fa-file-pdf-o me-1" aria-hidden="true"/> <t t-if="has_invoice">Factura</t><t t-else="">Comprobante</t>
+                            </a>
+                            <a t-else="" class="s-btn s-btn-primary" t-att-href="trace_url">Ver compra</a>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </t>
+    </template>
+</odoo>

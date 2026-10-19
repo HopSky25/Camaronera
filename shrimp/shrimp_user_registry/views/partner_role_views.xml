@@ -25,7 +25,7 @@
         <field name="decided_by_id" optional="hide"/>
         <button name="action_approve" type="object" string="Aprobar" icon="fa-check"
                 class="btn-link" invisible="state == 'approved'" groups="base.group_system"/>
-        <button name="action_reject" type="object" string="Rechazar" icon="fa-times"
+        <button name="action_open_reject_wizard" type="object" string="Rechazar" icon="fa-times"
                 class="btn-link" invisible="state == 'rejected'" groups="base.group_system"/>
       </list>
     </field>
@@ -40,7 +40,7 @@
           <button name="action_approve" type="object" string="Aprobar perfil" class="btn-primary"
                   invisible="state == 'approved'" groups="base.group_system"
                   confirm="¿Aprobar este perfil? La cuenta podrá operar con él."/>
-          <button name="action_reject" type="object" string="Rechazar"
+          <button name="action_open_reject_wizard" type="object" string="Rechazar"
                   invisible="state == 'rejected'" groups="base.group_system"/>
           <button name="action_reset" type="object" string="Volver a pendiente"
                   invisible="state == 'pending'" groups="base.group_system"/>
@@ -58,8 +58,11 @@
               <field name="request_date"/>
               <field name="decision_date"/>
               <field name="decided_by_id"/>
+              <field name="rejection_count"/>
+              <field name="rerequest_count"/>
             </group>
           </group>
+          <field name="reject_reason" invisible="not reject_reason"/>
           <field name="notes" placeholder="Notas internas de la revisión..."/>
           <p class="text-muted">
             Los certificados que la cuenta subió para este perfil están en la
@@ -111,7 +114,7 @@
     <field name="arch" type="xml">
       <xpath expr="//search" position="inside">
         <separator/>
-        <filter name="shrimp_role_semillero" string="Perfil: semillero"
+        <filter name="shrimp_role_semillero" string="Perfil: naupliero"
                 domain="[('shrimp_role_ids', 'any', [('role', '=', 'semillero'), ('state', '=', 'approved')])]"/>
         <filter name="shrimp_role_laboratorio" string="Perfil: laboratorio"
                 domain="[('shrimp_role_ids', 'any', [('role', '=', 'laboratorio'), ('state', '=', 'approved')])]"/>
@@ -123,6 +126,40 @@
                 domain="[('shrimp_role_ids', 'any', [('state', '=', 'pending')])]"/>
         <filter name="g_shrimp_active_role" string="Perfil activo" context="{'group_by': 'shrimp_user_type'}"/>
       </xpath>
+    </field>
+  </record>
+  <!-- D-18: rechazar con motivo obligatorio (se envía al socio). -->
+  <record id="view_shrimp_partner_role_reject_form" model="ir.ui.view">
+    <field name="name">shrimp.partner.role.reject.form</field>
+    <field name="model">shrimp.partner.role.reject</field>
+    <field name="arch" type="xml">
+      <form string="Rechazar perfil">
+        <field name="role_ids" invisible="1"/>
+        <p class="text-muted">El motivo se envía por correo al socio y se le muestra en «Mi cuenta».
+          Podrá corregir y volver a pedir el perfil un número limitado de veces.</p>
+        <field name="reason" placeholder="Qué falta o qué no cumple..."/>
+        <footer>
+          <button name="action_confirm" type="object" string="Rechazar" class="btn-danger"/>
+          <button special="cancel" string="Cancelar"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+  <!-- D-20: suspender una cuenta con motivo (se envía al socio). -->
+  <record id="view_shrimp_account_suspend_form" model="ir.ui.view">
+    <field name="name">shrimp.account.suspend.form</field>
+    <field name="model">shrimp.account.suspend</field>
+    <field name="arch" type="xml">
+      <form string="Suspender cuenta">
+        <field name="partner_ids" invisible="1"/>
+        <p class="text-muted">Sus lotes y listas de precios publicados se retiran; las compras y
+          ventas en curso siguen hasta cerrarse, pero no podrá empezar otras. El motivo se le envía por correo.</p>
+        <field name="reason" placeholder="Motivo de la suspensión..."/>
+        <footer>
+          <button name="action_confirm" type="object" string="Suspender" class="btn-danger"/>
+          <button special="cancel" string="Cancelar"/>
+        </footer>
+      </form>
     </field>
   </record>
 </odoo>

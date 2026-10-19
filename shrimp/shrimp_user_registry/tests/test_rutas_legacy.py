@@ -29,7 +29,7 @@ TRAMOS_EN = {
     "certificates", "check-request", "check-requests", "close", "commit",
     "commitments", "compare", "complete", "confirm", "confirmations", "copacker",
     "copacking", "correct", "count", "counter-offer", "cover", "create",
-    "dashboard", "deactivate", "declare", "delete", "desist", "detail", "discard",
+    "dashboard", "deactivate", "declare", "delay", "delete", "desist", "detail", "discard",
     "dispatch", "duplicate", "edit", "events", "exports", "facilities", "facility",
     "file", "harvest", "image", "inbox", "invoice", "lines", "list-price",
     "marketplace", "move-profile", "my", "my-account", "my-certificate",
@@ -47,6 +47,24 @@ TRAMOS_EN = {
     "template", "thanks", "toggle", "traceability", "undo", "undo-signature",
     "unpublish", "update", "upload", "user-certificate", "v1", "verdict",
     "verifications", "verifier", "verifiers", "verify", "webhooks", "withdraw",
+    # Historial y «Reenviar» de entregas de webhooks (shrimp_api 19.0.1.10.0, D-44)
+    "deliveries",
+    # «Solicitar anulación» de un strike (marketplace 19.0.1.34.0)
+    "strike", "appeal",
+    # Verificación (19.0.1.24.0): aceptar/declinar la orden, producto no
+    # presentado y segunda opinión
+    "respond", "not-presented", "second-opinion",
+    # protección de datos (19.0.1.5.0)
+    "privacy", "legal", "terms", "data", "request",
+    # documentos legales versionados y usuarios de la cuenta (19.0.1.6.0)
+    "cookies", "contract", "history", "cookie-policy", "receipt", "dismiss",
+    "team", "invite", "permissions", "make-admin", "resend",
+    # perfiles por sitio: «este perfil se usa en su sitio» (marketplace)
+    "site-profile",
+    # «Estado real del lote»: observaciones del vendedor (marketplace 19.0.1.30.0)
+    "observations", "apply",
+    # derechos del titular: descarga de la copia portable (registry 19.0.1.12.0)
+    "export",
 }
 
 

@@ -11,6 +11,7 @@ class EcSriDriver(models.Model):
     _name = 'ec.sri.driver'
     _description = 'Transportista (Guía de Remisión SRI)'
     _order = 'name'
+    _check_company_auto = True
 
     name = fields.Char(string='Nombre / Razón social', required=True)
     identification_type = fields.Selection(
@@ -18,6 +19,9 @@ class EcSriDriver(models.Model):
         string='Tipo de identificación', default='05', required=True)
     identification_number = fields.Char(string='Número de identificación', required=True)
     license_number = fields.Char(string='Licencia de conducir')
+    company_id = fields.Many2one(
+        'res.company', string='Compañía', required=True, index=True,
+        default=lambda s: s.env.company)
     active = fields.Boolean(default=True)
 
 
@@ -25,9 +29,13 @@ class EcSriVehicle(models.Model):
     _name = 'ec.sri.vehicle'
     _description = 'Vehículo de transporte (Guía de Remisión SRI)'
     _order = 'name'
+    _check_company_auto = True
 
     name = fields.Char(string='Nombre', required=True, help='Ej. Camión 01')
     license_plate = fields.Char(string='Placa', required=True, help='Ej. ABC-1234')
     model_year = fields.Char(string='Año/Modelo')
     brand = fields.Char(string='Marca')
+    company_id = fields.Many2one(
+        'res.company', string='Compañía', required=True, index=True,
+        default=lambda s: s.env.company)
     active = fields.Boolean(default=True)

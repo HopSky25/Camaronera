@@ -134,7 +134,7 @@ class TestFormularioProducto(HttpCase):
         r = self._crear("PF sem engorde", stage_id=str(self.st_engorde.id), presentation="entero",
                         size_grade_id=str(self.t3040.id))
         self.assertFalse(self._buscar("PF sem engorde"))
-        self.assertIn("no la puede publicar un perfil semillero", r.text)
+        self.assertIn("no la puede publicar un perfil naupliero", r.text)
         self._login("cam")
         r = self._crear("PF cam pl12", stage_id=str(self.st_pl12.id))
         self.assertFalse(self._buscar("PF cam pl12"))
@@ -347,7 +347,7 @@ class TestFormularioProducto(HttpCase):
         self.assertTrue(p.has_purchases())
         self._login("sem")
         html = self.url_open("/marketplace/products/%s/edit" % p.uuid_ref).text
-        self.assertIn("Este producto ya tiene compras registradas", html)
+        self.assertIn("Precio y datos del lote bloqueados", html)
         self.assertRegex(html, r'name="price"[^>]*disabled')
         self.assertRegex(html, r'name="initial_qty"[^>]*disabled')
         self.assertIn('<input type="hidden" name="uom_id" value="%d"' % self.millar.id, html)

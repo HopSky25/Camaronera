@@ -127,7 +127,7 @@
                              mayoría de las tarjetas terminaban en un 403. Al visitante
                              sin sesión sí se le ofrece: le lleva al login, que es
                              exactamente lo que queremos. -->
-                        <t t-set="veto" t-value="'' if request.env.user._is_public() else p.motivo_no_comprable(request.env.user.partner_id)"/>
+                        <t t-set="veto" t-value="'' if request.env.user._is_public() else p.motivo_no_comprable(request.env.user.shrimp_actor_partner_id)"/>
                         <a t-if="not veto" class="s-btn s-btn-primary btn-sm" t-att-href="'/marketplace/buy/%s' % p.uuid_ref">Comprar</a>
                         <span t-else="" class="s-btn s-btn-ghost btn-sm disabled" style="white-space:nowrap;" t-att-title="veto">No disponible</span>
                     </div>
@@ -146,7 +146,7 @@
                         <div class="sf-banner-row">
                             <div class="sf-banner-txt">
                                 <h1>Larvas y camarón con trazabilidad</h1>
-                                <p>Compra directo a semilleros, laboratorios y camaroneras. Cada lote con su historial verificado.</p>
+                                <p>Compra directo a nauplieros, laboratorios y camaroneras. Cada lote con su historial verificado.</p>
                             </div>
                             <span class="sf-kicker"><i class="fa fa-shopping-bag"></i> Marketplace</span>
                         </div>
@@ -167,14 +167,9 @@
                             <!-- Filtros activos: cada etiqueta lleva a la misma URL sin ese filtro -->
                             <t t-call="shrimp_marketplace.s_filter_tags"/>
 
-                            <!-- Chips de etapa (scroll horizontal en mobile) -->
-                            <div class="s-cat-chips s-cat-chips--scroll mb-3">
-                                <a t-att-class="'s-cat-chip' + ('' if filters.get('stage') else ' active')" t-att-href="'/marketplace' + (vista_qs or '')" data-vista-link="1">Todas</a>
-                                <t t-foreach="stage_options" t-as="opt">
-                                    <a t-att-class="'s-cat-chip' + (' active' if str(filters.get('stage') or '') == str(opt.id) else '')"
-                                       t-att-href="'/marketplace?stage=%s' % opt.id + (vista_amp or '')" data-vista-link="1"><t t-esc="opt.name" /></a>
-                                </t>
-                            </div>
+                            <!-- Tipo y etapa ya no son filas de chips: viven en el cajón
+                                 (secciones «Tipo» y «Etapa»); si están activos se ven en la
+                                 línea de etiquetas de arriba, que se quitan de una en una. -->
 
                             <div class="s-sortbar s-mkt-count mb-3">
                                 <div class="text-soft" style="font-size:var(--fs-sm);">
@@ -257,6 +252,29 @@
                     <!-- ===== Cajón de filtros (offcanvas a la derecha) =====
                          Plantilla reutilizable: aquí solo van las secciones. -->
                     <t t-call="shrimp_marketplace.s_filter_drawer">
+                                    <!-- Etapa (antes, fila de chips sobre el listado). Con una sola
+                                         opción no se muestra; con JS solo se ven las del tipo elegido
+                                         en «Tipo» (data-s-dep) y la sección se oculta si queda una.
+                                         Sin sección, la etapa de la URL se conserva al aplicar. -->
+                                    <div t-if="len(stage_options or []) &gt; 1" class="s-filter-sec" id="sf_sec_stage">
+                                        <div class="s-filter-sec-label">Etapa</div>
+                                        <div class="s-choice-chips" data-s-dep="tipo" data-s-min="2">
+                                            <label class="s-choice">
+                                                <input type="radio" name="stage" value=""
+                                                    t-att-checked="not filters.get('stage')" />
+                                                <span>Todas</span>
+                                            </label>
+                                            <t t-foreach="stage_options" t-as="opt">
+                                                <label class="s-choice" t-att-data-dep="opt._shrimp_tipo()">
+                                                    <input type="radio" name="stage" t-att-value="opt.id"
+                                                        t-att-checked="str(filters.get('stage') or '') == str(opt.id)" />
+                                                    <span><t t-esc="opt.name" /></span>
+                                                </label>
+                                            </t>
+                                        </div>
+                                    </div>
+                                    <input t-else="" type="hidden" name="stage" t-att-value="filters.get('stage') or ''" />
+
                                     <!-- Especie -->
                                     <div class="s-filter-sec" id="sf_sec_species">
                                         <div class="s-filter-sec-label">Especie</div>
@@ -446,613 +464,366 @@
         </t>
     </template>
 
+<!-- ================================================================
+         COMPRA (/marketplace/buy/<ref>)
+         Rediseño 2026-10 en el lenguaje de la ficha del producto (.pd-) y
+         del formulario de publicación (.pf-): pasos en tarjetas a la
+         izquierda y resumen del pedido fijo (sticky) a la derecha; en móvil,
+         una columna y barra inferior con el total y «Confirmar».
+         Estilos: static/src/css/shrimp_buy.css (prefijo .bp-).
+         Comportamiento (total, validación, pago simulado, botón del
+         resumen): static/src/js/shrimp_buy.js.
+
+         Anclas de herencia que NO se deben mover ni renombrar
+         (shrimp_verification.buy_product_verification):
+           - form#buyForm ........ t-if (compra directa solo si no exige
+                                    verificación) y el bloque de verificación
+                                    se inserta JUSTO ANTES.
+         Ids que lee el script de verificación al ejecutarse (deben ir ANTES
+         del formulario de compra en el documento): #qty_input,
+         #available_qty (data-available), #unit_price (data-price). Y al
+         confirmar: #payOverlay / #payCount.
+         ================================================================ -->
     <template id="buy_product" name="Comprar - Marketplace">
         <t t-call="website.layout">
-            <style>
-              .buy-media{ background:#fff; border:1px solid var(--shrimp-border); border-radius:var(--shrimp-radius-lg); overflow:hidden; box-shadow:var(--shrimp-shadow); }
-              .buy-media-img{ width:100%; height:340px; object-fit:cover; display:block; }
-              .buy-noimg{ height:340px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; color:var(--shrimp-ink-faint); background:#fff; font-size:18px; font-weight:700; }
-              .buy-noimg .buy-noimg-ico{ font-size:64px; opacity:.45; }
-              .buy-thumbs{ display:flex; gap:8px; flex-wrap:wrap; padding:12px; border-top:1px solid var(--shrimp-border); }
-              .buy-thumbs img{ width:64px; height:64px; object-fit:cover; border-radius:10px; border:1px solid var(--shrimp-border); cursor:pointer; transition:border-color .15s ease, box-shadow .15s ease; }
-              .buy-thumbs img:hover{ border-color:var(--shrimp-brand); }
-              .buy-thumbs img.is-active{ border-color:var(--shrimp-brand); box-shadow:0 0 0 2px var(--shrimp-brand-soft); }
-              .buy-box{ background:var(--shrimp-bg-alt); border:1px solid var(--shrimp-border); border-radius:var(--shrimp-radius); padding:14px 16px; }
-              /* Campos con relleno gris (como Estado sanitario), no blanco */
-              .mp-spec{ background:var(--shrimp-bg-alt); }
-              .mp-spec:hover{ box-shadow:none; border-color:var(--shrimp-border); }
-              .mp-spec-ico{ background:#fff; }
-              .buy-price{ font-size:26px; font-weight:800; color:var(--shrimp-ink); letter-spacing:-.02em; line-height:1.1; }
-              .buy-unit{ font-size:12px; color:var(--shrimp-ink-faint); font-weight:600; }
-              .buy-total{ font-size:22px; font-weight:800; color:var(--shrimp-brand); letter-spacing:-.02em; }
-              .buy-guide{ background:var(--shrimp-brand-soft); border:1px solid var(--shrimp-border); border-radius:var(--shrimp-radius); padding:14px 16px; }
-              .buy-guide ol, .buy-guide ul{ margin:0; padding-left:18px; font-size:13px; color:var(--shrimp-ink-soft); }
-              .buy-guide li{ margin:3px 0; }
-              .buy-acc .accordion-item{ border:1px solid var(--shrimp-border); border-radius:var(--shrimp-radius) !important; margin-bottom:10px; overflow:hidden; background:#fff; }
-              .buy-acc .accordion-button{ font-weight:800; color:var(--shrimp-ink); background:#fff; box-shadow:none; }
-              .buy-acc .accordion-button:not(.collapsed){ color:var(--shrimp-brand); background:var(--shrimp-brand-soft); }
-              .buy-acc .accordion-button:focus{ box-shadow:none; border-color:var(--shrimp-border); }
-              .buy-qty{ font-size:16px; font-weight:700; padding:12px 14px; border-radius:12px; }
-              .buy-sticky{ position:sticky; top:16px; align-self:flex-start; }
-              /* Modal de confirmación del chequeo */
-              .buy-modal{ position:fixed; inset:0; background:rgba(13,27,38,.55); display:none; align-items:center; justify-content:center; z-index:2000; padding:20px; }
-              .buy-modal.open{ display:flex; }
-              .buy-modal-card{ background:#fff; border-radius:var(--shrimp-radius-lg); max-width:440px; width:100%; padding:24px; box-shadow:var(--shrimp-shadow-hover); }
-              .buy-modal-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0; border-bottom:1px solid var(--shrimp-border); font-size:14px; color:var(--shrimp-ink); }
-              .buy-modal-row.last{ border-bottom:0; }
-              .buy-modal-total{ font-weight:800; font-size:18px; color:var(--shrimp-brand); }
-            </style>
-            <div class="shrimp-bg">
-                <div class="shrimp-page shrimp-page--full py-4">
+            <t t-set="uom_name" t-value="product.uom_id.name or ''"/>
+            <t t-set="fmtq" t-value="lambda v: ('{:,.2f}'.format(v or 0.0)).rstrip('0').rstrip('.')"/>
+            <t t-set="fmtd" t-value="lambda d: d.strftime('%d/%m/%Y') if d else '—'"/>
+            <t t-set="p_tipo" t-value="product._shrimp_tipo()"/>
+            <t t-set="p_tipo_label" t-value="{'nauplio': 'Nauplio', 'larva': 'Larva', 'camaron': 'Camarón'}.get(p_tipo, '')"/>
+            <t t-set="p_role" t-value="product._shrimp_seller_role()"/>
+            <!-- «Semillero» se muestra como «Naupliero» (solo etiqueta). -->
+            <t t-set="p_role_label" t-value="'Naupliero' if p_role == 'semillero' else request.env['res.partner']._shrimp_type_label(p_role)"/>
+            <!-- Matriz de verificación: «none» / «optional» / «mandatory» (la
+                 calcula el controlador; si no llega, se pregunta al producto). -->
+            <t t-set="verification_policy" t-value="verification_policy or product._shrimp_verification_policy(request.env.user.shrimp_actor_partner_id)"/>
+            <t t-set="req_verif" t-value="verification_policy == 'mandatory'"/>
+            <t t-set="seller_words" t-value="(seller.name or '?').split()"/>
+            <t t-set="seller_initials" t-value="''.join([w[:1] for w in seller_words[:2]]).upper()"/>
+            <t t-set="pub_cert_lines" t-value="product.shrimp_visible_certificate_lines()"/>
+            <t t-set="error_code" t-value="request.params.get('error')"/>
+            <t t-set="error_message" t-value="request.params.get('message')"/>
 
-                    <!-- Breadcrumb / volver -->
-                    <div class="mb-3">
-                        <t t-call="shrimp_marketplace.s_back_button"><t t-set="back_fallback" t-value="'/marketplace'"/></t>
-                    </div>
+            <div class="shrimp-bg pd-bg">
+                <div class="shrimp-page pd-page pd bp" id="bp_page">
 
-                    <!-- Encabezado: banner de marca -->
-                    <div class="sf-banner mb-4">
-                        <div class="sf-banner-row">
-                            <div class="sf-banner-txt">
-                                <h1><t t-esc="product.name" /></h1>
-                                <p>Revisa los detalles, ingresa la cantidad y confirma tu compra o solicita un chequeo.</p>
+                    <t t-call="shrimp_marketplace.s_back_button"><t t-set="back_fallback" t-value="'/marketplace'"/></t>
+
+                    <!-- Visor de certificado (modal) -->
+                    <t t-call="shrimp_marketplace.cert_viewer"/>
+
+                    <!-- Encabezado -->
+                    <div class="pd-ph">
+                        <div class="pd-ph-txt">
+                            <div class="pd-eyebrow">
+                                <span class="pd-tipo">Comprar</span>
+                                <t t-if="p_tipo_label">
+                                    <span class="pd-sep" aria-hidden="true"/>
+                                    <span t-esc="p_tipo_label"/>
+                                </t>
+                                <span class="pd-sep" aria-hidden="true"/>
+                                <span>Vendido por <a t-att-href="'/marketplace/sellers/%s' % seller.uuid_ref" t-esc="seller.name"/></span>
                             </div>
-                            <span class="sf-kicker"><i class="fa fa-shopping-bag"></i> Comprar</span>
+                            <h1 t-esc="product.name"/>
+                            <div class="pd-meta">
+                                <span>Indica la cantidad, elige cómo se verifica y confirma tu compra.</span>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="row g-4">
+                    <!-- Error del servidor (mismos códigos y textos de siempre) -->
+                    <div t-if="error_code" class="pf-alert pf-a-bad bp-err" role="alert" id="bp_error" tabindex="-1">
+                        <i class="fa fa-exclamation-circle" aria-hidden="true"/>
+                        <div>
+                            <t t-if="error_code == 'qty'">Debes ingresar una cantidad mayor a 0.</t>
+                            <t t-elif="error_code == 'stock'">La cantidad solicitada supera el stock disponible.</t>
+                            <t t-elif="error_code == 'validation'">
+                                <t t-esc="error_message or 'Ocurrió un error de validación.'"/>
+                            </t>
+                            <t t-else="">Ocurrió un error inesperado.</t>
+                        </div>
+                    </div>
 
-                        <!-- RAIL DERECHO (sticky): Foto + Compra + Guía -->
-                        <div class="col-lg-4 order-lg-2 buy-sticky">
+                    <div class="bp-layout">
 
-                            <!-- Foto -->
-                            <div class="buy-media mb-4">
-                                <t t-if="product.photo_attachment_ids">
-                                    <img id="buyMainImg" class="buy-media-img"
-                                        t-att-src="product.shrimp_photo_url(product.photo_attachment_ids[0])"
-                                        alt="Foto producto" />
-                                </t>
-                                <t t-else="">
-                                    <div class="buy-noimg"><i class="fa fa-image buy-noimg-ico"></i> <span>Sin foto</span></div>
-                                </t>
+                        <!-- ===================== PASOS (izquierda) ===================== -->
+                        <div class="bp-main">
 
-                                <!-- Miniaturas (clic para cambiar la principal) -->
-                                <t t-if="product.photo_attachment_ids and len(product.photo_attachment_ids) &gt; 1">
-                                    <div class="buy-thumbs">
-                                        <t t-foreach="product.photo_attachment_ids" t-as="img">
-                                            <img t-attf-class="js-buy-thumb#{' is-active' if img_index == 0 else ''}"
-                                                 t-att-data-src="product.shrimp_photo_url(img)"
-                                                 t-att-src="product.shrimp_photo_url(img)"
-                                                 t-attf-alt="Foto #{img_index + 1} de #{product.name}" />
-                                        </t>
+                            <!-- 1 · Cantidad -->
+                            <section class="pf-sec" id="bp_qty" aria-labelledby="bp_qty_h">
+                                <div class="pf-sec-h">
+                                    <span class="pf-step-n">1</span>
+                                    <div>
+                                        <h2 id="bp_qty_h">Cantidad</h2>
+                                        <p>En <t t-esc="uom_name"/>. No puede superar lo disponible.</p>
                                     </div>
-                                </t>
-                            </div>
-                            <script type="text/javascript">
-<![CDATA[
-(function(){
-  function init(){
-    var main = document.getElementById('buyMainImg');
-    var thumbs = document.querySelectorAll('.js-buy-thumb');
-    if(!main || !thumbs.length) return;
-    thumbs.forEach(function(t){
-      t.addEventListener('click', function(){
-        main.src = t.getAttribute('data-src');
-        thumbs.forEach(function(x){ x.classList.remove('is-active'); });
-        t.classList.add('is-active');
-      });
-    });
-  }
-  if(document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', init); } else { init(); }
-})();
-]]>
-                            </script>
-
-                            <!-- Compra (debajo de foto) -->
-                            <div class="mp-table-card mb-4">
-                                <div class="card-body p-4">
-
-                                    <!-- Header -->
-                                    <div class="mp-sec-head">
-                                        <span class="mp-sec-ico"><i class="fa fa-shopping-cart"></i></span>
-                                        <h3 class="mp-sec-title">Cantidad y total</h3>
-                                        <span class="s-badge mp-sec-count"><t t-esc="product.uom_id.name" /></span>
-                                    </div>
-
-                                    <!-- Precio / stock -->
-                                    <div class="buy-box mb-3">
-                                        <div class="row align-items-center g-2">
-                                            <div class="col-7">
-                                                <div class="buy-unit"> Precio por <t t-esc="product.uom_id.name" /></div>
-                                                <div class="buy-price" id="unit_price" t-att-data-price="unit_price">$<t t-esc="'%.2f' % unit_price" /></div>
-                                                <t t-if="has_custom_price">
-                                                    <div style="font-size:12px; margin-top:2px;">
-                                                        <span class="s-badge s-badge--success" style="font-size:10px;">Tu precio</span>
-                                                        <span class="text-faint" style="text-decoration:line-through; margin-left:4px;">$<t t-esc="'%.2f' % product.price" /></span>
-                                                    </div>
-                                                </t>
-                                            </div>
-                                            <div class="col-5 text-end">
-                                                <div class="buy-unit">Disponible</div>
-                                                <div style="font-weight:800;" id="available_qty" t-att-data-available="product.available_qty">
-                                                    <t t-esc="product.available_qty" /> <t t-esc="product.uom_id.name" />
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <t t-if="product.expected_delivery_date">
-                                            <div class="mt-2 buy-unit">
-                                                <i class="fa fa-calendar me-1"></i> Entrega planificada:
-                                                <strong><t t-esc="product.expected_delivery_date" /></strong>
-                                            </div>
-                                        </t>
-                                    </div>
-
-                                    <!-- Cantidad -->
-                                    <div class="mb-3">
-                                        <label class="form-label mb-1" style="font-weight:800; font-size:13px;"> Cantidad (<t t-esc="product.uom_id.name" />) </label>
-                                        <input class="form-control buy-qty"
-                                            type="number" step="0.01" min="0"
-                                            t-att-max="product.available_qty"
-                                            id="qty_input"
-                                            placeholder="Ej: 1000" />
-                                        <div class="mt-1 buy-unit">Total = cantidad × precio</div>
-                                    </div>
-
-                                    <!-- Total -->
-                                    <div class="buy-box mb-3">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <div class="buy-unit">Total</div>
-                                            <div class="buy-total">$<span id="total_value">0.00</span></div>
-                                        </div>
-
-                                        <div class="text-danger small mt-2 d-none" id="qty_error">
-                                            La cantidad supera lo disponible.
-                                        </div>
-                                        <div class="text-danger small mt-2 d-none" id="qty_zero_error">
-                                            Ingresa una cantidad mayor a 0.
-                                        </div>
-                                    </div>
-
-                                    <!-- Acción -->
-                                    <div class="d-flex flex-column gap-2">
-
-                                        <!-- Error backend -->
-                                        <t t-set="error_code" t-value="request.params.get('error')" />
-                                        <t t-set="error_message"
-                                            t-value="request.params.get('message')" />
-
-                                        <t t-if="error_code">
-                                            <div class="alert alert-danger mb-3"
-                                                style="border-radius:12px;">
-                                                <t t-if="error_code == 'qty'">Debes ingresar una
-                                                    cantidad mayor a 0.</t>
-                                                <t t-elif="error_code == 'stock'">La cantidad
-                                                    solicitada supera el stock disponible.</t>
-                                                <t t-elif="error_code == 'validation'">
-                                                    <t
-                                                        t-esc="error_message or 'Ocurrió un error de validación.'" />
-                                                </t>
-                                                <t t-else="">Ocurrió un error inesperado.</t>
-                                            </div>
-                                        </t>
-
-                                        <div id="buyMsg" class="sv-msg" style="display:none;" role="alert"></div>
-
-                                        <!-- Comprar directo (pago simulado) -->
-                                        <form id="buyForm"
-                                            t-att-action="'/marketplace/buy/%s/confirm' % product.uuid_ref"
-                                            method="post">
-                                            <input type="hidden" name="csrf_token"
-                                                t-att-value="request.csrf_token()" />
-                                            <input type="hidden" name="qty" id="qty_hidden_buy" />
-
-                                            <div class="d-flex flex-wrap gap-2">
-                                                <button class="s-btn s-btn-primary" style="flex:1;"
-                                                    type="submit"
-                                                    id="btn_buy">
-                                                    <i class="fa fa-lock me-1"></i> Pagar y comprar </button>
-
-                                                <a class="s-btn s-btn-ghost" href="/marketplace">
-                                                    Cancelar
-                                                </a>
-                                            </div>
-                                            <div class="text-faint mt-2" style="font-size:12px;">
-                                                <i class="fa fa-shield me-1"></i> Pago seguro simulado (demo)
-                                            </div>
-                                        </form>
-
-                                        <!-- Overlay de pago simulado (20 s) -->
-                                        <div id="payOverlay" class="s-pay-overlay" style="display:none;">
-                                            <div class="s-pay-box">
-                                                <div class="s-pay-spinner"></div>
-                                                <h4 style="margin:16px 0 6px;">Procesando pago…</h4>
-                                                <p class="text-soft" style="margin:0 0 12px;">No cierres esta ventana. Estamos confirmando tu cobro de forma segura.</p>
-                                                <div class="s-pay-count"><span id="payCount">5</span> s</div>
-                                            </div>
-                                        </div>
-                                        <script type="text/javascript">
-                                            (function(){
-                                                var form = document.getElementById('buyForm');
-                                                if(!form){ return; }
-                                                form.addEventListener('submit', function(ev){
-                                                    if(form.dataset.paid === '1'){ return; }
-                                                    ev.preventDefault();
-                                                    var qtyEl = document.getElementById('qty_hidden_buy');
-                                                    var qty = parseFloat((qtyEl &amp;&amp; qtyEl.value) || '0');
-                                                    if(!qty || qty &lt;= 0){ var m=document.getElementById('buyMsg'); if(m){ m.textContent='Ingresa una cantidad válida antes de pagar.'; m.style.display='block'; m.scrollIntoView({behavior:'smooth',block:'center'}); } return; }
-                                                    var overlay = document.getElementById('payOverlay');
-                                                    var countEl = document.getElementById('payCount');
-                                                    var btn = document.getElementById('btn_buy');
-                                                    if(btn){ btn.disabled = true; }
-                                                    if(overlay){ overlay.style.display = 'flex'; }
-                                                    var left = 5;
-                                                    var timer = setInterval(function(){
-                                                        left -= 1;
-                                                        if(countEl){ countEl.textContent = left; }
-                                                        if(left &lt;= 0){
-                                                            clearInterval(timer);
-                                                            form.dataset.paid = '1';
-                                                            form.submit();
-                                                        }
-                                                    }, 1000);
-                                                });
-                                            })();
-                                        </script>
-
-                                        <!-- Solicitar chequeo (abre modal + pago simulado) -->
-                                        <form id="checkForm"
-                                            t-att-action="'/marketplace/buy/%s/request-check' % product.uuid_ref"
-                                            method="post" t-att-data-fee="check_fee">
-                                            <input type="hidden" name="csrf_token"
-                                                t-att-value="request.csrf_token()" />
-                                            <input type="hidden" name="qty"
-                                                id="qty_hidden_check" />
-
-                                            <button class="s-btn s-btn-ghost s-btn-block"
-                                                type="button"
-                                                id="btn_check">
-                                                <i class="fa fa-search me-1"></i> Solicitar chequeo </button>
-                                        </form>
-                                        <div class="text-faint mt-2" style="font-size:12px;" id="checkFormHint">
-                                            <i class="fa fa-shield me-1"></i> Reserva la cantidad y envía un equipo a verificar el producto.
-                                        </div>
-
-                                        <!-- Modal: valores a cobrar por el chequeo -->
-                                        <div id="chkModal" class="buy-modal">
-                                            <div class="buy-modal-card">
-                                                <div class="mp-sec-head">
-                                                    <span class="mp-sec-ico"><i class="fa fa-search"></i></span>
-                                                    <h3 class="mp-sec-title">Solicitar chequeo</h3>
-                                                </div>
-                                                <p class="text-soft" style="font-size:13px; margin-bottom:14px;">
-                                                    Enviaremos un equipo a verificar que el producto publicado corresponde a lo que compras.
-                                                    Al confirmar, se <strong>reserva la cantidad</strong> indicada y se cobra el chequeo.
-                                                </p>
-                                                <div class="buy-modal-row">
-                                                    <span>Producto (<span id="chkQty">0</span> <t t-esc="product.uom_id.name"/>)</span>
-                                                    <span>$<span id="chkProd">0.00</span></span>
-                                                </div>
-                                                <div class="buy-modal-row">
-                                                    <span>Chequeo</span>
-                                                    <span>$<span id="chkFee"><t t-esc="'%.2f' % check_fee"/></span></span>
-                                                </div>
-                                                <div class="buy-modal-row last buy-modal-total">
-                                                    <span>Total a pagar</span>
-                                                    <span>$<span id="chkTotal">0.00</span></span>
-                                                </div>
-                                                <div class="d-flex flex-wrap gap-2 mt-3">
-                                                    <button type="button" class="s-btn s-btn-ghost" id="chkCancel" style="flex:1;">Cancelar</button>
-                                                    <button type="button" class="s-btn s-btn-primary" id="chkPay" style="flex:1;"><i class="fa fa-lock me-1"></i> Pagar y solicitar</button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <script type="text/javascript">
-<![CDATA[
-(function(){
-  var btn = document.getElementById('btn_check');
-  var form = document.getElementById('checkForm');
-  var modal = document.getElementById('chkModal');
-  if(!btn || !form || !modal) return;
-  var priceEl = document.getElementById('unit_price');
-  var availEl = document.getElementById('available_qty');
-  var qtyInput = document.getElementById('qty_input');
-  var price = parseFloat((priceEl && priceEl.dataset.price) || '0') || 0;
-  var avail = parseFloat((availEl && availEl.dataset.available) || '0') || 0;
-  var fee = parseFloat(form.dataset.fee || '0') || 0;
-  function fmt(n){ return (isNaN(n) ? 0 : n).toFixed(2); }
-  btn.addEventListener('click', function(){
-    var qty = parseFloat((qtyInput && qtyInput.value) || '0') || 0;
-    var m=document.getElementById('buyMsg');
-    if(!qty || qty <= 0){ if(m){ m.textContent='Ingresa una cantidad válida antes de solicitar el chequeo.'; m.style.display='block'; m.scrollIntoView({behavior:'smooth',block:'center'}); } return; }
-    if(qty > avail){ if(m){ m.textContent='La cantidad supera lo disponible.'; m.style.display='block'; m.scrollIntoView({behavior:'smooth',block:'center'}); } return; }
-    document.getElementById('chkQty').textContent = qty;
-    document.getElementById('chkProd').textContent = fmt(qty * price);
-    document.getElementById('chkFee').textContent = fmt(fee);
-    document.getElementById('chkTotal').textContent = fmt(qty * price + fee);
-    document.getElementById('qty_hidden_check').value = qty;
-    modal.classList.add('open');
-  });
-  var cancel = document.getElementById('chkCancel');
-  if(cancel){ cancel.addEventListener('click', function(){ modal.classList.remove('open'); }); }
-  modal.addEventListener('click', function(ev){ if(ev.target === modal){ modal.classList.remove('open'); } });
-  var pay = document.getElementById('chkPay');
-  if(pay){
-    pay.addEventListener('click', function(){
-      if(form.dataset.paid === '1'){ return; }
-      modal.classList.remove('open');
-      var overlay = document.getElementById('payOverlay');
-      var countEl = document.getElementById('payCount');
-      if(overlay){ overlay.style.display = 'flex'; }
-      var left = 5;
-      var timer = setInterval(function(){
-        left -= 1;
-        if(countEl){ countEl.textContent = left; }
-        if(left <= 0){
-          clearInterval(timer);
-          form.dataset.paid = '1';
-          form.submit();
-        }
-      }, 1000);
-    });
-  }
-})();
-]]>
-                                        </script>
-
-                                    </div>
-
                                 </div>
-                            </div>
-
-
-                            <!-- Guía (debajo de compra) -->
-                            <div class="mp-table-card">
-                                <div class="card-body p-4">
-
-                                    <div class="mp-sec-head">
-                                        <span class="mp-sec-ico"><i class="fa fa-life-ring"></i></span>
-                                        <h3 class="mp-sec-title">Guía rápida</h3>
-                                    </div>
-
-                                    <ol class="mb-3" style="font-size:13px; color:var(--shrimp-ink-soft); padding-left:18px;">
-                                        <li>Confirma la etapa, especie y ubicación</li>
-                                        <li>Revisa la fecha de entrega planificada</li>
-                                        <li>Ingresa la cantidad (sin exceder el stock)</li>
-                                        <li>Confirma la compra</li>
-                                    </ol>
-
-                                    <div class="buy-guide">
-                                        <div style="font-weight:800; font-size:13px; color:var(--shrimp-ink); margin-bottom:6px;"><i class="fa fa-lightbulb-o me-1"></i> Tips</div>
-                                        <ul>
-                                            <li>Si compras en “millares”, ingresa la cantidad en millares</li>
-                                            <li>Verifica certificados antes de confirmar</li>
-                                            <li>Si no ves fotos, pide al vendedor adjuntar foto principal</li>
+                                <div class="pf-sec-b">
+                                    <div class="bp-qty-grid">
+                                        <div class="bp-qty-f" id="bp_qty_f">
+                                            <label class="pf-lbl" for="qty_input">Cantidad a comprar <span class="pf-req" aria-hidden="true">*</span></label>
+                                            <div class="pf-igrp">
+                                                <input class="buy-qty"
+                                                    type="number" step="0.01" min="0"
+                                                    t-att-max="product.available_qty"
+                                                    id="qty_input" inputmode="decimal"
+                                                    placeholder="Ej: 1000"
+                                                    aria-describedby="bp_qty_help qty_error qty_zero_error"/>
+                                                <span class="pf-suf" t-esc="uom_name"/>
+                                            </div>
+                                            <div class="pf-emsg d-none" id="qty_error" role="alert">
+                                                <i class="fa fa-exclamation-circle" aria-hidden="true"/> La cantidad supera lo disponible.
+                                            </div>
+                                            <div class="pf-emsg d-none" id="qty_zero_error">
+                                                <i class="fa fa-exclamation-circle" aria-hidden="true"/> Ingresa una cantidad mayor a 0.
+                                            </div>
+                                            <div class="pf-help" id="bp_qty_help">
+                                                Total = cantidad × precio.
+                                                <button type="button" class="bp-link" id="bp_qty_all" t-att-data-qty="product.available_qty">
+                                                    Usar todo lo disponible (<t t-esc="fmtq(product.available_qty)"/>)
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <ul class="bp-kv">
+                                            <li>
+                                                <span>Precio por <t t-esc="uom_name"/></span>
+                                                <b id="unit_price" t-att-data-price="unit_price">$<t t-esc="'%.2f' % unit_price"/></b>
+                                                <small t-if="has_custom_price" class="bp-own">
+                                                    <span class="pf-chip-st pf-st-ok">Tu precio</span>
+                                                    <s>$<t t-esc="'%.2f' % product.price"/></s>
+                                                </small>
+                                            </li>
+                                            <li>
+                                                <span>Disponible</span>
+                                                <b id="available_qty" t-att-data-available="product.available_qty"><t t-esc="fmtq(product.available_qty)"/> <t t-esc="uom_name"/></b>
+                                            </li>
                                         </ul>
                                     </div>
-
+                                    <div class="bp-bar" aria-hidden="true"><span id="bp_bar_fill"/></div>
+                                    <div id="buyMsg" class="sv-msg" style="display:none;" role="alert"></div>
                                 </div>
-                            </div>
+                            </section>
 
-                        </div>
-
-                        <!-- COLUMNA IZQUIERDA (ancha): detalle y campos del producto -->
-                        <div class="col-lg-8 order-lg-1">
-
-                            <div class="mp-table-card mb-4">
-                                <div class="card-body p-4">
-
-                                    <!-- Header -->
-                                    <div class="mp-sec-head">
-                                        <span class="mp-sec-ico"><i class="fa fa-info-circle"></i></span>
-                                        <div>
-                                            <h3 class="mp-sec-title"><t t-esc="product.name" /></h3>
-                                            <div style="font-size:13px; color:var(--shrimp-ink-soft);">
-                                                <i class="fa fa-user me-1"></i> Vendedor:
-                                                <a t-att-href="'/marketplace/sellers/%s' % product.seller_partner_id.uuid_ref"
-                                                    style="font-weight:800; text-decoration:none; color:var(--shrimp-brand);">
-                                                    <t t-esc="product.seller_partner_id.name" />
-                                                </a>
-                                            </div>
-                                        </div>
-                                        <div class="mp-sec-count text-end">
-                                            <span class="s-badge s-badge--green" t-if="product.state == 'published'">
-                                                <i class="fa fa-check me-1"></i> Publicado </span>
-                                            <span class="s-badge" t-if="product.state == 'sold'">
-                                                <i class="fa fa-shopping-bag me-1"></i> Vendido </span>
-                                        </div>
+                            <!-- 2 · Entrega y presentación (lo declara el vendedor) -->
+                            <section class="pf-sec" id="bp_delivery" aria-labelledby="bp_del_h">
+                                <div class="pf-sec-h">
+                                    <span class="pf-step-n">2</span>
+                                    <div>
+                                        <h2 id="bp_del_h">Entrega y presentación</h2>
+                                        <p>Datos que el vendedor declaró en la publicación.</p>
                                     </div>
-
-                                    <!-- Quick facts -->
-                                    <div class="mp-spec-grid mb-3">
+                                </div>
+                                <div class="pf-sec-b">
+                                    <div class="mp-spec-grid">
                                         <div class="mp-spec">
-                                            <span class="mp-spec-ico"><i class="fa fa-hourglass-half"></i></span>
-                                            <div class="mp-spec-body">
-                                                <div class="mp-spec-label">Etapa</div>
-                                                <div class="mp-spec-value"><t t-esc="product.stage_id.name if product.stage_id else '—'" /></div>
-                                            </div>
-                                        </div>
-                                        <div class="mp-spec">
-                                            <span class="mp-spec-ico"><i class="fa fa-leaf"></i></span>
-                                            <div class="mp-spec-body">
-                                                <div class="mp-spec-label">Especie</div>
-                                                <div class="mp-spec-value"><t t-esc="product.species_id.name if product.species_id else '—'" /></div>
-                                            </div>
-                                        </div>
-                                        <div class="mp-spec">
-                                            <span class="mp-spec-ico"><i class="fa fa-map-marker"></i></span>
-                                            <div class="mp-spec-body">
-                                                <div class="mp-spec-label">Ubicación</div>
-                                                <div class="mp-spec-value"><t t-esc="product.location or '—'" /></div>
-                                            </div>
-                                        </div>
-                                        <div class="mp-spec">
-                                            <span class="mp-spec-ico"><i class="fa fa-line-chart"></i></span>
-                                            <div class="mp-spec-body">
-                                                <div class="mp-spec-label">Supervivencia</div>
-                                                <div class="mp-spec-value"><t t-esc="product.survival_rate or '—'" /> %</div>
-                                            </div>
-                                        </div>
-                                        <div class="mp-spec">
-                                            <span class="mp-spec-ico"><i class="fa fa-cube"></i></span>
-                                            <div class="mp-spec-body">
-                                                <div class="mp-spec-label">Cantidad disponible</div>
-                                                <div class="mp-spec-value"><t t-esc="product.available_qty" /> <t t-esc="product.uom_id.name" /></div>
-                                            </div>
-                                        </div>
-                                        <div class="mp-spec">
-                                            <span class="mp-spec-ico"><i class="fa fa-money"></i></span>
-                                            <div class="mp-spec-body">
-                                                <div class="mp-spec-label">Precio por <t t-esc="product.uom_id.name" /></div>
-                                                <div class="mp-spec-value">$<t t-esc="'%.2f' % product.price" /></div>
-                                            </div>
-                                        </div>
-                                        <t t-if="product.origin_facility_id">
-                                            <div class="mp-spec">
-                                                <span class="mp-spec-ico"><i class="fa fa-building"></i></span>
-                                                <div class="mp-spec-body">
-                                                    <div class="mp-spec-label">Instalación de origen</div>
-                                                    <div class="mp-spec-value"><t t-esc="product.origin_facility_id.name" /></div>
-                                                </div>
-                                            </div>
-                                        </t>
-                                        <t t-if="product.origin_pond_id">
-                                            <div class="mp-spec">
-                                                <span class="mp-spec-ico"><i class="fa fa-tint"></i></span>
-                                                <div class="mp-spec-body">
-                                                    <div class="mp-spec-label">Piscina de origen</div>
-                                                    <div class="mp-spec-value"><t t-esc="product.origin_pond_id.display_name" /></div>
-                                                </div>
-                                            </div>
-                                        </t>
-                                        <div class="mp-spec" style="grid-column:1 / -1;">
-                                            <span class="mp-spec-ico"><i class="fa fa-calendar"></i></span>
+                                            <span class="mp-spec-ico"><i class="fa fa-calendar" aria-hidden="true"/></span>
                                             <div class="mp-spec-body">
                                                 <div class="mp-spec-label">Entrega planificada</div>
-                                                <div class="mp-spec-value"><t t-esc="product.expected_delivery_date or '—'" /></div>
+                                                <div class="mp-spec-value"><t t-esc="fmtd(product.expected_delivery_date)"/></div>
+                                            </div>
+                                        </div>
+                                        <div t-att-class="'mp-spec' + ('' if product.location else ' is-empty')">
+                                            <span class="mp-spec-ico"><i class="fa fa-map-marker" aria-hidden="true"/></span>
+                                            <div class="mp-spec-body">
+                                                <div class="mp-spec-label">Ubicación</div>
+                                                <div class="mp-spec-value"><t t-esc="product.location or '—'"/></div>
+                                            </div>
+                                        </div>
+                                        <div t-if="product.origin_facility_id" class="mp-spec">
+                                            <span class="mp-spec-ico"><i class="fa fa-building" aria-hidden="true"/></span>
+                                            <div class="mp-spec-body">
+                                                <div class="mp-spec-label">Instalación de origen</div>
+                                                <div class="mp-spec-value"><t t-esc="product.origin_facility_id.name"/></div>
+                                            </div>
+                                        </div>
+                                        <div t-if="product.origin_pond_id" class="mp-spec">
+                                            <span class="mp-spec-ico"><i class="fa fa-tint" aria-hidden="true"/></span>
+                                            <div class="mp-spec-body">
+                                                <div class="mp-spec-label">Piscina de origen</div>
+                                                <div class="mp-spec-value"><t t-esc="product.origin_pond_id.display_name"/></div>
+                                            </div>
+                                        </div>
+                                        <div t-if="product.presentation" class="mp-spec">
+                                            <span class="mp-spec-ico"><i class="fa fa-cube" aria-hidden="true"/></span>
+                                            <div class="mp-spec-body">
+                                                <div class="mp-spec-label">Presentación</div>
+                                                <div class="mp-spec-value"><t t-esc="dict(product._fields['presentation'].selection).get(product.presentation)"/></div>
+                                            </div>
+                                        </div>
+                                        <div t-if="product.size_grade_id" class="mp-spec">
+                                            <span class="mp-spec-ico"><i class="fa fa-balance-scale" aria-hidden="true"/></span>
+                                            <div class="mp-spec-body">
+                                                <div class="mp-spec-label">Talla</div>
+                                                <div class="mp-spec-value"><t t-esc="product.size_grade_id.name"/></div>
                                             </div>
                                         </div>
                                     </div>
+                                </div>
+                            </section>
+
+                            <!-- 3 · Verificación y forma de compra. Con «No aplica» la
+                                 sección no se muestra, pero el formulario de compra
+                                 directa sigue en el documento (lo envía el botón del
+                                 resumen). -->
+                            <section t-att-class="'pf-sec' + (' bp-sec-off' if verification_policy == 'none' else '')" id="bp_verif" aria-labelledby="bp_ver_h">
+                                <div class="pf-sec-h">
+                                    <span class="pf-step-n">3</span>
+                                    <div>
+                                        <h2 id="bp_ver_h">Verificación</h2>
+                                        <p t-if="req_verif">El camarón adulto se verifica en campo antes de cerrar la compra.</p>
+                                        <p t-else="">Opcional: puedes comprar directo o pedir una verificación antes de cerrar.</p>
+                                    </div>
+                                    <span t-if="req_verif" class="pf-chip-st pf-st-warn">Obligatoria</span>
+                                    <span t-else="" class="pf-chip-st pf-st-opt">Opcional</span>
+                                </div>
+                                <div class="pf-sec-b bp-verif-b">
+
+                                    <!-- Comprar directo (pago simulado). El botón real queda
+                                         aquí; el visible es el del resumen (#bp_cta), que lo
+                                         dispara. -->
+                                    <form id="buyForm"
+                                        t-att-action="'/marketplace/buy/%s/confirm' % product.uuid_ref"
+                                        method="post">
+                                        <input type="hidden" name="csrf_token"
+                                            t-att-value="request.csrf_token()"/>
+                                        <input type="hidden" name="qty" id="qty_hidden_buy"/>
+
+                                        <div class="bp-direct">
+                                            <span class="bp-direct-ico"><i class="fa fa-bolt" aria-hidden="true"/></span>
+                                            <div>
+                                                <b>Compra directa</b>
+                                                <span>Pagas el lote ahora y la compra queda confirmada al instante.</span>
+                                            </div>
+                                        </div>
+                                        <div class="bp-real-cta">
+                                            <button class="s-btn s-btn-primary" type="submit" id="btn_buy">
+                                                <i class="fa fa-lock me-1" aria-hidden="true"/> Pagar y comprar
+                                            </button>
+                                            <a class="s-btn s-btn-ghost" href="/marketplace">Cancelar</a>
+                                        </div>
+                                    </form>
+
 
                                 </div>
-                            </div>
+                            </section>
 
-                            <!-- Genética y calidad -->
-                            <div class="mp-table-card mb-4">
-                                <div class="card-body p-4">
-                                    <div class="mp-sec-head">
-                                        <span class="mp-sec-ico"><i class="fa fa-flask"></i></span>
-                                        <h3 class="mp-sec-title">Genética y calidad</h3>
+                            <!-- 4 · El lote que compras -->
+                            <section class="pf-sec" id="bp_lot" aria-labelledby="bp_lot_h">
+                                <div class="pf-sec-h">
+                                    <span class="pd-sec-ico"><i class="fa fa-list-ul" aria-hidden="true"/></span>
+                                    <div>
+                                        <h2 id="bp_lot_h">El lote que compras</h2>
+                                        <p>Revísalo antes de confirmar.</p>
                                     </div>
+                                    <a class="pf-chip-st pf-st-opt bp-chip-link" t-att-href="'/marketplace/product/%s' % product.uuid_ref">Ver ficha <i class="fa fa-angle-right" aria-hidden="true"/></a>
+                                </div>
+                                <div class="pf-sec-b">
                                     <div class="mp-spec-grid">
-                                        <div class="mp-spec" style="grid-column:1 / -1;">
-                                            <span class="mp-spec-ico"><i class="fa fa-sitemap"></i></span>
+                                        <div class="mp-spec">
+                                            <span class="mp-spec-ico"><i class="fa fa-hourglass-half" aria-hidden="true"/></span>
+                                            <div class="mp-spec-body">
+                                                <div class="mp-spec-label">Etapa</div>
+                                                <div class="mp-spec-value"><t t-esc="product.stage_id.name if product.stage_id else '—'"/></div>
+                                            </div>
+                                        </div>
+                                        <div class="mp-spec">
+                                            <span class="mp-spec-ico"><i class="fa fa-flask" aria-hidden="true"/></span>
+                                            <div class="mp-spec-body">
+                                                <div class="mp-spec-label">Especie</div>
+                                                <div class="mp-spec-value"><t t-esc="product.species_id.name if product.species_id else '—'"/></div>
+                                            </div>
+                                        </div>
+                                        <div class="mp-spec">
+                                            <span class="mp-spec-ico"><i class="fa fa-sitemap" aria-hidden="true"/></span>
                                             <div class="mp-spec-body">
                                                 <div class="mp-spec-label">Línea genética / cepa</div>
-                                                <div class="mp-spec-value"><t t-esc="product.genetics_line_id.name if product.genetics_line_id else '—'" /></div>
+                                                <div class="mp-spec-value"><t t-esc="product.genetics_line_id.name if product.genetics_line_id else '—'"/></div>
                                             </div>
                                         </div>
                                         <div class="mp-spec">
-                                            <span class="mp-spec-ico"><i class="fa fa-balance-scale"></i></span>
+                                            <span class="mp-spec-ico"><i class="fa fa-balance-scale" aria-hidden="true"/></span>
                                             <div class="mp-spec-body">
                                                 <div class="mp-spec-label">Tamaño (mg)</div>
-                                                <div class="mp-spec-value"><t t-esc="product.avg_size_mg or '—'" /></div>
+                                                <div class="mp-spec-value"><t t-esc="product.avg_size_mg or '—'"/></div>
                                             </div>
                                         </div>
                                         <div class="mp-spec">
-                                            <span class="mp-spec-ico"><i class="fa fa-line-chart"></i></span>
+                                            <span class="mp-spec-ico"><i class="fa fa-line-chart" aria-hidden="true"/></span>
                                             <div class="mp-spec-body">
-                                                <div class="mp-spec-label">Supervivencia (%)</div>
-                                                <div class="mp-spec-value"><t t-esc="product.survival_rate or '—'" /></div>
+                                                <div class="mp-spec-label">Supervivencia</div>
+                                                <div class="mp-spec-value"><t t-esc="product.survival_rate or '—'"/> %</div>
+                                            </div>
+                                        </div>
+                                        <div class="mp-spec">
+                                            <span class="mp-spec-ico"><i class="fa fa-money" aria-hidden="true"/></span>
+                                            <div class="mp-spec-body">
+                                                <div class="mp-spec-label">Precio publicado</div>
+                                                <div class="mp-spec-value">$<t t-esc="'%.2f' % product.price"/> / <t t-esc="uom_name"/></div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                            </div>
 
-                            <!-- Estado sanitario / observaciones -->
-                            <div class="mp-table-card mb-4">
-                                <div class="card-body p-4">
-                                    <div class="mp-sec-head">
-                                        <span class="mp-sec-ico"><i class="fa fa-stethoscope"></i></span>
-                                        <h3 class="mp-sec-title">Estado sanitario / observaciones</h3>
-                                    </div>
-                                    <t t-if="product.health_status">
-                                        <div class="buy-box"><t t-esc="product.health_status" /></div>
-                                    </t>
-                                    <t t-else="">
-                                        <div class="text-muted">Sin observaciones.</div>
-                                    </t>
-                                </div>
-                            </div>
-
-                            <!-- Certificados -->
-                            <div class="mp-table-card mb-4">
-                                <div class="card-body p-4">
-                                    <div class="mp-sec-head">
-                                        <span class="mp-sec-ico"><i class="fa fa-file-text-o"></i></span>
-                                        <h3 class="mp-sec-title">Certificados</h3>
-                                        <t t-set="pub_cert_lines" t-value="product.shrimp_visible_certificate_lines()"/>
-                                        <t t-if="pub_cert_lines">
-                                            <span class="s-badge mp-sec-count"><t t-esc="len(pub_cert_lines)" /></span>
-                                        </t>
+                                    <div class="s-health">
+                                        <div class="s-health-title"><i class="fa fa-stethoscope me-1" aria-hidden="true"/> Estado sanitario / observaciones</div>
+                                        <p t-if="product.health_status" class="mb-0" t-esc="product.health_status"/>
+                                        <p t-else="" class="mb-0">Sin observaciones.</p>
                                     </div>
 
-                                                    <t t-if="pub_cert_lines">
-                                                        <div class="mp-table-wrap table-responsive">
-                                                            <table class="table align-middle mb-0" style="min-width:720px;">
-                                                                <thead>
-                                                                    <tr>
-                                                                        <th style="width:32%;">Certificado</th>
-                                                                        <th style="width:20%;">Entidad</th>
-                                                                        <th style="width:12%;">N°</th>
-                                                                        <th style="width:14%;">Emisión</th>
-                                                                        <th style="width:14%;">Expira</th>
-                                                                        <th style="width:8%;" class="text-end">Archivo</th>
-                                                                    </tr>
-                                                                </thead>
-                                                                <tbody>
-                                                                    <t t-foreach="pub_cert_lines" t-as="line">
-                                                                        <tr>
-                                                                            <td style="font-weight:800;"><t t-esc="line.certificate_id.name" /></td>
-                                                                            <td><t t-esc="line.certificate_id.issuer" /></td>
-                                                                            <td><t t-esc="line.number or '—'" /></td>
-                                                                            <td><t t-esc="line.issue_date or '—'" /></td>
-                                                                            <td><t t-esc="line.expiry_date or '—'" /></td>
-                                                                            <td class="text-end">
-                                                                                <t t-if="line.attachment_id">
-                                                                                    <button type="button" class="s-btn s-btn-ghost btn-sm js-cert-view"
-                                                                                        t-att-data-url="product.shrimp_cert_url(line.attachment_id)">
-                                                                                        Ver certificado
-                                                                                    </button>
-                                                                                </t>
-                                                                                <t t-else="">
-                                                                                    <span class="text-muted">—</span>
-                                                                                </t>
-                                                                            </td>
-                                                                        </tr>
-                                                                    </t>
-                                                                </tbody>
-                                                            </table>
-                                                        </div>
+                                    <div class="bp-sub-h">
+                                        <span>Certificados</span>
+                                        <span t-if="pub_cert_lines" class="pf-chip-st pf-st-opt" t-esc="len(pub_cert_lines)"/>
+                                    </div>
+                                    <t t-if="pub_cert_lines">
+                                        <div class="mp-table-wrap table-responsive pd-stack">
+                                            <table class="table align-middle mb-0">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Certificado</th>
+                                                        <th>Entidad</th>
+                                                        <th>N°</th>
+                                                        <th>Emisión</th>
+                                                        <th>Expira</th>
+                                                        <th class="text-end">Archivo</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <t t-foreach="pub_cert_lines" t-as="line">
+                                                        <tr>
+                                                            <td data-label="Certificado" style="font-weight:700;"><t t-esc="line.certificate_id.name"/></td>
+                                                            <td data-label="Entidad"><t t-esc="line.certificate_id.issuer"/></td>
+                                                            <td data-label="N°"><t t-esc="line.number or '—'"/></td>
+                                                            <td data-label="Emisión"><t t-esc="line.issue_date or '—'"/></td>
+                                                            <td data-label="Expira"><t t-esc="line.expiry_date or '—'"/><span t-if="line.shrimp_is_expired()" class="pf-tag pf-t-rej ms-1">Vencido</span></td>
+                                                            <td class="text-end">
+                                                                <t t-if="line.attachment_id">
+                                                                    <button type="button" class="s-btn s-btn-ghost btn-sm js-cert-view"
+                                                                        t-att-data-url="product.shrimp_cert_url(line.attachment_id)">
+                                                                        Ver certificado
+                                                                    </button>
+                                                                </t>
+                                                                <t t-else=""><span class="text-muted">—</span></t>
+                                                            </td>
+                                                        </tr>
                                                     </t>
-                                                    <t t-else="">
-                                                        <div class="text-muted">Sin certificados</div>
-                                                    </t>
-
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </t>
+                                    <div t-else="" class="pd-empty">Sin certificados</div>
                                 </div>
-                            </div>
+                            </section>
 
-                            <!-- Vendedor: reseñas y puntuación -->
-                            <div class="mp-table-card">
-                                <div class="card-body p-4">
-                                    <div class="mp-sec-head">
-                                        <span class="mp-sec-ico"><i class="fa fa-star"></i></span>
-                                        <h3 class="mp-sec-title">Reseñas del vendedor</h3>
-                                        <a class="s-btn s-btn-ghost btn-sm mp-sec-count" t-att-href="'/marketplace/sellers/%s' % seller.uuid_ref">Ver perfil</a>
+                            <!-- Reseñas del vendedor -->
+                            <section class="pf-sec" id="bp_reviews" aria-labelledby="bp_rev_h">
+                                <div class="pf-sec-h">
+                                    <span class="pd-sec-ico"><i class="fa fa-star" aria-hidden="true"/></span>
+                                    <div>
+                                        <h2 id="bp_rev_h">Reseñas del vendedor</h2>
+                                        <p t-esc="seller.name"/>
                                     </div>
-
+                                    <a class="pf-chip-st pf-st-opt bp-chip-link" t-att-href="'/marketplace/sellers/%s' % seller.uuid_ref">Ver perfil <i class="fa fa-angle-right" aria-hidden="true"/></a>
+                                </div>
+                                <div class="pf-sec-b">
                                     <div class="d-flex align-items-center gap-3 mb-3">
                                         <t t-if="seller.shrimp_rating_count">
                                             <div class="s-rating-big"><t t-esc="'%.1f' % seller.shrimp_rating_avg"/></div>
@@ -1072,440 +843,142 @@
                                             </div>
                                         </t>
                                     </div>
-
                                     <t t-if="reviews">
-                                        <t t-foreach="reviews" t-as="rv">
-                                            <div class="s-review">
-                                                <div class="s-review-head">
-                                                    <div class="s-rating" style="font-size:13px;">
-                                                        <t t-foreach="range(1, 6)" t-as="i">
-                                                            <i t-att-class="'fa fa-star' + ('' if i &lt;= rv.rating else ' s-rating-empty')"></i>
-                                                        </t>
+                                        <div class="bp-reviews">
+                                            <t t-foreach="reviews" t-as="rv">
+                                                <div class="s-review">
+                                                    <div class="s-review-head">
+                                                        <div class="s-rating" style="font-size:13px;">
+                                                            <t t-foreach="range(1, 6)" t-as="i">
+                                                                <i t-att-class="'fa fa-star' + ('' if i &lt;= rv.rating else ' s-rating-empty')"></i>
+                                                            </t>
+                                                        </div>
+                                                        <span class="s-review-author"><t t-esc="rv.reviewer_partner_id.name"/></span>
                                                     </div>
-                                                    <span class="s-review-author"><t t-esc="rv.reviewer_partner_id.name"/></span>
+                                                    <t t-if="rv.comment"><p class="s-review-text"><t t-esc="rv.comment"/></p></t>
                                                 </div>
-                                                <t t-if="rv.comment"><p class="s-review-text"><t t-esc="rv.comment"/></p></t>
-                                            </div>
-                                        </t>
-                                    </t>
-                                    <t t-else="">
-                                        <div class="text-soft" style="font-size:13px;">Todavía no hay reseñas de este vendedor.</div>
-                                    </t>
-                                </div>
-                            </div>
-
-                        </div>
-
-                    </div>
-
-                    <!-- Visor de certificado (modal) -->
-                    <t t-call="shrimp_marketplace.cert_viewer"/>
-
-                    <!-- JS cálculo total -->
-                    <script type="text/javascript">
-                        <![CDATA[
-                        (function () {
-                        const qtyInput = document.getElementById('qty_input');
-                        const qtyHiddenBuy = document.getElementById('qty_hidden_buy');
-                        const qtyHiddenCheck = document.getElementById('qty_hidden_check');
-                        const unitPriceEl = document.getElementById('unit_price');
-                        const availableEl = document.getElementById('available_qty');
-                        const totalEl = document.getElementById('total_value');
-                        const errEl = document.getElementById('qty_error');
-                        const zeroErrEl = document.getElementById('qty_zero_error');
-                        const btnBuy = document.getElementById('btn_buy');
-                        const btnCheck = document.getElementById('btn_check');
-
-                        if (!qtyInput || !unitPriceEl || !availableEl || !totalEl || !btnBuy || !btnCheck) return;
-
-                        const price = parseFloat(unitPriceEl.dataset.price || "0") || 0;
-                        const available = parseFloat(availableEl.dataset.available || "0") || 0;
-
-                        function fmt(n) {
-                            const v = (isNaN(n) ? 0 : n);
-                            return v.toFixed(2);
-                        }
-
-                        function recalc() {
-                            const qty = parseFloat(qtyInput.value || "0") || 0;
-
-                            if (qtyHiddenBuy) qtyHiddenBuy.value = qty;
-                            if (qtyHiddenCheck) qtyHiddenCheck.value = qty;
-
-                            const over = qty > available;
-                            const zero = qty <= 0;
-
-                            totalEl.textContent = fmt(qty * price);
-
-                            if (errEl) errEl.classList.toggle('d-none', !over);
-                            if (zeroErrEl) zeroErrEl.classList.toggle('d-none', !zero);
-
-                            if (over || zero) {
-                            btnBuy.setAttribute('disabled', 'disabled');
-                            btnCheck.setAttribute('disabled', 'disabled');
-                            } else {
-                            btnBuy.removeAttribute('disabled');
-                            btnCheck.removeAttribute('disabled');
-                            }
-                        }
-
-                        qtyInput.addEventListener('input', recalc);
-                        recalc();
-                        })();
-                        ]]>
-                    </script>
-
-                </div>
-            </div>
-        </t>
-    </template>
-
-    <template id="buy_thanks" name="Compra realizada">
-        <t t-call="website.layout">
-            <style>
-              .buy-thanks .mp-spec{ background: var(--shrimp-bg-alt); }
-              .buy-thanks .mp-spec:hover{ box-shadow: none; border-color: var(--shrimp-border); }
-              .buy-thanks .mp-spec-ico{ background: #fff; }
-              .buy-thanks .bt-total{ background: var(--shrimp-brand-soft); border: 1px solid var(--shrimp-border); border-radius: var(--shrimp-radius); padding: 22px; text-align: center; }
-              .buy-thanks .bt-big{ font-size: 2.4rem; font-weight: 800; color: var(--shrimp-ink); line-height: 1; letter-spacing: -.02em; }
-              .buy-thanks .bt-amount{ font-size: 2rem; font-weight: 800; color: var(--shrimp-brand); line-height: 1; letter-spacing: -.02em; }
-              .buy-thanks .bt-lbl{ font-size: 13px; color: var(--shrimp-ink-faint); }
-            </style>
-            <div class="shrimp-bg">
-                <div class="shrimp-page buy-thanks py-4" style="max-width:1040px;">
-
-                    <!-- Encabezado -->
-                    <div class="text-center mb-4">
-                        <div class="mx-auto mb-3 d-flex align-items-center justify-content-center"
-                            style="width:78px; height:78px; border-radius:50%; background:rgba(46,158,107,.10); color:#1f7d56; font-size:34px;">
-                            <i class="fa fa-check"></i>
-                        </div>
-                        <div class="s-eyebrow">Marketplace</div>
-                        <t t-if="tx.state in ('confirmed', 'done')">
-                            <h1 class="s-list-title">¡Compra realizada!</h1>
-                            <p class="s-list-sub" style="max-width:560px; margin:6px auto 0;">
-                                Tu operación ya quedó registrada en el marketplace.
-                            </p>
-                        </t>
-                        <t t-elif="tx.state == 'cancel'">
-                            <h1 class="s-list-title">Compra cancelada</h1>
-                            <p class="s-list-sub" style="max-width:560px; margin:6px auto 0;">
-                                Esta operación no se concretó.
-                            </p>
-                        </t>
-                        <t t-else="">
-                            <h1 class="s-list-title">Compra en curso</h1>
-                            <p class="s-list-sub" style="max-width:560px; margin:6px auto 0;">
-                                La operación todavía no se cerró: falta la verificación en
-                                campo o la firma de las partes.
-                            </p>
-                        </t>
-                        <div class="s-badges mt-3" style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
-                            <!-- El comprobante también se abre desde "Mis compras" para
-                                 operaciones que aún no se cobran: anunciar "pago confirmado"
-                                 ahí sería mentir sobre el estado de la compra. -->
-                            <span t-if="tx.state in ('confirmed', 'done')" class="s-badge s-badge--green"><i class="fa fa-lock me-1"></i> Compra confirmada</span>
-                            <span class="s-badge s-badge--teal"><i class="fa fa-check-circle me-1"></i> <t t-esc="dict(tx._fields['state'].selection).get(tx.state)"/></span>
-                            <span class="s-badge"><i class="fa fa-hashtag me-1"></i> <t t-esc="tx.name"/></span>
-                        </div>
-                    </div>
-
-                    <div class="row g-4">
-                        <!-- Resumen de la operación -->
-                        <div class="col-lg-7">
-                            <div class="mp-table-card h-100">
-                                <div class="card-body p-4">
-                                    <div class="mp-sec-head">
-                                        <span class="mp-sec-ico"><i class="fa fa-file-text-o"></i></span>
-                                        <h3 class="mp-sec-title">Resumen de la operación</h3>
-                                    </div>
-                                    <!-- Qué se compró, primero y a ancho completo: era el dato
-                                         que el comprobante escondía en la tercera casilla. -->
-                                    <div class="mp-spec-grid">
-                                        <div class="mp-spec" t-if="tx.product_id" style="grid-column:1 / -1;">
-                                            <span class="mp-spec-ico"><i class="fa fa-cube"></i></span>
-                                            <div class="mp-spec-body">
-                                                <div class="mp-spec-label">Producto</div>
-                                                <div class="mp-spec-value"><t t-esc="tx.product_id.name"/></div>
-                                            </div>
-                                        </div>
-                                        <div class="mp-spec">
-                                            <span class="mp-spec-ico"><i class="fa fa-user-o"></i></span>
-                                            <div class="mp-spec-body">
-                                                <div class="mp-spec-label">Vendedor</div>
-                                                <div class="mp-spec-value"><t t-esc="tx.seller_partner_id.name"/></div>
-                                            </div>
-                                        </div>
-                                        <div class="mp-spec">
-                                            <span class="mp-spec-ico"><i class="fa fa-user"></i></span>
-                                            <div class="mp-spec-body">
-                                                <div class="mp-spec-label">Comprador</div>
-                                                <div class="mp-spec-value"><t t-esc="tx.buyer_partner_id.name"/></div>
-                                            </div>
-                                        </div>
-                                        <div class="mp-spec" t-if="tx.sold_date or tx.desired_date">
-                                            <span class="mp-spec-ico"><i class="fa fa-calendar"></i></span>
-                                            <div class="mp-spec-body">
-                                                <div class="mp-spec-label">Fecha</div>
-                                                <div class="mp-spec-value"><t t-esc="tx.sold_date or tx.desired_date"/></div>
-                                            </div>
-                                        </div>
-                                        <div class="mp-spec" t-if="tx.price_unit">
-                                            <span class="mp-spec-ico"><i class="fa fa-money"></i></span>
-                                            <div class="mp-spec-body">
-                                                <div class="mp-spec-label">Precio unitario</div>
-                                                <div class="mp-spec-value">$<t t-esc="'%.2f' % tx.price_unit"/></div>
-                                            </div>
-                                        </div>
-                                        <div class="mp-spec" t-if="tx.transaction_type">
-                                            <span class="mp-spec-ico"><i class="fa fa-exchange"></i></span>
-                                            <div class="mp-spec-body">
-                                                <div class="mp-spec-label">Tipo de transacción</div>
-                                                <div class="mp-spec-value"><t t-esc="dict(tx._fields['transaction_type'].selection).get(tx.transaction_type)"/></div>
-                                            </div>
-                                        </div>
-                                        <div class="mp-spec" t-if="tx.location">
-                                            <span class="mp-spec-ico"><i class="fa fa-map-marker"></i></span>
-                                            <div class="mp-spec-body">
-                                                <div class="mp-spec-label">Ubicación</div>
-                                                <div class="mp-spec-value"><t t-esc="tx.location"/></div>
-                                            </div>
-                                        </div>
-                                        <div class="mp-spec" t-if="tx.product_id and tx.product_id.origin_facility_id">
-                                            <span class="mp-spec-ico"><i class="fa fa-building"></i></span>
-                                            <div class="mp-spec-body">
-                                                <div class="mp-spec-label">Instalación de origen</div>
-                                                <div class="mp-spec-value"><t t-esc="tx.product_id.origin_facility_id.name"/></div>
-                                            </div>
-                                        </div>
-                                        <div class="mp-spec" t-if="tx.product_id and tx.product_id.origin_pond_id">
-                                            <span class="mp-spec-ico"><i class="fa fa-tint"></i></span>
-                                            <div class="mp-spec-body">
-                                                <div class="mp-spec-label">Piscina de origen</div>
-                                                <div class="mp-spec-value"><t t-esc="tx.product_id.origin_pond_id.display_name"/></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Columna derecha: el importe y lo que se puede hacer con la
-                             compra. La barra de botones vivía suelta bajo la rejilla y
-                             dejaba esta columna a media altura; juntos leen como una
-                             sola unidad "esto pagué / esto puedo hacer ahora". -->
-                        <div class="col-lg-5">
-                            <div class="mp-table-card mb-4">
-                                <div class="card-body p-4">
-                                    <div class="mp-sec-head">
-                                        <span class="mp-sec-ico"><i class="fa fa-shopping-cart"></i></span>
-                                        <h3 class="mp-sec-title">Total</h3>
-                                    </div>
-                                    <div class="bt-total">
-                                        <div class="bt-lbl mb-1">Cantidad transaccionada</div>
-                                        <div class="bt-big"><t t-esc="tx.sold_qty or tx.desired_qty or 0"/></div>
-                                        <div class="bt-lbl mt-1"><t t-esc="tx.product_id.uom_id.name if tx.product_id else ''"/></div>
-                                        <hr style="width:60%; margin:16px auto; border-color:var(--shrimp-border);"/>
-                                        <div class="bt-lbl mb-1">Precio pagado</div>
-                                        <div class="bt-amount">$<t t-esc="'%.2f' % (tx.amount_total or 0.0)"/></div>
-                                    </div>
-                                    <!-- La factura se emite contra una compra cerrada: en una
-                                         operación pendiente o cancelada no hay nada que facturar
-                                         y el PDF se generaría al vuelo sin motivo. -->
-                                    <t t-if="tx.state in ('confirmed', 'done')">
-                                        <a class="s-btn s-btn-primary s-btn-block mt-3"
-                                           t-att-href="'/marketplace/purchases/%s/invoice/pdf?download=1' % tx.uuid_ref">
-                                            <i class="fa fa-file-pdf-o me-1"></i>
-                                            <t t-if="tx.sudo().invoice_id.state == 'posted'">Descargar factura</t>
-                                            <t t-else="">Descargar comprobante (sin valor tributario)</t>
-                                        </a>
-                                    </t>
-                                    <t t-else="">
-                                        <div class="text-soft mt-3" style="font-size:var(--fs-sm);">
-                                            <i class="fa fa-info-circle me-1"></i>
-                                            La factura estará disponible cuando la compra quede confirmada.
-                                        </div>
-                                    </t>
-                                </div>
-                            </div>
-
-                            <div class="mp-table-card">
-                                <div class="card-body p-4">
-                                    <div class="mp-sec-head">
-                                        <span class="mp-sec-ico"><i class="fa fa-compass"></i></span>
-                                        <h3 class="mp-sec-title">¿Qué sigue?</h3>
-                                    </div>
-                                    <div class="d-flex flex-column gap-2">
-                                        <a class="s-btn s-btn-ghost s-btn-block" t-att-href="'/marketplace/purchases/%s/traceability' % tx.uuid_ref"><i class="fa fa-sitemap me-1"></i> Ver trazabilidad</a>
-                                        <a class="s-btn s-btn-ghost s-btn-block" href="/marketplace/purchases"><i class="fa fa-list me-1"></i> Mis compras</a>
-                                        <a class="s-btn s-btn-ghost s-btn-block" href="/marketplace"><i class="fa fa-shopping-bag me-1"></i> Seguir comprando</a>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Calificar al vendedor / reseña ya enviada -->
-                    <t t-if="can_rate or my_review">
-                        <div class="mp-table-card mt-4">
-                            <div class="card-body p-4" style="text-align:center;">
-                                <div class="mp-sec-head" style="justify-content:center;">
-                                    <span class="mp-sec-ico"><i class="fa fa-star"></i></span>
-                                    <h3 class="mp-sec-title">Tu opinión</h3>
-                                </div>
-
-                                <t t-if="can_rate">
-                                    <h4 style="font-weight:800; margin:0 0 4px;">¿Cómo fue tu experiencia con <t t-esc="tx.seller_partner_id.name"/>?</h4>
-                                    <p class="text-soft" style="margin:0 0 14px; font-size:var(--fs-sm);">Tu calificación ayuda a otros compradores.</p>
-                                    <form method="post" t-att-action="'/marketplace/purchases/%s/rate' % tx.uuid_ref"
-                                          style="width:100%;">
-                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                        <div class="s-star-input" style="justify-content:center;">
-                                            <t t-foreach="[5,4,3,2,1]" t-as="star">
-                                                <input type="radio" name="rating" t-att-value="star"
-                                                       t-att-id="'ts_%s_%s' % (tx.uuid_ref, star)" t-att-checked="star == 5"/>
-                                                <label t-att-for="'ts_%s_%s' % (tx.uuid_ref, star)"><i class="fa fa-star"></i></label>
                                             </t>
                                         </div>
-                                        <textarea class="form-control mt-3" name="comment" rows="3"
-                                                  placeholder="Deja un comentario (opcional)" style="width:100%;"></textarea>
-                                        <div class="mt-3">
-                                            <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-star me-1"></i> Enviar calificación</button>
-                                        </div>
-                                    </form>
-                                </t>
-                                <t t-else="">
-                                    <h4 style="font-weight:800; margin:0 0 8px;">Ya calificaste a <t t-esc="tx.seller_partner_id.name"/></h4>
-                                    <div class="s-rating" style="justify-content:center; font-size:22px;">
-                                        <t t-foreach="range(1,6)" t-as="i"><i t-att-class="'fa fa-star' + ('' if i &lt;= my_review.rating else ' s-rating-empty')"></i></t>
-                                    </div>
-                                    <t t-if="my_review.comment"><p class="text-soft" style="margin:10px 0 0; font-size:var(--fs-sm);">“<t t-esc="my_review.comment"/>”</p></t>
-                                </t>
-                            </div>
+                                    </t>
+                                    <div t-else="" class="pd-empty">Todavía no hay reseñas de este vendedor.</div>
+                                </div>
+                            </section>
                         </div>
-                    </t>
+
+                        <!-- ===================== RESUMEN (derecha, fijo) ===================== -->
+                        <aside class="bp-aside" aria-label="Resumen del pedido">
+                            <div class="pf-panel bp-sum" id="bp_summary">
+                                <div class="bp-sum-h">Resumen del pedido</div>
+                                <div class="bp-prod">
+                                    <t t-if="product.photo_attachment_ids">
+                                        <img class="bp-thumb" t-att-src="product.shrimp_photo_url(product.photo_attachment_ids[0])" t-att-alt="product.name"/>
+                                    </t>
+                                    <span t-else="" class="bp-thumb bp-thumb--none" aria-hidden="true"><i class="fa fa-image"/></span>
+                                    <div class="bp-prod-n">
+                                        <b t-esc="product.name"/>
+                                        <span><span class="pd-avatar bp-avatar" aria-hidden="true" t-esc="seller_initials"/>
+                                            <a t-att-href="'/marketplace/sellers/%s' % seller.uuid_ref" t-esc="seller.name"/>
+                                            <t t-if="p_role_label"> · <t t-esc="p_role_label"/></t>
+                                        </span>
+                                        <span t-if="seller.shrimp_rating_count" class="bp-rate"><i class="fa fa-star" aria-hidden="true"/> <t t-esc="'%.1f' % seller.shrimp_rating_avg"/> (<t t-esc="seller.shrimp_rating_count"/>)</span>
+                                    </div>
+                                </div>
+
+                                <ul class="bp-lines">
+                                    <li>
+                                        <span><t t-if="has_custom_price">Tu precio</t><t t-else="">Precio</t> / <t t-esc="uom_name"/></span>
+                                        <b>
+                                            <s t-if="has_custom_price" class="bp-strike">$<t t-esc="'%.2f' % product.price"/></s>
+                                            $<t t-esc="'%.2f' % unit_price"/>
+                                        </b>
+                                    </li>
+                                    <li>
+                                        <span>Cantidad</span>
+                                        <b><span id="bp_s_qty">—</span> <t t-esc="uom_name"/></b>
+                                    </li>
+                                    <li>
+                                        <span>Subtotal del producto</span>
+                                        <b>$<span id="total_value">0.00</span></b>
+                                    </li>
+                                    <li class="bp-fee">
+                                        <span>
+                                            <span id="bp_s_fee_lbl">Servicio de la plataforma</span>
+                                            <small id="bp_s_fee_note">Sin cargo para ti: la comisión de la venta la paga el vendedor.</small>
+                                        </span>
+                                        <b id="bp_s_fee">$0.00</b>
+                                    </li>
+                                </ul>
+
+                                <div class="bp-pay">
+                                    <div class="bp-pay-row bp-pay-now">
+                                        <span>Pagas ahora</span>
+                                        <b id="bp_s_now">$0.00</b>
+                                    </div>
+                                    <div class="bp-pay-row bp-pay-later" id="bp_s_later_row" hidden="hidden">
+                                        <span>Al concluir la compra <small>producto, tras aceptar el informe</small></span>
+                                        <b id="bp_s_later">$0.00</b>
+                                    </div>
+                                    <div class="bp-total">
+                                        <span>Total de la operación</span>
+                                        <b>$<span id="bp_s_total">0.00</span></b>
+                                    </div>
+                                </div>
+
+                                <div class="bp-cta">
+                                    <button type="button" class="s-btn s-btn-primary" id="bp_cta" disabled="disabled">
+                                        <i class="fa fa-lock me-1" aria-hidden="true"/> <span class="bp-cta-t">Pagar y comprar</span>
+                                    </button>
+                                    <a class="s-btn s-btn-ghost" href="/marketplace">Cancelar</a>
+                                    <div class="bp-cta-why" id="bp_cta_why">Ingresa la cantidad para continuar.</div>
+                                </div>
+
+                                <div t-if="verification_policy == 'none'" class="pf-alert pf-a-info bp-noverif" role="note">
+                                    <i class="fa fa-info-circle" aria-hidden="true"/>
+                                    <div>Esta compra <b>no lleva verificación en campo</b>: es directa y se confirma al pagar.</div>
+                                </div>
+                                <div t-elif="verification_policy == 'mandatory'" class="pf-alert pf-a-info bp-noverif" role="note">
+                                    <i class="fa fa-shield" aria-hidden="true"/>
+                                    <div>Compra con <b>verificación en campo obligatoria</b>: el lote se revisa antes de cerrar la compra.</div>
+                                </div>
+                                <div class="bp-bill">
+                                    <div><i class="fa fa-file-text-o" aria-hidden="true"/>
+                                        <span>La plataforma solo factura <b>sus servicios</b> (factura electrónica). La factura del producto la emite el vendedor.</span>
+                                    </div>
+                                    <div><i class="fa fa-shield" aria-hidden="true"/><span>Pago seguro simulado (demo)</span></div>
+                                </div>
+                            </div>
+                        </aside>
+                    </div>
+
+                    <!-- Overlay de pago simulado (lo usan compra directa y verificación) -->
+                    <div id="payOverlay" class="s-pay-overlay" style="display:none;">
+                        <div class="s-pay-box">
+                            <div class="s-pay-spinner"></div>
+                            <h4 style="margin:16px 0 6px;">Procesando pago…</h4>
+                            <p class="text-soft" style="margin:0 0 12px;">No cierres esta ventana. Estamos confirmando tu cobro de forma segura.</p>
+                            <div class="s-pay-count"><span id="payCount">5</span> s</div>
+                        </div>
+                    </div>
+
+                    <!-- Barra fija móvil: total + confirmar -->
+                    <div class="pd-mbar bp-mbar" id="bp_mbar">
+                        <div class="pd-mbar-p">
+                            <b>$<span id="bp_m_total">0.00</span></b>
+                            <span id="bp_m_sub">Ingresa la cantidad</span>
+                        </div>
+                        <button type="button" class="s-btn s-btn-primary" id="bp_mcta" disabled="disabled">
+                            <i class="fa fa-lock me-1" aria-hidden="true"/> Confirmar
+                        </button>
+                    </div>
 
                 </div>
             </div>
         </t>
     </template>
 
-    <template id="check_request_thanks" name="Solicitud de chequeo creada">
-        <t t-call="website.layout">
-            <style>
-              .chk-thanks .mp-spec-grid{ grid-template-columns: 1fr; }
-              .chk-thanks .mp-spec-value{ white-space: normal; }
-              .chk-thanks .mp-spec{ background: var(--shrimp-bg-alt); }
-              .chk-thanks .mp-spec:hover{ box-shadow: none; border-color: var(--shrimp-border); }
-              .chk-thanks .mp-spec-ico{ background: #fff; }
-            </style>
-            <div class="shrimp-bg">
-                <div class="shrimp-page chk-thanks py-4" style="max-width:1040px;">
+    <!-- «¡Compra realizada!» (buy_thanks): se mudó a views/buy_thanks_template.xml
+         (rediseño 2026-10 a todo el ancho). -->
 
-                    <!-- Encabezado -->
-                    <div class="text-center mb-4">
-                        <div
-                            class="mx-auto mb-3 d-flex align-items-center justify-content-center"
-                            style="width:78px; height:78px; border-radius:50%; background:rgba(46,158,107,.10); color:#1f7d56; font-size:34px;">
-                            <i class="fa fa-check"></i>
-                        </div>
-
-                        <div class="s-eyebrow">Marketplace</div>
-                        <h1 class="s-list-title">Solicitud de chequeo enviada</h1>
-                        <p class="s-list-sub" style="max-width:560px; margin:6px auto 0;">
-                            Tu pago fue procesado y la solicitud quedó registrada. Reservamos la
-                            cantidad indicada y notificamos a las partes involucradas.
-                        </p>
-                        <div class="s-badges mt-3" style="display:flex; gap:8px; justify-content:center;">
-                            <span class="s-badge s-badge--green"><i class="fa fa-lock me-1"></i> Pago confirmado</span>
-                            <span class="s-badge s-badge--teal"><i class="fa fa-cube me-1"></i> Cantidad reservada</span>
-                        </div>
-                    </div>
-
-                    <div class="row g-4">
-                    <!-- Detalle de la solicitud -->
-                    <div class="col-lg-7">
-                    <div class="mp-table-card h-100">
-                        <div class="card-body p-4">
-                            <div class="mp-sec-head">
-                                <span class="mp-sec-ico"><i class="fa fa-file-text-o"></i></span>
-                                <h3 class="mp-sec-title">Detalle de la solicitud</h3>
-                                <span class="s-badge mp-sec-count">
-                                    <t t-esc="dict(check_request._fields['state'].selection).get(check_request.state)" />
-                                </span>
-                            </div>
-                            <div class="mp-spec-grid">
-                                <div class="mp-spec">
-                                    <span class="mp-spec-ico"><i class="fa fa-hashtag"></i></span>
-                                    <div class="mp-spec-body">
-                                        <div class="mp-spec-label">Referencia</div>
-                                        <div class="mp-spec-value"><t t-esc="check_request.name" /></div>
-                                    </div>
-                                </div>
-                                <div class="mp-spec">
-                                    <span class="mp-spec-ico"><i class="fa fa-cube"></i></span>
-                                    <div class="mp-spec-body">
-                                        <div class="mp-spec-label">Producto</div>
-                                        <div class="mp-spec-value"><t t-esc="check_request.product_id.name" /></div>
-                                    </div>
-                                </div>
-                                <div class="mp-spec">
-                                    <span class="mp-spec-ico"><i class="fa fa-cubes"></i></span>
-                                    <div class="mp-spec-body">
-                                        <div class="mp-spec-label">Cantidad reservada</div>
-                                        <div class="mp-spec-value"><t t-esc="check_request.qty" /> <t t-esc="check_request.uom_id.name" /></div>
-                                    </div>
-                                </div>
-                                <div class="mp-spec">
-                                    <span class="mp-spec-ico"><i class="fa fa-search"></i></span>
-                                    <div class="mp-spec-body">
-                                        <div class="mp-spec-label">Costo del chequeo</div>
-                                        <div class="mp-spec-value">$<t t-esc="'%.2f' % check_request.check_fee" /></div>
-                                    </div>
-                                </div>
-                                <div class="mp-spec">
-                                    <span class="mp-spec-ico"><i class="fa fa-user-o"></i></span>
-                                    <div class="mp-spec-body">
-                                        <div class="mp-spec-label">Vendedor</div>
-                                        <div class="mp-spec-value"><t t-esc="check_request.seller_partner_id.name" /></div>
-                                    </div>
-                                </div>
-                                <div class="mp-spec">
-                                    <span class="mp-spec-ico"><i class="fa fa-user"></i></span>
-                                    <div class="mp-spec-body">
-                                        <div class="mp-spec-label">Comprador</div>
-                                        <div class="mp-spec-value"><t t-esc="check_request.buyer_partner_id.name" /></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    </div>
-
-                    <!-- ¿Qué sigue? -->
-                    <div class="col-lg-5">
-                    <div class="mp-table-card h-100">
-                        <div class="card-body p-4">
-                            <div class="mp-sec-head">
-                                <span class="mp-sec-ico"><i class="fa fa-list-ul"></i></span>
-                                <h3 class="mp-sec-title">¿Qué sigue?</h3>
-                            </div>
-                            <ol style="font-size:14px; color:var(--shrimp-ink-soft); padding-left:18px; margin:0;">
-                                <li>La cantidad quedó <strong>reservada</strong> para tu solicitud.</li>
-                                <li>Enviaremos un equipo a <strong>verificar el producto</strong> publicado.</li>
-                                <li>El comprador y el vendedor reciben una notificación por correo.</li>
-                                <li>Según el resultado, la solicitud se aprueba o se rechaza.</li>
-                            </ol>
-                        </div>
-                    </div>
-                    </div>
-                    </div>
-
-
-                </div>
-            </div>
-        </t>
-    </template>
 
     <template id="marketplace_calendar" name="Marketplace - Calendario">
         <t t-call="website.layout">

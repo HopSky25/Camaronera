@@ -9,6 +9,10 @@
                 <button name="action_rotate_trace_token" type="object" string="Rotar QR público"
                         groups="base.group_system"
                         confirm="Los QR ya impresos dejarán de funcionar. ¿Continuar?"/>
+                <!-- D-29: retirar la página pública (la rotación la vuelve a publicar). -->
+                <button name="action_withdraw_public_trace" type="object" string="Retirar página pública"
+                        groups="base.group_system" invisible="state in ('draft',)"
+                        confirm="La página pública /t/ dejará de mostrarse y los QR no abrirán nada. ¿Continuar?"/>
             </xpath>
         </field>
     </record>

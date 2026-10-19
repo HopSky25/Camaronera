@@ -1,6 +1,6 @@
 {
     "name": "Camaronera — Empacadora y listas de precios",
-    "version": "19.0.1.8.0",
+    "version": "19.0.1.20.0",
     "summary": "Rol de empacadora, su perfil y las listas de precios que publica",
     "description": """
 Reproduce la lista de precios que las empacadoras reparten cada semana a las
@@ -18,6 +18,7 @@ desarrollo que se hace en paralelo sobre ese módulo.
     "license": "LGPL-3",
     "category": "Industries",
     "depends": ["shrimp_marketplace", "shrimp_user_registry", "shrimp_verification", "website"],
+    "pre_init_hook": "pre_init_hook",
     "data": [
         "security/ir.model.access.csv",
         "security/shrimp_packer_rules.xml",
@@ -28,8 +29,14 @@ desarrollo que se hace en paralelo sobre ese módulo.
         "data/mail_template_avisos.xml",
         "data/cron_auto_publish.xml",
         "data/aguaje_data.xml",
+        # Matriz de verificación: camaronera → empacadora = obligatoria.
+        "data/verification_rule_data.xml",
+        # Certificados de la planta (antes casillas BAP/ASC/HACCP del alta).
+        "data/packer_certificate_data.xml",
         "data/reserva_sequences.xml",
         "data/cron_avisos_lotes.xml",
+        # Plazo de compra de las reservas cumplidas (hueco #8).
+        "data/cron_reserva_plazo.xml",
         "views/shrimp_price_list_views.xml",
         "views/price_list_templates.xml",
         "views/res_partner_views.xml",
@@ -44,6 +51,7 @@ desarrollo que se hace en paralelo sobre ese módulo.
         "views/oferta_templates.xml",
         "views/publicar_inherit.xml",
         "views/menus.xml",
+        "views/reserva_plazo_views.xml",
         "views/aguaje_views.xml",
         "views/simulador_templates.xml",
         "views/proveedores_templates.xml",
@@ -71,11 +79,14 @@ desarrollo que se hace en paralelo sobre ese módulo.
         "demo/demo_10_masivo_mismo_nivel.xml",
         # Verificaciones declaradas por las partes (mismo generador).
         "demo/demo_11_masivo_verificacion_declarada.xml",
-        "demo/demo_04_verificaciones_aquagold.xml",
+        # Historial verificado de AQUAGOLD (ranking de proveedores), mismo generador.
+        "demo/demo_12_masivo_aquagold.xml",
     ],
     "assets": {
         "web.assets_frontend": [
             "shrimp_packer/static/src/css/packer.css",
+            # Modo oscuro (generada desde packer.css).
+            "shrimp_packer/static/src/css/packer_dark_auto.css",
         ],
     },
     "installable": True,

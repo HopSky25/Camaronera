@@ -1,0 +1,590 @@
+/* Asistente de alta, documentos legales y equipo (móvil primero).
+   Los colores salen de las variables de marca de cada sitio (--c-blue en el
+   marketplace; las plataformas de verificadores y empaque las redefinen). */
+/* Un solo radio para las tarjetas de los pasos, la barra de pasos y la barra
+   de acciones (19.0.1.8.0): el de las tarjetas del formulario (.sf .card). */
+.shrimp-signup { max-width: 920px; margin: 0 auto;
+  --wiz-radius: var(--shrimp-radius-lg, 20px); --wiz-brand: var(--c-blue, #123e5c);
+  --wiz-border: var(--shrimp-border, #dfe6eb); }
+.shrimp-signup .shrimp-wizard .shrimp-step.card { border-radius: var(--wiz-radius, 20px) !important; }
+
+/* Pasos: control segmentado dentro de una tarjeta con el mismo radio. */
+.shrimp-steps { display: flex; gap: 6px; list-style: none; padding: 6px; margin: 0 0 16px; overflow-x: auto;
+  background: #fff; border: 1px solid var(--wiz-border, #dfe6eb); border-radius: var(--wiz-radius, 20px);
+  box-shadow: 0 1px 3px rgba(13, 27, 38, .05); scrollbar-width: none; }
+.shrimp-steps::-webkit-scrollbar { display: none; }
+.shrimp-steps li { flex: 1 1 0; min-width: 84px; display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 8px 10px; border-radius: calc(var(--wiz-radius, 20px) - 6px); font-size: 13px; font-weight: 600;
+  background: transparent; color: #5b6b78; cursor: pointer; white-space: nowrap;
+  transition: background-color .2s ease, color .2s ease; }
+.shrimp-steps li:hover { background: rgba(18, 62, 92, .05); }
+.shrimp-steps .shrimp-step-num { display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: 22px; height: 22px; border-radius: 50%; background: rgba(18, 62, 92, .08); font-size: 12px; font-weight: 700; }
+.shrimp-steps li.is-current { background: var(--wiz-brand, #123e5c); color: #fff; }
+.shrimp-steps li.is-current .shrimp-step-num { background: #fff; color: var(--wiz-brand, #123e5c); }
+.shrimp-steps li.is-done { color: var(--wiz-brand, #123e5c); }
+.shrimp-steps li.is-done .shrimp-step-num { background: rgba(31, 143, 95, .14); color: #1f8f5f; }
+@media (max-width: 575.98px) {
+  .shrimp-steps li { min-width: 0; padding: 8px 4px; font-size: 12px; gap: 4px; }
+  .shrimp-steps li:not(.is-current) .shrimp-step-txt { display: none; }
+  .shrimp-steps li.is-current { flex-grow: 2.4; }
+}
+
+/* Tipo de persona: dos tarjetas-radio (radio, icono y texto alineados). */
+.shrimp-pt-fieldset { border: 0; padding: 0; min-width: 0; }
+.shrimp-pt-fieldset legend { float: none; width: auto; font-size: .875rem; }
+.shrimp-choice-row { display: grid; grid-template-columns: 1fr; gap: 10px; }
+@media (min-width: 576px) { .shrimp-choice-row { grid-template-columns: 1fr 1fr; } }
+.shrimp-choice-row > .shrimp-choice { position: relative; display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin: 0;
+  border: 1.5px solid var(--wiz-border, #dfe6eb); border-radius: 14px; background: #fff; cursor: pointer; line-height: 1.25;
+  transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease; }
+.shrimp-choice:hover { border-color: rgba(18, 62, 92, .45); }
+.shrimp-choice input[type="radio"] { flex: none; width: 18px; height: 18px; margin: 0; accent-color: var(--wiz-brand, #123e5c); cursor: pointer; }
+.shrimp-choice-ico { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px;
+  border-radius: 10px; background: rgba(18, 62, 92, .07); color: var(--wiz-brand, #123e5c); font-size: 16px; }
+.shrimp-choice-text { display: flex; flex-direction: column; min-width: 0; }
+.shrimp-choice-title { font-weight: 700; color: #1d2b36; }
+.shrimp-choice-hint { font-size: 12.5px; color: #6b7a86; }
+.shrimp-choice.is-checked, .shrimp-choice:has(input:checked) { border-color: var(--wiz-brand, #123e5c);
+  background: rgba(18, 62, 92, .04); box-shadow: 0 0 0 3px rgba(18, 62, 92, .12); }
+.shrimp-choice.is-checked .shrimp-choice-ico, .shrimp-choice:has(input:checked) .shrimp-choice-ico {
+  background: var(--wiz-brand, #123e5c); color: #fff; }
+.shrimp-choice:has(input:focus-visible) { outline: 2px solid var(--wiz-brand, #123e5c); outline-offset: 2px; }
+.shrimp-subhead { font-size: 13px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; color: #6b7a86;
+  margin: 22px 0 10px; padding-top: 16px; border-top: 1px solid #eef1f3; }
+.shrimp-optional { font-size: 12px; color: #8a97a2; font-weight: 400; }
+.shrimp-pt-fields.is-revealing { animation: shrimpReveal .32s ease-out both; }
+@keyframes shrimpReveal { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .shrimp-pt-fields.is-revealing { animation: none; } }
+.shrimp-profile-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+@media (min-width: 576px) { .shrimp-profile-grid { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 992px) { .shrimp-profile-grid { grid-template-columns: 1fr 1fr 1fr; } }
+.shrimp-profile-card { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px;
+  border: 1px solid var(--shrimp-input-border, #c3cdd9); border-radius: 14px; cursor: pointer; margin: 0;
+  background: var(--shrimp-input-bg, #fff); transition: border-color .15s ease, box-shadow .15s ease; }
+.shrimp-profile-card:hover { border-color: var(--shrimp-input-border-hover, #8796a6); }
+.shrimp-profile-card.is-checked { border-color: var(--wiz-brand, #123e5c); box-shadow: 0 0 0 2px rgba(18, 62, 92, .15); }
+.shrimp-profile-card:has(input:focus-visible) { outline: 2px solid var(--shrimp-input-focus, var(--shrimp-teal, #0e8ea0)); outline-offset: 2px; }
+.shrimp-profile-card input { margin-top: 3px; width: 18px; height: 18px; flex: none; accent-color: var(--wiz-brand, #123e5c); cursor: pointer; }
+.shrimp-profile-body { display: flex; flex-direction: column; }
+.shrimp-profile-title { font-weight: 700; }
+.shrimp-profile-hint { font-size: 12.5px; color: var(--shrimp-help-ink, #5f6b78); }
+
+/* Bloque de datos de cada perfil (paso 3) y grupos anidados: tarjeta GRIS
+   con cabecera (icono + título + descripción corta) y campos BLANCOS. */
+.shrimp-prof-sec { border: 1px solid var(--shrimp-card-border, #dde4ea); border-radius: 16px; padding: 0; margin-top: 16px;
+  background: var(--shrimp-card-bg, #f6f8fa); overflow: hidden; }
+.shrimp-prof-sec-head { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px;
+  border-bottom: 1px solid var(--shrimp-card-head-border, #e6ebf0); }
+.shrimp-prof-sec-ico, .shrimp-sec-ico { flex: none; display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 10px; font-size: 16px;
+  background: var(--shrimp-prof-ico-bg, rgba(18, 62, 92, .08)); color: var(--wiz-brand, #123e5c); }
+.shrimp-prof-sec-htxt { min-width: 0; }
+.shrimp-prof-sec-title { font-size: 15px; font-weight: 700; margin: 0; line-height: 1.3; }
+.shrimp-prof-sec-desc { font-size: 12.5px; color: var(--shrimp-help-ink, #5f6b78); margin: 2px 0 0; line-height: 1.45; }
+.shrimp-prof-sec-body { padding: 16px; }
+@media (max-width: 575.98px) {
+  .shrimp-prof-sec-head { padding: 12px 14px; }
+  .shrimp-prof-sec-body { padding: 14px; }
+}
+/* Subsecciones plegables dentro de un bloque (verificadora). */
+.shrimp-sub { border: 1px solid var(--shrimp-card-border, #dde4ea); border-radius: 12px; background: var(--shrimp-card-item-bg, #fff);
+  margin-top: 10px; }
+.shrimp-sub > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+  font-weight: 700; font-size: 14px; border-radius: 12px; }
+.shrimp-sub > summary::-webkit-details-marker { display: none; }
+.shrimp-sub > summary::after { content: "\f107"; font-family: FontAwesome; margin-left: auto; color: var(--shrimp-help-ink, #5f6b78);
+  transition: transform .15s ease; }
+.shrimp-sub[open] > summary::after { transform: rotate(180deg); }
+.shrimp-sub > summary:focus-visible { outline: 2px solid var(--shrimp-input-focus, var(--shrimp-teal, #0e8ea0)); outline-offset: 2px; }
+.shrimp-sub > summary .fa { color: var(--wiz-brand, #123e5c); width: 18px; text-align: center; }
+.shrimp-sub > summary small { font-weight: 500; color: var(--shrimp-help-ink, #5f6b78); }
+.shrimp-sub-body { padding: 4px 14px 16px; }
+.shrimp-sub .shrimp-sub-req { color: var(--shrimp-danger, #c0392b); font-weight: 700; }
+
+/* Cabecera de sección (Certificados, Contrato y políticas, Instalaciones). */
+.shrimp-sec-head { display: flex; align-items: flex-start; gap: 12px; margin: 22px 0 12px; padding-top: 18px;
+  border-top: 1px solid #eef1f3; }
+.shrimp-sec-title { font-size: 16px; font-weight: 800; margin: 0; }
+.shrimp-sec-desc { font-size: 13px; color: var(--shrimp-help-ink, #5f6b78); margin: 3px 0 0; line-height: 1.5; }
+.shrimp-certs > .shrimp-sec-head { margin-top: 4px; padding-top: 0; border-top: 0; }
+
+/* ---- Certificados: grupo por perfil, tarjetas y modal ---- */
+.shrimp-cert-group { border: 1px solid var(--shrimp-card-border, #dde4ea); border-radius: 16px; background: var(--shrimp-card-bg, #f6f8fa);
+  padding: 12px; margin-bottom: 12px; }
+.shrimp-cert-ghead { display: flex; align-items: center; gap: 10px; padding: 2px 2px 10px; flex-wrap: wrap; }
+.shrimp-cert-gico { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 9px;
+  background: var(--shrimp-prof-ico-bg, rgba(18, 62, 92, .08)); color: var(--wiz-brand, #123e5c); font-size: 14px; }
+.shrimp-cert-gtitle { font-weight: 700; }
+.shrimp-cert-count { margin-left: auto; font-size: 12.5px; color: var(--shrimp-help-ink, #5f6b78); }
+.shrimp-cert-count.is-missing { color: #9a5a00; font-weight: 600; }
+.shrimp-cert-list { display: grid; gap: 8px; }
+.shrimp-cert-item { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 11px 12px;
+  border: 1px solid var(--shrimp-card-border, #dde4ea); border-radius: 12px; background: var(--shrimp-card-item-bg, #fff); }
+.shrimp-cert-item.is-missing { border-style: dashed; border-color: #e0b56b; background: var(--shrimp-cert-missing-bg, #fffaf0); }
+.shrimp-cert-ico { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; font-size: 17px;
+  background: var(--shrimp-prof-ico-bg, rgba(18, 62, 92, .08)); color: var(--wiz-brand, #123e5c); }
+.shrimp-cert-item.is-missing .shrimp-cert-ico { background: #fbf1de; color: #9a5a00; }
+.shrimp-cert-t { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-weight: 700; font-size: 14px; }
+.shrimp-cert-m { font-size: 12.5px; color: var(--shrimp-help-ink, #5f6b78); margin-top: 2px; overflow-wrap: anywhere; }
+.shrimp-cert-item.is-missing .shrimp-cert-m { color: #8a5200; font-weight: 600; }
+.shrimp-cert-a { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.shrimp-cert-btn { border: 1px solid var(--shrimp-input-border, #c3cdd9); background: var(--shrimp-input-bg, #fff); color: var(--shrimp-ink, #0d1b26);
+  border-radius: 10px; padding: 6px 12px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.shrimp-cert-btn:hover { border-color: var(--shrimp-input-border-hover, #8796a6); }
+.shrimp-cert-btn.is-del { color: var(--shrimp-danger, #c0392b); }
+.shrimp-cert-btn:focus-visible, .shrimp-cert-addrow:focus-visible { outline: 2px solid var(--shrimp-input-focus, var(--shrimp-teal, #0e8ea0)); outline-offset: 2px; }
+.shrimp-chip { display: inline-flex; align-items: center; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+  background: rgba(18, 62, 92, .08); color: var(--wiz-brand, #123e5c); }
+.shrimp-chip.is-pending { background: #eef0ff; color: #4a4fb0; }
+.shrimp-chip.is-req { background: #fbf1de; color: #8a5200; }
+.shrimp-cert-empty { font-size: 13px; color: var(--shrimp-help-ink, #5f6b78); margin: 0; padding: 10px 12px; border-radius: 10px;
+  background: var(--shrimp-card-item-bg, #fff); border: 1px solid var(--shrimp-card-border, #dde4ea); }
+.shrimp-cert-list:not(:empty) + .shrimp-cert-empty:not([hidden]) { margin-top: 8px; }
+.shrimp-cert-addrow { display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 8px; padding: 11px 14px;
+  border: 1.5px dashed var(--shrimp-input-border, #c3cdd9); border-radius: 12px; background: var(--shrimp-card-item-bg, #fff);
+  color: var(--wiz-brand, #123e5c); font-weight: 700; font-size: 14px; cursor: pointer; text-align: left; }
+.shrimp-cert-addrow:hover { border-color: var(--wiz-brand, #123e5c); }
+.shrimp-cert-addhint { margin-left: auto; font-weight: 500; font-size: 12.5px; color: var(--shrimp-help-ink, #5f6b78); }
+@media (max-width: 575.98px) {
+  .shrimp-cert-item { grid-template-columns: 34px minmax(0, 1fr); }
+  .shrimp-cert-ico { width: 34px; height: 34px; }
+  .shrimp-cert-a { grid-column: 1 / -1; justify-content: stretch; }
+  .shrimp-cert-a > * { flex: 1 1 0; }
+}
+.shrimp-cmodal .modal-content { border: 0; border-radius: 16px; box-shadow: 0 8px 18px rgba(13, 27, 38, .10), 0 24px 50px rgba(18, 62, 92, .14); }
+.shrimp-cmodal .modal-dialog { max-width: 600px; }
+.shrimp-cmodal .modal-header { border-bottom: 1px solid var(--shrimp-card-head-border, #e6ebf0); padding: 14px 18px; }
+.shrimp-cmodal .modal-title { font-size: 17px; font-weight: 800; margin: 0; display: flex; align-items: center; gap: 8px; }
+.shrimp-cmodal .modal-title .fa { color: var(--shrimp-teal, #0e8ea0); }
+.shrimp-cmodal .modal-body { padding: 16px 18px; }
+.shrimp-cmodal .modal-footer { border-top: 1px solid var(--shrimp-card-head-border, #e6ebf0); padding: 12px 18px; gap: 8px; }
+.shrimp-cmodal .modal-footer > * { margin: 0; }
+.shrimp-cmodal .form-label { font-weight: 600; font-size: 13px; color: var(--shrimp-label-ink, #33424e); margin-bottom: 6px; }
+.shrimp-cmodal .form-control, .shrimp-cmodal .form-select { min-height: var(--shrimp-input-minh, 44px); border-radius: var(--shrimp-input-radius, 12px); }
+.shrimp-cmodal .form-control[readonly] { background: var(--shrimp-input-disabled-bg, #eef1f4); color: var(--shrimp-help-ink, #5f6b78); }
+.shrimp-cmodal .form-select:disabled { background-color: var(--shrimp-input-disabled-bg, #eef1f4); }
+.shrimp-cm-x { margin-left: auto; width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--shrimp-card-border, #dde4ea);
+  background: var(--shrimp-input-bg, #fff); display: grid; place-items: center; color: var(--shrimp-help-ink, #5f6b78); cursor: pointer; padding: 0; }
+.shrimp-cm-x:focus-visible { outline: 2px solid var(--shrimp-input-focus, var(--shrimp-teal, #0e8ea0)); outline-offset: 2px; }
+.shrimp-cm-prof { font-size: 13px; color: var(--shrimp-help-ink, #5f6b78); margin: 0 0 12px; }
+.shrimp-cm-err { display: flex; gap: 5px; align-items: center; font-size: 12.5px; color: var(--shrimp-danger, #c0392b); font-weight: 600; margin-top: 6px; }
+.shrimp-fdrop { border: 1.5px dashed var(--shrimp-input-border, #c3cdd9); border-radius: 12px; padding: 14px; display: flex; gap: 10px; align-items: center;
+  font-size: 13.5px; color: var(--shrimp-help-ink, #5f6b78); background: var(--shrimp-input-bg, #fff); cursor: pointer; min-height: 60px; overflow-wrap: anywhere; }
+.shrimp-fdrop .fa { font-size: 22px; color: var(--shrimp-teal, #0e8ea0); }
+.shrimp-fdrop b { color: var(--shrimp-teal, #0e8ea0); }
+.shrimp-fdrop:hover, .shrimp-fdrop.is-over { border-color: var(--shrimp-teal, #0e8ea0); background: var(--shrimp-teal-soft, #e2f3f5); }
+.shrimp-fdrop:focus-visible { outline: 2px solid var(--shrimp-input-focus, var(--shrimp-teal, #0e8ea0)); outline-offset: 2px; }
+.shrimp-fdrop.has-file { border-style: solid; border-color: var(--shrimp-success, #1f8f5f); background: var(--shrimp-success-soft, #e4f4ec); }
+.shrimp-fdrop.has-file b { color: var(--shrimp-ink, #0d1b26); }
+.shrimp-fdrop.is-bad { border-color: var(--shrimp-danger, #c0392b); background: var(--shrimp-danger-soft, #fbe9e7); }
+@media (max-width: 575.98px) {
+  .shrimp-cmodal .modal-content { border-radius: 0; }
+  .shrimp-cmodal .modal-footer { position: sticky; bottom: 0; background: var(--shrimp-input-bg, #fff);
+    padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+  .shrimp-cmodal .modal-footer .btn { flex: 1 1 0; }
+}
+
+/* ---- Contrato y políticas: acordeón ---- */
+.shrimp-legal-all { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; padding: 12px 14px; border-radius: 12px;
+  background: var(--shrimp-card-bg, #f6f8fa); border: 1px solid var(--shrimp-card-border, #dde4ea); font-weight: 700; cursor: pointer; }
+.shrimp-legal-all .form-check-input { float: none; margin: 0; width: 1.15em; height: 1.15em; flex: none; }
+.shrimp-legal-acc { border: 1px solid var(--shrimp-card-border, #dde4ea); border-radius: 14px; overflow: hidden; background: var(--shrimp-card-item-bg, #fff); }
+.shrimp-legal-acc .shrimp-legal-item { border-bottom: 1px solid var(--shrimp-card-head-border, #e6ebf0); padding: 0; }
+.shrimp-legal-acc .shrimp-legal-item:last-child, .shrimp-legal-acc .shrimp-legal-item.last-visible { border-bottom: 0; }
+.shrimp-legal-row { display: flex; align-items: center; gap: 4px; padding-left: 14px; }
+.shrimp-legal-row .form-check-input { float: none; margin: 0; flex: none; width: 1.2em; height: 1.2em; cursor: pointer;
+  border: 1.5px solid var(--shrimp-check-border, #8796a6); }
+.shrimp-legal-toggle { flex: 1 1 auto; min-width: 0; display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 13px 14px 13px 10px;
+  border: 0; background: transparent; text-align: left; color: inherit; font-size: 14px; cursor: pointer; }
+.shrimp-legal-toggle:hover { background: rgba(18, 62, 92, .03); }
+.shrimp-legal-toggle:focus-visible { outline: 2px solid var(--shrimp-input-focus, var(--shrimp-teal, #0e8ea0)); outline-offset: -2px; }
+.shrimp-legal-main { min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.shrimp-legal-status { color: var(--shrimp-input-border-hover, #8796a6); font-size: 16px; line-height: 1; }
+.shrimp-legal-item.is-accepted .shrimp-legal-status { color: var(--shrimp-success, #1f8f5f); }
+.shrimp-legal-name { min-width: 0; }
+.shrimp-legal-ver { font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: rgba(18, 62, 92, .07);
+  color: var(--shrimp-help-ink, #5f6b78); white-space: nowrap; }
+.shrimp-legal-badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #eef1f4; color: #55636d; }
+.shrimp-legal-badge.is-req { background: #fbe9e7; color: #a5281b; }
+.shrimp-legal-chev { color: var(--shrimp-help-ink, #5f6b78); transition: transform .15s ease; }
+.shrimp-legal-item.is-open .shrimp-legal-chev { transform: rotate(180deg); }
+.shrimp-legal-panel { padding: 0 14px 14px 46px; }
+.shrimp-legal-summary { font-size: 12.5px; color: var(--shrimp-help-ink, #5f6b78); white-space: pre-line; margin-bottom: 6px; }
+.shrimp-legal-acc .shrimp-legal-body { max-height: 320px; overflow: auto; font-size: 13px; background: var(--shrimp-card-bg, #f6f8fa);
+  border: 1px solid var(--shrimp-card-border, #dde4ea); border-radius: 10px; padding: 10px 12px; margin-top: 0; }
+.shrimp-legal-acc .shrimp-legal-body h1, .shrimp-legal-acc .shrimp-legal-body h2 { font-size: 15px; font-weight: 800; margin: 12px 0 6px; }
+.shrimp-legal-acc .shrimp-legal-body h3, .shrimp-legal-acc .shrimp-legal-body h4 { font-size: 14px; font-weight: 700; margin: 10px 0 4px; }
+.shrimp-legal-acc .shrimp-legal-body > :first-child, .shrimp-legal-acc .shrimp-legal-body > div > :first-child { margin-top: 0; }
+.shrimp-legal-body:focus-visible { outline: 2px solid var(--shrimp-input-focus, var(--shrimp-teal, #0e8ea0)); outline-offset: 2px; }
+.shrimp-legal-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; }
+.shrimp-legal-open { font-size: 13px; font-weight: 600; }
+@media (max-width: 575.98px) {
+  .shrimp-legal-panel { padding-left: 14px; }
+  .shrimp-legal-toggle { font-size: 13.5px; }
+}
+.shrimp-legal-item { border-bottom: 1px solid #eef1f3; padding: 8px 0; }
+.shrimp-legal-body { max-height: 260px; overflow: auto; font-size: 13px; background: #fafbfc; border-radius: 10px;
+  padding: 10px 12px; margin-top: 6px; }
+/* Barra de acciones: tarjeta flotante pegada abajo, con el radio de las
+   tarjetas de los pasos y separada del borde de la pantalla. */
+.shrimp-wizard-nav { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  position: sticky; bottom: 12px; z-index: 5; margin-top: 4px; padding: 12px 14px;
+  background: rgba(255, 255, 255, .94); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  border: 1px solid var(--wiz-border, #dfe6eb); border-radius: var(--wiz-radius, 20px);
+  box-shadow: 0 2px 6px rgba(13, 27, 38, .05), 0 10px 28px rgba(13, 27, 38, .10); }
+.shrimp-wizard-nav .btn { border-radius: 12px; padding: 9px 18px; font-weight: 600; }
+.shrimp-wizard-count { flex: 1 1 auto; text-align: center; white-space: nowrap; }
+@media (max-width: 575.98px) {
+  .shrimp-wizard-nav { bottom: max(8px, env(safe-area-inset-bottom)); padding: 10px; gap: 8px; }
+  .shrimp-wizard-nav .btn { flex: 1 1 0; padding: 10px 12px; }
+  .shrimp-wizard-nav .btn.invisible { flex: 0 0 0; padding: 0; margin: 0; border: 0; overflow: hidden; }
+  .shrimp-wizard-count { display: none; }
+}
+.shrimp-legal-banner { margin: 0; border-radius: 0; font-size: 14px; }
+.shrimp-legal-doc h1 { font-size: 28px; }
+.shrimp-team-table td, .shrimp-team-table th { vertical-align: middle; }
+.shrimp-perm-grid { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+
+
+/* ==========================================================================
+   CAMPOS DEL ASISTENTE (19.0.1.9.0)
+   Antes los campos tenían el mismo gris que las tarjetas de perfil y sin
+   borde: «se perdían». Regla única: campo BLANCO con borde visible (también
+   dentro de las tarjetas grises), hover más oscuro y anillo teal al enfocar.
+   Los colores salen de los tokens --shrimp-input-* / --shrimp-card-* de
+   shrimp_base.css; el modo oscuro solo los redefine.
+   ========================================================================== */
+.shrimp-signup .form-label { color: var(--shrimp-label-ink, #33424e) !important; font-weight: 600 !important;
+  font-size: 13px; margin-bottom: 6px; line-height: 1.35; }
+.shrimp-signup .form-label .text-danger,
+.shrimp-signup legend .text-danger { color: var(--shrimp-danger, #c0392b) !important; font-weight: 700; }
+.shrimp-signup .shrimp-optional { color: var(--shrimp-input-placeholder, #66727f); }
+.shrimp-signup .form-text { color: var(--shrimp-help-ink, #5f6b78) !important; font-size: 12.5px; margin-top: 5px; }
+/* Campos: el selector con .shrimp-wizard gana a .sf .form-control del
+   marketplace (también !important) aunque esa hoja se cargue después. */
+.shrimp-signup .shrimp-wizard .form-control,
+.shrimp-signup .shrimp-wizard .form-select {
+  min-height: var(--shrimp-input-minh, 44px); }
+.shrimp-signup .shrimp-wizard .form-control-sm,
+.shrimp-signup .shrimp-wizard .form-select-sm { min-height: 38px; }
+/* Selector de archivo: botón gris pegado al borde izquierdo. */
+.shrimp-signup .shrimp-wizard .form-control[type="file"] { padding: 0 !important; line-height: 42px; overflow: hidden; cursor: pointer; }
+.shrimp-signup .shrimp-wizard .form-control-sm[type="file"] { line-height: 36px; }
+.shrimp-signup .shrimp-wizard .form-control[type="file"]::file-selector-button {
+  margin: 0 12px 0 0; padding: 0 14px; height: 100%; min-height: 42px; border: 0; border-radius: 0;
+  border-inline-end: 1px solid var(--shrimp-input-border, #c3cdd9);
+  background: var(--shrimp-input-addon-bg, #eef2f6); color: var(--shrimp-ink, #0d1b26); font-weight: 600; }
+.shrimp-signup .shrimp-wizard .form-control-sm[type="file"]::file-selector-button { min-height: 36px; padding: 0 11px; }
+.shrimp-signup .shrimp-wizard .form-control[type="file"]:hover::file-selector-button { background: var(--shrimp-input-addon-bg-hover, #e3e9ef); }
+
+/* Casillas y radios visibles sobre blanco y sobre gris. */
+.shrimp-signup .form-check-input { width: 1.15em; height: 1.15em; border: 1.5px solid var(--shrimp-check-border, #8796a6);
+  background-color: var(--shrimp-input-bg, #fff); cursor: pointer; }
+.shrimp-signup .form-check-input:hover { border-color: var(--wiz-brand, #123e5c); }
+.shrimp-signup .form-check-input:checked { background-color: var(--wiz-brand, #123e5c); border-color: var(--wiz-brand, #123e5c); }
+.shrimp-signup .form-check-input:focus-visible { box-shadow: 0 0 0 3px var(--shrimp-input-ring, rgba(14, 142, 160, .18)) !important;
+  border-color: var(--shrimp-input-focus, var(--shrimp-teal, #0e8ea0)); }
+.shrimp-signup .form-check { display: flex; align-items: flex-start; gap: 8px; padding-left: 0; min-height: 0; }
+.shrimp-signup .form-check .form-check-input { float: none; flex: none; margin: 2px 0 0; }
+.shrimp-signup .form-check-inline { display: inline-flex; margin-right: 16px; align-items: center; }
+.shrimp-signup .form-check-inline .form-check-input { margin-top: 0; }
+.shrimp-signup .shrimp-check-group { display: flex; flex-wrap: wrap; gap: 8px 4px; }
+
+/* ---- Elementos repetibles dentro de un bloque gris (instalaciones y sus
+   piscinas, paso que agrega shrimp_marketplace; equipo del verificador). ---- */
+.shrimp-later { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; padding: 12px 14px; border-radius: 12px;
+  border: 1px solid var(--shrimp-card-border, #dde4ea); background: var(--shrimp-card-item-bg, #fff); cursor: pointer; }
+.shrimp-later .form-check-input { float: none; margin: 0; flex: none; }
+#shrimpFacilities.is-later { opacity: .55; pointer-events: none; }
+#shrimpFacilities.is-later .shrimp-fac-group { filter: grayscale(.4); }
+.shrimp-fac-list { display: grid; gap: 12px; }
+.shrimp-fac-item { border: 1px solid var(--shrimp-card-border, #dde4ea); border-radius: 14px; background: var(--shrimp-card-item-bg, #fff);
+  padding: 12px 14px 14px; }
+.shrimp-fac-ihead { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.shrimp-fac-ititle { font-weight: 800; font-size: 14.5px; }
+.shrimp-fac-item .shrimp-sub { background: var(--shrimp-card-bg, #f6f8fa); margin-top: 0; }
+.shrimp-pond-box { margin-top: 14px; padding: 12px; border-radius: 12px; background: var(--shrimp-card-bg, #f6f8fa);
+  border: 1px solid var(--shrimp-card-border, #dde4ea); }
+.shrimp-pond-head { font-weight: 700; font-size: 13.5px; margin-bottom: 8px; }
+.shrimp-pond-count { color: var(--shrimp-help-ink, #5f6b78); font-weight: 600; }
+.shrimp-pond-list { display: grid; gap: 8px; }
+.shrimp-pond-row { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, .9fr) minmax(150px, 1.4fr) repeat(3, minmax(64px, .75fr)) auto;
+  gap: 8px; align-items: end; padding: 10px; border-radius: 10px; background: var(--shrimp-card-item-bg, #fff);
+  border: 1px solid var(--shrimp-card-border, #dde4ea); }
+.shrimp-pond-row .form-label { margin-bottom: 4px; font-size: 12px; }
+.shrimp-pond-f.is-area { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; min-width: 76px; }
+.shrimp-pond-area { font-size: 12px; font-weight: 700; color: var(--shrimp-success, #1f8f5f); white-space: nowrap; min-height: 16px; }
+.shrimp-pond-add { margin-top: 8px; display: inline-flex; align-items: center; gap: 6px; border: 1.5px dashed var(--shrimp-input-border, #c3cdd9);
+  background: var(--shrimp-card-item-bg, #fff); color: var(--wiz-brand, #123e5c); font-weight: 700; font-size: 13px; padding: 8px 12px;
+  border-radius: 10px; cursor: pointer; }
+.shrimp-pond-add:hover { border-color: var(--wiz-brand, #123e5c); }
+.shrimp-pond-add:focus-visible { outline: 2px solid var(--shrimp-input-focus, var(--shrimp-teal, #0e8ea0)); outline-offset: 2px; }
+@media (max-width: 991.98px) {
+  .shrimp-pond-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .shrimp-pond-f.is-name, .shrimp-pond-f.is-type { grid-column: span 3; }
+  .shrimp-pond-f.is-area { grid-column: span 3; flex-direction: row; justify-content: space-between; align-items: center; }
+}
+@media (min-width: 576px) and (max-width: 991.98px) {
+  .shrimp-pond-f.is-name { grid-column: span 2; }
+  .shrimp-pond-f.is-type { grid-column: span 1; }
+}
+@media (max-width: 575.98px) {
+  .shrimp-pond-f.is-name { grid-column: span 2; }
+  .shrimp-fac-item { padding: 10px 10px 12px; }
+  .shrimp-pond-box { padding: 8px; }
+  .shrimp-pond-row { padding: 8px; }
+}
+
+/* ---- Equipo de campo de la verificadora (19.0.1.10.0): tabla + modal ----
+   «Agregar técnico» abre .shrimp-tmodal (el mismo .shrimp-cmodal de los
+   certificados) y lo guardado queda en .shrimp-tech-table. En el móvil la
+   tabla se ve como tarjetas (cada celda con su etiqueta, data-label). */
+.shrimp-sub > summary .shrimp-team-count { font-weight: 700; color: var(--wiz-brand, #123e5c); white-space: nowrap; }
+.shrimp-tech-wrap { border: 1px solid var(--shrimp-card-border, #dde4ea); border-radius: 12px; overflow: hidden;
+  background: var(--shrimp-card-item-bg, #fff); }
+.shrimp-tech-table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 0; }
+.shrimp-tech-table th { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; text-align: left;
+  color: var(--shrimp-help-ink, #5f6b78); background: var(--shrimp-card-bg, #f6f8fa); padding: 9px 12px;
+  border-bottom: 1px solid var(--shrimp-card-border, #dde4ea); }
+.shrimp-tech-table td { padding: 10px 12px; vertical-align: middle; border-bottom: 1px solid var(--shrimp-card-head-border, #e6ebf0);
+  overflow-wrap: anywhere; }
+.shrimp-tech-table tbody tr:last-child td { border-bottom: 0; }
+.shrimp-tech-table tr.is-missing td { background: var(--shrimp-cert-missing-bg, #fffaf0); }
+.shrimp-tech-name { font-weight: 700; }
+.shrimp-tech-mail { color: var(--shrimp-help-ink, #5f6b78); }
+.shrimp-tech-table .shrimp-tech-acts-h, .shrimp-tech-acts-c { text-align: right; width: 1%; white-space: nowrap; }
+.shrimp-tech-acts { display: inline-flex; gap: 6px; align-items: center; justify-content: flex-end; flex-wrap: nowrap; }
+.shrimp-tech-q { font-size: 13px; font-weight: 700; color: var(--shrimp-danger, #c0392b); margin-right: 2px; }
+.shrimp-cert-btn.is-del.is-solid { background: var(--shrimp-danger, #c0392b); border-color: var(--shrimp-danger, #c0392b); color: #fff; }
+.shrimp-cert-btn.is-del.is-solid:hover { filter: brightness(.94); }
+#shrimpTeam .shrimp-cert-empty[hidden] { display: none; }
+.shrimp-tech-wrap + .shrimp-cert-addrow, .shrimp-cert-empty + .shrimp-tech-wrap { margin-top: 8px; }
+.shrimp-cert-addrow[hidden] { display: none; }
+/* Contraseña: ojo dentro del campo y herramientas debajo. */
+.shrimp-pw { position: relative; }
+.shrimp-pw .form-control { padding-right: 46px; }
+.shrimp-pw-eye { position: absolute; top: 50%; right: 5px; transform: translateY(-50%); width: 36px; height: 36px; border: 0; border-radius: 9px;
+  background: transparent; color: var(--shrimp-help-ink, #5f6b78); display: grid; place-items: center; cursor: pointer; padding: 0; }
+.shrimp-pw-eye:hover { background: rgba(18, 62, 92, .07); color: var(--shrimp-ink, #0d1b26); }
+.shrimp-pw-eye:focus-visible { outline: 2px solid var(--shrimp-input-focus, var(--shrimp-teal, #0e8ea0)); outline-offset: 1px; }
+.shrimp-pw-eye[aria-pressed="true"] { color: var(--shrimp-teal, #0e8ea0); }
+.shrimp-pw-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.shrimp-pw-tools .shrimp-cert-btn[hidden] { display: none; }
+.shrimp-tmodal .form-control.is-invalid, .shrimp-tmodal .form-select.is-invalid { border-color: var(--shrimp-danger, #c0392b); }
+.shrimp-tmodal .shrimp-cm-err[hidden] { display: none; }
+@media (max-width: 575.98px) {
+  .shrimp-tech-wrap { border: 0; background: transparent; overflow: visible; }
+  .shrimp-tech-table, .shrimp-tech-table tbody, .shrimp-tech-table tr, .shrimp-tech-table td { display: block; width: 100%; }
+  .shrimp-tech-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .shrimp-tech-table tbody { display: grid; gap: 8px; }
+  .shrimp-tech-table tr { border: 1px solid var(--shrimp-card-border, #dde4ea); border-radius: 12px; padding: 10px 12px;
+    background: var(--shrimp-card-item-bg, #fff); }
+  .shrimp-tech-table tr.is-missing { border-style: dashed; border-color: #e0b56b; background: var(--shrimp-cert-missing-bg, #fffaf0); }
+  .shrimp-tech-table tr.is-missing td { background: transparent; }
+  .shrimp-tech-table td { border: 0; padding: 3px 0; display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: 8px; align-items: baseline; }
+  .shrimp-tech-table td::before { content: attr(data-label); font-size: 11.5px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .03em; color: var(--shrimp-help-ink, #5f6b78); }
+  .shrimp-tech-table .shrimp-tech-acts-c { display: block; width: 100%; text-align: left; padding-top: 8px; white-space: normal; }
+  .shrimp-tech-table .shrimp-tech-acts-c::before { content: none; }
+  .shrimp-tech-acts { display: flex; width: 100%; flex-wrap: wrap; }
+  .shrimp-tech-acts > .shrimp-cert-btn { flex: 1 1 0; min-height: 40px; }
+  .shrimp-tech-acts .shrimp-tech-q { flex: 1 1 100%; }
+}
+
+/* ==========================================================================
+   INICIO · Paso «Instalaciones» con dos tablas + modales (shrimp_marketplace
+   19.0.1.22.4). Mismo patrón que el equipo de campo: .shrimp-tech-table (en
+   el móvil, tarjetas) y .shrimp-cmodal/.shrimp-tmodal. Bloques propios
+   (.shrimp-fac-block) en vez de .shrimp-prof-sec, que el asistente oculta
+   según el perfil (data-role).
+   ========================================================================== */
+.shrimp-fac-block { border: 1px solid var(--shrimp-card-border, #dde4ea); border-radius: 16px; margin-top: 16px;
+  background: var(--shrimp-card-bg, #f6f8fa); overflow: hidden; }
+.shrimp-fac-block:first-child { margin-top: 0; }
+.shrimp-fac-bhead { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px;
+  border-bottom: 1px solid var(--shrimp-card-head-border, #e6ebf0); }
+.shrimp-fac-bbody { padding: 16px; }
+.shrimp-fac-count { font-weight: 700; color: var(--wiz-brand, #123e5c); white-space: nowrap; }
+.shrimp-fac-block .shrimp-cert-empty[hidden], .shrimp-fac-need[hidden] { display: none; }
+.shrimp-fac-need { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; margin: 0 0 8px; padding: 10px 12px;
+  border-radius: 10px; background: #eef6fb; color: #23506e; border: 1px solid #cfe3ef; }
+.shrimp-fac-need .fa { margin-top: 2px; }
+.shrimp-fac-block .shrimp-cert-empty + .shrimp-tech-wrap { margin-top: 0; }
+.shrimp-fac-block .shrimp-cert-addrow:disabled { cursor: not-allowed; opacity: .55; border-style: dashed; }
+.shrimp-fac-block .shrimp-cert-addrow:disabled:hover { border-color: var(--shrimp-input-border, #c3cdd9); }
+.shrimp-fac-code { display: inline-block; margin-left: 6px; font-size: 12px; font-weight: 600; padding: 1px 7px; border-radius: 6px;
+  background: rgba(18, 62, 92, .07); color: var(--shrimp-help-ink, #5f6b78); }
+.shrimp-fac-table .shrimp-fac-num-h, .shrimp-fac-table .shrimp-fac-num { text-align: center; width: 1%; white-space: nowrap; }
+.shrimp-fac-meas { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.shrimp-fac-table .shrimp-fac-type, .shrimp-pond-table .shrimp-fac-type { white-space: nowrap; }
+.shrimp-fac-nm { overflow-wrap: anywhere; }
+/* Modal de la piscina: capacidad (segmentado) y cálculo en vivo. */
+.shrimp-pm-mode { border: 0; padding: 0; margin: 0; }
+.shrimp-pm-mode legend { float: none; width: auto; }
+.shrimp-seg { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; border-radius: 12px;
+  background: var(--shrimp-card-bg, #f6f8fa); border: 1px solid var(--shrimp-card-border, #dde4ea); }
+.shrimp-seg-opt { position: relative; margin: 0; cursor: pointer; }
+.shrimp-seg-opt input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.shrimp-seg-opt span { display: inline-block; padding: 8px 14px; border-radius: 9px; font-size: 13.5px; font-weight: 600;
+  color: var(--shrimp-help-ink, #5f6b78); }
+.shrimp-seg-opt.is-on span, .shrimp-seg-opt input:checked + span { background: var(--shrimp-input-bg, #fff); color: var(--wiz-brand, #123e5c);
+  box-shadow: 0 1px 3px rgba(13, 27, 38, .12); }
+.shrimp-seg-opt input:focus-visible + span { outline: 2px solid var(--shrimp-input-focus, var(--shrimp-teal, #0e8ea0)); outline-offset: 1px; }
+.shrimp-pmodal [hidden] { display: none !important; }
+.shrimp-pm-errrow { margin-top: 0; }
+.shrimp-pm-errrow .shrimp-cm-err { margin-top: 0; }
+.shrimp-pm-calc { font-size: 13.5px; font-weight: 700; color: var(--shrimp-success, #1f8f5f); padding: 9px 12px; border-radius: 10px;
+  background: var(--shrimp-success-soft, #e4f4ec); }
+@media (max-width: 575.98px) {
+  .shrimp-fac-bhead { padding: 12px 14px; }
+  .shrimp-fac-bbody { padding: 12px; }
+  .shrimp-fac-block .shrimp-tech-table td { grid-template-columns: 96px minmax(0, 1fr); }
+  .shrimp-fac-table .shrimp-fac-num { text-align: left; width: 100%; }
+  .shrimp-seg { display: flex; }
+  .shrimp-seg-opt { flex: 1 1 0; text-align: center; }
+  .shrimp-seg-opt span { display: block; }
+}
+/* FIN · Paso «Instalaciones» con dos tablas + modales
+   ========================================================================== */
+
+/* ---- Certificados: tabla ÚNICA (19.0.1.10.1) ----
+   Mismo patrón que el equipo de campo (.shrimp-tech-table): columnas
+   Certificado, Perfil, N.º, Vence, Archivo, Estado y Acciones; en el móvil,
+   tarjetas apiladas. Las filas «Falta adjuntar» van punteadas. */
+.shrimp-cert-note { display: flex; align-items: flex-start; gap: 10px; margin: 0 0 10px; padding: 10px 12px; border-radius: 10px;
+  background: #fbf1de; border: 1px solid #ecd3a2; color: #6b4200; font-size: 13.5px; font-weight: 600; line-height: 1.45; }
+.shrimp-cert-note > .fa { margin-top: 2px; }
+.shrimp-cert-note.d-none { display: none !important; }
+.shrimp-certs .shrimp-cert-empty[hidden] { display: none; }
+.shrimp-sec-title .shrimp-cert-count { margin-left: 4px; font-weight: 600; }
+.shrimp-cert-table td.shrimp-cert-dim { color: var(--shrimp-help-ink, #5f6b78); }
+.shrimp-cert-table td.shrimp-cert-file { color: var(--shrimp-help-ink, #5f6b78); font-size: 13px; }
+.shrimp-cert-table .shrimp-chip { white-space: nowrap; }
+.shrimp-chip.is-missing { background: #fbf1de; color: #8a5200; }
+.shrimp-cert-table .shrimp-cert-attach { white-space: nowrap; }
+@media (max-width: 575.98px) {
+  .shrimp-cert-table td { grid-template-columns: 96px minmax(0, 1fr); }
+  .shrimp-cert-table .shrimp-tech-acts > .shrimp-cert-attach { flex: 1 1 auto; min-height: 40px; }
+}
+/* Escritorio: las palabras no se parten letra a letra (Perfil, N.º, Vence,
+   Estado); la fecha no se corta. Si aun así no cabe, la tabla se desplaza. */
+@media (min-width: 576px) {
+  .shrimp-cert-wrap { overflow-x: auto; }
+  .shrimp-cert-table td { overflow-wrap: normal; }
+  .shrimp-cert-table td.shrimp-tech-name, .shrimp-cert-table td.shrimp-cert-file { overflow-wrap: anywhere; }
+  .shrimp-cert-table td[data-label="Vence"] { white-space: nowrap; }
+  .shrimp-cert-table td.shrimp-cert-file { min-width: 120px; }
+  .shrimp-cert-table .shrimp-chip { white-space: normal; }
+  .shrimp-cert-table .shrimp-tech-acts { flex-direction: column; align-items: stretch; }
+  .shrimp-cert-table td, .shrimp-cert-table th { padding-left: 10px; padding-right: 10px; }
+}
+
+/* ==========================================================================
+   INICIO · Secciones en tarjeta (shrimp_user_registry 19.0.1.10.2)
+   Cada sección del asistente va en su propio contenedor, igual que los
+   bloques de perfil (.shrimp-prof-sec): cabecera con icono, título (con
+   contador opcional .shrimp-sec-chip) y descripción + cuerpo con padding.
+   .shrimp-card-sec es una clase APARTE porque el asistente oculta todo
+   .shrimp-prof-sec cuyo data-role no esté marcado. Dentro reutiliza
+   .shrimp-prof-sec-head / -ico / -htxt / -title / -desc / -body.
+   ========================================================================== */
+.shrimp-card-sec { border: 1px solid var(--shrimp-card-border, #dde4ea); border-radius: 16px; padding: 0; margin-top: 16px;
+  background: var(--shrimp-card-bg, #f6f8fa); }
+.shrimp-card-sec > .shrimp-prof-sec-head { border-radius: 15px 15px 0 0; }
+.shrimp-card-sec .shrimp-prof-sec-title { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.shrimp-card-sec .shrimp-prof-sec-desc:empty { display: none; }
+.shrimp-sec-chip { display: inline-flex; align-items: center; margin: 0; font-size: 12px; font-weight: 700; line-height: 1.4;
+  padding: 2px 9px; border-radius: 999px; white-space: nowrap; background: rgba(18, 62, 92, .08); color: var(--wiz-brand, #123e5c); }
+.shrimp-sec-chip:empty { display: none; }
+.shrimp-card-sec .shrimp-sec-chip.shrimp-cert-count { margin-left: 0; font-size: 12px; color: var(--wiz-brand, #123e5c); }
+.shrimp-card-sec .shrimp-sec-chip.is-missing { background: #fbf1de; color: #8a5200; }
+.shrimp-sec-chip.is-done { background: #e4f4ec; color: #1a7a51; }
+/* Dentro de la tarjeta gris, los elementos internos van en blanco. */
+.shrimp-card-sec .shrimp-legal-all { background: var(--shrimp-card-item-bg, #fff); }
+.shrimp-card-sec .shrimp-pt-fieldset { margin: 0; }
+.shrimp-card-sec .shrimp-cert-note:last-child, .shrimp-card-sec .shrimp-prof-sec-body > :last-child { margin-bottom: 0; }
+/* Fotos del naupliero (bloque .shrimp-prof-sec en el paso de documentos):
+   mismo espacio que entre las demás tarjetas. */
+.shrimp-step .shrimp-photos-sec { margin-top: 16px; }
+@media (max-width: 575.98px) {
+  .shrimp-card-sec { margin-top: 12px; }
+  .shrimp-step .shrimp-photos-sec { margin-top: 12px; }
+  .shrimp-card-sec > .shrimp-prof-sec-head { padding: 12px 14px; }
+  .shrimp-card-sec > .shrimp-prof-sec-body { padding: 14px 12px; }
+  .shrimp-step > .card-body { padding: 18px 14px !important; }
+}
+
+/* Tabla de certificados: N.º en una línea (con … y title) y acciones
+   compactas en una fila (icono; el texto se ve solo en el móvil). */
+.shrimp-cert-table th { white-space: nowrap; }
+.shrimp-cert-ibtn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+@media (min-width: 576px) {
+  .shrimp-cert-table td.shrimp-cert-num { white-space: nowrap; }
+  .shrimp-cert-numv { display: block; min-width: 6em; max-width: 8em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .shrimp-cert-table .shrimp-tech-acts { flex-direction: row; align-items: center; }
+  .shrimp-cert-table .shrimp-cert-ibtn { width: 34px; height: 34px; padding: 0; border-radius: 9px; font-size: 15px; }
+  .shrimp-cert-ibtn-t { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .shrimp-cert-table .shrimp-cert-ibtn.is-del:hover { background: var(--shrimp-danger-soft, #fbe9e7); border-color: var(--shrimp-danger, #c0392b); }
+  .shrimp-cert-table .shrimp-tech-acts.is-confirm { flex-wrap: wrap; justify-content: flex-end; max-width: 100px; margin-left: auto; gap: 4px 6px; }
+  .shrimp-cert-table .shrimp-tech-acts.is-confirm .shrimp-tech-q { flex: 1 1 100%; text-align: right; font-size: 12.5px; }
+  .shrimp-cert-table .shrimp-tech-acts.is-confirm .shrimp-cert-btn { padding: 5px 10px; min-width: 40px; }
+  .shrimp-cert-table .shrimp-cert-yes-x { display: none; }
+  /* Sin cortes letra a letra: el nombre parte por palabras, el archivo se
+     abrevia con … (nombre completo en title) y el estado ocupa dos líneas. */
+  .shrimp-cert-table td, .shrimp-cert-table th { padding-left: 7px; padding-right: 7px; }
+  .shrimp-certs > .shrimp-prof-sec-body { padding-left: 12px; padding-right: 12px; }
+  .shrimp-cert-table td.shrimp-tech-name { overflow-wrap: normal; min-width: 120px; }
+  .shrimp-cert-table td[data-label="Perfil"] { white-space: nowrap; }
+  .shrimp-cert-table td.shrimp-cert-file { min-width: 0; overflow-wrap: normal; }
+  .shrimp-cert-fname { display: flex; align-items: center; max-width: 130px; white-space: nowrap; }
+  .shrimp-cert-fn { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .shrimp-cert-fsize { display: block; font-size: 12px; white-space: nowrap; }
+  .shrimp-cert-table td[data-label="Estado"] { min-width: 104px; }
+  .shrimp-cert-table td[data-label="Estado"] .shrimp-chip { white-space: normal; line-height: 1.25; padding: 3px 9px; border-radius: 10px; }
+}
+@media (max-width: 575.98px) {
+  .shrimp-cert-fsize { display: block; font-size: 12px; }
+}
+@media (max-width: 575.98px) {
+  .shrimp-cert-numv { overflow-wrap: anywhere; }
+}
+
+/* Envío protegido (submit_guard.js): capa modal que no se cierra. */
+/* Respaldo si no carga shrimp_scroll_lock.js (que pone html.shrimp-sl-ready y
+   bloquea él, midiendo antes la barra): solo el body; en <html> también subía
+   la página arriba. */
+html.shrimp-sg-open:not(.shrimp-sl-ready) body { overflow: hidden; }
+.shrimp-sg { position: fixed; inset: 0; z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 20px;
+  background: rgba(13, 27, 38, .55); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); animation: shrimpSgIn .18s ease-out both; }
+.shrimp-sg-box { width: 100%; max-width: 400px; text-align: center; padding: 28px 24px 24px; border-radius: 20px;
+  background: #fff; color: var(--shrimp-ink, #0d1b26); box-shadow: 0 8px 18px rgba(13, 27, 38, .12), 0 24px 50px rgba(18, 62, 92, .2); }
+.shrimp-sg-box:focus { outline: none; }
+.shrimp-sg-spin { display: inline-block; width: 46px; height: 46px; border-radius: 50%; margin-bottom: 14px;
+  border: 4px solid rgba(18, 62, 92, .14); border-top-color: var(--shrimp-teal, #0e8ea0); animation: shrimpSgSpin .8s linear infinite; }
+.shrimp-sg-title { font-size: 19px; font-weight: 800; margin: 0 0 6px; }
+.shrimp-sg-text { font-size: 14px; color: var(--shrimp-help-ink, #5f6b78); margin: 0; line-height: 1.5; }
+.shrimp-sg-late { font-size: 13.5px; font-weight: 600; color: #8a5200; background: #fbf1de; border-radius: 10px; padding: 10px 12px; margin: 14px 0 0; }
+.shrimp-sg-acts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 14px; }
+/* La capa va fuera de #wrapwrap: los botones llevan sus colores propios. */
+.shrimp-sg-btn { border: 1px solid var(--shrimp-input-border, #c3cdd9); background: #fff; color: var(--shrimp-brand, #123e5c);
+  border-radius: 12px; padding: 9px 18px; font-size: 14.5px; font-weight: 700; cursor: pointer; }
+.shrimp-sg-btn:hover { border-color: var(--shrimp-brand, #123e5c); }
+.shrimp-sg-btn.is-primary { background: var(--shrimp-brand, #123e5c); border-color: var(--shrimp-brand, #123e5c); color: #fff; }
+.shrimp-sg-btn.is-primary:hover { filter: brightness(1.1); }
+.shrimp-sg-btn:focus-visible { outline: 2px solid var(--shrimp-teal, #0e8ea0); outline-offset: 2px; }
+.shrimp-sg-late[hidden], .shrimp-sg-acts[hidden] { display: none; }
+.shrimp-sg.is-late .shrimp-sg-spin { animation-duration: 1.6s; }
+@keyframes shrimpSgSpin { to { transform: rotate(360deg); } }
+@keyframes shrimpSgIn { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .shrimp-sg { animation: none; }
+  .shrimp-sg-spin { animation-duration: 2.4s; }
+}
+@media (max-width: 575.98px) {
+  .shrimp-sg { padding: 14px; }
+  .shrimp-sg-box { padding: 24px 18px 20px; }
+  .shrimp-sg-acts .shrimp-sg-btn { flex: 1 1 100%; }
+}
+/* FIN · Secciones en tarjeta y envío protegido
+   ========================================================================== */

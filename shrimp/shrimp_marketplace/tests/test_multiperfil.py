@@ -143,22 +143,25 @@ class TestMultiPerfilPortal(HttpCase):
         # Sin CSRF no cambia nada.
         r = self.url_open("/my/profile/activate", data={"role": "camaronera"})
         self.assertNotEqual(r.status_code, 200)
-        self.assertEqual(self.s["lab"].shrimp_user_type, "laboratorio")
+        self.assertEqual(self.s["u_lab"].shrimp_active_role, "laboratorio")
         # Un perfil que la cuenta no tiene: no cambia.
         self.url_open("/my/profile/activate", data={
             "csrf_token": token, "role": "semillero", "next": "/marketplace/my-account"})
-        self.assertEqual(self.s["lab"].shrimp_user_type, "laboratorio")
+        self.assertEqual(self.s["u_lab"].shrimp_active_role, "laboratorio")
         # Redirección abierta: se ignora el destino externo.
         r = self.url_open("/my/profile/activate", data={
             "csrf_token": token, "role": "camaronera", "next": "//malicioso.example/x"},
             allow_redirects=False)
         self.assertNotIn("malicioso", r.headers.get("Location", ""))
-        self.assertEqual(self.s["lab"].shrimp_user_type, "camaronera")
+        # Perfil activo POR USUARIO (CR-12).
+        self.assertEqual(self.s["u_lab"].shrimp_active_role, "camaronera")
+        self.assertEqual(self.s["lab"].shrimp_user_type, "laboratorio", "la empresa no cambia")
         # La barra y los permisos siguen al perfil activo: ahora le ofrece
         # comprar la larva del otro laboratorio.
         self.assertIn("Perfil: Camaronera", self._cabecera())
-        self.assertFalse(self.lote_lab2.motivo_no_comprable(self.s["lab"]))
-        # Persiste en la cuenta (otra sesión lo ve igual).
+        self.assertFalse(self.lote_lab2.with_user(self.s["u_lab"]).sudo().motivo_no_comprable(
+            self.s["lab"].with_user(self.s["u_lab"])))
+        # Persiste en el usuario (otra sesión lo ve igual).
         self.authenticate(self.s["u_lab"].login, CLAVE)
         self.assertIn("Perfil: Camaronera", self._cabecera())
 
@@ -170,6 +173,8 @@ class TestMultiPerfilPortal(HttpCase):
         token = csrf_de(pagina)
         r = self.url_open("/my/profile/add", data={
             "csrf_token": token, "role": "laboratorio", "next": "/marketplace/my-account",
+            "legal_accept_annex_laboratorio": self.env.ref(
+                "shrimp_user_registry.legal_ver_annex_laboratorio_202610").name,
             "shrimp_razon_social": "Semillero y Lab S.A.", "shrimp_ubicacion": "Salinas"},
             allow_redirects=False)
         self.assertIn("saved=perfil", r.headers.get("Location", ""))

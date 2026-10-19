@@ -64,21 +64,43 @@ Lo que pide:
 |---|---|---|
 | RUC de 13 dígitos | Compañía | Va en cada comprobante |
 | Dirección matriz | Compañía | Obligatoria en el XML |
-| Punto de emisión | `ec.sri.point` | Uno por tipo de documento (001-001) |
-| Certificado `.p12` | Variables de entorno | Firma XAdES-BES |
+| Punto de emisión | `ec.sri.point` | Uno o varios por establecimiento (001-001) |
+| Certificado `.p12` | Se sube por la interfaz (cifrado) | Firma XAdES-BES |
 
 El módulo no emite hasta tenerlos: `_ec_sri_company_data()` lo valida.
 
-## El certificado no se guarda en la base
+## Certificado de firma: llave de cifrado (IMPORTANTE)
 
-Se lee de variables de entorno del servidor, con el prefijo que se configure
-en la compañía (`EC_SRI_...`):
+El `.p12` **se sube por la interfaz** en *Ajustes → Ecuador SRI → Certificado
+de firma* (por compañía) y se guarda **cifrado** en la base. El `.p12` y su
+contraseña **nunca** se almacenan en claro.
 
-    export EC_SRI_CAMARONMARKET_P12_PATH=/ruta/segura/firma.p12
-    export EC_SRI_CAMARONMARKET_P12_PASSWORD='...'
+El cifrado usa `Fernet` con una clave derivada por **PBKDF2-HMAC-SHA256** de una
+**llave maestra que vive en una variable de entorno del servidor**, NUNCA en la
+base de datos:
 
-Es deliberado: un `.p12` guardado en una tabla se acaba filtrando en un
-respaldo. El campo del prefijo además está restringido a `base.group_system`.
+    EC_SRI_MASTER_KEY
+
+### Cómo configurarla
+
+Define la variable **antes** de levantar Odoo. Por ejemplo, en `start.sh`:
+
+    export EC_SRI_MASTER_KEY="una-frase-larga-secreta-y-ESTABLE"
+    exec .../odoo-bin -c .../odoo.conf "$@"
+
+o en el `systemd` del servicio (`Environment=EC_SRI_MASTER_KEY=...`), o en un
+`.env` que cargue el arranque. Solo el proceso de Odoo necesita verla.
+
+### Reglas
+
+- **Debe ser estable.** Si cambia, los certificados ya guardados **no se podrán
+  descifrar** y habrá que volver a subirlos.
+- **Manténla fuera de la base y de los respaldos** (por eso va en el entorno).
+- Un dump de la base **sin** esta variable es inútil: el certificado sale cifrado.
+- Los campos del certificado están restringidos a `base.group_system`.
+
+Implementación: `services/crypto.py` (cifra/descifra) y
+`res.company._ec_sri_certificate()` (descifra en memoria al firmar).
 
 ## Pruebas antes de producción
 

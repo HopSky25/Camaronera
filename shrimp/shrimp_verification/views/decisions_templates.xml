@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Portal: decisiones de la auditoría de procesos (19.0.1.24.0).
+       D-21 aceptar/declinar la orden · D-16 producto no presentado ·
+       D-24 liquidaciones · D-25 segunda opinión · D-41 plazo de la declarada. -->
+
+  <!-- ===== Bandeja: chips de respuesta / segunda opinión ===== -->
+  <template id="verifier_inbox_decisions" inherit_id="shrimp_verification.verifier_inbox"
+            name="Bandeja - respuesta a la orden y segunda opinión">
+    <xpath expr="//span[hasclass('vr-chip--late')]" position="after">
+      <span t-if="v.verification_mode == 'platform' and v.verifier_response == 'pending' and v.state == 'received'" class="vr-chip"><i class="fa fa-question-circle"/>Por aceptar</span>
+      <span t-if="v.verifier_response == 'declined'" class="vr-chip vr-chip--late"><i class="fa fa-ban"/>Declinada</span>
+      <span t-if="v.second_opinion_of_id" class="vr-chip"><i class="fa fa-balance-scale"/>Segunda opinión</span>
+      <span t-if="v.contest_state in ('open', 'contested')" class="vr-chip"><i class="fa fa-hourglass-half"/><t t-esc="dict(v._fields['contest_state'].selection).get(v.contest_state)"/></span>
+    </xpath>
+  </template>
+
+  <!-- ===== D-21: aceptar o declinar la orden (paso 1) ===== -->
+  <template id="verifier_assign_response" inherit_id="shrimp_verification.verifier_assign"
+            name="Asignar técnico - aceptar o declinar la orden">
+    <xpath expr="//div[hasclass('vr-alerts')]" position="inside">
+      <div t-if="saved == 'accepted'" class="pf-alert vr-a-ok" role="status"><i class="fa fa-check-circle"/><div>Aceptaste la orden. Ahora asigna el técnico responsable.</div></div>
+      <div t-if="v.second_opinion_of_id" class="pf-alert pf-a-info" role="note"><i class="fa fa-balance-scale"/><div><b>Segunda opinión.</b> El vendedor impugnó el rechazo de otra verificadora: verifica de forma independiente. El honorario lo paga quien la pidió.</div></div>
+    </xpath>
+    <xpath expr="//div[hasclass('vr-main')]/section[1]" position="before">
+      <t t-set="vd_decline_problem" t-value="v.shrimp_can_decline()"/>
+      <section t-if="v.verification_mode == 'platform' and v.verifier_response == 'declined'" class="pf-sec" id="vr_order_response">
+        <div class="pf-sec-h"><span class="vr-ico vr-ico--bad"><i class="fa fa-ban"/></span><div><h2>Declinaste esta orden</h2><p>Motivo: <t t-esc="v.verifier_decline_reason"/>. El comprador elegirá otra verificadora.</p></div></div>
+      </section>
+      <section t-elif="v.verification_mode == 'platform' and v.state in ('received', 'assigned') and (v.verifier_response == 'pending' or not vd_decline_problem)" class="pf-sec" id="vr_order_response">
+        <div class="pf-sec-h">
+          <span class="vr-ico vr-ico--warn"><i class="fa fa-inbox"/></span>
+          <div><h2><t t-if="v.verifier_response == 'pending'">¿Aceptas la orden?</t><t t-else="">Orden aceptada</t></h2>
+            <p t-if="v.verifier_response_deadline">Puedes aceptarla o declinarla hasta el <b t-esc="v.transaction_id.shrimp_fmt_dt(v.verifier_response_deadline)"/>. Asignar el técnico también la acepta. Si no respondes a tiempo, cuenta como declinada y el comprador elige otra verificadora.</p></div>
+        </div>
+        <div class="pf-sec-b">
+          <t t-if="es_admin">
+            <form t-if="v.verifier_response == 'pending'" method="post" t-att-action="'/verifier/verifications/%s/respond' % v.uuid_ref" class="d-inline">
+              <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+              <input type="hidden" name="decision" value="accept"/>
+              <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-check me-1"/> Aceptar la orden</button>
+            </form>
+            <details t-if="not vd_decline_problem" class="rc-issue mt-3">
+              <summary><i class="fa fa-ban me-1"/> Declinar la orden</summary>
+              <form method="post" class="rc-form" t-att-action="'/verifier/verifications/%s/respond' % v.uuid_ref">
+                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                <input type="hidden" name="decision" value="decline"/>
+                <label class="rc-label" for="vrDeclineReason">Motivo (lo verá el comprador)</label>
+                <textarea class="form-control" id="vrDeclineReason" name="reason" rows="2" maxlength="2000" required="required"
+                          placeholder="Ej.: sin capacidad en esa fecha, conflicto de interés con una de las partes…"/>
+                <div class="rc-actions"><button type="submit" class="s-btn rc-btn-danger"><i class="fa fa-ban me-1"/> Declinar</button></div>
+              </form>
+            </details>
+          </t>
+          <div t-else="" class="vr-locked"><i class="fa fa-lock"/><div>La orden la acepta o la declina el administrador de la empresa.</div></div>
+        </div>
+      </section>
+    </xpath>
+  </template>
+
+  <!-- ===== D-16: rechazo por «Producto no presentado» ===== -->
+  <template id="verifier_detail_not_presented" inherit_id="shrimp_verification.verifier_detail"
+            name="Informe de campo - producto no presentado">
+    <xpath expr="//div[hasclass('vr-main')]" position="inside">
+      <section t-if="v.verification_mode == 'platform' and v.state in ('assigned', 'in_field', 'done') and puede_firmar" class="pf-sec" id="no-presentado">
+        <div class="pf-sec-h">
+          <span class="vr-ico vr-ico--bad"><i class="fa fa-eye-slash"/></span>
+          <div><h2>¿El producto no se presentó?</h2><p>Único veredicto que se emite sin trabajo de campo. Exige fotos y la hora de llegada a la planta. El honorario lo paga el vendedor, que además recibe un strike; la compra se cancela.</p></div>
+        </div>
+        <div class="pf-sec-b">
+          <details class="rc-issue">
+            <summary><i class="fa fa-times-circle me-1"/> Rechazar: producto no presentado</summary>
+            <form method="post" enctype="multipart/form-data" class="rc-form" t-att-action="'/verifier/verifications/%s/not-presented' % v.uuid_ref">
+              <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+              <label class="rc-label" for="vrNpArrival">Hora de llegada a la planta</label>
+              <input type="datetime-local" class="form-control" id="vrNpArrival" name="arrival" required="required"/>
+              <label class="rc-label mt-2" for="vrNpPhotos">Fotos de evidencia <span t-if="v.photo_ids" class="rc-opt">(ya hay <t t-esc="len(v.photo_ids)"/>)</span></label>
+              <input type="file" class="form-control" id="vrNpPhotos" name="photo_files" accept="image/*" multiple="multiple" t-att-required="None if v.photo_ids else 'required'"/>
+              <label class="rc-label mt-2" for="vrNpNotes">Qué encontraste</label>
+              <textarea class="form-control" id="vrNpNotes" name="notes" rows="3" maxlength="4000" required="required"
+                        placeholder="Ej.: llegué a la planta a la hora acordada y el camión no estaba; esperé 2 horas…"/>
+              <div class="rc-actions"><button type="submit" class="s-btn rc-btn-danger"><i class="fa fa-pencil me-1"/> Firmar el rechazo</button></div>
+            </form>
+          </details>
+        </div>
+      </section>
+      <section t-if="v.state == 'rejected' and v.contest_state" class="pf-sec">
+        <div class="pf-sec-h"><span class="vr-ico"><i class="fa fa-balance-scale"/></span><div><h2>Segunda opinión</h2>
+          <p><t t-esc="dict(v._fields['contest_state'].selection).get(v.contest_state)"/><t t-if="v.contest_state == 'open'"> · el vendedor puede impugnar hasta el <t t-esc="v.transaction_id.shrimp_fmt_dt(v.contest_deadline)"/></t>.</p></div></div>
+      </section>
+    </xpath>
+  </template>
+
+  <!-- ===== D-24: liquidaciones de la verificadora ===== -->
+  <template id="verifier_reports_payouts" inherit_id="shrimp_verification.verifier_reports"
+            name="Mis reportes - liquidaciones">
+    <xpath expr="//div[hasclass('vr-main')]/section" position="after">
+      <t t-set="vr_payouts" t-value="request.env['shrimp.verification'].shrimp_payouts_for(empresa) if request.env.user.shrimp_actor_partner_id.shrimp_is_verifier_admin() else []"/>
+      <section t-if="request.env.user.shrimp_actor_partner_id.shrimp_is_verifier_admin()" class="pf-sec" id="liquidaciones">
+        <div class="pf-sec-h"><span class="vr-ico"><i class="fa fa-money"/></span><div><h2>Liquidaciones <span class="vr-count" t-esc="len(vr_payouts)"/></h2>
+          <p>Tu parte del honorario se liquida cuando las partes cierran la ronda de aceptación (o cuando un rechazo queda firme), aprobada o rechazada. El pago lo registra contabilidad.</p></div></div>
+        <div class="pf-sec-b">
+          <table t-if="vr_payouts" class="vr-table vr-table--stack">
+            <thead><tr><th>Orden</th><th>Veredicto</th><th class="vr-num">Tu parte</th><th>Liquidación</th><th>Documento</th></tr></thead>
+            <tbody>
+              <t t-foreach="vr_payouts" t-as="p">
+                <tr>
+                  <td class="vr-td-main" data-label="Orden"><a t-attf-href="/verifier/verifications/#{p.uuid_ref}" t-esc="p.name"/></td>
+                  <td data-label="Veredicto"><span t-attf-class="vr-pill vr-pill--sm vr-pill--#{p.state}" t-esc="dict(p._fields['state'].selection).get(p.state)"/></td>
+                  <td class="vr-num" data-label="Tu parte">$<t t-esc="'{:,.2f}'.format(p.verifier_amount or (p.fee or 0) * (1 - (p.margin_pct or p._margen_configurado()) / 100.0))"/></td>
+                  <td data-label="Liquidación"><span t-attf-class="vr-pill vr-pill--sm #{'vr-pill--ok' if p.payout_paid else ('vr-pill--bad' if p.payout_state == 'error' else 'vr-pill--info')}" t-esc="p.shrimp_payout_label()"/></td>
+                  <td data-label="Documento"><t t-esc="p.sudo().vendor_bill_id.name if p.sudo().vendor_bill_id and p.sudo().vendor_bill_id.name != '/' else ('Borrador' if p.sudo().vendor_bill_id else '—')"/></td>
+                </tr>
+              </t>
+            </tbody>
+          </table>
+          <div t-else="" class="vr-empty"><span class="vr-ico"><i class="fa fa-money"/></span><h3>Sin liquidaciones todavía</h3><p>Aparecen cuando se cierra la ronda de aceptación de una orden tuya.</p></div>
+        </div>
+      </section>
+    </xpath>
+  </template>
+
+  <!-- ===== Trazabilidad: segunda opinión (D-25) y plazo de la declarada (D-41) ===== -->
+  <template id="traceability_screen_verification_decisions" inherit_id="shrimp_marketplace.traceability_screen"
+            priority="96" name="Trazabilidad - segunda opinión y verificación declarada">
+    <xpath expr="//div[@id='shrimp_trace_summary']" position="after">
+      <t t-set="sd_tx" t-value="tx.sudo()"/>
+      <t t-set="sd_ver" t-value="sd_tx.verification_ids[:1]"/>
+      <t t-set="sd_me" t-value="request.env.user.shrimp_actor_partner_id"/>
+      <t t-set="sd_seller" t-value="sd_me == sd_tx.seller_partner_id"/>
+      <t t-set="sd_part" t-value="sd_seller or sd_me == sd_tx.buyer_partner_id"/>
+      <t t-set="sd_back" t-value="'/marketplace/purchases/%s/traceability#segunda-opinion' % sd_tx.uuid_ref"/>
+      <div t-if="sd_ver and sd_part and (sd_ver.contest_state == 'open' or sd_ver.second_opinion_of_id)" class="mp-table-card mb-4 rc-card rd-card" id="segunda-opinion">
+        <div class="card-body p-4">
+          <div class="mp-sec-head">
+            <span class="mp-sec-ico"><i class="fa fa-balance-scale"></i></span>
+            <h3 class="mp-sec-title">Segunda opinión</h3>
+            <span t-if="sd_ver.contest_state == 'open'" class="rc-chip rc-chip--warn ms-auto"><i class="fa fa-hourglass-half me-1"></i> Hasta el <t t-esc="sd_tx.shrimp_fmt_dt(sd_ver.contest_deadline)"/></span>
+            <span t-else="" class="rc-chip rc-chip--info ms-auto"><i class="fa fa-search me-1"></i> En curso</span>
+          </div>
+          <div t-if="request.params.get('saved') == 'second_opinion'" class="rc-alert rc-alert--ok"><i class="fa fa-check-circle me-1"></i> Listo: pediste la segunda opinión. La nueva verificadora ya recibió la orden.</div>
+          <div t-if="request.params.get('error') == 'second_opinion'" class="rc-alert rc-alert--warn"><i class="fa fa-exclamation-triangle me-1"></i> <t t-esc="request.params.get('message') or 'No se pudo pedir la segunda opinión.'"/></div>
+          <t t-if="sd_ver.contest_state == 'open'">
+            <p class="rc-help">La verificadora <b t-esc="sd_ver.verifier_partner_id.name"/> rechazó el producto<t t-if="sd_ver.verdict_notes">: «<t t-esc="sd_ver.verdict_notes"/>»</t>. El vendedor puede impugnar el rechazo hasta el <b t-esc="sd_tx.shrimp_fmt_dt(sd_ver.contest_deadline)"/>: otra verificadora acreditada vuelve a verificar y su honorario lo paga el vendedor. Si aprueba, la compra sigue; si rechaza, el rechazo se mantiene. Si nadie impugna, la compra se cancela y el honorario lo paga el vendedor.</p>
+            <form t-if="sd_seller" method="post" class="rc-form" t-att-action="'/marketplace/sales/%s/second-opinion' % sd_tx.uuid_ref">
+              <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+              <input type="hidden" name="next" t-att-value="sd_back"/>
+              <label class="rc-label" for="sdVerifier">Verificadora de la segunda opinión</label>
+              <select class="form-select" name="verifier_ref" id="sdVerifier" required="required">
+                <option value="">Elige…</option>
+                <t t-foreach="sd_ver.shrimp_second_opinion_options()" t-as="sd_v">
+                  <option t-att-value="sd_v.uuid_ref"><t t-esc="sd_v.name"/> — honorario $<t t-esc="'{:,.2f}'.format(sd_ver.shrimp_fee_for(sd_v))"/></option>
+                </t>
+              </select>
+              <p class="rc-help mt-2 mb-0"><i class="fa fa-info-circle me-1"></i> El honorario de la segunda opinión lo pagas tú, con la tarifa de la verificadora que elijas, cualquiera sea el resultado.</p>
+              <div class="rc-actions"><button type="submit" class="s-btn s-btn-primary"><i class="fa fa-balance-scale me-1"></i> Pedir segunda opinión</button></div>
+            </form>
+            <p t-else="" class="rc-help mb-0">Mientras tanto la compra queda en espera. Si el vendedor no impugna, se cancela sin costo para ti.</p>
+          </t>
+          <p t-else="" class="rc-help mb-0">El vendedor impugnó el rechazo de <b t-esc="sd_ver.second_opinion_of_id.verifier_partner_id.name"/>: <b t-esc="sd_ver.verifier_partner_id.name"/> vuelve a verificar (orden <t t-esc="sd_ver.name"/>, honorario a cargo del vendedor). Si aprueba, la compra sigue y las partes aceptan el nuevo informe; si rechaza, el rechazo se mantiene.</p>
+        </div>
+      </div>
+      <div t-if="sd_ver and sd_part and sd_ver.verification_mode == 'declared' and sd_ver.state == 'declared_draft' and sd_ver.declared_deadline" class="mp-table-card mb-4 rc-card rd-card" id="declarada-plazo">
+        <div class="card-body p-4">
+          <div class="mp-sec-head">
+            <span class="mp-sec-ico"><i class="fa fa-hourglass-half"></i></span>
+            <h3 class="mp-sec-title">Informe declarado: plazo para presentarlo</h3>
+            <span class="rc-chip rc-chip--warn ms-auto"><i class="fa fa-clock-o me-1"></i> Hasta el <t t-esc="sd_tx.shrimp_fmt_dt(sd_ver.declared_deadline)"/></span>
+          </div>
+          <p class="rc-help mb-0">Comprador o vendedor tienen que presentar el informe declarado hasta el <b t-esc="sd_tx.shrimp_fmt_dt(sd_ver.declared_deadline)"/>; si no se presenta, la compra se cancela sin costo. <a t-attf-href="/marketplace/verifications/#{sd_ver.uuid_ref}/declare">Ir al informe</a>.
+            <t t-if="sd_seller"> Como vendedor puedes desistir de la venta antes de presentarlo (suma un strike) desde «Cancelar la venta».</t></p>
+        </div>
+      </div>
+    </xpath>
+  </template>
+
+  <!-- ===== D-41: plazo en el formulario de la declarada ===== -->
+  <template id="declared_report_deadline" inherit_id="shrimp_verification.declared_report"
+            name="Informe declarado - plazo y desistir">
+    <xpath expr="//header" position="after">
+      <div t-if="v.state == 'declared_draft' and v.declared_deadline" class="pf-alert pf-a-warn" role="note" id="vr_declared_deadline"><i class="fa fa-hourglass-half"/><div>
+        Presenta el informe hasta el <b t-esc="v.transaction_id.shrimp_fmt_dt(v.declared_deadline)"/>: si no se presenta, la compra se cancela sin costo.
+        <t t-if="role == 'seller'"> Si no vas a poder cumplir, puedes <a t-attf-href="/marketplace/purchases/#{tx.uuid_ref}/traceability#cancelacion">desistir de la venta</a> antes de presentarlo (suma un strike).</t>
+      </div></div>
+    </xpath>
+  </template>
+</odoo>

@@ -195,10 +195,12 @@ class TestEmpaquePropio(CopackCommon):
         self.assertFalse(orden.self_packing)
         self.assertEqual(orden.acceptance_state, "open")
         self.assertEqual(len(orden.acceptance_ids), 2)
-        self.assertTrue(orden.es_facturable)
+        # D-14: facturable solo desde «firmada» (antes ya al empacar).
+        self.assertFalse(orden.es_facturable)
         for firma in orden.acceptance_ids:
             firma.action_accept(actor=firma.partner_id)
         self.assertEqual(orden.state, "signed")
+        self.assertTrue(orden.es_facturable)
         self.assertTrue(orden.charge_ids.filtered(lambda c: c.charge_type == "copack_platform"))
         # Un empaque de terceros no se cierra con el cierre interno.
         with self.assertRaises(ValidationError):
@@ -324,8 +326,9 @@ class TestEmpaquePropioPortal(HttpCase):
         empaque = W._shrimp_platform_site("copacker")
         verif = W._shrimp_platform_site("verifier")
         self.assertEqual(principal._shrimp_login_landing(self.u_cam), "/my/dashboard")
-        # El maquilador no tiene panel en el marketplace: /my de siempre.
-        self.assertIsNone(principal._shrimp_login_landing(self.u_maq))
+        # El maquilador (solo ese perfil) se usa en el sitio de empaque: en el
+        # marketplace se le explica y se le enlaza (perfiles por sitio).
+        self.assertEqual(principal._shrimp_login_landing(self.u_maq), "/my/site-profile")
         self.assertIsNone(principal._shrimp_login_landing(self.env.ref("base.user_admin")))
         if empaque:
             self.assertEqual(empaque._shrimp_login_landing(self.u_maq), "/copacker/inbox")

@@ -1,24 +1,13 @@
 # -*- coding: utf-8 -*-
-"""Mi panel (/my/dashboard): acceso al servicio de empaque (copacking) para la
-camaronera y la empacadora, con el número de solicitudes en curso."""
-from odoo import api, models, _
+"""Mi panel (/my/dashboard) y el servicio de empaque (copacking).
+
+El acceso «Servicio de empaque» ya no se inserta aquí a mano: sale de la
+tabla única de la barra (models/website_navbar.py, capacidad
+request_copack), que también arma «Accesos» de Mi panel. Así la barra y el
+panel no se separan y el subusuario sin permiso de compra no lo ve.
+"""
+from odoo import models
 
 
 class ShrimpDashboardCopacking(models.AbstractModel):
     _inherit = "shrimp.dashboard"
-
-    @api.model
-    def _copack_shortcut(self, partner, data):
-        data["shortcuts"].insert(min(len(data["shortcuts"]), 4), {
-            "label": _("Servicio de empaque"), "url": "/marketplace/copacking",
-            "icon": "fa-cube", "tone": "coral"})
-
-    @api.model
-    def _panel_camaronera(self, partner, data):
-        super()._panel_camaronera(partner, data)
-        self._copack_shortcut(partner, data)
-
-    @api.model
-    def _panel_empacadora(self, partner, data):
-        super()._panel_empacadora(partner, data)
-        self._copack_shortcut(partner, data)

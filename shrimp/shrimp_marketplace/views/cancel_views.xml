@@ -1,0 +1,294 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Cancelación general de una compra y desenlaces de la incidencia
+       (models/shrimp_transaction_cancel.py): botones de la plataforma en la
+       ficha interna de la compra, asistente con motivo obligatorio,
+       historial de cancelaciones y Ajustes de la compra «No entregada». -->
+
+  <!-- ===================== Ficha de la compra ===================== -->
+  <record id="view_shrimp_transaction_form_cancel" model="ir.ui.view">
+    <field name="name">shrimp.transaction.form.cancel</field>
+    <field name="model">shrimp.transaction</field>
+    <field name="inherit_id" ref="shrimp_marketplace.view_shrimp_transaction_form_reception"/>
+    <field name="arch" type="xml">
+      <xpath expr="//button[@name='action_incidence_reopen']" position="attributes">
+        <attribute name="invisible">state != 'confirmed' or reception_status not in ('incidence', 'not_delivered')</attribute>
+      </xpath>
+      <xpath expr="//button[@name='action_incidence_reopen']" position="after">
+        <button name="action_open_cancel_wizard" type="object"
+                string="No se entregó: cancelar"
+                context="{'shrimp_cancel_mode': 'not_delivered'}"
+                invisible="state != 'confirmed' or reception_status not in ('incidence', 'not_delivered')"
+                groups="shrimp_marketplace.group_shrimp_manager"/>
+        <button name="action_open_cancel_wizard" type="object"
+                string="Entrega parcial"
+                context="{'shrimp_cancel_mode': 'partial'}"
+                invisible="state != 'confirmed' or reception_status != 'incidence'"
+                groups="shrimp_marketplace.group_shrimp_manager"/>
+        <button name="action_open_cancel_wizard" type="object"
+                string="Cancelar compra"
+                context="{'shrimp_cancel_mode': 'cancel'}"
+                invisible="state in ('done', 'cancel')"
+                groups="shrimp_marketplace.group_shrimp_manager"/>
+      </xpath>
+      <xpath expr="//page[@name='reception']" position="after">
+        <page string="Cancelación" name="cancellation" invisible="not cancellation_ids">
+          <field name="cancellation_ids" readonly="1">
+            <list decoration-danger="state == 'done'" decoration-warning="state == 'requested'"
+                  decoration-muted="state in ('rejected', 'expired', 'withdrawn')">
+              <field name="create_date" string="Fecha"/>
+              <field name="kind"/>
+              <field name="cause"/>
+              <field name="state" widget="badge"/>
+              <field name="reason"/>
+              <field name="from_state" optional="hide"/>
+              <field name="seller_fault" optional="show"/>
+              <field name="strike_id" optional="show"/>
+              <field name="stock_returned_qty" optional="show"/>
+              <field name="charges_voided" optional="show"/>
+              <field name="done_by_id" optional="hide"/>
+            </list>
+          </field>
+        </page>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="view_shrimp_transaction_tree_cancel" model="ir.ui.view">
+    <field name="name">shrimp.transaction.list.cancel</field>
+    <field name="model">shrimp.transaction</field>
+    <field name="inherit_id" ref="shrimp_marketplace.view_shrimp_transaction_tree_reception"/>
+    <field name="arch" type="xml">
+      <xpath expr="//field[@name='reception_status']" position="attributes">
+        <attribute name="decoration-danger">reception_status in ('incidence', 'not_delivered')</attribute>
+        <attribute name="decoration-success">reception_status in ('received', 'auto', 'verified')</attribute>
+      </xpath>
+    </field>
+  </record>
+
+  <!-- ===================== Asistente ===================== -->
+  <record id="view_shrimp_transaction_cancel_wizard_form" model="ir.ui.view">
+    <field name="name">shrimp.transaction.cancel.wizard.form</field>
+    <field name="model">shrimp.transaction.cancel.wizard</field>
+    <field name="arch" type="xml">
+      <form string="Cancelar compra">
+        <group>
+          <field name="transaction_id"/>
+          <field name="state"/>
+          <field name="mode" widget="radio"/>
+          <field name="transaction_qty" invisible="mode != 'partial'"/>
+          <field name="delivered_qty" invisible="mode != 'partial'" required="mode == 'partial'"/>
+          <field name="seller_fault" invisible="mode != 'cancel'"/>
+          <field name="reason" placeholder="Qué pasó y qué se decidió: se envía a las dos partes."/>
+        </group>
+        <div class="alert alert-info" role="alert" invisible="mode == 'partial'">
+          Se devuelve el stock al lote del vendedor (o se libera la reserva si la compra está en
+          verificación), se anulan la comisión y el honorario de una verificación no realizada
+          (nota de crédito si ya estaban facturados) y se avisa a las dos partes.
+          <span invisible="mode != 'not_delivered'">El vendedor recibe un strike.</span>
+        </div>
+        <div class="alert alert-info" role="alert" invisible="mode != 'partial'">
+          El comprador recibe la cantidad entregada; lo no entregado vuelve al lote del vendedor y la
+          comisión se recalcula sobre lo entregado.
+        </div>
+        <footer>
+          <button name="action_confirm" type="object" string="Confirmar" class="btn-danger"/>
+          <button string="Volver" special="cancel" class="btn-secondary"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <!-- ===================== Historial ===================== -->
+  <record id="view_shrimp_transaction_cancellation_list" model="ir.ui.view">
+    <field name="name">shrimp.transaction.cancellation.list</field>
+    <field name="model">shrimp.transaction.cancellation</field>
+    <field name="arch" type="xml">
+      <list create="0" edit="0" delete="0"
+            decoration-danger="state == 'done'" decoration-warning="state == 'requested'"
+            decoration-muted="state in ('rejected', 'expired', 'withdrawn')">
+        <field name="create_date" string="Fecha"/>
+        <field name="transaction_id"/>
+        <field name="seller_partner_id"/>
+        <field name="buyer_partner_id"/>
+        <field name="kind"/>
+        <field name="cause"/>
+        <field name="state" widget="badge"/>
+        <field name="seller_fault" optional="show"/>
+        <field name="charges_voided" optional="show"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_shrimp_transaction_cancellation_form" model="ir.ui.view">
+    <field name="name">shrimp.transaction.cancellation.form</field>
+    <field name="model">shrimp.transaction.cancellation</field>
+    <field name="arch" type="xml">
+      <form create="0" edit="0" delete="0">
+        <header><field name="state" widget="statusbar"/></header>
+        <sheet>
+          <div class="oe_title"><h2><field name="name"/></h2></div>
+          <group>
+            <group>
+              <field name="transaction_id"/>
+              <field name="kind"/>
+              <field name="cause"/>
+              <field name="from_state"/>
+              <field name="reason"/>
+              <field name="response_note"/>
+            </group>
+            <group>
+              <field name="requested_side"/>
+              <field name="requested_by_id"/>
+              <field name="requested_at"/>
+              <field name="response_deadline"/>
+              <field name="responded_by_id"/>
+              <field name="responded_at"/>
+              <field name="done_at"/>
+              <field name="done_by_id"/>
+              <field name="seller_fault"/>
+              <field name="strike_id"/>
+              <field name="stock_returned_qty"/>
+              <field name="charges_voided"/>
+            </group>
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="action_shrimp_transaction_cancellation" model="ir.actions.act_window">
+    <field name="name">Cancelaciones de compras</field>
+    <field name="res_model">shrimp.transaction.cancellation</field>
+    <field name="view_mode">list,form</field>
+  </record>
+
+  <menuitem id="menu_shrimp_transaction_cancellation"
+            name="Cancelaciones de compras"
+            parent="shrimp_marketplace.menu_shrimp_catalog_root"
+            action="action_shrimp_transaction_cancellation"
+            sequence="25"
+            groups="shrimp_marketplace.group_shrimp_manager"/>
+
+  <!-- ===================== Solicitudes de anulación de strikes ===================== -->
+  <record id="view_shrimp_seller_strike_appeal_list" model="ir.ui.view">
+    <field name="name">shrimp.seller.strike.appeal.list</field>
+    <field name="model">shrimp.seller.strike.appeal</field>
+    <field name="arch" type="xml">
+      <list create="0" delete="0" decoration-warning="state == 'pending'"
+            decoration-success="state == 'approved'" decoration-muted="state == 'rejected'">
+        <field name="requested_at"/>
+        <field name="partner_id"/>
+        <field name="transaction_id"/>
+        <field name="strike_reason"/>
+        <field name="reason"/>
+        <field name="state" widget="badge"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_shrimp_seller_strike_appeal_form" model="ir.ui.view">
+    <field name="name">shrimp.seller.strike.appeal.form</field>
+    <field name="model">shrimp.seller.strike.appeal</field>
+    <field name="arch" type="xml">
+      <form create="0" delete="0">
+        <header>
+          <button name="action_approve" type="object" string="Aprobar: anular el strike"
+                  class="btn-primary" invisible="state != 'pending'"
+                  groups="shrimp_marketplace.group_marketplace_manager"
+                  confirm="¿Anular el strike? Se avisa al vendedor."/>
+          <button name="action_reject" type="object" string="Rechazar"
+                  invisible="state != 'pending'"
+                  groups="shrimp_marketplace.group_marketplace_manager"/>
+          <field name="state" widget="statusbar"/>
+        </header>
+        <sheet>
+          <div class="oe_title"><h2><field name="name"/></h2></div>
+          <group>
+            <group>
+              <field name="strike_id" readonly="1"/>
+              <field name="partner_id"/>
+              <field name="transaction_id"/>
+              <field name="strike_reason"/>
+            </group>
+            <group>
+              <field name="requested_by_id"/>
+              <field name="requested_at"/>
+              <field name="evidence_id" readonly="1"/>
+              <field name="decided_by_id" invisible="state == 'pending'"/>
+              <field name="decided_at" invisible="state == 'pending'"/>
+            </group>
+          </group>
+          <group string="Justificación del vendedor">
+            <field name="reason" readonly="1" nolabel="1" colspan="2"/>
+          </group>
+          <group string="Respuesta de la plataforma">
+            <field name="decision_note" readonly="state != 'pending'" nolabel="1" colspan="2"
+                   placeholder="Obligatoria para rechazar; se envía al vendedor."/>
+          </group>
+        </sheet>
+        <chatter/>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_shrimp_seller_strike_appeal_search" model="ir.ui.view">
+    <field name="name">shrimp.seller.strike.appeal.search</field>
+    <field name="model">shrimp.seller.strike.appeal</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="partner_id"/>
+        <field name="transaction_id"/>
+        <filter name="pending" string="Pendientes" domain="[('state', '=', 'pending')]"/>
+      </search>
+    </field>
+  </record>
+
+  <record id="action_shrimp_seller_strike_appeal" model="ir.actions.act_window">
+    <field name="name">Solicitudes de anulación de strikes</field>
+    <field name="res_model">shrimp.seller.strike.appeal</field>
+    <field name="view_mode">list,form</field>
+    <field name="context">{'search_default_pending': 1}</field>
+  </record>
+
+  <menuitem id="menu_shrimp_seller_strike_appeal"
+            name="Anulación de strikes (solicitudes)"
+            parent="shrimp_marketplace.menu_shrimp_catalog_root"
+            action="action_shrimp_seller_strike_appeal"
+            sequence="26"
+            groups="shrimp_marketplace.group_marketplace_manager"/>
+
+  <record id="view_shrimp_seller_strike_form_appeal" model="ir.ui.view">
+    <field name="name">shrimp.seller.strike.form.appeal</field>
+    <field name="model">shrimp.seller.strike</field>
+    <field name="inherit_id" ref="shrimp_marketplace.view_shrimp_seller_strike_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//sheet" position="inside">
+        <group string="Solicitudes de anulación del vendedor" invisible="not appeal_ids">
+          <field name="appeal_ids" nolabel="1" colspan="2" readonly="1"/>
+        </group>
+      </xpath>
+    </field>
+  </record>
+
+  <!-- ===================== Ajustes ===================== -->
+  <record id="res_config_settings_view_form_shrimp_cancel" model="ir.ui.view">
+    <field name="name">res.config.settings.form.shrimp.cancel</field>
+    <field name="model">res.config.settings</field>
+    <field name="inherit_id" ref="shrimp_marketplace.res_config_settings_view_form_shrimp"/>
+    <field name="arch" type="xml">
+      <xpath expr="//block[@name='shrimp_reception_block']" position="inside">
+        <setting string="Compra no entregada"
+                 help="Sin despacho marcado, la recepción NO se confirma sola: al vencer el plazo la compra queda «No entregada», se avisa a la plataforma y el comprador puede confirmarla (si la recibió) o cancelarla sin costo. Si no hace nada en estos días, se cancela automáticamente sin costo (0 = nunca).">
+          <div class="content-group">
+            <div class="row mt16">
+              <label for="shrimp_not_delivered_cancel_days" class="col-lg-6 o_light_label"/>
+              <field name="shrimp_not_delivered_cancel_days"/>
+              <span class="text-muted">días</span>
+            </div>
+          </div>
+        </setting>
+      </xpath>
+    </field>
+  </record>
+</odoo>

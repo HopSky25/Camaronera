@@ -233,15 +233,22 @@ class ShrimpStockLotProfile(models.Model):
     # Reglas
     # ------------------------------------------------------------------
     @api.model
-    def _shrimp_check_transfer_actor(self, account, actor=None):
-        """Solo la propia cuenta (o un usuario interno) mueve su producto."""
+    def _shrimp_check_transfer_actor(self, account, actor=None, roles=()):
+        """Solo la propia cuenta (o un usuario interno) mueve su producto y,
+        si es un subusuario, con «Vender» en los perfiles de origen y destino
+        (`roles`, CR-12)."""
         user = self.env.user
         if not user.share:
             return True
-        actor = actor or user.partner_id
+        actor = actor or user.sudo()._shrimp_actor_partner()
         holder = actor._shrimp_role_holder() if actor else actor
         if not actor or (actor != account and holder != account):
             raise AccessError(_("Solo la cuenta dueña puede mover su producto entre sus perfiles."))
+        for role in roles or ():
+            if role:
+                user._shrimp_require_perm("sell", role=role)
+        if not roles:
+            user._shrimp_require_perm("sell", scope="any")
         return True
 
     def _shrimp_profile_target_problem(self, to_role):
@@ -291,7 +298,7 @@ class ShrimpStockLotProfile(models.Model):
         self.ensure_one()
         lot = self.sudo()
         account = lot.owner_id
-        self._shrimp_check_transfer_actor(account, actor)
+        self._shrimp_check_transfer_actor(account, actor, roles=(lot._shrimp_held_role(), to_role))
         if lot.state != "available" or float_compare(lot.available_qty, 0.0, precision_digits=6) <= 0:
             raise ValidationError(_("El lote no tiene stock disponible para mover."))
         problema = lot._shrimp_profile_target_problem(to_role)
@@ -612,7 +619,8 @@ class ShrimpProductProfile(models.Model):
         self.ensure_one()
         product = self.sudo()
         account = product.seller_partner_id
-        self.env["shrimp.stock.lot"]._shrimp_check_transfer_actor(account, actor)
+        self.env["shrimp.stock.lot"]._shrimp_check_transfer_actor(
+            account, actor, roles=(product._shrimp_seller_role(), to_role))
         problema = product._shrimp_profile_change_problem(to_role)
         if problema:
             raise ValidationError(problema)
@@ -646,7 +654,8 @@ class ShrimpProductProfile(models.Model):
         self.ensure_one()
         product = self.sudo()
         account = product.seller_partner_id
-        self.env["shrimp.stock.lot"]._shrimp_check_transfer_actor(account, actor)
+        self.env["shrimp.stock.lot"]._shrimp_check_transfer_actor(
+            account, actor, roles=(product._shrimp_seller_role(), to_role))
         lots = product._shrimp_own_available_lots()
         if not lots:
             raise ValidationError(_("Este producto no tiene stock propio para mover."))

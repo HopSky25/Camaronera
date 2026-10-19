@@ -1,6 +1,6 @@
 {
     'name': 'Ecuador SRI - Community',
-    'version': '19.0.1.0.0',
+    'version': '19.0.1.3.0',
     'category': 'Accounting/Localizations/EDI',
     'summary': 'Comprobantes electrónicos, XAdES-BES, RIDE, ATS y auxiliares tributarios',
     'author': 'Desarrollo personalizado',
@@ -11,7 +11,7 @@
         'security/security.xml', 'security/ir.model.access.csv',
         'data/cron.xml', 'data/sri_catalog_data.xml',
         'data/ec.sri.canton.csv',
-        'data/sri_fiscal_catalog_data.xml', 'data/sri_withholding_tax_data.xml',
+        'data/sri_fiscal_catalog_data.xml', 'data/l10n_latam_document_type_data.xml', 'data/sri_withholding_tax_data.xml',
         'views/config_views.xml', 'views/document_views.xml',
         'views/account_views.xml', 'views/stock_views.xml',
         'views/catalog_views.xml', 'views/geo_catalog_views.xml',

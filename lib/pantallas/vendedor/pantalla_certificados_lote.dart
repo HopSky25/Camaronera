@@ -16,6 +16,7 @@ import '../../tema.dart';
 import '../comunes/formato.dart';
 import '../comunes/widgets.dart';
 import 'pantalla_fotos_lote.dart';
+import 'pantalla_mis_certificados.dart';
 
 /// Un archivo elegido para el certificado: nombre y bytes.
 typedef ArchivoElegido = ({String nombre, Uint8List bytes});
@@ -145,8 +146,8 @@ class _PantallaCertificadosLoteState extends State<PantallaCertificadosLote> {
       context,
       MaterialPageRoute(
         builder: (_) => PantallaSubirCertificado(
-          productoId: widget.productoId,
           catalogo: _lista('catalog'),
+          guardar: (s, c, idem) => s.subirCertificadoLote(widget.productoId, c, idempotencia: idem),
           elegirImagen: widget.elegirImagen,
           comprimir: widget.comprimir,
           elegirPdf: widget.elegirPdf,
@@ -157,6 +158,33 @@ class _PantallaCertificadosLoteState extends State<PantallaCertificadosLote> {
       setState(() => _datos = subido);
       _aviso('Certificado subido: queda en revisión hasta que la plataforma lo apruebe.');
     }
+  }
+
+  /// Corregir número, fechas o archivo de uno propio del lote.
+  Future<void> _editar(Map<String, dynamic> linea) async {
+    final tipo = _lista('catalog').where((t) => t['id'] == idDe(linea['certificate'])).firstOrNull;
+    final r = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PantallaSubirCertificado(
+          catalogo: _lista('catalog'),
+          inicial: CertificadoNuevo.desde(linea, tipo: tipo),
+          guardar: (s, c, _) => s.editarCertificadoLote(widget.productoId, '${linea['id']}', c),
+          elegirImagen: widget.elegirImagen,
+          comprimir: widget.comprimir,
+          elegirPdf: widget.elegirPdf,
+        ),
+      ),
+    );
+    if (r != null && mounted) {
+      setState(() => _datos = r);
+      _aviso('Cambios guardados: el certificado vuelve a revisión.');
+    }
+  }
+
+  Future<void> _abrirMisCertificados() async {
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaMisCertificados()));
+    if (mounted) await _cargar();
   }
 
   @override
@@ -206,6 +234,12 @@ class _PantallaCertificadosLoteState extends State<PantallaCertificadosLote> {
                                 Insignia(estado: '${l['status']}', texto: estadoCertificado(l['status'] as String?), tipo: _pildora(l['status'] as String?)),
                               ]),
                             ),
+                            if (!soloLectura && l['source'] != 'account')
+                              IconButton(
+                                tooltip: 'Corregir el certificado',
+                                onPressed: _ocupado ? null : () => _editar(l),
+                                icon: Icon(Icons.edit_outlined, color: c.tintaSuave),
+                              ),
                             if (!soloLectura)
                               IconButton(
                                 tooltip: 'Quitar del lote',
@@ -219,7 +253,7 @@ class _PantallaCertificadosLoteState extends State<PantallaCertificadosLote> {
                     const Rotulo('De mis certificados'),
                     if (disponibles.isEmpty)
                       Text('No tienes otros certificados vigentes en tu cuenta para agregar. '
-                          'Los certificados de tu cuenta se suben y renuevan en «Mi cuenta» del portal web.',
+                          'Los que subes a tu cuenta sirven después para todos tus lotes, cuando la plataforma los aprueba.',
                           style: TextStyle(color: c.tintaSuave))
                     else
                       for (final d in disponibles)
@@ -248,6 +282,15 @@ class _PantallaCertificadosLoteState extends State<PantallaCertificadosLote> {
                             ]),
                           ),
                         ),
+                    const SizedBox(height: 4),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: _ocupado ? null : _abrirMisCertificados,
+                        icon: const Icon(Icons.badge_outlined),
+                        label: const Text('Mis certificados de la cuenta'),
+                      ),
+                    ),
                     const Rotulo('Propio del lote'),
                     Text('Sube un PCR u otro certificado solo de este lote, en PDF o foto. '
                         'La plataforma lo revisa antes de mostrarlo a los compradores.',
@@ -269,19 +312,27 @@ class _PantallaCertificadosLoteState extends State<PantallaCertificadosLote> {
   }
 }
 
-/// «Subir certificado»: tipo del catálogo del perfil del lote, número,
-/// fechas y el archivo (PDF, o foto de la cámara o la galería). Devuelve la
-/// respuesta del servidor (los certificados del lote) si se subió.
+/// Guarda el certificado del formulario (subir, corregir o renovar) y
+/// devuelve la respuesta del servidor.
+typedef GuardarCertificado = Future<Map<String, dynamic>> Function(Sincronizador s, CertificadoNuevo c, String idempotencia);
+
+/// «Subir certificado» (de un lote o de la cuenta): tipo del catálogo,
+/// número, fechas y el archivo (PDF, o foto de la cámara o la galería). Con
+/// [inicial] corrige o renueva uno ya guardado: el tipo no cambia y el
+/// archivo solo va si se elige otro. Devuelve la respuesta del servidor si
+/// se guardó.
 class PantallaSubirCertificado extends StatefulWidget {
-  final String productoId;
   final List<Map<String, dynamic>> catalogo;
+  final GuardarCertificado guardar;
+  final CertificadoNuevo? inicial;
   final ElegirImagenes elegirImagen;
   final ComprimirImagen comprimir;
   final ElegirPdf elegirPdf;
   const PantallaSubirCertificado({
     super.key,
-    required this.productoId,
     required this.catalogo,
+    required this.guardar,
+    this.inicial,
     this.elegirImagen = elegirConImagePicker,
     this.comprimir = comprimirEnSegundoPlano,
     this.elegirPdf = elegirPdfConFilePicker,
@@ -292,8 +343,9 @@ class PantallaSubirCertificado extends StatefulWidget {
 
 class _PantallaSubirCertificadoState extends State<PantallaSubirCertificado> {
   final _form = GlobalKey<FormState>();
-  final _cert = CertificadoNuevo();
-  final _numero = TextEditingController();
+  late final CertificadoNuevo _cert = widget.inicial ?? CertificadoNuevo();
+  late final _numero = TextEditingController(text: _cert.numero);
+  bool get _editando => _cert.editando;
   final _errServidor = <String, String>{};
   bool _ocupado = false;
   String? _error;
@@ -394,10 +446,10 @@ class _PantallaSubirCertificadoState extends State<PantallaSubirCertificado> {
       _error = null;
     });
     try {
-      final r = await context.read<Sincronizador>().subirCertificadoLote(widget.productoId, _cert, idempotencia: _idem!);
+      final r = await widget.guardar(context.read<Sincronizador>(), _cert, _idem!);
       if (mounted) Navigator.pop(context, r);
     } on SinConexion {
-      if (mounted) setState(() => _error = 'Sin internet: el certificado no se subió. Vuelve a pulsar «Subir» cuando tengas señal.');
+      if (mounted) setState(() => _error = 'Sin internet: el certificado no se guardó. Vuelve a intentarlo cuando tengas señal.');
     } on ErrorApi catch (e) {
       if (!mounted) return;
       final campos = <String, String>{};
@@ -430,7 +482,7 @@ class _PantallaSubirCertificadoState extends State<PantallaSubirCertificado> {
     final c = context.colores;
     final archivo = _cert.archivo;
     return Scaffold(
-      appBar: AppBar(title: const Text('Subir certificado')),
+      appBar: AppBar(title: Text(_editando ? 'Corregir certificado' : 'Subir certificado')),
       body: Form(
         key: _form,
         autovalidateMode: AutovalidateMode.onUserInteraction,
@@ -439,6 +491,12 @@ class _PantallaSubirCertificadoState extends State<PantallaSubirCertificado> {
           children: [
             Tarjeta(
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                if (_editando)
+                  InputDecorator(
+                    decoration: const InputDecoration(labelText: 'Certificado', helperText: 'El tipo y el emisor no cambian.'),
+                    child: Text(nombreDe(_cert.tipo)),
+                  )
+                else
                 DropdownButtonFormField<String>(
                   initialValue: idDe(_cert.tipo),
                   isExpanded: true,
@@ -491,11 +549,13 @@ class _PantallaSubirCertificadoState extends State<PantallaSubirCertificado> {
               builder: (estado) => Tarjeta(
                 colorBorde: estado.hasError ? c.peligroTexto : null,
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  Text('Archivo *', style: TextStyle(fontWeight: FontWeight.w700, color: c.titulo)),
+                  Text(_editando ? 'Archivo' : 'Archivo *', style: TextStyle(fontWeight: FontWeight.w700, color: c.titulo)),
                   const SizedBox(height: 4),
                   Text(
                     archivo == null
-                        ? 'PDF, JPG o PNG de hasta 5 MB. Si es una foto, que se lea bien.'
+                        ? (_editando
+                            ? 'Se conserva el archivo actual. Elige otro solo si quieres reemplazarlo (PDF, JPG o PNG de hasta 5 MB).'
+                            : 'PDF, JPG o PNG de hasta 5 MB. Si es una foto, que se lea bien.')
                         : '${_cert.nombreArchivo} · ${numero(archivo.length / 1024)} KB',
                     style: TextStyle(fontSize: 13, color: c.tintaSuave),
                   ),
@@ -531,7 +591,7 @@ class _PantallaSubirCertificadoState extends State<PantallaSubirCertificado> {
             const CajaAviso(
               tipo: TipoAviso.info,
               icono: Icons.fact_check_outlined,
-              texto: 'El certificado queda en revisión: la plataforma lo aprueba antes de mostrarlo a los compradores.',
+              texto: 'El certificado queda en revisión: la plataforma lo aprueba antes de que cuente para tus lotes y los compradores.',
             ),
             if (_error != null) ...[
               const SizedBox(height: 12),
@@ -545,7 +605,7 @@ class _PantallaSubirCertificadoState extends State<PantallaSubirCertificado> {
                 icon: _ocupado
                     ? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: c.tintaSuave))
                     : const Icon(Icons.upload_outlined),
-                label: Text(_ocupado ? 'Subiendo…' : 'Subir'),
+                label: Text(_ocupado ? 'Guardando…' : (_editando ? 'Guardar cambios' : 'Subir')),
               ),
             ),
           ],

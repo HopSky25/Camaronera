@@ -507,7 +507,7 @@ class _PantallaPublicarLoteState extends State<PantallaPublicarLote> {
                 helperText: _b('instalacion')
                     ? bloqueado
                     : instalaciones.isEmpty
-                        ? 'No tienes instalaciones registradas: se crean desde el portal web.'
+                        ? 'No tienes instalaciones registradas: agrégalas en «Instalaciones» del panel.'
                         : 'Las bodegas y oficinas no se ofrecen: no producen lotes.',
               ),
               items: [

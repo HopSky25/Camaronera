@@ -10,6 +10,7 @@ from odoo.addons.shrimp_user_registry.controllers.main import (
     IMAGE_MIMETYPES, binary_headers, current_partner, flash_message, read_upload,
     resolve_catalog_certificate, to_int, to_number)
 
+from ..models.shrimp_product_media import MAX_PHOTOS
 from .filter_drawer import fd_context, fd_json_count, fd_tags, fd_url
 from odoo.addons.shrimp_user_registry.controllers.main import require_permission
 
@@ -114,7 +115,7 @@ class ShrimpProductPortalController(http.Controller):
         "laboratorio": ("nauplio", "larva"),
         "camaronera": ("camaron",),
     }
-    MAX_PHOTOS = 20
+    MAX_PHOTOS = MAX_PHOTOS
 
     @classmethod
     def _stage_allowed_for_role(cls, stage, role):
@@ -197,15 +198,7 @@ class ShrimpProductPortalController(http.Controller):
         }
 
     def _get_valid_user_certificates(self, partner):
-        today = fields.Date.context_today(request.env.user)
-        return request.env["shrimp.user.certificate.line"].sudo().search([
-            ("partner_id", "=", partner.id),
-            ("status", "=", "approved"),
-            ("file_attachment_id", "!=", False),
-            "|",
-            ("expiry_date", "=", False),
-            ("expiry_date", ">=", today),
-        ], order="id desc")
+        return request.env["shrimp.product"].shrimp_valid_account_certificates(partner)
 
     def _get_owned_product(self, product_ref):
         product = request.env["shrimp.product"].sudo().resolve_ref(product_ref)
@@ -783,51 +776,16 @@ class ShrimpProductPortalController(http.Controller):
         for i, item in enumerate(subidas):
             if item and i not in usadas_n:
                 orden.append(("n", item))
-        # Tope de fotos: las ya guardadas se conservan; las nuevas que no
-        # quepan se descartan.
-        recortado, total = [], 0
-        for kind, item in orden:
-            if kind == "n" and total >= self.MAX_PHOTOS:
-                continue
-            recortado.append((kind, item))
-            total += 1
-        orden = recortado
-
-        if not quitar and all(k == "e" for k, _i in orden) and \
-                [i.id for _k, i in orden] == quedan.ids:
-            return  # nada cambia
-
-        Att = request.env["ir.attachment"].sudo()
-        final, tope, sustituidas = [], 0, Att.browse()
-        for kind, item in reversed(orden):
-            if kind == "e" and item.id > tope:
-                final.append(item.id)
-                tope = item.id
-                continue
-            if kind == "e":
-                datos = {"name": item.name, "raw": item.raw, "mimetype": item.mimetype}
-                sustituidas |= item
-            else:
-                contenido, mime, nombre = item
-                datos = {"name": nombre, "raw": contenido, "mimetype": mime}
-            att = Att.create({**datos, "type": "binary", "res_model": "shrimp.product",
-                              "res_id": product.id, "public": False})
-            att.generate_access_token()
-            final.append(att.id)
-            tope = att.id
-        final.reverse()
-        product.write({"photo_attachment_ids": [(6, 0, final)]})
-        self._unlink_unused_photos(quitar | sustituidas)
+        # Tope de fotos (las ya guardadas se conservan), orden con la portada
+        # primero y borrado de las que nadie más usa: el núcleo lo comparte
+        # con la API (shrimp.product._shrimp_apply_photo_order).
+        product._shrimp_apply_photo_order(orden, quitar)
 
     @staticmethod
     def _unlink_unused_photos(atts):
         """Borra fotos que ya no usa ningún producto (una foto puede estar
         compartida con el lote que el comprador republicó)."""
-        if not atts:
-            return
-        otros = request.env["shrimp.product"].sudo().with_context(
-            active_test=False).search([("photo_attachment_ids", "in", atts.ids)])
-        (atts - otros.mapped("photo_attachment_ids")).sudo().unlink()
+        request.env["shrimp.product"]._shrimp_unlink_unused_photos(atts)
 
     def _edit_product_certificates(self, product, post):
         """Aplica cambios a líneas de certificado YA guardadas del producto.
@@ -847,24 +805,18 @@ class ShrimpProductPortalController(http.Controller):
                 continue
             if line.source_user_certificate_line_id:
                 continue  # heredado del usuario: no editable
-            vals = {
-                "number": post.get(f"edit_cert_{ref}_number") or False,
-                "issue_date": post.get(f"edit_cert_{ref}_issue_date") or False,
-                "expiry_date": post.get(f"edit_cert_{ref}_expiry_date") or False,
-            }
+            att = False
             file_obj = request.httprequest.files.get(f"edit_cert_{ref}_file")
             if file_obj and file_obj.filename:
                 att = self._create_attachment(
                     file_obj, product, name_prefix=f"cert_{line.certificate_id.id}_")
-                if att:
-                    vals["attachment_id"] = att.id
-                    product.write({"cert_attachment_ids": [(4, att.id)]})
-            cambia = "attachment_id" in vals or any(
-                str(line[k] or "") != str(vals[k] or "")
-                for k in ("number", "issue_date", "expiry_date"))
-            if cambia:
-                vals["status"] = "pending"
-            line.write(vals)
+            # Núcleo compartido con la API (vuelve a revisión si cambia).
+            product.shrimp_edit_own_certificate(
+                line,
+                number=post.get(f"edit_cert_{ref}_number") or False,
+                issue_date=post.get(f"edit_cert_{ref}_issue_date") or False,
+                expiry_date=post.get(f"edit_cert_{ref}_expiry_date") or False,
+                attachment=att or None)
 
     def _save_product_certificates(self, product, post):
         """Crea las líneas de certificado enviadas en el formulario de crear/editar.
@@ -874,7 +826,6 @@ class ShrimpProductPortalController(http.Controller):
           - Certificado exclusivo del producto: id en prod_cert_{idx}_id + archivo en _file.
         """
         partner = self._get_current_partner()
-        Line = request.env["shrimp.product.certificate.line"].sudo()
 
         indices = set()
         for k in post.keys():
@@ -883,9 +834,6 @@ class ShrimpProductPortalController(http.Controller):
                     indices.add(int(k.split("_")[2]))
                 except (ValueError, IndexError):
                     pass
-
-        att_ids_for_m2m = []
-        created_atts = request.env["ir.attachment"].sudo().browse([])
 
         for idx in sorted(indices):
             source_user_cert_line_id = post.get(f"prod_cert_{idx}_source_user_cert_line_id")
@@ -899,36 +847,13 @@ class ShrimpProductPortalController(http.Controller):
                     source_user_cert_line_id)
                 if not user_cert_line:
                     continue
-                today = fields.Date.context_today(request.env.user)
-                if user_cert_line.partner_id.id != partner.id:
-                    continue
-                if user_cert_line.status != "approved":
-                    continue
-                if user_cert_line.expiry_date and user_cert_line.expiry_date < today:
-                    continue
-                if not user_cert_line.file_attachment_id:
-                    continue
-                # Evita duplicar: si este certificado de usuario ya está asociado
-                # al producto, no se vuelve a crear.
-                if Line.search_count([
-                    ("product_id", "=", product.id),
-                    ("source_user_certificate_line_id", "=", user_cert_line.id),
-                ]):
-                    continue
+                # Propio, aprobado, con archivo y vigente; si ya estaba ligado
+                # no se duplica (shrimp.product.shrimp_link_account_certificate).
+                # Lo que no vale se omite en silencio, como siempre.
                 try:
                     with request.env.cr.savepoint():
-                        Line.create({
-                            "product_id": product.id,
-                            "source_user_certificate_line_id": user_cert_line.id,
-                            "certificate_id": user_cert_line.certificate_id.id,
-                            "number": user_cert_line.certificate_number or False,
-                            "issue_date": user_cert_line.issue_date or False,
-                            "expiry_date": user_cert_line.expiry_date or False,
-                            "attachment_id": user_cert_line.file_attachment_id.id,
-                        })
-                    att_ids_for_m2m.append(user_cert_line.file_attachment_id.id)
-                except Exception:
-                    # p. ej. duplicado (mismo certificado ya asociado): lo omitimos.
+                        product.shrimp_link_account_certificate(user_cert_line, partner)
+                except Exception:  # noqa: BLE001
                     continue
                 continue
 
@@ -946,25 +871,14 @@ class ShrimpProductPortalController(http.Controller):
                 continue
             try:
                 with request.env.cr.savepoint():
-                    Line.create({
-                        "product_id": product.id,
-                        "certificate_id": catalogo.id,
-                        "number": post.get(f"prod_cert_{idx}_number") or False,
-                        "issue_date": post.get(f"prod_cert_{idx}_issue_date") or False,
-                        "expiry_date": post.get(f"prod_cert_{idx}_expiry_date") or False,
-                        "attachment_id": att.id,
-                    })
-                created_atts |= att
-                att_ids_for_m2m.append(att.id)
+                    product.shrimp_add_own_certificate(
+                        catalogo, att,
+                        number=post.get(f"prod_cert_{idx}_number") or False,
+                        issue_date=post.get(f"prod_cert_{idx}_issue_date") or False,
+                        expiry_date=post.get(f"prod_cert_{idx}_expiry_date") or False)
             except Exception:  # noqa: BLE001 - p. ej. número duplicado
                 att.unlink()
                 continue
-
-        if att_ids_for_m2m:
-            existing = product.cert_attachment_ids.ids
-            product.write({"cert_attachment_ids": [(6, 0, list(set(existing) | set(att_ids_for_m2m)))]})
-        if created_atts:
-            created_atts.generate_access_token()
 
     def _notify_product_event(self, product, template_xmlid):
         """Envía el correo asociado (creado/publicado) al vendedor, sin romper
@@ -1055,6 +969,14 @@ class ShrimpProductPortalController(http.Controller):
             "available_from": post.get("available_from") or False,
             "available_to": post.get("available_to") or False,
         }
+        # La cantidad del formulario se descartaba en silencio al editar. Sin
+        # compras se guarda y mueve el lote de stock base con ella
+        # (shrimp.product._shrimp_sync_initial_lot); con compras se bloquea.
+        if str(post.get("initial_qty") or "").strip():
+            initial_qty = to_number(post.get("initial_qty"))
+            if initial_qty <= 0:
+                return self._form_error(edit_url, "qty")
+            vals["initial_qty"] = initial_qty
 
         # Si el producto ya tiene compras, los campos críticos quedan bloqueados:
         # se descartan del vals para conservar su valor actual (los inputs del
@@ -1102,12 +1024,7 @@ class ShrimpProductPortalController(http.Controller):
                 line = Line.resolve_ref(key[len("remove_cert_"):])
                 if line and line.product_id.id == product.id:
                     to_remove |= line
-        if to_remove:
-            # Quitar también los adjuntos del m2m cert_attachment_ids del producto.
-            att_ids = to_remove.mapped("attachment_id").ids
-            if att_ids:
-                product.sudo().write({"cert_attachment_ids": [(3, aid) for aid in att_ids]})
-            to_remove.unlink()
+        product.shrimp_remove_certificate_lines(to_remove)
 
     @http.route("/marketplace/products/<product_ref>/publish", type="http", auth="user", website=True, methods=["POST"], csrf=True)
     def marketplace_product_publish(self, product_ref, **post):

@@ -91,3 +91,8 @@ from . import shrimp_product_expiry
 from . import shrimp_sowing_close
 from . import shrimp_certificate_expiry
 from . import shrimp_decision_policy
+# Fotos, certificados y cantidad de un lote: el núcleo que comparten el
+# portal y la API (shrimp_api) para gestionar un lote desde la app.
+from . import shrimp_product_media
+# «Mis certificados» de la cuenta: núcleo compartido por el portal y la API.
+from . import shrimp_account_certificates

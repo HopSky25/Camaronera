@@ -340,6 +340,24 @@ class TestFormularioProducto(HttpCase):
         self._crear("PF suplantado", seller_partner_ref=self.s["lab"].uuid_ref, stage_id=str(self.st_pl12.id))
         self.assertEqual(self._buscar("PF suplantado").seller_partner_id, self.s["sem"])
 
+    # ------------------------------------------------- 6 bis. cantidad
+    def test_editar_cantidad_mueve_el_stock(self):
+        """La cantidad del formulario se descartaba al editar; ahora se
+        guarda y el lote de stock base la sigue (sin compras ni movimientos)."""
+        p = producto(self.env, self.s["sem"], nombre="PF cantidad", publicado=False)
+        self._login("sem")
+        self.url_open("/marketplace/products/%s/update" % p.uuid_ref, data={
+            "csrf_token": self.token, "name": p.name, "price": "10", "initial_qty": "250"})
+        p.invalidate_recordset()
+        self.assertEqual((p.initial_qty, p.available_qty), (250.0, 250.0))
+        # Con movimientos en el lote, se declara la producción real.
+        p.stock_lot_ids._shrimp_internal_move("production", 50.0, "Mortalidad", direction="out")
+        r = self.url_open("/marketplace/products/%s/update" % p.uuid_ref, data={
+            "csrf_token": self.token, "name": p.name, "price": "10", "initial_qty": "400"})
+        self.assertIn("declarando la producción real", r.text)
+        p.invalidate_recordset()
+        self.assertEqual((p.initial_qty, p.available_qty), (250.0, 200.0))
+
     # ------------------------------------------------- 7. bloqueo por compras
     def test_campos_bloqueados_con_compras(self):
         p = producto(self.env, self.s["sem"], nombre="PF con compras")

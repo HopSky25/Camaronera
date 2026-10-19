@@ -289,8 +289,94 @@ def product_owner(p):
         "production_date": iso_date(p.production_date),
         "traceability_notes": p.traceability_notes or None,
         "created_at": iso_dt(p.create_date),
+        # Gestión del lote desde la app (19.0.1.17.0): fotos (la primera es la
+        # portada), certificados con su estado y qué no se puede cambiar.
+        "photos": [product_photo(a) for a in p.shrimp_photos()],
+        "certificate_lines": [product_certificate_line(l) for l in p.certificate_line_ids],
+        "locks": product_locks(p),
+        "can_reactivate": bool(p.shrimp_can_reactivate()),
     })
     return out
+
+
+def product_photo(att):
+    """Foto de un lote: el id es su token (como en el portal); el archivo
+    se baja con GET /products/{id}/photos/{photo}."""
+    att = att.sudo()
+    return {"id": att.access_token, "filename": att.name, "mime": att.mimetype or None,
+            "size": att.file_size, "created_at": iso_dt(att.create_date)}
+
+
+def product_certificate_line(line):
+    """Certificado del lote para su dueño: con su estado de revisión y de
+    dónde viene (de «mis certificados» o propio del lote)."""
+    from odoo import fields as ofields
+    line = line.sudo()
+    today = ofields.Date.context_today(line)
+    return {
+        "id": line.uuid_ref,
+        "certificate": ref(line.certificate_id),
+        "issuer": line.issuer or None,
+        "number": line.number or None,
+        "issue_date": iso_date(line.issue_date),
+        "expiry_date": iso_date(line.expiry_date),
+        "valid": not line.expiry_date or line.expiry_date >= today,
+        "status": line.status,
+        "source": "account" if line.source_user_certificate_line_id else "product",
+        "account_certificate": line.source_user_certificate_line_id.uuid_ref or None,
+        "mime": line.attachment_id.mimetype or None,
+    }
+
+
+def account_certificate(line):
+    """Un certificado de «mis certificados» del vendedor."""
+    line = line.sudo()
+    return {
+        "id": line.uuid_ref,
+        "certificate": ref(line.certificate_id),
+        "issuer": line.issuer or None,
+        "number": line.certificate_number or None,
+        "issue_date": iso_date(line.issue_date),
+        "expiry_date": iso_date(line.expiry_date),
+        "status": line.status,
+    }
+
+
+def account_certificate_owner(line):
+    """Un certificado de la cuenta para su dueño: con la revisión, si está
+    vigente y en cuántos lotes está ligado."""
+    from odoo import fields as ofields
+    line = line.sudo()
+    today = ofields.Date.context_today(line)
+    ligadas = line.env["shrimp.product.certificate.line"].sudo().search_count(
+        [("source_user_certificate_line_id", "=", line.id)])
+    return dict(account_certificate(line), **{
+        "valid": not line.expiry_date or line.expiry_date >= today,
+        "mime": line.file_attachment_id.mimetype or None,
+        "filename": line.file_attachment_id.name or None,
+        "products": ligadas,
+    })
+
+
+# Nombre de cada campo bloqueado por compras en la API.
+LOCKED_API_FIELDS = {
+    "species_id": "species", "stage_id": "stage", "genetics_line_id": "genetics_line",
+    "presentation": "presentation", "size_grade_id": "size_grade", "uom_id": "uom",
+    "price": "price", "initial_qty": "initial_qty", "origin_facility_id": "origin_facility",
+    "origin_pond_id": "origin_pond",
+}
+
+
+def product_locks(p):
+    """Lo que el lote ya no deja cambiar (las mismas reglas que el portal):
+    con compras, los datos críticos; el precio, solo mientras haya compras
+    abiertas."""
+    p = p.sudo()
+    if not p.has_purchases():
+        return {"fields": [], "reason": None}
+    campos = [api for odoo, api in LOCKED_API_FIELDS.items()
+              if odoo != "price" or p.shrimp_price_locked()]
+    return {"fields": campos, "reason": p.shrimp_purchase_lock_reason() or None}
 
 
 def evolution(e):
@@ -352,7 +438,7 @@ def pond(p):
             "area_m2": p.area_m2, "volume_m3": p.volume_m3,
             "usable_volume_m3": p.usable_volume_m3, "max_stock_units": p.max_stock_units,
             "location": p.location or None, "active": p.active, "notes": p.notes or None,
-            "updated_at": iso_dt(p.write_date)}
+            "has_image": bool(p.image), "updated_at": iso_dt(p.write_date)}
 
 
 def lot(l):

@@ -679,6 +679,20 @@ API_ROUTE_PERMISSIONS = {
     ("POST", "/products/{id}:archive"): ("sell", "any"),
     ("POST", "/products/{id}:unarchive"): ("sell", "any"),
     ("DELETE", "/products/{id}"): ("sell", "any"),
+    # Gestión del lote desde la app: editar firmado (precio, cantidad o unidad
+    # de un lote publicado), fotos y certificados (19.0.1.17.0).
+    ("POST", "/products/{id}:update-terms"): ("sell", "any"),
+    ("POST", "/products/{id}/photos"): ("sell", "any"),
+    ("POST", "/products/{id}/photos:reorder"): ("sell", "any"),
+    ("DELETE", "/products/{id}/photos/{photo}"): ("sell", "any"),
+    ("POST", "/products/{id}/certificates"): ("sell", "any"),
+    ("DELETE", "/products/{id}/certificates/{line}"): ("sell", "any"),
+    ("PATCH", "/products/{id}/certificates/{line}"): ("sell", "any"),
+    # «Mis certificados» de la cuenta: como /marketplace/my-certificates/* en
+    # la matriz del portal.
+    ("POST", "/me/certificates"): ("manage_account", "active"),
+    ("PATCH", "/me/certificates/{id}"): ("manage_account", "active"),
+    ("DELETE", "/me/certificates/{id}"): ("manage_account", "active"),
     ("POST", "/products/{id}/evolutions"): ("sell", "any"),
     ("POST", "/products/{id}/observations"): ("sell", "any"),
     ("POST", "/lots/{id}/allocations"): ("sell", "active"),

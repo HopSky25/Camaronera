@@ -200,12 +200,8 @@ class ShrimpAccountPortalController(http.Controller):
 
     def _available_certificates(self, partner):
         # Los certificados de TODOS los perfiles de la cuenta (aprobados o
-        # pendientes), no solo los del activo.
-        roles = partner.sudo()._shrimp_roles(include_pending=True)
-        return request.env["shrimp.certificate"].sudo().search([
-            ("active", "=", True),
-            ("role", "in", roles + ["all"]),
-        ], order="name asc")
+        # pendientes), no solo los del activo (núcleo compartido con la API).
+        return partner.sudo().shrimp_certificate_catalog()
 
     def _validated_certificate(self, partner, cert_id):
         # Catálogo público: por código (o id, por compatibilidad).
@@ -236,15 +232,11 @@ class ShrimpAccountPortalController(http.Controller):
             if not att:
                 return request.redirect("/marketplace/my-account?error=file")
 
-            request.env["shrimp.user.certificate.line"].sudo().create({
-                "partner_id": partner.id,
-                "certificate_id": cert.id,
-                "certificate_number": (post.get("certificate_number") or "").strip() or False,
-                "issue_date": post.get("issue_date") or False,
-                "expiry_date": post.get("expiry_date") or False,
-                "file_attachment_id": att.id,
-                "status": "pending",
-            })
+            partner.sudo().shrimp_add_account_certificate(
+                cert, att,
+                number=(post.get("certificate_number") or "").strip() or False,
+                issue_date=post.get("issue_date") or False,
+                expiry_date=post.get("expiry_date") or False)
         except ValidationError as e:
             return request.redirect(
                 "/marketplace/my-account?error=validation&message=%s" % flash_message(e.args[0] if e.args else ""))
@@ -265,22 +257,19 @@ class ShrimpAccountPortalController(http.Controller):
         partner = self._partner()
         line = self._owned_cert_line(line_ref)
 
-        vals = {
-            "certificate_number": (post.get("certificate_number") or "").strip() or False,
-            "issue_date": post.get("issue_date") or False,
-            "expiry_date": post.get("expiry_date") or False,
-            # Al renovar vuelve a revisión
-            "status": "pending",
-        }
-
         file_obj = request.httprequest.files.get("file")
         try:
+            att = None
             if file_obj and getattr(file_obj, "filename", ""):
                 att = self._create_private_attachment(
-                    file_obj, partner, name_prefix=f"cert_{line.certificate_id.id}_")
-                if att:
-                    vals["file_attachment_id"] = att.id
-            line.write(vals)
+                    file_obj, partner, name_prefix=f"cert_{line.certificate_id.id}_") or None
+            # Al renovar vuelve a revisión (núcleo compartido con la API).
+            partner.sudo().shrimp_renew_account_certificate(
+                line,
+                number=(post.get("certificate_number") or "").strip() or False,
+                issue_date=post.get("issue_date") or False,
+                expiry_date=post.get("expiry_date") or False,
+                attachment=att)
         except ValidationError as e:
             return request.redirect(
                 "/marketplace/my-account?error=validation&message=%s" % flash_message(e.args[0] if e.args else ""))

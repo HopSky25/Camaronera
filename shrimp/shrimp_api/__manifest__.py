@@ -1,6 +1,6 @@
 {
     "name": "Camaronera — API externa (v1)",
-    "version": "19.0.1.16.0",
+    "version": "19.0.1.17.0",
     "summary": "API REST/JSON versionada (/api/v1) con claves con hash, scopes, "
                "webhooks firmados, trazabilidad pública por token y OpenAPI 3.1",
     "description": """

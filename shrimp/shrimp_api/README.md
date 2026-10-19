@@ -303,8 +303,10 @@ Rutas firmadas (con clave de la app): `POST /verifications`, `POST /verification
 `POST /transactions/{id}:complete`, `POST /harvest/commitments/{id}:buy`,
 `POST /copack/requests/{id}/offers`, `POST /copack/orders/{id}:reception|:packing|:sign|:revert-signature|:reopen|:close`,
 `POST /me/active-role`, `POST /supervisor/act-as`; desde 19.0.1.7.0 (contrato de mejoras de la app, §5 quater),
-`POST /verifications/{id}/photos` y `POST /purchases`, y desde 19.0.1.16.0 `POST /products/{id}:publish` (publicar un
-lote; crear y editar el borrador no se firman). En `/api/v1/openapi.json` llevan `x-signed: true`. `POST /me/devices` se firma
+`POST /verifications/{id}/photos` y `POST /purchases`, desde 19.0.1.16.0 `POST /products/{id}:publish` (publicar un
+lote; crear y editar el borrador no se firman) y desde 19.0.1.17.0 `POST /products/{id}:update-terms` (precio,
+cantidad o unidad de un lote publicado) y `POST /products/{id}:unarchive` (reactivar un lote retirado). En
+`/api/v1/openapi.json` llevan `x-signed: true`. `POST /me/devices` se firma
 solo para sustituir el dispositivo (`x-signed: "if-device"`). Las lecturas (GET), `/auth/login` y
 `/auth/logout` no se firman.
 
@@ -1034,13 +1036,15 @@ App móvil (§5 quater): `GET /public/app-version`, `POST /public/app-errors`. F
   `PATCH /verifications/{id}/report`, `POST /dispatches/{id}/arrival`, `PATCH /dispatches/{id}`,
   `POST /transactions/{id}:complete`, `POST /harvest/commitments/{id}:buy`, `POST /copack/requests/{id}/offers`,
   `POST /copack/orders/{id}:reception|:packing|:sign|:revert-signature|:reopen|:close`, `POST /me/active-role`,
-  `POST /verifications/{id}/photos`, `POST /purchases` y `POST /products/{id}:publish`
+  `POST /verifications/{id}/photos`, `POST /purchases`, `POST /products/{id}:publish`,
+  `POST /products/{id}:update-terms` y `POST /products/{id}:unarchive`
 * App móvil (§5 quater): `GET /me/notifications`, `POST /me/notifications/{id}:read`,
   `POST /me/notifications:read-all`, `GET|POST /verifications/{id}/photos`, `POST /purchases`
 * Modo supervisor (§5 ter, solo clave de supervisor): `GET /supervisor/partners`, `POST /supervisor/act-as` (firmada)
 * Perfil: `GET /me`, `PATCH /me`, `POST /me/active-role`
 * Instalaciones: `GET|POST /facilities`, `GET|PATCH|PUT|DELETE /facilities/{id}`; piscinas: ídem en `/ponds`
-* Productos: `GET|POST /products`, `GET|PATCH|PUT|DELETE /products/{id}`, `POST /products/{id}:publish|:archive|:unarchive` (`:publish` firmada con la clave de la app), `GET|POST /products/{id}/evolutions`
+* Productos: `GET|POST /products` (`?state=archived`: los retirados que se reactivan), `GET|PATCH|PUT|DELETE /products/{id}`, `POST /products/{id}:publish|:update-terms|:archive|:unarchive` (`:publish`, `:update-terms` y `:unarchive` firmadas con la clave de la app), `GET|POST /products/{id}/evolutions`
+* Fotos de un lote propio: `GET|POST /products/{id}/photos`, `POST /products/{id}/photos:reorder`, `GET|DELETE /products/{id}/photos/{photo}`; certificados: `GET|POST /products/{id}/certificates`, `DELETE /products/{id}/certificates/{line}`
 * Lotes: `GET /lots`, `GET /lots/{id}`, `GET /lots/{id}/moves`, `GET|POST /lots/{id}/allocations`
 * Compras/ventas: `POST /purchases` (compra directa, firmada), `GET /transactions`, `GET /transactions/{id}`, `GET /transactions/{id}/traceability`, `GET /transactions/{id}/traceability.pdf`, `POST /transactions/{id}:receive|:complete`, `POST /transactions/{id}/trace-token:rotate`, `GET /charges`
 * Chequeo: `GET /check-requests`, `GET /check-requests/{id}`, `POST /check-requests/{id}:approve|:reject`
@@ -1235,4 +1239,45 @@ Webhooks: `verification.acceptance_reverted`, `copack.signature_reverted`,
   - la instalación de origen no puede ser una bodega ni una oficina, y sin instalación no hay piscina.
 * `GET /public/catalogs/stages` devuelve `type` (`nauplio`, `larva` o `camaron`) para que la app ofrezca solo
   las etapas que el perfil publica.
-* Fotos y certificados de un lote siguen siendo solo del portal (la API no los recibe).
+* Fotos y certificados de un lote siguen siendo solo del portal (la API no los recibe). Desde 19.0.1.17.0 también
+  van por la API (ver abajo).
+
+## Cambios de la versión 19.0.1.17.0 (gestionar lotes desde la app)
+
+La app hace todo lo del formulario «Editar producto» del portal, con sus mismas reglas; el núcleo de fotos,
+certificados y cantidad pasó al modelo (`shrimp_marketplace/models/shrimp_product_media.py`) y lo llaman el
+portal y la API.
+
+* **Editar.** `PATCH /products/{id}` (parcial, sin firma) para un borrador y para lo que no es comercial de un
+  lote publicado. Con la clave de la app, cambiar `price`, `initial_qty` o `uom` de un lote que no está en
+  borrador (publicado o vendido) por `PATCH` da **403 `signature-required`** (con `fields`) y se hace con
+  **`POST /products/{id}:update-terms`, firmada** (§5 bis): mismo cuerpo y mismas reglas que el `PATCH`. Es lo
+  que fija cuánto paga el comprador y cuánto hay; el resto (sanidad, fechas, ubicación…) no se firma. Las
+  claves de integración siguen cambiando el precio por `PATCH`.
+* **Campos bloqueados por compras** (D-17, como el portal): con compras no canceladas, especie, etapa,
+  genética, presentación, talla, unidad, cantidad e instalación y piscina de origen; el precio, solo mientras
+  haya compras abiertas. Cambiarlos da 422 `validation-error` con `errors[].field` (antes, 422 `business-rule`
+  sin campo). `GET /products/{id}` trae `locks: {fields, reason}`.
+* **Cantidad.** Cambiar `initial_qty` de un lote sin compras mueve su lote de stock base (antes `initial_qty`
+  cambiaba y `available_qty` no; el portal ni la guardaba). Si el lote ya tuvo movimientos (siembras,
+  producción declarada), 422: se corrige declarando la producción real.
+* **Fotos** (sin firma, `Idempotency-Key`): `POST /products/{id}/photos` `{filename, data (base64), cover?}` —
+  JPG o PNG reales (se mira la cabecera; si no, 422 en `data`), 5 MB decodificada (413) y hasta 20 por lote
+  (422); `cover: true` la pone de portada. `POST /products/{id}/photos:reorder` `{order: [ids]}` (la primera es
+  la portada; las que no vengan, al final). `DELETE /products/{id}/photos/{photo}` (el archivo se borra si
+  ningún otro lote lo usa). `GET /products/{id}/photos/{photo}` devuelve el archivo (`?thumb=1`: 480 px). El
+  id de una foto es su token, como en el portal. `GET /products/{id}` trae `photos` en orden.
+* **Certificados** (sin firma): `GET /products/{id}/certificates` → `data` (los del lote, con `status` de
+  revisión y `source` account/product), `available` (los vigentes de «mis certificados» aún sin ligar) y
+  `catalog` (tipos del perfil del lote). `POST /products/{id}/certificates` con `account_certificate` (lo liga
+  y hereda su aprobación; no se duplica) o con `certificate` + `filename` + `data` (PDF, JPG o PNG de 5 MB; entra
+  pendiente de revisión) y `number`, `issue_date`, `expiry_date` opcionales; los errores van en su campo
+  (vencimiento obligatorio, fechas, número repetido, archivo). `DELETE /products/{id}/certificates/{line}`.
+  Los certificados de la cuenta se siguen gestionando en «Mi cuenta» del portal.
+* **Reactivar** un lote retirado, `POST /products/{id}:unarchive`, ahora **va firmada** con la clave de la app:
+  devuelve a la oferta del vendedor un lote que se retiró y queda en la auditoría de operaciones firmadas.
+  Vuelve en borrador (publicarlo es otra operación firmada). Un eliminado no se reactiva (409).
+* `GET /products?state=archived`: los retirados que se pueden reactivar (`can_reactivate` en cada lote).
+  Eliminar un borrador sigue siendo `DELETE /products/{id}` (sin firma).
+* Todas las rutas nuevas de escritura exigen «Vender» en el perfil del lote (`API_ROUTE_PERMISSIONS`, `sell`);
+  `PATCH` y `:unarchive` lo comprueban ahora también contra el perfil del lote, como el portal.

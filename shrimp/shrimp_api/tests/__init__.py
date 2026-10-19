@@ -30,3 +30,4 @@ from . import test_api_equipo_campo
 from . import test_api_trazabilidad_publica
 from . import test_api_copack_decisiones
 from . import test_api_publicar_app
+from . import test_api_gestion_lotes

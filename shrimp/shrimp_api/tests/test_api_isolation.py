@@ -77,11 +77,13 @@ class TestApiIsolation(ApiCase):
         self.assertEqual(resp.json()["state"], "published")
         # Alias con barra.
         self.assertProblem(self.api("POST", "/products/%s/publish" % pid, raw=self.raw_lab), 409)
-        # Con compras, el precio queda bloqueado: 422 explícito.
+        # Con compras, el precio queda bloqueado: 422 explícito, con el campo
+        # (19.0.1.17.0: validation-error con errors[].field para la app).
         self.product.execute_purchase_flow(self.farm_a, 10)
         body = self.assertProblem(self.api("PATCH", "/products/%s" % self.product.uuid_ref,
-                                           raw=self.raw_lab, body={"price": 9.9}), 422, "business-rule")
+                                           raw=self.raw_lab, body={"price": 9.9}), 422, "validation-error")
         self.assertIn("compras", body["detail"])
+        self.assertEqual([e["field"] for e in body["errors"]], ["price"])
 
     def test_transactions_visibility(self):
         tx = self.product.execute_purchase_flow(self.farm_a, 5)["transaction"]

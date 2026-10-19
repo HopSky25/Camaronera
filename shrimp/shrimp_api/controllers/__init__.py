@@ -26,3 +26,5 @@ from . import well_known
 from . import private_delay
 # «Estado real del lote»: observaciones del vendedor.
 from . import private_observations
+# Fotos y certificados de un lote propio (gestión de lotes desde la app).
+from . import private_product_media

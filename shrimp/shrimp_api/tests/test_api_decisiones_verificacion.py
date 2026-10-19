@@ -110,6 +110,22 @@ class TestApiDecisionesVerificacion(ApiCase):
         self.assertEqual(c["verifier_decline_reason"], "Sin capacidad esa semana")
         self.assertFalse(c["can_respond"])
 
+    def test_la_empresa_que_se_asigna_sigue_administrando(self):
+        v = self.nueva("Larva yo mismo apidv")["verification"]
+        r = self.api("POST", "/verifications/%s:assign" % v.uuid_ref, raw=self.raw_verif,
+                     body={"technician": self.s["verif"].uuid_ref})
+        self.assertEqual(r.status_code, 200, r.text)
+        d = r.json()
+        self.assertEqual(d["my_role"], "technician", "la empresa va de responsable")
+        self.assertTrue(d["can_manage"])
+        self.assertTrue(d["can_verdict"])
+        self.assertTrue(d["can_decline"])
+        # Un técnico (aquí de apoyo) no administra ni responde la orden.
+        v.sudo().action_add_support_technician(self.apoyo)
+        apoyo = self.get(v, self.raw_apoyo)
+        self.assertFalse(apoyo["can_manage"])
+        self.assertFalse(apoyo["can_decline"])
+
     def test_apoyo_carga_pero_no_firma(self):
         v = self.en_campo(self.nueva("Larva apoyo apidv")["verification"])
         apoyo = self.get(v, self.raw_apoyo)

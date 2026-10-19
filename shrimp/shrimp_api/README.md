@@ -941,7 +941,8 @@ cierra.
 | Registrar el teléfono (app) | `POST /me/devices` `{"name", "platform", "public_key", "alg": "ES256"}`; `GET /me/devices`; `POST /me/devices/{id}:revoke` |
 Quién hace qué: el **técnico responsable** (`my_role` «technician») y la empresa firman el veredicto; el
 **técnico de apoyo** (`my_role` «support_technician») inicia el campo, carga el informe y sube fotos, pero
-no dictamina (403). El detalle de la verificación lo dice para quien consulta: `can_verdict`, `can_respond`
+no dictamina (403). El detalle de la verificación lo dice para quien consulta: `can_verdict`, `can_manage`
+(administrador de la verificadora, aunque además vaya de responsable), `can_respond`
 (la orden espera aceptar o declinar), `can_decline`, `can_request_second_opinion` (vendedor) y
 `contest_hours` (horas que tendrá el vendedor para impugnar un rechazo por el informe; 0 = el rechazo queda
 firme). Plazos visibles: `verifier_response_deadline`, `deadline_assign`, `deadline_verdict`,

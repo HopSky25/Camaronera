@@ -29,7 +29,8 @@ VER_SCHEMA = obj(id="uuid", reference="string", my_role="string", state="string"
                  deadline_assign="datetime", deadline_verdict="datetime",
                  deadline_overdue="string", not_presented_arrival="datetime",
                  verifier_decline_reason="string", superseded="boolean",
-                 second_opinion="string", can_verdict="boolean", can_respond="boolean",
+                 second_opinion="string", can_verdict="boolean", can_manage="boolean",
+                 can_respond="boolean",
                  can_decline="boolean", can_request_second_opinion="boolean",
                  contest_hours="integer")
 VER_STATES = ["received", "assigned", "in_field", "done", "approved", "approved_obs", "rejected", "cancelled",

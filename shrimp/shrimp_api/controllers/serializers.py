@@ -747,7 +747,7 @@ def verification_permissions(v, partner, role):
     lado_verificadora = role in ("verifier", "technician", "support_technician")
     platform = v.verification_mode == "platform"
     can_respond = can_decline = False
-    if platform and role == "verifier" and hasattr(v, "shrimp_can_decline"):
+    if platform and role in ("verifier", "technician") and hasattr(v, "shrimp_can_decline"):
         try:
             v._shrimp_check_response_admin(partner)
             es_admin = True
@@ -756,6 +756,11 @@ def verification_permissions(v, partner, role):
         if es_admin:
             can_respond = v.verifier_response == "pending" and v.state in ("received", "assigned")
             can_decline = not v.shrimp_can_decline()
+    # Administrador de la verificadora (aunque además figure como técnico
+    # responsable, p. ej. si se asignó a sí mismo): asigna, arma el equipo y
+    # responde la orden.
+    company = partner.shrimp_verifier_company() if lado_verificadora else partner.browse()
+    can_manage = bool(company and partner.shrimp_is_verifier_admin() and v.verifier_partner_id == company)
     second_opinion_ok = False
     if role == "seller" and hasattr(v, "shrimp_contest_problem"):
         second_opinion_ok = not v.shrimp_contest_problem()
@@ -763,6 +768,7 @@ def verification_permissions(v, partner, role):
         # Firmar el veredicto: el técnico responsable o la empresa (el de
         # apoyo carga datos de campo, pero no firma).
         "can_verdict": bool(lado_verificadora and not v.is_final and v._puede_dictaminar(partner)),
+        "can_manage": can_manage,
         "can_respond": bool(can_respond),
         "can_decline": bool(can_decline),
         "can_request_second_opinion": bool(second_opinion_ok),

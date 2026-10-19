@@ -86,7 +86,7 @@ class _PantallaPublicarLoteState extends State<PantallaPublicarLote> {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(texto), backgroundColor: error ? Marca.rojo : null));
+      ..showSnackBar(SnackBar(content: Text(texto), backgroundColor: error ? context.colores.peligro : null));
   }
 
   /// Lleva la vista al campo con error que está más arriba.
@@ -191,7 +191,7 @@ class _PantallaPublicarLoteState extends State<PantallaPublicarLote> {
     final por = porUnidad(_lote.unidad);
     final qty = numeroEscrito(_cantidad.text);
     final precio = numeroEscrito(_precio.text);
-    final esquema = Theme.of(context).colorScheme;
+    final c = context.colores;
 
     return Form(
       key: _form,
@@ -202,240 +202,246 @@ class _PantallaPublicarLoteState extends State<PantallaPublicarLote> {
           Padding(
             padding: const EdgeInsets.only(top: 12),
             child: Text('Completa la ficha del lote. Lo guardamos como borrador y después lo publicas con tu huella.',
-                style: TextStyle(color: esquema.onSurfaceVariant)),
+                style: TextStyle(color: c.tintaSuave)),
           ),
           // ---------------- 1. Información básica ----------------
           const Rotulo('Información básica'),
-          TextFormField(
-            controller: _nombre,
-            maxLength: 200,
-            textCapitalization: TextCapitalization.sentences,
-            validator: (_) => _err('nombre', perfil),
-            onChanged: (v) => _cambio('nombre', () => _lote.nombre = v),
-            decoration: InputDecoration(
-              labelText: 'Nombre del producto *',
-              hintText: perfil == 'camaronera' ? 'Ej. Camarón entero 30/40 - Piscina 3' : 'Ej. Nauplios L. vannamei - Corrida 032',
-              helperText: 'Así lo verán los compradores.',
+          _Seccion(children: [
+            TextFormField(
+              controller: _nombre,
+              maxLength: 200,
+              textCapitalization: TextCapitalization.sentences,
+              validator: (_) => _err('nombre', perfil),
+              onChanged: (v) => _cambio('nombre', () => _lote.nombre = v),
+              decoration: InputDecoration(
+                labelText: 'Nombre del producto *',
+                hintText: perfil == 'camaronera' ? 'Ej. Camarón entero 30/40 - Piscina 3' : 'Ej. Nauplios L. vannamei - Corrida 032',
+                helperText: 'Así lo verán los compradores.',
+              ),
             ),
-          ),
-          const SizedBox(height: 10),
-          TextFormField(
-            controller: _codigo,
-            maxLength: 64,
-            onChanged: (v) => _lote.codigoLote = v,
-            decoration: const InputDecoration(labelText: 'Lote del vendedor (opcional)', helperText: 'Tu propio código de lote.'),
-          ),
-          if (especies.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: _codigo,
+              maxLength: 64,
+              onChanged: (v) => _lote.codigoLote = v,
+              decoration: const InputDecoration(labelText: 'Lote del vendedor (opcional)', helperText: 'Tu propio código de lote.'),
+            ),
+            if (especies.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              _Opciones(
+                etiqueta: 'Especie (opcional)',
+                opciones: [for (final e in especies) (e['id'] as String, nombreDe(e))],
+                valor: _lote.especieId,
+                alCambiar: (v) => setState(() => _lote.especieId = v),
+              ),
+            ],
             const SizedBox(height: 10),
             _Opciones(
-              etiqueta: 'Especie (opcional)',
-              opciones: [for (final e in especies) (e['id'] as String, nombreDe(e))],
-              valor: _lote.especieId,
-              alCambiar: (v) => setState(() => _lote.especieId = v),
+              etiqueta: 'Etapa *',
+              ayuda: engorde
+                  ? 'Engorde exige presentación y talla para publicar (se cruzan con las listas de precios).'
+                  : (tipos.length > 1 ? 'Tu perfil publica nauplio y larva.' : 'Tu perfil publica camarón (juvenil y engorde).'),
+              opciones: [for (final s in estadios) (s['id'] as String, nombreDe(s))],
+              valor: idDe(_lote.estadio),
+              validator: () => _err('estadio', perfil),
+              vacio: 'No hay etapas disponibles para tu perfil.',
+              obligatorio: true,
+              alCambiar: (v) => _cambio('estadio', () {
+                _lote.estadio = estadios.where((s) => s['id'] == v).firstOrNull;
+                if (!_lote.esCamaron) {
+                  _lote.presentacion = null;
+                  _lote.tallaId = null;
+                }
+              }),
             ),
-          ],
-          const SizedBox(height: 10),
-          _Opciones(
-            etiqueta: 'Etapa *',
-            ayuda: engorde
-                ? 'Engorde exige presentación y talla para publicar (se cruzan con las listas de precios).'
-                : (tipos.length > 1 ? 'Tu perfil publica nauplio y larva.' : 'Tu perfil publica camarón (juvenil y engorde).'),
-            opciones: [for (final s in estadios) (s['id'] as String, nombreDe(s))],
-            valor: idDe(_lote.estadio),
-            validator: () => _err('estadio', perfil),
-            vacio: 'No hay etapas disponibles para tu perfil.',
-            obligatorio: true,
-            alCambiar: (v) => _cambio('estadio', () {
-              _lote.estadio = estadios.where((s) => s['id'] == v).firstOrNull;
-              if (!_lote.esCamaron) {
-                _lote.presentacion = null;
-                _lote.tallaId = null;
-              }
-            }),
-          ),
-          if (geneticas.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            DropdownButtonFormField<String>(
-              initialValue: _lote.geneticaId,
-              isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Línea genética (opcional)'),
-              items: [
-                const DropdownMenuItem(value: null, child: Text('Sin indicar')),
-                for (final g in geneticas) DropdownMenuItem(value: g['id'] as String, child: Text(nombreDe(g))),
-              ],
-              onChanged: (v) => setState(() => _lote.geneticaId = v),
-            ),
-          ],
+            if (geneticas.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              DropdownButtonFormField<String>(
+                initialValue: _lote.geneticaId,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Línea genética (opcional)'),
+                items: [
+                  const DropdownMenuItem(value: null, child: Text('Sin indicar')),
+                  for (final g in geneticas) DropdownMenuItem(value: g['id'] as String, child: Text(nombreDe(g))),
+                ],
+                onChanged: (v) => setState(() => _lote.geneticaId = v),
+              ),
+            ],
+          ]),
 
           // ---------------- 2. Producción y calidad ----------------
           const Rotulo('Producción y calidad'),
-          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Expanded(
-              child: TextFormField(
-                controller: _supervivencia,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                validator: (_) => _err('supervivencia', perfil),
-                onChanged: (v) => _cambio('supervivencia', () => _lote.supervivencia = v),
-                decoration: const InputDecoration(labelText: 'Supervivencia', suffixText: '%'),
+          _Seccion(children: [
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Expanded(
+                child: TextFormField(
+                  controller: _supervivencia,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  validator: (_) => _err('supervivencia', perfil),
+                  onChanged: (v) => _cambio('supervivencia', () => _lote.supervivencia = v),
+                  decoration: const InputDecoration(labelText: 'Supervivencia', suffixText: '%'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: TextFormField(
+                  controller: _tamano,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  validator: (_) => _err('tamano', perfil),
+                  onChanged: (v) => _cambio('tamano', () => _lote.tamanoMg = v),
+                  decoration: const InputDecoration(labelText: 'Tamaño promedio', suffixText: 'mg'),
+                ),
+              ),
+            ]),
+            const SizedBox(height: 10),
+            DropdownButtonFormField<String>(
+              initialValue: _lote.provincia,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'Ubicación (opcional)', helperText: 'Se muestra en la tarjeta del marketplace.'),
+              items: [
+                const DropdownMenuItem(value: null, child: Text('Sin indicar')),
+                for (final p in provincias) DropdownMenuItem(value: p, child: Text(p)),
+              ],
+              onChanged: (v) => setState(() => _lote.provincia = v),
+            ),
+            const SizedBox(height: 10),
+            InkWell(
+              onTap: _elegirFecha,
+              borderRadius: BorderRadius.circular(12),
+              child: InputDecorator(
+                decoration: InputDecoration(
+                  labelText: 'Fecha estimada de entrega (opcional)',
+                  helperText: 'Cuándo estaría listo el lote para entregar.',
+                  suffixIcon: _lote.fechaEntrega == null
+                      ? const Icon(Icons.event_outlined)
+                      : IconButton(
+                          tooltip: 'Quitar la fecha',
+                          icon: const Icon(Icons.close),
+                          onPressed: () => setState(() => _lote.fechaEntrega = null),
+                        ),
+                ),
+                child: Text(_lote.fechaEntrega == null ? 'Sin fecha' : fechaCorta(_lote.fechaEntrega!)),
               ),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: TextFormField(
-                controller: _tamano,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                validator: (_) => _err('tamano', perfil),
-                onChanged: (v) => _cambio('tamano', () => _lote.tamanoMg = v),
-                decoration: const InputDecoration(labelText: 'Tamaño promedio', suffixText: 'mg'),
+            const SizedBox(height: 10),
+            DropdownButtonFormField<String>(
+              initialValue: _lote.instalacionId,
+              isExpanded: true,
+              validator: (_) => _errServidor['instalacion'],
+              decoration: InputDecoration(
+                labelText: 'Instalación de origen (opcional)',
+                helperText: instalaciones.isEmpty
+                    ? 'No tienes instalaciones registradas: se crean desde el portal web.'
+                    : 'Las bodegas y oficinas no se ofrecen: no producen lotes.',
+              ),
+              items: [
+                const DropdownMenuItem(value: null, child: Text('Sin instalación')),
+                for (final f in instalaciones) DropdownMenuItem(value: f['id'] as String, child: Text(nombreDe(f))),
+              ],
+              onChanged: (v) => _cambio('instalacion', () {
+                _lote.instalacionId = v;
+                _lote.piscinaId = null;
+                _errServidor.remove('piscina');
+              }),
+            ),
+            if (_lote.instalacionId != null) ...[
+              const SizedBox(height: 10),
+              DropdownButtonFormField<String>(
+                key: ValueKey('piscina-${_lote.instalacionId}'),
+                initialValue: _lote.piscinaId,
+                isExpanded: true,
+                validator: (_) => _errServidor['piscina'],
+                decoration: InputDecoration(
+                  labelText: '${esTanque ? 'Tanque' : 'Piscina'} de origen (opcional)',
+                  helperText: piscinas.isEmpty
+                      ? 'Esta instalación todavía no tiene piscinas ni tanques registrados.'
+                      : 'Solo aparecen los de la instalación elegida.',
+                ),
+                items: [
+                  DropdownMenuItem(value: null, child: Text(esTanque ? 'Sin tanque' : 'Sin piscina')),
+                  for (final p in piscinas) DropdownMenuItem(value: p['id'] as String, child: Text(nombreDe(p))),
+                ],
+                onChanged: (v) => _cambio('piscina', () => _lote.piscinaId = v),
+              ),
+            ],
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: _sanidad,
+              maxLines: 3,
+              minLines: 2,
+              onChanged: (v) => _lote.sanidad = v,
+              decoration: const InputDecoration(
+                labelText: 'Estado sanitario / observaciones (opcional)',
+                hintText: 'Ej. pruebas PCR, laboratorio, notas del lote…',
               ),
             ),
           ]),
-          const SizedBox(height: 10),
-          DropdownButtonFormField<String>(
-            initialValue: _lote.provincia,
-            isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Ubicación (opcional)', helperText: 'Se muestra en la tarjeta del marketplace.'),
-            items: [
-              const DropdownMenuItem(value: null, child: Text('Sin indicar')),
-              for (final p in provincias) DropdownMenuItem(value: p, child: Text(p)),
-            ],
-            onChanged: (v) => setState(() => _lote.provincia = v),
-          ),
-          const SizedBox(height: 10),
-          InkWell(
-            onTap: _elegirFecha,
-            borderRadius: BorderRadius.circular(12),
-            child: InputDecorator(
-              decoration: InputDecoration(
-                labelText: 'Fecha estimada de entrega (opcional)',
-                helperText: 'Cuándo estaría listo el lote para entregar.',
-                suffixIcon: _lote.fechaEntrega == null
-                    ? const Icon(Icons.event_outlined)
-                    : IconButton(
-                        tooltip: 'Quitar la fecha',
-                        icon: const Icon(Icons.close),
-                        onPressed: () => setState(() => _lote.fechaEntrega = null),
-                      ),
-              ),
-              child: Text(_lote.fechaEntrega == null ? 'Sin fecha' : fechaCorta(_lote.fechaEntrega!)),
-            ),
-          ),
-          const SizedBox(height: 10),
-          DropdownButtonFormField<String>(
-            initialValue: _lote.instalacionId,
-            isExpanded: true,
-            validator: (_) => _errServidor['instalacion'],
-            decoration: InputDecoration(
-              labelText: 'Instalación de origen (opcional)',
-              helperText: instalaciones.isEmpty
-                  ? 'No tienes instalaciones registradas: se crean desde el portal web.'
-                  : 'Las bodegas y oficinas no se ofrecen: no producen lotes.',
-            ),
-            items: [
-              const DropdownMenuItem(value: null, child: Text('Sin instalación')),
-              for (final f in instalaciones) DropdownMenuItem(value: f['id'] as String, child: Text(nombreDe(f))),
-            ],
-            onChanged: (v) => _cambio('instalacion', () {
-              _lote.instalacionId = v;
-              _lote.piscinaId = null;
-              _errServidor.remove('piscina');
-            }),
-          ),
-          if (_lote.instalacionId != null) ...[
-            const SizedBox(height: 10),
-            DropdownButtonFormField<String>(
-              key: ValueKey('piscina-${_lote.instalacionId}'),
-              initialValue: _lote.piscinaId,
-              isExpanded: true,
-              validator: (_) => _errServidor['piscina'],
-              decoration: InputDecoration(
-                labelText: '${esTanque ? 'Tanque' : 'Piscina'} de origen (opcional)',
-                helperText: piscinas.isEmpty
-                    ? 'Esta instalación todavía no tiene piscinas ni tanques registrados.'
-                    : 'Solo aparecen los de la instalación elegida.',
-              ),
-              items: [
-                DropdownMenuItem(value: null, child: Text(esTanque ? 'Sin tanque' : 'Sin piscina')),
-                for (final p in piscinas) DropdownMenuItem(value: p['id'] as String, child: Text(nombreDe(p))),
-              ],
-              onChanged: (v) => _cambio('piscina', () => _lote.piscinaId = v),
-            ),
-          ],
-          const SizedBox(height: 10),
-          TextFormField(
-            controller: _sanidad,
-            maxLines: 3,
-            minLines: 2,
-            onChanged: (v) => _lote.sanidad = v,
-            decoration: const InputDecoration(
-              labelText: 'Estado sanitario / observaciones (opcional)',
-              hintText: 'Ej. pruebas PCR, laboratorio, notas del lote…',
-            ),
-          ),
 
           // ---------------- 3. Información comercial ----------------
           const Rotulo('Información comercial'),
-          if (camaron) ...[
-            _Opciones(
-              etiqueta: engorde ? 'Presentación *' : 'Presentación (opcional)',
-              opciones: const [('entero', 'Entero'), ('cola', 'Cola')],
-              valor: _lote.presentacion,
-              obligatorio: engorde,
-              validator: () => _err('presentacion', perfil),
-              alCambiar: (v) => _cambio('presentacion', () {
-                if (_lote.presentacion != v) _lote.tallaId = null;
-                _lote.presentacion = v;
-                _errServidor.remove('talla');
-              }),
+          _Seccion(children: [
+            if (camaron) ...[
+              _Opciones(
+                etiqueta: engorde ? 'Presentación *' : 'Presentación (opcional)',
+                opciones: const [('entero', 'Entero'), ('cola', 'Cola')],
+                valor: _lote.presentacion,
+                obligatorio: engorde,
+                validator: () => _err('presentacion', perfil),
+                alCambiar: (v) => _cambio('presentacion', () {
+                  if (_lote.presentacion != v) _lote.tallaId = null;
+                  _lote.presentacion = v;
+                  _errServidor.remove('talla');
+                }),
+              ),
+              const SizedBox(height: 10),
+              _Opciones(
+                etiqueta: engorde ? 'Talla *' : 'Talla (opcional)',
+                opciones: [for (final t in tallas) (t['id'] as String, nombreDe(t))],
+                valor: _lote.tallaId,
+                obligatorio: engorde,
+                vacio: _lote.presentacion == null ? 'Elige primero la presentación.' : 'No hay tallas para esta presentación.',
+                ayuda: 'Obligatorias para publicar camarón de engorde (en juvenil son opcionales).',
+                validator: () => _err('talla', perfil),
+                alCambiar: (v) => _cambio('talla', () => _lote.tallaId = v),
+              ),
+              const SizedBox(height: 10),
+            ],
+            if (unidades.isNotEmpty)
+              _Opciones(
+                etiqueta: 'Unidad',
+                ayuda: 'Por defecto en millares para nauplieros y laboratorios, y en libras para camaroneras.',
+                opciones: [for (final u in unidades) (u['id'] as String, nombreDe(u))],
+                valor: idDe(_lote.unidad),
+                obligatorio: true,
+                validator: () => _errServidor['unidad'],
+                alCambiar: (v) => _cambio('unidad', () => _lote.unidad = unidades.where((u) => u['id'] == v).firstOrNull),
+              ),
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: _cantidad,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              validator: (_) => _err('cantidad', perfil),
+              onChanged: (v) => _cambio('cantidad', () => _lote.cantidad = v),
+              decoration: InputDecoration(
+                labelText: _lote.unidad == null ? 'Cantidad disponible *' : 'Cantidad disponible en ${unidadPlural(_lote.unidad)} *',
+                suffixText: unidadPlural(_lote.unidad),
+                helperText: 'Debe ser mayor a 0.',
+              ),
             ),
             const SizedBox(height: 10),
-            _Opciones(
-              etiqueta: engorde ? 'Talla *' : 'Talla (opcional)',
-              opciones: [for (final t in tallas) (t['id'] as String, nombreDe(t))],
-              valor: _lote.tallaId,
-              obligatorio: engorde,
-              vacio: _lote.presentacion == null ? 'Elige primero la presentación.' : 'No hay tallas para esta presentación.',
-              ayuda: 'Obligatorias para publicar camarón de engorde (en juvenil son opcionales).',
-              validator: () => _err('talla', perfil),
-              alCambiar: (v) => _cambio('talla', () => _lote.tallaId = v),
+            TextFormField(
+              controller: _precio,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              validator: (_) => _err('precio', perfil),
+              onChanged: (v) => _cambio('precio', () => _lote.precio = v),
+              decoration: InputDecoration(labelText: por.isEmpty ? 'Precio *' : 'Precio $por *', prefixText: r'USD $ ', suffixText: por),
             ),
-            const SizedBox(height: 10),
-          ],
-          if (unidades.isNotEmpty)
-            _Opciones(
-              etiqueta: 'Unidad',
-              ayuda: 'Por defecto en millares para nauplieros y laboratorios, y en libras para camaroneras.',
-              opciones: [for (final u in unidades) (u['id'] as String, nombreDe(u))],
-              valor: idDe(_lote.unidad),
-              obligatorio: true,
-              validator: () => _errServidor['unidad'],
-              alCambiar: (v) => _cambio('unidad', () => _lote.unidad = unidades.where((u) => u['id'] == v).firstOrNull),
+            const SizedBox(height: 8),
+            Text(
+              'Total del lote: ${qty != null && qty > 0 && precio != null && precio >= 0 ? dinero({'amount': qty * precio, 'currency': 'USD'}) : '—'}',
+              style: const TextStyle(fontWeight: FontWeight.w700),
             ),
-          const SizedBox(height: 10),
-          TextFormField(
-            controller: _cantidad,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            validator: (_) => _err('cantidad', perfil),
-            onChanged: (v) => _cambio('cantidad', () => _lote.cantidad = v),
-            decoration: InputDecoration(
-              labelText: _lote.unidad == null ? 'Cantidad disponible *' : 'Cantidad disponible en ${unidadPlural(_lote.unidad)} *',
-              suffixText: unidadPlural(_lote.unidad),
-              helperText: 'Debe ser mayor a 0.',
-            ),
-          ),
-          const SizedBox(height: 10),
-          TextFormField(
-            controller: _precio,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            validator: (_) => _err('precio', perfil),
-            onChanged: (v) => _cambio('precio', () => _lote.precio = v),
-            decoration: InputDecoration(labelText: por.isEmpty ? 'Precio *' : 'Precio $por *', prefixText: r'USD $ ', suffixText: por),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Total del lote: ${qty != null && qty > 0 && precio != null && precio >= 0 ? dinero({'amount': qty * precio, 'currency': 'USD'}) : '—'}',
-            style: const TextStyle(fontWeight: FontWeight.w700),
-          ),
+          ]),
           const SizedBox(height: 16),
           _AvisoVerificacion(perfil: perfil),
           const SizedBox(height: 12),
@@ -450,14 +456,14 @@ class _PantallaPublicarLoteState extends State<PantallaPublicarLote> {
             child: FilledButton.icon(
               onPressed: _ocupado ? null : _guardar,
               icon: _ocupado
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  ? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: context.colores.tintaSuave))
                   : const Icon(Icons.save_outlined),
               label: Text(_ocupado ? 'Guardando…' : 'Guardar borrador'),
             ),
           ),
           const SizedBox(height: 8),
           Text('Después revisas el resumen y lo publicas con tu huella.',
-              textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: esquema.onSurfaceVariant)),
+              textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: c.tintaSuave)),
         ],
       ),
     );
@@ -475,6 +481,16 @@ class _PantallaPublicarLoteState extends State<PantallaPublicarLote> {
     );
     if (f != null && mounted) setState(() => _lote.fechaEntrega = f);
   }
+}
+
+/// Sección del formulario en su tarjeta (`.pf-sec` del portal).
+class _Seccion extends StatelessWidget {
+  final List<Widget> children;
+  const _Seccion({required this.children});
+  @override
+  Widget build(BuildContext context) => Tarjeta(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
+      );
 }
 
 /// Opciones en fichas (etapa, presentación, talla, unidad) como campo del
@@ -515,7 +531,7 @@ class _Opciones extends StatelessWidget {
             contentPadding: const EdgeInsets.only(top: 8, bottom: 4),
           ),
           child: opciones.isEmpty
-              ? Text(vacio ?? 'Sin opciones.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant))
+              ? Text(vacio ?? 'Sin opciones.', style: TextStyle(color: context.colores.tintaSuave))
               : Wrap(spacing: 8, runSpacing: 4, children: [
                   for (final (id, nombre) in opciones)
                     ChoiceChip(
@@ -536,22 +552,11 @@ class _AvisoVerificacion extends StatelessWidget {
   final String? perfil;
   const _AvisoVerificacion({required this.perfil});
   @override
-  Widget build(BuildContext context) {
-    final obligatoria = perfil == 'camaronera';
-    final color = obligatoria ? Marca.ambar : Marca.brand;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: obligatoria ? const Color(0xFFFDF1E0) : Marca.tealClaro,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Icon(Icons.verified_user_outlined, size: 18, color: color),
-        const SizedBox(width: 10),
-        Expanded(child: Text(avisoVerificacion(perfil), style: TextStyle(fontSize: 13.5, color: color))),
-      ]),
-    );
-  }
+  Widget build(BuildContext context) => CajaAviso(
+        tipo: perfil == 'camaronera' ? TipoAviso.advertencia : TipoAviso.info,
+        icono: Icons.verified_user_outlined,
+        texto: avisoVerificacion(perfil),
+      );
 }
 
 /// «Publicar lote», pasos 2 y 3: el resumen del borrador y «Publicar con mi
@@ -640,18 +645,14 @@ class _PantallaConfirmarPublicacionState extends State<PantallaConfirmarPublicac
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
           if (widget.recienCreado)
-            Container(
-              margin: const EdgeInsets.only(top: 8),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: const Color(0xFFE6F6EC), borderRadius: BorderRadius.circular(12)),
-              child: const Row(children: [
-                Icon(Icons.check_circle_outline, size: 18, color: Marca.verde),
-                SizedBox(width: 10),
-                Expanded(
-                  child: Text('Borrador guardado. Revisa el resumen y publícalo con tu huella.',
-                      style: TextStyle(color: Marca.verde, fontWeight: FontWeight.w700)),
-                ),
-              ]),
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: CajaAviso(
+                tipo: TipoAviso.ok,
+                icono: Icons.check_circle_outline,
+                peso: FontWeight.w700,
+                texto: 'Borrador guardado. Revisa el resumen y publícalo con tu huella.',
+              ),
             ),
           Padding(
             padding: const EdgeInsets.only(top: 12),
@@ -686,7 +687,7 @@ class _PantallaConfirmarPublicacionState extends State<PantallaConfirmarPublicac
             AvisoWeb(texto: 'Para publicarlo falta ${faltan.join(', ')}. Complétalo desde el portal web.')
           else ...[
             Text('Al publicarlo, los compradores lo ven en el marketplace. Se te pedirá tu huella o el PIN del teléfono.',
-                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                style: TextStyle(color: context.colores.tintaSuave)),
             if (_error != null) ...[
               const SizedBox(height: 12),
               CajaError(texto: _error!),
@@ -697,7 +698,7 @@ class _PantallaConfirmarPublicacionState extends State<PantallaConfirmarPublicac
               child: FilledButton.icon(
                 onPressed: _ocupado ? null : _publicar,
                 icon: _ocupado
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    ? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: context.colores.tintaSuave))
                     : Icon(_firmada == null ? Icons.fingerprint : Icons.refresh),
                 label: Text(_ocupado ? 'Publicando…' : (_firmada == null ? 'Publicar con mi huella' : 'Reintentar')),
               ),
@@ -742,18 +743,19 @@ class AccionesLote extends StatelessWidget {
     );
     if (ok != true || !context.mounted) return;
     final mensajero = ScaffoldMessenger.of(context);
+    final peligro = context.colores.peligro;
     try {
       await context.read<Sincronizador>().archivarLote('${p['id']}', idempotencia: const Uuid().v4());
       mensajero.showSnackBar(const SnackBar(content: Text('Lote retirado del marketplace.')));
       await alCambiar();
     } on SinConexion {
-      mensajero.showSnackBar(const SnackBar(
-          content: Text('Sin internet: el lote sigue publicado. Inténtalo cuando tengas señal.'), backgroundColor: Marca.rojo));
+      mensajero.showSnackBar(SnackBar(
+          content: const Text('Sin internet: el lote sigue publicado. Inténtalo cuando tengas señal.'), backgroundColor: peligro));
     } on ErrorApi catch (e) {
       mensajero.showSnackBar(SnackBar(
-          content: Text('No se retiró. ${mensajeLote(e)}'), backgroundColor: Marca.rojo, duration: const Duration(seconds: 6)));
+          content: Text('No se retiró. ${mensajeLote(e)}'), backgroundColor: peligro, duration: const Duration(seconds: 6)));
     } catch (e) {
-      mensajero.showSnackBar(SnackBar(content: Text(mensajeDeError(e)), backgroundColor: Marca.rojo));
+      mensajero.showSnackBar(SnackBar(content: Text(mensajeDeError(e)), backgroundColor: peligro));
     }
   }
 
@@ -783,7 +785,7 @@ class AccionesLote extends StatelessWidget {
           icono: Icons.unpublished_outlined,
           texto: 'Retirar del marketplace',
           textoOcupado: 'Retirando…',
-          estilo: OutlinedButton.styleFrom(foregroundColor: Marca.rojo),
+          estilo: EstilosBoton.peligro(context),
           onPressed: () => _retirar(context),
         ),
       );

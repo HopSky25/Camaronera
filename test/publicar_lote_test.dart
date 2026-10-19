@@ -22,6 +22,7 @@ import 'package:verificador_campo/pantallas/comunes/widgets.dart';
 import 'package:verificador_campo/pantallas/vendedor/pantalla_mis_lotes.dart';
 import 'package:verificador_campo/pantallas/vendedor/pantalla_publicar_lote.dart';
 import 'package:verificador_campo/seguridad/firma_operacion.dart';
+import 'package:verificador_campo/tema.dart';
 
 import 'almacen_falso.dart';
 import 'compra_directa_test.dart' show baseEnMemoria;
@@ -419,7 +420,7 @@ void main() {
   });
 
   group('pantallas', () {
-    Future<void> abrir(WidgetTester t, SesionFija sesion, Widget pantalla) async {
+    Future<void> abrir(WidgetTester t, SesionFija sesion, Widget pantalla, {bool oscuro = false}) async {
       final bd = baseEnMemoria();
       await t.pumpWidget(MultiProvider(
         providers: [
@@ -427,7 +428,7 @@ void main() {
           ChangeNotifierProvider(create: (_) => Sincronizador(sesion: sesion, bd: bd)),
           Provider(create: (_) => Repositorio(sesion: sesion, bd: bd)),
         ],
-        child: MaterialApp(home: pantalla),
+        child: MaterialApp(theme: oscuro ? temaOscuro() : temaClaro(), home: pantalla),
       ));
       await Future<void>.delayed(const Duration(milliseconds: 300));
     }
@@ -508,6 +509,56 @@ void main() {
       await t.pump();
       expect(find.widgetWithText(ChoiceChip, '21/25'), findsOneWidget);
       expect(find.widgetWithText(ChoiceChip, '30/40'), findsNothing, reason: 'tallas filtradas por presentación');
+    });
+
+    /// En oscuro ningún texto queda oscuro sobre el fondo oscuro.
+    void sinTextoOscuro(WidgetTester t, String pantalla) {
+      for (final rt in t.widgetList<RichText>(find.byType(RichText))) {
+        void revisar(InlineSpan s, Color? heredado) {
+          final color = s.style?.color ?? heredado;
+          if (s is TextSpan && (s.text?.trim().isNotEmpty ?? false) && color != null) {
+            expect(color.computeLuminance(), greaterThan(0.18), reason: '$pantalla: «${s.text}» en $color');
+          }
+          if (s is TextSpan) {
+            for (final h in s.children ?? const <InlineSpan>[]) {
+              revisar(h, color);
+            }
+          }
+        }
+
+        revisar(rt.text, null);
+      }
+    }
+
+    testWidgets('en oscuro: formulario, avisos y resumen se leen', (t) async {
+      await t.binding.setSurfaceSize(const Size(800, 2600));
+      addTearDown(() => t.binding.setSurfaceSize(null));
+      final s = SesionFija(ServidorLotes().cliente, perfilFijo: 'camaronera');
+      await t.runAsync(() => abrir(t, s, const PantallaPublicarLote(), oscuro: true));
+      await t.pump();
+      await t.ensureVisible(find.text('Guardar borrador'));
+      await t.tap(find.text('Guardar borrador'));
+      await t.pump();
+      expect(find.text('Escribe el nombre del producto.'), findsOneWidget);
+      sinTextoOscuro(t, 'formulario');
+      await t.runAsync(() => abrir(
+          t,
+          s,
+          PantallaConfirmarPublicacion(recienCreado: true, p: {
+            'id': 'b-1',
+            'name': 'Camarón 30/40',
+            'state': 'draft',
+            'active': true,
+            'available_qty': 1000,
+            'stage': {'id': 'st-juv', 'name': 'Juvenil'},
+            'uom': {'id': 'u-lb', 'name': 'Libras'},
+            'price': {'amount': 2.5, 'currency': 'USD'},
+            'requires_verification': true,
+          }),
+          oscuro: true));
+      await t.pump();
+      expect(find.text('Publicar con mi huella'), findsOneWidget);
+      sinTextoOscuro(t, 'resumen');
     });
 
     testWidgets('modo supervisor: ni "Publicar lote" en Mis lotes ni formulario', (t) async {

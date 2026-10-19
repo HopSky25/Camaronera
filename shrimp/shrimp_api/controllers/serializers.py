@@ -340,6 +340,22 @@ def account_certificate(line):
     }
 
 
+def account_certificate_owner(line):
+    """Un certificado de la cuenta para su dueño: con la revisión, si está
+    vigente y en cuántos lotes está ligado."""
+    from odoo import fields as ofields
+    line = line.sudo()
+    today = ofields.Date.context_today(line)
+    ligadas = line.env["shrimp.product.certificate.line"].sudo().search_count(
+        [("source_user_certificate_line_id", "=", line.id)])
+    return dict(account_certificate(line), **{
+        "valid": not line.expiry_date or line.expiry_date >= today,
+        "mime": line.file_attachment_id.mimetype or None,
+        "filename": line.file_attachment_id.name or None,
+        "products": ligadas,
+    })
+
+
 # Nombre de cada campo bloqueado por compras en la API.
 LOCKED_API_FIELDS = {
     "species_id": "species", "stage_id": "stage", "genetics_line_id": "genetics_line",
@@ -420,7 +436,7 @@ def pond(p):
             "area_m2": p.area_m2, "volume_m3": p.volume_m3,
             "usable_volume_m3": p.usable_volume_m3, "max_stock_units": p.max_stock_units,
             "location": p.location or None, "active": p.active, "notes": p.notes or None,
-            "updated_at": iso_dt(p.write_date)}
+            "has_image": bool(p.image), "updated_at": iso_dt(p.write_date)}
 
 
 def lot(l):

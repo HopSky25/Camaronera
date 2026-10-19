@@ -1042,9 +1042,10 @@ App móvil (§5 quater): `GET /public/app-version`, `POST /public/app-errors`. F
   `POST /me/notifications:read-all`, `GET|POST /verifications/{id}/photos`, `POST /purchases`
 * Modo supervisor (§5 ter, solo clave de supervisor): `GET /supervisor/partners`, `POST /supervisor/act-as` (firmada)
 * Perfil: `GET /me`, `PATCH /me`, `POST /me/active-role`
-* Instalaciones: `GET|POST /facilities`, `GET|PATCH|PUT|DELETE /facilities/{id}`; piscinas: ídem en `/ponds`
+* Instalaciones: `GET|POST /facilities`, `GET|PATCH|PUT|DELETE /facilities/{id}`; piscinas: ídem en `/ponds`, y `GET /ponds/{id}/image`
 * Productos: `GET|POST /products` (`?state=archived`: los retirados que se reactivan), `GET|PATCH|PUT|DELETE /products/{id}`, `POST /products/{id}:publish|:update-terms|:archive|:unarchive` (`:publish`, `:update-terms` y `:unarchive` firmadas con la clave de la app), `GET|POST /products/{id}/evolutions`
-* Fotos de un lote propio: `GET|POST /products/{id}/photos`, `POST /products/{id}/photos:reorder`, `GET|DELETE /products/{id}/photos/{photo}`; certificados: `GET|POST /products/{id}/certificates`, `DELETE /products/{id}/certificates/{line}`
+* Fotos de un lote propio: `GET|POST /products/{id}/photos`, `POST /products/{id}/photos:reorder`, `GET|DELETE /products/{id}/photos/{photo}`; certificados: `GET|POST /products/{id}/certificates`, `PATCH|DELETE /products/{id}/certificates/{line}`
+* Mis certificados de la cuenta: `GET|POST /me/certificates`, `PATCH|DELETE /me/certificates/{id}`
 * Lotes: `GET /lots`, `GET /lots/{id}`, `GET /lots/{id}/moves`, `GET|POST /lots/{id}/allocations`
 * Compras/ventas: `POST /purchases` (compra directa, firmada), `GET /transactions`, `GET /transactions/{id}`, `GET /transactions/{id}/traceability`, `GET /transactions/{id}/traceability.pdf`, `POST /transactions/{id}:receive|:complete`, `POST /transactions/{id}/trace-token:rotate`, `GET /charges`
 * Chequeo: `GET /check-requests`, `GET /check-requests/{id}`, `POST /check-requests/{id}:approve|:reject`
@@ -1281,3 +1282,18 @@ portal y la API.
   Eliminar un borrador sigue siendo `DELETE /products/{id}` (sin firma).
 * Todas las rutas nuevas de escritura exigen «Vender» en el perfil del lote (`API_ROUTE_PERMISSIONS`, `sell`);
   `PATCH` y `:unarchive` lo comprueban ahora también contra el perfil del lote, como el portal.
+* **Lo que faltaba del portal para el vendedor** (sin firma: no cambian qué se vende ni a qué precio, y los
+  certificados los revisa la plataforma antes de que cuenten):
+  - `PATCH /products/{id}/certificates/{line}`: corrige número, fechas o archivo de un certificado PROPIO del
+    lote (como «Editar» en el formulario del portal); vuelve a revisión. Los que vienen de «mis certificados»
+    se corrigen en la cuenta (422). El emisor es el del tipo de certificado del catálogo y no se edita (tampoco
+    en el portal).
+  - «Mis certificados» de la cuenta (`/me/certificates`, como Certificados en Mi cuenta): `GET` con la
+    revisión, si está vigente y en cuántos lotes está, y el catálogo de todos los perfiles; `POST` sube uno
+    (PDF, JPG o PNG de 5 MB, pendiente de revisión); `PATCH /me/certificates/{id}` lo renueva (vuelve a
+    revisión); `DELETE` lo quita (los lotes conservan su copia). Escribir exige «Administrar la cuenta», como
+    `/marketplace/my-certificates/*` en la matriz del portal.
+  - Instalaciones y piscinas con las reglas de Mi cuenta: código no repetido entre las del socio (archivadas
+    incluidas, 422 en `code`), largo y ancho hasta 100 000 m, profundidad hasta 50 m y volumen hasta
+    10 000 000 m³, `DELETE /facilities/{id}` archiva también sus piscinas o tanques, y la piscina admite foto
+    (`image` en base64 en `POST|PATCH /ponds`, `null` la quita; `has_image` y `GET /ponds/{id}/image`).

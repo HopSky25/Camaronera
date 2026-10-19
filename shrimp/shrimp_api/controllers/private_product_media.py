@@ -286,29 +286,83 @@ def product_certificate_add(ctx, id):
     if catalogo not in _catalog(product):
         msg = "«%s» no es un certificado del perfil de este lote." % catalogo.name
         raise invalid(msg, errors=[{"field": "certificate", "message": msg}])
-    issue, expiry = vals.get("issue_date"), vals.get("expiry_date")
+    issue, expiry = _check_cert_dates(catalogo, vals)
+    number = vals.get("number") or False
+    if product.certificate_line_ids.filtered(
+            lambda l: l.certificate_id == catalogo and (l.number or False) == number):
+        msg = "Este lote ya tiene «%s» con ese número." % catalogo.name
+        raise invalid(msg, errors=[{"field": "number", "message": msg}])
+    content, mimetype = _cert_file(vals)
+    att = product._shrimp_cert_attachment(content, mimetype, _filename(vals["filename"], "certificado"),
+                                          catalogo)
+    line = product.shrimp_add_own_certificate(catalogo, att, number=number, issue_date=issue or False,
+                                              expiry_date=expiry or False)
+    return _certificates(product, line)
+
+
+def _check_cert_dates(catalogo, vals, current=None):
+    """Vencimiento obligatorio si el tipo lo exige y no antes de la emisión
+    (las restricciones del modelo, con el campo para la app)."""
+    issue = vals["issue_date"] if "issue_date" in vals else (current and current["issue_date"])
+    expiry = vals["expiry_date"] if "expiry_date" in vals else (current and current["expiry_date"])
     if catalogo.expires_required and not expiry:
         msg = "El certificado «%s» requiere fecha de expiración." % catalogo.name
         raise invalid(msg, errors=[{"field": "expiry_date", "message": msg}])
     if issue and expiry and expiry < issue:
         msg = "La fecha de expiración no puede ser menor que la fecha de emisión."
         raise invalid(msg, errors=[{"field": "expiry_date", "message": msg}])
-    number = vals.get("number") or False
-    if product.certificate_line_ids.filtered(
-            lambda l: l.certificate_id == catalogo and (l.number or False) == number):
-        msg = "Este lote ya tiene «%s» con ese número." % catalogo.name
-        raise invalid(msg, errors=[{"field": "number", "message": msg}])
+    return issue or False, expiry or False
+
+
+def _cert_file(vals):
+    """(contenido, mimetype) del archivo de un certificado: PDF, JPG o PNG
+    reales de hasta 5 MB."""
     content = _decode(vals)
     try:
-        mimetype = _read_validated_file(content)  # PDF, JPG o PNG reales, 5 MB
+        return content, _read_validated_file(content)
     except ValidationError as e:
         msg = e.args[0] if e.args else "Archivo no válido."
         raise invalid(msg, errors=[{"field": "data", "message": msg}])
-    att = product._shrimp_cert_attachment(content, mimetype, _filename(vals["filename"], "certificado"),
-                                          catalogo)
-    line = product.shrimp_add_own_certificate(catalogo, att, number=number, issue_date=issue or False,
-                                              expiry_date=expiry or False)
-    return _certificates(product, line)
+
+
+CERT_EDIT_SPEC = {k: CERT_SPEC[k] for k in ("number", "issue_date", "expiry_date", "filename", "data")}
+
+
+@api_route("PATCH", "/products/{id}/certificates/{line}", scope="products:write", tags=[TAG_PROD],
+           body=CERT_EDIT_SPEC, max_body=MEDIA_MAX_BODY, response=CERTS_RESPONSE,
+           summary="Corrige número y fechas (o el archivo) de un certificado propio del lote",
+           description="Parcial y sin firma, como «Editar» en el formulario del portal. Solo los "
+                       "propios del lote (source = product): los que vienen de «mis certificados» se "
+                       "corrigen en /me/certificates (422). Un cambio lo devuelve a revisión "
+                       "(pending). El emisor es el del tipo de certificado del catálogo y no se edita. "
+                       "Para cambiar el archivo, «filename» + «data» (PDF, JPG o PNG, 5 MB).")
+def product_certificate_edit(ctx, id, line):
+    product = _product(ctx, id, write=True)
+    rec = product.certificate_line_ids.filtered(lambda l: l.uuid_ref == line)
+    if not rec:
+        raise not_found("El certificado")
+    if rec.source_user_certificate_line_id:
+        msg = "Este certificado viene de tus certificados de la cuenta: corrígelo allí."
+        raise invalid(msg, errors=[{"field": "line", "message": msg}])
+    vals = ctx.clean(CERT_EDIT_SPEC, partial=True)
+    if not vals:
+        raise invalid("No hay campos válidos para actualizar.")
+    issue, expiry = _check_cert_dates(rec.certificate_id, vals, current=rec)
+    number = vals["number"] if "number" in vals else rec.number
+    if (number or False) != (rec.number or False) and product.certificate_line_ids.filtered(
+            lambda l: l != rec and l.certificate_id == rec.certificate_id and (l.number or False) == (number or False)):
+        msg = "Este lote ya tiene «%s» con ese número." % rec.certificate_id.name
+        raise invalid(msg, errors=[{"field": "number", "message": msg}])
+    att = None
+    if vals.get("data") or vals.get("filename"):
+        if not vals.get("filename"):
+            raise invalid("Indica el nombre del archivo.", errors=[{"field": "filename", "message": "Es obligatorio."}])
+        content, mimetype = _cert_file(vals)
+        att = product._shrimp_cert_attachment(content, mimetype, _filename(vals["filename"], "certificado"),
+                                              rec.certificate_id)
+    product.shrimp_edit_own_certificate(rec, number=number or False, issue_date=issue, expiry_date=expiry,
+                                        attachment=att)
+    return _certificates(product, rec)
 
 
 @api_route("DELETE", "/products/{id}/certificates/{line}", scope="products:write", tags=[TAG_PROD],
@@ -322,3 +376,126 @@ def product_certificate_delete(ctx, id, line):
         raise not_found("El certificado")
     product.shrimp_remove_certificate_lines(rec)
     return _certificates(product)
+
+
+# ---------------------------------------------------------------------------
+# «Mis certificados» de la cuenta
+# ---------------------------------------------------------------------------
+ACCOUNT_CERT_SCHEMA = obj(id="uuid", certificate="ref", issuer="string", number="string",
+                          issue_date="date", expiry_date="date", status="string",
+                          valid="boolean", mime="string", filename="string", products="integer")
+ACCOUNT_CERTS_RESPONSE = {"type": "object", "properties": {
+    "data": {"type": "array", "items": ACCOUNT_CERT_SCHEMA},
+    "line": ACCOUNT_CERT_SCHEMA,
+    "catalog": CERTS_RESPONSE["properties"]["catalog"]}}
+ACCOUNT_CERT_SPEC = {
+    "certificate": F("ref", model="shrimp.certificate", domain=[("active", "=", True)],
+                     description="Tipo de certificado del catálogo de tus perfiles"),
+    "number": F("string", max_length=64),
+    "issue_date": F("date"),
+    "expiry_date": F("date"),
+    "filename": F("string", max_length=200, example="bap.pdf"),
+    "data": F("text", max_length=MEDIA_MAX_BODY,
+              description="El archivo en base64 estándar: PDF, JPG o PNG de hasta 5 MB"),
+}
+ACCOUNT_CERT_RENEW_SPEC = {k: ACCOUNT_CERT_SPEC[k]
+                           for k in ("number", "issue_date", "expiry_date", "filename", "data")}
+
+
+def _account_certificates(ctx, line=None):
+    partner = ctx.partner
+    out = {"data": [S.account_certificate_owner(l) for l in partner.shrimp_account_certificates()],
+           "catalog": [S.certificate_type(c) for c in partner.shrimp_certificate_catalog()]}
+    if line is not None:
+        out["line"] = S.account_certificate_owner(line)
+    return out
+
+
+def _own_account_line(ctx, id):
+    line = ctx.env["shrimp.user.certificate.line"].sudo().search(
+        [("uuid_ref", "=", id), ("partner_id", "=", ctx.partner.id)], limit=1) if id else None
+    if not line:
+        raise not_found("El certificado")
+    return line
+
+
+@api_route("GET", "/me/certificates", tags=["perfil"], response=ACCOUNT_CERTS_RESPONSE,
+           summary="Mis certificados de la cuenta (con su revisión) y el catálogo para subir uno",
+           description="Como «Certificados» de Mi cuenta en el portal. «data»: los de la cuenta "
+                       "con su estado de revisión (pending, approved, rejected) y si están vigentes; "
+                       "«catalog»: tipos de certificado de todos tus perfiles (aprobados o pendientes) "
+                       "y los de «todos».")
+def account_certificates(ctx):
+    return _account_certificates(ctx)
+
+
+@api_route("POST", "/me/certificates", scope="profile:write", tags=["perfil"],
+           body=ACCOUNT_CERT_SPEC, status=201, max_body=MEDIA_MAX_BODY,
+           response=ACCOUNT_CERTS_RESPONSE,
+           summary="Sube un certificado a la cuenta (queda pendiente de revisión)",
+           description="Exige Idempotency-Key; no se firma (la plataforma lo revisa antes de que "
+                       "sirva). «certificate», «filename» y «data» (PDF, JPG o PNG reales de hasta "
+                       "5 MB) obligatorios; «number», «issue_date» y «expiry_date» opcionales (el "
+                       "vencimiento es obligatorio si el tipo lo exige). Permiso «Administrar la "
+                       "cuenta», como en el portal.")
+def account_certificate_add(ctx):
+    vals = ctx.clean(ACCOUNT_CERT_SPEC)
+    errors = [{"field": k, "message": "Es obligatorio."}
+              for k in ("certificate", "filename", "data") if not vals.get(k)]
+    if errors:
+        raise invalid("Indica el certificado y su archivo.", errors=errors)
+    partner = ctx.partner
+    catalogo = ctx.env["shrimp.certificate"].sudo().browse(vals["certificate"])
+    if catalogo not in partner.shrimp_certificate_catalog():
+        msg = "«%s» no es un certificado de tus perfiles." % catalogo.name
+        raise invalid(msg, errors=[{"field": "certificate", "message": msg}])
+    issue, expiry = _check_cert_dates(catalogo, vals)
+    number = vals.get("number") or False
+    if partner.shrimp_account_certificates().filtered(
+            lambda l: l.certificate_id == catalogo and (l.certificate_number or False) == number):
+        msg = "Ya tienes «%s» con ese número." % catalogo.name
+        raise invalid(msg, errors=[{"field": "number", "message": msg}])
+    content, mimetype = _cert_file(vals)
+    att = partner._shrimp_account_cert_attachment(content, mimetype,
+                                                  _filename(vals["filename"], "certificado"), catalogo)
+    line = partner.shrimp_add_account_certificate(catalogo, att, number=number, issue_date=issue,
+                                                  expiry_date=expiry)
+    return _account_certificates(ctx, line)
+
+
+@api_route("PATCH", "/me/certificates/{id}", scope="profile:write", tags=["perfil"],
+           body=ACCOUNT_CERT_RENEW_SPEC, max_body=MEDIA_MAX_BODY, response=ACCOUNT_CERTS_RESPONSE,
+           summary="Renueva o corrige un certificado de la cuenta (vuelve a revisión)",
+           description="Como «Renovar» en Mi cuenta: número y fechas (parcial) y, si viene, el "
+                       "archivo nuevo («filename» + «data»). Siempre vuelve a pending. No se firma.")
+def account_certificate_renew(ctx, id):
+    line = _own_account_line(ctx, id)
+    vals = ctx.clean(ACCOUNT_CERT_RENEW_SPEC, partial=True)
+    if not vals:
+        raise invalid("No hay campos válidos para actualizar.")
+    issue, expiry = _check_cert_dates(line.certificate_id, vals, current=line)
+    number = vals["number"] if "number" in vals else line.certificate_number
+    if (number or False) != (line.certificate_number or False) and ctx.partner.shrimp_account_certificates().filtered(
+            lambda l: l != line and l.certificate_id == line.certificate_id
+            and (l.certificate_number or False) == (number or False)):
+        msg = "Ya tienes «%s» con ese número." % line.certificate_id.name
+        raise invalid(msg, errors=[{"field": "number", "message": msg}])
+    att = None
+    if vals.get("data") or vals.get("filename"):
+        if not vals.get("filename"):
+            raise invalid("Indica el nombre del archivo.", errors=[{"field": "filename", "message": "Es obligatorio."}])
+        content, mimetype = _cert_file(vals)
+        att = ctx.partner._shrimp_account_cert_attachment(
+            content, mimetype, _filename(vals["filename"], "certificado"), line.certificate_id)
+    ctx.partner.shrimp_renew_account_certificate(line, number=number or False, issue_date=issue,
+                                                 expiry_date=expiry, attachment=att)
+    return _account_certificates(ctx, line)
+
+
+@api_route("DELETE", "/me/certificates/{id}", scope="profile:write", tags=["perfil"],
+           response=ACCOUNT_CERTS_RESPONSE, summary="Quita un certificado de la cuenta",
+           description="Como «Eliminar» en Mi cuenta. Los lotes que ya lo tenían ligado conservan "
+                       "su copia. No se firma.")
+def account_certificate_delete(ctx, id):
+    _own_account_line(ctx, id).unlink()
+    return _account_certificates(ctx)

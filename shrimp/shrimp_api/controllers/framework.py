@@ -687,6 +687,12 @@ API_ROUTE_PERMISSIONS = {
     ("DELETE", "/products/{id}/photos/{photo}"): ("sell", "any"),
     ("POST", "/products/{id}/certificates"): ("sell", "any"),
     ("DELETE", "/products/{id}/certificates/{line}"): ("sell", "any"),
+    ("PATCH", "/products/{id}/certificates/{line}"): ("sell", "any"),
+    # «Mis certificados» de la cuenta: como /marketplace/my-certificates/* en
+    # la matriz del portal.
+    ("POST", "/me/certificates"): ("manage_account", "active"),
+    ("PATCH", "/me/certificates/{id}"): ("manage_account", "active"),
+    ("DELETE", "/me/certificates/{id}"): ("manage_account", "active"),
     ("POST", "/products/{id}/evolutions"): ("sell", "any"),
     ("POST", "/products/{id}/observations"): ("sell", "any"),
     ("POST", "/lots/{id}/allocations"): ("sell", "active"),

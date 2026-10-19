@@ -389,6 +389,75 @@ def verification_respond(ctx, id):
     return S.verification(v, ctx.partner, detail=True)
 
 
+# --- segunda opinión (lado del vendedor) -------------------------------------
+SECOND_OPINION_SCHEMA = obj(
+    contest_state="string", contest_deadline="datetime", can_request="boolean",
+    problem="string", second_opinion="string",
+    options={"type": "array", "items": obj(verifier="ref", fee="money")})
+
+
+def _second_opinion_party(ctx, id):
+    v = _verification(ctx, id).sudo()
+    role = S.verification_role(v, ctx.partner)
+    if role not in ("buyer", "seller"):
+        raise forbidden("La segunda opinión es cosa del comprador y del vendedor.")
+    return v, role
+
+
+@api_route("GET", "/verifications/{id}/second-opinion", scope=READ, tags=[TAG_VER],
+           summary="Estado de la segunda opinión y verificadoras que el vendedor puede elegir",
+           description="Tras un rechazo por el informe de campo, el vendedor tiene un plazo "
+                       "(contest_deadline) para pedir que otra verificadora acreditada vuelva a "
+                       "verificar. options (solo al vendedor y solo si can_request) son las "
+                       "verificadoras elegibles con su honorario: ni la que rechazó ni una de las "
+                       "partes. problem dice por qué no se puede pedir (vencido, no presentado, ya "
+                       "es una segunda opinión...).",
+           response=SECOND_OPINION_SCHEMA)
+def verification_second_opinion_get(ctx, id):
+    v, role = _second_opinion_party(ctx, id)
+    problem = v.shrimp_contest_problem() if role == "seller" else ""
+    options = []
+    if role == "seller" and not problem:
+        options = [{"verifier": S.ref(o), "fee": S.money(v.shrimp_fee_for(o), v.currency_id)}
+                   for o in v.shrimp_second_opinion_options().sorted(lambda p: (p.name or "").lower())]
+    return {
+        "contest_state": v.contest_state or None,
+        "contest_deadline": S.iso_dt(v.contest_deadline),
+        "can_request": role == "seller" and not problem,
+        "problem": (problem or None) if role == "seller" else None,
+        "second_opinion": v.second_opinion_id.uuid_ref or None,
+        "options": options,
+    }
+
+
+SECOND_OPINION_SPEC = {"verifier": F("string", required=True,
+                                     description="uuid de la verificadora (una de options)")}
+
+
+@api_route("POST", "/verifications/{id}:second-opinion", signed=True, scope="verifications:write",
+           tags=[TAG_VER], body=SECOND_OPINION_SPEC, status=201,
+           summary="El vendedor pide la segunda opinión sobre el rechazo (impugna)",
+           description="Lo mismo que «Pedir segunda opinión» en la trazabilidad de la venta: dentro "
+                       "del plazo (contest_state «open»), otra verificadora acreditada vuelve a "
+                       "verificar la misma compra. Su honorario lo paga SIEMPRE el vendedor, "
+                       "cualquiera sea el resultado. La verificación rechazada queda «superseded» "
+                       "(contest_state «contested») y la respuesta es la NUEVA verificación (201). "
+                       "Si la segunda aprueba, la compra sigue; si rechaza, el rechazo se mantiene. "
+                       "No se impugna un rechazo por «Producto no presentado» ni una segunda "
+                       "opinión (422).",
+           response=VER_SCHEMA)
+def verification_second_opinion(ctx, id):
+    v, role = _second_opinion_party(ctx, id)
+    if role != "seller":
+        raise forbidden("La segunda opinión la pide el vendedor.")
+    vals = ctx.clean(SECOND_OPINION_SPEC)
+    nueva = ctx.env["res.partner"].sudo().resolve_ref(vals["verifier"])
+    if not nueva:
+        raise ApiError(404, "not-found", "La verificadora no existe.")
+    segunda = v.action_request_second_opinion(nueva, actor=ctx.partner)
+    return S.verification(segunda, ctx.partner, detail=True)
+
+
 # ---------------------------------------------------------------------------
 # Compra verificada (con modo) y verificación DECLARADA por las partes
 # ---------------------------------------------------------------------------

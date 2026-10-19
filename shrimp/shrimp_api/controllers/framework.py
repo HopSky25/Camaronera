@@ -730,6 +730,8 @@ API_ROUTE_PERMISSIONS = {
     ("POST", "/verifications/{id}:verdict"): ("approve", "any"),
     ("POST", "/verifications/{id}:respond"): ("approve", "any"),
     ("POST", "/verifications/{id}:support-technicians"): ("approve", "any"),
+    # El vendedor impugna el rechazo (como /marketplace/sales/<tx>/second-opinion).
+    ("POST", "/verifications/{id}:second-opinion"): ("sell", "any"),
     # App móvil: fotos de campo (como el informe) y compra directa (como
     # «Comprar» en el portal).
     ("POST", "/verifications/{id}/photos"): ("approve", "any"),

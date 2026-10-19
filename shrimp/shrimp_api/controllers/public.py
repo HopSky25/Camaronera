@@ -134,6 +134,9 @@ def _catalog_filter(ctx, name, model, field, domain):
                    "seller": F("string", description="uuid del vendedor"),
                    "presentation": F("enum", enum=["entero", "cola"]),
                    "seller_type": F("enum", enum=["semillero", "laboratorio", "camaronera"]),
+                   "stage_type": F("enum", enum=["nauplio", "larva", "camaron"],
+                                   description="Tipo de etapa: nauplio; larva (zoea, mysis, PL); "
+                                               "camarón (juvenil, engorde). Lo vende cualquier perfil."),
                    "q": F("string", description="Texto en el nombre")},
            response=PRODUCT_PUBLIC_SCHEMA)
 def public_products(ctx):
@@ -155,6 +158,9 @@ def public_products(ctx):
     stype = ctx.enum_param("seller_type", ["semillero", "laboratorio", "camaronera"])
     if stype:
         domain.append(("seller_role", "=", stype))
+    tipo = ctx.enum_param("stage_type", ["nauplio", "larva", "camaron"])
+    if tipo:
+        domain.append(("stage_id", "in", ctx.env["shrimp.stage"].sudo()._shrimp_stages_of_tipo(tipo).ids))
     q = (ctx.params.get("q") or "").strip()[:80]
     if q:
         domain.append(("name", "ilike", q))

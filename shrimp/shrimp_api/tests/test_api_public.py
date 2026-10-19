@@ -131,3 +131,14 @@ class TestApiPublic(ApiCase):
         self.assertTrue(events)
         for ev in events:
             self.assertIsInstance(ev["id"], str)
+
+    def test_public_products_por_tipo_de_etapa(self):
+        # «Comprar nauplio» / «Comprar larva» de la app: por tipo de etapa, lo
+        # venda quien lo venda (un laboratorio también vende nauplio).
+        Stage = self.env["shrimp.stage"].sudo()
+        for tipo in ("nauplio", "larva", "camaron"):
+            body = self._get("/public/products?limit=200&stage_type=%s" % tipo)
+            permitidas = set(Stage._shrimp_stages_of_tipo(tipo).mapped("uuid_ref"))
+            for p in body["data"]:
+                self.assertIn((p.get("stage") or {}).get("id"), permitidas, (tipo, p.get("name")))
+        self.assertProblem(self.url_open("/api/v1/public/products?stage_type=otro"), 400)

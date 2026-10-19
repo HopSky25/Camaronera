@@ -30,7 +30,11 @@ def species(r):
 
 def stage(r):
     r = r.sudo()
-    return {"id": r.uuid_ref, "name": r.name, "code": r.code or None, "sequence": r.sequence}
+    return {"id": r.uuid_ref, "name": r.name, "code": r.code or None, "sequence": r.sequence,
+            # nauplio | larva | camaron: el tipo de producto (lo que cada perfil
+            # puede publicar: naupliero y laboratorio, nauplio y larva;
+            # camaronera, camarón).
+            "type": r._shrimp_tipo() if hasattr(r, "_shrimp_tipo") else None}
 
 
 def genetics_line(r):

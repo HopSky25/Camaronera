@@ -32,7 +32,12 @@ def cat_species(ctx):
 
 
 @api_route("GET", "/public/catalogs/stages", public=True, tags=[TAG_CAT],
-           summary="Estadíos", response=CATALOG_ITEM)
+           summary="Estadíos",
+           description="«type» es el tipo de producto del estadío (nauplio, larva o camaron): "
+                       "el naupliero y el laboratorio publican nauplio y larva; la camaronera, "
+                       "camarón (juvenil y engorde).",
+           response=obj(id="uuid", name="string", code="string", sequence="integer",
+                        type="string"))
 def cat_stages(ctx):
     return _envelope(ctx.env["shrimp.stage"].sudo().search([("active", "=", True)]), S.stage)
 

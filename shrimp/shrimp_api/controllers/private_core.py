@@ -12,6 +12,9 @@ Patrón de todos los handlers privados:
 
 from odoo import fields
 
+from odoo.addons.shrimp_marketplace.controllers.product_portal import (
+    ShrimpProductPortalController as _Portal)
+
 from . import serializers as S
 from .framework import (ApiError, ApiResponse, F, api_route, forbidden, invalid, obj, paginate)
 
@@ -368,7 +371,7 @@ def product_get(ctx, id):
 def product_create(ctx):
     ctx.require_capability("sell_products", what="Solo nauplieros, laboratorios y camaroneras publican productos.")
     ctx.require_publishing_allowed()
-    vals = clean_product(ctx, partial=False)
+    vals = clean_product(ctx, partial=False, role=ctx.role)
     vals.update({
         "seller_partner_id": ctx.partner.id,
         # El rol sale del perfil con el que actúa la petición (por defecto
@@ -384,14 +387,79 @@ def product_create(ctx):
     return S.product_owner(product)
 
 
-def clean_product(ctx, partial):
+def clean_product(ctx, partial, product=None, role=None):
     vals = ctx.clean(PRODUCT_INPUT, partial=partial)
+    _check_portal_rules(ctx, vals, product, role or (product and product._shrimp_seller_role()))
     return vals
+
+
+def _stage_role_problem(env, stage, role):
+    """Texto si el perfil no puede publicar esa etapa (None si puede).
+
+    La regla es la del formulario del portal (STAGE_TIPOS_POR_ROL): el
+    naupliero y el laboratorio venden nauplio y larva; la camaronera,
+    camarón (juvenil y engorde)."""
+    if not stage or _Portal._stage_allowed_for_role(stage, role):
+        return None
+    permitidas = env["shrimp.stage"].sudo().search([("active", "=", True)]).filtered(
+        lambda s: _Portal._stage_allowed_for_role(s, role))
+    etiqueta = env["res.partner"]._shrimp_type_label(role) or role or ""
+    return "La etapa «%s» no la puede publicar un perfil %s. Etapas permitidas: %s." % (
+        stage.name, etiqueta.lower(), ", ".join(permitidas.mapped("name")) or "—")
+
+
+def _check_portal_rules(ctx, vals, product, role):
+    """Las validaciones del formulario del portal que el modelo no aplica.
+
+    - La etapa tiene que poder publicarla el perfil del lote (como el portal,
+      solo cuando se elige o se cambia: un lote antiguo conserva la suya).
+    - Presentación y talla solo existen en camarón: el portal las descarta en
+      nauplio y larva; aquí se rechazan para que el integrador se entere.
+    - Instalación de origen: no una bodega ni una oficina, y sin instalación
+      no hay piscina.
+    El resto (talla en engorde, piscina de la instalación, campos bloqueados
+    con compras) lo valida el modelo.
+    """
+    Product = ctx.env["shrimp.product"]
+    stage = ctx.env["shrimp.stage"].sudo().browse(vals["stage_id"]) if vals.get("stage_id") \
+        else (product.stage_id if product else ctx.env["shrimp.stage"])
+    if vals.get("stage_id") and (not product or product.stage_id != stage):
+        problema = _stage_role_problem(ctx.env, stage, role)
+        if problema:
+            raise invalid(problema, errors=[{"field": "stage", "message": problema}])
+    if {"stage_id", "presentation", "size_grade_id"} & set(vals):
+        presentation = vals["presentation"] if "presentation" in vals else (product and product.presentation)
+        size = vals["size_grade_id"] if "size_grade_id" in vals else (product and product.size_grade_id.id)
+        if stage and stage._shrimp_tipo() != "camaron" and (presentation or size):
+            msg = "La presentación y la talla solo aplican al camarón, no a «%s»." % stage.name
+            raise invalid(msg, errors=[{"field": "presentation" if presentation else "size_grade",
+                                        "message": msg}])
+    if vals.get("origin_facility_id"):
+        fac = ctx.env["shrimp.partner.facility"].sudo().browse(vals["origin_facility_id"])
+        if not Product._shrimp_facility_can_be_origin(fac):
+            msg = "«%s» es una bodega u oficina: no produce lotes y no puede ser su origen." % fac.name
+            raise invalid(msg, errors=[{"field": "origin_facility", "message": msg}])
+    if vals.get("origin_pond_id"):
+        fac_id = vals["origin_facility_id"] if "origin_facility_id" in vals \
+            else (product and product.origin_facility_id.id)
+        if not fac_id:
+            msg = "Elige primero la instalación de origen de la piscina."
+            raise invalid(msg, errors=[{"field": "origin_facility", "message": msg}])
+
+
+def _portal_publish_problems(product):
+    """Lo que el portal exige al guardar y el modelo no comprueba al publicar
+    (un borrador creado por la API puede no tenerlo)."""
+    if not product.stage_id:
+        return ["Elige la etapa del lote antes de publicarlo."]
+    if product.stage_id._shrimp_tipo() != "camaron" and (product.presentation or product.size_grade_id):
+        return ["La presentación y la talla solo aplican al camarón, no a «%s»." % product.stage_id.name]
+    return []
 
 
 def _product_update(ctx, id):
     product = ctx.get_own("shrimp.product", id, "El producto")
-    vals = clean_product(ctx, partial=True)
+    vals = clean_product(ctx, partial=True, product=product.sudo())
     if not vals:
         raise invalid("No hay campos válidos para actualizar.")
     # Si ya tiene compras, el modelo rechaza cambiar especie, precio, unidad...
@@ -413,8 +481,11 @@ def product_put(ctx, id):
     return _product_update(ctx, id)
 
 
-@api_route("POST", "/products/{id}:publish", scope="products:write", tags=[TAG_PROD],
+@api_route("POST", "/products/{id}:publish", scope="products:write", tags=[TAG_PROD], signed=True,
            summary="Publica un producto en borrador (mismas reglas que el portal)",
+           description="Con la clave de la app va firmada por el dispositivo (§5 bis). Exige "
+                       "etapa, stock, y presentación y talla en el camarón de engorde. Publica "
+                       "con shrimp.product.action_publish, como el botón «Publicar» del portal.",
            response=PRODUCT_SCHEMA)
 def product_publish(ctx, id):
     product = ctx.get_own("shrimp.product", id, "El producto").sudo()
@@ -428,7 +499,12 @@ def product_publish(ctx, id):
     if (product.stage_id.code or "").strip().upper() == "ENGORDE" and (
             not product.presentation or not product.size_grade_id):
         raise invalid("El camarón de engorde necesita presentación y talla para publicarse.")
-    product.write({"state": "published", "published_date": fields.Datetime.now()})
+    problemas = _portal_publish_problems(product)
+    if problemas:
+        raise invalid(" ".join(problemas))
+    # El mismo método que el portal (suspensión, perfil rechazado, stock,
+    # vendedor y permiso «Vender» del subusuario).
+    product.action_publish()
     _notify_product(product, "shrimp_marketplace.mail_template_shrimp_product_published")
     return S.product_owner(product)
 

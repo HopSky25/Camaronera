@@ -222,7 +222,7 @@ curl -s -X POST https://TU-DOMINIO/api/v1/facilities \
 
 ## 5 bis. Dispositivos y firma de operaciones (app móvil)
 
-Contrato completo: `docs/app/CONTRATO-FIRMA-DISPOSITIVO.md` (versión 1.1). Solo afecta a las **claves de la
+Contrato completo: `docs/app/CONTRATO-FIRMA-DISPOSITIVO.md` (versión 1.2). Solo afecta a las **claves de la
 app** (`is_app_key`), es decir, las que emite `POST /auth/login`; las claves creadas a mano en el portal
 (ERP, integraciones) **no cambian**: ni registran dispositivos ni firman.
 
@@ -302,8 +302,9 @@ Rutas firmadas (con clave de la app): `POST /verifications`, `POST /verification
 `PATCH /verifications/{id}/report`, `POST /dispatches/{id}/arrival`, `PATCH /dispatches/{id}`,
 `POST /transactions/{id}:complete`, `POST /harvest/commitments/{id}:buy`,
 `POST /copack/requests/{id}/offers`, `POST /copack/orders/{id}:reception|:packing|:sign|:revert-signature|:reopen|:close`,
-`POST /me/active-role`, `POST /supervisor/act-as` y, desde 19.0.1.7.0 (contrato de mejoras de la app, §5 quater),
-`POST /verifications/{id}/photos` y `POST /purchases`. En `/api/v1/openapi.json` llevan `x-signed: true`. `POST /me/devices` se firma
+`POST /me/active-role`, `POST /supervisor/act-as`; desde 19.0.1.7.0 (contrato de mejoras de la app, §5 quater),
+`POST /verifications/{id}/photos` y `POST /purchases`, y desde 19.0.1.16.0 `POST /products/{id}:publish` (publicar un
+lote; crear y editar el borrador no se firman). En `/api/v1/openapi.json` llevan `x-signed: true`. `POST /me/devices` se firma
 solo para sustituir el dispositivo (`x-signed: "if-device"`). Las lecturas (GET), `/auth/login` y
 `/auth/logout` no se firman.
 
@@ -1033,13 +1034,13 @@ App móvil (§5 quater): `GET /public/app-version`, `POST /public/app-errors`. F
   `PATCH /verifications/{id}/report`, `POST /dispatches/{id}/arrival`, `PATCH /dispatches/{id}`,
   `POST /transactions/{id}:complete`, `POST /harvest/commitments/{id}:buy`, `POST /copack/requests/{id}/offers`,
   `POST /copack/orders/{id}:reception|:packing|:sign|:revert-signature|:reopen|:close`, `POST /me/active-role`,
-  `POST /verifications/{id}/photos` y `POST /purchases`
+  `POST /verifications/{id}/photos`, `POST /purchases` y `POST /products/{id}:publish`
 * App móvil (§5 quater): `GET /me/notifications`, `POST /me/notifications/{id}:read`,
   `POST /me/notifications:read-all`, `GET|POST /verifications/{id}/photos`, `POST /purchases`
 * Modo supervisor (§5 ter, solo clave de supervisor): `GET /supervisor/partners`, `POST /supervisor/act-as` (firmada)
 * Perfil: `GET /me`, `PATCH /me`, `POST /me/active-role`
 * Instalaciones: `GET|POST /facilities`, `GET|PATCH|PUT|DELETE /facilities/{id}`; piscinas: ídem en `/ponds`
-* Productos: `GET|POST /products`, `GET|PATCH|PUT|DELETE /products/{id}`, `POST /products/{id}:publish|:archive|:unarchive`, `GET|POST /products/{id}/evolutions`
+* Productos: `GET|POST /products`, `GET|PATCH|PUT|DELETE /products/{id}`, `POST /products/{id}:publish|:archive|:unarchive` (`:publish` firmada con la clave de la app), `GET|POST /products/{id}/evolutions`
 * Lotes: `GET /lots`, `GET /lots/{id}`, `GET /lots/{id}/moves`, `GET|POST /lots/{id}/allocations`
 * Compras/ventas: `POST /purchases` (compra directa, firmada), `GET /transactions`, `GET /transactions/{id}`, `GET /transactions/{id}/traceability`, `GET /transactions/{id}/traceability.pdf`, `POST /transactions/{id}:receive|:complete`, `POST /transactions/{id}/trace-token:rotate`, `GET /charges`
 * Chequeo: `GET /check-requests`, `GET /check-requests/{id}`, `POST /check-requests/{id}:approve|:reject`
@@ -1215,3 +1216,23 @@ Webhooks: `verification.acceptance_reverted`, `copack.signature_reverted`,
 * **D-46** — Claves: caducidad por defecto de 365 días, aviso 7 días antes (correo + portal), `401` con
   `"code": "key-expired"`, botón «Renovar». La migración da **un año desde la actualización** a las claves
   sin caducidad. Campos nuevos: `shrimp_api_key.expiry_notice_sent_at`, `shrimp_api_key.renewed_at`.
+
+---
+
+## Cambios de la versión 19.0.1.16.0 (publicar lotes desde la app)
+
+* **`POST /products/{id}:publish` va firmada** con la clave de la app (§5 bis): publicar es una operación
+  comercial y en la app se confirma con la huella. Crear el borrador (`POST /products`), editarlo (`PATCH`) y
+  retirarlo (`:archive`) no se firman. Las claves de integración (ERP) no cambian. Las versiones de la app sin
+  «Publicar lote» no usan esta ruta, así que no les afecta.
+* `:publish` publica con `shrimp.product.action_publish`, el mismo método que el botón «Publicar» del portal
+  (suspensión, perfil rechazado, stock, vendedor y permiso «Vender» del subusuario), y además exige la etapa:
+  un borrador sin etapa (la API anterior lo permitía y se conserva para los ERP) da 422 al publicarse.
+* Reglas del formulario del portal que la API no aplicaba (422 `validation-error`, con `errors[].field`):
+  - la etapa tiene que poder publicarla el perfil del lote (naupliero y laboratorio: nauplio y larva;
+    camaronera: camarón), como `STAGE_TIPOS_POR_ROL` del portal, al crear y al cambiar la etapa;
+  - presentación y talla solo en camarón (el portal las descarta en nauplio y larva; la API las rechaza);
+  - la instalación de origen no puede ser una bodega ni una oficina, y sin instalación no hay piscina.
+* `GET /public/catalogs/stages` devuelve `type` (`nauplio`, `larva` o `camaron`) para que la app ofrezca solo
+  las etapas que el perfil publica.
+* Fotos y certificados de un lote siguen siendo solo del portal (la API no los recibe).

@@ -60,7 +60,8 @@ class TestApiIsolation(ApiCase):
             "name": "x", "price": 1, "initial_qty": 1, "seller_partner_id": self.farm_a.id}), 422)
         # Una camaronera queda como camaronera (la API vieja la marcaba laboratorio).
         resp = self.api("POST", "/products", raw=self.raw_a, body={
-            "name": "Juvenil", "price": 3, "initial_qty": 10, "stage": self.stage_pl12.uuid_ref})
+            "name": "Juvenil", "price": 3, "initial_qty": 10,
+            "stage": self.env.ref("shrimp_marketplace.shrimp_stage_juvenil").uuid_ref})
         self.assertEqual(resp.status_code, 201, resp.text)
         self.assertEqual(resp.json()["seller_type"], "camaronera")
         # La empacadora no publica productos.

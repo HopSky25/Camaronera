@@ -43,8 +43,9 @@ class TestApiMultiPerfil(ApiCase):
         self.assertEqual(self.api("GET", "/me", raw=self.raw_lab).json()["active_role"], "camaronera")
 
     def _crear_producto(self, headers=None, path="/products", extra=None):
-        body = {"name": "Lote multiperfil", "initial_qty": 10, "price": 1.5,
-                "stage": self.stage_pl12.uuid_ref}
+        # Sin etapa: la PL12 no la puede publicar el perfil camaronera (regla
+        # del portal) y aquí solo se prueba con qué perfil nace el lote.
+        body = {"name": "Lote multiperfil", "initial_qty": 10, "price": 1.5}
         body.update(extra or {})
         return self.api("POST", path, raw=self.raw_lab, body=body, headers=headers)
 

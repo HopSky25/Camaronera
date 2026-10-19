@@ -41,6 +41,10 @@ enum TipoOperacion {
   // Vendedor: publicar un lote en borrador. Como la compra directa, no pasa
   // por la cola (Sincronizador.firmarPublicacionLote).
   publicarLote,
+  // Vendedor: cambiar precio, cantidad o unidad de un lote publicado y
+  // reactivar uno retirado (firmados, tampoco pasan por la cola).
+  editarLote,
+  reactivarLote,
   // Maquilador
   ofertaMaquila,
   recepcionMaquila,
@@ -168,6 +172,8 @@ class OperacionPendiente {
         TipoOperacion.compraVerificada => '/verifications',
         TipoOperacion.compraDirecta => '/purchases',
         TipoOperacion.publicarLote => '/products/$recursoId:publish',
+        TipoOperacion.editarLote => '/products/$recursoId:update-terms',
+        TipoOperacion.reactivarLote => '/products/$recursoId:unarchive',
         TipoOperacion.comprarReserva => '/harvest/commitments/$recursoId:buy',
         TipoOperacion.ofertaMaquila => '/copack/requests/$recursoId/offers',
         TipoOperacion.recepcionMaquila => '/copack/orders/$recursoId:reception',
@@ -192,6 +198,8 @@ class OperacionPendiente {
         TipoOperacion.compraVerificada => 'Compra con verificación',
         TipoOperacion.compraDirecta => 'Compra directa',
         TipoOperacion.publicarLote => 'Publicación del lote',
+        TipoOperacion.editarLote => 'Cambio de precio o cantidad del lote',
+        TipoOperacion.reactivarLote => 'Reactivación del lote',
         TipoOperacion.comprarReserva => 'Compra del lote reservado',
         TipoOperacion.ofertaMaquila => 'Oferta de empaque',
         TipoOperacion.recepcionMaquila => 'Recepción en planta',

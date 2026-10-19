@@ -14,6 +14,9 @@ import '../comunes/pantalla_informes.dart';
 import '../comunes/pantalla_transacciones.dart';
 import '../comunes/widgets.dart';
 import '../empacadora/pantalla_catalogo.dart';
+import '../../modelos/instalaciones.dart';
+import 'pantalla_instalaciones.dart';
+import 'pantalla_mis_certificados.dart';
 import 'pantalla_mis_lotes.dart';
 import 'pantalla_publicar_lote.dart';
 
@@ -108,7 +111,21 @@ class PanelVendedor extends StatelessWidget {
                           if (creado == true) await recargar();
                         },
                       ),
-                    FilaMenu(icono: Icons.inventory_outlined, titulo: 'Mis lotes', subtitulo: 'Publicados, en borrador y vendidos', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaMisLotes()))),
+                    FilaMenu(icono: Icons.inventory_outlined, titulo: 'Mis lotes', subtitulo: 'Editar, fotos, certificados, retirar y reactivar', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaMisLotes()))),
+                    if (puedePublicarLotes(perfil)) ...[
+                      FilaMenu(
+                        icono: Icons.agriculture_outlined,
+                        titulo: '${vocabularioDe(perfil).instalaciones} y ${vocabularioDe(perfil).piscinas.toLowerCase()}',
+                        subtitulo: 'El origen de tus lotes: crear, editar y archivar',
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaInstalaciones())),
+                      ),
+                      FilaMenu(
+                        icono: Icons.badge_outlined,
+                        titulo: 'Mis certificados',
+                        subtitulo: 'Los de tu cuenta, con su revisión',
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaMisCertificados())),
+                      ),
+                    ],
                     FilaMenu(icono: Icons.sell_outlined, titulo: 'Mis ventas', subtitulo: 'Estado y trazabilidad de cada venta', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaTransacciones(rol: 'seller')))),
                     FilaMenu(icono: Icons.fact_check_outlined, titulo: 'Informes de verificación', subtitulo: 'Ver el resultado y aceptar o rechazar', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaInformes(rol: 'seller')))),
                     FilaMenu(icono: Icons.local_shipping_outlined, titulo: 'Despacho', subtitulo: 'Programar la cosecha, la salida y el camión', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaDespachos()))),
@@ -118,8 +135,6 @@ class PanelVendedor extends StatelessWidget {
                       FilaMenu(icono: Icons.shopping_cart_outlined, titulo: 'Comprar larva', subtitulo: 'Zoea, mysis y postlarva: compra directa', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaCatalogo(tipoInicial: 'larva', titulo: 'Comprar larva')))),
                     if (perfil == 'laboratorio' && !soloLectura)
                       FilaMenu(icono: Icons.shopping_cart_outlined, titulo: 'Comprar nauplio', subtitulo: 'Nauplio de nauplieros y laboratorios: compra directa', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaCatalogo(tipoInicial: 'nauplio', titulo: 'Comprar nauplio')))),
-                    const SizedBox(height: 8),
-                    const AvisoWeb(texto: 'Editar un lote, cambiar su precio y agregar fotos o certificados se hace desde el portal web.'),
                   ],
                 ),
               );

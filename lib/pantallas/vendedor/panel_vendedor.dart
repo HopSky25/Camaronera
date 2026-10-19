@@ -105,7 +105,7 @@ class PanelVendedor extends StatelessWidget {
                     if (perfil == 'camaronera' && !soloLectura)
                       FilaMenu(icono: Icons.shopping_cart_outlined, titulo: 'Comprar larva', subtitulo: 'Lotes de laboratorio: compra directa', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaCatalogo(tipoInicial: 'laboratorio', titulo: 'Comprar larva')))),
                     if (perfil == 'laboratorio' && !soloLectura)
-                      FilaMenu(icono: Icons.shopping_cart_outlined, titulo: 'Comprar nauplio', subtitulo: 'Lotes de semillero: compra directa', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaCatalogo(tipoInicial: 'semillero', titulo: 'Comprar nauplio')))),
+                      FilaMenu(icono: Icons.shopping_cart_outlined, titulo: 'Comprar nauplio', subtitulo: 'Lotes de naupliero: compra directa', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaCatalogo(tipoInicial: 'semillero', titulo: 'Comprar nauplio')))),
                     const SizedBox(height: 8),
                     const AvisoWeb(texto: 'Publicar lotes nuevos, cambiar precios, certificados y fotos se hace desde el portal web.'),
                   ],

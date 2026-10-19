@@ -36,7 +36,7 @@ class Perfil {
 }
 
 String nombreDePerfil(String rol) => switch (rol) {
-      'semillero' => 'Semillero',
+      'semillero' => 'Naupliero',
       'laboratorio' => 'Laboratorio',
       'camaronera' => 'Camaronera',
       'empacadora' => 'Empacadora',
@@ -59,7 +59,8 @@ IconData iconoDePerfil(String rol) => switch (rol) {
 
 /// Qué hace cada perfil, en una frase para la pantalla de elección.
 String descripcionDePerfil(String rol) => switch (rol) {
-      'semillero' || 'laboratorio' => 'Vendes larva: lotes, ventas e informes',
+      'semillero' => 'Vendes nauplio: lotes, ventas e informes',
+      'laboratorio' => 'Vendes larva: lotes, ventas e informes',
       'camaronera' => 'Vendes camarón: lotes, ventas, informes y despacho',
       'empacadora' => 'Compras: informes, llegadas y ranking de proveedores',
       'maquilador' => 'Servicio de empaque: solicitudes, órdenes y tarifas',

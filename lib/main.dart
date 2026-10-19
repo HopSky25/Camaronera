@@ -12,6 +12,7 @@ import 'package:workmanager/workmanager.dart';
 import 'datos/api_cliente.dart';
 import 'datos/avisos.dart';
 import 'datos/base_local.dart';
+import 'datos/control_legal.dart';
 import 'datos/control_version.dart';
 import 'datos/notificaciones.dart';
 import 'datos/reporte_errores.dart';
@@ -23,6 +24,7 @@ import 'navegacion/destinos.dart';
 import 'navegacion/enrutador.dart';
 import 'pantallas/empacadora/panel_empacadora.dart';
 import 'pantallas/inicio/pantalla_actualizar.dart';
+import 'pantallas/inicio/pantalla_documentos_legales.dart';
 import 'pantallas/inicio/pantalla_elegir_perfil.dart';
 import 'pantallas/inicio/pantalla_inicio_sesion.dart';
 import 'pantallas/maquilador/panel_maquilador.dart';
@@ -87,6 +89,20 @@ class AppCamaronMarket extends StatelessWidget {
           sesion.listo.then((_) => reporteErrores.enviar());
           return control;
         }),
+        ChangeNotifierProvider(create: (c) {
+          final sesion = c.read<Sesion>();
+          final control = ControlLegal(
+            consultarMe: () => sesion.apiOperativa?.quienSoy,
+            esSupervisor: () => sesion.esSupervisor,
+          );
+          // Cualquier 403 legal-acceptance-required (documentos legales
+          // nuevos por aceptar) muestra «Acepta los documentos actualizados».
+          ApiCliente.alDocumentosPendientes = control.alRecibir;
+          sesion.addListener(() {
+            if (!sesion.conectado && control.pendiente) control.limpiar();
+          });
+          return control;
+        }),
         ChangeNotifierProvider(
             create: (c) => ServicioAvisos(sesion: c.read<Sesion>(), notificador: notificaciones, atenderFondo: true)),
         Provider<Enrutador>(
@@ -133,7 +149,7 @@ class AppCamaronMarket extends StatelessWidget {
           // sigue donde se estaba (p. ej. un informe a medio llenar). En
           // modo supervisor, la franja "Viendo como…" queda fija arriba.
           builder: (context, child) =>
-              _CapaVersion(child: _CapaBloqueo(child: CapaSupervisor(child: child ?? const SizedBox()))),
+              _CapaVersion(child: _CapaBloqueo(child: _CapaLegal(child: CapaSupervisor(child: child ?? const SizedBox())))),
           home: const _Raiz(),
         ),
       ),
@@ -202,7 +218,10 @@ class _CapaVersion extends StatelessWidget {
   Widget build(BuildContext context) {
     final obligatoria = context.select<ControlVersion, bool>((c) => c.obligatoria);
     if (obligatoria) FocusManager.instance.primaryFocus?.unfocus();
-    return Stack(children: [
+    // StackFit.expand en las tres capas: con la app oculta (Offstage) el
+    // Stack tomaría el tamaño de ese hijo (cero) y la pantalla de encima
+    // se dibujaría en 0×0: negro.
+    return Stack(fit: StackFit.expand, children: [
       Offstage(offstage: obligatoria, child: TickerMode(enabled: !obligatoria, child: child)),
       if (obligatoria)
         Positioned.fill(
@@ -219,6 +238,51 @@ class _CapaVersion extends StatelessWidget {
   }
 }
 
+/// Documentos legales nuevos por aceptar: «Acepta los documentos
+/// actualizados» tapa la app (debajo del desbloqueo). Al volver del
+/// navegador se comprueba solo si ya se aceptaron.
+class _CapaLegal extends StatefulWidget {
+  final Widget child;
+  const _CapaLegal({required this.child});
+  @override
+  State<_CapaLegal> createState() => _CapaLegalState();
+}
+
+class _CapaLegalState extends State<_CapaLegal> {
+  late final AppLifecycleListener _ciclo;
+
+  @override
+  void initState() {
+    super.initState();
+    _ciclo = AppLifecycleListener(onResume: () {
+      final cl = context.read<ControlLegal>();
+      if (cl.pendiente) cl.comprobar();
+    });
+  }
+
+  @override
+  void dispose() {
+    _ciclo.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pendiente = context.select<ControlLegal, bool>((c) => c.pendiente);
+    if (pendiente) FocusManager.instance.primaryFocus?.unfocus();
+    return Stack(fit: StackFit.expand, children: [
+      Offstage(offstage: pendiente, child: TickerMode(enabled: !pendiente, child: widget.child)),
+      if (pendiente)
+        Positioned.fill(
+          // HeroControllerScope.none: ver _CapaVersion.
+          child: HeroControllerScope.none(
+            child: Navigator(onGenerateRoute: (_) => MaterialPageRoute(builder: (_) => const PantallaDocumentosLegales())),
+          ),
+        ),
+    ]);
+  }
+}
+
 class _CapaBloqueo extends StatelessWidget {
   final Widget child;
   const _CapaBloqueo({required this.child});
@@ -227,7 +291,7 @@ class _CapaBloqueo extends StatelessWidget {
   Widget build(BuildContext context) {
     final bloqueada = context.select<Sesion, bool>((s) => s.bloqueada);
     if (bloqueada) FocusManager.instance.primaryFocus?.unfocus();
-    return Stack(children: [
+    return Stack(fit: StackFit.expand, children: [
       // Debajo no se pinta nada mientras está bloqueada (Offstage), pero
       // las pantallas abiertas conservan su estado.
       Offstage(offstage: bloqueada, child: TickerMode(enabled: !bloqueada, child: child)),

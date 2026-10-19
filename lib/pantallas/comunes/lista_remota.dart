@@ -2,12 +2,52 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../datos/api_cliente.dart';
+import '../../datos/control_legal.dart';
 import '../../datos/repositorio.dart';
 import '../../tema.dart';
 import 'widgets.dart';
 
 /// Lista de la API con paginación por cursor, deslizar para actualizar y la
 /// última respuesta guardada cuando no hay señal.
+/// Recarga la pantalla cuando se quita el bloqueo de documentos legales: lo
+/// que se pidió mientras tanto llegó vacío o con error (403
+/// legal-acceptance-required). Sin [ControlLegal] (pruebas) no hace nada.
+mixin RecargaTrasDocumentos<W extends StatefulWidget> on State<W> {
+  ControlLegal? _legal;
+  bool _legalPendiente = false;
+
+  Future<void> recargarTrasDocumentos();
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    ControlLegal? cl;
+    try {
+      cl = context.read<ControlLegal>();
+    } on ProviderNotFoundException {
+      cl = null;
+    }
+    if (identical(cl, _legal)) return;
+    _legal?.removeListener(_alCambiarLegal);
+    _legal = cl;
+    _legalPendiente = cl?.pendiente ?? false;
+    cl?.addListener(_alCambiarLegal);
+  }
+
+  void _alCambiarLegal() {
+    final ahora = _legal?.pendiente ?? false;
+    final antes = _legalPendiente;
+    _legalPendiente = ahora;
+    if (antes && !ahora && mounted) recargarTrasDocumentos();
+  }
+
+  @override
+  void dispose() {
+    _legal?.removeListener(_alCambiarLegal);
+    super.dispose();
+  }
+}
+
 class ListaRemota extends StatefulWidget {
   final String ruta;
   final Map<String, String>? params;
@@ -31,7 +71,10 @@ class ListaRemota extends StatefulWidget {
   State<ListaRemota> createState() => ListaRemotaState();
 }
 
-class ListaRemotaState extends State<ListaRemota> {
+class ListaRemotaState extends State<ListaRemota> with RecargaTrasDocumentos<ListaRemota> {
+  @override
+  Future<void> recargarTrasDocumentos() => recargar();
+
   List<Map<String, dynamic>> _datos = [];
   String? _cursor;
   bool _cargando = true;
@@ -152,7 +195,10 @@ class CargaRemota<T> extends StatefulWidget {
   State<CargaRemota<T>> createState() => _CargaRemotaState<T>();
 }
 
-class _CargaRemotaState<T> extends State<CargaRemota<T>> {
+class _CargaRemotaState<T> extends State<CargaRemota<T>> with RecargaTrasDocumentos<CargaRemota<T>> {
+  @override
+  Future<void> recargarTrasDocumentos() => _recargar();
+
   T? _datos;
   bool _cargando = true;
   String? _error;

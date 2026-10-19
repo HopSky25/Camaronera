@@ -42,6 +42,10 @@ class ErrorApi implements Exception {
   /// La operación tiene que volver a firmarse (botón en Pendientes).
   bool get pideFirmarDeNuevo => const {'signature-expired', 'signature-required', 'invalid-signature'}.contains(tipo);
 
+  /// Hay versiones nuevas de documentos legales que la persona tiene que
+  /// aceptar en el portal antes de seguir (403 legal-acceptance-required).
+  bool get pideAceptarDocumentos => tipo == 'legal-acceptance-required';
+
   /// Texto para la gente de campo, sin jerga.
   String get mensaje => exigeActualizar
       ? 'Esta versión de la app ya no se admite. Actualízala para seguir.'
@@ -49,6 +53,13 @@ class ErrorApi implements Exception {
         'invalid-credentials' => 'Correo o contraseña incorrectos.',
         'user-not-allowed' => 'Tu usuario no puede entrar a la app. Escribe a soporte de CamaronMarket.',
         'account-not-approved' => 'Tu cuenta todavía no está aprobada. Te avisaremos por correo cuando lo esté.',
+        'account-pending' => detalle.isEmpty
+            ? 'Tu cuenta está pendiente de aprobación: mientras tanto solo puedes consultar.'
+            : detalle,
+        'account-rejected' => detalle.isEmpty ? 'La plataforma rechazó tu cuenta.' : detalle,
+        'account-suspended' => detalle.isEmpty ? 'Tu cuenta está suspendida.' : detalle,
+        'legal-acceptance-required' => 'Hay documentos legales actualizados que debes aceptar en el portal antes de seguir.',
+        'permission-denied' => detalle.isEmpty ? 'El administrador de tu cuenta no te dio permiso para esto.' : detalle,
         'rate-limited' => 'Demasiados intentos seguidos. Espera un momento y vuelve a probar.',
         'missing-api-key' || 'invalid-api-key' => 'La clave de API no es válida.',
         'expired-api-key' => 'La sesión caducó. Vuelve a entrar.',
@@ -160,6 +171,10 @@ class ApiCliente {
   /// de las rutas públicas): la app muestra "Actualiza la app" (C1).
   static void Function(ErrorApi error)? alActualizacionObligatoria;
 
+  /// Se llama con cualquier 403 `legal-acceptance-required` de una petición
+  /// con sesión: la app muestra «Acepta los documentos actualizados».
+  static void Function(ErrorApi error)? alDocumentosPendientes;
+
   static Future<Map<String, dynamic>> _enviarSinSesion(Future<http.Response> Function() llamada) async {
     http.Response resp;
     try {
@@ -228,6 +243,7 @@ class ApiCliente {
     } on ErrorApi catch (e) {
       if (e.esNoAutorizado) alNoAutorizado?.call(e);
       if (e.dispositivoRevocado || e.dispositivoNoRegistrado) alErrorDispositivo?.call(e);
+      if (e.pideAceptarDocumentos) alDocumentosPendientes?.call(e);
       if (soloLectura && e.tipo == 'insufficient-scope') throw e._deSoloLectura();
       rethrow;
     }

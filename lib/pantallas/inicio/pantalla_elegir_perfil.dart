@@ -43,7 +43,7 @@ class _PantallaElegirPerfilState extends State<PantallaElegirPerfil> {
     final supervisor = sesion.soloLectura;
     return Scaffold(
       appBar: AppBar(
-        title: Image.asset('assets/logo.png', height: 30),
+        title: const LogoMarca(),
         actions: [
           if (supervisor)
             TextButton.icon(
@@ -65,7 +65,7 @@ class _PantallaElegirPerfilState extends State<PantallaElegirPerfil> {
           Text(supervisor ? sesion.nombre : 'Hola, ${sesion.nombre}', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 6),
           Text(supervisor ? '¿Con qué perfil quieres ver su app?' : '¿Con qué perfil quieres trabajar?',
-              style: const TextStyle(fontSize: 16, color: Marca.tintaSuave)),
+              style: TextStyle(fontSize: 16, color: context.colores.tintaSuave)),
           const SizedBox(height: 18),
           if (_error != null) ...[CajaError(texto: _error!), const SizedBox(height: 12)],
           if (perfiles.isEmpty)
@@ -74,7 +74,7 @@ class _PantallaElegirPerfilState extends State<PantallaElegirPerfil> {
                   supervisor
                       ? 'Este socio todavía no tiene perfiles.'
                       : 'Tu cuenta todavía no tiene perfiles. Pídelos desde el portal web.',
-                  style: const TextStyle(color: Marca.tintaSuave)),
+                  style: TextStyle(color: context.colores.tintaSuave)),
             ),
           for (final p in ordenados) ...[
             _TarjetaPerfil(
@@ -90,7 +90,7 @@ class _PantallaElegirPerfilState extends State<PantallaElegirPerfil> {
                   ? 'Elegir un perfil aquí no cambia nada en la cuenta del socio: solo decide qué parte de su app ves.'
                   : 'Puedes cambiar de perfil cuando quieras desde el menú de la cuenta.',
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Marca.tintaSuave, fontSize: 13)),
+              style: TextStyle(color: context.colores.tintaSuave, fontSize: 13)),
         ],
       ),
     );
@@ -116,18 +116,18 @@ class _TarjetaPerfil extends StatelessWidget {
             width: 60,
             height: 60,
             decoration: BoxDecoration(
-              color: activo ? Marca.tealClaro : Marca.fondoSuave,
+              color: activo ? context.colores.marcaSuave : context.colores.fondoAlt,
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Icon(iconoDePerfil(perfil.rol), size: 32, color: activo ? Marca.brand : Marca.gris),
+            child: Icon(iconoDePerfil(perfil.rol), size: 32, color: activo ? context.colores.marcaTexto : context.colores.tintaTenue),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(perfil.etiqueta, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Marca.navy)),
+              Text(perfil.etiqueta, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: context.colores.titulo)),
               const SizedBox(height: 4),
               Text(activo ? descripcionDePerfil(perfil.rol) : 'Pendiente de aprobación',
-                  style: TextStyle(fontSize: 13, color: activo ? Marca.tintaSuave : Marca.ambar, fontWeight: activo ? FontWeight.w400 : FontWeight.w700)),
+                  style: TextStyle(fontSize: 13, color: activo ? context.colores.tintaSuave : context.colores.advertenciaTexto, fontWeight: activo ? FontWeight.w400 : FontWeight.w700)),
               const SizedBox(height: 8),
               Insignia(estado: activo ? 'approved' : 'in_field', texto: activo ? (perfil.activo ? 'Aprobado · activo en el portal' : 'Aprobado') : 'Pendiente'),
             ]),
@@ -135,7 +135,7 @@ class _TarjetaPerfil extends StatelessWidget {
           if (ocupado)
             const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2))
           else if (activo)
-            const Icon(Icons.chevron_right, color: Marca.gris),
+            Icon(Icons.chevron_right, color: context.colores.tintaTenue),
         ]),
       ),
     );

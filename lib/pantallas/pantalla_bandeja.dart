@@ -54,7 +54,7 @@ class _PantallaBandejaState extends State<PantallaBandeja> {
           if (sinTecnico > 0)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-              child: Text('$sinTecnico sin técnico asignado', style: const TextStyle(fontSize: 13, color: Marca.ambar, fontWeight: FontWeight.w700)),
+              child: Text('$sinTecnico sin técnico asignado', style: TextStyle(fontSize: 13, color: context.colores.advertenciaTexto, fontWeight: FontWeight.w700)),
             ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -74,7 +74,7 @@ class _PantallaBandejaState extends State<PantallaBandeja> {
           ),
           Expanded(
             child: RefreshIndicator(
-              color: Marca.brand,
+              color: context.colores.marcaTexto,
               onRefresh: sinc.sincronizar,
               child: lista.isEmpty
                   ? const VacioLista(texto: 'No hay verificaciones en esta lista.\nDesliza hacia abajo para sincronizar.')
@@ -98,7 +98,7 @@ class _TarjetaVerificacion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (_, colorEstado) = Marca.insignia(v.estado);
+    final (_, colorEstado) = context.colores.insignia(v.estado);
     return TarjetaRegistro(
       titulo: v.referencia,
       subtitulo: v.producto.nombre,
@@ -112,7 +112,7 @@ class _TarjetaVerificacion extends StatelessWidget {
           Dato(
             icono: Icons.engineering_outlined,
             texto: v.tecnico?.nombre ?? 'Sin técnico asignado',
-            color: v.tecnico == null && !v.cerrada ? Marca.ambar : null,
+            color: v.tecnico == null && !v.cerrada ? context.colores.advertenciaTexto : null,
           ),
         if (v.despachoEta != null)
           Dato(

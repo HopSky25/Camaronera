@@ -121,7 +121,7 @@ class PantallaLotePublico extends StatelessWidget {
           final certificados = (p['certificates'] as List?) ?? [];
           final valoracion = p['seller_rating'] is Map ? p['seller_rating'] as Map : {};
           return RefreshIndicator(
-            color: Marca.brand,
+            color: context.colores.marcaTexto,
             onRefresh: recargar,
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
@@ -502,7 +502,7 @@ class PantallaCompraHecha extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Compra registrada')),
       body: ListView(padding: const EdgeInsets.fromLTRB(16, 24, 16, 32), children: [
-        const Icon(Icons.check_circle_outline, size: 64, color: Marca.verde),
+        Icon(Icons.check_circle_outline, size: 64, color: context.colores.exitoTexto),
         const SizedBox(height: 12),
         Text('¡Compra registrada!', textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 16),

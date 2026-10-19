@@ -52,7 +52,7 @@ class PanelEmpacadora extends StatelessWidget {
               final top = filas.take(3).toList();
 
               return RefreshIndicator(
-                color: Marca.brand,
+                color: context.colores.marcaTexto,
                 onRefresh: recargar,
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
@@ -64,7 +64,7 @@ class PanelEmpacadora extends StatelessWidget {
                         valor: '${compras.length}',
                         titulo: 'Compras en curso',
                         detalle: _resumenEstados(compras),
-                        color: Marca.navy,
+                        color: context.colores.marcaTexto,
                         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaTransacciones(rol: 'buyer'))),
                       ),
                       TarjetaResumen(
@@ -72,7 +72,7 @@ class PanelEmpacadora extends StatelessWidget {
                         valor: '${informes.length}',
                         titulo: 'Informes por aceptar',
                         detalle: informes.isEmpty ? 'Nada pendiente' : 'Esperan tu decisión',
-                        color: informes.isEmpty ? Marca.verde : Marca.ambar,
+                        color: informes.isEmpty ? context.colores.exitoTexto : context.colores.advertenciaTexto,
                         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaInformes(rol: 'buyer'))),
                       ),
                       TarjetaResumen(
@@ -87,7 +87,7 @@ class PanelEmpacadora extends StatelessWidget {
                         valor: '${ranking['suppliers'] ?? filas.length}',
                         titulo: 'Proveedores en el ranking',
                         detalle: '${ranking['lots'] ?? 0} lotes verificados',
-                        color: Marca.brand,
+                        color: context.colores.acentoTexto,
                         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaRanking())),
                       ),
                     ]),
@@ -102,16 +102,16 @@ class PanelEmpacadora extends StatelessWidget {
                             Padding(
                               padding: const EdgeInsets.symmetric(vertical: 10),
                               child: Row(children: [
-                                CircleAvatar(radius: 14, backgroundColor: Marca.tealClaro, child: Text('${i + 1}', style: const TextStyle(fontWeight: FontWeight.w800, color: Marca.brand, fontSize: 13))),
+                                CircleAvatar(radius: 14, backgroundColor: context.colores.marcaSuave, child: Text('${i + 1}', style: TextStyle(fontWeight: FontWeight.w800, color: context.colores.marcaTexto, fontSize: 13))),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                    Text(nombreDe(top[i]['supplier']), style: const TextStyle(fontWeight: FontWeight.w700, color: Marca.navy)),
+                                    Text(nombreDe(top[i]['supplier']), style: TextStyle(fontWeight: FontWeight.w700, color: context.colores.titulo)),
                                     Text('Rendimiento ${porcentaje(top[i]['rendimiento'])} · clase A ${porcentaje(top[i]['clase_a'])} · ${entero(top[i]['lotes'])} lotes',
-                                        style: const TextStyle(fontSize: 12.5, color: Marca.tintaSuave)),
+                                        style: TextStyle(fontSize: 12.5, color: context.colores.tintaSuave)),
                                   ]),
                                 ),
-                                Text(numero(top[i]['puntaje']), style: const TextStyle(fontWeight: FontWeight.w800, color: Marca.brand)),
+                                Text(numero(top[i]['puntaje']), style: TextStyle(fontWeight: FontWeight.w800, color: context.colores.marcaTexto)),
                               ]),
                             ),
                           ],

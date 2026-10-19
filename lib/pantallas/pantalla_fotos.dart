@@ -80,7 +80,7 @@ class _PantallaFotosState extends State<PantallaFotos> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(texto),
-      backgroundColor: error ? Marca.rojo : null,
+      backgroundColor: error ? context.colores.peligro : null,
       duration: Duration(seconds: error ? 6 : 3),
     ));
   }
@@ -183,14 +183,14 @@ class _PantallaFotosState extends State<PantallaFotos> {
                       child: Tarjeta(
                         padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
                         child: Row(children: [
-                          const Icon(Icons.fingerprint, color: Marca.ambar),
+                          Icon(Icons.fingerprint, color: context.colores.advertenciaTexto),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
                                 sinConfirmar.length == 1
                                     ? '1 foto guardada sin confirmar.'
                                     : '${sinConfirmar.length} fotos guardadas sin confirmar.',
-                                style: const TextStyle(color: Marca.ambar, fontWeight: FontWeight.w600)),
+                                style: TextStyle(color: context.colores.advertenciaTexto, fontWeight: FontWeight.w600)),
                           ),
                           TextButton(onPressed: _subiendo ? null : () => _subir(sinConfirmar), child: const Text('Subir')),
                         ]),
@@ -218,11 +218,11 @@ class _PantallaFotosState extends State<PantallaFotos> {
 }
 
 /// Texto, icono y color de cada estado.
-(String, IconData, Color) aspectoDeEstadoFoto(EstadoFoto e) => switch (e) {
-      EstadoFoto.sinConfirmar => ('Sin confirmar', Icons.fingerprint, Marca.ambar),
-      EstadoFoto.pendiente => ('Pendiente', Icons.cloud_upload_outlined, Marca.navy),
-      EstadoFoto.subida => ('Subida', Icons.cloud_done_outlined, Marca.verde),
-      EstadoFoto.error => ('Error', Icons.error_outline, Marca.rojo),
+(String, IconData, Color) aspectoDeEstadoFoto(EstadoFoto e, ColoresMarca c) => switch (e) {
+      EstadoFoto.sinConfirmar => ('Sin confirmar', Icons.fingerprint, c.advertenciaTexto),
+      EstadoFoto.pendiente => ('Pendiente', Icons.cloud_upload_outlined, c.marcaTexto),
+      EstadoFoto.subida => ('Subida', Icons.cloud_done_outlined, c.exitoTexto),
+      EstadoFoto.error => ('Error', Icons.error_outline, c.peligroTexto),
     };
 
 class _Miniatura extends StatelessWidget {
@@ -232,7 +232,7 @@ class _Miniatura extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (texto, icono, color) = aspectoDeEstadoFoto(foto.estado);
+    final (texto, icono, color) = aspectoDeEstadoFoto(foto.estado, context.colores);
     return GestureDetector(
       onTap: onTap,
       child: ClipRRect(
@@ -242,9 +242,9 @@ class _Miniatura extends StatelessWidget {
             File(foto.ruta),
             fit: BoxFit.cover,
             cacheWidth: 300,
-            errorBuilder: (_, _, _) => const ColoredBox(
-              color: Marca.fondoSuave,
-              child: Icon(Icons.broken_image_outlined, color: Marca.gris),
+            errorBuilder: (_, _, _) => ColoredBox(
+              color: context.colores.fondoAlt,
+              child: Icon(Icons.broken_image_outlined, color: context.colores.tintaTenue),
             ),
           ),
           Positioned(
@@ -253,7 +253,7 @@ class _Miniatura extends StatelessWidget {
             bottom: 4,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.92), borderRadius: BorderRadius.circular(8)),
+              decoration: BoxDecoration(color: context.colores.superficie.withValues(alpha: 0.92), borderRadius: BorderRadius.circular(8)),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
                 Icon(icono, size: 14, color: color),
                 const SizedBox(width: 4),

@@ -60,7 +60,7 @@ class _PantallaOrdenesState extends State<PantallaOrdenes> {
           datos: [
             Dato(icono: Icons.business_outlined, texto: o['my_role'] == 'copacker' ? nombreDe(o['client']) : nombreDe(o['copacker'])),
             if (o['product'] is Map) Dato(icono: Icons.inventory_outlined, texto: nombreDe(o['product'])),
-            if (o['acceptance_state'] != 'na') Dato(icono: Icons.draw_outlined, texto: 'Acta: ${estadoActa(o['acceptance_state'] as String?)}', color: o['acceptance_state'] == 'open' ? Marca.ambar : null),
+            if (o['acceptance_state'] != 'na') Dato(icono: Icons.draw_outlined, texto: 'Acta: ${estadoActa(o['acceptance_state'] as String?)}', color: o['acceptance_state'] == 'open' ? context.colores.advertenciaTexto : null),
           ],
         ),
       ),
@@ -102,7 +102,7 @@ class _Detalle extends StatelessWidget {
     final hayAcciones = (soyMaquilador && (estado == 'confirmed' || estado == 'received')) || puedoFirmar;
 
     return RefreshIndicator(
-      color: Marca.brand,
+      color: context.colores.marcaTexto,
       onRefresh: recargar,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
@@ -153,7 +153,7 @@ class _Detalle extends StatelessWidget {
           ],
           if (puedoFirmar) ...[
             BotonAccion(
-              estilo: FilledButton.styleFrom(backgroundColor: Marca.verde),
+              estilo: FilledButton.styleFrom(backgroundColor: context.colores.exito),
               onPressed: () => _firmar(context, 'accepted'),
               icono: Icons.draw_outlined,
               texto: 'Firmar el acta (conforme)',
@@ -161,7 +161,7 @@ class _Detalle extends StatelessWidget {
             const SizedBox(height: 10),
             BotonAccion(
               relleno: false,
-              estilo: OutlinedButton.styleFrom(foregroundColor: Marca.rojo, side: const BorderSide(color: Marca.rojo, width: 1.5)),
+              estilo: EstilosBoton.peligro(context),
               onPressed: () => _firmar(context, 'rejected'),
               icono: Icons.cancel_outlined,
               texto: 'No conforme',
@@ -170,7 +170,7 @@ class _Detalle extends StatelessWidget {
           ],
           ],
           if (estado == 'closed' || estado == 'cancelled')
-            const Tarjeta(child: Text('Esta orden está cerrada. Puedes consultarla, pero ya no se edita.', style: TextStyle(color: Marca.tintaSuave)))
+            Tarjeta(child: Text('Esta orden está cerrada. Puedes consultarla, pero ya no se edita.', style: TextStyle(color: context.colores.tintaSuave)))
           else
             const AvisoWeb(texto: 'Deshacer una firma, reabrir el acta en disputa o cancelar la orden se hace desde el portal web.'),
         ],
@@ -236,7 +236,7 @@ class _Detalle extends StatelessWidget {
           const SizedBox(height: 10),
           TextField(controller: cajas, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Cajas')),
           const SizedBox(height: 8),
-          const Text('Al registrar el empaque se abre el acta de cuadre a la firma de las dos partes.', style: TextStyle(fontSize: 12.5, color: Marca.tintaSuave)),
+          Text('Al registrar el empaque se abre el acta de cuadre a la firma de las dos partes.', style: TextStyle(fontSize: 12.5, color: context.colores.tintaSuave)),
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancelar')),

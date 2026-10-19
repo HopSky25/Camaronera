@@ -51,7 +51,7 @@ class PantallaTarifa extends StatelessWidget {
           final t = r.datos.first;
           final lineas = ((t['lines'] as List?) ?? []).whereType<Map>().toList();
           return RefreshIndicator(
-            color: Marca.brand,
+            color: context.colores.marcaTexto,
             onRefresh: recargar,
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),

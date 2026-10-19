@@ -44,14 +44,14 @@ class PantallaPendientes extends StatelessWidget {
                   Tarjeta(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Row(children: [
-                        const Icon(Icons.fingerprint, color: Marca.ambar),
+                        Icon(Icons.fingerprint, color: context.colores.advertenciaTexto),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
                             porConfirmar.length == 1
                                 ? '1 envío espera tu confirmación con huella o PIN.'
                                 : '${porConfirmar.length} envíos esperan tu confirmación con huella o PIN.',
-                            style: const TextStyle(fontWeight: FontWeight.w700, color: Marca.navy),
+                            style: TextStyle(fontWeight: FontWeight.w700, color: context.colores.titulo),
                           ),
                         ),
                       ]),
@@ -115,7 +115,7 @@ class PantallaPendientes extends StatelessWidget {
       await sinc.volverAFirmar(op);
     } on ErrorSeguridad catch (e) {
       if (context.mounted && !e.cancelado) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.mensaje), backgroundColor: Marca.rojo));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.mensaje), backgroundColor: context.colores.peligro));
       }
     }
   }
@@ -128,7 +128,7 @@ class PantallaPendientes extends StatelessWidget {
         await sinc.volverAFirmar(op);
       } on ErrorSeguridad catch (e) {
         if (context.mounted && !e.cancelado) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.mensaje), backgroundColor: Marca.rojo));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.mensaje), backgroundColor: context.colores.peligro));
         }
         return;
       }
@@ -144,7 +144,7 @@ class PantallaPendientes extends StatelessWidget {
         actions: [
           TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('No')),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Marca.rojo),
+            style: FilledButton.styleFrom(backgroundColor: context.colores.peligro),
             onPressed: () => Navigator.pop(c, true),
             child: const Text('Descartar'),
           ),
@@ -172,26 +172,26 @@ class _FilaPendiente extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (icono, color, estado) = porConfirmar
-        ? (Icons.fingerprint, Marca.ambar, op.ultimoError ?? 'Falta confirmarla con tu huella o PIN.')
+        ? (Icons.fingerprint, context.colores.advertenciaTexto, op.ultimoError ?? 'Falta confirmarla con tu huella o PIN.')
         : op.conError
-        ? (Icons.error_outline, Marca.rojo, 'El servidor no lo aceptó: ${op.ultimoError}')
+        ? (Icons.error_outline, context.colores.peligroTexto, 'El servidor no lo aceptó: ${op.ultimoError}')
         : bloqueada
-            ? (Icons.hourglass_top_outlined, Marca.ambar, 'Espera: antes hay un envío rechazado de este mismo registro.')
-            : (Icons.schedule, Marca.brand, 'Se enviará cuando haya internet.');
+            ? (Icons.hourglass_top_outlined, context.colores.advertenciaTexto, 'Espera: antes hay un envío rechazado de este mismo registro.')
+            : (Icons.schedule, context.colores.marcaTexto, 'Se enviará cuando haya internet.');
     return Tarjeta(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Icon(icono, color: color),
           const SizedBox(width: 10),
-          Expanded(child: Text(op.descripcion, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Marca.navy))),
-          Text(fechaHoraDe(op.creadaEn), style: const TextStyle(fontSize: 12.5, color: Marca.tintaSuave)),
+          Expanded(child: Text(op.descripcion, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: context.colores.titulo))),
+          Text(fechaHoraDe(op.creadaEn), style: TextStyle(fontSize: 12.5, color: context.colores.tintaSuave)),
         ]),
         const SizedBox(height: 6),
-        Text(estado, style: TextStyle(fontSize: 14, color: porConfirmar ? Marca.ambar : op.conError ? Marca.rojo : Marca.tintaSuave)),
+        Text(estado, style: TextStyle(fontSize: 14, color: porConfirmar ? context.colores.advertenciaTexto : op.conError ? context.colores.peligroTexto : context.colores.tintaSuave)),
         if (porConfirmar)
           Row(mainAxisAlignment: MainAxisAlignment.end, children: [
             TextButton.icon(
-              style: TextButton.styleFrom(foregroundColor: Marca.rojo),
+              style: TextButton.styleFrom(foregroundColor: context.colores.peligroTexto),
               onPressed: onDescartar,
               icon: const Icon(Icons.delete_outline),
               label: const Text('Descartar'),
@@ -201,11 +201,11 @@ class _FilaPendiente extends StatelessWidget {
           ])
         else if (op.conError) ...[
           const SizedBox(height: 4),
-          Text('Intentos: ${op.intentos}', style: const TextStyle(fontSize: 12.5, color: Marca.tintaSuave)),
+          Text('Intentos: ${op.intentos}', style: TextStyle(fontSize: 12.5, color: context.colores.tintaSuave)),
           Align(
             alignment: Alignment.centerRight,
             child: TextButton.icon(
-              style: TextButton.styleFrom(foregroundColor: Marca.rojo),
+              style: TextButton.styleFrom(foregroundColor: context.colores.peligroTexto),
               onPressed: onDescartar,
               icon: const Icon(Icons.delete_outline),
               label: const Text('Descartar'),

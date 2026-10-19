@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../datos/api_cliente.dart';
@@ -55,24 +56,29 @@ class _PantallaInicioSesionState extends State<PantallaInicioSesion> {
     return Scaffold(
       body: Column(
         children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(24, 72, 24, 32),
-            decoration: const BoxDecoration(gradient: Marca.degradado),
-            child: Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
-                  child: Image.asset('assets/logo.png', height: 40),
-                ),
-                const SizedBox(height: 18),
-                const Text('Entra con tu cuenta', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800)),
-                const SizedBox(height: 6),
-                Text('La misma cuenta del portal de CamaronMarket.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 14)),
-              ],
+          // Cabecera en el degradado de la marca (igual en claro y en
+          // oscuro, como el banner del portal).
+          AnnotatedRegion<SystemUiOverlayStyle>(
+            value: SystemUiOverlayStyle.light.copyWith(statusBarColor: Colors.transparent),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(24, 72, 24, 32),
+              decoration: const BoxDecoration(gradient: ColoresMarca.degradado),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+                    child: Image.asset('assets/logo.png', height: 40, semanticLabel: 'CamaronMarket'),
+                  ),
+                  const SizedBox(height: 18),
+                  const Text('Entra con tu cuenta',
+                      style: TextStyle(color: ColoresMarca.sobreBanda, fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -0.4)),
+                  const SizedBox(height: 6),
+                  const Text('La misma cuenta del portal de CamaronMarket.',
+                      textAlign: TextAlign.center, style: TextStyle(color: ColoresMarca.sobreBandaSuave, fontSize: 14)),
+                ],
+              ),
             ),
           ),
           Expanded(
@@ -80,15 +86,7 @@ class _PantallaInicioSesionState extends State<PantallaInicioSesion> {
               padding: const EdgeInsets.all(24),
               children: [
                 if (aviso != null) ...[
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: const Color(0xFFFDF1E0), borderRadius: BorderRadius.circular(12)),
-                    child: Row(children: [
-                      const Icon(Icons.info_outline, color: Marca.ambar),
-                      const SizedBox(width: 10),
-                      Expanded(child: Text(aviso, style: const TextStyle(color: Marca.ambar))),
-                    ]),
-                  ),
+                  CajaAviso(tipo: TipoAviso.advertencia, icono: Icons.info_outline, tamTexto: 14.5, texto: aviso),
                   const SizedBox(height: 8),
                 ],
                 const Rotulo('Cuenta'),
@@ -144,11 +142,11 @@ class _PantallaInicioSesionState extends State<PantallaInicioSesion> {
                   label: Text(_ocupado ? 'Entrando…' : 'Entrar'),
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'Solo necesitas internet para entrar y para sincronizar. '
                   'Lo que captures en campo se guarda en el teléfono.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Marca.tintaSuave, fontSize: 13),
+                  style: TextStyle(color: context.colores.tintaSuave, fontSize: 13),
                 ),
               ],
             ),

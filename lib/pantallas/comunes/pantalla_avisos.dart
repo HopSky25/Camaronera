@@ -189,7 +189,7 @@ class _PantallaAvisosState extends State<PantallaAvisos> {
             ),
           ),
         ),
-        Expanded(child: RefreshIndicator(color: Marca.brand, onRefresh: _recargar, child: cuerpo)),
+        Expanded(child: RefreshIndicator(color: context.colores.marcaTexto, onRefresh: _recargar, child: cuerpo)),
       ]),
     );
   }
@@ -210,24 +210,24 @@ class _FilaAviso extends StatelessWidget {
         Container(
           width: 38,
           height: 38,
-          decoration: BoxDecoration(color: a.leido ? Marca.fondoSuave : Marca.tealClaro, borderRadius: BorderRadius.circular(11)),
-          child: Icon(iconoDeAviso(a), color: a.leido ? Marca.gris : Marca.brand, size: 20),
+          decoration: BoxDecoration(color: a.leido ? context.colores.fondoAlt : context.colores.marcaSuave, borderRadius: BorderRadius.circular(11)),
+          child: Icon(iconoDeAviso(a), color: a.leido ? context.colores.tintaTenue : context.colores.marcaTexto, size: 20),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(a.titulo,
                 style: TextStyle(
-                    fontSize: 15, fontWeight: a.leido ? FontWeight.w600 : FontWeight.w800, color: Marca.navy)),
+                    fontSize: 15, fontWeight: a.leido ? FontWeight.w600 : FontWeight.w800, color: context.colores.titulo)),
             if (a.cuerpo.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 2),
-                child: Text(a.cuerpo, style: const TextStyle(fontSize: 13.5, color: Marca.tintaSuave)),
+                child: Text(a.cuerpo, style: TextStyle(fontSize: 13.5, color: context.colores.tintaSuave)),
               ),
             if (a.creadoEn != null)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
-                child: Text(fechaHoraDe(a.creadoEn!), style: const TextStyle(fontSize: 12, color: Marca.gris)),
+                child: Text(fechaHoraDe(a.creadoEn!), style: TextStyle(fontSize: 12, color: context.colores.tintaTenue)),
               ),
           ]),
         ),
@@ -236,7 +236,7 @@ class _FilaAviso extends StatelessWidget {
             margin: const EdgeInsets.only(left: 8, top: 6),
             width: 9,
             height: 9,
-            decoration: const BoxDecoration(color: Marca.teal, shape: BoxShape.circle),
+            decoration: BoxDecoration(color: context.colores.acentoTexto, shape: BoxShape.circle),
           ),
       ]),
     );
@@ -256,7 +256,7 @@ class CampanaAvisos extends StatelessWidget {
           context, MaterialPageRoute(settings: const RouteSettings(name: 'avisos'), builder: (_) => const PantallaAvisos())),
       icon: Badge(
         isLabelVisible: servicio.noLeidos > 0,
-        backgroundColor: Marca.rojo,
+        backgroundColor: context.colores.peligro,
         label: Text(servicio.textoContador),
         child: Icon(servicio.noLeidos > 0 ? Icons.notifications : Icons.notifications_none),
       ),

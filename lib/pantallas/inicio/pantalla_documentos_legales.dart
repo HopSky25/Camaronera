@@ -58,21 +58,21 @@ class _PantallaDocumentosLegalesState extends State<PantallaDocumentosLegales> {
     return PopScope(
       canPop: false,
       child: Scaffold(
-        backgroundColor: Marca.fondo,
+        backgroundColor: context.colores.fondo,
         body: SafeArea(
           child: ListView(padding: const EdgeInsets.fromLTRB(24, 48, 24, 24), children: [
-            Center(child: Image.asset('assets/logo.png', height: 44)),
+            const Center(child: LogoMarca(alto: 44)),
             const SizedBox(height: 36),
-            const Icon(Icons.gavel_outlined, size: 64, color: Marca.brand),
+            Icon(Icons.gavel_outlined, size: 64, color: context.colores.marcaTexto),
             const SizedBox(height: 16),
             Text('Acepta los documentos actualizados',
                 textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 12),
-            const Text(
+            Text(
               'CamaronMarket publicó versiones nuevas de sus documentos legales. Para seguir usando la app '
               'tienes que leerlos y aceptarlos en el portal. Lo que tengas guardado en el teléfono se conserva.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Marca.tintaSuave, fontSize: 15),
+              style: TextStyle(color: context.colores.tintaSuave, fontSize: 15),
             ),
             if (cl.documentos.isNotEmpty) ...[
               const SizedBox(height: 16),
@@ -80,9 +80,9 @@ class _PantallaDocumentosLegalesState extends State<PantallaDocumentosLegales> {
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 3),
                   child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    const Icon(Icons.description_outlined, size: 18, color: Marca.navy),
+                    Icon(Icons.description_outlined, size: 18, color: context.colores.titulo),
                     const SizedBox(width: 6),
-                    Flexible(child: Text(d, style: const TextStyle(fontWeight: FontWeight.w600, color: Marca.navy))),
+                    Flexible(child: Text(d, style: TextStyle(fontWeight: FontWeight.w600, color: context.colores.titulo))),
                   ]),
                 ),
             ],
@@ -100,8 +100,8 @@ class _PantallaDocumentosLegalesState extends State<PantallaDocumentosLegales> {
                 label: const Text('Leer y aceptar en el portal'),
               )
             else
-              const Text('Entra al portal de CamaronMarket para aceptarlos.',
-                  textAlign: TextAlign.center, style: TextStyle(color: Marca.tintaSuave)),
+              Text('Entra al portal de CamaronMarket para aceptarlos.',
+                  textAlign: TextAlign.center, style: TextStyle(color: context.colores.tintaSuave)),
             const SizedBox(height: 10),
             TextButton(
               onPressed: _comprobando ? null : () => _comprobar(cl),
@@ -110,7 +110,7 @@ class _PantallaDocumentosLegalesState extends State<PantallaDocumentosLegales> {
             if (sesion != null && sesion.conectado) ...[
               const SizedBox(height: 20),
               TextButton.icon(
-                style: TextButton.styleFrom(foregroundColor: Marca.tintaSuave),
+                style: TextButton.styleFrom(foregroundColor: context.colores.tintaSuave),
                 onPressed: () => _salir(context, sesion),
                 icon: const Icon(Icons.logout),
                 label: const Text('Cerrar sesión'),

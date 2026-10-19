@@ -126,7 +126,7 @@ class _PantallaDirectorioSociosState extends State<PantallaDirectorioSocios> {
   }
 
   void _aviso(String texto, {bool error = false}) => ScaffoldMessenger.of(context)
-      .showSnackBar(SnackBar(content: Text(texto), backgroundColor: error ? Marca.rojo : null));
+      .showSnackBar(SnackBar(content: Text(texto), backgroundColor: error ? context.colores.peligro : null));
 
   @override
   Widget build(BuildContext context) {
@@ -135,7 +135,7 @@ class _PantallaDirectorioSociosState extends State<PantallaDirectorioSocios> {
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 16,
-        title: Image.asset('assets/logo.png', height: 30),
+        title: const LogoMarca(),
         actions: [
           PopupMenuButton<String>(
             icon: const Icon(Icons.account_circle_outlined),
@@ -150,8 +150,8 @@ class _PantallaDirectorioSociosState extends State<PantallaDirectorioSocios> {
               PopupMenuItem(
                 enabled: false,
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                  Text(sesion.yoPropio?.nombre ?? 'Supervisor', style: const TextStyle(fontWeight: FontWeight.w700, color: Marca.navy)),
-                  const Text('Supervisor de la app', style: TextStyle(fontSize: 12.5, color: Marca.tintaSuave)),
+                  Text(sesion.yoPropio?.nombre ?? 'Supervisor', style: TextStyle(fontWeight: FontWeight.w700, color: context.colores.titulo)),
+                  Text('Supervisor de la app', style: TextStyle(fontSize: 12.5, color: context.colores.tintaSuave)),
                 ]),
               ),
               const PopupMenuDivider(),
@@ -164,15 +164,13 @@ class _PantallaDirectorioSociosState extends State<PantallaDirectorioSocios> {
       body: Column(children: [
         _Cabecera(nombre: sesion.yoPropio?.nombre),
         if (aviso != null)
-          Container(
-            width: double.infinity,
-            color: const Color(0xFFFDF1E0),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            child: Row(children: [
-              const Icon(Icons.timer_off_outlined, size: 18, color: Marca.ambar),
-              const SizedBox(width: 8),
-              Expanded(child: Text(aviso, style: const TextStyle(fontSize: 13, color: Marca.ambar, fontWeight: FontWeight.w600))),
-            ]),
+          CajaAviso(
+            tipo: TipoAviso.advertencia,
+            icono: Icons.timer_off_outlined,
+            franja: true,
+            tamTexto: 13,
+            peso: FontWeight.w600,
+            texto: aviso,
           ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
@@ -213,7 +211,7 @@ class _PantallaDirectorioSociosState extends State<PantallaDirectorioSocios> {
             ],
           ),
         ),
-        Expanded(child: RefreshIndicator(color: Marca.brand, onRefresh: _cargar, child: _lista())),
+        Expanded(child: RefreshIndicator(color: context.colores.marcaTexto, onRefresh: _cargar, child: _lista())),
       ]),
     );
   }
@@ -244,13 +242,13 @@ class _PantallaDirectorioSociosState extends State<PantallaDirectorioSocios> {
                     ? const Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator())
                     : TextButton(onPressed: _cargarMas, child: const Text('Cargar más')),
               ),
-            const Padding(
+            Padding(
               padding: EdgeInsets.fromLTRB(8, 8, 8, 0),
               child: Text(
                 'Cada vez que abres la app de un socio lo confirmas con tu huella y queda anotado en su historial. '
                 'Solo puedes mirar: ninguna acción se hace en su nombre.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12.5, color: Marca.tintaSuave),
+                style: TextStyle(fontSize: 12.5, color: context.colores.tintaSuave),
               ),
             ),
           ]);
@@ -275,7 +273,7 @@ class _Cabecera extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         width: double.infinity,
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-        decoration: const BoxDecoration(gradient: Marca.degradado),
+        decoration: const BoxDecoration(gradient: ColoresMarca.degradado),
         child: Row(children: [
           Container(
             width: 44,
@@ -311,14 +309,14 @@ class _Chip extends StatelessWidget {
         padding: const EdgeInsets.only(right: 8),
         child: ChoiceChip(
           label: Text(etiqueta),
-          avatar: icono == null ? null : Icon(icono, size: 16, color: elegido ? Colors.white : Marca.brand),
+          avatar: icono == null ? null : Icon(icono, size: 16, color: elegido ? Colors.white : context.colores.marcaTexto),
           selected: elegido,
           showCheckmark: false,
           onSelected: (_) => onTap(),
-          selectedColor: Marca.brand,
-          backgroundColor: Colors.white,
-          side: BorderSide(color: elegido ? Marca.brand : Marca.linea),
-          labelStyle: TextStyle(color: elegido ? Colors.white : Marca.navy, fontWeight: FontWeight.w600, fontSize: 13),
+          selectedColor: context.colores.marca,
+          backgroundColor: context.colores.superficie,
+          side: BorderSide(color: elegido ? context.colores.marca : context.colores.borde),
+          labelStyle: TextStyle(color: elegido ? Colors.white : context.colores.tintaSuave, fontWeight: FontWeight.w600, fontSize: 13),
         ),
       );
 }
@@ -340,17 +338,17 @@ class _TarjetaSocio extends StatelessWidget {
         Container(
           width: 46,
           height: 46,
-          decoration: BoxDecoration(color: Marca.tealClaro, borderRadius: BorderRadius.circular(12)),
-          child: Icon(iconoDePerfil(socio.tipo ?? ''), color: Marca.brand),
+          decoration: BoxDecoration(color: context.colores.marcaSuave, borderRadius: BorderRadius.circular(12)),
+          child: Icon(iconoDePerfil(socio.tipo ?? ''), color: context.colores.marcaTexto),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(socio.nombre, maxLines: 2, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Marca.navy)),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: context.colores.titulo)),
             const SizedBox(height: 2),
             Text(lugar.isEmpty ? socio.tipoEtiqueta : '${socio.tipoEtiqueta} · $lugar',
-                maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: Marca.tintaSuave)),
+                maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: context.colores.tintaSuave)),
             if (socio.perfiles.isNotEmpty) ...[
               const SizedBox(height: 8),
               Wrap(spacing: 6, runSpacing: 6, children: [
@@ -358,11 +356,11 @@ class _TarjetaSocio extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: p == socio.tipo ? Marca.tealClaro : Marca.fondoSuave,
+                      color: p == socio.tipo ? context.colores.marcaSuave : context.colores.fondoAlt,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(nombreDePerfil(p),
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: p == socio.tipo ? Marca.brand : Marca.tintaSuave)),
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: p == socio.tipo ? context.colores.marcaTexto : context.colores.tintaSuave)),
                   ),
               ]),
             ],
@@ -376,7 +374,7 @@ class _TarjetaSocio extends StatelessWidget {
         else
           PopupMenuButton<String>(
             tooltip: 'Ver su app',
-            icon: const Icon(Icons.more_vert, color: Marca.gris),
+            icon: Icon(Icons.more_vert, color: context.colores.tintaTenue),
             enabled: onTap != null,
             onSelected: (v) => v == 'pin' ? onPin?.call() : onTap?.call(),
             itemBuilder: (_) => const [

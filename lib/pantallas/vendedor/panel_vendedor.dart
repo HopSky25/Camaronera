@@ -54,7 +54,7 @@ class PanelVendedor extends StatelessWidget {
               final proximo = despachos.map((d) => aFecha(d['eta'])).whereType<DateTime>().fold<DateTime?>(null, (a, b) => a == null || b.isBefore(a) ? b : a);
 
               return RefreshIndicator(
-                color: Marca.brand,
+                color: context.colores.marcaTexto,
                 onRefresh: recargar,
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
@@ -73,7 +73,7 @@ class PanelVendedor extends StatelessWidget {
                         valor: '${ventas.length}',
                         titulo: 'Ventas en curso',
                         detalle: _resumenEstados(ventas),
-                        color: Marca.navy,
+                        color: context.colores.marcaTexto,
                         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaTransacciones(rol: 'seller'))),
                       ),
                       TarjetaResumen(
@@ -81,7 +81,7 @@ class PanelVendedor extends StatelessWidget {
                         valor: '${informes.length}',
                         titulo: 'Informes por aceptar',
                         detalle: informes.isEmpty ? 'Nada pendiente' : 'Esperan tu decisión',
-                        color: informes.isEmpty ? Marca.verde : Marca.ambar,
+                        color: informes.isEmpty ? context.colores.exitoTexto : context.colores.advertenciaTexto,
                         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaInformes(rol: 'seller'))),
                       ),
                       TarjetaResumen(
@@ -91,7 +91,7 @@ class PanelVendedor extends StatelessWidget {
                         detalle: proximo == null
                             ? (despachos.isEmpty ? 'Sin despachos' : 'Hay citas sin fijar')
                             : 'Próximo: ${fechaCorta(proximo)} ${hora(proximo)}',
-                        color: Marca.brand,
+                        color: context.colores.acentoTexto,
                         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaDespachos())),
                       ),
                     ]),

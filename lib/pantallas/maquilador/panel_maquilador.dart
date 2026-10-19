@@ -42,7 +42,7 @@ class PanelMaquilador extends StatelessWidget {
               final vigentes = tarifas.where((t) => t['is_current'] == true).length;
 
               return RefreshIndicator(
-                color: Marca.brand,
+                color: context.colores.marcaTexto,
                 onRefresh: recargar,
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
@@ -54,7 +54,7 @@ class PanelMaquilador extends StatelessWidget {
                         valor: '${solicitudes.length}',
                         titulo: 'Solicitudes abiertas',
                         detalle: sinOferta == 0 ? 'Todas con tu oferta' : '$sinOferta sin ofertar',
-                        color: sinOferta > 0 ? Marca.ambar : Marca.brand,
+                        color: sinOferta > 0 ? context.colores.advertenciaTexto : context.colores.acentoTexto,
                         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaSolicitudes())),
                       ),
                       TarjetaResumen(
@@ -62,7 +62,7 @@ class PanelMaquilador extends StatelessWidget {
                         valor: '${ordenes.length}',
                         titulo: 'Órdenes en curso',
                         detalle: [if (porRecibir > 0) '$porRecibir por recibir', if (porEmpacar > 0) '$porEmpacar por empacar'].join(' · '),
-                        color: Marca.navy,
+                        color: context.colores.marcaTexto,
                         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaOrdenes())),
                       ),
                       TarjetaResumen(
@@ -70,7 +70,7 @@ class PanelMaquilador extends StatelessWidget {
                         valor: '$actas',
                         titulo: 'Actas por firmar',
                         detalle: actas == 0 ? 'Nada pendiente' : 'Revisa el cuadre',
-                        color: actas > 0 ? Marca.ambar : Marca.verde,
+                        color: actas > 0 ? context.colores.advertenciaTexto : context.colores.exitoTexto,
                         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaOrdenes(filtroInicial: 'actas'))),
                       ),
                       TarjetaResumen(

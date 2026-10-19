@@ -27,7 +27,7 @@ class BarraCuenta extends StatelessWidget implements PreferredSizeWidget {
     final soloLectura = context.select<Sesion, bool>((s) => s.soloLectura);
     return AppBar(
       titleSpacing: 16,
-      title: titulo == null ? Image.asset('assets/logo.png', height: 30) : Text(titulo!),
+      title: titulo == null ? const LogoMarca() : Text(titulo!),
       actions: [
         const CampanaAvisos(),
         // Modo supervisor: no hay nada que enviar.
@@ -37,7 +37,7 @@ class BarraCuenta extends StatelessWidget implements PreferredSizeWidget {
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaPendientes())),
             icon: Badge(
               isLabelVisible: sinc.pendientes > 0,
-              backgroundColor: Marca.ambar,
+              backgroundColor: context.colores.advertencia,
               label: Text('${sinc.pendientes}'),
               child: const Icon(Icons.cloud_upload_outlined),
             ),
@@ -70,14 +70,14 @@ class MenuCuenta extends StatelessWidget {
         PopupMenuItem(
           enabled: false,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-            Text(sesion.nombre, style: const TextStyle(fontWeight: FontWeight.w700, color: Marca.navy)),
+            Text(sesion.nombre, style: TextStyle(fontWeight: FontWeight.w700, color: context.colores.titulo)),
             Text(
                 supervisor
                     ? '${nombreDePerfil(sesion.perfil ?? '')} · solo lectura'
                     : nombreDePerfil(sesion.perfil ?? ''),
-                style: const TextStyle(fontSize: 12.5, color: Marca.tintaSuave)),
+                style: TextStyle(fontSize: 12.5, color: context.colores.tintaSuave)),
             if (supervisor && sesion.yoPropio != null)
-              Text('Supervisor: ${sesion.yoPropio!.nombre}', style: const TextStyle(fontSize: 12, color: Marca.tintaSuave)),
+              Text('Supervisor: ${sesion.yoPropio!.nombre}', style: TextStyle(fontSize: 12, color: context.colores.tintaSuave)),
           ]),
         ),
         const PopupMenuDivider(),
@@ -166,7 +166,7 @@ class FranjaPerfil extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
-      decoration: const BoxDecoration(gradient: Marca.degradado),
+      decoration: const BoxDecoration(gradient: ColoresMarca.degradado),
       child: Column(children: [
         Row(children: [
         Container(
@@ -186,7 +186,7 @@ class FranjaPerfil extends StatelessWidget {
                   : '${nombreDePerfil(rol)}${sesion.soloLectura ? ' · solo lectura' : ''}',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 13),
+              style: const TextStyle(color: ColoresMarca.sobreBandaSuave, fontSize: 13),
             ),
           ]),
         ),
@@ -205,9 +205,9 @@ class FranjaPerfil extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(top: 10),
             child: Row(children: [
-              const Icon(Icons.timer_outlined, size: 16, color: Color(0xFFFFE08A)),
+              const Icon(Icons.timer_outlined, size: 16, color: ColoresMarca.sobreBandaAviso),
               const SizedBox(width: 6),
-              Expanded(child: Text(avisoCaduca, style: const TextStyle(color: Color(0xFFFFE08A), fontSize: 12.5, fontWeight: FontWeight.w600))),
+              Expanded(child: Text(avisoCaduca, style: const TextStyle(color: ColoresMarca.sobreBandaAviso, fontSize: 12.5, fontWeight: FontWeight.w600))),
             ]),
           ),
       ]),

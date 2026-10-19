@@ -39,18 +39,18 @@ class FranjaSupervisor extends StatelessWidget {
   final String? supervisor;
   const FranjaSupervisor({super.key, required this.socio, this.supervisor});
 
-  static const _amarillo = Color(0xFFFFE08A);
+  static const _amarillo = ColoresMarca.sobreBandaAviso;
 
   @override
   Widget build(BuildContext context) {
     final estiloBoton = TextButton.styleFrom(
-      foregroundColor: Colors.white,
+      foregroundColor: ColoresMarca.sobreBanda,
       padding: const EdgeInsets.symmetric(horizontal: 10),
       minimumSize: const Size(0, 36),
       textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
     );
     return Material(
-      color: Marca.navyOscuro,
+      color: ColoresMarca.banda,
       child: SafeArea(
         bottom: false,
         child: Container(
@@ -68,11 +68,11 @@ class FranjaSupervisor extends StatelessWidget {
                     TextSpan(text: socio, style: const TextStyle(fontWeight: FontWeight.w800)),
                     const TextSpan(text: ' · solo lectura', style: TextStyle(color: _amarillo, fontWeight: FontWeight.w700)),
                     if (supervisor != null && supervisor!.isNotEmpty)
-                      TextSpan(text: '\nSupervisor: $supervisor', style: const TextStyle(fontSize: 12.5, color: Color(0xFFCFE3EA))),
+                      TextSpan(text: '\nSupervisor: $supervisor', style: const TextStyle(fontSize: 12.5, color: ColoresMarca.sobreBandaSuave)),
                   ]),
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                  style: const TextStyle(color: ColoresMarca.sobreBanda, fontSize: 14),
                 ),
               ),
             ]),

@@ -188,13 +188,13 @@ class _PantallaProtegeCuentaState extends State<PantallaProtegeCuenta> with Widg
                     'también sin internet.'),
           const PuntoSeguridad(icono: Icons.verified_user_outlined, texto: textoHuellaNoSale),
           if (estado != null && !estado.hayHuella)
-            Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: const Color(0xFFFDF1E0), borderRadius: BorderRadius.circular(12)),
-              child: const Text(
-                'No hay huella registrada en este teléfono: se usará su PIN o patrón. Puedes registrar una huella en Ajustes cuando quieras.',
-                style: TextStyle(color: Marca.ambar),
+            const Padding(
+              padding: EdgeInsets.only(bottom: 12),
+              child: CajaAviso(
+                tipo: TipoAviso.advertencia,
+                icono: Icons.fingerprint,
+                tamTexto: 14,
+                texto: 'No hay huella registrada en este teléfono: se usará su PIN o patrón. Puedes registrar una huella en Ajustes cuando quieras.',
               ),
             ),
         ],

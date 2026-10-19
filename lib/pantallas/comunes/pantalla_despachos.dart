@@ -71,8 +71,8 @@ class TarjetaDespacho extends StatelessWidget {
       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PantallaDespacho(id: d['id'] as String))),
       datos: [
         Dato(icono: esVendedor ? Icons.factory_outlined : Icons.water_outlined, texto: esVendedor ? nombreDe(d['buyer']) : nombreDe(d['seller'])),
-        Dato(icono: Icons.local_shipping_outlined, texto: d['eta'] == null ? 'Sin cita' : 'Llegada prevista: ${fechaHora(d['eta'])}', color: d['eta'] == null ? Marca.ambar : null),
-        if (d['actual_arrival'] != null) Dato(icono: Icons.flag_outlined, texto: 'Llegó: ${fechaHora(d['actual_arrival'])}', color: Marca.verde),
+        Dato(icono: Icons.local_shipping_outlined, texto: d['eta'] == null ? 'Sin cita' : 'Llegada prevista: ${fechaHora(d['eta'])}', color: d['eta'] == null ? context.colores.advertenciaTexto : null),
+        if (d['actual_arrival'] != null) Dato(icono: Icons.flag_outlined, texto: 'Llegó: ${fechaHora(d['actual_arrival'])}', color: context.colores.exitoTexto),
       ],
     );
   }
@@ -97,7 +97,7 @@ class PantallaDespacho extends StatelessWidget {
           final llegado = d['state'] == 'llegado';
           final soloLectura = context.read<Sesion>().soloLectura;
           return RefreshIndicator(
-            color: Marca.brand,
+            color: context.colores.marcaTexto,
             onRefresh: recargar,
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
@@ -277,8 +277,8 @@ class _PantallaProgramarDespachoState extends State<PantallaProgramarDespacho> {
             label: Text(_ocupado ? 'Enviando…' : 'Guardar la cita'),
           ),
           const SizedBox(height: 8),
-          const Text('Cambiar la hora de llegada avisa a la empacadora y a la verificadora.',
-              textAlign: TextAlign.center, style: TextStyle(fontSize: 12.5, color: Marca.tintaSuave)),
+          Text('Cambiar la hora de llegada avisa a la empacadora y a la verificadora.',
+              textAlign: TextAlign.center, style: TextStyle(fontSize: 12.5, color: context.colores.tintaSuave)),
         ],
       ),
     );
@@ -298,15 +298,15 @@ class _FilaFecha extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           onTap: onTap,
           child: Row(children: [
-            Icon(Icons.event_outlined, color: destacado ? Marca.brand : Marca.gris),
+            Icon(Icons.event_outlined, color: destacado ? context.colores.marcaTexto : context.colores.tintaTenue),
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(etiqueta, style: const TextStyle(fontSize: 12.5, color: Marca.tintaSuave)),
-                Text(valor, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: destacado ? Marca.brand : Marca.tinta)),
+                Text(etiqueta, style: TextStyle(fontSize: 12.5, color: context.colores.tintaSuave)),
+                Text(valor, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: destacado ? context.colores.marcaTexto : context.colores.tinta)),
               ]),
             ),
-            const Icon(Icons.edit_outlined, size: 18, color: Marca.gris),
+            Icon(Icons.edit_outlined, size: 18, color: context.colores.tintaTenue),
           ]),
         ),
       );

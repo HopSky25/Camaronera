@@ -58,12 +58,12 @@ class _PantallaActualizarState extends State<PantallaActualizar> {
     return PopScope(
       canPop: false,
       child: Scaffold(
-        backgroundColor: Marca.fondo,
+        backgroundColor: context.colores.fondo,
         body: SafeArea(
           child: ListView(padding: const EdgeInsets.fromLTRB(24, 48, 24, 24), children: [
-            Center(child: Image.asset('assets/logo.png', height: 44)),
+            const Center(child: LogoMarca(alto: 44)),
             const SizedBox(height: 36),
-            const Icon(Icons.system_update_outlined, size: 64, color: Marca.brand),
+            Icon(Icons.system_update_outlined, size: 64, color: context.colores.marcaTexto),
             const SizedBox(height: 16),
             Text('Actualiza la app', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 12),
@@ -72,13 +72,13 @@ class _PantallaActualizarState extends State<PantallaActualizar> {
                   'Esta versión de CamaronMarket ya no se puede usar. Instala la versión nueva para seguir trabajando; '
                       'lo que tengas guardado en el teléfono se conserva.',
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Marca.tintaSuave, fontSize: 15),
+              style: TextStyle(color: context.colores.tintaSuave, fontSize: 15),
             ),
             const SizedBox(height: 8),
             Text(
               'Tu versión: ${cv.version}${cv.minVersion != null ? ' · mínima: ${cv.minVersion}' : ''}',
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Marca.gris, fontSize: 13),
+              style: TextStyle(color: context.colores.tintaTenue, fontSize: 13),
             ),
             const SizedBox(height: 28),
             if (cv.urlDescarga != null)
@@ -94,8 +94,8 @@ class _PantallaActualizarState extends State<PantallaActualizar> {
                 label: const Text('Descargar la actualización'),
               )
             else
-              const Text('Pide la versión nueva a soporte de CamaronMarket.',
-                  textAlign: TextAlign.center, style: TextStyle(color: Marca.tintaSuave)),
+              Text('Pide la versión nueva a soporte de CamaronMarket.',
+                  textAlign: TextAlign.center, style: TextStyle(color: context.colores.tintaSuave)),
             const SizedBox(height: 10),
             TextButton(
               onPressed: _comprobando
@@ -113,7 +113,7 @@ class _PantallaActualizarState extends State<PantallaActualizar> {
             if (sesion != null && (sesion.conectado || sesion.bloqueada)) ...[
               const SizedBox(height: 20),
               TextButton.icon(
-                style: TextButton.styleFrom(foregroundColor: Marca.tintaSuave),
+                style: TextButton.styleFrom(foregroundColor: context.colores.tintaSuave),
                 onPressed: () => _salir(context, sesion),
                 icon: const Icon(Icons.logout),
                 label: const Text('Cerrar sesión'),
@@ -135,33 +135,40 @@ class AvisoVersionNueva extends StatelessWidget {
   Widget build(BuildContext context) {
     final cv = context.watch<ControlVersion>();
     if (!cv.hayNueva) return const SizedBox.shrink();
+    final esquema = Theme.of(context).colorScheme;
+    final c = context.colores;
     return SafeArea(
       top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        // Como un aviso flotante (SnackBar): navy en claro, superficie
+        // elevada en oscuro.
         child: Material(
           elevation: 3,
-          color: Marca.navy,
-          borderRadius: BorderRadius.circular(14),
+          color: esquema.inverseSurface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: c.esOscuro ? BorderSide(color: c.borde) : BorderSide.none,
+          ),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(14, 6, 4, 6),
             child: Row(children: [
-              const Icon(Icons.system_update_outlined, color: Colors.white, size: 20),
+              Icon(Icons.system_update_outlined, color: esquema.onInverseSurface, size: 20),
               const SizedBox(width: 10),
               Expanded(
                 child: Text('Hay una versión nueva (${cv.versionNueva}).',
-                    style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w600)),
+                    style: TextStyle(color: esquema.onInverseSurface, fontSize: 13.5, fontWeight: FontWeight.w600)),
               ),
               if (cv.urlDescarga != null)
                 TextButton(
-                  style: TextButton.styleFrom(foregroundColor: const Color(0xFF8FE3EC)),
+                  style: TextButton.styleFrom(foregroundColor: Theme.of(context).snackBarTheme.actionTextColor),
                   onPressed: () => abrirDescarga(cv.urlDescarga),
                   child: const Text('Actualizar'),
                 ),
               IconButton(
                 tooltip: 'Ahora no',
                 onPressed: cv.descartar,
-                icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+                icon: Icon(Icons.close, color: esquema.onInverseSurface.withValues(alpha: 0.7), size: 20),
               ),
             ]),
           ),

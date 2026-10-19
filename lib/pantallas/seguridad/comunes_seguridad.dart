@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../tema.dart';
 
@@ -11,10 +12,13 @@ class CabeceraSeguridad extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    // Iconos claros en la barra de estado: va sobre el degradado.
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light.copyWith(statusBarColor: Colors.transparent),
+      child: Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(24, 64, 24, 28),
-      decoration: const BoxDecoration(gradient: Marca.degradado),
+      decoration: const BoxDecoration(gradient: ColoresMarca.degradado),
       child: Column(children: [
         Container(
           width: 64,
@@ -27,8 +31,9 @@ class CabeceraSeguridad extends StatelessWidget {
             style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800)),
         const SizedBox(height: 6),
         Text(texto, textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.88), fontSize: 14)),
+            style: const TextStyle(color: ColoresMarca.sobreBandaSuave, fontSize: 14)),
       ]),
+      ),
     );
   }
 }
@@ -43,9 +48,9 @@ class PuntoSeguridad extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(bottom: 12),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Icon(icono, color: Marca.brand, size: 22),
+          Icon(icono, color: context.colores.marcaTexto, size: 22),
           const SizedBox(width: 12),
-          Expanded(child: Text(texto, style: const TextStyle(fontSize: 14.5, color: Marca.tinta, height: 1.35))),
+          Expanded(child: Text(texto, style: TextStyle(fontSize: 14.5, color: context.colores.tinta, height: 1.35))),
         ]),
       );
 }

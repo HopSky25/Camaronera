@@ -304,7 +304,10 @@ Rutas firmadas (con clave de la app): `POST /verifications`, `POST /verification
 `POST /copack/requests/{id}/offers`, `POST /copack/orders/{id}:reception|:packing|:sign|:revert-signature|:reopen|:close`,
 `POST /me/active-role`, `POST /supervisor/act-as`; desde 19.0.1.7.0 (contrato de mejoras de la app, §5 quater),
 `POST /verifications/{id}/photos` y `POST /purchases`, y desde 19.0.1.16.0 `POST /products/{id}:publish` (publicar un
-lote; crear y editar el borrador no se firman). En `/api/v1/openapi.json` llevan `x-signed: true`. `POST /me/devices` se firma
+lote; crear y editar el borrador no se firman). Las decisiones de la verificación también van firmadas:
+`POST /verifications/{id}:respond` (la verificadora acepta o declina la orden),
+`POST /verifications/{id}:support-technicians` (técnicos de apoyo) y `POST /verifications/{id}:second-opinion`
+(el vendedor impugna el rechazo). En `/api/v1/openapi.json` llevan `x-signed: true`. `POST /me/devices` se firma
 solo para sustituir el dispositivo (`x-signed: "if-device"`). Las lecturas (GET), `/auth/login` y
 `/auth/logout` no se firman.
 
@@ -834,6 +837,7 @@ web de marca puede pintar lo mismo con `GET /api/v1/public/traceability/<token>`
 | Informe del verificador (pesos, clases, metabisulfito) | `GET /verifications/{id}`; webhook `verification.verdict_issued` |
 | Aceptar / rechazar / contraofertar el informe | `POST /verifications/{id}/acceptance` |
 | Deshacer mi decisión sobre el informe (mientras la ronda siga abierta) | `POST /verifications/{id}/acceptance:revert` `{"reason": "…"}` |
+| Segunda opinión tras un rechazo por el informe (vendedor) | `GET /verifications/{id}/second-opinion` (plazo, `can_request`, `problem` y verificadoras elegibles con su honorario) → `POST /verifications/{id}:second-opinion` `{"verifier": "<uuid>"}` (firmada; 201 con la nueva verificación). La compra queda retenida durante el plazo y se cancela cuando el rechazo queda firme |
 | Concluir la compra verificada | `POST /transactions/{id}:complete` |
 | Certificado PDF de trazabilidad | `GET /transactions/{id}/traceability.pdf` |
 | Ranking de proveedores por rendimiento verificado | `GET /suppliers/ranking?order=puntaje` |
@@ -930,8 +934,21 @@ cierra.
 | Iniciar campo | `POST /verifications/{id}:start` |
 | Cargar el informe (parcial, desde el móvil) | `PATCH /verifications/{id}/report` (pesos, presentación, metabisulfito, sabor, `lines`, `counts`, GPS) |
 | Estampar la llegada del camión | `POST /dispatches/{id}/arrival` |
+| Aceptar o declinar la orden (admin) | `POST /verifications/{id}:respond` `{"decision": "accept|decline", "reason": "…"}` (motivo obligatorio al declinar; dentro de `verifier_response_deadline` y antes de ir a campo; asignar el técnico también la acepta) |
+| Técnicos de apoyo (admin) | `POST /verifications/{id}:support-technicians` `{"add": [{"technician": "<uuid>"}], "remove": […]}` (exige el responsable asignado) |
 | Veredicto | `POST /verifications/{id}:verdict` `{"verdict": "approve|approve_obs|reject", "notes": "…"}` |
+| Rechazo por «Producto no presentado» | `POST /verifications/{id}:verdict` `{"verdict": "reject", "reject_reason": "not_presented", "arrival_at": "<UTC>", "notes": "…", "photos": [{"data": "<base64>", "name": "…"}]}` (sin trabajo de campo: desde `assigned`; fotos obligatorias si la verificación aún no tiene) |
 | Registrar el teléfono (app) | `POST /me/devices` `{"name", "platform", "public_key", "alg": "ES256"}`; `GET /me/devices`; `POST /me/devices/{id}:revoke` |
+Quién hace qué: el **técnico responsable** (`my_role` «technician») y la empresa firman el veredicto; el
+**técnico de apoyo** (`my_role` «support_technician») inicia el campo, carga el informe y sube fotos, pero
+no dictamina (403). El detalle de la verificación lo dice para quien consulta: `can_verdict`, `can_respond`
+(la orden espera aceptar o declinar), `can_decline`, `can_request_second_opinion` (vendedor) y
+`contest_hours` (horas que tendrá el vendedor para impugnar un rechazo por el informe; 0 = el rechazo queda
+firme). Plazos visibles: `verifier_response_deadline`, `deadline_assign`, `deadline_verdict`,
+`deadline_overdue` («assign», «verdict», «declined», «response»), `acceptance_deadline` y
+`contest_deadline`. Un rechazo trae `rejection_reason` («field» o «not_presented») y, si fue por producto no
+presentado, `not_presented_arrival`.
+
 Con la clave de la app, todos los pasos de escritura de esta tabla van **firmados** (registrar el teléfono, solo
 cuando sustituye a uno activo): cabeceras `X-Device-Id`, `X-Signature-Timestamp`, `X-Signature` (§5 bis).
 **firmados** (cabeceras `X-Device-Id`, `X-Signature-Timestamp`, `X-Signature`; §5 bis).
@@ -1034,7 +1051,8 @@ App móvil (§5 quater): `GET /public/app-version`, `POST /public/app-errors`. F
   `PATCH /verifications/{id}/report`, `POST /dispatches/{id}/arrival`, `PATCH /dispatches/{id}`,
   `POST /transactions/{id}:complete`, `POST /harvest/commitments/{id}:buy`, `POST /copack/requests/{id}/offers`,
   `POST /copack/orders/{id}:reception|:packing|:sign|:revert-signature|:reopen|:close`, `POST /me/active-role`,
-  `POST /verifications/{id}/photos`, `POST /purchases` y `POST /products/{id}:publish`
+  `POST /verifications/{id}/photos`, `POST /purchases`, `POST /products/{id}:publish` y
+  `POST /verifications/{id}:respond|:support-technicians|:second-opinion`
 * App móvil (§5 quater): `GET /me/notifications`, `POST /me/notifications/{id}:read`,
   `POST /me/notifications:read-all`, `GET|POST /verifications/{id}/photos`, `POST /purchases`
 * Modo supervisor (§5 ter, solo clave de supervisor): `GET /supervisor/partners`, `POST /supervisor/act-as` (firmada)
@@ -1044,7 +1062,7 @@ App móvil (§5 quater): `GET /public/app-version`, `POST /public/app-errors`. F
 * Lotes: `GET /lots`, `GET /lots/{id}`, `GET /lots/{id}/moves`, `GET|POST /lots/{id}/allocations`
 * Compras/ventas: `POST /purchases` (compra directa, firmada), `GET /transactions`, `GET /transactions/{id}`, `GET /transactions/{id}/traceability`, `GET /transactions/{id}/traceability.pdf`, `POST /transactions/{id}:receive|:complete`, `POST /transactions/{id}/trace-token:rotate`, `GET /charges`
 * Chequeo: `GET /check-requests`, `GET /check-requests/{id}`, `POST /check-requests/{id}:approve|:reject`
-* Verificación: `GET /me/technicians`, `GET /verifications`, `GET /verifications/{id}`, `GET|POST /verifications/{id}/photos`, `POST /verifications/{id}/acceptance`, `POST /verifications/{id}/acceptance:revert`, `POST /verifications/{id}:assign|:start|:verdict`, `PATCH /verifications/{id}/report`, `GET /suppliers/ranking`
+* Verificación: `GET /me/technicians`, `GET /verifications`, `GET /verifications/{id}`, `GET|POST /verifications/{id}/photos`, `POST /verifications/{id}/acceptance`, `POST /verifications/{id}/acceptance:revert`, `POST /verifications/{id}:assign|:start|:verdict|:respond|:support-technicians`, `PATCH /verifications/{id}/report`, `GET /verifications/{id}/second-opinion`, `POST /verifications/{id}:second-opinion`, `GET /suppliers/ranking`
 * Despacho: `GET /dispatches`, `GET /dispatches/{id}`, `PATCH /dispatches/{id}`, `POST /dispatches/{id}/arrival`
 * Listas de precios: `GET|POST /price-lists`, `GET|PUT /price-lists/{id}`, `POST /price-lists/{id}:publish|:archive`, `GET /lot-alerts`
 * Reserva: `GET|POST /harvest/forecasts`, `GET /harvest/forecasts/{id}`, `POST /harvest/forecasts/{id}:publish|:cancel|:harvest`, `POST /harvest/forecasts/{id}/commitments`, `GET /harvest/commitments`, `GET /harvest/commitments/{id}`, `POST /harvest/commitments/{id}:accept|:reject|:withdraw|:desist|:buy`, `POST /harvest/commitments/{id}/confirmation`, `POST /harvest/commitments/{id}/confirmation:revert`

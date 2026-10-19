@@ -718,7 +718,7 @@ API_ROUTE_PERMISSIONS = {
     ("POST", "/transactions/{id}:cancel-request-accept"): (("buy", "sell"), "any"),
     ("POST", "/transactions/{id}:cancel-request-reject"): (("buy", "sell"), "any"),
     ("POST", "/transactions/{id}:cancel-request-withdraw"): (("buy", "sell"), "any"),
-    ("POST", "/transactions/{id}:switch-verifier"): ("buy", "any"),
+    ("POST", "/transactions/{id}:switch-verifier"): (("buy", "sell"), "any"),
     ("POST", "/check-requests/{id}:approve"): ("sell", "any"),
     ("POST", "/check-requests/{id}:reject"): ("sell", "any"),
     ("POST", "/verifications"): ("buy", "active"),

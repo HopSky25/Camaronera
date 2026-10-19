@@ -180,15 +180,17 @@ def transaction_cancel_request_withdraw(ctx, id):
 
 
 @api_route("POST", "/transactions/{id}:switch-verifier", scope="transactions:write", tags=[TAG_TX],
-           summary="El comprador cambia de verificadora cuando la actual no cumplió su plazo",
+           summary="El comprador (o el vendedor, en una segunda opinión) cambia de verificadora "
+                   "cuando la actual no cumplió su plazo o declinó la orden",
            description="Solo si cancellation.can_switch_verifier. La misma orden pasa a la nueva "
                        "verificadora acreditada (vuelve a «recibida», plazos desde ahora, mismo "
                        "honorario).",
            body=SWITCH_BODY, response=TX_SCHEMA)
 def transaction_switch_verifier(ctx, id):
     tx = _my_tx(ctx, id)
-    if _side(ctx, tx) != "buyer":
-        raise forbidden("La verificadora la cambia el comprador.")
+    if _side(ctx, tx) != S.switch_verifier_side(tx):
+        raise forbidden("La verificadora la cambia el comprador (en una segunda opinión, el "
+                        "vendedor, que la pidió).")
     vals = ctx.clean(SWITCH_BODY)
     if not hasattr(tx.sudo(), "action_switch_verifier"):
         raise ApiError(409, "invalid-state", "Esta compra no tiene verificación.")

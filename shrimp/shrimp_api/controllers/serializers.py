@@ -490,6 +490,12 @@ def reception(t):
     }
 
 
+def switch_verifier_side(t):
+    """Quién cambia de verificadora cuando la actual no cumplió."""
+    ver = t.sudo().verification_ids[:1] if "verification_ids" in t._fields else None
+    return "seller" if ver and getattr(ver, "second_opinion_of_id", False) else "buyer"
+
+
 def cancellation(t, role):
     """Cancelación de la compra (shrimp_marketplace/models/shrimp_transaction_cancel.py):
     qué puede hacer quien consulta, la solicitud de mutuo acuerdo abierta y,
@@ -513,7 +519,9 @@ def cancellation(t, role):
         "seller_can_cancel": bool(abierta and role == "seller" and t.shrimp_seller_can_cancel()),
         "can_request_mutual": bool(abierta and not t.shrimp_mutual_cancel_problem()),
         "verification_overdue": ver_vencida or None,
-        "can_switch_verifier": bool(ver_vencida and role == "buyer"),
+        # Elige la nueva verificadora el comprador; en una segunda opinión,
+        # quien la pidió (y la paga): el vendedor.
+        "can_switch_verifier": bool(ver_vencida and role == switch_verifier_side(t)),
         "request": {
             "requested_by": req.requested_side, "reason": req.reason or None,
             "requested_at": iso_dt(req.requested_at), "deadline": iso_dt(req.response_deadline),

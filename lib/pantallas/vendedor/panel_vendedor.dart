@@ -108,7 +108,7 @@ class PanelVendedor extends StatelessWidget {
                           if (creado == true) await recargar();
                         },
                       ),
-                    FilaMenu(icono: Icons.inventory_outlined, titulo: 'Mis lotes', subtitulo: 'Publicados, en borrador y vendidos', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaMisLotes()))),
+                    FilaMenu(icono: Icons.inventory_outlined, titulo: 'Mis lotes', subtitulo: 'Editar, fotos, certificados, retirar y reactivar', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaMisLotes()))),
                     FilaMenu(icono: Icons.sell_outlined, titulo: 'Mis ventas', subtitulo: 'Estado y trazabilidad de cada venta', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaTransacciones(rol: 'seller')))),
                     FilaMenu(icono: Icons.fact_check_outlined, titulo: 'Informes de verificación', subtitulo: 'Ver el resultado y aceptar o rechazar', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaInformes(rol: 'seller')))),
                     FilaMenu(icono: Icons.local_shipping_outlined, titulo: 'Despacho', subtitulo: 'Programar la cosecha, la salida y el camión', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaDespachos()))),
@@ -118,8 +118,6 @@ class PanelVendedor extends StatelessWidget {
                       FilaMenu(icono: Icons.shopping_cart_outlined, titulo: 'Comprar larva', subtitulo: 'Zoea, mysis y postlarva: compra directa', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaCatalogo(tipoInicial: 'larva', titulo: 'Comprar larva')))),
                     if (perfil == 'laboratorio' && !soloLectura)
                       FilaMenu(icono: Icons.shopping_cart_outlined, titulo: 'Comprar nauplio', subtitulo: 'Nauplio de nauplieros y laboratorios: compra directa', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaCatalogo(tipoInicial: 'nauplio', titulo: 'Comprar nauplio')))),
-                    const SizedBox(height: 8),
-                    const AvisoWeb(texto: 'Editar un lote, cambiar su precio y agregar fotos o certificados se hace desde el portal web.'),
                   ],
                 ),
               );

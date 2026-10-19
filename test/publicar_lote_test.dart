@@ -447,7 +447,8 @@ void main() {
       expect(find.text('Precio por millar *'), findsOneWidget);
       expect(find.text('Cantidad disponible en millares *'), findsOneWidget);
       expect(find.textContaining('opcional: solo se hace si el comprador'), findsOneWidget);
-      expect(find.textContaining('fotos y los certificados del lote se agregan desde el portal web'), findsOneWidget);
+      expect(find.textContaining('fotos y los certificados del lote los agregas después de guardar'), findsOneWidget);
+      expect(find.textContaining('portal web'), findsNothing);
       await t.ensureVisible(find.text('Guardar borrador'));
       await t.tap(find.text('Guardar borrador'));
       await t.pump();

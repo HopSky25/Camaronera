@@ -306,8 +306,10 @@ Rutas firmadas (con clave de la app): `POST /verifications`, `POST /verification
 `POST /verifications/{id}/photos` y `POST /purchases`, y desde 19.0.1.16.0 `POST /products/{id}:publish` (publicar un
 lote; crear y editar el borrador no se firman). Las decisiones de la verificación también van firmadas:
 `POST /verifications/{id}:respond` (la verificadora acepta o declina la orden),
-`POST /verifications/{id}:support-technicians` (técnicos de apoyo) y `POST /verifications/{id}:second-opinion`
-(el vendedor impugna el rechazo). En `/api/v1/openapi.json` llevan `x-signed: true`. `POST /me/devices` se firma
+`POST /verifications/{id}:support-technicians` (técnicos de apoyo), `POST /verifications/{id}:second-opinion`
+(el vendedor impugna el rechazo) y, si la verificadora declinó o no cumplió, `POST /transactions/{id}:switch-verifier`
+(cambiar de verificadora) y `POST /transactions/{id}:cancel` (cancelar la compra; también firmada en sus otras causas).
+En `/api/v1/openapi.json` llevan `x-signed: true`. `POST /me/devices` se firma
 solo para sustituir el dispositivo (`x-signed: "if-device"`). Las lecturas (GET), `/auth/login` y
 `/auth/logout` no se firman.
 
@@ -837,6 +839,7 @@ web de marca puede pintar lo mismo con `GET /api/v1/public/traceability/<token>`
 | Informe del verificador (pesos, clases, metabisulfito) | `GET /verifications/{id}`; webhook `verification.verdict_issued` |
 | Aceptar / rechazar / contraofertar el informe | `POST /verifications/{id}/acceptance` |
 | Deshacer mi decisión sobre el informe (mientras la ronda siga abierta) | `POST /verifications/{id}/acceptance:revert` `{"reason": "…"}` |
+| La verificadora declinó o no cumplió su plazo | `GET /transactions/{id}/verifier-options` (`overdue`, `chooser`, `can_switch`, `can_cancel`, `auto_cancel_at` y las verificadoras elegibles con su honorario) → `POST /transactions/{id}:switch-verifier` `{"verifier": "<uuid>"}` o `POST /transactions/{id}:cancel` `{"note": "…"}` (sin costo; las dos firmadas) |
 | Segunda opinión tras un rechazo por el informe (vendedor) | `GET /verifications/{id}/second-opinion` (plazo, `can_request`, `problem` y verificadoras elegibles con su honorario) → `POST /verifications/{id}:second-opinion` `{"verifier": "<uuid>"}` (firmada; 201 con la nueva verificación). La compra queda retenida durante el plazo y se cancela cuando el rechazo queda firme |
 | Concluir la compra verificada | `POST /transactions/{id}:complete` |
 | Certificado PDF de trazabilidad | `GET /transactions/{id}/traceability.pdf` |
@@ -1053,7 +1056,7 @@ App móvil (§5 quater): `GET /public/app-version`, `POST /public/app-errors`. F
   `POST /transactions/{id}:complete`, `POST /harvest/commitments/{id}:buy`, `POST /copack/requests/{id}/offers`,
   `POST /copack/orders/{id}:reception|:packing|:sign|:revert-signature|:reopen|:close`, `POST /me/active-role`,
   `POST /verifications/{id}/photos`, `POST /purchases`, `POST /products/{id}:publish` y
-  `POST /verifications/{id}:respond|:support-technicians|:second-opinion`
+  `POST /verifications/{id}:respond|:support-technicians|:second-opinion` y `POST /transactions/{id}:switch-verifier|:cancel`
 * App móvil (§5 quater): `GET /me/notifications`, `POST /me/notifications/{id}:read`,
   `POST /me/notifications:read-all`, `GET|POST /verifications/{id}/photos`, `POST /purchases`
 * Modo supervisor (§5 ter, solo clave de supervisor): `GET /supervisor/partners`, `POST /supervisor/act-as` (firmada)

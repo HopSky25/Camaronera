@@ -15,7 +15,12 @@ models/shrimp_transaction_delay.py). Rutas nuevas; las existentes no cambian.
                                             de mutuo acuerdo
   POST /transactions/{id}:cancel-request-accept / -reject / -withdraw
   POST /transactions/{id}:switch-verifier   comprador: otra verificadora cuando la
-                                            actual no cumplió su plazo
+                                            actual no cumplió su plazo (en una segunda
+                                            opinión, el vendedor)
+  GET  /transactions/{id}/verifier-options  qué se puede hacer con la verificadora
+                                            vencida y las verificadoras elegibles
+
+:cancel y :switch-verifier van firmadas con la clave de la app.
 
 El detalle de la compra trae «delay» y «cancellation» (campos nuevos: los
 clientes que no los conocen los ignoran).
@@ -114,7 +119,7 @@ def transaction_delay_reject(ctx, id):
     return S.transaction(tx, ctx.partner)
 
 
-@api_route("POST", "/transactions/{id}:cancel", scope="transactions:write", tags=[TAG_TX],
+@api_route("POST", "/transactions/{id}:cancel", signed=True, scope="transactions:write", tags=[TAG_TX],
            summary="Cancelar la compra (comprador sin costo, o vendedor antes del despacho)",
            description="Comprador: solo si cancellation.buyer_can_cancel (retraso: el vendedor "
                        "rechazó o no respondió la contrapropuesta, el retraso supera el tope o pasó "
@@ -179,7 +184,8 @@ def transaction_cancel_request_withdraw(ctx, id):
     return S.transaction(tx, ctx.partner)
 
 
-@api_route("POST", "/transactions/{id}:switch-verifier", scope="transactions:write", tags=[TAG_TX],
+@api_route("POST", "/transactions/{id}:switch-verifier", signed=True, scope="transactions:write",
+           tags=[TAG_TX],
            summary="El comprador (o el vendedor, en una segunda opinión) cambia de verificadora "
                    "cuando la actual no cumplió su plazo o declinó la orden",
            description="Solo si cancellation.can_switch_verifier. La misma orden pasa a la nueva "
@@ -199,3 +205,60 @@ def transaction_switch_verifier(ctx, id):
         raise ApiError(404, "not-found", "La verificadora no existe.")
     tx.sudo().action_switch_verifier(nueva, actor=ctx.partner)
     return S.transaction(tx, ctx.partner)
+
+
+VERIFIER_OPTIONS_SCHEMA = {"type": "object", "properties": {
+    "verification": {"type": "string"}, "verifier": {"$ref": "#/components/schemas/Ref"},
+    "overdue": {"type": ["string", "null"]}, "decline_reason": {"type": ["string", "null"]},
+    "chooser": {"type": "string"}, "can_switch": {"type": "boolean"},
+    "can_cancel": {"type": "boolean"}, "auto_cancel_at": {"type": ["string", "null"]},
+    "current_fee": {"type": "object"},
+    "options": {"type": "array", "items": {"type": "object"}}}}
+
+
+@api_route("GET", "/transactions/{id}/verifier-options", scope=("transactions:read", "transactions:write"),
+           tags=[TAG_TX],
+           summary="La verificadora no cumplió (o declinó): cambiar de verificadora o cancelar",
+           description="Lo mismo que «Plazos de la verificadora» en la trazabilidad de la compra. "
+                       "overdue: assign (sin técnico a tiempo), verdict (sin veredicto a tiempo), "
+                       "declined (declinó la orden) o response (no aceptó ni declinó a tiempo). "
+                       "chooser: quien cambia de verificadora (el comprador; en una segunda "
+                       "opinión, el vendedor). can_switch y can_cancel (el comprador cancela sin "
+                       "costo) son para quien consulta. options (solo si can_switch): verificadoras "
+                       "acreditadas elegibles con el honorario que se cobraría (se recalcula con su "
+                       "tarifa). auto_cancel_at: si nadie hace nada, la compra se cancela sola.",
+           response=VERIFIER_OPTIONS_SCHEMA)
+def transaction_verifier_options(ctx, id):
+    tx = _my_tx(ctx, id).sudo()
+    lado = _side(ctx, tx)
+    ver = tx.verification_ids[:1] if "verification_ids" in tx._fields else None
+    if not ver or ver.verification_mode != "platform":
+        raise ApiError(409, "invalid-state", "Esta compra no tiene una verificadora de la plataforma.")
+    abierta = tx.state not in ("done", "cancel")
+    vencida = abierta and ver._shrimp_deadline_applies() and ver.deadline_overdue or False
+    chooser = S.switch_verifier_side(tx)
+    can_switch = bool(vencida and lado == chooser)
+    can_cancel = bool(vencida and lado == "buyer" and tx.shrimp_buyer_cancel_cause())
+    options = []
+    if can_switch:
+        # Ni la actual ni una de las partes (lo rechaza _shrimp_reassign_verifier).
+        excluir = [tx.seller_partner_id.commercial_partner_id.id,
+                   tx.buyer_partner_id.commercial_partner_id.id]
+        elegibles = ctx.env["res.partner"].sudo().with_context(
+            shrimp_exclude_partner_ids=excluir).available_verifiers().filtered(
+            lambda p: p != ver.verifier_partner_id)
+        options = [{"verifier": S.ref(p), "fee": S.money(ver.shrimp_fee_for(p), ver.currency_id)}
+                   for p in elegibles.sorted(lambda p: (p.name or "").lower())]
+    auto = ver.shrimp_auto_cancel_at() if vencida else False
+    return {
+        "verification": ver.uuid_ref,
+        "verifier": S.ref(ver.verifier_partner_id),
+        "overdue": vencida or None,
+        "decline_reason": ver.verifier_decline_reason or None,
+        "chooser": chooser,
+        "can_switch": can_switch,
+        "can_cancel": can_cancel,
+        "auto_cancel_at": S.iso_dt(auto),
+        "current_fee": S.money(ver.fee, ver.currency_id),
+        "options": options,
+    }

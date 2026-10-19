@@ -71,9 +71,11 @@ class TestApiDecisionesVerificacion(ApiCase):
     def test_openapi_firma_las_rutas_nuevas(self):
         paths = self.url_open("/api/v1/openapi.json").json()["paths"]
         for ruta in ("/api/v1/verifications/{id}:respond", "/api/v1/verifications/{id}:second-opinion",
-                     "/api/v1/verifications/{id}:support-technicians"):
+                     "/api/v1/verifications/{id}:support-technicians",
+                     "/api/v1/transactions/{id}:cancel", "/api/v1/transactions/{id}:switch-verifier"):
             self.assertTrue(paths[ruta]["post"].get("x-signed"), ruta)
         self.assertIn("get", paths["/api/v1/verifications/{id}/second-opinion"])
+        self.assertIn("get", paths["/api/v1/transactions/{id}/verifier-options"])
 
     def test_aceptar_y_declinar_la_orden(self):
         v = self.nueva("Larva responde apidv")["verification"]
@@ -233,6 +235,16 @@ class TestApiDecisionesVerificacion(ApiCase):
         tx_url = "/transactions/%s" % tx.uuid_ref
         t = self.api("GET", tx_url, raw=self.raw_vend).json()
         self.assertTrue(t["cancellation"]["can_switch_verifier"])
+        op = self.api("GET", tx_url + "/verifier-options", raw=self.raw_vend).json()
+        self.assertEqual(op["chooser"], "seller")
+        self.assertEqual(op["overdue"], "declined")
+        self.assertTrue(op["can_switch"])
+        self.assertFalse(op["can_cancel"], "cancelar sin costo es del comprador")
+        self.assertIn(self.s["verif"].uuid_ref, [o["verifier"]["id"] for o in op["options"]])
+        self.assertNotIn(self.s["verif2"].uuid_ref, [o["verifier"]["id"] for o in op["options"]])
+        op_c = self.api("GET", tx_url + "/verifier-options", raw=self.raw_comp).json()
+        self.assertFalse(op_c["can_switch"])
+        self.assertEqual(op_c["options"], [])
         self.assertFalse(self.api("GET", tx_url, raw=self.raw_comp).json()["cancellation"]["can_switch_verifier"])
         self.assertProblem(self.api("POST", tx_url + ":switch-verifier", raw=self.raw_comp,
                                     body={"verifier": self.s["verif"].uuid_ref}), 403)
@@ -240,6 +252,37 @@ class TestApiDecisionesVerificacion(ApiCase):
                        body={"verifier": self.s["verif"].uuid_ref})
         self.assertEqual(res.status_code, 200, res.text)
         self.assertEqual(ver2.verifier_partner_id, self.s["verif"])
+
+    def test_declinada_el_comprador_cambia_o_cancela(self):
+        r = self.nueva("Larva declinada apidv")
+        v, tx = r["verification"], r["transaction"]
+        url = "/transactions/%s" % tx.uuid_ref
+        op = self.api("GET", url + "/verifier-options", raw=self.raw_comp).json()
+        self.assertIsNone(op["overdue"])
+        self.assertFalse(op["can_switch"])
+        self.assertFalse(op["can_cancel"])
+        self.assertProblem(self.api("POST", url + ":cancel", raw=self.raw_comp, body={}), 422)
+        v.action_verifier_decline("Sin capacidad esa semana")
+        op = self.api("GET", url + "/verifier-options", raw=self.raw_comp).json()
+        self.assertEqual(op["overdue"], "declined")
+        self.assertEqual(op["decline_reason"], "Sin capacidad esa semana")
+        self.assertEqual(op["chooser"], "buyer")
+        self.assertTrue(op["can_switch"])
+        self.assertTrue(op["can_cancel"])
+        self.assertTrue(op["current_fee"])
+        ids = [o["verifier"]["id"] for o in op["options"]]
+        self.assertIn(self.s["verif2"].uuid_ref, ids)
+        self.assertNotIn(self.s["verif"].uuid_ref, ids, "nunca la que declinó")
+        self.assertNotIn(self.s["lab"].uuid_ref, ids)
+        vend = self.api("GET", url + "/verifier-options", raw=self.raw_vend).json()
+        self.assertFalse(vend["can_switch"])
+        self.assertFalse(vend["can_cancel"])
+        self.assertTrue(self.get(v, self.raw_comp)["deadline_overdue"])
+        # Cancelar sin costo: la compra y la verificación quedan canceladas.
+        res = self.api("POST", url + ":cancel", raw=self.raw_comp, body={"note": "Busco otra opción"})
+        self.assertEqual(res.status_code, 200, res.text)
+        self.assertEqual(res.json()["state"], "cancel")
+        self.assertEqual(res.json()["cancellation"]["cancelled"]["cause"], "verification_overdue")
 
     def test_foto_invalida_en_no_presentado(self):
         v = self.nueva("Larva foto mala apidv")["verification"]

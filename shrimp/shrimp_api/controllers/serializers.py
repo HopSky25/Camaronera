@@ -664,6 +664,9 @@ def verification(v, partner, detail=False):
         "deadline_assign": iso_dt(getattr(v, "deadline_assign", False)),
         "deadline_verdict": iso_dt(getattr(v, "deadline_verdict", False)),
         "deadline_overdue": getattr(v, "deadline_overdue", None) or None,
+        # Vencida y sin resolver: la compra se cancela sola en esta fecha.
+        "auto_cancel_at": iso_dt(v.shrimp_auto_cancel_at())
+        if getattr(v, "deadline_overdue", False) and hasattr(v, "shrimp_auto_cancel_at") else None,
         # Rechazo por «Producto no presentado»: hora de llegada del técnico.
         "not_presented_arrival": iso_dt(getattr(v, "not_presented_arrival", False)),
         "verifier_decline_reason": getattr(v, "verifier_decline_reason", None) or None,

@@ -22,6 +22,8 @@ void main() {
       expect(op(TipoOperacion.programarDespacho).metodo, 'PATCH');
       expect(op(TipoOperacion.compraVerificada).ruta, '/verifications');
       expect(op(TipoOperacion.comprarReserva).ruta, '/harvest/commitments/R1:buy');
+      expect(op(TipoOperacion.publicarLote).ruta, '/products/R1:publish');
+      expect(op(TipoOperacion.publicarLote).metodo, 'POST');
       expect(op(TipoOperacion.ofertaMaquila).ruta, '/copack/requests/R1/offers');
       expect(op(TipoOperacion.recepcionMaquila).ruta, '/copack/orders/R1:reception');
       expect(op(TipoOperacion.empaqueMaquila).ruta, '/copack/orders/R1:packing');

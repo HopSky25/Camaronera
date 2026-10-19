@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../datos/repositorio.dart';
 import '../../datos/sesion.dart';
 import '../../datos/sincronizador.dart';
+import '../../modelos/lote_nuevo.dart';
 import '../../tema.dart';
 import '../comunes/formato.dart';
 import '../comunes/lista_remota.dart';
@@ -14,6 +15,7 @@ import '../comunes/pantalla_transacciones.dart';
 import '../comunes/widgets.dart';
 import '../empacadora/pantalla_catalogo.dart';
 import 'pantalla_mis_lotes.dart';
+import 'pantalla_publicar_lote.dart';
 
 /// Panel de quien vende (camaronera, semillero, laboratorio): lotes
 /// publicados, ventas en curso, informes por aceptar y próximos despachos.
@@ -96,6 +98,16 @@ class PanelVendedor extends StatelessWidget {
                       ),
                     ]),
                     const Rotulo('Listas'),
+                    if (!soloLectura && puedePublicarLotes(perfil))
+                      FilaMenu(
+                        icono: Icons.add_box_outlined,
+                        titulo: 'Publicar lote',
+                        subtitulo: esCamaronera ? 'Camarón: se guarda en borrador y se publica con tu huella' : 'Nauplio o larva: se guarda en borrador y se publica con tu huella',
+                        onTap: () async {
+                          final creado = await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => const PantallaPublicarLote()));
+                          if (creado == true) await recargar();
+                        },
+                      ),
                     FilaMenu(icono: Icons.inventory_outlined, titulo: 'Mis lotes', subtitulo: 'Publicados, en borrador y vendidos', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaMisLotes()))),
                     FilaMenu(icono: Icons.sell_outlined, titulo: 'Mis ventas', subtitulo: 'Estado y trazabilidad de cada venta', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaTransacciones(rol: 'seller')))),
                     FilaMenu(icono: Icons.fact_check_outlined, titulo: 'Informes de verificación', subtitulo: 'Ver el resultado y aceptar o rechazar', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaInformes(rol: 'seller')))),
@@ -107,7 +119,7 @@ class PanelVendedor extends StatelessWidget {
                     if (perfil == 'laboratorio' && !soloLectura)
                       FilaMenu(icono: Icons.shopping_cart_outlined, titulo: 'Comprar nauplio', subtitulo: 'Lotes de naupliero: compra directa', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaCatalogo(tipoInicial: 'semillero', titulo: 'Comprar nauplio')))),
                     const SizedBox(height: 8),
-                    const AvisoWeb(texto: 'Publicar lotes nuevos, cambiar precios, certificados y fotos se hace desde el portal web.'),
+                    const AvisoWeb(texto: 'Editar un lote, cambiar su precio y agregar fotos o certificados se hace desde el portal web.'),
                   ],
                 ),
               );

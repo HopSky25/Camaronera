@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../datos/repositorio.dart';
+import '../../datos/sesion.dart';
+import '../../modelos/lote_nuevo.dart';
 import '../../tema.dart';
 import '../comunes/formato.dart';
 import '../comunes/lista_remota.dart';
 import '../comunes/widgets.dart';
+import 'pantalla_publicar_lote.dart';
 
-/// Mis lotes (`GET /products`, solo lectura): publicados con las unidades
-/// disponibles, borradores y vendidos.
+/// Mis lotes (`GET /products`): publicados con las unidades disponibles,
+/// borradores y vendidos, y el botón «Publicar lote» (no en modo supervisor).
 class PantallaMisLotes extends StatefulWidget {
   const PantallaMisLotes({super.key});
   @override
@@ -16,31 +20,54 @@ class PantallaMisLotes extends StatefulWidget {
 
 class _PantallaMisLotesState extends State<PantallaMisLotes> {
   String _estado = 'published';
+  final _lista = GlobalKey<ListaRemotaState>();
+
+  Future<void> _abrir(Widget pantalla) async {
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => pantalla));
+    // Se pudo publicar o retirar un lote: la lista se pone al día.
+    await _lista.currentState?.recargar();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final sesion = context.watch<Sesion>();
+    final publica = !sesion.soloLectura && puedePublicarLotes(sesion.perfil);
     return Scaffold(
       appBar: AppBar(title: const Text('Mis lotes')),
       body: ListaRemota(
+        key: _lista,
         ruta: '/products',
         params: {if (_estado != 'todos') 'state': _estado},
         vacio: 'No hay lotes en esta lista.',
         cabecera: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: SizedBox(
-            width: double.infinity,
-            child: SegmentedButton<String>(
-              showSelectedIcon: false,
-              segments: const [
-                ButtonSegment(value: 'published', label: Text('Publicados')),
-                ButtonSegment(value: 'draft', label: Text('Borrador')),
-                ButtonSegment(value: 'sold', label: Text('Vendidos')),
-                ButtonSegment(value: 'todos', label: Text('Todos')),
-              ],
-              selected: {_estado},
-              onSelectionChanged: (s) => setState(() => _estado = s.first),
+          child: Column(children: [
+            if (publica) ...[
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  icon: const Icon(Icons.add),
+                  label: const Text('Publicar lote'),
+                  onPressed: () => _abrir(const PantallaPublicarLote()),
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+            SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<String>(
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(value: 'published', label: Text('Publicados')),
+                  ButtonSegment(value: 'draft', label: Text('Borrador')),
+                  ButtonSegment(value: 'sold', label: Text('Vendidos')),
+                  ButtonSegment(value: 'todos', label: Text('Todos')),
+                ],
+                selected: {_estado},
+                onSelectionChanged: (s) => setState(() => _estado = s.first),
+              ),
             ),
-          ),
+          ]),
         ),
         tarjeta: (c, p) => TarjetaRegistro(
           titulo: (p['name'] ?? '') as String,
@@ -52,7 +79,7 @@ class _PantallaMisLotesState extends State<PantallaMisLotes> {
           ].join(' · '),
           estado: (p['state'] ?? '') as String,
           estadoTexto: estadoProducto(p['state'] as String?),
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PantallaLote(id: p['id'] as String))),
+          onTap: () => _abrir(PantallaLote(id: p['id'] as String)),
           datos: [
             Dato(icono: Icons.scale_outlined, texto: '${cantidad(p['available_qty'], p['uom'])} disponibles de ${cantidad(p['initial_qty'], p['uom'])}'),
             Dato(icono: Icons.attach_money, texto: precioPorUnidad(p['price'], p['uom'])),
@@ -64,7 +91,8 @@ class _PantallaMisLotesState extends State<PantallaMisLotes> {
   }
 }
 
-/// Detalle de un lote propio (`GET /products/{id}`), solo lectura.
+/// Detalle de un lote propio (`GET /products/{id}`) con sus acciones:
+/// publicar el borrador o retirarlo del marketplace ([AccionesLote]).
 class PantallaLote extends StatelessWidget {
   final String id;
   const PantallaLote({super.key, required this.id});
@@ -124,7 +152,9 @@ class PantallaLote extends StatelessWidget {
                   ]),
                 ],
                 const SizedBox(height: 16),
-                const AvisoWeb(texto: 'Editar el lote, publicarlo o darlo de baja se hace desde el portal web.'),
+                AccionesLote(p: p, alCambiar: recargar),
+                const SizedBox(height: 12),
+                const AvisoWeb(texto: 'Editar el lote, cambiar su precio, agregar fotos o certificados y reactivar un lote retirado se hace desde el portal web.'),
               ],
             ),
           );

@@ -30,6 +30,9 @@ enum TipoOperacion {
   // Compra directa (larva, nauplio): no pasa por la cola, se firma y se envía
   // en el momento (Sincronizador.firmarCompraDirecta).
   compraDirecta,
+  // Vendedor: publicar un lote en borrador. Como la compra directa, no pasa
+  // por la cola (Sincronizador.firmarPublicacionLote).
+  publicarLote,
   // Maquilador
   ofertaMaquila,
   recepcionMaquila,
@@ -41,7 +44,8 @@ class OperacionPendiente {
   final int? idLocal;
   final TipoOperacion tipo;
 
-  /// Id (uuid) del recurso principal: verificación, despacho, solicitud u orden.
+  /// Id (uuid) del recurso principal: verificación, despacho, solicitud,
+  /// orden o lote.
   final String recursoId;
 
   /// Para la llegada del camión desde una verificación: id del despacho.
@@ -150,6 +154,7 @@ class OperacionPendiente {
         TipoOperacion.programarDespacho => '/dispatches/$recursoId',
         TipoOperacion.compraVerificada => '/verifications',
         TipoOperacion.compraDirecta => '/purchases',
+        TipoOperacion.publicarLote => '/products/$recursoId:publish',
         TipoOperacion.comprarReserva => '/harvest/commitments/$recursoId:buy',
         TipoOperacion.ofertaMaquila => '/copack/requests/$recursoId/offers',
         TipoOperacion.recepcionMaquila => '/copack/orders/$recursoId:reception',
@@ -168,6 +173,7 @@ class OperacionPendiente {
         TipoOperacion.programarDespacho => 'Programación del despacho',
         TipoOperacion.compraVerificada => 'Compra con verificación',
         TipoOperacion.compraDirecta => 'Compra directa',
+        TipoOperacion.publicarLote => 'Publicación del lote',
         TipoOperacion.comprarReserva => 'Compra del lote reservado',
         TipoOperacion.ofertaMaquila => 'Oferta de empaque',
         TipoOperacion.recepcionMaquila => 'Recepción en planta',

@@ -429,7 +429,30 @@ class Sincronizador extends ChangeNotifier {
 
   /// Envía la compra firmada. Devuelve la transacción (201). Lanza
   /// [SinConexion] (reintentar con la MISMA operación) o [ErrorApi].
-  Future<Map<String, dynamic>> enviarCompraDirecta(OperacionPendiente op) async {
+  Future<Map<String, dynamic>> enviarCompraDirecta(OperacionPendiente op) => enviarFirmadaAhora(op);
+
+  // ---------------- publicar un lote ----------------
+
+  /// Publicar un lote en borrador (`POST /products/{id}:publish`, firmado):
+  /// mismo mecanismo que la compra directa. No va a la cola: sin señal no se
+  /// publica, y el reintento manda la MISMA operación (misma
+  /// Idempotency-Key y firma), así que nunca se publica dos veces.
+  Future<OperacionPendiente> firmarPublicacionLote(String productoId, {bool conPin = false}) async {
+    _exigirEscritura();
+    final op = OperacionPendiente(
+      tipo: TipoOperacion.publicarLote,
+      recursoId: productoId,
+      cuerpoSerializado: '{}',
+      claveIdempotencia: _uuid.v4(),
+      creadaEn: DateTime.now(),
+      rol: sesion.rolParaApi,
+    );
+    return op.conFirma(await sesion.firmarOperacion(op, conPin: conPin));
+  }
+
+  /// Envía en el momento una operación ya firmada que no pasa por la cola
+  /// (compra directa, publicar un lote). Lanza [SinConexion] o [ErrorApi].
+  Future<Map<String, dynamic>> enviarFirmadaAhora(OperacionPendiente op) async {
     _exigirEscritura();
     final api = sesion.apiOperativa;
     if (api == null) throw const ErrorApi(401, 'Sin sesión', 'Vuelve a entrar.', 'expired-api-key');

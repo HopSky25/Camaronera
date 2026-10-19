@@ -37,8 +37,8 @@ String cadenaCanonica({
 /// Segundos Unix (entero) de un instante.
 int segundosUnix(DateTime t) => t.toUtc().millisecondsSinceEpoch ~/ 1000;
 
-/// Las rutas firmadas del servidor (sección 4 del contrato de firma y C4/C5
-/// del de mejoras), con `{id}`
+/// Las rutas firmadas del servidor (sección 4 del contrato de firma, C4/C5
+/// del de mejoras y publicar un lote), con `{id}`
 /// como un segmento. La acción final se acepta como `:accion` o `/accion`
 /// (el servidor admite las dos formas).
 final _rutasSensibles = <String, List<RegExp>>{
@@ -51,6 +51,8 @@ final _rutasSensibles = <String, List<RegExp>>{
       // Fotos de campo y compra directa (CONTRATO-MEJORAS-APP.md, C4 y C5).
       r'/verifications/[^/:]+/photos',
       r'/purchases',
+      // Publicar un lote (shrimp_api 19.0.1.16.0).
+      r'/products/[^/:]+[:/]publish',
       r'/dispatches/[^/:]+/arrival',
       r'/transactions/[^/:]+[:/]complete',
       r'/harvest/commitments/[^/:]+[:/]buy',

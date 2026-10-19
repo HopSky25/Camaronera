@@ -10,10 +10,12 @@ import '../../modelos/verificacion.dart';
 import '../../tema.dart';
 import 'formato.dart';
 import 'lista_remota.dart';
+import 'pantalla_segunda_opinion.dart';
 import 'widgets.dart';
 
 /// Informes de verificación de mis ventas (`role=seller`) o compras
-/// (`role=buyer`), con los que esperan mi decisión primero.
+/// (`role=buyer`), con los que esperan mi decisión primero (aceptar el
+/// informe o, el vendedor, pedir una segunda opinión tras un rechazo).
 class PantallaInformes extends StatefulWidget {
   /// seller | buyer
   final String rol;
@@ -34,7 +36,7 @@ class _PantallaInformesState extends State<PantallaInformes> {
         params: {'role': widget.rol},
         vacio: 'No hay informes en esta lista.',
         filtro: (v) => switch (_filtro) {
-          'aceptar' => v['acceptance_state'] == 'waiting',
+          'aceptar' => v['acceptance_state'] == 'waiting' || (widget.rol == 'seller' && v['contest_state'] == 'open'),
           'curso' => !const {'approved', 'approved_obs', 'rejected', 'cancelled'}.contains(v['state']),
           _ => true,
         },
@@ -45,7 +47,7 @@ class _PantallaInformesState extends State<PantallaInformes> {
             child: SegmentedButton<String>(
               showSelectedIcon: false,
               segments: const [
-                ButtonSegment(value: 'aceptar', label: Text('Por aceptar')),
+                ButtonSegment(value: 'aceptar', label: Text('Por decidir')),
                 ButtonSegment(value: 'curso', label: Text('En curso')),
                 ButtonSegment(value: 'todas', label: Text('Todas')),
               ],
@@ -72,6 +74,18 @@ class _PantallaInformesState extends State<PantallaInformes> {
                   texto: v.plazoAceptacion == null ? 'Esperando tu decisión' : 'Decidir antes del ${fechaHoraDe(v.plazoAceptacion!)}',
                   color: context.colores.advertenciaTexto,
                 ),
+              if (v.esSegundaOpinion) const Dato(icono: Icons.balance_rounded, texto: 'Segunda opinión'),
+              if (v.rechazoNoPresentado) const Dato(icono: Icons.visibility_off_outlined, texto: 'Rechazada: producto no presentado'),
+              if (v.estado == 'rejected' && v.estadoImpugnacion == 'open')
+                Dato(
+                  icono: Icons.hourglass_bottom_rounded,
+                  texto: widget.rol == 'seller'
+                      ? 'Puedes pedir segunda opinión${v.plazoImpugnacion == null ? '' : ' hasta el ${fechaHoraDe(v.plazoImpugnacion!)}'}'
+                      : 'El vendedor puede pedir segunda opinión',
+                  color: context.colores.advertenciaTexto,
+                ),
+              if (v.declinada && !v.cerrada)
+                Dato(icono: Icons.block_rounded, texto: 'La verificadora declinó la orden', color: context.colores.peligroTexto),
             ],
           );
         },
@@ -129,6 +143,16 @@ class _Detalle extends StatelessWidget {
           ]),
           const SizedBox(height: 4),
           Text(v.producto.nombre, style: Theme.of(context).textTheme.titleMedium),
+          if (v.esSegundaOpinion) ...[
+            const SizedBox(height: 10),
+            const CajaAviso(
+              tipo: TipoAviso.info,
+              icono: Icons.balance_rounded,
+              texto: 'Segunda opinión: el vendedor impugnó el rechazo de otra verificadora y esta vuelve a verificar. '
+                  'Su honorario lo paga el vendedor. Si aprueba, la compra sigue; si rechaza, el rechazo se mantiene.',
+            ),
+          ],
+          ..._orden(context, v),
           const Rotulo('Partes'),
           SeccionDatos(filas: [
             ('Vendedor', v.vendedor.nombre),
@@ -138,6 +162,7 @@ class _Detalle extends StatelessWidget {
             if (j['verified_at'] != null) ('Veredicto', fechaHora(j['verified_at'])),
             if (j['verdict_notes'] != null) ('Notas del veredicto', '${j['verdict_notes']}'),
           ]),
+          if (v.estado == 'rejected') ..._rechazo(context, v, soloLectura),
           const Rotulo('Resultado'),
           if (!hayInforme)
             Tarjeta(child: Text('Todavía no hay datos de campo.', style: TextStyle(color: context.colores.tintaSuave)))
@@ -219,6 +244,125 @@ class _Detalle extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// La verificadora declinó la orden o no cumplió su plazo: quien eligió la
+  /// verificadora (el comprador; en una segunda opinión, el vendedor) elige
+  /// otra o cancela. Eso se hace en el portal.
+  List<Widget> _orden(BuildContext context, Verificacion v) {
+    if (v.cerrada || v.modo != 'platform') return const [];
+    final vencido = v.plazoVencidoEtiqueta;
+    final filas = <(String, String)>[
+      if (v.plazoVeredicto != null) ('Veredicto hasta', fechaHoraDe(v.plazoVeredicto!)),
+    ];
+    if (vencido == null && filas.isEmpty) return const [];
+    final eligeYo = v.miRol == (v.esSegundaOpinion ? 'seller' : 'buyer');
+    final motivo = v.declinada && v.motivoDeclinada != null ? ' (motivo: ${v.motivoDeclinada})' : '';
+    return [
+      const Rotulo('Verificadora'),
+      if (vencido != null) ...[
+        CajaAviso(
+          tipo: TipoAviso.advertencia,
+          icono: Icons.schedule_rounded,
+          texto: eligeYo
+              ? '$vencido$motivo. Puedes elegir otra verificadora o cancelar la compra sin costo desde el portal web.'
+              : '$vencido$motivo. ${v.esSegundaOpinion ? 'El vendedor' : 'El comprador'} elegirá otra verificadora o cancelará sin costo.',
+        ),
+      ] else
+        SeccionDatos(filas: filas),
+    ];
+  }
+
+  /// Rechazo: por «producto no presentado» (firme, sin segunda opinión) o
+  /// por el informe (el vendedor puede pedir una segunda opinión en plazo).
+  List<Widget> _rechazo(BuildContext context, Verificacion v, bool soloLectura) {
+    final vendedor = v.miRol == 'seller';
+    if (v.rechazoNoPresentado) {
+      final llegada = v.llegadaNoPresentado;
+      final cuando = llegada == null ? '' : ' (el técnico llegó a la planta el ${fechaHoraDe(llegada)})';
+      return [
+        const Rotulo('Rechazo'),
+        CajaAviso(
+          tipo: TipoAviso.peligro,
+          icono: Icons.visibility_off_outlined,
+          texto: vendedor
+              ? 'Rechazada porque el producto no se presentó en la planta$cuando. El honorario lo pagas tú y suma un strike; '
+                  'la compra se canceló. Este rechazo no admite segunda opinión.'
+              : 'Rechazada porque el producto no se presentó en la planta$cuando. La compra se canceló sin costo para ti.',
+        ),
+      ];
+    }
+    final plazo = v.plazoImpugnacion;
+    final hasta = plazo == null ? '' : ' hasta el ${fechaHoraDe(plazo)}';
+    final widgets = <Widget>[const Rotulo('Segunda opinión')];
+    switch (v.estadoImpugnacion) {
+      case 'open':
+        widgets.add(CajaAviso(
+          tipo: TipoAviso.advertencia,
+          icono: Icons.balance_rounded,
+          texto: vendedor
+              ? 'La verificadora rechazó el producto. Si no estás de acuerdo, pide una segunda opinión$hasta: otra verificadora acreditada '
+                  'vuelve a verificar y su honorario lo pagas tú. Si aprueba, la compra sigue; si rechaza, el rechazo se mantiene. '
+                  'Si no la pides, la compra se cancela y el honorario de la verificación lo pagas tú.'
+              : 'La verificadora rechazó el producto. El vendedor puede pedir una segunda opinión$hasta; mientras tanto la compra queda '
+                  'en espera. Si no la pide, la compra se cancela sin costo para ti.',
+        ));
+        if (vendedor && v.puedoPedirSegundaOpinion) {
+          widgets.add(const SizedBox(height: 12));
+          widgets.add(soloLectura
+              ? const AvisoSoloLectura()
+              : BotonAccion(
+                  onPressed: () async {
+                    final pedida = await Navigator.push<bool>(
+                        context, MaterialPageRoute(builder: (_) => PantallaSegundaOpinion(id: v.id)));
+                    if (pedida == true) await recargar();
+                  },
+                  icono: Icons.balance_rounded,
+                  texto: 'Pedir segunda opinión',
+                ));
+        }
+      case 'contested':
+        widgets.add(CajaAviso(
+          tipo: TipoAviso.info,
+          icono: Icons.search_rounded,
+          texto: '${vendedor ? 'Pediste' : 'El vendedor pidió'} una segunda opinión: otra verificadora vuelve a verificar. '
+              'Si aprueba, la compra sigue y las partes aceptan el nuevo informe; si rechaza, el rechazo se mantiene.',
+        ));
+        final segunda = v.segundaOpinion;
+        if (segunda != null) {
+          widgets.add(const SizedBox(height: 10));
+          widgets.add(OutlinedButton.icon(
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PantallaInformePartes(id: segunda))),
+            icon: const Icon(Icons.open_in_new_rounded),
+            label: const Text('Ver la segunda opinión'),
+          ));
+        }
+      case 'firm':
+        widgets.add(CajaAviso(
+          tipo: TipoAviso.peligro,
+          icono: Icons.cancel_outlined,
+          texto: 'Nadie pidió la segunda opinión a tiempo: el rechazo quedó firme, la compra se canceló y el honorario lo paga el vendedor.',
+        ));
+      case 'upheld' || 'overturned':
+        widgets.add(CajaAviso(
+          tipo: v.estadoImpugnacion == 'upheld' ? TipoAviso.peligro : TipoAviso.ok,
+          icono: Icons.balance_rounded,
+          texto: v.estadoImpugnacion == 'upheld'
+              ? 'La segunda opinión confirmó el rechazo: la compra se canceló y los honorarios los paga el vendedor.'
+              : 'La segunda opinión aprobó el producto: la compra siguió con el nuevo informe.',
+        ));
+      default:
+        if (v.esSegundaOpinion) {
+          widgets.add(const CajaAviso(
+            tipo: TipoAviso.peligro,
+            icono: Icons.cancel_outlined,
+            texto: 'La segunda opinión también rechazó el producto: el rechazo se mantiene y la compra se cancela.',
+          ));
+        } else {
+          return const [];
+        }
+    }
+    return widgets;
   }
 
   Future<void> _decidir(BuildContext context, String decision) async {

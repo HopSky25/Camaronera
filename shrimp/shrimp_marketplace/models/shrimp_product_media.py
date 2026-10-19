@@ -204,6 +204,34 @@ class ShrimpProductMedia(models.Model):
         self.sudo().write({"cert_attachment_ids": [(4, attachment.id)]})
         return line
 
+    def shrimp_edit_own_certificate(self, line, number=False, issue_date=False, expiry_date=False,
+                                    attachment=None):
+        """Corrige número y fechas (y, si viene, el archivo) de un
+        certificado PROPIO del lote. Los que vienen de «mis certificados» se
+        corrigen en la cuenta. Un cambio lo devuelve a revisión, como en el
+        portal. El emisor es el del tipo de certificado del catálogo: no se
+        edita. Devuelve True si cambió algo."""
+        self.ensure_one()
+        line = line.sudo()
+        if line.product_id != self:
+            raise ValidationError(_("Ese certificado no es de este lote."))
+        if line.source_user_certificate_line_id:
+            raise ValidationError(_("«%s» viene de tus certificados de la cuenta: corrígelo allí.")
+                                  % line.certificate_id.name)
+        vals = {"number": number or False,
+                "issue_date": fields.Date.to_date(issue_date) or False,
+                "expiry_date": fields.Date.to_date(expiry_date) or False}
+        cambia = any((line[k] or False) != vals[k] for k in vals)
+        if attachment:
+            vals["attachment_id"] = attachment.id
+            self.sudo().write({"cert_attachment_ids": [(4, attachment.id)]})
+            cambia = True
+        if not cambia:
+            return False
+        vals["status"] = "pending"
+        line.write(vals)
+        return True
+
     def shrimp_remove_certificate_lines(self, lines):
         """Quita líneas de certificado DEL LOTE (y sus archivos del m2m)."""
         self.ensure_one()

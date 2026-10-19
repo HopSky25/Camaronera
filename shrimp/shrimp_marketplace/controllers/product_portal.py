@@ -805,24 +805,18 @@ class ShrimpProductPortalController(http.Controller):
                 continue
             if line.source_user_certificate_line_id:
                 continue  # heredado del usuario: no editable
-            vals = {
-                "number": post.get(f"edit_cert_{ref}_number") or False,
-                "issue_date": post.get(f"edit_cert_{ref}_issue_date") or False,
-                "expiry_date": post.get(f"edit_cert_{ref}_expiry_date") or False,
-            }
+            att = False
             file_obj = request.httprequest.files.get(f"edit_cert_{ref}_file")
             if file_obj and file_obj.filename:
                 att = self._create_attachment(
                     file_obj, product, name_prefix=f"cert_{line.certificate_id.id}_")
-                if att:
-                    vals["attachment_id"] = att.id
-                    product.write({"cert_attachment_ids": [(4, att.id)]})
-            cambia = "attachment_id" in vals or any(
-                str(line[k] or "") != str(vals[k] or "")
-                for k in ("number", "issue_date", "expiry_date"))
-            if cambia:
-                vals["status"] = "pending"
-            line.write(vals)
+            # Núcleo compartido con la API (vuelve a revisión si cambia).
+            product.shrimp_edit_own_certificate(
+                line,
+                number=post.get(f"edit_cert_{ref}_number") or False,
+                issue_date=post.get(f"edit_cert_{ref}_issue_date") or False,
+                expiry_date=post.get(f"edit_cert_{ref}_expiry_date") or False,
+                attachment=att or None)
 
     def _save_product_certificates(self, product, post):
         """Crea las líneas de certificado enviadas en el formulario de crear/editar.

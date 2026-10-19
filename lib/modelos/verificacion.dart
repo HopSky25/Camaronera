@@ -352,7 +352,10 @@ class Verificacion {
   bool get tieneDetalle => crudo.containsKey('weights');
   bool get esLarva => alcance == 'larvae';
   bool get esperaAceptacion => estadoAceptacion == 'waiting';
-  bool get soyVerificadora => miRol == 'verifier';
+  /// Administrador de la empresa verificadora: asigna, arma el equipo y
+  /// responde la orden (también si se asignó a sí mismo como responsable y
+  /// su rol es «technician»: lo dice `can_manage`).
+  bool get soyVerificadora => miRol == 'verifier' || crudo['can_manage'] == true;
 
   /// Postura de la parte (`buyer` / `seller`) en el detalle: pending |
   /// accepted | counter | rejected. Nulo si el detalle no está cargado.
@@ -372,7 +375,91 @@ class Verificacion {
   bool get puedeIniciarCampo => estado == 'assigned';
   bool get esperaTecnico => estado == 'received';
   bool get enCampo => estado == 'in_field';
-  bool get cerrada => const {'done', 'approved', 'approved_obs', 'rejected', 'cancelled'}.contains(estado);
+  /// Con veredicto o cancelada. «Informe listo» (`done`) todavía admite
+  /// fotos, informe y veredicto: no está cerrada.
+  bool get cerrada => const {'approved', 'approved_obs', 'rejected', 'cancelled'}.contains(estado);
+
+  // ---------------- equipo de campo ----------------
+
+  /// Técnico de apoyo: carga datos de campo (iniciar, informe, fotos), pero
+  /// no firma el veredicto.
+  bool get soyApoyo => miRol == 'support_technician';
+  bool get soyResponsable => miRol == 'technician';
+
+  /// Técnicos de apoyo (solo los ve la verificadora y su equipo).
+  List<Referencia> get tecnicosApoyo => [
+        for (final t in (crudo['support_technicians'] is List ? crudo['support_technicians'] as List : const []))
+          if (t is Map) Referencia.desde(t),
+      ];
+
+  /// Firmar el veredicto: el técnico responsable o la empresa. Si el
+  /// servidor no lo dice (lista sin detalle), se deduce del rol.
+  bool get puedoDictaminar {
+    final v = crudo['can_verdict'];
+    if (v is bool) return v;
+    return miRol == 'technician' || miRol == 'verifier';
+  }
+
+  // ---------------- respuesta de la verificadora a la orden ----------------
+
+  /// pending | accepted | declined (nulo en las declaradas).
+  String? get respuestaOrden => jsonTexto(crudo['verifier_response']);
+  DateTime? get plazoRespuesta => fechaIso(crudo['verifier_response_deadline']);
+  String? get motivoDeclinada => jsonTexto(crudo['verifier_decline_reason']);
+  bool get declinada => respuestaOrden == 'declined';
+
+  /// La orden espera que la empresa la acepte o la decline.
+  bool get puedoResponder => crudo['can_respond'] == true;
+  bool get puedoDeclinar => crudo['can_decline'] == true;
+
+  // ---------------- plazos ----------------
+
+  DateTime? get plazoAsignar => fechaIso(crudo['deadline_assign']);
+  DateTime? get plazoVeredicto => fechaIso(crudo['deadline_verdict']);
+
+  /// assign | verdict | declined | response (nulo si va a tiempo).
+  String? get plazoVencido => jsonTexto(crudo['deadline_overdue']);
+
+  String? get plazoVencidoEtiqueta => switch (plazoVencido) {
+        'assign' => 'Venció el plazo para asignar técnico',
+        'verdict' => 'Venció el plazo para el veredicto',
+        'response' => 'Venció el plazo para aceptar o declinar la orden',
+        'declined' => 'La verificadora declinó la orden',
+        _ => null,
+      };
+
+  // ---------------- rechazo y segunda opinión ----------------
+
+  /// field (por el informe) | not_presented (el producto no se presentó).
+  String? get motivoRechazo => jsonTexto(crudo['rejection_reason']);
+  bool get rechazoNoPresentado => estado == 'rejected' && motivoRechazo == 'not_presented';
+  DateTime? get llegadaNoPresentado => fechaIso(crudo['not_presented_arrival']);
+
+  /// open | contested | firm | upheld | overturned
+  String? get estadoImpugnacion => jsonTexto(crudo['contest_state']);
+  DateTime? get plazoImpugnacion => fechaIso(crudo['contest_deadline']);
+
+  /// Esta verificación es la segunda opinión de otra (id de la primera).
+  String? get segundaOpinionDe => jsonTexto(crudo['second_opinion_of']);
+  bool get esSegundaOpinion => segundaOpinionDe != null;
+
+  /// La segunda opinión pedida sobre esta (id), si la hay.
+  String? get segundaOpinion => jsonTexto(crudo['second_opinion']);
+  bool get puedoPedirSegundaOpinion => crudo['can_request_second_opinion'] == true;
+
+  /// Horas que tendrá el vendedor para pedir la segunda opinión si se
+  /// rechaza por el informe (0 = el rechazo queda firme en el acto). Nulo si
+  /// el servidor no lo dice.
+  int? get horasImpugnacion => crudo['contest_hours'] is num ? (crudo['contest_hours'] as num).toInt() : null;
+
+  String? get impugnacionEtiqueta => switch (estadoImpugnacion) {
+        'open' => 'Plazo para pedir segunda opinión',
+        'contested' => 'Segunda opinión en curso',
+        'firm' => 'Rechazo firme',
+        'upheld' => 'Confirmado por la segunda opinión',
+        'overturned' => 'Revertido por la segunda opinión',
+        _ => null,
+      };
 
   String get estadoEtiqueta => switch (estado) {
         'received' => 'Recibida',

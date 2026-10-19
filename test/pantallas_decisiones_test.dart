@@ -16,6 +16,8 @@ import 'package:verificador_campo/datos/sincronizador.dart';
 import 'package:verificador_campo/modelos/verificacion.dart';
 import 'package:verificador_campo/pantallas/comunes/pantalla_informes.dart';
 import 'package:verificador_campo/pantallas/comunes/pantalla_segunda_opinion.dart';
+import 'package:verificador_campo/pantallas/comunes/pantalla_transacciones.dart';
+import 'package:verificador_campo/pantallas/comunes/pantalla_verificadora_vencida.dart';
 import 'package:verificador_campo/pantallas/pantalla_asignar_apoyo.dart';
 import 'package:verificador_campo/pantallas/pantalla_veredicto.dart';
 import 'package:verificador_campo/pantallas/pantalla_veredicto_no_presentado.dart';
@@ -98,6 +100,36 @@ Map<String, dynamic> _opciones() => {
         },
       ],
     };
+
+const _tx = '7b2e0000-0000-4000-8000-000000000003';
+
+Map<String, dynamic> _opcionesVencida({bool cambiar = true, bool cancelar = true, String overdue = 'declined'}) => {
+      'verification': _id,
+      'verifier': {'id': 'v1', 'name': 'Verificadora del Golfo'},
+      'overdue': overdue,
+      'decline_reason': 'Sin capacidad esa semana',
+      'chooser': 'buyer',
+      'can_switch': cambiar,
+      'can_cancel': cancelar,
+      'auto_cancel_at': '2026-10-09T14:00:00Z',
+      'current_fee': {'amount': 150.0, 'currency': 'USD'},
+      'options': cambiar
+          ? [
+              {
+                'verifier': {'id': 'ver-2', 'name': 'Otra Verificadora'},
+                'fee': {'amount': 120.0, 'currency': 'USD'},
+              },
+            ]
+          : [],
+    };
+
+Map<String, dynamic> _compradorDeclinada() => verificacionDetalle()
+  ..['state'] = 'received'
+  ..['acceptance_state'] = 'na'
+  ..['deadline_overdue'] = 'declined'
+  ..['verifier_response'] = 'declined'
+  ..['verifier_decline_reason'] = 'Sin capacidad esa semana'
+  ..['auto_cancel_at'] = '2026-10-09T14:00:00Z';
 
 void main() {
   for (final modo in [ModoTema.claro, ModoTema.oscuro]) {
@@ -261,6 +293,76 @@ void main() {
         await t.pumpAndSettle();
         expect(find.text('Elige la verificadora de la segunda opinión.'), findsOneWidget);
         expect(find.text('Elige una verificadora'), findsOneWidget);
+      });
+
+      testWidgets('verificadora vencida: el comprador cambia de verificadora o cancela', (t) async {
+        final repo = RepoRutas(sesion, {
+          '/verifications/v': _compradorDeclinada(),
+          '/transactions/$_tx/verifier-options': _opcionesVencida(),
+        });
+        await montar(t, const PantallaInformePartes(id: 'v'), otros: [Provider<Repositorio>.value(value: repo)]);
+        expect(find.textContaining('La verificadora declinó la orden: «Sin capacidad esa semana»'), findsOneWidget);
+        expect(find.text('Se cancela sola el'), findsOneWidget);
+        expect(find.textContaining('portal'), findsNothing, reason: 'ya no se manda al portal');
+        sinTextoOscuro(t, 'informe con verificadora declinada');
+        await t.ensureVisible(find.text('Cambiar de verificadora o cancelar'));
+        await t.tap(find.text('Cambiar de verificadora o cancelar'));
+        await t.pumpAndSettle();
+        expect(find.byType(PantallaVerificadoraVencida), findsOneWidget);
+        expect(find.text('Otra Verificadora'), findsOneWidget);
+        expect(find.textContaining('hoy pagaste'), findsOneWidget);
+        expect(find.textContaining('Se anula el honorario de verificación (nota de crédito si ya estaba facturado).'), findsOneWidget);
+        expect(find.textContaining('el vendedor no recibe strike'), findsOneWidget);
+        sinTextoOscuro(t, 'verificadora vencida');
+        // Sin elegir: SnackBar y el error a la vista.
+        final cambiar = find.descendant(of: find.byType(ListView), matching: find.text('Cambiar verificadora'));
+        await t.ensureVisible(cambiar);
+        await t.tap(cambiar);
+        await t.pumpAndSettle();
+        expect(find.text('Elige la nueva verificadora.'), findsOneWidget);
+        expect(find.text('Elige una verificadora'), findsOneWidget);
+        // Cancelar pide confirmación.
+        await t.ensureVisible(find.text('Confirmar cancelación'));
+        await t.tap(find.text('Confirmar cancelación'));
+        await t.pump();
+        await t.pump(const Duration(milliseconds: 400));
+        expect(find.text('La compra y la verificación quedan canceladas. No se puede deshacer.'), findsOneWidget);
+      });
+
+      testWidgets('verificadora vencida: el vendedor solo ve que elige el comprador', (t) async {
+        await montar(t, const PantallaVerificadoraVencida(transaccionId: _tx), otros: [
+          Provider<Repositorio>.value(
+              value: RepoRutas(sesion, {'/transactions/$_tx/verifier-options': _opcionesVencida(cambiar: false, cancelar: false)})),
+        ]);
+        expect(find.textContaining('no es un incumplimiento del vendedor'), findsOneWidget);
+        expect(find.text('Cambiar verificadora'), findsNothing);
+        expect(find.text('Confirmar cancelación'), findsNothing);
+        sinTextoOscuro(t, 'vencida para el vendedor');
+      });
+
+      testWidgets('el detalle de la compra lleva a cambiar de verificadora o cancelar', (t) async {
+        final compra = <String, dynamic>{
+          'id': _tx,
+          'reference': 'TX/2026/0007',
+          'my_role': 'buyer',
+          'state': 'pending_verification',
+          'product': {'id': 'p1', 'name': 'Camarón 21/25'},
+          'seller': {'id': 's1', 'name': 'Camaronera Las Mareas'},
+          'needs_verification': true,
+          'verification_mode': 'platform',
+          'cancellation': {
+            'buyer_can_cancel': true,
+            'buyer_cancel_reason': 'verification_overdue',
+            'verification_overdue': 'verdict',
+            'can_switch_verifier': true,
+          },
+        };
+        await montar(t, const PantallaTransaccion(id: _tx), otros: [
+          Provider<Repositorio>.value(value: RepoRutas(sesion, {'/transactions/$_tx': compra, '/transactions/$_tx/traceability': {}})),
+        ]);
+        expect(find.textContaining('La verificadora no emitió el veredicto a tiempo.'), findsOneWidget);
+        expect(find.text('Cambiar de verificadora o cancelar'), findsOneWidget);
+        sinTextoOscuro(t, 'detalle de la compra');
       });
 
       testWidgets('el comprador ve el rechazo sin el botón del vendedor', (t) async {

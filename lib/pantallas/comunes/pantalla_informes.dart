@@ -11,6 +11,7 @@ import '../../tema.dart';
 import 'formato.dart';
 import 'lista_remota.dart';
 import 'pantalla_segunda_opinion.dart';
+import 'pantalla_verificadora_vencida.dart';
 import 'widgets.dart';
 
 /// Informes de verificación de mis ventas (`role=seller`) o compras
@@ -84,8 +85,12 @@ class _PantallaInformesState extends State<PantallaInformes> {
                       : 'El vendedor puede pedir segunda opinión',
                   color: context.colores.advertenciaTexto,
                 ),
-              if (v.declinada && !v.cerrada)
-                Dato(icono: Icons.block_rounded, texto: 'La verificadora declinó la orden', color: context.colores.peligroTexto),
+              if (v.plazoVencido != null && !v.cerrada)
+                Dato(
+                  icono: Icons.block_rounded,
+                  texto: v.declinada ? 'La verificadora declinó la orden' : 'La verificadora no cumplió su plazo',
+                  color: context.colores.peligroTexto,
+                ),
             ],
           );
         },
@@ -152,7 +157,7 @@ class _Detalle extends StatelessWidget {
                   'Su honorario lo paga el vendedor. Si aprueba, la compra sigue; si rechaza, el rechazo se mantiene.',
             ),
           ],
-          ..._orden(context, v),
+          ..._orden(context, v, soloLectura),
           const Rotulo('Partes'),
           SeccionDatos(filas: [
             ('Vendedor', v.vendedor.nombre),
@@ -248,26 +253,59 @@ class _Detalle extends StatelessWidget {
 
   /// La verificadora declinó la orden o no cumplió su plazo: quien eligió la
   /// verificadora (el comprador; en una segunda opinión, el vendedor) elige
-  /// otra o cancela. Eso se hace en el portal.
-  List<Widget> _orden(BuildContext context, Verificacion v) {
+  /// otra, y el comprador puede cancelar sin costo
+  /// ([PantallaVerificadoraVencida]), como en el portal.
+  List<Widget> _orden(BuildContext context, Verificacion v, bool soloLectura) {
     if (v.cerrada || v.modo != 'platform') return const [];
-    final vencido = v.plazoVencidoEtiqueta;
+    final vencido = v.plazoVencido;
     final filas = <(String, String)>[
       if (v.plazoVeredicto != null) ('Veredicto hasta', fechaHoraDe(v.plazoVeredicto!)),
+      if (v.autoCancelacion != null) ('Se cancela sola el', fechaHoraDe(v.autoCancelacion!)),
     ];
     if (vencido == null && filas.isEmpty) return const [];
+    final comprador = v.miRol == 'buyer';
     final eligeYo = v.miRol == (v.esSegundaOpinion ? 'seller' : 'buyer');
-    final motivo = v.declinada && v.motivoDeclinada != null ? ' (motivo: ${v.motivoDeclinada})' : '';
+    final tx = v.transaccionId;
+    final actua = (eligeYo || comprador) && tx != null;
+    final etiqueta = eligeYo && comprador
+        ? 'Cambiar de verificadora o cancelar'
+        : eligeYo
+            ? 'Cambiar de verificadora'
+            : 'Cancelar la compra sin costo';
     return [
       const Rotulo('Verificadora'),
       if (vencido != null) ...[
-        CajaAviso(
-          tipo: TipoAviso.advertencia,
-          icono: Icons.schedule_rounded,
-          texto: eligeYo
-              ? '$vencido$motivo. Puedes elegir otra verificadora o cancelar la compra sin costo desde el portal web.'
-              : '$vencido$motivo. ${v.esSegundaOpinion ? 'El vendedor' : 'El comprador'} elegirá otra verificadora o cancelará sin costo.',
-        ),
+        if (actua)
+          CajaAviso(
+            tipo: TipoAviso.peligro,
+            icono: Icons.lock_open_rounded,
+            texto: '${textoVerificadoraVencida(vencido, motivo: v.motivoDeclinada)} '
+                '${eligeYo ? 'Puedes cambiar a otra verificadora acreditada (el honorario se recalcula con su tarifa; plazos desde ahora)' : 'El vendedor puede cambiar de verificadora'}'
+                '${comprador ? ' o cancelar la compra sin costo.' : '.'}',
+          )
+        else
+          CajaAviso(
+            tipo: TipoAviso.advertencia,
+            icono: Icons.schedule_rounded,
+            texto: '${vencido == 'declined' ? 'La verificadora declinó la orden.' : 'La verificadora no cumplió su plazo.'} '
+                'El comprador puede cancelar sin costo o cambiar de verificadora; no es un incumplimiento del vendedor.',
+          ),
+        if (filas.isNotEmpty) ...[const SizedBox(height: 10), SeccionDatos(filas: filas)],
+        if (actua) ...[
+          const SizedBox(height: 12),
+          if (soloLectura)
+            const AvisoSoloLectura()
+          else
+            BotonAccion(
+              onPressed: () async {
+                final hecho = await Navigator.push<bool>(
+                    context, MaterialPageRoute(builder: (_) => PantallaVerificadoraVencida(transaccionId: tx)));
+                if (hecho == true) await recargar();
+              },
+              icono: Icons.swap_horiz_rounded,
+              texto: etiqueta,
+            ),
+        ],
       ] else
         SeccionDatos(filas: filas),
     ];

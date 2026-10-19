@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 
+import 'package:provider/provider.dart';
+
 import '../../datos/repositorio.dart';
+import '../../datos/sesion.dart';
 import '../../tema.dart';
 import 'formato.dart';
 import 'lista_remota.dart';
 import 'menu_cuenta.dart';
+import 'pantalla_verificadora_vencida.dart';
 import 'widgets.dart';
 
 /// Mis ventas (`GET /transactions?role=seller`) o Mis compras (`role=buyer`).
@@ -150,6 +154,7 @@ class _DetalleTransaccion extends StatelessWidget {
             ('Verificación', t['needs_verification'] == true ? (t['verification_mode'] == 'declared' ? 'Declarada por las partes' : 'Verificadora de la plataforma') : 'No requiere'),
             if (factura != null) ('Factura del vendedor', '${factura['number'] ?? '—'} · ${fecha(factura['date'])}'),
           ]),
+          ..._verificadoraVencida(context, t),
           if (estado == 'pending_acceptance') ...[
             const SizedBox(height: 12),
             Text(
@@ -208,6 +213,47 @@ class _DetalleTransaccion extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// La verificadora declinó o no cumplió (`cancellation.verification_overdue`):
+  /// quien elige cambia de verificadora y el comprador puede cancelar sin
+  /// costo, como en «Plazos de la verificadora» del portal.
+  List<Widget> _verificadoraVencida(BuildContext context, Map<String, dynamic> t) {
+    final cancel = t['cancellation'] is Map ? t['cancellation'] as Map : const {};
+    final vencido = cancel['verification_overdue'] as String?;
+    if (vencido == null) return const [];
+    final cambiar = cancel['can_switch_verifier'] == true;
+    final cancelar = cancel['buyer_can_cancel'] == true;
+    final actua = cambiar || cancelar;
+    final soloLectura = context.select<Sesion, bool>((s) => s.soloLectura);
+    return [
+      const SizedBox(height: 12),
+      CajaAviso(
+        tipo: actua ? TipoAviso.peligro : TipoAviso.advertencia,
+        icono: Icons.schedule_rounded,
+        texto: actua
+            ? '${textoVerificadoraVencida(vencido)} '
+                '${cambiar ? 'Puedes cambiar a otra verificadora acreditada' : 'Puedes'}'
+                '${cambiar && cancelar ? ' o cancelar la compra sin costo.' : cancelar ? ' cancelar la compra sin costo.' : '.'}'
+            : '${vencido == 'declined' ? 'La verificadora declinó la orden.' : 'La verificadora no cumplió su plazo.'} '
+                'El comprador puede cancelar sin costo o cambiar de verificadora; no es un incumplimiento del vendedor.',
+      ),
+      if (actua) ...[
+        const SizedBox(height: 10),
+        if (soloLectura)
+          const AvisoSoloLectura()
+        else
+          BotonAccion(
+            onPressed: () async {
+              final hecho = await Navigator.push<bool>(
+                  context, MaterialPageRoute(builder: (_) => PantallaVerificadoraVencida(transaccionId: t['id'] as String)));
+              if (hecho == true) await recargar();
+            },
+            icono: Icons.swap_horiz_rounded,
+            texto: cambiar && cancelar ? 'Cambiar de verificadora o cancelar' : (cambiar ? 'Cambiar de verificadora' : 'Cancelar la compra sin costo'),
+          ),
+      ],
+    ];
   }
 
   String _productoTexto(Map p) {

@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- D-29 (auditoría de procesos): sello «Compra cancelada» en la página
+         pública y bloque «Página pública (QR)» en la compra de las partes,
+         con Retirar / Renovar enlace. Ver models/transaction_trace_public.py. -->
+    <template id="public_traceability_cancelled_stamp" inherit_id="shrimp_api.public_traceability"
+              name="Trazabilidad pública: sello de compra cancelada">
+        <xpath expr="//div[@id='wrap']/div[1]" position="before">
+            <div t-if="data.get('cancelled')" id="trace_cancelled_stamp" role="alert"
+                 class="alert alert-danger d-flex align-items-center gap-3 mb-3"
+                 style="border-width:2px;">
+                <i class="fa fa-ban fa-2x" aria-hidden="true"/>
+                <div>
+                    <div class="h5 mb-1 text-uppercase" style="letter-spacing:.06em;">Compra cancelada</div>
+                    <div class="small">Esta operación no se completó. La cadena se muestra solo como
+                        constancia de lo que ocurrió; no acredita una entrega.</div>
+                </div>
+            </div>
+        </xpath>
+    </template>
+
+    <template id="traceability_screen_public_trace" inherit_id="shrimp_marketplace.traceability_screen"
+              priority="25" name="Trazabilidad: página pública (QR)">
+        <xpath expr="//div[@id='shrimp_trace_summary']" position="after">
+            <t t-set="_tp" t-value="tx.sudo()"/>
+            <t t-set="_tp_status" t-value="_tp.shrimp_trace_public_status()"/>
+            <div t-if="_tp_status != 'unavailable' or _tp.state not in ('draft', 'cancel')"
+                 class="mp-table-card mb-4" id="shrimp_trace_public">
+                <div class="card-body p-4">
+                    <div class="mp-sec-head">
+                        <span class="mp-sec-ico"><i class="fa fa-qrcode"></i></span>
+                        <h3 class="mp-sec-title">Página pública de trazabilidad (QR)</h3>
+                    </div>
+                    <div t-if="request.params.get('trace_msg')" class="alert alert-success py-2" role="status"><t t-esc="request.params.get('trace_msg')"/></div>
+                    <div t-if="request.params.get('trace_error')" class="alert alert-danger py-2" role="alert"><t t-esc="request.params.get('trace_error')"/></div>
+                    <t t-if="_tp_status in ('public', 'cancelled')">
+                        <p class="mb-2">
+                            Cualquiera con el enlace o el QR del certificado ve la cadena de custodia,
+                            los certificados y la verificación (sin precios ni datos personales).
+                            <t t-if="_tp_status == 'cancelled'"><b class="text-danger">La compra está cancelada:</b> la página se muestra con el sello «Compra cancelada».</t>
+                        </p>
+                        <p class="small mb-3" style="word-break:break-all;">
+                            <a t-att-href="_tp.traceability_url()" target="_blank" rel="noopener"><t t-esc="_tp.traceability_url()"/></a>
+                        </p>
+                    </t>
+                    <p t-elif="_tp_status == 'withdrawn'" class="mb-3">
+                        <i class="fa fa-eye-slash me-1" aria-hidden="true"/>
+                        <b>Retirada:</b> la página pública no se muestra y los QR impresos no abren nada.
+                        Renueva el enlace para volver a publicarla (con un QR nuevo).
+                    </p>
+                    <p t-else="" class="text-muted mb-0">
+                        La página pública existe cuando la compra se confirma.
+                    </p>
+                    <div t-if="_tp_status != 'unavailable'" class="d-flex flex-wrap gap-2">
+                        <form t-if="_tp_status in ('public', 'cancelled')" method="post" class="d-inline"
+                              t-att-action="'/marketplace/purchases/%s/traceability/withdraw' % tx.uuid_ref"
+                              onsubmit="return confirm('¿Retirar la página pública? Los QR ya impresos dejarán de abrirla.');">
+                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                            <button type="submit" class="s-btn s-btn-ghost"><i class="fa fa-eye-slash me-1"></i> Retirar página pública</button>
+                        </form>
+                        <form method="post" class="d-inline"
+                              t-att-action="'/marketplace/purchases/%s/traceability/renew' % tx.uuid_ref"
+                              onsubmit="return confirm('¿Renovar el enlace? Los QR ya impresos dejarán de funcionar.');">
+                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                            <button type="submit" class="s-btn s-btn-ghost"><i class="fa fa-refresh me-1"></i>
+                                <t t-if="_tp_status == 'withdrawn'">Volver a publicar con un enlace nuevo</t>
+                                <t t-else="">Renovar enlace</t>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </xpath>
+    </template>
+</odoo>

@@ -86,10 +86,29 @@ class ShrimpProveedorRanking(models.AbstractModel):
             return (self.PESO_RENDIMIENTO, self.PESO_CLASE_A, self.PESO_CUMPLIMIENTO)
         return tuple(p / 100.0 for p in pesos)
 
-    def _pesos_pct(self):
-        rend, clase_a, cumpl = self._pesos()
+    def _pesos_pct(self, pesos=None):
+        rend, clase_a, cumpl = pesos or self._pesos()
         return {"rendimiento": int(round(rend * 100)), "clase_a": int(round(clase_a * 100)),
                 "cumplimiento": int(round(cumpl * 100))}
+
+    def _params(self):
+        """Umbral y pesos leídos UNA vez por cálculo (no una vez por proveedor)."""
+        return {"umbral": self._umbral_lotes(), "pesos": self._pesos()}
+
+    @staticmethod
+    def _puntaje(pesos, rend, clase_a, cumplimiento):
+        """Puntaje de conveniencia. Sin rendimiento no hay puntaje. Si la
+        clase A no se midió no cuenta como 0 (hundiría al proveedor por un
+        dato que falta): se reparte su peso entre rendimiento y cumplimiento."""
+        if rend is None:
+            return None
+        p_rend, p_clase_a, p_cumpl = pesos
+        if clase_a is None:
+            resto = p_rend + p_cumpl
+            if not resto:
+                return None
+            return (p_rend * rend + p_cumpl * cumplimiento) / resto
+        return p_rend * rend + p_clase_a * clase_a + p_cumpl * cumplimiento
 
     # ------------------------------------------------------------------
     def _sin_porcentaje(self, texto):
@@ -132,13 +151,14 @@ class ShrimpProveedorRanking(models.AbstractModel):
         }
 
     # ------------------------------------------------------------------
-    def _fila(self, proveedor, lotes):
+    def _fila(self, proveedor, lotes, params=None, ofertas=None):
         """Los promedios de un proveedor, cada uno con su propia muestra.
 
         Cada métrica lleva su contador aparte y no el total de lotes: un lote
         puede traer pesada y no medición de metabisulfito. Decir "5 lotes" al
         lado de un promedio calculado sobre 2 es mentir con la verdad.
         """
+        params = params or self._params()
         detalles = [self._detalle_lote(v) for v in lotes]
 
         rendimientos = [d["rendimiento"] for d in detalles if d["rendimiento"]]
@@ -165,19 +185,12 @@ class ShrimpProveedorRanking(models.AbstractModel):
 
         # Sin rendimiento medido no hay puntaje: un proveedor no puede quedar
         # primero por no tener datos. El resto de la fila sigue visible.
-        puntaje = None
-        if rend is not None:
-            p_rend, p_clase_a, p_cumpl = self._pesos()
-            puntaje = (
-                p_rend * rend
-                + p_clase_a * (clase_a if clase_a is not None else 0.0)
-                + p_cumpl * cumplimiento
-            )
+        puntaje = self._puntaje(params["pesos"], rend, clase_a, cumplimiento)
 
         return {
             "proveedor": proveedor,
             "lotes": len(detalles),
-            "suficiente": len(detalles) >= self._umbral_lotes(),
+            "suficiente": len(detalles) >= params["umbral"],
             "rendimiento": rend,
             "rendimiento_n": len(rendimientos),
             "rendimiento_min": min(rendimientos) if rendimientos else None,
@@ -201,22 +214,30 @@ class ShrimpProveedorRanking(models.AbstractModel):
             "ultima": max((d["fecha"] for d in detalles if d["fecha"]), default=False),
             "puntaje": puntaje,
             "detalles": detalles,
-            "ofertas": self._ofertas_vivas(proveedor),
+            "ofertas": (ofertas.get(proveedor.id, 0) if ofertas is not None
+                        else self._ofertas_por_proveedor(proveedor).get(proveedor.id, 0)),
         }
 
     # ------------------------------------------------------------------
-    def _ofertas_vivas(self, proveedor):
-        """Lotes que ese proveedor tiene publicados ahora mismo.
+    def _ofertas_por_proveedor(self, proveedores):
+        """{id proveedor: lotes publicados ahora mismo}, en UNA consulta.
 
         Sin esto el ranking es un informe; con esto es una compra: el que sale
         primero se puede comprar en el mismo clic.
         """
-        return self.env["shrimp.product"].sudo().search_count([
-            ("seller_partner_id", "=", proveedor.id),
+        if not proveedores:
+            return {}
+        grupos = self.env["shrimp.product"].sudo()._read_group([
+            ("seller_partner_id", "in", proveedores.ids),
             ("active", "=", True),
             ("state", "=", "published"),
             ("available_qty", ">", 0),
-        ])
+        ], ["seller_partner_id"], ["__count"])
+        return {socio.id: n for socio, n in grupos}
+
+    def _ofertas_vivas(self, proveedor):
+        """Compatibilidad: lotes publicados de un solo proveedor."""
+        return self._ofertas_por_proveedor(proveedor).get(proveedor.id, 0)
 
     # ------------------------------------------------------------------
     ORDENES = {
@@ -247,7 +268,10 @@ class ShrimpProveedorRanking(models.AbstractModel):
                 continue
             grupos.setdefault(v.seller_partner_id, []).append(v)
 
-        filas = [self._fila(prov, lotes) for prov, lotes in grupos.items()]
+        params = self._params()
+        proveedores = self.env["res.partner"].browse([p.id for p in grupos])
+        ofertas = self._ofertas_por_proveedor(proveedores)
+        filas = [self._fila(prov, lotes, params, ofertas) for prov, lotes in grupos.items()]
 
         campo, desc = self.ORDENES.get(orden) or self.ORDENES["puntaje"]
 
@@ -269,7 +293,7 @@ class ShrimpProveedorRanking(models.AbstractModel):
         return {
             "filas": filas,
             "orden": orden if orden in self.ORDENES else "puntaje",
-            "umbral": self._umbral_lotes(),
+            "umbral": params["umbral"],
             "proveedores": len(filas),
             "con_muestra": len(con_muestra),
             "lotes": len(verificaciones),
@@ -279,7 +303,7 @@ class ShrimpProveedorRanking(models.AbstractModel):
             # que el ranking se va a mover, y cuánto.
             "en_curso": V.search_count(
                 base + [("state", "in", list(self.ESTADOS_EN_CURSO))]),
-            "pesos": self._pesos_pct(),
+            "pesos": self._pesos_pct(params["pesos"]),
         }
 
     # ==================================================================
@@ -328,17 +352,18 @@ class ShrimpProveedorRanking(models.AbstractModel):
         for v in verifs:
             vistas = set()
             for l in v.line_ids:
-                if not l.weight_lb or not l.size_code:
+                talla = (l.size_code or "").strip().upper()
+                if not l.weight_lb or not talla:
                     continue
-                t = acum.setdefault(l.size_code.strip().upper(), {
-                    "talla": l.size_code.strip().upper(),
-                    "lb": 0.0, "a": 0.0, "b": 0.0, "c": 0.0, "lotes": 0,
+                t = acum.setdefault(talla, {
+                    "talla": talla, "lb": 0.0, "a": 0.0, "b": 0.0, "c": 0.0, "lotes": 0,
                 })
                 t["lb"] += l.weight_lb
-                t[l.quality_class or "c"] += l.weight_lb
-                if l.size_code not in vistas:
+                t[l.quality_class if l.quality_class in ("a", "b", "c") else "c"] += l.weight_lb
+                # Normalizada: " 31/35" y "31/35" del mismo lote cuentan una vez.
+                if talla not in vistas:
                     t["lotes"] += 1
-                    vistas.add(l.size_code)
+                    vistas.add(talla)
 
         total = sum(t["lb"] for t in acum.values()) or 0.0
         filas = []
@@ -361,14 +386,14 @@ class ShrimpProveedorRanking(models.AbstractModel):
         enseñar un tablero vacío con ceros, que se lee como que el sistema no
         funciona. Sin datos, sencillamente no aparece.
 
-        El líder es el mismo que corona /marketplace/proveedores —se reutiliza
+        El líder es el mismo que corona /marketplace/suppliers —se reutiliza
         ranking() tal cual— para que la portada y el ranking nunca digan dos
         nombres distintos.
         """
         r = self.ranking(empacadora, orden="puntaje")
-        if not r["filas"]:
-            return None
-        lider = r["filas"][0] if r["filas"][0]["suficiente"] else None
+        # El líder necesita muestra suficiente Y puntaje: uno sin rendimiento
+        # medido no puede encabezar nada (y la plantilla formatea su puntaje).
+        lider = next((f for f in r["filas"] if f["suficiente"] and f["puntaje"] is not None), None)
         if not lider:
             return None
         return {
@@ -377,8 +402,20 @@ class ShrimpProveedorRanking(models.AbstractModel):
             "tallas": self.por_talla(empacadora, lider["proveedor"]),
             # Los que vienen detrás, para que el titular tenga contexto: un
             # 72 % solo impresiona al lado de un 61 %.
-            "resto": [f for f in r["filas"][1:4] if f["rendimiento"] is not None],
+            "resto": [f for f in r["filas"]
+                      if f is not lider and f["rendimiento"] is not None][:3],
         }
+
+    def dashboard_para(self, partner):
+        """El tablero del líder para el socio de la petición, con la MISMA
+        regla de acceso que /marketplace/suppliers: perfil activo que emite
+        listas de precios (empacadora) y cuenta aprobada. Si no, None."""
+        if not partner:
+            return None
+        partner = partner.sudo()
+        if not partner._shrimp_can("issue_price_lists") or not partner.shrimp_is_operational():
+            return None
+        return self.dashboard_empacadora(partner)
 
     # ==================================================================
     # El mismo cálculo, leído desde el otro lado del mostrador
@@ -420,7 +457,8 @@ class ShrimpProveedorRanking(models.AbstractModel):
         # _fila divide entre el número de lotes para el cumplimiento: sin
         # lotes no hay fila que calcular, y la pantalla ya tiene que tratar
         # ese caso aparte de todos modos.
-        fila = self._fila(camaronera, verificaciones) if verificaciones else None
+        params = self._params()
+        fila = self._fila(camaronera, verificaciones, params) if verificaciones else None
         detalles = fila["detalles"] if fila else []
 
         # Metabisulfito y sabor se cuentan sobre lo MEDIDO, no sobre el total
@@ -435,9 +473,9 @@ class ShrimpProveedorRanking(models.AbstractModel):
         return {
             "fila": fila,
             "lotes": lotes,
-            "umbral": self._umbral_lotes(),
+            "umbral": params["umbral"],
             "suficiente": bool(fila) and fila["suficiente"],
-            "faltan": max(0, self._umbral_lotes() - lotes),
+            "faltan": max(0, params["umbral"] - lotes),
             "compradores": len({
                 v.buyer_partner_id.id for v in verificaciones if v.buyer_partner_id}),
             "verificadores": len({
@@ -450,7 +488,7 @@ class ShrimpProveedorRanking(models.AbstractModel):
                 [d for d in meta_medidos if d["metabisulfito_res"] == "pass"]),
             "en_curso": V.search_count(
                 base + [("state", "in", list(self.ESTADOS_EN_CURSO))]),
-            "pesos": self._pesos_pct(),
+            "pesos": self._pesos_pct(params["pesos"]),
         }
 
     # ------------------------------------------------------------------

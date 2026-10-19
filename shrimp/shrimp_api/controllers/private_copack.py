@@ -12,15 +12,20 @@ CLIENT_TYPES = ("camaronera", "empacadora")
 REQ_SCHEMA = obj(id="uuid", reference="string", my_role="string", client="ref", copacker="ref",
                  state="string", quantity_lb="number", presentation="string", size_grade="ref",
                  needed_from="date", needed_to="date", offers={"type": "array"}, order="string",
+                 expires_on="date", parent_request="string", remainder_requests={"type": "array"},
                  updated_at="datetime")
 OFFER_SCHEMA = obj(id="uuid", request="string", copacker="ref", client="ref", state="string",
                    rate_per_lb="money", capacity_lb="number", available_from="date",
-                   available_to="date", estimated_total="money")
+                   available_to="date", estimated_total="money", expires_on="date",
+                   closed_reason="string", reject_reason="string")
 ORDER_SCHEMA = obj(id="uuid", reference="string", my_role="string", state="string",
                    acceptance_state="string", self_packing="boolean", client="ref", copacker="ref",
                    agreed_qty_lb="number",
                    rate_per_lb="money", received_lb="number", packed_lb="number", boxes="integer",
                    difference_lb="number", balanced="boolean", service_amount="money",
+                   acceptance_deadline="datetime", tacit_acceptance="boolean", signed_at="datetime",
+                   billable="boolean", mediation_resolution="string", cancelled_by="string",
+                   cancel_reason="string", pending_cancellation={"type": "object"},
                    signatures={"type": "array"}, updated_at="datetime")
 TARIFF_SCHEMA = obj(id="uuid", name="string", my_role="string", copacker="ref", state="string",
                     valid_from="date", valid_to="date", is_current="boolean",
@@ -32,11 +37,13 @@ TARIFF_SCHEMA = obj(id="uuid", name="string", my_role="string", copacker="ref", 
 # ---------------------------------------------------------------------------
 @api_route("GET", "/copack/requests", scope=READ, tags=[TAG], paginated=True,
            summary="Mis solicitudes (cliente) o la bandeja de solicitudes que puedo ofertar (maquilador)",
-           params={"state": F("enum", enum=["draft", "published", "assigned", "done", "cancelled"])},
+           params={"state": F("enum", enum=["draft", "published", "assigned", "done", "expired",
+                                            "cancelled"])},
            response=REQ_SCHEMA)
 def requests_list(ctx):
     domain = []
-    state = ctx.enum_param("state", ["draft", "published", "assigned", "done", "cancelled"])
+    state = ctx.enum_param("state", ["draft", "published", "assigned", "done", "expired",
+                                     "cancelled"])
     if state:
         domain.append(("state", "=", state))
     return paginate(ctx, "shrimp.copack.request", domain,
@@ -95,14 +102,22 @@ def request_create(ctx):
 
 
 @api_route("POST", "/copack/requests/{id}:cancel", scope="copack:write", tags=[TAG],
-           summary="El cliente cancela su solicitud (antes de empacar)", response=REQ_SCHEMA)
+           body={"reason": F("text")},
+           summary="El cliente cancela su solicitud (misma regla que el portal)",
+           description="Borrador, publicada o vencida: se cancela y las ofertas vivas se descartan. "
+                       "Adjudicada: se cancela junto con su orden si la orden todavía se puede "
+                       "cancelar como cliente (antes de empacar). La regla vive en el modelo "
+                       "(shrimp.copack.request.shrimp_cancel_problem) y es la misma del portal.",
+           response=REQ_SCHEMA)
 def request_cancel(ctx, id):
     req = ctx.get_own("shrimp.copack.request", id, "La solicitud").sudo()
     if req.client_partner_id != ctx.partner:
         raise forbidden("La solicitud la cancela el cliente.")
-    if req.state not in ("draft", "published"):
-        raise ApiError(409, "invalid-state", "Ya está adjudicada: se resuelve en la orden.")
-    req.action_cancel()
+    problem = req.shrimp_cancel_problem(actor=ctx.partner)
+    if problem:
+        raise ApiError(409, "invalid-state", problem)
+    vals = ctx.clean({"reason": F("text")})
+    req.action_cancel(actor=ctx.partner, reason=vals.get("reason") or None)
     return S.copack_request(req, ctx.partner, detail=True)
 
 
@@ -142,6 +157,22 @@ def offer_withdraw(ctx, id):
     if offer.copacker_partner_id != ctx.partner:
         raise forbidden("La oferta la retira el maquilador que la hizo.")
     offer.action_withdraw(actor=ctx.partner)
+    return S.copack_offer(offer)
+
+
+@api_route("POST", "/copack/offers/{id}:reject", scope="copack:write", tags=[TAG],
+           body={"reason": F("text", description="Motivo (opcional): lo lee la planta")},
+           summary="El cliente rechaza una oferta concreta",
+           description="La oferta pasa a «rejected» (closed_reason «client») y la planta recibe "
+                       "un aviso. Mientras la solicitud siga publicada, la planta puede mejorarla "
+                       "(al cambiar tarifa, libras o fechas se vuelve a enviar).",
+           response=OFFER_SCHEMA)
+def offer_reject(ctx, id):
+    offer = ctx.get_own("shrimp.copack.offer", id, "La oferta").sudo()
+    if offer.request_id.client_partner_id != ctx.partner:
+        raise forbidden("La oferta la rechaza quien pidió el servicio.")
+    vals = ctx.clean({"reason": F("text")})
+    offer.action_reject(actor=ctx.partner, reason=vals.get("reason") or None)
     return S.copack_offer(offer)
 
 
@@ -307,10 +338,82 @@ def order_close(ctx, id):
 
 
 @api_route("POST", "/copack/orders/{id}:cancel", scope="copack:write", tags=[TAG],
-           summary="Cancela una orden aún no firmada (cualquiera de las partes)", response=ORDER_SCHEMA)
+           body={"reason": F("text", description="Obligatorio para el maquilador")},
+           summary="Cancela una orden (mismas reglas que el portal)",
+           description="El cliente, antes de empacar (la solicitud se cancela con la orden). El "
+                       "maquilador, solo ANTES de recibir el camarón y con motivo: la solicitud se "
+                       "reabre a las demás plantas. Con el camarón en planta el maquilador usa "
+                       ":return (acta de devolución) o :platform-cancel. Empacada o firmada, no "
+                       "se cancela.",
+           response=ORDER_SCHEMA)
 def order_cancel(ctx, id):
     order = _order(ctx, id)
-    order.action_cancel()
+    vals = ctx.clean({"reason": F("text")})
+    problem = order.shrimp_cancel_problem(actor=ctx.partner)
+    if problem:
+        raise ApiError(409, "invalid-state", problem)
+    order.action_cancel(actor=ctx.partner, reason=vals.get("reason") or None)
+    return S.copack_order(order, ctx.partner, detail=True)
+
+
+@api_route("POST", "/copack/orders/{id}:return", scope="copack:write", tags=[TAG],
+           body={"reason": F("text", required=True),
+                 "returned_lb": F("number", required=True, minimum=0.01),
+                 "notes": F("text", description="Fecha, transporte, estado del producto")},
+           summary="El maquilador registra un acta de devolución (camarón ya recibido)",
+           description="Queda pendiente de la firma del cliente (:return-sign). Firmada, la orden "
+                       "se cancela y la solicitud se reabre a las demás plantas. Mientras esté "
+                       "pendiente no se puede registrar el empaque.",
+           response=ORDER_SCHEMA)
+def order_return(ctx, id):
+    order = _order(ctx, id, copacker_only=True)
+    vals = ctx.clean({"reason": F("text", required=True),
+                      "returned_lb": F("number", required=True, minimum=0.01),
+                      "notes": F("text")})
+    order.action_request_return(vals["reason"], returned_lb=vals["returned_lb"],
+                                notes=vals.get("notes"), actor=ctx.partner)
+    return S.copack_order(order, ctx.partner, detail=True)
+
+
+@api_route("POST", "/copack/orders/{id}:platform-cancel", scope="copack:write", tags=[TAG],
+           body={"reason": F("text", required=True)},
+           summary="El maquilador pide a la plataforma aprobar la cancelación (camarón ya recibido)",
+           response=ORDER_SCHEMA)
+def order_platform_cancel(ctx, id):
+    order = _order(ctx, id, copacker_only=True)
+    vals = ctx.clean({"reason": F("text", required=True)})
+    order.action_request_platform_cancel(vals["reason"], actor=ctx.partner)
+    return S.copack_order(order, ctx.partner, detail=True)
+
+
+@api_route("POST", "/copack/orders/{id}:return-sign", scope="copack:write", tags=[TAG],
+           body={"decision": F("enum", required=True, enum=["accepted", "rejected"]),
+                 "reason": F("text")},
+           summary="El cliente firma (accepted) o rechaza el acta de devolución pendiente",
+           response=ORDER_SCHEMA)
+def order_return_sign(ctx, id):
+    order = _order(ctx, id)
+    if order.client_partner_id != ctx.partner:
+        raise forbidden("El acta de devolución la firma el cliente.")
+    vals = ctx.clean({"decision": F("enum", required=True, enum=["accepted", "rejected"]),
+                      "reason": F("text")})
+    pending = order.pending_cancellation_id
+    if not pending or pending.kind != "return":
+        raise ApiError(409, "invalid-state", "No hay un acta de devolución pendiente.")
+    pending.action_client_sign(vals["decision"] == "accepted", note=vals.get("reason"),
+                               actor=ctx.partner)
+    return S.copack_order(order, ctx.partner, detail=True)
+
+
+@api_route("POST", "/copack/orders/{id}:cancel-request-withdraw", scope="copack:write", tags=[TAG],
+           summary="El maquilador retira su acta de devolución o su pedido a la plataforma",
+           response=ORDER_SCHEMA)
+def order_cancel_request_withdraw(ctx, id):
+    order = _order(ctx, id, copacker_only=True)
+    pending = order.pending_cancellation_id
+    if not pending:
+        raise ApiError(409, "invalid-state", "No hay una solicitud de cancelación pendiente.")
+    pending.action_withdraw(actor=ctx.partner)
     return S.copack_order(order, ctx.partner, detail=True)
 
 

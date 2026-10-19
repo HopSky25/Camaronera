@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Ajustes › CamaronMarket › Entregas y recepción: retrasos de entrega y
+         strikes (res_config_settings_delay.py). -->
+    <record id="res_config_settings_view_form_shrimp_delay" model="ir.ui.view">
+        <field name="name">res.config.settings.form.shrimp.delay</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="shrimp_marketplace.res_config_settings_view_form_shrimp"/>
+        <field name="arch" type="xml">
+            <xpath expr="//block[@name='shrimp_reception_block']" position="inside">
+                <setting string="Retrasos de entrega"
+                         help="El vendedor puede «Notificar retraso de entrega» desde la confirmación hasta los días de gracia después de la fecha acordada. El comprador acepta o propone otra fecha (una vez); si no responde en el plazo, se acepta. Si el vendedor rechaza o no responde la contrapropuesta, o el atraso supera el máximo, o pasa la gracia sin despacho ni aviso, el comprador puede cancelar sin costo (se devuelve el stock y se anula la comisión).">
+                    <div class="content-group">
+                        <div class="row mt16">
+                            <label for="shrimp_delay_max_notices" class="col-lg-6 o_light_label"/>
+                            <field name="shrimp_delay_max_notices"/>
+                        </div>
+                        <div class="row mt8">
+                            <label for="shrimp_delay_max_days" class="col-lg-6 o_light_label"/>
+                            <field name="shrimp_delay_max_days"/>
+                            <span class="text-muted">días sobre la fecha original</span>
+                        </div>
+                        <div class="row mt8">
+                            <label for="shrimp_delay_response_hours" class="col-lg-6 o_light_label"/>
+                            <field name="shrimp_delay_response_hours"/>
+                            <span class="text-muted">horas</span>
+                        </div>
+                        <div class="row mt8">
+                            <label for="shrimp_delay_grace_days" class="col-lg-6 o_light_label"/>
+                            <field name="shrimp_delay_grace_days"/>
+                            <span class="text-muted">días</span>
+                        </div>
+                    </div>
+                </setting>
+                <setting string="Strikes del vendedor"
+                         help="Un strike por: atraso sin aviso, compra cancelada por el comprador por retraso o atraso total mayor al máximo. Como máximo UN strike por compra, aunque concurran varias causas. Un retraso avisado y aceptado no da strike. Los strikes no se muestran en público; el administrador puede anularlos con justificación. La suspensión se levanta sola cuando los strikes activos bajan del umbral (con aviso al vendedor) y el administrador también puede levantarla antes desde la ficha del socio.">
+                    <div class="content-group">
+                        <div class="row mt16">
+                            <label for="shrimp_strike_expiry_days" class="col-lg-6 o_light_label"/>
+                            <field name="shrimp_strike_expiry_days"/>
+                            <span class="text-muted">días</span>
+                        </div>
+                        <div class="row mt8">
+                            <label for="shrimp_strike_warning" class="col-lg-6 o_light_label"/>
+                            <field name="shrimp_strike_warning"/>
+                        </div>
+                        <div class="row mt8">
+                            <label for="shrimp_strike_suspension" class="col-lg-6 o_light_label"/>
+                            <field name="shrimp_strike_suspension"/>
+                        </div>
+                    </div>
+                </setting>
+            </xpath>
+        </field>
+    </record>
+</odoo>

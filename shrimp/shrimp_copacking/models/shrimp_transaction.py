@@ -1,4 +1,5 @@
 from odoo import _, api, fields, models
+from odoo.exceptions import ValidationError
 
 
 class ShrimpTransaction(models.Model):
@@ -47,6 +48,59 @@ class ShrimpTransaction(models.Model):
             rec.copack_order_ids = ordenes.filtered(
                 lambda o: o._shrimp_consta_en_trazabilidad()).sorted(
                 lambda o: o.packed_date or o.create_date)
+
+    # ------------------------------------------------------------------
+    # D-34: la compra de origen se cancela
+    # ------------------------------------------------------------------
+    def _shrimp_copack_cancel_blockers(self):
+        """Órdenes de empaque de esta compra con el camarón ya en planta (o
+        empacado): con ellas viva la compra no se cancela, porque el camarón
+        físico está en la planta del maquilador y el empaque ya se hizo o está
+        en marcha."""
+        self.ensure_one()
+        return self.sudo().copack_order_all_ids.filtered(
+            lambda o: o.state in ("received", "packed", "signed", "closed"))
+
+    def _shrimp_cancel_apply(self, *args, **kwargs):
+        """Antes de cancelar la compra: bloquea si hay camarón en una planta de
+        empaque; si no, cancela en cascada (con aviso) las solicitudes y las
+        órdenes de empaque todavía sin recibir."""
+        for tx in self:
+            bloqueo = tx._shrimp_copack_cancel_blockers()
+            if bloqueo:
+                raise ValidationError(_(
+                    "La compra %(c)s no se puede cancelar: su camarón ya está en la planta de "
+                    "empaque (orden %(o)s). Primero hay que resolver la orden de empaque "
+                    "(acta de devolución o cancelación aprobada por la plataforma).") % {
+                        "c": tx.name or "", "o": ", ".join(bloqueo.mapped("name"))})
+        res = super()._shrimp_cancel_apply(*args, **kwargs)
+        for tx in self:
+            tx.sudo()._shrimp_copack_cascade_cancel()
+        return res
+
+    def _shrimp_copack_cascade_cancel(self):
+        self.ensure_one()
+        motivo = _("Se canceló la compra de origen %s.") % (self.name or "")
+        Order = self.env["shrimp.copack.order"].sudo()
+        Request = self.env["shrimp.copack.request"].sudo()
+        ordenes = Order.search([("transaction_id", "=", self.id), ("state", "=", "confirmed")])
+        for orden in ordenes:
+            orden._shrimp_do_cancel("system", motivo, reopen=False)
+        solicitudes = Request.search([("transaction_id", "=", self.id),
+                                      ("state", "in", ("draft", "published", "expired"))])
+        for sol in solicitudes:
+            sol.action_cancel(reason=motivo)
+            sol._cpk_notify(
+                sol.client_partner_id, _("Solicitud %s cancelada") % sol.name,
+                _("Tu solicitud de empaque %(s)s se canceló porque %(m)s") % {
+                    "s": sol.name, "m": motivo[:1].lower() + motivo[1:]})
+            for oferta in sol.offer_ids.filtered(lambda o: o.closed_reason == "request_cancelled"):
+                oferta._cpk_notify(
+                    oferta.copacker_partner_id, _("Solicitud %s cancelada") % sol.name,
+                    _("La solicitud %(s)s se canceló (%(m)s): tu oferta queda descartada.") % {
+                        "s": sol.name, "m": motivo},
+                    url=sol._cpk_portal_url(oferta.copacker_partner_id))
+        return True
 
     def _shrimp_chain_parties(self, data=None):
         """Empaques sin movimiento de inventario (anteriores a que el empaque

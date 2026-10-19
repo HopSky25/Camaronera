@@ -2,6 +2,7 @@
 import logging
 from odoo import fields, models, _
 from odoo.exceptions import UserError, ValidationError
+from odoo.addons.l10n_ec_sri_community.services import validators
 
 _logger = logging.getLogger(__name__)
 
@@ -27,6 +28,18 @@ class PosOrder(models.Model):
                 if vals:
                     order.write(vals)
         return super()._process_saved_order(draft)
+
+    def _prepare_invoice_vals(self):
+        # La factura del POS lleva la sucursal y el punto de emisión de la caja.
+        vals = super()._prepare_invoice_vals()
+        # sudo: el cajero no necesita permisos de Ecuador SRI para que su venta se facture.
+        point = self.config_id.sudo().ec_sri_point_id
+        if point:
+            vals['ec_sri_establishment_id'] = point.establishment_id.id
+            vals['ec_sri_point_id'] = point.id
+            # Se emite y transmite ahora: fecha de Ecuador, no la del usuario o del servidor.
+            vals['invoice_date'] = validators.today_ec()
+        return vals
 
     def _generate_pos_order_invoice(self):
         invoice = super()._generate_pos_order_invoice()

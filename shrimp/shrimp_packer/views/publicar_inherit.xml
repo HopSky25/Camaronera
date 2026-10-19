@@ -18,7 +18,7 @@
     <!-- Selector de lista de precios: si se asigna, el precio se toma de ella
          y se bloquea el campo. -->
     <xpath expr="//div[@id='pfPriceListSlot']" position="inside">
-      <t t-set="_pls" t-value="request.env['shrimp.price.list'].sudo().visibles_para(request.env.user.partner_id)"/>
+      <t t-set="_pls" t-value="request.env['shrimp.price.list'].sudo().visibles_para(request.env.user.shrimp_actor_partner_id)"/>
       <div class="pf-blk" t-if="_pls">
         <label class="pf-lbl" for="pkPriceList"><i class="fa fa-tag pf-teal" aria-hidden="true"/> Lista de precios <span class="pf-opt">· opcional</span></label>
         <select class="pf-sel" name="price_list_ref" id="pkPriceList" aria-describedby="pkPriceListHelp"

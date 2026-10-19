@@ -17,7 +17,8 @@ EXPORT_SCHEMA = obj(id="uuid", reference="string", state="string", date="date",
                     destination_place="string", confidential="boolean", dae_number="string",
                     invoice_number="string", container="string", boxes="integer",
                     qty="number", uom="ref", unit_price="money", total="money",
-                    lines={"type": "array"}, updated_at="datetime")
+                    lines={"type": "array"}, cancel_state="string", cancel_reason="string",
+                    updated_at="datetime")
 
 LINE_SPEC = {
     "lot": F("string", required=True, description="uuid de un lote propio con saldo"),
@@ -96,10 +97,12 @@ def export_create(ctx):
 
 
 @api_route("POST", "/exports/{id}:cancel", scope="exports:write", tags=[TAG],
-           summary="Anula una salida propia (la cantidad vuelve a los lotes)",
-           body={"reason": F("text")}, response=EXPORT_SCHEMA)
+           summary="Anula una salida propia (la cantidad vuelve a los lotes). El motivo es "
+                   "obligatorio; si la salida ya tiene DAE o factura, la anulación queda "
+                   "pendiente de aprobación de la plataforma (cancel_state=pending)",
+           body={"reason": F("text", required=True)}, response=EXPORT_SCHEMA)
 def export_cancel(ctx, id):
     exp = ctx.get_own("shrimp.export", id, "La salida")
-    reason = (ctx.body or {}).get("reason") or "Anulada por API"
+    reason = ((ctx.body or {}).get("reason") or "").strip()
     exp.sudo().action_cancel(reason=reason, actor=ctx.partner)
     return S.export(exp)

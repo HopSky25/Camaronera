@@ -8,320 +8,264 @@
   <template id="verification_acceptance" name="Aceptación del informe de verificación">
     <t t-call="website.layout">
       <t t-set="pres_labels" t-value="{'entero': 'Entero (cuerpo)', 'cola': 'Cola'}"/>
-      <div class="shrimp-bg">
-        <div class="shrimp-page py-4 sf-fields" style="max-width:980px;">
+      <div class="shrimp-bg vr-bg">
+        <div class="vr-page vrp sf-fields">
 
-          <a class="s-back mb-3" t-attf-href="/marketplace/#{'purchases' if postura.role == 'buyer' else 'sales'}">
-            <i class="fa fa-arrow-left"></i>
-            <span>Volver a mis <t t-if="postura.role == 'buyer'">compras</t><t t-else="">ventas</t></span>
+          <a class="vr-back" t-attf-href="/marketplace/#{'purchases' if postura.role == 'buyer' else 'sales'}">
+            <i class="fa fa-arrow-left"/> Volver a mis <t t-if="postura.role == 'buyer'">compras</t><t t-else="">ventas</t>
           </a>
 
-          <!-- Cabecera según en qué quedó la ronda -->
-          <div t-attf-class="sf-banner mb-4 #{'sf-banner--ok' if v.acceptance_state=='closed' else ('sf-banner--ko' if v.acceptance_state=='broken' else '')}">
-            <div class="sf-banner-row">
-              <div class="sf-banner-txt">
-                <t t-if="v.acceptance_state == 'closed'">
-                  <h1>Compra cerrada</h1>
-                  <p>Las dos partes aceptaron el informe de verificación.</p>
-                </t>
+          <header class="vr-ph">
+            <div class="vr-ph-txt">
+              <div class="vr-eyebrow"><i class="fa fa-gavel"/> Informe de verificación <span class="vr-ref" t-esc="v.name"/></div>
+              <h1>
+                <t t-if="v.acceptance_state == 'closed'">Compra cerrada</t>
+                <t t-elif="v.acceptance_state == 'broken'">El trato no se concretó</t>
+                <t t-else="">Aceptación del informe</t>
+              </h1>
+              <p class="vr-ph-sub">
+                <t t-if="v.acceptance_state == 'closed' and v.counter_outcome">El vendedor <t t-if="v.counter_outcome == 'expired'">no respondió</t><t t-else="">rechazó</t> la contraoferta: la compra se cerró al precio original.</t>
+                <t t-elif="v.acceptance_state == 'closed'">Las dos partes aceptaron el informe de verificación.</t>
                 <t t-elif="v.acceptance_state == 'broken'">
-                  <h1>El trato no se concretó</h1>
-                  <p t-if="v.verification_mode == 'declared'">Verificación declarada por las partes: no hay honorario de verificación.</p>
-                  <p t-else="">El honorario de la verificación lo asume <strong t-esc="v.fee_payer_partner_id.name or '—'"/>.</p>
+                  <t t-if="v.verification_mode == 'declared'">Verificación declarada por las partes: no hay honorario de verificación.</t>
+                  <t t-else="">El honorario de la verificación lo asume <b t-esc="v.fee_payer_partner_id.name or '—'"/>.</t>
                 </t>
-                <t t-else="">
-                  <h1>Aceptación del informe</h1>
-                  <p>La compra se cierra cuando comprador y vendedor aceptan el resultado de la verificación.</p>
-                </t>
-              </div>
-              <span class="sf-kicker">
-                <i t-attf-class="fa #{'fa-check-circle' if v.acceptance_state=='closed' else ('fa-times-circle' if v.acceptance_state=='broken' else 'fa-gavel')}"></i>
-                <t t-if="v.acceptance_state=='closed'">Cerrada</t>
-                <t t-elif="v.acceptance_state=='broken'">No concretada</t>
-                <t t-else="">Pendiente</t>
-              </span>
-            </div>
-          </div>
-
-          <t t-if="error">
-            <div class="alert alert-danger"><i class="fa fa-exclamation-triangle me-1"/><t t-esc="error"/></div>
-          </t>
-
-          <!-- Modo de verificación: que nadie confunda un informe declarado
-               por una de las partes con el de una verificadora acreditada. -->
-          <div t-if="v.verification_mode == 'declared'" class="sv-mode-note mb-4">
-            <i class="fa fa-handshake-o me-1"/>
-            <strong t-esc="v.verification_label()"/>.
-            No es el informe de una verificadora de la plataforma: lo presentó
-            <strong t-esc="v.declarant_partner_id.name or 'una de las partes'"/>
-            y la compra se cierra cuando la otra parte lo confirma.
-            <t t-if="v.declared_report_file">
-              <a t-attf-href="/marketplace/verifications/#{v.uuid_ref}/declare/report" target="_blank" class="ms-1">
-                <i class="fa fa-file-pdf-o me-1"/>Ver el informe en PDF
-              </a>
-            </t>
-          </div>
-
-          <!-- Postura de cada parte -->
-          <div class="mp-table-card mb-4"><div class="card-body p-4">
-            <div class="mp-sec-head"><span class="mp-sec-ico"><i class="fa fa-handshake-o"></i></span><h3 class="mp-sec-title">Postura de cada parte</h3></div>
-            <div class="sv-partes">
-              <t t-foreach="v.acceptance_ids" t-as="a">
-                <div t-attf-class="sv-parte sv-parte--#{a.decision}">
-                  <div class="sv-parte-rol">
-                    <t t-if="a.role == 'buyer'">Comprador</t>
-                    <t t-else="">Vendedor</t>
-                    <t t-if="a == postura"> (tú)</t>
-                    <t t-if="v.verification_mode == 'declared' and a.role == v.declarant_role"> · presentó el informe</t>
-                  </div>
-                  <div class="sv-parte-nombre" t-esc="a.partner_id.name"/>
-                  <div class="sv-parte-estado">
-                    <t t-if="a.decision == 'pending'"><i class="fa fa-clock-o me-1"/>Sin responder</t>
-                    <t t-elif="a.decision == 'accepted'"><i class="fa fa-check me-1"/>Aceptó<t t-if="a.auto"> (por vencimiento del plazo)</t></t>
-                    <t t-elif="a.decision == 'counter'"><i class="fa fa-exchange me-1"/>Propuso otro precio</t>
-                    <t t-else=""><i class="fa fa-times me-1"/>Rechazó<t t-if="v.acceptance_state == 'waiting'"> (surte efecto al cerrarse la ronda)</t></t>
-                  </div>
-                  <div class="sv-parte-motivo" t-if="a.reason" t-esc="a.reason"/>
-                </div>
-              </t>
-            </div>
-            <t t-if="v.acceptance_state == 'waiting' and v.acceptance_deadline">
-              <p class="sv-plazo mb-0 mt-3">
-                <i class="fa fa-hourglass-half me-1"/>
-                Tienes hasta el <strong t-esc="v._texto_plazo()"/>.
-                Si no respondes, el informe se dará por aceptado.
+                <t t-else="">La compra se cierra cuando comprador y vendedor aceptan el resultado de la verificación.</t>
               </p>
-            </t>
-          </div></div>
-
-          <!-- Veredicto vs. lo publicado -->
-          <t t-if="cumple">
-            <div class="alert alert-success"><i class="fa fa-check-circle me-1"/> El informe confirma lo que el anuncio ofrecía.</div>
-          </t>
-          <t t-else="">
-            <div class="alert alert-warning">
-              <i class="fa fa-exclamation-triangle me-1"/>
-              <strong>El producto no cumplió lo publicado:</strong>
-              <ul class="mb-0 mt-1"><li t-foreach="motivos" t-as="m" t-esc="m"/></ul>
+              <div class="vr-ph-meta">
+                <span t-attf-class="vr-pill #{'vr-pill--ok' if v.acceptance_state == 'closed' else ('vr-pill--bad' if v.acceptance_state == 'broken' else 'vr-pill--warn')}">
+                  <t t-if="v.acceptance_state == 'closed'">Cerrada</t><t t-elif="v.acceptance_state == 'broken'">No concretada</t><t t-else="">Pendiente</t>
+                </span>
+                <span t-if="v.acceptance_state == 'waiting' and v.acceptance_deadline"><i class="fa fa-hourglass-half"/>Plazo hasta el <b t-esc="v._texto_plazo()"/></span>
+              </div>
             </div>
-          </t>
+          </header>
 
-          <!-- Resumen de la operación -->
-          <div class="mp-table-card mb-4"><div class="card-body p-4">
-            <div class="mp-sec-head"><span class="mp-sec-ico"><i class="fa fa-file-text-o"></i></span><h3 class="mp-sec-title">Resumen de la operación</h3></div>
-            <div class="sv-datos">
-              <div><span>Producto</span><strong t-esc="tx.product_id.name"/></div>
-              <div><span>Cantidad</span><strong t-esc="'{:.2f} lb'.format(tx.transaction_qty or 0)"/></div>
-              <div><span>Precio unitario</span><strong t-esc="'{:.2f}'.format(tx.price_unit or 0)"/></div>
-              <div><span>Total</span><strong t-esc="'{:.2f}'.format(tx.amount_total or 0)"/></div>
-              <t t-if="v.verification_mode == 'declared'">
-                <div><span>Modo de verificación</span><strong>Declarada por las partes</strong></div>
-                <div><span>Quién verificó</span><strong t-esc="v.declared_origin_text()"/></div>
-              </t>
-              <t t-else="">
-                <div><span>Verificadora</span><strong t-esc="v.verifier_partner_id.name or '—'"/></div>
-                <div><span>Técnico</span><strong t-esc="v.technician_partner_id.name or '—'"/></div>
-              </t>
-            </div>
-          </div></div>
+          <div class="vr-alerts">
+            <div t-if="error" class="pf-alert pf-a-bad" role="alert"><i class="fa fa-exclamation-triangle"/><div t-esc="error"/></div>
+            <!-- Que nadie confunda un informe declarado con el de una
+                 verificadora acreditada. -->
+            <div t-if="v.verification_mode == 'declared'" class="pf-alert pf-a-warn" role="note"><i class="fa fa-handshake-o"/><div>
+              <b t-esc="v.verification_label()"/>. No es el informe de una verificadora de la plataforma: lo presentó
+              <b t-esc="v.declarant_partner_id.name or 'una de las partes'"/> y la compra se cierra cuando la otra parte lo confirma.
+              <a t-if="v.declared_report_file" t-attf-href="/marketplace/verifications/#{v.uuid_ref}/declare/report" target="_blank" class="ms-1"><i class="fa fa-file-pdf-o me-1"/>Ver el informe en PDF</a>
+            </div></div>
+            <div t-if="cumple" class="pf-alert vr-a-ok" role="status"><i class="fa fa-check-circle"/><div>El informe confirma lo que el anuncio ofrecía.</div></div>
+            <div t-else="" class="pf-alert pf-a-warn" role="note"><i class="fa fa-exclamation-triangle"/><div><b>El producto no cumplió lo publicado:</b>
+              <ul class="vr-alert-list"><li t-foreach="motivos" t-as="m" t-esc="m"/></ul></div></div>
+          </div>
 
-          <!-- Informe del verificador (estructurado, no texto plano) -->
-          <div class="mp-table-card mb-4"><div class="card-body p-4">
-            <div class="mp-sec-head"><span class="mp-sec-ico"><i class="fa fa-clipboard-list"></i></span><h3 class="mp-sec-title"><t t-if="v.verification_mode == 'declared'">Informe declarado</t><t t-else="">Informe del verificador</t></h3></div>
+          <div class="vr-layout vr-layout--aside-first">
+            <div class="vr-main">
 
-            <t t-if="v.scope != 'larvae'">
-              <h4 class="sv-h4 mt-1">Peso</h4>
-              <div class="sv-datos">
-                <div><span>Peso enviado</span><strong><t t-esc="'%.2f' % v.weight_sent_lb"/> lb</strong></div>
-                <div><span>Peso en planta</span><strong><t t-esc="'%.2f' % v.weight_plant_lb"/> lb</strong></div>
-                <div><span>Basura</span><strong><t t-esc="'%.2f' % v.trash_lb"/> lb</strong></div>
-                <div><span>Sobrepeso</span><strong><t t-esc="'%.2f' % v.overweight_lb"/> lb</strong></div>
-                <div><span>Factor</span><strong t-esc="'%.4f' % v.overweight_factor"/></div>
-                <div><span>Peso neto</span><strong><t t-esc="'%.2f' % v.net_weight_lb"/> lb</strong></div>
-              </div>
+              <!-- ============ Acciones ============ -->
+              <t t-if="v.acceptance_state == 'waiting' and postura">
+                <section t-if="contraoferta and postura.role == 'seller'" class="pf-sec">
+                  <div class="pf-sec-h"><span class="vr-ico vr-ico--warn"><i class="fa fa-exchange"/></span><div><h2>El comprador propone otro precio</h2><p t-if="contraoferta.reason" t-esc="contraoferta.reason"/></div></div>
+                  <div class="pf-sec-b">
+                    <dl class="vr-facts">
+                      <div><dt>Precio pactado</dt><dd><s t-esc="'{:.2f}'.format(tx.price_unit or 0)"/></dd></div>
+                      <div><dt>Propuesto</dt><dd t-esc="'{:.2f}'.format(contraoferta.counter_price or 0)"/></div>
+                      <div><dt>Total</dt><dd t-esc="'{:.2f}'.format(contraoferta.counter_total or 0)"/></div>
+                    </dl>
+                  </div>
+                </section>
 
-              <h4 class="sv-h4 mt-3">Cuerpo o cola</h4>
-              <div class="sv-datos">
-                <div><span>Declarado</span><strong t-esc="pres_labels.get(v.product_id.presentation, '—')"/></div>
-                <div><span>Verificado</span><strong t-esc="pres_labels.get(v.presentation, '—')"/></div>
-              </div>
-
-              <h4 class="sv-h4 mt-3">Metabisulfito</h4>
-              <div class="sv-datos">
-                <div><span>Medido</span><strong><t t-esc="'%.0f' % v.metabisulfite_ppm"/> ppm</strong></div>
-                <div><span>Límite</span><strong><t t-esc="'%.0f' % v.metabisulfite_limit_ppm"/> ppm</strong></div>
-                <div><span>Resultado</span><strong>
-                  <t t-if="v.metabisulfite_result == 'pass'"><span class="sv-ok">Conforme</span></t>
-                  <t t-elif="v.metabisulfite_result == 'fail'"><span class="sv-bad">No conforme</span></t>
-                  <t t-else="">—</t>
-                </strong></div>
-              </div>
-
-              <h4 class="sv-h4 mt-3">Clasificación por talla</h4>
-              <t t-if="v.line_ids">
-                <div class="table-responsive">
-                  <table class="table sv-table mb-2">
-                    <thead><tr><th>Clase</th><th>Talla</th><th class="text-end">Libras</th></tr></thead>
-                    <tbody>
-                      <t t-foreach="v.line_ids" t-as="line">
-                        <tr>
-                          <td><t t-esc="dict(line._fields['quality_class'].selection).get(line.quality_class)"/></td>
-                          <td><t t-esc="line.size_code"/></td>
-                          <td class="text-end"><t t-esc="'%.2f' % line.weight_lb"/></td>
-                        </tr>
-                      </t>
-                    </tbody>
-                  </table>
-                </div>
-              </t>
-              <div class="sv-datos">
-                <div><span>Total procesado</span><strong><t t-esc="'%.2f' % v.total_processed_lb"/> lb</strong></div>
-                <div><span>Rendimiento</span><strong><t t-esc="'%.2f' % v.yield_pct"/> %</strong></div>
-                <div><span>Clase A</span><strong><t t-esc="'%.2f' % v.yield_class_a_pct"/> %</strong></div>
-                <div><span>Clase B</span><strong><t t-esc="'%.2f' % v.yield_class_b_pct"/> %</strong></div>
-                <div><span>Clase C</span><strong><t t-esc="'%.2f' % v.yield_class_c_pct"/> %</strong></div>
-              </div>
-
-              <h4 class="sv-h4 mt-3">Sabor</h4>
-              <div class="sv-datos">
-                <div><span>Resultado</span><strong t-esc="dict(v._fields['taste_result'].selection).get(v.taste_result) or '—'"/></div>
-              </div>
-              <t t-if="v.taste_criteria_ok_ids">
-                <div class="mt-2">
-                  <t t-foreach="v.taste_criteria_ok_ids" t-as="crit">
-                    <span class="sv-chip me-1"><i class="fa fa-check me-1"/><t t-esc="crit.name"/></span>
-                  </t>
-                </div>
-              </t>
-            </t>
-
-            <t t-if="v.scope == 'larvae'">
-              <h4 class="sv-h4 mt-1">Verificación de larva</h4>
-              <div class="sv-datos">
-                <div><span>Cantidad verificada</span><strong t-esc="'%.0f' % v.larvae_qty_verified"/></div>
-                <div><span>Supervivencia</span><strong><t t-esc="'%.2f' % v.larvae_survival_rate"/> %</strong></div>
-                <div><span>Talla promedio</span><strong><t t-esc="'%.2f' % v.larvae_avg_size_mg"/> mg</strong></div>
-              </div>
-            </t>
-
-            <t t-if="v.verdict_notes">
-              <p class="mb-0 mt-3"><strong>Conclusión:</strong> <t t-esc="v.verdict_notes"/></p>
-            </t>
-            <t t-if="v.incident_notes">
-              <p class="mb-0 mt-2"><strong>Incidencias:</strong> <t t-esc="v.incident_notes"/></p>
-            </t>
-
-            <t t-if="v.photo_ids">
-              <label class="mt-3 d-block">Fotos de campo</label>
-              <div class="sv-fotos">
-                <t t-foreach="v.photo_ids" t-as="f">
-                  <t t-set="ftok" t-value="v.photo_token(f)"/>
-                  <a t-attf-href="/marketplace/verifications/#{v.uuid_ref}/photos/#{ftok}" target="_blank">
-                    <img t-attf-src="/marketplace/verifications/#{v.uuid_ref}/photos/#{ftok}" alt="Foto de campo"/>
-                  </a>
-                </t>
-              </div>
-            </t>
-          </div></div>
-
-          <!-- ============ Acciones ============ -->
-          <t t-if="v.acceptance_state == 'waiting' and postura">
-
-            <t t-if="contraoferta and postura.role == 'seller'">
-              <div class="mp-table-card mb-4"><div class="card-body p-4">
-                <div class="mp-sec-head"><span class="mp-sec-ico"><i class="fa fa-exchange"></i></span><h3 class="mp-sec-title">El comprador propone otro precio</h3></div>
-                <p class="sv-muted" t-if="contraoferta.reason" t-esc="contraoferta.reason"/>
-                <div class="sv-contra-cifras">
-                  <div><span class="sv-muted">Precio pactado</span><s t-esc="'{:.2f}'.format(tx.price_unit or 0)"/></div>
-                  <i class="fa fa-long-arrow-right"/>
-                  <div><span class="sv-muted">Propuesto</span><strong t-esc="'{:.2f}'.format(contraoferta.counter_price or 0)"/></div>
-                  <div><span class="sv-muted">Total</span><strong t-esc="'{:.2f}'.format(contraoferta.counter_total or 0)"/></div>
-                </div>
-              </div></div>
-            </t>
-
-            <t t-if="postura.decision == 'pending'">
-              <div class="mp-table-card mb-4"><div class="card-body p-4">
-                <div class="mp-sec-head"><span class="mp-sec-ico"><i class="fa fa-gavel"></i></span><h3 class="mp-sec-title">Tu decisión</h3></div>
-                <div class="sv-acciones">
-
-                  <form method="post" t-attf-action="/marketplace/verifications/#{v.uuid_ref}/accept">
-                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                    <button type="submit" class="s-btn s-btn-primary">
-                      <i class="fa fa-check me-1"/>
-                      <t t-if="contraoferta and postura.role == 'seller'">Aceptar el precio propuesto</t>
-                      <t t-else="">Acepto el informe</t>
-                    </button>
-                  </form>
-
-                  <t t-if="postura.role == 'buyer' and not cumple">
-                    <form method="post" class="sv-caja"
-                          t-attf-action="/marketplace/verifications/#{v.uuid_ref}/counter-offer">
-                      <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                      <label class="fw-bold">¿Prefieres seguir, pero a otro precio?</label>
-                      <p class="sv-muted small mb-2">
-                        En vez de tumbar la compra, propón un precio por libra acorde
-                        a lo que muestra el informe. El vendedor lo acepta o lo
-                        rechaza. Debe ser menor a
-                        <strong t-esc="'{:.2f}'.format(tx.price_unit or 0)"/>.
-                      </p>
-                      <div class="sv-contra-form">
-                        <input type="number" step="0.01" min="0.01" name="precio"
-                               class="form-control" placeholder="Precio por libra" required="required"/>
-                        <input type="text" name="reason" class="form-control"
-                               placeholder="Por qué (opcional)"/>
-                        <button type="submit" class="s-btn">
-                          <i class="fa fa-exchange me-1"/>Proponer
+                <section t-if="postura.decision == 'pending'" class="pf-sec">
+                  <div class="pf-sec-h"><span class="vr-ico vr-ico--ok"><i class="fa fa-gavel"/></span><div><h2>Tu decisión</h2><p>Decides solo por tu parte; la otra parte decide por la suya.</p></div></div>
+                  <div class="pf-sec-b">
+                    <div class="vr-choice">
+                      <div class="vr-choice-t"><i class="fa fa-check-circle vr-ok"/> Aceptar</div>
+                      <form method="post" t-attf-action="/marketplace/verifications/#{v.uuid_ref}/accept">
+                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                        <button type="submit" class="s-btn s-btn-primary mt-2">
+                          <i class="fa fa-check me-1"/>
+                          <t t-if="contraoferta and postura.role == 'seller'">Aceptar el precio propuesto</t>
+                          <t t-else="">Acepto el informe</t>
                         </button>
+                      </form>
+                    </div>
+
+                    <t t-if="postura.role == 'buyer' and not cumple and v.shrimp_counter_allowed()">
+                      <form method="post" class="vr-choice"
+                            t-attf-action="/marketplace/verifications/#{v.uuid_ref}/counter-offer">
+                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                        <div class="vr-choice-t"><i class="fa fa-exchange"/> ¿Prefieres seguir, pero a otro precio?</div>
+                        <p class="vr-help mt-0">En vez de tumbar la compra, propón un precio por libra acorde a lo que muestra el informe. Debe ser menor a <b t-esc="'{:.2f}'.format(tx.price_unit or 0)"/>. <b>Solo puedes hacer una contraoferta</b> y no amplía el plazo. Si el vendedor la rechaza o no responde a tiempo, la compra se cierra al precio original.</p>
+                        <div class="vr-choice-row">
+                          <input type="number" step="0.01" min="0.01" name="precio" class="form-control" placeholder="Precio por libra" required="required" aria-label="Precio por libra propuesto"/>
+                          <input type="text" name="reason" class="form-control" placeholder="Por qué (opcional)" aria-label="Motivo de la contraoferta"/>
+                          <button type="submit" class="s-btn s-btn-ghost"><i class="fa fa-exchange me-1"/>Proponer</button>
+                        </div>
+                      </form>
+                    </t>
+
+                    <form method="post" class="vr-choice vr-choice--bad"
+                          t-attf-action="/marketplace/verifications/#{v.uuid_ref}/reject">
+                      <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                      <div class="vr-choice-t"><i class="fa fa-times-circle vr-bad"/> <t t-if="contraoferta and postura.role == 'seller'">Rechazar la contraoferta</t><t t-else="">Rechazar el informe</t></div>
+                      <p t-if="contraoferta and postura.role == 'seller'" class="vr-help mt-0">
+                        La compra se cierra al precio original pactado (el producto ya está en la planta del comprador). Si no respondes antes del plazo, la contraoferta se da por rechazada y también se aplica el precio original.
+                      </p>
+                      <p t-else="" class="vr-help mt-0">
+                        El rechazo surte efecto cuando la otra parte responde o vence el plazo: entonces la compra se cancela y el producto vuelve a quedar disponible. Hasta ese momento puedes deshacerlo.
+                        <t t-if="v.verification_mode == 'declared'">Verificación declarada por las partes: no hay honorario de verificación en juego.</t>
+                        <t t-elif="cumple"><b>Ojo:</b> como el informe confirmó lo publicado, el honorario de la verificación lo pagas tú.</t>
+                        <t t-else="">Como el producto no cumplió lo publicado, el honorario lo asume el vendedor.</t>
+                      </p>
+                      <div class="vr-choice-row">
+                        <input type="text" name="reason" class="form-control" t-att-placeholder="'Por qué no aceptas el precio (opcional)' if (contraoferta and postura.role == 'seller') else 'Motivo del rechazo'" t-att-required="None if (contraoferta and postura.role == 'seller') else 'required'" aria-label="Motivo del rechazo"/>
+                        <button type="submit" class="s-btn s-btn-ko sv-btn-danger"><i class="fa fa-times me-1"/><t t-if="contraoferta and postura.role == 'seller'">Rechazar la contraoferta</t><t t-else="">Rechazar</t></button>
                       </div>
                     </form>
+                  </div>
+                </section>
+                <t t-else="">
+                  <div class="pf-alert vr-a-ok"><i class="fa fa-check"/><div>
+Ya respondiste. Falta la otra parte para cerrar la compra.
+                  </div></div>
+                  <t t-call="shrimp_marketplace.signoff_undo_form">
+                    <t t-set="firma" t-value="postura"/>
                   </t>
-
-                  <form method="post" class="sv-caja sv-caja--ko"
-                        t-attf-action="/marketplace/verifications/#{v.uuid_ref}/reject">
-                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                    <label class="fw-bold">Rechazar el informe</label>
-                    <p class="sv-muted small mb-2">
-                      El rechazo surte efecto cuando la otra parte responde o vence
-                      el plazo: entonces la compra se cancela y el producto vuelve a
-                      quedar disponible. Hasta ese momento puedes deshacerlo.
-                      <t t-if="v.verification_mode == 'declared'">
-                        Verificación declarada por las partes: no hay honorario de
-                        verificación en juego.
-                      </t>
-                      <t t-elif="cumple">
-                        <strong>Ojo:</strong> como el informe confirmó lo publicado,
-                        el honorario de la verificación lo pagas tú.
-                      </t>
-                      <t t-else="">
-                        Como el producto no cumplió lo publicado, el honorario lo
-                        asume el vendedor.
-                      </t>
-                    </p>
-                    <div class="sv-contra-form">
-                      <input type="text" name="reason" class="form-control"
-                             placeholder="Motivo del rechazo" required="required"/>
-                      <button type="submit" class="s-btn s-btn-ko">
-                        <i class="fa fa-times me-1"/>Rechazar
-                      </button>
-                    </div>
-                  </form>
-
-                </div>
-              </div></div>
-            </t>
-            <t t-else="">
-              <div class="alert alert-success">
-                <i class="fa fa-check me-1"/> Ya respondiste. Falta la otra parte para cerrar la compra.
-              </div>
-              <t t-call="shrimp_marketplace.signoff_undo_form">
-                <t t-set="firma" t-value="postura"/>
+                </t>
               </t>
-            </t>
-          </t>
 
-          <t t-call="shrimp_marketplace.signoff_history"/>
+              <!-- Informe (estructurado) -->
+              <section class="pf-sec">
+                <div class="pf-sec-h"><span class="vr-ico"><i class="fa fa-clipboard"/></span><div><h2><t t-if="v.verification_mode == 'declared'">Informe declarado</t><t t-else="">Informe del verificador</t></h2>
+                  <p t-if="v.verification_mode == 'platform' and v.technician_partner_id">Firmó <t t-esc="v.technician_partner_id.name"/><t t-if="v.support_technician_ids"> · apoyo: <t t-esc="', '.join(v.support_technician_ids.mapped('name'))"/></t></p></div></div>
+                <div class="pf-sec-b">
+                  <t t-if="v.scope != 'larvae'">
+                    <div class="vr-sub">
+                      <div class="vr-sub-h"><span class="vr-n">1</span> Peso</div>
+                      <dl class="vr-facts">
+                        <div><dt>Peso enviado</dt><dd><t t-esc="'%.2f' % v.weight_sent_lb"/> lb</dd></div>
+                        <div><dt>Peso en planta</dt><dd><t t-esc="'%.2f' % v.weight_plant_lb"/> lb</dd></div>
+                        <div><dt>Basura</dt><dd><t t-esc="'%.2f' % v.trash_lb"/> lb</dd></div>
+                        <div><dt>Sobrepeso</dt><dd><t t-esc="'%.2f' % v.overweight_lb"/> lb</dd></div>
+                        <div><dt>Factor</dt><dd t-esc="'%.4f' % v.overweight_factor"/></div>
+                        <div><dt>Peso neto</dt><dd><t t-esc="'%.2f' % v.net_weight_lb"/> lb</dd></div>
+                      </dl>
+                    </div>
+                    <div class="vr-sub">
+                      <div class="vr-sub-h"><span class="vr-n">2</span> Cuerpo o cola · <span class="vr-n">3</span> Metabisulfito</div>
+                      <dl class="vr-facts">
+                        <div><dt>Declarado</dt><dd t-esc="pres_labels.get(v.product_id.presentation, '—')"/></div>
+                        <div><dt>Verificado</dt><dd t-esc="pres_labels.get(v.presentation, '—')"/></div>
+                        <div><dt>Metabisulfito</dt><dd><t t-esc="'%.0f' % v.metabisulfite_ppm"/> ppm</dd></div>
+                        <div><dt>Límite</dt><dd><t t-esc="'%.0f' % v.metabisulfite_limit_ppm"/> ppm</dd></div>
+                        <div><dt>Resultado</dt><dd>
+                          <span t-if="v.metabisulfite_result == 'pass'" class="vr-ok">Conforme</span>
+                          <span t-elif="v.metabisulfite_result == 'fail'" class="vr-bad">No conforme</span>
+                          <t t-else="">—</t></dd></div>
+                      </dl>
+                    </div>
+                    <div class="vr-sub">
+                      <div class="vr-sub-h"><span class="vr-n">4</span> Clasificación por talla</div>
+                      <table t-if="v.line_ids" class="vr-table vr-table--stack mb-3">
+                        <thead><tr><th>Clase</th><th>Talla</th><th class="vr-num">Libras</th></tr></thead>
+                        <tbody>
+                          <t t-foreach="v.line_ids" t-as="line">
+                            <tr>
+                              <td class="vr-td-main" data-label="Clase" t-esc="dict(line._fields['quality_class'].selection).get(line.quality_class)"/>
+                              <td data-label="Talla" t-esc="line.size_code"/>
+                              <td class="vr-num" data-label="Libras" t-esc="'%.2f' % line.weight_lb"/>
+                            </tr>
+                          </t>
+                        </tbody>
+                      </table>
+                      <dl class="vr-facts">
+                        <div><dt>Total procesado</dt><dd><t t-esc="'%.2f' % v.total_processed_lb"/> lb</dd></div>
+                        <div><dt>Rendimiento</dt><dd><t t-esc="'%.2f' % v.yield_pct"/> %</dd></div>
+                        <div><dt>Clase A</dt><dd><t t-esc="'%.2f' % v.yield_class_a_pct"/> %</dd></div>
+                        <div><dt>Clase B</dt><dd><t t-esc="'%.2f' % v.yield_class_b_pct"/> %</dd></div>
+                        <div><dt>Clase C</dt><dd><t t-esc="'%.2f' % v.yield_class_c_pct"/> %</dd></div>
+                      </dl>
+                    </div>
+                    <div class="vr-sub">
+                      <div class="vr-sub-h"><span class="vr-n">5</span> Sabor</div>
+                      <dl class="vr-facts"><div><dt>Resultado</dt><dd t-esc="dict(v._fields['taste_result'].selection).get(v.taste_result) or '—'"/></div></dl>
+                      <div t-if="v.taste_criteria_ok_ids" class="d-flex flex-wrap gap-1 mt-2">
+                        <t t-foreach="v.taste_criteria_ok_ids" t-as="crit"><span class="vr-chip"><i class="fa fa-check"/><t t-esc="crit.name"/></span></t>
+                      </div>
+                    </div>
+                  </t>
+                  <div t-if="v.scope == 'larvae'" class="vr-sub">
+                    <div class="vr-sub-h">Verificación de larva</div>
+                    <dl class="vr-facts">
+                      <div><dt>Cantidad verificada</dt><dd t-esc="'%.0f' % v.larvae_qty_verified"/></div>
+                      <div><dt>Supervivencia</dt><dd><t t-esc="'%.2f' % v.larvae_survival_rate"/> %</dd></div>
+                      <div><dt>Talla promedio</dt><dd><t t-esc="'%.2f' % v.larvae_avg_size_mg"/> mg</dd></div>
+                    </dl>
+                  </div>
+                  <p t-if="v.verdict_notes" class="vr-quote"><b>Conclusión:</b> <t t-esc="v.verdict_notes"/></p>
+                  <div t-if="v.incident_notes" class="pf-alert pf-a-warn mt-3 mb-0"><i class="fa fa-exclamation-triangle"/><div><b>Incidencias:</b> <t t-esc="v.incident_notes"/></div></div>
+                  <t t-if="v.photo_ids">
+                    <div class="vr-sub-h mt-3">Fotos de campo <span class="vr-count" t-esc="len(v.photo_ids)"/></div>
+                    <div class="vr-photos">
+                      <t t-foreach="v.photo_ids" t-as="f">
+                        <t t-set="ftok" t-value="v.photo_token(f)"/>
+                        <a t-attf-href="/marketplace/verifications/#{v.uuid_ref}/photos/#{ftok}" target="_blank">
+                          <img t-attf-src="/marketplace/verifications/#{v.uuid_ref}/photos/#{ftok}" alt="Foto de campo" loading="lazy"/>
+                        </a>
+                      </t>
+                    </div>
+                  </t>
+                </div>
+              </section>
 
+              <t t-call="shrimp_marketplace.signoff_history"/>
+            </div>
+
+            <aside class="vr-aside" aria-label="Resumen de la operación">
+              <div class="vr-sum">
+                <div class="vr-sum-h"><span>Resumen de la operación</span></div>
+                <div class="vr-sum-prod">
+                  <span class="vr-ico"><i class="fa fa-cube"/></span>
+                  <div style="min-width:0;"><b t-esc="tx.product_id.name"/><span>Compra <t t-esc="tx.name"/></span></div>
+                </div>
+                <ul class="vr-sum-lines">
+                  <li><span>Cantidad</span><b t-esc="'{:.2f} lb'.format(tx.transaction_qty or 0)"/></li>
+                  <li><span>Precio unitario</span><b t-esc="'{:.2f}'.format(tx.price_unit or 0)"/></li>
+                  <t t-if="v.verification_mode == 'declared'">
+                    <li><span>Modo</span><b>Declarada por las partes</b></li>
+                    <li><span>Quién verificó</span><b t-esc="v.declared_origin_text()"/></li>
+                  </t>
+                  <t t-else="">
+                    <li><span>Verificadora</span><b t-esc="v.verifier_partner_id.name or '—'"/></li>
+                    <li><span>Técnico responsable</span><b t-esc="v.technician_partner_id.name or '—'"/></li>
+                  </t>
+                </ul>
+                <div class="vr-sum-big"><span>Total</span><b t-esc="'{:.2f}'.format(tx.amount_total or 0)"/></div>
+              </div>
+              <section class="pf-sec mb-0">
+                <div class="pf-sec-h"><span class="vr-ico"><i class="fa fa-handshake-o"/></span><div><h2>Postura de cada parte</h2></div></div>
+                <div class="pf-sec-b">
+                  <div class="vr-parties" style="grid-template-columns: minmax(0,1fr);">
+                    <t t-foreach="v.acceptance_ids" t-as="a">
+                      <div t-attf-class="vr-party vr-party--#{a.decision}">
+                        <div class="vr-party-r">
+                          <t t-if="a.role == 'buyer'">Comprador</t><t t-else="">Vendedor</t><t t-if="a == postura"> (tú)</t>
+                          <t t-if="v.verification_mode == 'declared' and a.role == v.declarant_role"> · presentó el informe</t>
+                        </div>
+                        <div class="vr-party-n" t-esc="a.partner_id.name"/>
+                        <span t-attf-class="vr-pill vr-pill--sm #{'vr-pill--ok' if a.decision == 'accepted' else ('vr-pill--bad' if a.decision == 'rejected' else ('vr-pill--warn' if a.decision == 'counter' else 'vr-pill--muted'))}">
+                          <t t-if="a.decision == 'pending'">Sin responder</t>
+                          <t t-elif="a.decision == 'accepted'">Aceptó<t t-if="a.auto"> (por vencimiento del plazo)</t></t>
+                          <t t-elif="a.decision == 'counter'">Propuso otro precio</t>
+                          <t t-else="">Rechazó<t t-if="v.acceptance_state == 'waiting'"> (surte efecto al cerrarse la ronda)</t></t>
+                        </span>
+                        <div class="vr-party-m" t-if="a.reason" t-esc="a.reason"/>
+                      </div>
+                    </t>
+                  </div>
+                  <p t-if="v.acceptance_state == 'waiting' and v.acceptance_deadline" class="vr-rule"><i class="fa fa-hourglass-half"/><span>Tienes hasta el <b t-esc="v._texto_plazo()"/>.
+                    <t t-if="contraoferta">Si el vendedor no responde, la contraoferta se da por rechazada y se aplica el precio original.</t>
+                    <t t-else="">Si no respondes, el informe se dará por aceptado.</t></span></p>
+                </div>
+              </section>
+            </aside>
+          </div>
         </div>
       </div>
     </t>

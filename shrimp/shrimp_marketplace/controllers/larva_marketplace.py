@@ -178,8 +178,8 @@ class ShrimpLarvaMarketplace(ShrimpMarketplacePublicController):
                 qs["vista"] = vista
             return "/marketplace" + ("?" + urlencode(qs) if qs else "")
 
-        # Solo los tipos que el perfil activo puede comprar; con uno solo no
-        # hay pestañas (ni «Tipo» en el cajón).
+        # Sección «Tipo» del cajón: solo los tipos que el perfil activo puede
+        # comprar; con uno solo no aparece.
         allowed = self._shrimp_allowed_tipos()
         tabs = [{"code": "", "label": "Todo", "url": url(q=filters.get("q"), sort=sort if sort != "recommended" else ""),
                  "active": not tipo}]
@@ -191,15 +191,12 @@ class ShrimpLarvaMarketplace(ShrimpMarketplacePublicController):
                                     sort=sort if sort != "recommended" else "")})
         show_tabs = len(allowed) > 1
 
+        # Sección «Etapa» del cajón: solo los estadíos de los tipos que el
+        # perfil puede comprar (todos los del tipo elegido y los demás; el
+        # cajón muestra solo los del tipo marcado en «Tipo»). Con uno solo
+        # la sección no aparece.
         stage_options = qcontext.get("stage_options") or request.env["shrimp.stage"].sudo().browse()
         stage_options = stage_options.filtered(lambda s: s._shrimp_tipo() in allowed)
-        if tipo:
-            stage_options = stage_options.filtered(lambda s: s._shrimp_tipo() == tipo)
-        stage_chips = [{"label": "Todos" if tipo else "Todas", "active": not filters.get("stage"),
-                        "url": url(tipo=tipo)}]
-        for st in stage_options:
-            stage_chips.append({"label": st.name, "active": str(filters.get("stage") or "") == str(st.id),
-                                "url": url(tipo=tipo, stage=st.id)})
 
         base = Product.search(self._build_public_marketplace_domain()
                               + (Product._shrimp_tipo_domain(tipo) if tipo else []))
@@ -226,7 +223,7 @@ class ShrimpLarvaMarketplace(ShrimpMarketplacePublicController):
             "larva_tipo": vista_tipo,
             "larva_mode": larva_mode,
             "larva_active": larva_active,
-            "stage_chips": stage_chips,
+            "stage_options": stage_options,
             "genetics_options": genetics_options,
             "survival_options": SHRIMP_SUPERVIVENCIAS,
             "featured_sellers": featured,

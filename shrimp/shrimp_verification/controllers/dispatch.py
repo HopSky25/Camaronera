@@ -57,8 +57,9 @@ class ShrimpDispatchPortal(http.Controller):
             papel = "comprador"
         else:
             verificacion = tx.verification_ids[:1]
-            if verificacion and yo in (verificacion.technician_partner_id,
-                                       verificacion.verifier_partner_id):
+            if verificacion and (yo in (verificacion.technician_partner_id,
+                                        verificacion.verifier_partner_id)
+                                 or yo in verificacion.sudo().support_technician_ids):
                 papel = "verificador"
             else:
                 # Un tercero no tiene nada que hacer aquí: la cita dice dónde y

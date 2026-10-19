@@ -1,0 +1,280 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Retrasos de entrega y strikes en el back-office
+       (models/shrimp_transaction_delay.py, models/shrimp_seller_strike.py).
+       Sin menús nuevos: el historial va en la pestaña «Entrega y recepción»
+       de la compra y los strikes / suspensiones en la ficha del socio. -->
+
+  <!-- ===================== Historial de retrasos ===================== -->
+  <record id="view_shrimp_transaction_delay_list" model="ir.ui.view">
+    <field name="name">shrimp.transaction.delay.list</field>
+    <field name="model">shrimp.transaction.delay</field>
+    <field name="arch" type="xml">
+      <list create="0" edit="0" delete="0"
+            decoration-danger="state in ('rejected', 'cancelled')"
+            decoration-warning="state in ('proposed', 'countered')"
+            decoration-success="state in ('accepted', 'tacit')">
+        <field name="notice_date"/>
+        <field name="transaction_id" optional="hide"/>
+        <field name="kind"/>
+        <field name="old_date"/>
+        <field name="new_date"/>
+        <field name="reason"/>
+        <field name="counter_date" optional="show"/>
+        <field name="final_date"/>
+        <field name="state" widget="badge"/>
+        <field name="notified_by_id" optional="hide"/>
+        <field name="cancel_cause" optional="show"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_shrimp_transaction_delay_form" model="ir.ui.view">
+    <field name="name">shrimp.transaction.delay.form</field>
+    <field name="model">shrimp.transaction.delay</field>
+    <field name="arch" type="xml">
+      <form create="0" edit="0" delete="0">
+        <header>
+          <field name="state" widget="statusbar"/>
+        </header>
+        <sheet>
+          <div class="oe_title"><h2><field name="name"/></h2></div>
+          <group>
+            <group string="Aviso del vendedor">
+              <field name="transaction_id"/>
+              <field name="kind"/>
+              <field name="notice_date"/>
+              <field name="notified_by_id"/>
+              <field name="original_date"/>
+              <field name="old_date"/>
+              <field name="new_date"/>
+              <field name="reason"/>
+              <field name="note"/>
+            </group>
+            <group string="Respuesta">
+              <field name="buyer_deadline"/>
+              <field name="buyer_response_at"/>
+              <field name="buyer_response_by_id"/>
+              <field name="counter_date"/>
+              <field name="counter_note"/>
+              <field name="seller_deadline"/>
+              <field name="seller_response_at"/>
+              <field name="seller_response_by_id"/>
+              <field name="rejected_auto"/>
+              <field name="final_date"/>
+            </group>
+          </group>
+          <group string="Cancelación" invisible="not cancel_cause">
+            <field name="cancel_cause"/>
+            <field name="cancelled_at"/>
+            <field name="cancelled_by_id"/>
+            <field name="cancel_note"/>
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <!-- Pestaña «Entrega y recepción» de la compra: historial de retrasos. -->
+  <record id="view_shrimp_transaction_form_delay" model="ir.ui.view">
+    <field name="name">shrimp.transaction.form.delay</field>
+    <field name="model">shrimp.transaction</field>
+    <field name="inherit_id" ref="shrimp_marketplace.view_shrimp_transaction_form_reception"/>
+    <field name="arch" type="xml">
+      <xpath expr="//page[@name='reception']//field[@name='reception_had_incidence']/.." position="before">
+        <group string="Retrasos de entrega" name="delays" invisible="not delay_ids">
+          <group>
+            <field name="delay_original_date"/>
+            <field name="delay_cap_date"/>
+          </group>
+          <group>
+            <field name="delay_count"/>
+            <field name="delay_open_state"/>
+          </group>
+          <field name="delay_ids" nolabel="1" colspan="2" readonly="1"/>
+        </group>
+      </xpath>
+    </field>
+  </record>
+
+  <!-- ===================== Strikes ===================== -->
+  <record id="view_shrimp_seller_strike_list" model="ir.ui.view">
+    <field name="name">shrimp.seller.strike.list</field>
+    <field name="model">shrimp.seller.strike</field>
+    <field name="arch" type="xml">
+      <list create="0" delete="0" decoration-muted="not is_active" decoration-danger="is_active">
+        <field name="date"/>
+        <field name="partner_id" optional="hide"/>
+        <field name="transaction_id"/>
+        <field name="reason"/>
+        <field name="expires_at"/>
+        <field name="is_active"/>
+        <field name="annulled"/>
+        <button name="action_open_form" type="object" icon="fa-external-link" title="Abrir"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_shrimp_seller_strike_form" model="ir.ui.view">
+    <field name="name">shrimp.seller.strike.form</field>
+    <field name="model">shrimp.seller.strike</field>
+    <field name="arch" type="xml">
+      <form create="0" delete="0">
+        <header>
+          <button name="action_annul" type="object" string="Anular strike" class="btn-primary"
+                  invisible="annulled" groups="shrimp_marketplace.group_marketplace_manager"
+                  confirm="¿Anular este strike? Escribe antes la justificación: queda en el historial y se avisa al vendedor."/>
+        </header>
+        <sheet>
+          <div class="oe_title"><h2><field name="name"/></h2></div>
+          <group>
+            <group>
+              <field name="partner_id" readonly="1"/>
+              <field name="transaction_id" readonly="1"/>
+              <field name="seller_role" readonly="1"/>
+              <field name="reason" readonly="1"/>
+            </group>
+            <group>
+              <field name="date" readonly="1"/>
+              <field name="expires_at" readonly="1"/>
+              <field name="is_active"/>
+              <field name="annulled"/>
+              <field name="annulled_by_id" invisible="not annulled"/>
+              <field name="annulled_at" invisible="not annulled"/>
+            </group>
+          </group>
+          <group string="Anulación">
+            <field name="annul_justification" readonly="annulled" nolabel="1" colspan="2"
+                   placeholder="Por qué se anula (obligatorio): p. ej. el atraso fue por un cierre de vía decretado por la autoridad."/>
+          </group>
+        </sheet>
+        <chatter/>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_shrimp_seller_strike_search" model="ir.ui.view">
+    <field name="name">shrimp.seller.strike.search</field>
+    <field name="model">shrimp.seller.strike</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="partner_id"/>
+        <field name="transaction_id"/>
+        <filter name="f_active" string="Activos" domain="[('is_active', '=', True)]"/>
+        <filter name="f_annulled" string="Anulados" domain="[('annulled', '=', True)]"/>
+        <group>
+          <filter name="g_partner" string="Socio" context="{'group_by': 'partner_id'}"/>
+          <filter name="g_reason" string="Causa" context="{'group_by': 'reason'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
+  <!-- ===================== Suspensiones ===================== -->
+  <record id="view_shrimp_seller_suspension_list" model="ir.ui.view">
+    <field name="name">shrimp.seller.suspension.list</field>
+    <field name="model">shrimp.seller.suspension</field>
+    <field name="arch" type="xml">
+      <list create="0" delete="0" decoration-danger="state == 'active'" decoration-muted="state == 'lifted'">
+        <field name="date_start"/>
+        <field name="partner_id" optional="hide"/>
+        <field name="strike_count"/>
+        <field name="state" widget="badge"/>
+        <field name="lifted_by_id"/>
+        <field name="lifted_at"/>
+        <field name="lift_note" optional="show"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_shrimp_seller_suspension_form" model="ir.ui.view">
+    <field name="name">shrimp.seller.suspension.form</field>
+    <field name="model">shrimp.seller.suspension</field>
+    <field name="arch" type="xml">
+      <form create="0" delete="0">
+        <header>
+          <button name="action_lift" type="object" string="Levantar suspensión" class="btn-primary"
+                  invisible="state != 'active'" groups="shrimp_marketplace.group_marketplace_manager"
+                  confirm="¿Levantar la suspensión? El socio vuelve a publicar y sus productos vuelven al catálogo."/>
+          <field name="state" widget="statusbar"/>
+        </header>
+        <sheet>
+          <group>
+            <group>
+              <field name="partner_id" readonly="1"/>
+              <field name="date_start" readonly="1"/>
+              <field name="strike_count" readonly="1"/>
+              <field name="trigger_strike_id" readonly="1"/>
+            </group>
+            <group>
+              <field name="lifted_by_id"/>
+              <field name="lifted_at"/>
+            </group>
+          </group>
+          <group string="Revisión de la plataforma">
+            <field name="lift_note" nolabel="1" colspan="2" readonly="state != 'active'"
+                   placeholder="Qué se revisó y por qué se levanta."/>
+          </group>
+        </sheet>
+        <chatter/>
+      </form>
+    </field>
+  </record>
+
+  <!-- ===================== Ficha del socio ===================== -->
+  <record id="view_partner_form_shrimp_strikes" model="ir.ui.view">
+    <field name="name">res.partner.form.shrimp.strikes</field>
+    <field name="model">res.partner</field>
+    <field name="inherit_id" ref="base.view_partner_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//page[@name='shrimp_tab']" position="after">
+        <page string="Cumplimiento de entregas" name="shrimp_delivery_compliance"
+              groups="shrimp_marketplace.group_marketplace_user"
+              invisible="not shrimp_strike_ids and not shrimp_delivery_count">
+          <div class="alert alert-danger" role="alert" invisible="not shrimp_publishing_suspended">
+            Publicación suspendida por strikes: el socio no puede publicar y sus productos no salen en el catálogo.
+            Sus ventas en curso siguen. Revisa los strikes y levanta la suspensión cuando corresponda.
+          </div>
+          <div groups="shrimp_marketplace.group_marketplace_manager" class="mb-3"
+               invisible="not shrimp_publishing_suspended">
+            <button name="action_lift_publishing_suspension" type="object" string="Levantar suspensión"
+                    class="btn-primary"
+                    confirm="¿Levantar la suspensión? El socio vuelve a publicar y sus productos vuelven al catálogo."/>
+          </div>
+          <group>
+            <group string="Indicadores">
+              <field name="shrimp_active_strike_count"/>
+              <field name="shrimp_strike_penalized"/>
+              <field name="shrimp_publishing_suspended"/>
+            </group>
+            <group string="Entregas">
+              <field name="shrimp_delivery_count"/>
+              <field name="shrimp_delivery_ok_pct"/>
+              <field name="shrimp_ontime_pct"/>
+            </group>
+          </group>
+          <group string="Strikes">
+            <field name="shrimp_strike_ids" nolabel="1" colspan="2" readonly="1"
+                   context="{'list_view_ref': 'shrimp_marketplace.view_shrimp_seller_strike_list'}"/>
+          </group>
+          <group string="Suspensiones" invisible="not shrimp_suspension_ids">
+            <field name="shrimp_suspension_ids" nolabel="1" colspan="2" readonly="1"/>
+          </group>
+        </page>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="view_partner_search_shrimp_strikes" model="ir.ui.view">
+    <field name="name">res.partner.search.shrimp.strikes</field>
+    <field name="model">res.partner</field>
+    <field name="inherit_id" ref="base.view_res_partner_filter"/>
+    <field name="arch" type="xml">
+      <xpath expr="//filter[1]" position="before">
+        <filter name="f_shrimp_suspended" string="Publicación suspendida (strikes)"
+                domain="[('shrimp_publishing_suspended', '=', True)]"
+                groups="shrimp_marketplace.group_marketplace_user"/>
+      </xpath>
+    </field>
+  </record>
+</odoo>

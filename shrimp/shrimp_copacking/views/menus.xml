@@ -1,7 +1,22 @@
 <odoo>
 
-  <!-- Menús del backoffice. El portal es para los clientes; esto es para
-       quien administra la plataforma y necesita ver qué está pasando. -->
+  <!-- =================================================================
+       App «Copacking» del backoffice (19.0.1.13.0).
+
+       Aplicación propia, con su raíz y su icono en el selector de apps
+       (antes era la sección «Empaque» de la app única «Camaronera»). Al
+       desinstalar este módulo se va entera; CamaronMarket y Verificador
+       quedan intactas. El portal es para los clientes y maquiladores; esto
+       es para quien administra la plataforma.
+
+         Operaciones (10)   órdenes y solicitudes de empaque
+         Maquiladores (20)  maquiladores y sus tarifas publicadas
+         Configuración (90) ajustes de empaque
+
+       Las ofertas de cada solicitud, los renglones de tarifa y las firmas del
+       acta son tablas internas: se ven dentro de su documento, sin menú.
+       Grupos: security/shrimp_copacking_rules.xml.
+       ================================================================= -->
 
   <record id="action_copack_request" model="ir.actions.act_window">
     <field name="name">Solicitudes de empaque</field>
@@ -21,20 +36,51 @@
     <field name="view_mode">list,form</field>
   </record>
 
-  <menuitem id="menu_copack_root" name="Empaque"
-            parent="shrimp_marketplace.menu_shrimp_root"
-            groups="shrimp_marketplace.group_shrimp_user" sequence="60"/>
+  <record id="action_copackers" model="ir.actions.act_window">
+    <field name="name">Maquiladores</field>
+    <field name="res_model">res.partner</field>
+    <field name="view_mode">list,form</field>
+    <field name="domain">['|', ('shrimp_user_type', '=', 'maquilador'), ('shrimp_role_ids', 'any', [('role', '=', 'maquilador'), ('state', '=', 'approved')])]</field>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">Aún no hay maquiladores aprobados.</p>
+      <p>Los maquiladores se registran por la web y operan cuando un
+         administrador aprueba su perfil (CamaronMarket › Aprobaciones ›
+         Perfiles por aprobar).</p>
+    </field>
+  </record>
 
-  <!-- Las órdenes van primero: es lo que se consulta a diario. Las
-       solicitudes y las tarifas son de consulta ocasional. -->
-  <menuitem id="menu_copack_order" name="Órdenes"
-            parent="menu_copack_root" action="action_copack_order"
-            groups="shrimp_marketplace.group_shrimp_user" sequence="10"/>
-  <menuitem id="menu_copack_request" name="Solicitudes"
-            parent="menu_copack_root" action="action_copack_request"
-            groups="shrimp_marketplace.group_shrimp_user" sequence="20"/>
-  <menuitem id="menu_copack_tariff" name="Tarifas"
-            parent="menu_copack_root" action="action_copack_tariff"
-            groups="shrimp_marketplace.group_shrimp_user" sequence="30"/>
+  <menuitem id="menu_copack_root" name="Copacking"
+            web_icon="shrimp_copacking,static/description/icon.png"
+            groups="shrimp_copacking.group_copacking_user" sequence="12"/>
+
+  <!-- Las órdenes van primero: es lo que se consulta a diario. -->
+  <menuitem id="menu_copack_ops" name="Operaciones"
+            parent="menu_copack_root"
+            groups="shrimp_copacking.group_copacking_user" sequence="10"/>
+  <menuitem id="menu_copack_order" name="Órdenes de empaque"
+            parent="menu_copack_ops" action="action_copack_order"
+            groups="shrimp_copacking.group_copacking_user" sequence="10"/>
+  <menuitem id="menu_copack_request" name="Solicitudes de empaque"
+            parent="menu_copack_ops" action="action_copack_request"
+            groups="shrimp_copacking.group_copacking_user" sequence="20"/>
+
+  <menuitem id="menu_copackers_root" name="Maquiladores"
+            parent="menu_copack_root"
+            groups="shrimp_copacking.group_copacking_user" sequence="20"/>
+  <menuitem id="menu_copackers" name="Maquiladores"
+            parent="menu_copackers_root" action="action_copackers"
+            groups="shrimp_copacking.group_copacking_user" sequence="10"/>
+  <!-- Las tarifas las publica cada maquilador desde su portal. -->
+  <menuitem id="menu_copack_tariff" name="Tarifas de empaque"
+            parent="menu_copackers_root" action="action_copack_tariff"
+            groups="shrimp_copacking.group_copacking_user" sequence="20"/>
+
+  <menuitem id="menu_copack_config" name="Configuración"
+            parent="menu_copack_root"
+            groups="shrimp_copacking.group_copacking_manager" sequence="90"/>
+  <menuitem id="menu_copack_settings" name="Ajustes"
+            parent="menu_copack_config"
+            action="shrimp_marketplace.action_shrimp_config_settings"
+            groups="base.group_system" sequence="10"/>
 
 </odoo>

@@ -2,165 +2,145 @@
 
   <template id="my_technicians" name="Verificador - Mis técnicos">
     <t t-call="website.layout">
-      <div class="shrimp-bg">
-        <div class="shrimp-page shrimp-page--full py-4 sf-fields">
+      <t t-set="activos" t-value="tecnicos.filtered('active')"/>
+      <div class="shrimp-bg vr-bg">
+        <div class="vr-page vrp sf-fields">
 
-          <div class="sf-banner mb-4">
-            <div class="sf-banner-row">
-              <div class="sf-banner-txt">
-                <h1>Mis técnicos de campo</h1>
-                <p>Da de alta a quienes hacen las inspecciones. Cada uno entra con
-                   su propia cuenta y firma el informe con su nombre.</p>
-              </div>
-              <span class="sf-kicker"><i class="fa fa-users"></i> Equipo</span>
+          <header class="vr-ph">
+            <div class="vr-ph-txt">
+              <div class="vr-eyebrow"><i class="fa fa-users"/> Equipo</div>
+              <h1>Mis técnicos de campo</h1>
+              <p class="vr-ph-sub">Cada técnico entra con su propia cuenta. En cada orden uno va como <b>responsable</b> (firma el informe) y otros pueden ir de <b>apoyo</b> (cargan datos de campo).</p>
             </div>
+            <div class="vr-ph-acts">
+              <button type="button" class="s-btn s-btn-primary" data-tech-add="1"><i class="fa fa-user-plus me-1"/> Agregar técnico</button>
+            </div>
+          </header>
+
+          <div class="vr-alerts">
+            <div t-if="saved" class="pf-alert vr-a-ok" role="status"><i class="fa fa-check-circle"/><div>Cambios guardados.</div></div>
+            <div t-if="error" class="pf-alert pf-a-bad" role="alert"><i class="fa fa-exclamation-triangle"/><div t-esc="message or 'No se pudo guardar.'"/></div>
           </div>
 
-          <t t-if="saved"><div class="alert alert-success"><i class="fa fa-check-circle me-1"/> Cambios guardados.</div></t>
-          <t t-if="error"><div class="alert alert-danger"><t t-esc="message or 'No se pudo guardar.'"/></div></t>
+          <div class="vr-kpis">
+            <div class="vr-kpi"><span class="vr-ico"><i class="fa fa-user"/></span><span><span class="vr-kpi-v" t-esc="len(activos)"/><span class="vr-kpi-l">Activos</span></span></div>
+            <div class="vr-kpi"><span class="vr-ico vr-ico--warn"><i class="fa fa-star"/></span><span><span class="vr-kpi-v" t-esc="sum(carga.get(t.id, {}).get('abiertas', 0) for t in tecnicos)"/><span class="vr-kpi-l">Órdenes como responsable</span></span></div>
+            <div class="vr-kpi"><span class="vr-ico"><i class="fa fa-user-plus"/></span><span><span class="vr-kpi-v" t-esc="sum(carga.get(t.id, {}).get('apoyo', 0) for t in tecnicos)"/><span class="vr-kpi-l">Participaciones de apoyo</span></span></div>
+            <div class="vr-kpi"><span class="vr-ico vr-ico--ok"><i class="fa fa-check"/></span><span><span class="vr-kpi-v" t-esc="sum(carga.get(t.id, {}).get('cerradas', 0) for t in tecnicos)"/><span class="vr-kpi-l">Completadas</span></span></div>
+          </div>
 
-          <!-- ===== Una sola sección: la tabla, con botón para agregar (modal) ===== -->
-          <div class="mp-table-card">
-            <div class="card-body p-4">
-              <div class="mp-sec-head" style="justify-content:space-between;">
-                <div style="display:flex; align-items:center; gap:12px;">
-                  <span class="mp-sec-ico"><i class="fa fa-users"></i></span>
-                  <h3 class="mp-sec-title">Técnicos de <t t-esc="empresa.name"/></h3>
-                </div>
-                <button type="button" class="s-btn s-btn-primary" data-tech-add="1">
-                  <i class="fa fa-user-plus me-1"/> Agregar técnico
-                </button>
-              </div>
-
+          <section class="pf-sec">
+            <div class="pf-sec-h">
+              <span class="vr-ico"><i class="fa fa-users"/></span>
+              <div><h2>Técnicos de <t t-esc="empresa.name"/> <span class="vr-count" t-esc="len(tecnicos)"/></h2><p>Carga de trabajo abierta de cada uno, para repartir con criterio.</p></div>
+            </div>
+            <div class="pf-sec-b">
               <t t-if="tecnicos">
-                <div class="table-responsive">
-                  <table class="table sv-table align-middle mb-0">
-                    <thead>
-                      <tr>
-                        <th>Nombre</th><th>Cargo</th><th>Correo</th>
-                        <th class="text-center">Abiertas</th>
-                        <th class="text-center">Completadas</th>
-                        <th>Nota en campo</th>
-                        <th>Estado</th><th class="text-end">Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <t t-foreach="tecnicos" t-as="t">
-                        <tr t-att-class="'' if t.active else 'text-muted'">
-                          <td>
-                            <strong t-esc="t.name"/>
-                            <t t-set="com" t-value="carga.get(t.id, {}).get('ultimo_comentario')"/>
-                            <div t-if="com" class="sv-muted small fst-italic">«<t t-esc="com[:70]"/>»</div>
-                          </td>
-                          <td><t t-esc="t.tech_role_id.name or t.function or '—'"/></td>
-                          <td><t t-esc="t.email or '—'"/></td>
-                          <td class="text-center"><t t-esc="carga.get(t.id, {}).get('abiertas', 0)"/></td>
-                          <td class="text-center"><t t-esc="carga.get(t.id, {}).get('cerradas', 0)"/></td>
-                          <td>
-                            <t t-if="t.tech_rating_count">
-                              <span class="sv-stars">
-                                <t t-foreach="range(5)" t-as="n">
-                                  <i t-attf-class="fa fa-star#{'' if n &lt; int(round(t.tech_rating_avg)) else '-o'}"/>
-                                </t>
-                              </span>
-                              <strong t-esc="'{:.1f}'.format(t.tech_rating_avg)"/>
-                              <span class="sv-muted small"> (<t t-esc="t.tech_rating_count"/>)</span>
-                            </t>
-                            <span t-else="" class="sv-muted small">sin reseñas</span>
-                          </td>
-                          <td>
-                            <span t-if="t.active" class="sv-acc sv-acc--ok">Activo</span>
-                            <span t-else="" class="sv-acc sv-acc--no">Dado de baja</span>
-                          </td>
-                          <td class="text-end" style="white-space:nowrap;">
-                            <button type="button" class="s-btn s-btn-ghost btn-sm"
-                                    data-tech-edit="1"
-                                    t-att-data-id="t.uuid_ref"
-                                    t-att-data-name="t.name or ''"
-                                    t-att-data-email="t.email or ''"
-                                    t-att-data-phone="t.phone or ''"
-                                    t-att-data-role="t.tech_role_id.uuid_ref or ''">
-                              <i class="fa fa-pencil me-1"/> Editar
+                <table class="vr-table vr-table--stack">
+                  <thead>
+                    <tr>
+                      <th>Técnico</th><th>Cargo</th>
+                      <th class="vr-num">Responsable</th><th class="vr-num">Apoyo</th><th class="vr-num">Completadas</th>
+                      <th>Nota en campo</th><th>Estado</th><th class="text-end">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <t t-foreach="tecnicos" t-as="t">
+                      <t t-set="c" t-value="carga.get(t.id, {})"/>
+                      <tr t-att-class="None if t.active else 'is-off'">
+                        <td class="vr-td-main" data-label="Técnico">
+                          <div class="d-flex align-items-center gap-2">
+                            <span class="vr-av" t-esc="''.join(w[:1] for w in (t.name or '?').split()[:2]).upper()"/>
+                            <div style="min-width:0;"><b t-esc="t.name"/><div class="vr-muted small" t-esc="t.email or '—'"/>
+                              <div t-if="c.get('ultimo_comentario')" class="vr-muted small fst-italic">«<t t-esc="c.get('ultimo_comentario')[:70]"/>»</div></div>
+                          </div>
+                        </td>
+                        <td data-label="Cargo"><t t-esc="t.tech_role_id.name or t.function or '—'"/></td>
+                        <td class="vr-num" data-label="Responsable (abiertas)" t-esc="c.get('abiertas', 0)"/>
+                        <td class="vr-num" data-label="Apoyo (abiertas)" t-esc="c.get('apoyo', 0)"/>
+                        <td class="vr-num" data-label="Completadas" t-esc="c.get('cerradas', 0)"/>
+                        <td data-label="Nota en campo">
+                          <t t-if="t.tech_rating_count">
+                            <span class="vr-stars"><t t-foreach="range(5)" t-as="n"><i t-attf-class="fa fa-star#{'' if n &lt; int(round(t.tech_rating_avg)) else '-o'}"/></t></span>
+                            <b t-esc="'{:.1f}'.format(t.tech_rating_avg)"/> <span class="vr-muted small">(<t t-esc="t.tech_rating_count"/>)</span>
+                          </t>
+                          <span t-else="" class="vr-muted small">sin reseñas</span>
+                        </td>
+                        <td data-label="Estado">
+                          <span t-if="t.active" class="vr-pill vr-pill--sm vr-pill--ok">Activo</span>
+                          <span t-else="" class="vr-pill vr-pill--sm vr-pill--muted">Dado de baja</span>
+                        </td>
+                        <td class="vr-td-acts text-end" style="white-space:nowrap;">
+                          <button type="button" class="vr-icon-btn" data-tech-edit="1"
+                                  t-att-data-id="t.uuid_ref" t-att-data-name="t.name or ''" t-att-data-email="t.email or ''"
+                                  t-att-data-phone="t.phone or ''" t-att-data-role="t.tech_role_id.uuid_ref or ''">
+                            <i class="fa fa-pencil"/> Editar
+                          </button>
+                          <form method="post" t-attf-action="/verifier/technicians/#{t.uuid_ref}/toggle" style="display:inline;">
+                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                            <button t-attf-class="vr-icon-btn #{'vr-icon-btn--bad' if t.active else ''}" type="submit">
+                              <t t-if="t.active"><i class="fa fa-ban"/> Dar de baja</t>
+                              <t t-else=""><i class="fa fa-undo"/> Reactivar</t>
                             </button>
-                            <form method="post" t-attf-action="/verifier/technicians/#{t.uuid_ref}/toggle" style="display:inline;">
-                              <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                              <button class="s-btn s-btn-ghost btn-sm" type="submit">
-                                <t t-if="t.active">Dar de baja</t>
-                                <t t-else="">Reactivar</t>
-                              </button>
-                            </form>
-                          </td>
-                        </tr>
-                      </t>
-                    </tbody>
-                  </table>
-                </div>
-
-                <div class="alert alert-info mt-3 mb-0">
-                  <strong>La nota en campo es información interna.</strong>
-                  Los compradores solo ven la calificación de <t t-esc="empresa.name"/>
-                  <t t-if="empresa.verifier_rating_count">
-                    (<t t-esc="'{:.1f}'.format(empresa.verifier_rating_avg)"/> ★ sobre
-                    <t t-esc="empresa.verifier_rating_count"/> reseñas)
-                  </t>, no la de cada técnico. Al dar de baja se desactiva su acceso,
-                  pero sus verificaciones anteriores siguen mostrando quién las hizo.
-                </div>
+                          </form>
+                        </td>
+                      </tr>
+                    </t>
+                  </tbody>
+                </table>
+                <p class="vr-rule"><i class="fa fa-info-circle"/><span><b>La nota en campo es información interna.</b> Los compradores solo ven la calificación de <t t-esc="empresa.name"/><t t-if="empresa.verifier_rating_count"> (<t t-esc="'{:.1f}'.format(empresa.verifier_rating_avg)"/> ★ sobre <t t-esc="empresa.verifier_rating_count"/> reseñas)</t>, no la de cada técnico. Al dar de baja se desactiva su acceso, pero sus verificaciones anteriores siguen mostrando quién las hizo.</span></p>
               </t>
-              <t t-else="">
-                <div class="sv-empty">
-                  <i class="fa fa-users fa-2x mb-3"/>
-                  <p>Todavía no tienes técnicos. Pulsa <strong>Agregar técnico</strong> para
-                     crear el primero. Mientras tanto, puedes atender las verificaciones
-                     tú mismo desde la bandeja.</p>
-                </div>
-              </t>
+              <div t-else="" class="vr-empty">
+                <span class="vr-ico"><i class="fa fa-users"/></span>
+                <h3>Todavía no tienes técnicos</h3>
+                <p>Pulsa <b>Agregar técnico</b> para crear el primero. Mientras tanto, puedes atender las verificaciones tú mismo desde la bandeja.</p>
+                <button type="button" class="s-btn s-btn-primary" data-tech-add="1"><i class="fa fa-user-plus me-1"/> Agregar técnico</button>
+              </div>
             </div>
-          </div>
+          </section>
 
         </div>
       </div>
 
       <!-- ================= MODAL crear / editar técnico ================= -->
-      <div class="sf-modal" id="techModal">
-        <div class="sf-modal-card tech-modal-card">
-          <div class="tech-modal-head">
+      <div class="sf-modal vr-modal" id="techModal" role="dialog" aria-modal="true" aria-labelledby="techModalTitle">
+        <div class="sf-modal-card">
+          <div class="vr-modal-h">
+            <span class="vr-ico"><i class="fa fa-user"/></span>
             <h3 id="techModalTitle">Agregar técnico</h3>
-            <button type="button" class="tech-modal-x" data-tech-close="1" aria-label="Cerrar">
-              <i class="fa fa-times"/>
-            </button>
+            <button type="button" class="vr-modal-x" data-tech-close="1" aria-label="Cerrar"><i class="fa fa-times"/></button>
           </div>
-          <form method="post" id="techForm" action="/verifier/technicians/add" class="text-start">
+          <form method="post" id="techForm" action="/verifier/technicians/add" class="text-start vr-fields">
             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-            <div class="row g-3">
-              <div class="col-md-6">
-                <label class="form-label">Nombre completo <span class="text-danger">*</span></label>
-                <input class="form-control" name="name" id="techName" required="required"/>
-              </div>
-              <div class="col-md-6">
-                <label class="form-label">Cargo</label>
-                <select class="form-select" name="tech_role_ref" id="techRole">
-                  <option value="">— Seleccionar —</option>
-                  <t t-foreach="roles" t-as="r">
-                    <option t-att-value="r.uuid_ref"><t t-esc="r.name"/></option>
-                  </t>
-                </select>
-              </div>
-              <div class="col-md-6">
-                <label class="form-label">Correo (será su usuario) <span class="text-danger">*</span></label>
-                <input type="email" class="form-control" name="email" id="techEmail" required="required"/>
-              </div>
-              <div class="col-md-6">
-                <label class="form-label">Teléfono</label>
-                <input class="form-control" name="phone" id="techPhone"/>
-              </div>
-              <div class="col-12">
-                <label class="form-label" id="techPassLabel">Contraseña inicial <span class="text-danger">*</span></label>
-                <input type="text" class="form-control" name="password" id="techPass"
-                       minlength="8" placeholder="mínimo 8 caracteres"/>
-                <div class="form-text" id="techPassHelp">Comunícale la contraseña; podrá cambiarla desde su cuenta.</div>
+            <div class="vr-modal-b">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label" for="techName">Nombre completo <span class="text-danger">*</span></label>
+                  <input class="form-control" name="name" id="techName" required="required"/>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="techRole">Cargo</label>
+                  <select class="form-select" name="tech_role_ref" id="techRole">
+                    <option value="">— Seleccionar —</option>
+                    <t t-foreach="roles" t-as="r"><option t-att-value="r.uuid_ref"><t t-esc="r.name"/></option></t>
+                  </select>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="techEmail">Correo (será su usuario) <span class="text-danger">*</span></label>
+                  <input type="email" class="form-control" name="email" id="techEmail" required="required"/>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="techPhone">Teléfono</label>
+                  <input class="form-control" name="phone" id="techPhone"/>
+                </div>
+                <div class="col-12">
+                  <label class="form-label" id="techPassLabel" for="techPass">Contraseña inicial <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control" name="password" id="techPass" minlength="8" placeholder="mínimo 8 caracteres"/>
+                  <div class="form-text" id="techPassHelp">Comunícale la contraseña; podrá cambiarla desde su cuenta.</div>
+                </div>
               </div>
             </div>
-            <div class="tech-modal-foot">
+            <div class="vr-modal-f">
               <button type="button" class="s-btn s-btn-ghost" data-tech-close="1">Cancelar</button>
               <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-check me-1"/> Guardar</button>
             </div>

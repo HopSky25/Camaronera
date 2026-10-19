@@ -1,10 +1,18 @@
 import logging
+from datetime import timedelta
+
 from odoo import SUPERUSER_ID, api, fields, models, _
 from odoo.exceptions import ValidationError
 
 from .res_partner import TASA_DESCUENTO_DEFECTO
 
 _logger = logging.getLogger(__name__)
+
+# D-48: una lista «hasta segunda orden» caduca a los N días de publicada salvo
+# que se renueve (Ajustes › CamaronMarket), y se avisa a la empacadora unos
+# días antes.
+CADUCIDAD_DIAS_DEF = 30
+AVISO_CADUCIDAD_DIAS_DEF = 3
 
 
 class ShrimpPriceList(models.Model):
@@ -132,6 +140,36 @@ class ShrimpPriceList(models.Model):
         "shrimp.price.list.bonus", "price_list_id", string="Bonificaciones",
         copy=True)
 
+    # ------------------------------------------------------------------
+    # D-15: una lista publicada no se edita. Para corregirla se duplica
+    # («Duplicar y corregir»), se corrige el borrador y al publicarlo
+    # reemplaza a la original. Estos campos dejan la traza de quién corrige
+    # a quién.
+    # ------------------------------------------------------------------
+    supersedes_id = fields.Many2one(
+        "shrimp.price.list", string="Corrige a", copy=False, index=True,
+        ondelete="set null", readonly=True,
+        help="La lista publicada que esta corrige. Al publicar esta, aquella "
+             "queda archivada como reemplazada.")
+    superseded_by_id = fields.Many2one(
+        "shrimp.price.list", string="Reemplazada por", copy=False,
+        ondelete="set null", readonly=True)
+    archive_reason = fields.Selection(
+        [("replaced", "Reemplazada por otra lista"),
+         ("expired", "Caducó sin renovar"),
+         ("manual", "Archivada por la empacadora")],
+        string="Motivo de archivo", copy=False, readonly=True)
+
+    # D-48: una lista «hasta segunda orden» no rige para siempre. Caduca a
+    # los N días de publicada (Ajustes) salvo que la empacadora la renueve; se
+    # le avisa unos días antes.
+    expires_on = fields.Date(
+        string="Caduca el", copy=False, readonly=True, tracking=True,
+        help="Solo para listas «hasta segunda orden»: si no se renueva antes, "
+             "ese día deja de regir y se archiva.")
+    expiry_notice_sent = fields.Boolean(
+        string="Aviso de caducidad enviado", copy=False, readonly=True)
+
     line_count = fields.Integer(compute="_compute_counts", string="Renglones")
     is_current = fields.Boolean(
         compute="_compute_is_current", search="_search_is_current",
@@ -184,7 +222,7 @@ class ShrimpPriceList(models.Model):
             return listas.filtered(lambda l: l.is_current or l.is_upcoming)
         return listas.filtered("is_current")
 
-    @api.depends("state", "dispatch_from", "dispatch_to", "open_ended")
+    @api.depends("state", "dispatch_from", "dispatch_to", "open_ended", "expires_on")
     def _compute_is_current(self):
         hoy = fields.Date.context_today(self)
         for rec in self:
@@ -201,7 +239,16 @@ class ShrimpPriceList(models.Model):
                 continue
             if not rec.open_ended and rec.dispatch_to and rec.dispatch_to < hoy:
                 continue
+            if rec._caducada(hoy):
+                # Caducó y el cron todavía no la archivó: ya no rige.
+                continue
             rec.is_current = True
+
+    def _caducada(self, hoy=None):
+        """¿Es una lista «hasta segunda orden» que pasó su fecha de caducidad?"""
+        self.ensure_one()
+        hoy = hoy or fields.Date.context_today(self)
+        return bool(self.open_ended and self.expires_on and self.expires_on < hoy)
 
     def _search_is_current(self, operator, value):
         # Odoo 19 normaliza los dominios de booleano a operator 'in' con un
@@ -216,7 +263,8 @@ class ShrimpPriceList(models.Model):
         hoy = fields.Date.context_today(self)
         vigentes = self.search([("state", "=", "published")]).filtered(
             lambda r: (not r.dispatch_from or r.dispatch_from <= hoy)
-            and (r.open_ended or not r.dispatch_to or r.dispatch_to >= hoy))
+            and (r.open_ended or not r.dispatch_to or r.dispatch_to >= hoy)
+            and not r._caducada(hoy))
         return [("id", "in" if quiere else "not in", vigentes.ids)]
 
     @api.model
@@ -238,7 +286,9 @@ class ShrimpPriceList(models.Model):
                 aguaje = Aguaje.search([("date_from", ">=", lista.dispatch_from)],
                                        order="date_from", limit=1)
             if aguaje:
-                lista.aguaje_id = aguaje
+                # Completar el aguaje que falta es datos de sistema (demo,
+                # migración), no una edición de la empacadora.
+                lista.with_context(shrimp_lista_sin_bloqueo=True).aguaje_id = aguaje
         return True
 
     @api.depends("aguaje_id", "aguaje_id.date_from", "aguaje_id.date_to",
@@ -366,11 +416,91 @@ class ShrimpPriceList(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        recs = super().create(vals_list)
+        # Los renglones y bonificaciones que llegan con la propia lista se
+        # crean dentro de este create: no son una edición de una lista ya
+        # publicada aunque la lista nazca publicada (demo, migraciones).
+        recs = super(ShrimpPriceList, self.with_context(
+            shrimp_lista_sin_bloqueo=True)).create(vals_list).with_env(self.env)
         if recs._regla_aguaje_activa():
             recs._completar_despacho_desde_aguaje()
             recs._validar_aguaje()
         return recs
+
+    # ==================================================================
+    # D-15: una lista publicada no se toca
+    # ==================================================================
+    # Lo que es el contenido de la lista. Cambiar cualquiera de estos campos
+    # en una lista publicada es cambiarle el precio por debajo a quien ya la
+    # leyó (y a los compromisos «a lista» que se firmaron mirándola).
+    _CAMPOS_CONTENIDO = frozenset({
+        "name", "issuer_partner_id", "issue_date", "dispatch_from", "dispatch_to",
+        "open_ended", "currency_id", "quality_conditions", "advance_pct",
+        "advance_days", "balance_days", "payment_notes", "recipient_ids",
+        "aguaje_id", "line_ids", "bonus_ids", "supersedes_id",
+    })
+
+    def _bloqueo_activo(self):
+        """¿Se aplica el bloqueo de listas publicadas en esta operación?
+
+        No en la carga de datos/demo del módulo ni en lo que el propio código
+        marca como operación de sistema (``shrimp_lista_sin_bloqueo``).
+        """
+        ctx = self.env.context
+        return not (ctx.get("install_mode") or ctx.get("shrimp_lista_sin_bloqueo"))
+
+    def _error_lista_publicada(self):
+        return ValidationError(_(
+            "«%s» ya fue publicada y no se puede modificar: sus destinatarios "
+            "y los compromisos firmados con ella la están usando. Usa «Duplicar "
+            "y corregir»: se crea un borrador con los mismos precios y, al "
+            "publicarlo, reemplaza a esta.") % (self[:1].name or ""))
+
+    def _check_editable(self):
+        """Falla si alguna de estas listas ya no es un borrador."""
+        if not self._bloqueo_activo():
+            return
+        cerradas = self.filtered(lambda l: l.state != "draft")
+        if cerradas:
+            raise cerradas._error_lista_publicada()
+
+    def unlink(self):
+        if self._bloqueo_activo():
+            cerradas = self.filtered(lambda l: l.state != "draft")
+            if cerradas:
+                raise ValidationError(_(
+                    "«%s» ya fue publicada: no se elimina, se archiva. Es el "
+                    "documento con el que se firmaron compromisos y se avisó a "
+                    "los productores.") % (cerradas[0].name or ""))
+        return super().unlink()
+
+    def _check_destinatarios_con_compromisos(self, originales=None):
+        """No se deja fuera a un destinatario que tiene compromisos «a lista»
+        vivos con esta empacadora (D-15/ME-24).
+
+        Aplica a la corrección de una lista: la nueva reemplaza a la original
+        y quien quedara fuera se quedaría sin lista justo cuando tiene una
+        reserva firmada sobre ella.
+        """
+        Com = self.env["shrimp.harvest.commitment"].sudo()
+        for rec in self:
+            original = originales or rec.supersedes_id
+            if not original:
+                continue
+            quitados = original.recipient_ids - rec.recipient_ids
+            if not quitados:
+                continue
+            vivos = Com.search([
+                ("packer_partner_id", "=", rec.issuer_partner_id.id),
+                ("price_mode", "=", "lista"),
+                ("state", "in", ("sent", "accepted", "to_confirm")),
+            ])
+            afectados = quitados.filtered(lambda p: vivos.filtered(
+                lambda c: p.id in c.farmer_partner_id.shrimp_grupo_ids()))
+            if afectados:
+                raise ValidationError(_(
+                    "No puedes quitar de la lista a %s: tiene(n) compromisos de "
+                    "cosecha «a lista» vivos contigo. Mantenlos como "
+                    "destinatarios.") % ", ".join(afectados.mapped("name")))
 
     def copy_data(self, default=None):
         """Copiar es armar la lista del PRÓXIMO aguaje: se propone el aguaje
@@ -437,12 +567,23 @@ class ShrimpPriceList(models.Model):
     # Acciones
     # ==================================================================
     def action_publish(self):
+        if self._bloqueo_activo():
+            no_borrador = self.filtered(lambda l: l.state != "draft")
+            if no_borrador:
+                raise ValidationError(_(
+                    "Solo se publica un borrador. «%s» ya pasó por publicación: "
+                    "para volver a usarla, cópiala.") % (no_borrador[0].name or ""))
         if self._regla_aguaje_activa():
             # Obligatorio y vigente: el productor tiene que saber para qué
             # marea es el precio, y una lista para un aguaje que ya pasó no le
             # sirve a nadie.
             self._validar_aguaje(exigir=True)
         for rec in self:
+            emisor = rec.issuer_partner_id.sudo()
+            if emisor and hasattr(emisor, "_shrimp_suspension_problem") \
+                    and emisor._shrimp_suspension_problem():
+                # D-20: una cuenta suspendida no publica listas.
+                raise ValidationError(emisor._shrimp_suspension_problem())
             if not rec.line_ids:
                 raise ValidationError(_(
                     "Una lista sin precios no se puede publicar. Agrega al menos "
@@ -451,13 +592,16 @@ class ShrimpPriceList(models.Model):
                 raise ValidationError(_(
                     "Indica a qué productores va dirigida. Una lista sin "
                     "destinatarios no la vería nadie."))
+            rec._check_destinatarios_con_compromisos()
             # Solo una lista vigente por comprador: si no, el productor no sabe
             # cuál mirar. La anterior se archiva sola.
             # Solo se archivan las que compiten con esta: mismo emisor y algún
             # destinatario en común. Una empacadora tiene varias listas vivas a
             # la vez, una por cliente, y archivarlas todas sería un desastre.
             #
-            rec.state = "published"
+            rec.write({"state": "published",
+                       "expires_on": rec._caducidad_desde_hoy(),
+                       "expiry_notice_sent": False})
             # Y solo las que compiten en la MISMA ventana de tiempo. Una lista
             # futura y la vigente no se estorban: conviven a propósito, porque
             # la empacadora publica con días de antelación para que el
@@ -475,14 +619,107 @@ class ShrimpPriceList(models.Model):
                 ("id", "!=", rec.id),
                 ("recipient_ids", "in", rec.recipient_ids.ids),
             ]).filtered(lambda l: l.is_upcoming == futura)
+            # La que esta corrige se reemplaza siempre, compita o no en la
+            # misma ventana: es la misma lista, corregida.
+            if rec.supersedes_id.state == "published":
+                anteriores |= rec.supersedes_id
             # El aviso se calcula ANTES de archivar: después las anteriores
             # siguen existiendo, pero es más claro pasarlas explícitas.
             rec._avisar_cambios(anteriores)
-            anteriores.write({"state": "archived"})
+            anteriores.with_context(shrimp_lista_sin_bloqueo=True).write({
+                "state": "archived", "archive_reason": "replaced",
+                "superseded_by_id": rec.id})
+            for vieja in anteriores:
+                vieja.message_post(body=_("Reemplazada por «%s».") % rec.name)
             if anteriores:
                 rec.message_post(body=_(
                     "Publicada. Se archivaron %s lista(s) anterior(es).") % len(anteriores))
         return True
+
+    # ==================================================================
+    # D-48: caducidad de las listas «hasta segunda orden»
+    # ==================================================================
+    @api.model
+    def _dias_caducidad(self):
+        return self.env["shrimp.settings"].get_int(
+            "shrimp_packer.price_list_expiry_days", CADUCIDAD_DIAS_DEF,
+            minimum=1, maximum=365)
+
+    @api.model
+    def _dias_aviso_caducidad(self):
+        return self.env["shrimp.settings"].get_int(
+            "shrimp_packer.price_list_expiry_notice_days", AVISO_CADUCIDAD_DIAS_DEF,
+            minimum=0, maximum=60)
+
+    def _caducidad_desde_hoy(self):
+        """Fecha de caducidad de una lista «hasta segunda orden» que se publica
+        o renueva hoy. Si todavía no arranca, se cuenta desde que arranca: una
+        lista publicada con días de antelación no debe gastar su vigencia
+        antes de empezar a regir."""
+        self.ensure_one()
+        if not self.open_ended:
+            return False
+        hoy = fields.Date.context_today(self)
+        base = max(hoy, self.dispatch_from) if self.dispatch_from else hoy
+        return base + timedelta(days=self._dias_caducidad())
+
+    def action_renew(self):
+        """La empacadora confirma que su lista «hasta segunda orden» sigue
+        valiendo: se extiende la caducidad otros N días desde hoy."""
+        for rec in self:
+            if rec.state != "published" or not rec.open_ended:
+                raise ValidationError(_(
+                    "Solo se renueva una lista publicada «hasta segunda orden»."))
+            nueva = rec._caducidad_desde_hoy()
+            rec.with_context(shrimp_lista_sin_bloqueo=True).write({
+                "expires_on": nueva, "expiry_notice_sent": False})
+            rec.message_post(body=_("Lista renovada: rige hasta el %s, salvo "
+                                    "que se renueve otra vez o se publique otra.")
+                             % nueva.strftime("%d/%m/%Y"))
+        return True
+
+    @api.model
+    def _cron_caducidad(self):
+        """Avisa a la empacadora de las listas que están por caducar y archiva
+        las que caducaron sin renovarse. Corre a diario."""
+        hoy = fields.Date.context_today(self)
+        Lista = self.sudo().with_context(shrimp_lista_sin_bloqueo=True)
+        abiertas = Lista.search([("state", "=", "published"), ("open_ended", "=", True)])
+        # Listas publicadas antes de existir la caducidad: arrancan su cuenta.
+        for rec in abiertas.filtered(lambda l: not l.expires_on):
+            rec.expires_on = rec._caducidad_desde_hoy()
+
+        caducadas = abiertas.filtered(lambda l: l.expires_on < hoy)
+        for rec in caducadas:
+            rec.write({"state": "archived", "archive_reason": "expired"})
+            rec.message_post(body=_(
+                "La lista caducó el %s sin renovarse y dejó de regir. Publica "
+                "una nueva (o cópiala) para volver a tener precios vigentes con "
+                "tus proveedores.") % rec.expires_on.strftime("%d/%m/%Y"))
+
+        limite = hoy + timedelta(days=self._dias_aviso_caducidad())
+        por_avisar = (abiertas - caducadas).filtered(
+            lambda l: not l.expiry_notice_sent and l.expires_on <= limite)
+        avisadas = 0
+        for rec in por_avisar:
+            emisor = rec.issuer_partner_id
+            # ME-24: no se escribe a una empacadora que no puede operar.
+            if not emisor.shrimp_is_operational("empacadora"):
+                continue
+            enviado = rec._send_template(
+                "shrimp_packer.mail_template_lista_por_caducar", emisor.email,
+                ctx={"destinatario": emisor.name,
+                     "dias": (rec.expires_on - hoy).days})
+            if enviado:
+                # Se marca DESPUÉS de enviar: si no salió, se reintenta mañana.
+                rec.expiry_notice_sent = True
+                avisadas += 1
+                rec._message_log(body=_(
+                    "Avisado a %(e)s de que la lista caduca el %(f)s.") % {
+                    "e": emisor.name, "f": rec.expires_on.strftime("%d/%m/%Y")})
+            else:
+                rec._log_notificacion([(emisor, False)])
+        return {"caducadas": len(caducadas), "avisadas": avisadas}
 
     def _avisar_cambios(self, anteriores):
         """Avisa a cada destinatario de los precios que le cambiaron.
@@ -493,8 +730,6 @@ class ShrimpPriceList(models.Model):
         aplicación.
         """
         self.ensure_one()
-        if not anteriores:
-            return
         Prod = self.env["shrimp.product"].sudo()
 
         antes = {}
@@ -506,6 +741,14 @@ class ShrimpPriceList(models.Model):
                 antes[clave] = l.price
 
         for destinatario in self.recipient_ids:
+            # ME-24: no se avisa a quien no puede operar en la plataforma.
+            if not destinatario.shrimp_is_operational():
+                continue
+            # D-48: la primera lista que recibe un productor avisa igual que
+            # las siguientes. Si no tenía ninguna anterior de esta empacadora,
+            # todas sus tallas en stock salen como precio nuevo.
+            primera = not anteriores.filtered(
+                lambda l: set(destinatario.shrimp_grupo_ids()) & set(l.recipient_ids.ids))
             duenos = destinatario | destinatario.child_ids
             lotes = Prod.search([
                 ("seller_partner_id", "in", duenos.ids),
@@ -536,8 +779,10 @@ class ShrimpPriceList(models.Model):
                     continue
                 nueva = max(lineas, key=lambda l: l.price)
                 clave = (presentation, dato["talla"].id, nueva.quality)
-                previo = antes.get(clave)
-                if previo is None or abs(previo - nueva.price) < 0.005:
+                previo = None if primera else antes.get(clave)
+                if previo is None and not primera:
+                    continue
+                if previo is not None and abs(previo - nueva.price) < 0.005:
                     continue
                 cantidad = sum(l.cantidad_en(nueva.uom) for l in dato["lotes"])
                 cambios.append({
@@ -548,14 +793,15 @@ class ShrimpPriceList(models.Model):
                     "uom": "Kg" if nueva.uom == "kg" else "Lb",
                     "cantidad": cantidad,
                     "lotes": len(dato["lotes"]),
-                    "efecto": (nueva.price - previo) * cantidad,
+                    "efecto": (nueva.price - (previo or 0.0)) * cantidad,
+                    "nuevo": previo is None,
                 })
             if not cambios:
                 continue
             cambios.sort(key=lambda c: -abs(c["efecto"]))
-            self._enviar_aviso_cambios(destinatario, cambios)
+            self._enviar_aviso_cambios(destinatario, cambios, primera=primera)
 
-    def _enviar_aviso_cambios(self, destinatario, cambios):
+    def _enviar_aviso_cambios(self, destinatario, cambios, primera=False):
         """Manda el correo del cambio de precios y deja constancia."""
         self.ensure_one()
         if not destinatario.email:
@@ -569,7 +815,8 @@ class ShrimpPriceList(models.Model):
         # se quedaría colgada esperando el timeout) y el fallo queda escrito.
         enviado = self._send_template(
             "shrimp_packer.mail_template_precios_cambiaron", destinatario.email,
-            ctx={"destinatario": destinatario.name, "cambios": cambios})
+            ctx={"destinatario": destinatario.name, "cambios": cambios,
+                 "primera": primera})
         if enviado:
             self.sudo()._message_log(body=_(
                 "Avisado a %(quien)s de %(n)s cambio(s) de precio en tallas que "
@@ -578,12 +825,70 @@ class ShrimpPriceList(models.Model):
             self._log_notificacion([(destinatario, False)])
 
     def action_archive_list(self):
-        self.write({"state": "archived"})
+        self.with_context(shrimp_lista_sin_bloqueo=True).write(
+            {"state": "archived", "archive_reason": "manual"})
         return True
 
     def action_back_to_draft(self):
+        """D-15: una lista que ya se publicó no vuelve a borrador. Lo que se
+        corrige es una copia («Duplicar y corregir»)."""
+        if self._bloqueo_activo():
+            cerradas = self.filtered(lambda l: l.state != "draft")
+            if cerradas:
+                raise ValidationError(_(
+                    "Una lista publicada no vuelve a borrador: sus destinatarios "
+                    "ya la vieron y puede haber compromisos firmados con ella. "
+                    "Usa «Duplicar y corregir»."))
         self.write({"state": "draft"})
         return True
+
+    def _valores_copia_correccion(self):
+        """Lo que lleva el borrador que corrige a esta lista: lo mismo —precios,
+        destinatarios, aguaje y despacho— para cambiar solo lo que está mal."""
+        self.ensure_one()
+        hoy = fields.Date.context_today(self)
+        vals = {
+            "name": self.name,
+            "state": "draft",
+            "issue_date": hoy,
+            "auto_publish": False,
+            "auto_publish_date": False,
+            "supersedes_id": self.id,
+        }
+        # Se corrige la MISMA lista: misma ventana de despacho. El aguaje se
+        # conserva si sigue vigente; si ya pasó, se propone el de hoy (si la
+        # ventana no lo contradice) o se deja vacío para que lo elija al
+        # publicar.
+        vals.update({"dispatch_from": self.dispatch_from,
+                     "dispatch_to": self.dispatch_to,
+                     "open_ended": self.open_ended})
+        aguaje = self.aguaje_id
+        if not aguaje or aguaje.date_to < hoy:
+            aguaje = self.env["shrimp.aguaje"].aguaje_de(hoy)
+            if aguaje and ((self.dispatch_from and self.dispatch_from > aguaje.date_to)
+                           or (not self.open_ended and self.dispatch_to
+                               and self.dispatch_to < aguaje.date_from)):
+                aguaje = self.env["shrimp.aguaje"]
+        vals["aguaje_id"] = aguaje.id or False
+        return vals
+
+    def action_duplicate_correct(self):
+        """«Duplicar y corregir»: borrador idéntico a esta lista publicada que,
+        al publicarse, la reemplaza (D-15)."""
+        self.ensure_one()
+        if self.state != "published":
+            raise ValidationError(_(
+                "«Duplicar y corregir» es para listas publicadas. Un borrador se "
+                "corrige directamente."))
+        abierta = self.search([("supersedes_id", "=", self.id), ("state", "=", "draft")], limit=1)
+        nueva = abierta or self.copy(self._valores_copia_correccion())
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": "shrimp.price.list",
+            "res_id": nueva.id,
+            "view_mode": "form",
+            "target": "current",
+        }
 
     def _resync_productos_vinculados(self):
         """Reaplica el precio a los lotes atados a estas listas (si la lista
@@ -593,6 +898,11 @@ class ShrimpPriceList(models.Model):
             prods._sync_precio_lista()
 
     def write(self, vals):
+        if self._bloqueo_activo():
+            if self._CAMPOS_CONTENIDO.intersection(vals):
+                self._check_editable()
+            if vals.get("state") == "draft" and self.filtered(lambda l: l.state != "draft"):
+                raise self.filtered(lambda l: l.state != "draft")._error_lista_publicada()
         regla = self._regla_aguaje_activa() and any(
             k in vals for k in ("aguaje_id", "dispatch_from", "dispatch_to", "open_ended"))
         antes = {r.id: r.aguaje_id.id for r in self} if regla else {}
@@ -609,6 +919,8 @@ class ShrimpPriceList(models.Model):
                 (self - cambiadas)._validar_despacho_aguaje()
         if any(k in vals for k in ("line_ids", "state")):
             self._resync_productos_vinculados()
+        if "recipient_ids" in vals and self._bloqueo_activo():
+            self.filtered("supersedes_id")._check_destinatarios_con_compromisos()
         return res
 
     @api.constrains("auto_publish", "auto_publish_date")
@@ -1358,6 +1670,25 @@ class ShrimpPriceListLine(models.Model):
 
     price = fields.Monetary(string="Precio", required=True, currency_field="currency_id")
 
+    # D-15: los renglones de una lista publicada no se tocan.
+    @api.model_create_multi
+    def create(self, vals_list):
+        if self.env["shrimp.price.list"]._bloqueo_activo():
+            ids = {v.get("price_list_id") for v in vals_list if v.get("price_list_id")}
+            self.env["shrimp.price.list"].browse(list(ids))._check_editable()
+        return super().create(vals_list)
+
+    def write(self, vals):
+        listas = self.mapped("price_list_id")
+        if vals.get("price_list_id"):
+            listas |= self.env["shrimp.price.list"].browse(vals["price_list_id"])
+        listas._check_editable()
+        return super().write(vals)
+
+    def unlink(self):
+        self.mapped("price_list_id").exists()._check_editable()
+        return super().unlink()
+
     _uniq_renglon = models.Constraint(
         "UNIQUE(price_list_id, size_grade_id, channel, quality)",
         "Esa combinación de talla, canal y calidad ya está en la lista.",
@@ -1469,3 +1800,22 @@ class ShrimpPriceListBonus(models.Model):
     amount = fields.Monetary(string="Importe", currency_field="currency_id")
     note = fields.Char(string="Detalle")
     sequence = fields.Integer(default=10)
+
+    # D-15: los renglones de una lista publicada no se tocan.
+    @api.model_create_multi
+    def create(self, vals_list):
+        if self.env["shrimp.price.list"]._bloqueo_activo():
+            ids = {v.get("price_list_id") for v in vals_list if v.get("price_list_id")}
+            self.env["shrimp.price.list"].browse(list(ids))._check_editable()
+        return super().create(vals_list)
+
+    def write(self, vals):
+        listas = self.mapped("price_list_id")
+        if vals.get("price_list_id"):
+            listas |= self.env["shrimp.price.list"].browse(vals["price_list_id"])
+        listas._check_editable()
+        return super().write(vals)
+
+    def unlink(self):
+        self.mapped("price_list_id").exists()._check_editable()
+        return super().unlink()

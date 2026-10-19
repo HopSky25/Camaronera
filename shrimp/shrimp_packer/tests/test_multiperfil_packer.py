@@ -76,7 +76,7 @@ class TestMultiPerfilPacker(TransactionCase):
 
     def test_rechazo_de_un_perfil_no_toca_los_demas(self):
         linea = self.cam._shrimp_request_role("empacadora")
-        linea.action_reject()
+        linea.action_reject(reason="Documentos incompletos (prueba)")
         self.assertEqual(self.cam.shrimp_account_state, "approved")
         self.assertTrue(self.cam.shrimp_is_operational())
         self.assertFalse(self.cam.shrimp_is_operational(role="empacadora"))
@@ -98,6 +98,12 @@ class TestMultiPerfilPackerPortal(HttpCase):
         self.env.invalidate_all()
         return resp
 
+    def _activo_cam(self):
+        """Perfil activo del usuario de la cuenta (por usuario desde CR-12)."""
+        self.env.invalidate_all()
+        user = self.env["res.users"].sudo().search([("partner_id", "=", self.cam.id)], limit=1)
+        return user.shrimp_active_role
+
     def test_agregar_empacadora_y_cambiar_permisos(self):
         self.authenticate(self.s["u_cam"].login, CLAVE)
         self.assertEqual(self.url_open("/marketplace/supply").status_code, 403)
@@ -105,7 +111,10 @@ class TestMultiPerfilPackerPortal(HttpCase):
         token = csrf_de(pagina)
         r = self.url_open("/my/profile/add", data={
             "csrf_token": token, "role": "empacadora", "next": "/marketplace/my-account",
-            "shrimp_razon_social": "Cam y Emp S.A.", "emp_planta_nombre": "Planta MPKH"},
+            "legal_accept_annex_empacadora": self.env.ref(
+                "shrimp_packer.legal_ver_annex_empacadora_202610").name,
+            "shrimp_razon_social": "Cam y Emp S.A.", "emp_planta_nombre": "Planta MPKH",
+},
             allow_redirects=False)
         self.assertIn("saved=perfil_pendiente", r.headers.get("Location", ""))
         linea = self.cam.shrimp_role_ids.filtered(lambda l: l.role == "empacadora")
@@ -113,13 +122,13 @@ class TestMultiPerfilPackerPortal(HttpCase):
         # Pendiente: no puede activarlo.
         self.url_open("/my/profile/activate", data={
             "csrf_token": token, "role": "empacadora", "next": "/marketplace/my-account"})
-        self.assertEqual(self.cam.shrimp_user_type, "camaronera")
+        self.assertEqual(self._activo_cam(), "camaronera")
         self.assertIn("pendiente de aprobación", self.url_open("/marketplace/my-account").text)
         # La administración lo aprueba en «Perfiles por aprobar».
         linea.action_approve()
         self.url_open("/my/profile/activate", data={
             "csrf_token": token, "role": "empacadora", "next": "/marketplace/my-account"})
-        self.assertEqual(self.cam.shrimp_user_type, "empacadora")
+        self.assertEqual(self._activo_cam(), "empacadora")
         self.assertEqual(self.url_open("/marketplace/supply").status_code, 200)
         self.assertIn("Perfil: Empacadora", self.url_open("/marketplace/my-account").text)
         # Y de vuelta: como camaronera la oferta vuelve a estar cerrada.

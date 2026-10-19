@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- D-44: la suscripción de webhooks se desactivó sola tras fallos seguidos. -->
+    <record id="mail_template_webhook_auto_disabled" model="mail.template">
+        <field name="name">API externa: webhook desactivado por fallos</field>
+        <field name="model_id" ref="model_shrimp_webhook_subscription"/>
+        <field name="subject">Tu webhook «{{ object.name }}» se desactivó por fallos seguidos</field>
+        <field name="email_from">{{ (object.env.company.email_formatted or user.email_formatted or '') }}</field>
+        <field name="body_html" type="html">
+            <div style="font-family:Inter,Arial,sans-serif; color:#0d1b26;">
+                <p>Hola <t t-out="object.user_id.partner_id.name or object.partner_id.name or ''"/>,</p>
+                <p>Desactivamos tu suscripción de webhooks <strong t-out="object.name or ''"/>
+                   porque tu servidor no aceptó las últimas entregas
+                   (<t t-out="object.disabled_reason or ''"/>).</p>
+                <table style="border-collapse:collapse; margin:12px 0;">
+                    <tr><td style="padding:4px 12px 4px 0; color:#55636d;">URL</td><td style="padding:4px 0;" t-out="object.url or ''"/></tr>
+                    <tr><td style="padding:4px 12px 4px 0; color:#55636d;">Último error</td><td style="padding:4px 0;" t-out="object.last_error or '—'"/></tr>
+                </table>
+                <p>Mientras esté desactivada guardamos los eventos nuevos. Cuando corrijas el problema,
+                   reactívala en <a t-att-href="object.get_base_url() + '/my/webhooks'">Integraciones (API) › Webhooks</a>:
+                   reenviaremos automáticamente los eventos no entregados de los últimos
+                   <t t-out="object._resend_days()"/> días.</p>
+                <p style="color:#55636d; font-size:13px;">Marketplace de camarón con trazabilidad.</p>
+            </div>
+        </field>
+        <field name="auto_delete" eval="True"/>
+    </record>
+
+    <!-- D-46: la clave de API caduca pronto. -->
+    <record id="mail_template_api_key_expiring" model="mail.template">
+        <field name="name">API externa: clave por caducar</field>
+        <field name="model_id" ref="model_shrimp_api_key"/>
+        <field name="subject">Tu clave de API «{{ object.name }}» caduca pronto</field>
+        <field name="email_from">{{ (object.env.company.email_formatted or user.email_formatted or '') }}</field>
+        <field name="body_html" type="html">
+            <div style="font-family:Inter,Arial,sans-serif; color:#0d1b26;">
+                <p>Hola <t t-out="object.user_id.partner_id.name or ''"/>,</p>
+                <p>Tu clave de API <strong t-out="object.name or ''"/>
+                   (<code t-out="object.display_key or ''"/>) caduca el
+                   <strong t-out="format_datetime(object.expires_at, tz=object.user_id.tz or 'America/Guayaquil', dt_format='dd/MM/yyyy HH:mm')"/>.</p>
+                <p>Desde esa fecha la integración que la use recibirá un error 401 (<code>key-expired</code>).
+                   Para que siga funcionando, renuévala en
+                   <a t-att-href="object.get_base_url() + '/my/api-keys'">Integraciones (API) › Claves de API</a>
+                   (botón «Renovar»): se mantiene la misma clave, no tienes que cambiarla en tu sistema.</p>
+                <p style="color:#55636d; font-size:13px;">Marketplace de camarón con trazabilidad.</p>
+            </div>
+        </field>
+        <field name="auto_delete" eval="True"/>
+    </record>
+</odoo>

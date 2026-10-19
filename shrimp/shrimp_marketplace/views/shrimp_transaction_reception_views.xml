@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Recepción por el comprador y avisos de entrega en la ficha interna de
+       la transacción (models/shrimp_transaction_reception.py). Las
+       incidencias las resuelve la plataforma desde aquí. -->
+  <record id="view_shrimp_transaction_form_reception" model="ir.ui.view">
+    <field name="name">shrimp.transaction.form.reception</field>
+    <field name="model">shrimp.transaction</field>
+    <field name="inherit_id" ref="shrimp_marketplace.view_shrimp_transaction_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//header/field[@name='state']" position="before">
+        <button name="action_incidence_resolve_received" type="object"
+                string="Incidencia resuelta: dar por recibida" class="btn-primary"
+                invisible="state != 'confirmed' or reception_status != 'incidence'"
+                groups="shrimp_marketplace.group_shrimp_manager"
+                confirm="¿Dar la compra por recibida? Se sube el lote al inventario del comprador y se avisa a las partes."/>
+        <button name="action_incidence_reopen" type="object"
+                string="Cerrar incidencia y reabrir el plazo"
+                invisible="state != 'confirmed' or reception_status != 'incidence'"
+                groups="shrimp_marketplace.group_shrimp_manager"/>
+      </xpath>
+      <xpath expr="//notebook" position="inside">
+        <page string="Entrega y recepción" name="reception">
+          <group>
+            <group string="Entrega">
+              <field name="delivery_date"/>
+              <field name="dispatched_at"/>
+              <field name="dispatched_by_id"/>
+              <field name="dispatch_note"/>
+            </group>
+            <group string="Recepción">
+              <field name="reception_required"/>
+              <field name="reception_status"/>
+              <field name="reception_start_date"/>
+              <field name="reception_deadline" invisible="not reception_required"/>
+              <field name="received_date"/>
+              <field name="received_by_id"/>
+              <field name="reception_auto_confirmed"/>
+              <field name="reception_note"/>
+              <field name="reception_photo_id"/>
+            </group>
+          </group>
+          <group string="Incidencia" invisible="not reception_had_incidence">
+            <field name="reception_had_incidence" invisible="1"/>
+            <field name="incidence_date"/>
+            <field name="incidence_reported_by_id"/>
+            <field name="incidence_note"/>
+            <field name="incidence_photo_id"/>
+            <field name="incidence_resolution" readonly="state != 'confirmed'"/>
+          </group>
+          <group string="Técnico" groups="base.group_no_one">
+            <field name="reception_floor_date"/>
+            <field name="reception_notify_marks"/>
+          </group>
+        </page>
+      </xpath>
+      <xpath expr="//sheet" position="after">
+        <chatter/>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="view_shrimp_transaction_tree_reception" model="ir.ui.view">
+    <field name="name">shrimp.transaction.list.reception</field>
+    <field name="model">shrimp.transaction</field>
+    <field name="inherit_id" ref="shrimp_marketplace.view_shrimp_transaction_tree"/>
+    <field name="arch" type="xml">
+      <xpath expr="//field[@name='state']" position="after">
+        <field name="reception_status" widget="badge" optional="show"
+               decoration-danger="reception_status == 'incidence'"
+               decoration-success="reception_status in ('received', 'auto')"
+               decoration-info="reception_status == 'waiting'"/>
+        <field name="delivery_date" optional="show"/>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="view_shrimp_transaction_search_reception" model="ir.ui.view">
+    <field name="name">shrimp.transaction.search.reception</field>
+    <field name="model">shrimp.transaction</field>
+    <field name="priority">10</field>
+    <field name="arch" type="xml">
+      <search string="Transacciones">
+        <field name="name"/>
+        <field name="product_id"/>
+        <field name="seller_partner_id"/>
+        <field name="buyer_partner_id"/>
+        <filter name="f_incidence" string="Con incidencia" domain="[('reception_status', '=', 'incidence')]"/>
+        <filter name="f_waiting" string="Esperando recepción" domain="[('reception_status', '=', 'waiting')]"/>
+        <filter name="f_auto" string="Confirmadas automáticamente" domain="[('reception_auto_confirmed', '=', True)]"/>
+        <separator/>
+        <filter name="f_confirmed" string="Confirmadas" domain="[('state', '=', 'confirmed')]"/>
+        <filter name="f_done" string="Completadas" domain="[('state', '=', 'done')]"/>
+        <group>
+          <filter name="g_state" string="Estado" context="{'group_by': 'state'}"/>
+          <filter name="g_reception" string="Recepción" context="{'group_by': 'reception_status'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+</odoo>

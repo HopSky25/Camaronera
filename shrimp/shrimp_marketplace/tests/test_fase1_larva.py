@@ -107,7 +107,7 @@ class TestFase1Larva(HttpCase):
         self._login("sem")
         r = self.url_open("/my/dashboard")
         self.assertEqual(r.status_code, 200)
-        self.assertIn("Mi panel · Semillero", r.text)
+        self.assertIn("Mi panel · Naupliero", r.text)
         self.assertIn("Disponible publicado", r.text)
         self.assertIn("Nauplio F1 SPR", r.text)
         self.assertIn("vence en", r.text)
@@ -163,7 +163,10 @@ class TestFase1Larva(HttpCase):
         self.assertNotIn("Nauplio F1 SPR", r.text)
         self.assertNotIn("Camaron F1 engorde", r.text)
         self.assertIn("Larva para tu próxima siembra", r.text)
-        self.assertIn('id="sp_tipo_tabs"', r.text)
+        # Tipo y etapa ya no son filas de chips sobre el listado: viven en el cajón.
+        self.assertNotIn('id="sp_tipo_tabs"', r.text)
+        self.assertNotIn("s-cat-chips", r.text)
+        self.assertIn('id="sp_filter_tipo"', r.text)
         r = self.url_open("/marketplace?tipo=nauplio&q=F1")
         self.assertIn("Nauplio F1 SPR", r.text)
         self.assertNotIn("PL12 F1 PCR", r.text)
@@ -212,7 +215,7 @@ class TestFase1Larva(HttpCase):
         self.assertIn('id="sFilterDrawer"', html)
         self.assertIn('role="dialog"', html)
         self.assertIn('aria-labelledby="sFilterDrawerTitle"', html)
-        for sec in ("sp_filter_tipo", "sf_sec_species", "sf_sec_presentation", "sf_sec_size",
+        for sec in ("sp_filter_tipo", "sf_sec_stage", "sf_sec_species", "sf_sec_presentation", "sf_sec_size",
                     "sf_sec_location", "sf_sec_price", "sp_filter_larva", "sp_filter_survival",
                     "sp_filter_certs", "sf_sec_seller"):
             self.assertIn('id="%s"' % sec, html)
@@ -225,6 +228,58 @@ class TestFase1Larva(HttpCase):
         self.assertIn("/marketplace?q=F1&amp;tipo=larva&amp;survival_min=80&amp;sort=price_asc&amp;vista=lista#listado", html)
         self.assertIn("Limpiar todo", html)
         self.assertIn("/marketplace?q=F1&amp;sort=price_asc&amp;vista=lista#listado", html)
+
+    def test_tipo_y_etapa_en_el_cajon(self):
+        """Las filas de chips de tipo y etapa pasaron al cajón: mismas URL,
+        etiqueta activa removible, cuentan en el botón «Filtros» y en el
+        conteo «Ver N productos»."""
+        pl12 = self.env.ref(MP + "shrimp_stage_pl12")
+        nauplio = self.env.ref(MP + "shrimp_stage_nauplio")
+        html = self.url_open("/marketplace?q=F1").text
+        self.assertNotIn("s-cat-chips", html)
+        self.assertNotIn('id="sActiveTags"', html, "sin filtros no hay línea de etiquetas")
+        self.assertIn('id="sf_sec_stage"', html)
+        self.assertIn('data-s-dep="tipo"', html)
+        self.assertIn('name="stage" value="%s"' % pl12.id, html)
+        self.assertIn('data-dep="larva"', html)
+        self.assertIn('data-dep="nauplio"', html)
+        # Bookmark de antes (tipo + stage): filtra, marca los radios y etiqueta.
+        url = "/marketplace?q=F1&tipo=larva&stage=%s" % pl12.id
+        html = self.url_open(url).text
+        self.assertIn("PL12 F1 PCR", html)
+        self.assertNotIn("Nauplio F1 SPR", html)
+        self.assertIn('aria-label="Filtros, 2 activos"', html)
+        self.assertIn('id="sActiveTags"', html)
+        self.assertIn("Etapa: PL12", html)
+        self.assertIn('data-filter="stage"', html)
+        self.assertIn('data-filter="tipo"', html)
+        # Quitar la etapa conserva el tipo y la búsqueda.
+        self.assertIn("/marketplace?q=F1&amp;tipo=larva#listado", html)
+        # El cajón no duplica «stage» como campo oculto.
+        self.assertNotIn('type="hidden" name="stage"', html.split('id="sFilterPanel"')[1].split("</form>")[0])
+        # Conteo del cajón con tipo + etapa.
+        n = json.loads(self.url_open("/marketplace/count?" + urlencode(
+            {"q": "F1", "tipo": "larva", "stage": pl12.id})).text)["count"]
+        self.assertEqual(n, self._cards(q="F1", tipo="larva", stage=pl12.id)["total"])
+        self.assertGreaterEqual(n, 1)
+        self.assertEqual(json.loads(self.url_open("/marketplace/count?" + urlencode(
+            {"q": "F1", "tipo": "larva", "stage": nauplio.id})).text)["count"], 0)
+
+    def test_etapa_del_cajon_segun_perfil(self):
+        """El semillero solo compra nauplio: ni «Tipo» ni etapas de larva o
+        camarón; con un solo estadío la sección «Etapa» no aparece y la etapa
+        de la URL se conserva oculta."""
+        if self._tipos_comprables("semillero") != ["nauplio"]:
+            self.skipTest("la matriz de capacidades no deja al semillero solo con nauplio")
+        pl12 = self.env.ref(MP + "shrimp_stage_pl12")
+        nauplio = self.env.ref(MP + "shrimp_stage_nauplio")
+        self._login("sem")
+        html = self.url_open("/marketplace?q=F1&stage=%s" % nauplio.id).text
+        self.assertNotIn('id="sp_filter_tipo"', html)
+        self.assertNotIn('name="stage" value="%s"' % pl12.id, html)
+        if len(self.env["shrimp.stage"]._shrimp_stages_of_tipo("nauplio")) <= 1:
+            self.assertNotIn('id="sf_sec_stage"', html)
+            self.assertIn('type="hidden" name="stage" value="%s"' % nauplio.id, html)
 
     def test_conteo_del_cajon(self):
         r = self.url_open("/marketplace/count?" + urlencode(
@@ -403,7 +458,10 @@ class TestFase1Larva(HttpCase):
                                              "pcr_ihhnv": "negativo", "pcr_ehp": "negativo",
                                              "sample_date": str(date.today())})
         ficha.invalidate_recordset()
-        self.assertEqual(ficha.pcr_status, "negativo")
+        # D-30: una ficha con PCR positivo no se corrige (el lote queda bloqueado
+        # hasta registrar una ficha nueva sin positivos).
+        self.assertEqual(ficha.pcr_status, "positivo")
+        self.assertTrue(self.pl_vencido.pcr_blocked)
 
         # Archivo que no es PDF: se rechaza y no crea nada.
         self.url_open(url + "/save", data={"csrf_token": token, "pcr_wssv": "negativo"},
@@ -418,8 +476,15 @@ class TestFase1Larva(HttpCase):
         self.assertTrue(ficha.exists())
         self._login("lab")
         r = self.url_open(url)
+        # D-30: tampoco la borra el dueño (queda en el historial del lote)...
         self.url_open(url + "/%s/delete" % ficha.uuid_ref, data={"csrf_token": csrf_de(r.text)})
-        self.assertFalse(ficha.exists())
+        self.assertTrue(ficha.exists())
+        # ...pero una ficha sin positivos sí se borra.
+        negativa = Quality.create({"product_id": self.pl_vencido.id, "sample_date": date.today(),
+                                   "pcr_wssv": "negativo"})
+        r = self.url_open(url)
+        self.url_open(url + "/%s/delete" % negativa.uuid_ref, data={"csrf_token": csrf_de(r.text)})
+        self.assertFalse(negativa.exists())
 
     def test_registrar_muestreo_rapido(self):
         self._login("lab")

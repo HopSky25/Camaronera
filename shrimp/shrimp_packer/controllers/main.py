@@ -41,7 +41,9 @@ class ShrimpPackerRegistry(ShrimpRegistryController):
     @http.route("/register/packer", type="http", auth="public",
                 website=True, sitemap=True)
     def registro_empacadora(self, **kw):
-        return request.render("shrimp_packer.registry_form_packer", {"values": {}})
+        # El asistente común con el perfil de empacadora ya marcado.
+        return self._render_signup("shrimp_user_registry.registry_form", {},
+                                   preselect=["empacadora"])
 
     def _allowed_user_types(self):
         tipos = super()._allowed_user_types()
@@ -51,10 +53,10 @@ class ShrimpPackerRegistry(ShrimpRegistryController):
             tipos = tipos | {"empacadora"}
         return tipos
 
-    def _registro_form_template(self, user_type):
-        if user_type == "empacadora":
-            return "shrimp_packer.registry_form_packer"
-        return super()._registro_form_template(user_type)
+    # 19.0.1.14.1: el alta ya NO exige el nombre de la planta (ni pide los
+    # mercados): la empacadora se registra con su razón social / nombre
+    # comercial y completa la planta y los mercados, opcionales, en «Mi
+    # cuenta». Donde se mostraba la planta se usa el nombre de la empresa.
 
     def _extra_partner_vals(self, user_type, post):
         vals = super()._extra_partner_vals(user_type, post)
@@ -120,6 +122,15 @@ class ShrimpPriceListPortal(http.Controller):
         # Y además aprobada por la administración (M4).
         require_operational(self._partner())
 
+    def _lista_cerrada(self, lista):
+        """D-15: una lista publicada (o archivada) ya no se edita. Se manda a
+        su ficha, donde está «Duplicar y corregir»."""
+        return request.redirect("/marketplace/price-lists/%s?error=%s" % (
+            lista.uuid_ref, flash_message(_(
+                "Esta lista ya fue publicada y no se puede modificar. Usa "
+                "«Duplicar y corregir»: se crea un borrador con los mismos "
+                "precios y, al publicarlo, reemplaza a esta."))))
+
     def _mi_lista(self, ref, editable=False):
         lista = request.env["shrimp.price.list"].sudo().resolve_ref(ref)
         if not lista:
@@ -138,7 +149,7 @@ class ShrimpPriceListPortal(http.Controller):
     @http.route("/marketplace/supply", type="http", auth="user", website=True)
     def packer_supply(self, **kw):
         partner = self._partner()
-        if partner.shrimp_user_type != "empacadora":
+        if partner._shrimp_active_role() != "empacadora":
             raise Forbidden()
         require_operational(partner)
         L = request.env["shrimp.price.list"].sudo()
@@ -236,7 +247,7 @@ class ShrimpPriceListPortal(http.Controller):
     PACKER_MARKETS = [("asia", "Asia", "emp_mercado_asia"), ("europa", "Europa", "emp_mercado_europa"),
                       ("norteamerica", "Norteamérica", "emp_mercado_norteamerica"),
                       ("local", "Mercado local", "emp_mercado_local")]
-    PACKER_ORDERS = [("", "Nombre (A–Z)"), ("capacidad", "Mayor capacidad")]
+    PACKER_ORDERS = [("", "Nombre (A–Z)"), ("capacidad", "Mayor capacidad referencial")]
 
     def _packers_search(self, kw):
         """(empacadoras, filtros, todas). Parámetros: q, cert (repetible),
@@ -341,7 +352,7 @@ class ShrimpPriceListPortal(http.Controller):
         mi_lista = request.env["shrimp.price.list"].browse()
         if not request.env.user._is_public():
             mi_lista = request.env["shrimp.price.list"].sudo().visibles_para(
-                request.env.user.partner_id).filtered(
+                request.env.user.shrimp_actor_partner_id).filtered(
                 lambda l: l.issuer_partner_id == emp)[:1]
 
         return request.render("shrimp_packer.packer_profile", {
@@ -366,7 +377,7 @@ class ShrimpPriceListPortal(http.Controller):
             "proximas": recibidas.filtered("is_upcoming"),
             # La sección de "las que publicas tú" solo tiene sentido para una
             # empacadora: el modelo no deja que otro rol publique.
-            "es_empacadora": partner.shrimp_user_type == "empacadora",
+            "es_empacadora": partner._shrimp_active_role() == "empacadora",
             # Oculta el borrador fantasma que deja un "Nueva" sin tocar nada:
             # borrador con nombre por defecto, sin precios/bonos/destinatarios.
             "mias": L.search([("issuer_partner_id", "=", partner.id)]).filtered(
@@ -587,6 +598,8 @@ class ShrimpPriceListPortal(http.Controller):
         if not ref:
             self._solo_empacadora()
         lista = self._mi_lista(ref, editable=True) if ref else None
+        if lista and lista.state != "draft":
+            return self._lista_cerrada(lista)
 
         def _f(clave, por_defecto=0.0):
             try:
@@ -717,6 +730,8 @@ class ShrimpPriceListPortal(http.Controller):
                 website=True)
     def price_list_edit(self, ref, **kw):
         lista = self._mi_lista(ref, editable=True)
+        if lista.state != "draft":
+            return self._lista_cerrada(lista)
         # Borrador recién creado y sin tocar: mostramos Referencia y Fecha de
         # emisión en blanco (aunque en BD lleven un valor por defecto válido,
         # porque el modelo los exige). El guardado repone los defaults si el
@@ -742,6 +757,8 @@ class ShrimpPriceListPortal(http.Controller):
                 website=True, methods=["POST"], csrf=True)
     def price_list_add_line(self, ref, **post):
         lista = self._mi_lista(ref, editable=True)
+        if lista.state != "draft":
+            return self._lista_cerrada(lista)
         Line = request.env["shrimp.price.list.line"].sudo()
         talla = request.env["shrimp.size.grade"].sudo().browse(
             int(post.get("size_grade_id") or 0))
@@ -803,6 +820,8 @@ class ShrimpPriceListPortal(http.Controller):
                 type="http", auth="user", website=True, methods=["POST"], csrf=True)
     def price_list_del_line(self, ref, line_ref, **post):
         lista = self._mi_lista(ref, editable=True)
+        if lista.state != "draft":
+            return self._lista_cerrada(lista)
         linea = request.env["shrimp.price.list.line"].sudo().resolve_ref(line_ref)
         if linea and linea.price_list_id == lista:
             linea.unlink()
@@ -812,6 +831,8 @@ class ShrimpPriceListPortal(http.Controller):
                 auth="user", website=True, methods=["POST"], csrf=True)
     def price_list_add_bonus(self, ref, **post):
         lista = self._mi_lista(ref, editable=True)
+        if lista.state != "draft":
+            return self._lista_cerrada(lista)
         nombre = (post.get("name") or "").strip()
         if not nombre:
             return request.redirect("/marketplace/price-lists/%s/edit" % ref)
@@ -829,6 +850,8 @@ class ShrimpPriceListPortal(http.Controller):
                 type="http", auth="user", website=True, methods=["POST"], csrf=True)
     def price_list_del_bonus(self, ref, bonus_ref, **post):
         lista = self._mi_lista(ref, editable=True)
+        if lista.state != "draft":
+            return self._lista_cerrada(lista)
         bono = request.env["shrimp.price.list.bonus"].sudo().resolve_ref(bonus_ref)
         if bono and bono.price_list_id == lista:
             bono.unlink()
@@ -855,6 +878,8 @@ class ShrimpPriceListPortal(http.Controller):
                 auth="user", website=True, methods=["POST"], csrf=True)
     def price_list_upload(self, ref, **post):
         lista = self._mi_lista(ref, editable=True)
+        if lista.state != "draft":
+            return self._lista_cerrada(lista)
         # El aguaje también se elige al cargar por Excel: la planilla trae los
         # precios, pero para qué marea rigen lo dice la empacadora aquí.
         aguaje = request.env["shrimp.aguaje"].sudo().resolve_ref(post.get("aguaje_ref"))
@@ -908,6 +933,8 @@ class ShrimpPriceListPortal(http.Controller):
                 auth="user", website=True, methods=["POST"], csrf=True)
     def price_list_publish(self, ref, **post):
         lista = self._mi_lista(ref, editable=True)
+        if lista.state != "draft":
+            return self._lista_cerrada(lista)
         try:
             lista.action_publish()
         except (ValidationError, UserError) as e:
@@ -951,20 +978,63 @@ class ShrimpPriceListPortal(http.Controller):
         lista.action_archive_list()
         return request.redirect("/marketplace/price-lists?mensaje=archivada")
 
+    @http.route("/marketplace/price-lists/<ref>/correct", type="http",
+                auth="user", website=True, methods=["POST"], csrf=True)
+    def price_list_correct(self, ref, **post):
+        """D-15 «Duplicar y corregir»: borrador idéntico que, al publicarse,
+        reemplaza a la lista publicada."""
+        lista = self._mi_lista(ref, editable=True)
+        try:
+            with request.env.cr.savepoint():
+                accion = lista.action_duplicate_correct()
+        except (ValidationError, UserError) as e:
+            return request.redirect("/marketplace/price-lists/%s?error=%s" % (
+                ref, flash_message(e.args[0] if e.args else "")))
+        nueva = lista.browse(accion["res_id"])
+        return request.redirect("/marketplace/price-lists/%s/edit?mensaje=%s" % (
+            nueva.uuid_ref, flash_message(_(
+                "Borrador de corrección de «%s». Cambia lo que haga falta y "
+                "publícalo: reemplazará a la lista publicada.") % lista.name)))
+
+    @http.route("/marketplace/price-lists/<ref>/renew", type="http",
+                auth="user", website=True, methods=["POST"], csrf=True)
+    def price_list_renew(self, ref, **post):
+        """D-48: renovar una lista «hasta segunda orden»."""
+        lista = self._mi_lista(ref, editable=True)
+        try:
+            with request.env.cr.savepoint():
+                lista.action_renew()
+        except (ValidationError, UserError) as e:
+            return request.redirect("/marketplace/price-lists/%s?error=%s" % (
+                ref, flash_message(e.args[0] if e.args else "")))
+        return request.redirect("/marketplace/price-lists/%s?mensaje=%s" % (
+            ref, flash_message(_("Lista renovada: rige hasta el %s.")
+                               % lista.expires_on.strftime("%d/%m/%Y"))))
+
     @http.route("/marketplace/price-lists/<ref>/unpublish", type="http",
                 auth="user", website=True, methods=["POST"], csrf=True)
     def price_list_unpublish(self, ref, **post):
-        """Quita la lista de la vista de los destinatarios devolviéndola a
-        borrador, para corregirla y volver a publicar."""
+        """D-15: una lista publicada ya no vuelve a borrador. Se conserva la
+        ruta (enlaces viejos) y se explica qué hacer."""
         lista = self._mi_lista(ref, editable=True)
-        lista.action_back_to_draft()
+        try:
+            with request.env.cr.savepoint():
+                lista.action_back_to_draft()
+        except (ValidationError, UserError) as e:
+            return request.redirect("/marketplace/price-lists/%s?error=%s" % (
+                ref, flash_message(e.args[0] if e.args else "")))
         return request.redirect("/marketplace/price-lists?mensaje=despublicada")
 
     @http.route("/marketplace/price-lists/<ref>/delete", type="http",
                 auth="user", website=True, methods=["POST"], csrf=True)
     def price_list_delete(self, ref, **post):
         lista = self._mi_lista(ref, editable=True)
-        lista.unlink()
+        try:
+            with request.env.cr.savepoint():
+                lista.unlink()
+        except (ValidationError, UserError) as e:
+            return request.redirect("/marketplace/price-lists?error=%s"
+                                    % flash_message(e.args[0] if e.args else ""))
         return request.redirect("/marketplace/price-lists?mensaje=eliminada")
 
 
@@ -1023,11 +1093,11 @@ class ShrimpPackerAccount(ShrimpAccountPortalController):
         # En blanco se guarda 0, que significa "no la he fijado": entonces se
         # usa el supuesto del sector y la pantalla lo dice. No se escribe el
         # valor por defecto en su ficha, porque entonces parecería suyo.
-        if partner.shrimp_user_type == "camaronera":
+        if partner._shrimp_active_role() == "camaronera":
             res["farm_tasa_descuento_anual"] = max(
                 _f(post.get("farm_tasa_descuento_anual")), 0.0)
 
-        if partner.shrimp_user_type != "empacadora":
+        if partner._shrimp_active_role() != "empacadora":
             return res
 
         res.update({
@@ -1080,7 +1150,7 @@ class ShrimpHarvestSimulator(http.Controller):
         producto no se vende por talla comercial. Es el mismo criterio que
         _solo_empacadora() aplicado al otro extremo de la cadena.
         """
-        if self._partner().shrimp_user_type != "camaronera":
+        if self._partner()._shrimp_active_role() != "camaronera":
             raise Forbidden()
 
     def _lotes_simulables(self, partner):

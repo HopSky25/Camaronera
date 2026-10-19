@@ -58,7 +58,8 @@
               inspección en campo del producto
               <b><t t-out="object.product_id.name or ''"/></b>
               <t t-if="object.technician_partner_id">, realizada por
-                <t t-out="object.technician_partner_id.name"/></t>.
+                <t t-out="object.technician_partner_id.name"/><t t-if="object.support_technician_ids">
+                (con <t t-out="', '.join(object.support_technician_ids.mapped('name'))"/> de apoyo)</t></t>.
               El comprador ya puede concluir la compra.
             </p>
           </t>
@@ -204,7 +205,7 @@
             <tr><td style="padding:3px 14px 3px 0;color:#5A6B74;">Comprador</td><td><t t-out="object.buyer_partner_id.name or '-'"/></td></tr>
             <tr><td style="padding:3px 14px 3px 0;color:#5A6B74;">Verificación</td><td><t t-out="object.verification_label()"/></td></tr>
             <t t-if="object.technician_partner_id">
-              <tr><td style="padding:3px 14px 3px 0;color:#5A6B74;">Técnico</td><td><t t-out="object.technician_partner_id.name"/></td></tr>
+              <tr><td style="padding:3px 14px 3px 0;color:#5A6B74;">Técnico<t t-if="object.support_technician_ids">s</t></td><td><t t-out="object.shrimp_team_text()"/></td></tr>
             </t>
           </table>
 

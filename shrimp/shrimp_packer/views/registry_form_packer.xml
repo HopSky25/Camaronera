@@ -1,129 +1,90 @@
 <odoo>
 
   <!-- ================================================================
-       REGISTRO DE LA EMPACADORA (/register/packer)
+       REGISTRO DE LA EMPACADORA (19.0.1.10.0)
 
-       Formulario propio y no un paso más del registro compartido: la
-       empacadora no publica productos ni maneja lotes. Lo que necesita
-       declarar es su planta, sus certificaciones y a qué mercados exporta,
-       que es lo que un productor mira antes de venderle.
+       Antes la empacadora tenía un formulario propio (/register/packer) al
+       que no enlazaba nada: en el «Selecciona tu perfil» del registro común
+       la opción no existía. Ahora el registro es un único asistente
+       (shrimp_user_registry.registry_form) y la empacadora es un perfil más
+       del paso 3; /register/packer abre el asistente con ella marcada. Aquí
+       solo va el bloque de datos de la planta, que se ve cuando se marca el
+       perfil. Sigue naciendo pendiente de aprobación.
        ================================================================ -->
-  <template id="registry_form_packer" name="Registro - Empacadora">
-    <t t-call="website.layout">
-      <div class="shrimp-bg">
-        <div class="shrimp-page py-4 sf-fields">
-
-          <div class="sf-banner mb-4">
-            <div class="sf-banner-row">
-              <div class="sf-banner-txt">
-                <h1>Regístrate como empacadora</h1>
-                <p>Crea la cuenta de tu planta: certificaciones, mercados y capacidad.
-                   Desde aquí publicarás cada semana tu lista de precios a los
-                   productores con los que trabajas.</p>
-              </div>
-              <span class="sf-kicker"><i class="fa fa-industry"></i> Empacadora</span>
-            </div>
+  <template id="signup_profile_sections_packer" inherit_id="shrimp_user_registry.signup_profile_sections"
+            name="Registro - datos de la empacadora">
+    <xpath expr="//div[@id='shrimp_prof_sections_end']" position="before">
+      <div t-if="'empacadora' in (signup_profile_codes or [])" class="shrimp-prof-sec" data-role="empacadora" id="section_empacadora">
+        <div class="shrimp-prof-sec-head">
+          <span class="shrimp-prof-sec-ico" aria-hidden="true"><i class="fa fa-industry"/></span>
+          <div class="shrimp-prof-sec-htxt">
+            <h3 class="shrimp-prof-sec-title">Empacadora</h3>
+            <p class="shrimp-prof-sec-desc">Lo que mira un productor antes de venderte: tus registros y tus certificaciones.
+              La cuenta queda pendiente hasta que la administración la apruebe.</p>
           </div>
-
-          <t t-if="error">
-            <div class="pk-alert pk-alert--ko">
-              <i class="fa fa-exclamation-triangle me-1"/><t t-esc="error"/>
-            </div>
-          </t>
-
-          <form method="post" action="/register/submit" class="pk-caja"
-                t-att-data-captcha="'shrimp_signup' if request.env['ir.config_parameter'].sudo().get_param('recaptcha_public_key') else None">
-            <t t-call="shrimp_user_registry.signup_honeypot"/>
-            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-            <input type="hidden" name="shrimp_user_type" value="empacadora"/>
-
-            <h3 class="pk-seccion">La empresa</h3>
-            <div class="pk-grid">
-              <label>Nombre comercial *
-                <input type="text" name="name" class="form-control" required="required"
-                       placeholder="Ej. Aquagold"/>
-              </label>
-              <label>Razón social
-                <input type="text" name="emp_razon_social" class="form-control"
-                       placeholder="Ej. Aquagold S.A."/>
-              </label>
-              <label>RUC *
-                <input type="text" name="vat_or_id" class="form-control" required="required"/>
-              </label>
-              <label>Código de exportador
-                <input type="text" name="emp_codigo_exportador" class="form-control"/>
-              </label>
-              <label>Representante legal
-                <input type="text" name="emp_representante" class="form-control"/>
-              </label>
-              <label>Contacto comercial
-                <input type="text" name="emp_contacto_comercial" class="form-control"
-                       placeholder="Quien manda las listas de precios"/>
-              </label>
-              <label>Teléfono
-                <input type="text" name="emp_telefono" class="form-control"/>
-              </label>
-            </div>
-
-            <h3 class="pk-seccion">La planta</h3>
-            <div class="pk-grid">
-              <label>Nombre de la planta
-                <input type="text" name="emp_planta_nombre" class="form-control"/>
-              </label>
-              <label>Ubicación
-                <input type="text" name="emp_planta_ubicacion" class="form-control"
-                       placeholder="Dónde entrega el productor"/>
-              </label>
-              <label>Capacidad (lb/día)
-                <input type="number" step="1" min="0" name="emp_capacidad_lb_dia"
-                       class="form-control"/>
-              </label>
-              <label>N.º de aprobación sanitaria
-                <input type="text" name="emp_aprobacion_sanitaria" class="form-control"/>
-              </label>
-            </div>
-
-            <h3 class="pk-seccion">Certificaciones</h3>
-            <p class="pk-muted small">
-              Es lo que determina a qué mercados puede ir el camarón, y por tanto
-              cuánto vale. Los productores lo miran.
-            </p>
-            <div class="pk-checks">
-              <label class="pk-check"><input type="checkbox" name="emp_cert_bap" value="1"/> BAP</label>
-              <label class="pk-check"><input type="checkbox" name="emp_cert_asc" value="1"/> ASC</label>
-              <label class="pk-check"><input type="checkbox" name="emp_cert_haccp" value="1"/> HACCP</label>
-            </div>
-            <label class="d-block mt-2">Otras
-              <input type="text" name="emp_cert_otras" class="form-control"/>
-            </label>
-
-            <h3 class="pk-seccion">Mercados a los que exporta</h3>
-            <div class="pk-checks">
-              <label class="pk-check"><input type="checkbox" name="emp_mercado_asia" value="1"/> Asia</label>
-              <label class="pk-check"><input type="checkbox" name="emp_mercado_europa" value="1"/> Europa</label>
-              <label class="pk-check"><input type="checkbox" name="emp_mercado_norteamerica" value="1"/> Norteamérica</label>
-              <label class="pk-check"><input type="checkbox" name="emp_mercado_local" value="1"/> Local</label>
-            </div>
-
-            <h3 class="pk-seccion">Tu cuenta</h3>
-            <div class="pk-grid">
-              <label>Correo *
-                <input type="email" name="email" class="form-control" required="required"/>
-              </label>
-              <label>Contraseña *
-                <input type="password" name="password" class="form-control" required="required"
-                       minlength="8"/>
-              </label>
-            </div>
-
-            <button type="submit" class="s-btn s-btn-primary mt-3">
-              <i class="fa fa-check me-1"/> Crear mi cuenta
-            </button>
-          </form>
-
+        </div>
+        <div class="shrimp-prof-sec-body">
+        <div class="row g-3">
+          <!-- 19.0.1.14.1: ya no se piden el nombre de la planta ni los
+               mercados a los que exporta (siguen opcionales en «Mi cuenta»).
+               La capacidad queda, opcional y solo como referencia. -->
+          <div class="col-12 col-md-6">
+            <label class="form-label small text-muted" for="reg_emp_cap">Capacidad referencial (lb/día) <span class="shrimp-optional">(opcional)</span></label>
+            <input type="number" step="1" min="0" id="reg_emp_cap" name="emp_capacidad_lb_dia" class="form-control" inputmode="numeric" placeholder="Ej. 50000"
+                   aria-describedby="reg_emp_cap_help" t-att-value="values.get('emp_capacidad_lb_dia')"/>
+            <div class="form-text" id="reg_emp_cap_help">Solo como referencia para los productores.</div>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label small text-muted" for="reg_emp_arcsa">Registro sanitario / aprobación ARCSA</label>
+            <input type="text" id="reg_emp_arcsa" name="emp_aprobacion_sanitaria" class="form-control"
+                   t-att-value="values.get('emp_aprobacion_sanitaria')"/>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label small text-muted" for="reg_emp_exp">Código de exportador</label>
+            <input type="text" id="reg_emp_exp" name="emp_codigo_exportador" class="form-control"
+                   t-att-value="values.get('emp_codigo_exportador')"/>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label small text-muted" for="reg_emp_contacto">Contacto comercial</label>
+            <input type="text" id="reg_emp_contacto" name="emp_contacto_comercial" class="form-control" placeholder="Quien manda las listas de precios"
+                   t-att-value="values.get('emp_contacto_comercial')"/>
+          </div>
+          <!-- Certificaciones (BAP, ASC, HACCP...): ya no van como casillas
+               aquí (19.0.1.12.0); se adjuntan en el paso 4 desde el catálogo
+               de certificados. -->
+        </div>
         </div>
       </div>
-    </t>
+    </xpath>
   </template>
+
+  <!-- Anexo de perfil de la empacadora (versión inicial, borrador). -->
+  <data noupdate="1">
+    <record id="legal_doc_annex_empacadora" model="shrimp.legal.document">
+      <field name="name">Anexo de perfil: Empacadora</field>
+      <field name="code">annex_empacadora</field>
+      <field name="doc_type">annex</field>
+      <field name="role">empacadora</field>
+      <field name="sequence">53</field>
+    </record>
+    <record id="legal_ver_annex_empacadora_202610" model="shrimp.legal.document.version">
+      <field name="document_id" ref="legal_doc_annex_empacadora"/>
+      <field name="name">2026-10</field>
+      <field name="change_type">minor</field>
+      <field name="change_summary">Versión inicial (BORRADOR) del anexo del perfil Empacadora. Debe revisarla un abogado antes de considerarla definitiva.</field>
+      <field name="state">published</field>
+      <field name="content" type="html"><div>
+<p><b>Anexo de perfil: Empacadora.</b> Complementa el Contrato de uso para la cuenta que compra camarón adulto, lo procesa y lo exporta.</p>
+<ol>
+<li><b>Aprobación.</b> El perfil queda pendiente hasta que la Plataforma lo aprueba; mientras tanto no compra, no publica listas de precios ni compromete cosechas. La Plataforma puede pedir el registro sanitario (ARCSA), el código de exportador y las certificaciones declaradas.</li>
+<li><b>Listas de precios.</b> Las listas que publica son informativas: no fijan por sí solas el precio de una compra, pero la empacadora responde por la veracidad de lo que ofrece y las respeta en las condiciones y plazos que indica.</li>
+<li><b>Reservas y compromisos de cosecha.</b> Los compromisos que acepta en la plataforma la obligan frente a la camaronera en las condiciones registradas (fecha, talla, precio, ventana de despacho). Las cancelaciones se rigen por las reglas de la plataforma.</li>
+<li><b>Compras y verificación.</b> Puede pedir verificación independiente; asume el honorario de verificación según la tarifa vigente informada antes de confirmar, y responde al informe en 48 horas (o el plazo informado), entendiéndose aceptado si no responde.</li>
+<li><b>Facturación.</b> La Plataforma le factura solo sus servicios (por ejemplo el honorario de verificación o la comisión de empaque). El camarón lo factura la camaronera vendedora a la empacadora.</li>
+<li><b>Sanidad y exportación.</b> Cumple la normativa sanitaria y de exportación aplicable; la Plataforma no es responsable de los procesos de la planta.</li>
+</ol>
+</div></field>
+    </record>
+  </data>
 
 </odoo>

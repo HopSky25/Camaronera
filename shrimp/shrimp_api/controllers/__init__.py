@@ -22,3 +22,7 @@ from . import supervisor
 # compra directa (docs/app/CONTRATO-MEJORAS-APP.md) y assetlinks.json (C6).
 from . import app
 from . import well_known
+# Retraso de entrega (aviso, negociación y cancelación sin costo).
+from . import private_delay
+# «Estado real del lote»: observaciones del vendedor.
+from . import private_observations

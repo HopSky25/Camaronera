@@ -8,6 +8,10 @@ from .comun import (RNG, UR, Archivo, B64, CIUDADES, CIUDADES_CAMARONERA,
                     persona, r2, ruc_persona_natural, ruc_sociedad, slug,
                     telefono_fijo)
 
+# Nombre visible del perfil en los textos de la demo: la clave técnica
+# "semillero" se muestra como «naupliero» (solo la etiqueta).
+ETIQUETA_ROL = {"semillero": "naupliero"}
+
 # Certificados del catálogo base (data/shrimp_certificate_data.xml) por rol.
 CERT_BASE = {
     "semillero": ["shrimp_certificate_registro_larvas", "shrimp_certificate_spf",
@@ -144,7 +148,7 @@ def construir(M):
     f1 = Archivo("shrimp_user_registry", "demo_masivo_01_catalogo.xml",
                  "Catálogo de certificados adicional y usuarios internos de back-office.")
     f2 = Archivo("shrimp_user_registry", "demo_masivo_02_socios.xml",
-                 "Semilleros, laboratorios y camaroneras con su cuenta de portal.")
+                 "Nauplieros, laboratorios y camaroneras con su cuenta de portal.")
     f3 = Archivo("shrimp_user_registry", "demo_masivo_03_certificados.xml",
                  "Expedientes PDF y certificados de cada socio (aprobados, pendientes,\n"
                  "     rechazados y vencidos), tal como llegan a la bandeja de aprobación.")
@@ -204,7 +208,7 @@ def construir(M):
             "city": ciudad, "state_id": R(st), "country_id": R("base.ec"),
             "partner_latitude": lat, "partner_longitude": lon,
             "website": f"https://www.{dom}.test", "parent_id": R(padre) if padre else None,
-            "comment": f"Socio de demostración ({rol}). Expediente completo en la plataforma.",
+            "comment": f"Socio de demostración ({ETIQUETA_ROL.get(rol, rol)}). Expediente completo en la plataforma.",
         }
         if rol == "laboratorio":
             vals.update({
@@ -229,7 +233,7 @@ def construir(M):
                               "modulo": "shrimp_user_registry", "padre": padre}
         return xid
 
-    f2.seccion("Semilleros (maduración y producción de nauplios)")
+    f2.seccion("Nauplieros (maduración y producción de nauplios)")
     for i, nombre in enumerate(SEM_NOMBRES):
         ciudad = CIUDADES_SEMILLERO[i % len(CIUDADES_SEMILLERO)]
         M["sem"].append(alta("semillero", nombre, ciudad, f"demo_ms_sem_{i + 1:02d}"))

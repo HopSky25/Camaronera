@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Equipo de campo en el backoffice: técnico responsable + apoyo. -->
+  <record id="view_shrimp_verification_form_team" model="ir.ui.view">
+    <field name="name">shrimp.verification.form.team</field>
+    <field name="model">shrimp.verification</field>
+    <field name="inherit_id" ref="shrimp_verification.view_shrimp_verification_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//field[@name='verifier_partner_id']" position="after">
+        <field name="technician_partner_id" readonly="1"
+               invisible="verification_mode != 'platform'"/>
+        <field name="support_technician_ids" widget="many2many_tags" readonly="1"
+               invisible="verification_mode != 'platform' or not support_technician_ids"/>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="view_shrimp_verification_list_team" model="ir.ui.view">
+    <field name="name">shrimp.verification.list.team</field>
+    <field name="model">shrimp.verification</field>
+    <field name="inherit_id" ref="shrimp_verification.view_shrimp_verification_list"/>
+    <field name="arch" type="xml">
+      <xpath expr="//field[@name='verifier_partner_id']" position="after">
+        <field name="technician_partner_id" optional="show"/>
+        <field name="support_technician_ids" widget="many2many_tags" optional="hide"/>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="view_shrimp_verification_search_team" model="ir.ui.view">
+    <field name="name">shrimp.verification.search.team</field>
+    <field name="model">shrimp.verification</field>
+    <field name="inherit_id" ref="shrimp_verification.view_shrimp_verification_search"/>
+    <field name="arch" type="xml">
+      <xpath expr="//field[@name='verifier_partner_id']" position="after">
+        <field name="technician_partner_id"/>
+        <field name="support_technician_ids" string="Técnico de apoyo"/>
+      </xpath>
+    </field>
+  </record>
+</odoo>

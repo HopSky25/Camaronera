@@ -64,7 +64,7 @@ de que ya está disponible.
 `shrimp_marketplace` ya tenía una pantalla genérica de aprobación de
 certificados (**Aprobaciones → Certificados de usuario**) que también sirve;
 esta bandeja es la misma tabla filtrada al rol verificador, para no obligar a
-buscar entre los certificados de semilleros y camaroneras.
+buscar entre los certificados de nauplieros y camaroneras.
 
 ## El "ojito" del comprador
 
@@ -86,7 +86,7 @@ acreditado, la página avisa de que el administrador debe aprobar acreditaciones
 ## Alcance
 
 Solo aplica al **camarón adulto** (vendedor de tipo camaronera). Las larvas
-(semillero → laboratorio → camaronera) siguen el flujo directo de siempre:
+(naupliero → laboratorio → camaronera) siguen el flujo directo de siempre:
 a una larva no se le mide metabisulfito ni sabor.
 
 Lo decide `shrimp.product.requires_verification`, calculado a partir del tipo

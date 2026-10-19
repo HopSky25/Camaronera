@@ -137,7 +137,7 @@
                                         <tr>
                                             <td class="st-kk">Valor de la operación</td>
                                             <td>
-                                                <t t-set="pu" t-value="doc.price_unit or (doc.product_id.price if doc.product_id else 0.0)"/>
+                                                <t t-set="pu" t-value="doc.price_unit or 0.0"/>
                                                 <t t-esc="doc.shrimp_fmt_num(pu, 2)"/> / <t t-esc="uom_label"/>
                                                 <t t-if="doc.amount_total">
                                                     · total <strong t-esc="doc.shrimp_fmt_num(doc.amount_total, 2)"/>

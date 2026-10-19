@@ -9,74 +9,43 @@
        ================================================================ -->
   <template id="declared_report" name="Verificación declarada - informe de las partes">
     <t t-call="website.layout">
-      <div class="shrimp-bg">
-        <div class="shrimp-page py-4 sf-fields">
+      <div class="shrimp-bg vr-bg">
+        <div class="vr-page vrp sf-fields">
 
-          <a t-attf-href="/marketplace/#{'purchases' if role == 'buyer' else 'sales'}" class="s-back mb-3">
-            <i class="fa fa-arrow-left"></i>
-            <span>Volver a mis <t t-if="role == 'buyer'">compras</t><t t-else="">ventas</t></span>
+          <a t-attf-href="/marketplace/#{'purchases' if role == 'buyer' else 'sales'}" class="vr-back">
+            <i class="fa fa-arrow-left"/> Volver a mis <t t-if="role == 'buyer'">compras</t><t t-else="">ventas</t>
           </a>
-
-          <div class="sf-banner mb-4">
-            <div class="sf-banner-row">
-              <div class="sf-banner-txt">
-                <h1>Verificación declarada por las partes</h1>
-                <p><t t-esc="v.name"/> · <t t-esc="v.product_id.name"/> · compra <t t-esc="tx.name"/></p>
-              </div>
-              <span class="sf-kicker sv-badge--declared" style="border:none;">
-                <i class="fa fa-handshake-o"></i>
-                <t t-esc="dict(v._fields['state']._description_selection(request.env)).get(v.state)"/>
-              </span>
-            </div>
-          </div>
-
-          <div class="sv-mode-note mb-4">
-            <i class="fa fa-info-circle me-1"/>
-            <strong>Esta compra NO la verifica una verificadora de la plataforma.</strong>
-            El comprador eligió una verificación declarada: la hicieron las partes o una
-            verificadora externa. Cualquiera de las dos partes carga aquí el informe y lo
-            <strong>presenta</strong>; quien lo presenta lo suscribe y la
-            <strong>otra parte lo confirma</strong> (acepta, rechaza o, el comprador,
-            propone otro precio). Sin honorario de verificación. En la trazabilidad se
-            mostrará como «Verificación declarada por …».
-          </div>
-
-          <t t-if="saved">
-            <div class="alert alert-success">Borrador guardado.</div>
-          </t>
-          <t t-if="error">
-            <div class="alert alert-danger"><t t-esc="message or 'No se pudo guardar.'"/></div>
-          </t>
-
-          <div class="mp-table-card mb-4">
-            <div class="card-body p-4">
-              <div class="mp-sec-head">
-                <span class="mp-sec-ico"><i class="fa fa-file-text-o"></i></span>
-                <h3 class="mp-sec-title">Resumen</h3>
-              </div>
-              <div class="sv-datos">
-                <div><span>Producto</span><strong t-esc="v.product_id.name"/></div>
-                <div><span>Vendedor</span><strong t-esc="v.seller_partner_id.name"/></div>
-                <div><span>Comprador</span><strong t-esc="v.buyer_partner_id.name"/></div>
-                <div><span>Cantidad comprada</span><strong t-esc="tx.shrimp_fmt_qty(tx.transaction_qty, tx.product_id.uom_id.name or 'lb')"/></div>
-                <div><span>Tú participas como</span><strong t-esc="'Comprador' if role == 'buyer' else 'Vendedor'"/></div>
-                <div t-if="v.declared_last_editor_id"><span>Última edición</span><strong t-esc="v.declared_last_editor_id.name"/></div>
+          <header class="vr-ph">
+            <div class="vr-ph-txt">
+              <div class="vr-eyebrow"><i class="fa fa-handshake-o"/> Verificación declarada <span class="vr-ref"><t t-esc="v.name"/> · compra <t t-esc="tx.name"/></span></div>
+              <h1>Informe declarado por las partes</h1>
+              <p class="vr-ph-sub">Cualquiera de las dos partes carga el informe y lo <b>presenta</b>; quien lo presenta lo suscribe y la <b>otra parte lo confirma</b>. Sin honorario de verificación.</p>
+              <div class="vr-ph-meta">
+                <span t-attf-class="vr-pill vr-pill--#{v.state}" t-esc="dict(v._fields['state']._description_selection(request.env)).get(v.state)"/>
+                <span><i class="fa fa-user"/>Participas como <b t-esc="'comprador' if role == 'buyer' else 'vendedor'"/></span>
               </div>
             </div>
+          </header>
+
+          <div class="vr-alerts">
+            <div class="pf-alert pf-a-warn" role="note"><i class="fa fa-info-circle"/><div><b>Esta compra NO la verifica una verificadora de la plataforma.</b> La verifican las partes o una verificadora externa; en la trazabilidad se mostrará como «Verificación declarada por …».</div></div>
+            <div t-if="saved" class="pf-alert vr-a-ok" role="status"><i class="fa fa-check-circle"/><div>Borrador guardado.</div></div>
+            <div t-if="error" class="pf-alert pf-a-bad" role="alert"><i class="fa fa-exclamation-triangle"/><div t-esc="message or 'No se pudo guardar.'"/></div>
           </div>
 
+          <div class="vr-layout">
+            <div class="vr-main">
           <t t-if="puede_editar">
-            <t t-if="warnings">
-              <div class="alert alert-warning">
-                <strong>Revisa antes de presentar:</strong>
-                <ul class="mb-0 mt-2"><t t-foreach="warnings" t-as="w"><li t-esc="w"/></t></ul>
-              </div>
-            </t>
+            <div t-if="warnings" class="pf-alert pf-a-warn"><i class="fa fa-exclamation-circle"/><div><b>Revisa antes de presentar:</b>
+              <ul class="vr-alert-list"><t t-foreach="warnings" t-as="w"><li t-esc="w"/></t></ul></div></div>
 
             <form method="post" enctype="multipart/form-data"
                   t-attf-action="/marketplace/verifications/#{v.uuid_ref}/declare/save">
               <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
 
+              <section class="pf-sec">
+                <div class="pf-sec-h"><span class="vr-ico"><i class="fa fa-clipboard"/></span><div><h2>Informe declarado</h2><p>Mismos datos que el informe de una verificadora: se guarda por partes.</p></div></div>
+                <div class="pf-sec-b">
               <!-- Quién verificó -->
               <div class="sv-section">
                 <h3><i class="fa fa-building-o me-1"/> Quién hizo la verificación</h3>
@@ -116,27 +85,26 @@
               </t>
 
               <div class="sv-section">
-                <h3>Observaciones de la verificación</h3>
+                <h3><span class="sv-num"><i class="fa fa-pencil"/></span> Observaciones de la verificación</h3>
                 <textarea class="form-control" name="verdict_notes" rows="2"
                           placeholder="Conclusión u observaciones de quien verificó (opcional)"><t t-esc="v.verdict_notes or ''"/></textarea>
               </div>
 
-              <t t-if="missing">
-                <div class="alert alert-light" style="border:1px solid var(--shrimp-border);">
-                  <i class="fa fa-list-ul me-1"/> Para presentar falta:
-                  <t t-esc="', '.join(missing)"/>.
                 </div>
-              </t>
+              </section>
+              <div t-if="missing" class="vr-locked mb-3"><i class="fa fa-list-ul"/><div>Para presentar falta: <t t-esc="', '.join(missing)"/>.</div></div>
 
-              <div class="d-flex flex-wrap gap-2 mb-2">
+              <div class="vr-savebar">
+                <span class="vr-savebar-acts">
                 <button class="s-btn s-btn-ghost" type="submit" name="accion" value="guardar">
                   <i class="fa fa-save me-1"/> Guardar borrador
                 </button>
                 <button class="s-btn s-btn-primary" type="submit" name="accion" value="presentar">
                   <i class="fa fa-paper-plane me-1"/> Presentar el informe a la otra parte
                 </button>
+                </span>
               </div>
-              <div class="sv-muted small mb-4">
+              <div class="vr-help mb-4">
                 Al presentarlo quedas como declarante: tu conformidad queda registrada y la
                 otra parte tiene el plazo de aceptación para responder. Mientras no responda,
                 puedes deshacer la presentación para corregir el informe.
@@ -155,12 +123,27 @@
             </t>
           </t>
           <t t-else="">
-            <div class="alert alert-secondary">
+            <div class="vr-locked"><i class="fa fa-lock"/><div>
               <t t-if="v.state == 'cancelled'">La compra se canceló: el informe declarado ya no se puede cargar.</t>
               <t t-else="">El informe ya no se puede editar.</t>
-            </div>
+            </div></div>
           </t>
-
+            </div>
+            <aside class="vr-aside" aria-label="Resumen">
+              <div class="vr-sum">
+                <div class="vr-sum-h"><span>Resumen</span></div>
+                <div class="vr-sum-prod"><span class="vr-ico"><i class="fa fa-cube"/></span><div style="min-width:0;"><b t-esc="v.product_id.name"/><span>Compra <t t-esc="tx.name"/></span></div></div>
+                <ul class="vr-sum-lines">
+                  <li><span>Vendedor</span><b t-esc="v.seller_partner_id.name"/></li>
+                  <li><span>Comprador</span><b t-esc="v.buyer_partner_id.name"/></li>
+                  <li><span>Cantidad comprada</span><b t-esc="tx.shrimp_fmt_qty(tx.transaction_qty, tx.product_id.uom_id.name or 'lb')"/></li>
+                  <li><span>Tú participas como</span><b t-esc="'Comprador' if role == 'buyer' else 'Vendedor'"/></li>
+                  <li t-if="v.declared_last_editor_id"><span>Última edición</span><b t-esc="v.declared_last_editor_id.name"/></li>
+                  <li><span>Honorario</span><b>Sin honorario</b></li>
+                </ul>
+              </div>
+            </aside>
+          </div>
         </div>
       </div>
     </t>
@@ -170,7 +153,7 @@
        Aviso en «mis compras» y «mis ventas»: informes declarados por cargar.
        ================================================================ -->
   <template id="declared_banner" name="Aviso: informes declarados por cargar">
-    <t t-set="sv_yo" t-value="request.env.user.partner_id"/>
+    <t t-set="sv_yo" t-value="request.env.user.shrimp_actor_partner_id"/>
     <t t-set="sv_borradores" t-value="request.env['shrimp.verification'].sudo().search([
         ('verification_mode', '=', 'declared'), ('state', '=', 'declared_draft'),
         '|', ('buyer_partner_id', '=', sv_yo.id), ('seller_partner_id', '=', sv_yo.id)], limit=20)"/>

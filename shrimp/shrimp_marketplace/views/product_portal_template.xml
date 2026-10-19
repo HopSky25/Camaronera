@@ -27,19 +27,17 @@
                             <t t-call="shrimp_marketplace.s_filter_toolbar"/>
                             <t t-call="shrimp_marketplace.s_filter_tags"/>
 
-                            <!-- Chips de estadío (solo los que tiene el vendedor; con uno no hay fila) -->
-                            <div t-if="stage_chips" class="s-cat-chips s-cat-chips--scroll mb-3" id="sMisProdStages">
-                                <t t-foreach="stage_chips" t-as="chip">
-                                    <a t-att-class="'s-cat-chip' + (' active' if chip['active'] else '')"
-                                       t-att-href="chip['url']" data-vista-link="1"><t t-esc="chip['label']" /></a>
-                                </t>
-                            </div>
+                            <!-- La etapa vive en el cajón («Etapa»); activa, se ve arriba como etiqueta. -->
 
+                            <div t-if="request.params.get('error') == 'retire'" class="pf-alert pf-a-warn mb-3" role="alert" id="prod_retire_error">
+                                <i class="fa fa-exclamation-triangle" aria-hidden="true"/>
+                                <div t-esc="request.params.get('message') or 'No se pudo completar la acción sobre el producto.'"/>
+                            </div>
                             <div class="s-sortbar s-mkt-count mb-3">
                                 <div class="text-soft" style="font-size:var(--fs-sm);">
                                     <strong><t t-esc="products_count" /></strong> producto(s)
                                 </div>
-                                <t t-if="request.env.user.partner_id.shrimp_user_type">
+                                <t t-if="request.env.user.shrimp_actor_partner_id.shrimp_user_type">
                                     <a class="s-btn s-btn-primary btn-sm" href="/marketplace/products/new"><i class="fa fa-plus me-1"></i> Publicar</a>
                                 </t>
                             </div>
@@ -136,6 +134,9 @@
                                                         </form>
                                                     </t>
                                                     <t t-else="">
+                                                        <!-- D-17 (C): con venta se edita (campos críticos bloqueados) -->
+                                                        <a class="s-btn s-btn-ghost btn-sm" style="flex:0 0 auto;" title="Editar"
+                                                           t-att-href="'/marketplace/products/%s/edit' % p.uuid_ref"><i class="fa fa-pencil"></i></a>
                                                         <!-- Con venta: solo archivar (icono) -->
                                                         <form method="post" style="flex:0 0 auto;" t-att-action="'/marketplace/products/%s/deactivate' % p.uuid_ref">
                                                             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
@@ -181,6 +182,23 @@
 
                     <!-- ===== Cajón de filtros ===== -->
                     <t t-call="shrimp_marketplace.s_filter_drawer">
+                        <!-- Etapa: solo los estadíos que tiene el vendedor (con uno no aparece). -->
+                        <div t-if="fd_show.get('stage')" class="s-filter-sec" id="sf_sec_stage">
+                            <div class="s-filter-sec-label">Etapa</div>
+                            <div class="s-choice-chips">
+                                <label class="s-choice">
+                                    <input type="radio" name="stage" value="" t-att-checked="not filters.get('stage')"/>
+                                    <span>Todas</span>
+                                </label>
+                                <t t-foreach="stage_opts" t-as="st">
+                                    <label class="s-choice">
+                                        <input type="radio" name="stage" t-att-value="st.id"
+                                               t-att-checked="str(filters.get('stage') or '') == str(st.id)"/>
+                                        <span><t t-esc="st.name"/></span>
+                                    </label>
+                                </t>
+                            </div>
+                        </div>
                         <div t-if="fd_show.get('pstate')" class="s-filter-sec" id="sf_sec_pstate">
                             <div class="s-filter-sec-label">Estado</div>
                             <div class="s-choice-chips">
@@ -367,7 +385,7 @@
                             <t t-elif="err == 'name'">El nombre del producto es obligatorio.</t>
                             <t t-elif="err == 'qty'">La cantidad disponible debe ser mayor a 0.</t>
                             <t t-elif="err == 'price'">El precio no puede ser negativo.</t>
-                            <t t-elif="err == 'seller'">Elige un vendedor válido (semillero, laboratorio o camaronera).</t>
+                            <t t-elif="err == 'seller'">Elige un vendedor válido (naupliero, laboratorio o camaronera).</t>
                             <t t-elif="err == 'stage_required'">Elige la etapa del lote.</t>
                             <t t-else=""><t t-esc="err_msg or 'No se pudo guardar. Revisa los datos e inténtalo de nuevo.'"/></t>
                         </div>
@@ -376,9 +394,10 @@
                     <!-- Producto con compras: campos críticos bloqueados -->
                     <div t-if="purchase_locked" class="pf-alert pf-a-warn" role="note">
                         <i class="fa fa-lock" aria-hidden="true"/>
-                        <div><b>Este producto ya tiene compras registradas.</b> Especie, etapa, línea genética, presentación,
-                            talla, unidad, precio y cantidad están <b>bloqueados</b> para preservar la trazabilidad. Puedes
-                            actualizar fotos, certificados, estado sanitario, ubicación y fechas.</div>
+                        <div><b t-if="price_locked">Precio y datos del lote bloqueados:</b><b t-else="">Datos del lote bloqueados:</b> este producto <t t-esc="product.shrimp_purchase_lock_reason() or 'ya tiene compras registradas'"/>.
+                            Especie, etapa, línea genética, presentación, talla, origen, unidad y cantidad no se pueden
+                            cambiar<t t-if="price_locked">; el precio tampoco mientras haya compras en curso (cada compra conserva el suyo)</t><t t-else="">; el precio sí (las compras ya hechas conservan el suyo)</t>.
+                            Puedes actualizar fotos, certificados, estado sanitario, ubicación y fechas.</div>
                     </div>
 
                     <form id="product_create_form" class="pf" t-att-action="form_action" method="post"
@@ -603,67 +622,107 @@
                                             </div>
                                         </div>
 
-                                        <!-- Origen (opcional): instalación y piscina del vendedor -->
+                                        <!-- Origen (opcional): instalación y piscina/tanque del vendedor.
+                                             Sin instalación no hay piscina ni siembras (el JS oculta y
+                                             desactiva ambos bloques y el servidor los descarta). Las
+                                             bodegas y oficinas no son origen de un lote. -->
+                                        <t t-set="PO" t-value="request.env['shrimp.product']"/>
+                                        <t t-set="fac_origen" t-value="facility_options.filtered(lambda f: PO._shrimp_facility_can_be_origin(f))"/>
+                                        <t t-set="fac_fuera" t-value="facility_options - fac_origen"/>
+                                        <t t-set="fac_sel" t-value="product.origin_facility_id if product.origin_facility_id in fac_origen else PO.env['shrimp.partner.facility']"/>
+                                        <t t-set="pond_sel" t-value="product.origin_pond_id if (fac_sel and product.origin_pond_id.facility_id == fac_sel) else PO.env['shrimp.partner.pond']"/>
+                                        <t t-set="es_tanque" t-value="form_role in ('laboratorio', 'semillero')"/>
                                         <fieldset class="pf-blk" id="pfFacBlk">
                                             <legend class="pf-lbl">Instalación de origen <span class="pf-opt">· opcional</span></legend>
-                                            <div class="pf-opt-cards" t-if="facility_options">
-                                                <t t-foreach="facility_options" t-as="fac">
+                                            <div class="pf-opt-cards" t-if="fac_origen">
+                                                <t t-foreach="fac_origen" t-as="fac">
+                                                    <t t-set="fac_tq" t-value="fac.facility_type in ('laboratory', 'hatchery')"/>
                                                     <label class="pf-oc">
                                                         <input type="radio" class="pf-vh" name="origin_facility_ref" t-att-value="fac.uuid_ref"
-                                                               t-att-checked="'checked' if fac.id == product.origin_facility_id.id else None"/>
+                                                               t-att-data-ponds="fac.pond_count"
+                                                               t-att-checked="'checked' if fac == fac_sel else None"/>
                                                         <span class="pf-rd" aria-hidden="true"/>
                                                         <span><b t-esc="fac.name"/>
-                                                            <span><t t-esc="fac.province or fac.city or dict(fac._fields['facility_type'].selection).get(fac.facility_type)"/> · <t t-esc="fac.pond_count"/> <t t-esc="'piscina' if fac.pond_count == 1 else 'piscinas'"/></span></span>
+                                                            <span><t t-esc="fac.province or fac.city or dict(fac._fields['facility_type'].selection).get(fac.facility_type)"/> ·
+                                                                <t t-if="fac.pond_count"><t t-esc="fac.pond_count"/> <t t-esc="('tanque' if fac.pond_count == 1 else 'tanques') if fac_tq else ('piscina' if fac.pond_count == 1 else 'piscinas')"/></t>
+                                                                <t t-else="" t-esc="'sin tanques registrados' if fac_tq else 'sin piscinas registradas'"/></span></span>
                                                     </label>
                                                 </t>
                                                 <label class="pf-oc pf-oc-none">
                                                     <input type="radio" class="pf-vh" name="origin_facility_ref" value=""
-                                                           t-att-checked="'checked' if not product.origin_facility_id else None"/>
+                                                           t-att-checked="'checked' if not fac_sel else None"/>
                                                     <span class="pf-rd" aria-hidden="true"/>
                                                     <span><b>Sin instalación</b><span>No asociar el lote</span></span>
                                                 </label>
                                             </div>
-                                            <div class="pf-help" t-if="not facility_options">
+                                            <div class="pf-help" t-if="fac_origen and fac_fuera">
+                                                <t t-if="len(fac_fuera) == 1">No se ofrece «<t t-esc="fac_fuera.name"/>»: es una bodega u oficina, no produce lotes y no puede ser su origen.</t>
+                                                <t t-else="">No se ofrecen <t t-esc="', '.join(fac_fuera.mapped('name'))"/>: son bodegas u oficinas, no producen lotes y no pueden ser su origen.</t>
+                                            </div>
+                                            <div class="pf-help" t-if="not fac_origen">
                                                 <t t-if="is_internal and not is_edit">Las instalaciones son del vendedor: asócialas al editar el producto.</t>
+                                                <t t-elif="fac_fuera">Tus instalaciones registradas (<t t-esc="', '.join(fac_fuera.mapped('name'))"/>) son bodegas u oficinas: no pueden ser origen de un lote. Puedes publicar igual.</t>
                                                 <t t-else="">No tienes instalaciones registradas. Puedes publicar igual.</t>
                                             </div>
                                         </fieldset>
-                                        <div class="pf-blk" t-if="pond_options">
-                                            <label class="pf-lbl" for="originPond">Piscina de origen <span class="pf-opt">· opcional</span></label>
-                                            <select class="pf-sel" name="origin_pond_ref" id="originPond" aria-describedby="pfPondCtx">
-                                                <option value="">Sin piscina</option>
-                                                <t t-foreach="pond_options" t-as="pnd">
+                                        <div class="pf-blk" t-if="fac_origen" id="pfPondBlk" t-att-hidden="None if fac_sel else 'hidden'">
+                                            <label class="pf-lbl" for="originPond"><span id="pfPondLbl" t-esc="'Tanque de origen' if es_tanque else 'Piscina de origen'"/> <span class="pf-opt">· opcional</span></label>
+                                            <select class="pf-sel" name="origin_pond_ref" id="originPond" aria-describedby="pfPondCtx pfPondHelp"
+                                                    t-att-disabled="None if fac_sel else 'disabled'">
+                                                <option value="" id="pfPondNone" t-esc="'Sin tanque' if es_tanque else 'Sin piscina'"/>
+                                                <t t-foreach="pond_options.filtered(lambda p: p.facility_id in fac_origen)" t-as="pnd">
                                                     <t t-set="pnd_size" t-value="('Volumen', '%s m³' % ('{:,.0f}'.format(pnd.volume_m3 or pnd.manual_volume_m3))) if pnd.pond_type in ('tank', 'raceway') else ('Área', '%s ha' % ('{:,.2f}'.format((pnd.area_m2 or 0) / 10000.0)))"/>
                                                     <option t-att-value="pnd.uuid_ref" t-att-data-facility="pnd.facility_id.uuid_ref or ''"
                                                             t-att-data-type="dict(pnd._fields['pond_type'].selection).get(pnd.pond_type) or ''"
                                                             t-att-data-size-k="pnd_size[0]" t-att-data-size-v="pnd_size[1]"
                                                             t-att-data-loc="pnd.location or pnd.facility_id.city or pnd.facility_id.province or ''"
-                                                            t-att-selected="'selected' if pnd.id == product.origin_pond_id.id else None"><t t-esc="pnd.display_name"/></option>
+                                                            t-att-selected="'selected' if pnd == pond_sel else None"><t t-esc="pnd.display_name"/></option>
                                                 </t>
                                             </select>
                                             <div class="pf-ctx" id="pfPondCtx" hidden="hidden"/>
-                                            <div class="pf-help">Solo aparecen las piscinas de la instalación elegida.</div>
+                                            <div class="pf-help" id="pfPondHelp">Solo aparecen los de la instalación elegida.</div>
+                                            <div class="pf-help pf-help-warn" id="pfPondEmpty" hidden="hidden">Esta instalación todavía no tiene piscinas ni tanques registrados.</div>
                                         </div>
 
-                                        <!-- Siembras de origen: enlazan la cosecha con la larva sembrada
-                                             (laboratorio y semillero) en la trazabilidad. -->
-                                        <t t-set="orig_allocs" t-value="request.env['shrimp.product']._shrimp_origin_allocation_options(product.seller_partner_id or seller_partner)"/>
-                                        <div class="pf-blk" t-if="orig_allocs" id="pfAllocBlk">
+                                        <!-- Siembras de origen: los lotes COMPRADOS que se sembraron en
+                                             la piscina/tanque elegido antes de la fecha de producción, es
+                                             decir, de qué sale este producto (trazabilidad aguas arriba).
+                                             Camaronera: larva de laboratorio; laboratorio: nauplio de
+                                             naupliero. El nauplio sale de reproductores (sin stock en el
+                                             marketplace): no tiene siembras de origen. El JS filtra por
+                                             piscina y por el tipo de producto elegido. -->
+                                        <t t-set="orig_allocs" t-value="PO._shrimp_origin_allocation_options(product.seller_partner_id or seller_partner) if fac_origen else PO.env['shrimp.lot.allocation']"/>
+                                        <div class="pf-blk" t-if="orig_allocs" id="pfAllocBlk" t-att-hidden="None if pond_sel else 'hidden'"
+                                             t-att-data-cutoff="product.production_date or today">
                                             <input type="hidden" name="origin_allocation_present" value="1"/>
                                             <details class="pf-acc" t-att-open="'open' if product.origin_allocation_ids else None">
-                                                <summary><i class="fa fa-tint pf-teal" aria-hidden="true"/> Siembras de origen <span class="pf-chip-st pf-st-info" id="pfAllocCount"/><i class="fa fa-chevron-down pf-chev" aria-hidden="true"/></summary>
+                                                <summary><i class="fa fa-tint pf-teal" aria-hidden="true"/>
+                                                    <span id="pfAllocTitle">Lotes sembrados de origen</span>
+                                                    <span class="pf-chip-st pf-st-info" id="pfAllocCount"
+                                                          title="Si no marcas ninguno, el sistema propone solo los lotes sembrados en esta piscina o tanque antes de la fecha de producción."/>
+                                                    <i class="fa fa-chevron-down pf-chev" aria-hidden="true"/></summary>
                                                 <div class="pf-acc-b">
-                                                    <div class="pf-help pf-help-top">Enlazan la cosecha con la larva sembrada (laboratorio y semillero). Si no marcas ninguna, proponemos las de la piscina de origen anteriores a la fecha de producción.</div>
+                                                    <div class="pf-help pf-help-top">
+                                                        <span id="pfAllocHelp">Los lotes que compraste y sembraste aquí antes de la fecha de producción: de ellos sale este producto.</span>
+                                                        <button type="button" class="pf-q" id="pfAllocQ" aria-expanded="false" aria-controls="pfAllocWhat"><i class="fa fa-question-circle" aria-hidden="true"/> ¿Qué es esto?</button>
+                                                    </div>
+                                                    <div class="pf-what" id="pfAllocWhat" hidden="hidden">
+                                                        <p><b>Es la trazabilidad hacia atrás de tu lote.</b> Cada vez que siembras en una piscina o tanque un lote que compraste en CamaronMarket, queda registrada una <i>siembra</i>. Al publicar, enlazas tu producto con esas siembras.</p>
+                                                        <p>Así el comprador puede ver de dónde viene lo que compra: <span id="pfAllocWhatChain">qué larva o nauplio se sembró y a qué proveedor se le compró</span>.</p>
+                                                        <p><b>No tienes que marcar nada:</b> si no marcas ninguno, el sistema propone solo los sembrados en esta piscina o tanque antes de la fecha de producción. Márcalos a mano únicamente si alguno no corresponde a este lote.</p>
+                                                    </div>
                                                     <div class="pf-acc-list">
                                                         <t t-foreach="orig_allocs" t-as="oa">
-                                                            <label class="pf-ck">
+                                                            <label class="pf-ck" t-att-data-pond="oa.pond_id.uuid_ref" t-att-data-tipo="oa._shrimp_seeded_tipo()"
+                                                                   t-att-data-date="oa.allocation_date">
                                                                 <input type="checkbox" name="origin_allocation_ref" t-att-value="oa.uuid_ref"
                                                                        t-att-checked="'checked' if oa in product.origin_allocation_ids else None"/>
-                                                                <span><t t-esc="oa.pond_id.display_name"/> · <t t-esc="request.env['shrimp.transaction'].shrimp_fmt_dt(oa.allocation_date)"/> · <t t-esc="oa.display_qty()"/>
-                                                                    <small t-esc="oa.product_id.name"/></span>
+                                                                <span><t t-esc="oa._shrimp_seeded_label()"/>
+                                                                    <small>Sembrado el <t t-esc="request.env['shrimp.transaction'].shrimp_fmt_dt(oa.allocation_date)"/> · <t t-esc="oa.display_qty()"/> · en <t t-esc="oa.pond_id.display_name"/></small></span>
                                                             </label>
                                                         </t>
                                                     </div>
+                                                    <div class="pf-help pf-help-warn" id="pfAllocEmpty" hidden="hidden">No hay lotes sembrados aquí antes de la fecha de producción. Puedes publicar igual: el producto queda sin siembras de origen.</div>
                                                 </div>
                                             </details>
                                         </div>
@@ -727,7 +786,7 @@
                                                      eslabón del vendedor (millar en semillero/laboratorio, libra en
                                                      camaronera): antes venía "Libras" fija y el semillero publicaba
                                                      millares de larvas con precio leído como $/lb. -->
-                                                <div class="pf-help" id="pfUomHelp">Por defecto en millares para semilleros y laboratorios, y en libras para camaroneras.</div>
+                                                <div class="pf-help" id="pfUomHelp">Por defecto en millares para nauplieros y laboratorios, y en libras para camaroneras.</div>
                                                 <t t-if="uom_locked">
                                                     <input type="hidden" name="uom_id" t-att-value="product.uom_id.id"/>
                                                     <div class="pf-lockmsg"><i class="fa fa-lock" aria-hidden="true"/> No se puede cambiar: el producto ya tiene compras.</div>
@@ -748,10 +807,10 @@
 
                                         <div class="pf-grid pf-g2 pf-blk">
                                             <div class="pf-f" data-field="price">
-                                                <label class="pf-lbl" for="pfPrice">Precio <span class="pf-req" aria-hidden="true">*</span> <i t-if="purchase_locked" class="fa fa-lock pf-lk-ico" title="Bloqueado: el producto ya tiene compras"/></label>
+                                                <label class="pf-lbl" for="pfPrice">Precio <span class="pf-req" aria-hidden="true">*</span> <i t-if="price_locked" class="fa fa-lock pf-lk-ico" title="Bloqueado: el producto tiene compras en curso"/></label>
                                                 <div class="pf-igrp"><span class="pf-pre">USD $</span><input type="number" step="0.01" min="0" name="price" id="pfPrice" inputmode="decimal"
                                                                                                            required="required" t-att-value="('%.2f' % product.price) if (is_edit and product.price) else ''" placeholder="0.00"
-                                                                                                           t-att-disabled="'disabled' if purchase_locked else None"/><span class="pf-suf">/ <span data-uom-label="singular"><t t-esc="(sel_uom_rec.name or 'unidad').lower()"/></span></span></div>
+                                                                                                           t-att-disabled="'disabled' if price_locked else None"/><span class="pf-suf">/ <span data-uom-label="singular"><t t-esc="(sel_uom_rec.name or 'unidad').lower()"/></span></span></div>
                                                 <div class="pf-emsg" data-err-for="price" hidden="hidden"><i class="fa fa-exclamation-circle" aria-hidden="true"/> Ingresa el precio por <span data-uom-label="singular">unidad</span> para poder publicar.</div>
                                                 <!-- shrimp_packer: precio sugerido -->
                                                 <div id="pfPriceSugSlot" class="pf-slot"/>
@@ -1020,779 +1079,644 @@
         </t>
     </template>
 
+    <!-- ================================================================
+         Ficha del producto (rediseño 2026-10, mismo lenguaje que «Publicar
+         producto»; estilos en static/src/css/shrimp_product_detail.css).
+
+         Escritorio: galería y secciones a la izquierda; a la derecha, fija,
+         la tarjeta de compra, el vendedor y (dueño) la gestión. Móvil: una
+         columna y barra de acción fija abajo.
+
+         Anclas de herencia que NO se deben mover ni renombrar:
+           - #shrimp_product_specs_head ...... shrimp_packer (rendimiento
+             verificado del vendedor, va justo antes de Especificaciones).
+           - div.col-12 con h3 «Evolución del producto» ... ficha de calidad
+             (quality_templates.xml, se inserta antes).
+           - div.mp-detail-actions ........... «Mover a otro perfil» (aviso
+             antes y botón dentro).
+           - t-call product_confirm_modal .... modal de mover + historial
+             (después). Va al final de la columna principal para que el
+             historial caiga ahí y no en la columna estrecha.
+         ================================================================ -->
     <template id="product_detail" name="Detalle de Producto - Marketplace">
-        <style>
-            /* ===== Detalle de producto — sistema de marca (tarjetas con acento) ===== */
-            .mp-gallery-card, .mp-info-card, .mp-table-card{
-            position:relative; overflow:hidden; background:#fff;
-            border:1px solid var(--shrimp-border);
-            border-radius:var(--shrimp-radius-lg);
-            box-shadow:var(--shrimp-shadow);
-            transition:box-shadow .2s ease;
-            }
-            .mp-gallery-card::before, .mp-info-card::before, .mp-table-card::before{
-            content:""; position:absolute; left:0; top:22px; bottom:22px; width:4px;
-            border-radius:0 4px 4px 0; background:var(--shrimp-grad); z-index:1;
-            }
-            .mp-info-card:hover, .mp-table-card:hover{ box-shadow:var(--shrimp-shadow-hover); }
-
-            /* Galería */
-            .mp-gallery-frame{ background:#fff; padding:22px; }
-            .mp-gallery-main{
-            width:100%; max-height:460px; min-height:320px; height:auto;
-            object-fit:contain; display:block; margin:0 auto;
-            border-radius:var(--shrimp-radius); background:#f2f5f8;
-            }
-            .mp-thumb{
-            width:76px; height:76px; object-fit:cover; cursor:pointer; background:#fff;
-            border-radius:12px; border:1px solid var(--shrimp-border); transition:.15s ease;
-            }
-            .mp-thumb:hover{ transform:translateY(-2px); }
-            .mp-arrow{
-            position:absolute; top:50%; transform:translateY(-50%); width:44px; height:44px;
-            border:1px solid rgba(255,255,255,.55); background:rgba(255,255,255,.72);
-            backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
-            border-radius:999px; box-shadow:var(--shrimp-shadow);
-            display:flex; align-items:center; justify-content:center; padding:0; cursor:pointer;
-            z-index:5; color:var(--shrimp-brand);
-            }
-            .mp-arrow i{ margin:0; line-height:1; }
-            .mp-arrow:hover{ background:#fff; }
-            .mp-arrow:active{ transform:translateY(-50%) scale(.98); }
-            .mp-arrow-prev{ left:16px; } .mp-arrow-next{ right:16px; }
-
-            /* Caja de precio — resalte de marca */
-            .mp-section-box{
-            position:relative;
-            background:linear-gradient(135deg, rgba(18,62,92,.06), rgba(14,142,160,.07));
-            border:1px solid rgba(18,62,92,.14);
-            border-radius:var(--shrimp-radius);
-            padding:20px;
-            }
-            .mp-price-value{ font-weight:800; letter-spacing:-.03em; font-size:36px; line-height:1; color:var(--shrimp-brand); }
-            .mp-price-unit{ color:var(--shrimp-ink-faint); font-size:13px; font-weight:700; }
-
-            /* Encabezado de sección (icono chip + título) */
-            .mp-sec-head{ display:flex; align-items:center; gap:12px; margin-bottom:16px; }
-            .mp-sec-ico{
-            width:38px; height:38px; min-width:38px; border-radius:11px;
-            display:flex; align-items:center; justify-content:center; color:#fff; font-size:15px;
-            background:var(--shrimp-grad); box-shadow:0 8px 16px rgba(18,62,92,.22);
-            }
-            .mp-sec-title{ font-weight:800; letter-spacing:-.01em; font-size:17px; color:var(--shrimp-ink); margin:0; }
-            .mp-sec-count{ margin-left:auto; }
-
-            /* Tablas de marca */
-            .mp-table-wrap table{ min-width:100%; }
-            .mp-table-wrap thead th{
-            text-transform:uppercase; letter-spacing:.06em; font-size:11.5px; color:var(--shrimp-ink-faint);
-            font-weight:800; border-bottom:1px solid var(--shrimp-border); padding:10px 12px;
-            }
-            .mp-table-wrap td{ vertical-align:middle; padding:12px; border-bottom:1px solid var(--shrimp-bg-alt); font-size:14px; }
-            .mp-table-wrap tbody tr:last-child td{ border-bottom:0; }
-            .mp-table-wrap tbody tr:hover{ background:#f7f9fb; }
-
-            .mp-action-btn{ border-radius:var(--shrimp-radius-pill); font-weight:700; height:44px; padding-left:22px; padding-right:22px; }
-
-            /* Sombra en los campos (specs) del detalle */
-            .mp-spec{ box-shadow: var(--shrimp-shadow); }
-            .mp-spec:hover{ box-shadow: var(--shrimp-shadow-hover); }
-        </style>
-
         <t t-call="website.layout">
-            <div class="shrimp-bg">
-                <div class="shrimp-page shrimp-page--wide py-4">
+            <t t-set="seller" t-value="product.seller_partner_id"/>
+            <t t-set="is_public" t-value="request.env.user._is_public()"/>
+            <t t-set="fmtq" t-value="lambda v: ('{:,.2f}'.format(v or 0.0)).rstrip('0').rstrip('.')"/>
+            <t t-set="fmtd" t-value="lambda d: d.strftime('%d/%m/%Y') if d else '—'"/>
+            <t t-set="uom_name" t-value="product.uom_id.name or ''"/>
+            <t t-set="price_shown" t-value="unit_price if unit_price is not None else product.price"/>
+            <t t-set="p_tipo" t-value="product._shrimp_tipo()"/>
+            <t t-set="p_tipo_label" t-value="{'nauplio': 'Nauplio', 'larva': 'Larva', 'camaron': 'Camarón'}.get(p_tipo, '')"/>
+            <t t-set="p_role" t-value="product._shrimp_seller_role()"/>
+            <!-- «Semillero» se muestra como «Naupliero» (solo etiqueta). -->
+            <t t-set="p_role_label" t-value="'Naupliero' if p_role == 'semillero' else request.env['res.partner']._shrimp_type_label(p_role)"/>
+            <t t-set="p_state" t-value="product.state if product.active else 'archived'"/>
+            <t t-set="p_state_label" t-value="{'published': 'Publicado', 'draft': 'Borrador', 'sold': 'Vendido', 'cancel': 'Cancelado', 'archived': 'Archivado'}.get(p_state, p_state)"/>
+            <t t-set="p_vendido" t-value="product.has_purchases()"/>
+            <t t-set="can_manage" t-value="is_owner or is_internal"/>
+            <!-- Compra: mismas reglas que antes (y que la cuadrícula del
+                 catálogo): nunca al dueño; solo publicado y con stock; y el
+                 veto de rol de motivo_no_comprable para quien inició sesión. -->
+            <t t-set="buy_ctx" t-value="not is_owner and product.state == 'published' and product.available_qty &gt; 0"/>
+            <t t-set="veto" t-value="'' if (not buy_ctx or is_public) else product.motivo_no_comprable(request.env.user.shrimp_actor_partner_id)"/>
+            <t t-set="can_buy" t-value="buy_ctx and not veto"/>
+            <t t-set="no_buy_why" t-value="veto if buy_ctx else ('Sin stock disponible.' if product.state == 'published' else 'Este producto no está publicado.')"/>
+            <!-- Al público, solo los certificados aprobados; el dueño ve
+                 también los que están en revisión o rechazados. -->
+            <t t-set="vis_cert_lines" t-value="product.shrimp_visible_certificate_lines(owner_view=can_manage)"/>
+            <t t-set="ok_cert_lines" t-value="vis_cert_lines.filtered(lambda l: l.status == 'approved')"/>
+            <t t-set="cert_total" t-value="len(vis_cert_lines) + len(valid_seller_certs)"/>
+            <t t-set="cert_ok_total" t-value="len(ok_cert_lines) + len(valid_seller_certs)"/>
+            <t t-set="seller_words" t-value="(seller.name or '?').split()"/>
+            <t t-set="seller_initials" t-value="''.join([w[:1] for w in seller_words[:2]]).upper()"/>
 
-                    <!-- Visor de certificado (modal) -->
+            <div class="shrimp-bg pd-bg">
+                <div class="shrimp-page pd-page pd" id="pd_page">
+
+                    <t t-call="shrimp_marketplace.s_back_button"><t t-set="back_fallback" t-value="'/marketplace/products' if is_owner else '/marketplace'"/></t>
+
+                    <!-- Visor de certificado (modal con iframe) -->
                     <t t-call="shrimp_marketplace.cert_viewer"/>
 
-                    <!-- Top bar -->
-                    <div
-                        class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
-                        <t t-call="shrimp_marketplace.s_back_button"><t t-set="back_fallback" t-value="'/marketplace/products'"/></t>
-
-                        <t t-if="request.params.get('published')">
-                            <div class="alert alert-success py-2 px-3 mb-0"
-                                style="border-radius:14px;">
-                                <i class="fa fa-check me-1"></i> Producto publicado correctamente. </div>
-                        </t>
-                        <t t-if="request.params.get('error') == 'no_stock'">
-                            <div class="alert alert-warning py-2 px-3 mb-0" style="border-radius:14px;">
-                                <i class="fa fa-exclamation-triangle me-1"></i> No puedes publicar sin stock disponible.
+                    <!-- Avisos -->
+                    <div class="pd-alerts">
+                        <div t-if="request.params.get('published')" class="pf-alert pd-a-ok" role="status" id="pd_published">
+                            <i class="fa fa-check-circle" aria-hidden="true"/>
+                            <div>
+                                <span class="pd-alert-t">Producto publicado correctamente.</span>
+                                Ya aparece en el marketplace: esta es la ficha que ven los compradores.
+                                <div t-if="is_owner" class="pd-alert-act">
+                                    <a href="/marketplace/products">Ir a mis productos</a>
+                                    <a href="/marketplace/products/new">Publicar otro</a>
+                                </div>
                             </div>
-                        </t>
-                        <t t-if="request.params.get('error') == 'size_required'">
-                            <div class="alert alert-warning py-2 px-3 mb-0" style="border-radius:14px;">
-                                <i class="fa fa-exclamation-triangle me-1"></i> El camarón de engorde necesita <strong>presentación</strong> y <strong>talla</strong> antes de publicarse: es lo que se cruza con las listas de precios. Edita el producto para completarlas.
-                            </div>
-                        </t>
+                        </div>
+                        <div t-if="request.params.get('error') == 'no_stock'" class="pf-alert pf-a-warn" role="alert">
+                            <i class="fa fa-exclamation-triangle" aria-hidden="true"/>
+                            <div>No puedes publicar sin stock disponible.</div>
+                        </div>
+                        <div t-if="request.params.get('error') == 'retire'" class="pf-alert pf-a-warn" role="alert" id="pd_retire_error">
+                            <i class="fa fa-exclamation-triangle" aria-hidden="true"/>
+                            <div t-esc="request.params.get('message') or 'No se pudo retirar el producto: tiene operaciones abiertas.'"/>
+                        </div>
+                        <div t-if="request.params.get('error') == 'size_required'" class="pf-alert pf-a-warn" role="alert">
+                            <i class="fa fa-exclamation-triangle" aria-hidden="true"/>
+                            <div>El camarón de engorde necesita <b>presentación</b> y <b>talla</b> antes de publicarse: es lo que se cruza con las listas de precios. Edita el producto para completarlas.</div>
+                        </div>
                     </div>
 
-                    <div class="row g-4">
+                    <!-- Encabezado -->
+                    <div class="pd-ph">
+                        <div class="pd-ph-txt">
+                            <div class="pd-eyebrow">
+                                <span t-if="p_tipo_label" class="pd-tipo" t-esc="p_tipo_label"/>
+                                <span t-if="p_tipo_label" class="pd-sep" aria-hidden="true"/>
+                                <span>Vendido por <a t-att-href="'/marketplace/sellers/%s' % seller.uuid_ref" t-esc="seller.name"/></span>
+                            </div>
+                            <h1 t-esc="product.name"/>
+                            <div class="pd-meta">
+                                <span t-att-class="'pd-pill pd-pill--%s' % p_state" t-esc="p_state_label"/>
+                                <t t-if="product.published_date and product.state == 'published'">
+                                    <span>Publicado el <t t-esc="fmtd(product.published_date)"/></span>
+                                </t>
+                                <t t-if="seller.shrimp_rating_count">
+                                    <span class="pd-sep" aria-hidden="true"/>
+                                    <span><i class="fa fa-star" aria-hidden="true"/> <b t-esc="'%.1f' % seller.shrimp_rating_avg"/>
+                                        (<t t-esc="seller.shrimp_rating_count"/> reseña<t t-if="seller.shrimp_rating_count != 1">s</t>)</span>
+                                </t>
+                            </div>
+                        </div>
+                    </div>
 
-                        <!-- HEADER: banner con gradiente (identidad de marca) -->
-                        <div class="col-12">
-                            <div class="sf-banner">
-                                <div class="sf-banner-row">
-                                    <div class="sf-banner-txt">
-                                        <h1><t t-esc="product.name" /></h1>
-                                        <p>
-                                            <i class="fa fa-user-circle-o me-1"></i> Vendido por
-                                            <a t-att-href="'/marketplace/sellers/%s' % product.seller_partner_id.uuid_ref"
-                                               style="color:#fff; font-weight:700; text-decoration:underline;">
-                                                <t t-esc="product.seller_partner_id.name" />
-                                            </a>
-                                            <t t-if="product.seller_partner_id.shrimp_rating_count">
-                                                <span style="margin-left:6px;"><i class="fa fa-star" style="color:#ffd15c;"></i>
-                                                    <t t-esc="'%.1f' % product.seller_partner_id.shrimp_rating_avg" />
-                                                </span>
-                                            </t>
-                                        </p>
+                    <!-- Datos rápidos -->
+                    <ul class="pd-chips" aria-label="Datos principales">
+                        <li t-if="product.stage_id" class="pd-chip pd-chip--brand"><i class="fa fa-hourglass-half" aria-hidden="true"/><t t-esc="product.stage_id.name"/></li>
+                        <li t-if="product.species_id" class="pd-chip pd-chip--teal"><i class="fa fa-flask" aria-hidden="true"/><t t-esc="product.species_id.name"/></li>
+                        <li t-if="product.genetics_line_id" class="pd-chip"><i class="fa fa-sitemap" aria-hidden="true"/><t t-esc="product.genetics_line_id.name"/></li>
+                        <li t-if="product.presentation" class="pd-chip"><i class="fa fa-cube" aria-hidden="true"/><t t-esc="dict(product._fields['presentation'].selection).get(product.presentation)"/></li>
+                        <li t-if="product.size_grade_id" class="pd-chip"><i class="fa fa-balance-scale" aria-hidden="true"/><small>Talla</small> <t t-esc="product.size_grade_id.name"/></li>
+                        <li t-if="product.survival_rate" class="pd-chip"><i class="fa fa-heartbeat" aria-hidden="true"/><small>Superv.</small> <t t-esc="fmtq(product.survival_rate)"/> %</li>
+                        <li t-if="product.location" class="pd-chip"><i class="fa fa-map-marker" aria-hidden="true"/><t t-esc="product.location"/></li>
+                    </ul>
+
+                    <div class="pd-layout">
+
+                        <!-- ===================== GALERÍA ===================== -->
+                        <div class="pd-gal">
+                            <div class="pd-gal-card">
+                                <t t-if="photos">
+                                    <div class="pd-gal-frame mp-gallery-frame">
+                                        <img id="mp_main_img" class="mp-gallery-main"
+                                             t-att-src="photos[0]['url']" t-att-data-index="0"
+                                             t-att-alt="product.name"/>
+                                        <span class="pd-gal-count" t-if="len(photos) &gt; 1" aria-live="polite"><span id="pd_gal_i">1</span> / <t t-esc="len(photos)"/></span>
+                                        <t t-if="len(photos) &gt; 1">
+                                            <button type="button" id="mp_prev_btn" class="mp-arrow mp-arrow-prev" aria-label="Foto anterior"><i class="fa fa-chevron-left" aria-hidden="true"/></button>
+                                            <button type="button" id="mp_next_btn" class="mp-arrow mp-arrow-next" aria-label="Foto siguiente"><i class="fa fa-chevron-right" aria-hidden="true"/></button>
+                                        </t>
                                     </div>
-                                    <span class="sf-kicker">
-                                        <t t-if="product.state == 'published'"><i class="fa fa-check"></i> Publicado</t>
-                                        <t t-if="product.state == 'draft'"><i class="fa fa-pencil"></i> Borrador</t>
-                                        <t t-if="product.state == 'sold'"><i class="fa fa-shopping-bag"></i> Vendido</t>
-                                        <t t-if="product.state == 'cancel'"><i class="fa fa-ban"></i> Cancelado</t>
-                                    </span>
-                                </div>
+                                    <div t-if="len(photos) &gt; 1" class="pd-thumbs" id="mp_thumbs">
+                                        <t t-foreach="photos" t-as="img">
+                                            <img t-att-src="img['url']" class="mp-thumb"
+                                                 t-att-data-index="img_index" t-att-data-url="img['url']"
+                                                 tabindex="0" role="button"
+                                                 t-att-alt="'Foto %s' % (img_index + 1)"/>
+                                        </t>
+                                    </div>
+                                </t>
+                                <t t-else="">
+                                    <div class="pd-gal-empty">
+                                        <div>
+                                            <i class="fa fa-camera d-block" aria-hidden="true"/>
+                                            <b>Sin fotos</b>
+                                            <span t-if="is_owner">Agrega una foto principal para destacar tu publicación.</span>
+                                            <a t-if="is_owner and not p_vendido" class="s-btn s-btn-ghost btn-sm mt-2" t-att-href="'/marketplace/products/%s/edit' % product.uuid_ref"><i class="fa fa-plus me-1" aria-hidden="true"/> Agregar fotos</a>
+                                            <span t-else="">El vendedor todavía no ha subido fotos de este lote.</span>
+                                        </div>
+                                    </div>
+                                </t>
                             </div>
                         </div>
 
-                        <!-- GALLERY + SUMMARY -->
-                        <div class="col-12">
-                            <div class="row g-4 align-items-start">
+                        <!-- ===================== COLUMNA DERECHA (fija) ===================== -->
+                        <aside class="pd-aside" aria-label="Compra y vendedor">
 
-                                <!-- LEFT: GALLERY -->
-                                <div class="col-lg-5">
-                                    <div class="mp-gallery-card">
-                                        <div class="card-body p-0">
+                            <!-- Compra -->
+                            <div class="pf-panel pd-buy" id="pd_buy">
+                                <div class="pd-buy-top">
+                                    <span class="pd-buy-lbl">Precio</span>
+                                    <span t-att-class="'pd-pill pd-pill--%s' % p_state" t-esc="p_state_label"/>
+                                </div>
+                                <div class="pd-price">
+                                    <b>$<t t-esc="'%.2f' % price_shown"/></b>
+                                    <span>/ <t t-esc="uom_name"/></span>
+                                </div>
+                                <div t-if="has_custom_price" class="pd-price-own">
+                                    <span class="pf-chip-st pf-st-ok pf-chip-xs">Tu precio</span>
+                                    <s>$<t t-esc="'%.2f' % product.price"/></s> publicación
+                                </div>
 
-                                            <t t-if="photos">
-                                                <div class="position-relative mp-gallery-frame">
+                                <ul class="pd-facts">
+                                    <li t-att-class="'is-out' if product.available_qty &lt;= 0 else None">
+                                        <i class="fa fa-cubes" aria-hidden="true"/> Disponible
+                                        <b><t t-esc="fmtq(product.available_qty)"/> <t t-esc="uom_name"/></b>
+                                    </li>
+                                    <li t-if="product.expected_delivery_date">
+                                        <i class="fa fa-calendar" aria-hidden="true"/> Entrega estimada
+                                        <b><t t-esc="fmtd(product.expected_delivery_date)"/><span class="pf-chip-st pf-st-info pf-chip-xs">Planificada</span></b>
+                                    </li>
+                                    <li t-if="product.location">
+                                        <i class="fa fa-map-marker" aria-hidden="true"/> Ubicación
+                                        <b t-esc="product.location"/>
+                                    </li>
+                                </ul>
 
-                                                    <img id="mp_main_img"
-                                                        class="mp-gallery-main"
-                                                        t-att-src="photos[0]['url']"
-                                                        t-att-data-index="0"
-                                                        alt="Foto producto" />
+                                <div class="pd-buy-cta">
+                                    <t t-if="can_buy">
+                                        <a class="s-btn s-btn-primary pd-buy-btn" t-att-href="'/marketplace/buy/%s' % product.uuid_ref">
+                                            <i class="fa fa-shopping-cart me-1" aria-hidden="true"/> Comprar
+                                        </a>
+                                        <div t-if="is_public" class="pd-buy-note">Te pediremos iniciar sesión para elegir la cantidad y confirmar.</div>
+                                        <div t-else="" class="pd-buy-note">Eliges la cantidad en el siguiente paso.</div>
+                                    </t>
+                                    <t t-elif="not is_owner">
+                                        <span class="s-btn s-btn-ghost disabled pd-buy-btn" t-att-title="no_buy_why" aria-disabled="true">No disponible</span>
+                                        <div class="pd-buy-why"><i class="fa fa-info-circle me-1" aria-hidden="true"/><t t-esc="no_buy_why"/></div>
+                                    </t>
+                                    <t t-else="">
+                                        <div class="pd-buy-note"><i class="fa fa-eye me-1" aria-hidden="true"/>Es tu publicación: así la ven los compradores.</div>
+                                    </t>
+                                </div>
 
-                                                    <t t-if="len(photos) &gt; 1">
-                                                        <button type="button" id="mp_prev_btn"
-                                                            class="mp-arrow mp-arrow-prev"
-                                                            aria-label="Anterior">
-                                                            <i class="fa fa-chevron-left"></i>
-                                                        </button>
+                                <div t-if="buy_ctx and product._shrimp_requires_verification(None if is_public else request.env.user.shrimp_actor_partner_id)" class="pf-alert pf-a-info" role="note">
+                                    <i class="fa fa-shield" aria-hidden="true"/>
+                                    <div>Compra con <b>verificación en campo</b> obligatoria: un verificador independiente revisa el lote antes de cerrar la compra.</div>
+                                </div>
 
-                                                        <button type="button" id="mp_next_btn"
-                                                            class="mp-arrow mp-arrow-next"
-                                                            aria-label="Siguiente">
-                                                            <i class="fa fa-chevron-right"></i>
-                                                        </button>
-                                                    </t>
-                                                </div>
+                                <div class="pd-trust">
+                                    <button t-if="cert_total" type="button" class="pd-trust-row" data-bs-toggle="modal" data-bs-target="#pdCertModal" aria-haspopup="dialog">
+                                        <i class="fa fa-certificate" aria-hidden="true"/>
+                                        <span><t t-esc="cert_ok_total"/> certificado<t t-if="cert_ok_total != 1">s</t> vigente<t t-if="cert_ok_total != 1">s</t></span>
+                                        <i class="fa fa-chevron-right pd-go" aria-hidden="true"/>
+                                    </button>
+                                    <div t-else="" class="pd-trust-row"><i class="fa fa-certificate text-muted" aria-hidden="true"/><span>Sin certificados cargados</span></div>
+                                    <div t-if="seller.shrimp_rating_count" class="pd-trust-row">
+                                        <i class="fa fa-star" aria-hidden="true"/>
+                                        <span>Vendedor con <t t-esc="'%.1f' % seller.shrimp_rating_avg"/> de 5 en <t t-esc="seller.shrimp_rating_count"/> reseña<t t-if="seller.shrimp_rating_count != 1">s</t></span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Vendedor -->
+                            <div class="pf-panel pd-seller" id="pd_seller">
+                                <div class="pd-seller-h">
+                                    <span class="pd-avatar" aria-hidden="true" t-esc="seller_initials"/>
+                                    <div class="pd-seller-n">
+                                        <a t-att-href="'/marketplace/sellers/%s' % seller.uuid_ref" t-esc="seller.name"/>
+                                        <span><t t-esc="p_role_label"/></span>
+                                    </div>
+                                </div>
+                                <div class="pd-seller-stats">
+                                    <div class="pd-stat">
+                                        <t t-if="seller.shrimp_rating_count"><b><i class="fa fa-star" aria-hidden="true"/> <t t-esc="'%.1f' % seller.shrimp_rating_avg"/></b><span><t t-esc="seller.shrimp_rating_count"/> reseña<t t-if="seller.shrimp_rating_count != 1">s</t></span></t>
+                                        <t t-else=""><b>—</b><span>Sin reseñas</span></t>
+                                    </div>
+                                    <div class="pd-stat">
+                                        <b t-esc="len(valid_seller_certs) + len(ok_cert_lines.filtered(lambda l: l.source_user_certificate_line_id))"/>
+                                        <span>Cert. del vendedor</span>
+                                    </div>
+                                    <div class="pd-stat">
+                                        <b t-esc="p_tipo_label or '—'"/>
+                                        <span>Vende</span>
+                                    </div>
+                                </div>
+                                <a class="s-btn s-btn-ghost" t-att-href="'/marketplace/sellers/%s' % seller.uuid_ref"><i class="fa fa-user-circle-o me-1" aria-hidden="true"/> Ver perfil del vendedor</a>
+                            </div>
+
+                            <!-- Gestión (dueño / interno) -->
+                            <div t-if="can_manage" class="pf-panel pd-owner" id="pd_owner">
+                                <div class="pf-panel-h"><i class="fa fa-sliders" aria-hidden="true"/> Gestionar publicación <small t-if="p_vendido">con ventas</small></div>
+                                <div class="pf-panel-b">
+                                    <div class="mp-detail-actions">
+                                        <!-- D-17 (C): con ventas se edita igual (fotos, certificados,
+                                             fechas y, sin compras en curso, el precio); los datos
+                                             críticos van bloqueados en el formulario. -->
+                                        <a class="s-btn s-btn-ghost" t-att-href="'/marketplace/products/%s/edit' % product.uuid_ref">
+                                            <i class="fa fa-pencil me-1"></i> Editar </a>
+                                        <t t-if="is_owner and product.state == 'draft'">
+                                            <form t-att-action="'/marketplace/products/%s/publish' % product.uuid_ref" method="post" class="d-inline">
+                                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-check me-1"></i> Publicar </button>
+                                            </form>
+                                        </t>
+                                        <!-- Con venta: solo archivar (no se elimina). Sin venta: eliminar. -->
+                                        <t t-if="is_owner and product.active">
+                                            <t t-if="p_vendido">
+                                                <form method="post" class="d-inline" t-att-action="'/marketplace/products/%s/deactivate' % product.uuid_ref">
+                                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                    <button type="button" class="s-btn s-btn-ghost prod-del-btn" data-modo="archivar" t-att-data-nombre="product.name">
+                                                        <i class="fa fa-archive me-1"></i> Archivar</button>
+                                                </form>
                                             </t>
-
                                             <t t-else="">
-                                                <div
-                                                    class="d-flex align-items-center justify-content-center text-muted"
-                                                    style="min-height:320px; background:rgba(255,255,255,.9); border-radius:18px;">
-                                                    <div class="text-center p-4">
-                                                        <div class="mb-1" style="font-weight:900;">Sin
-                                                            fotos</div>
-                                                        <div style="font-size:12px;">
-                                                            Agrega una foto principal para destacar
-                                                            tu publicación.
-                                                        </div>
-                                                    </div>
-                                                </div>
+                                                <form method="post" class="d-inline" t-att-action="'/marketplace/products/%s/delete' % product.uuid_ref">
+                                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                    <button type="button" class="s-btn s-btn-danger prod-del-btn" data-modo="eliminar" t-att-data-nombre="product.name">
+                                                        <i class="fa fa-trash me-1"></i> Eliminar</button>
+                                                </form>
                                             </t>
-
-                                            <t t-if="len(photos) &gt; 1">
-                                                <div class="px-4 pb-4 pt-0" style="background:#fff;">
-                                                    <div
-                                                        class="d-flex gap-2 flex-wrap justify-content-center"
-                                                        id="mp_thumbs">
-                                                        <t t-foreach="photos" t-as="img">
-                                                            <img t-att-src="img['url']"
-                                                                class="rounded-3 border mp-thumb"
-                                                                t-att-data-index="img_index"
-                                                                t-att-data-url="img['url']"
-                                                                alt="Miniatura" />
-                                                        </t>
-                                                    </div>
-                                                </div>
-                                            </t>
-
-                                        </div>
+                                        </t>
+                                        <t t-if="is_owner and not product.active and product.state != 'cancel'">
+                                            <form method="post" class="d-inline" t-att-action="'/marketplace/products/%s/reactivate' % product.uuid_ref">
+                                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-refresh me-1"></i> Reactivar</button>
+                                            </form>
+                                        </t>
                                     </div>
+                                    <p t-if="p_vendido" class="pd-owner-note"><i class="fa fa-lock me-1" aria-hidden="true"/>Este producto <t t-esc="product.shrimp_purchase_lock_reason() or 'ya tiene ventas'"/>: sus datos críticos no se cambian y no se elimina (puedes archivarlo).<t t-if="not product.shrimp_price_locked()"> El precio sí se puede actualizar.</t></p>
                                 </div>
-
-                                <!-- RIGHT: SUMMARY -->
-                                <div class="col-lg-7">
-                                    <div class="mp-info-card">
-                                        <div class="card-body p-4">
-
-                                            <!-- Datos rápidos (chips) -->
-                                            <div class="s-badges mb-3">
-                                                <t t-if="product.species_id"><span class="s-badge s-badge--teal"><i class="fa fa-flask me-1"></i><t t-esc="product.species_id.name"/></span></t>
-                                                <t t-if="product.stage_id"><span class="s-badge"><t t-esc="product.stage_id.name"/></span></t>
-                                                <t t-if="product.genetics_line_id"><span class="s-badge"><i class="fa fa-sitemap me-1"></i><t t-esc="product.genetics_line_id.name"/></span></t>
-                                                <t t-if="product.location"><span class="s-badge"><i class="fa fa-map-marker me-1"></i><t t-esc="product.location"/></span></t>
-                                            </div>
-
-                                            <!-- Price / Stock / Delivery -->
-                                            <div class="mp-section-box mb-3">
-                                                <div class="row g-3 align-items-center">
-                                                    <div class="col-md-7">
-                                                        <div class="text-muted"
-                                                            style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; font-weight:700;">Precio</div>
-                                                        <div class="mp-price-value">
-                                                            $<t t-esc="'%.2f' % (unit_price if unit_price is not None else product.price)" />
-                                                            <span class="mp-price-unit">
-                                                                / <t
-                                                                    t-esc="product.uom_id.name" />
-                                                            </span>
-                                                        </div>
-                                                        <t t-if="has_custom_price">
-                                                            <div style="font-size:12px; margin-top:2px;">
-                                                                <span class="s-badge s-badge--success" style="font-size:10px;">Tu precio</span>
-                                                                <span class="text-faint" style="text-decoration:line-through; margin-left:4px;">$<t t-esc="'%.2f' % product.price" /> publicación</span>
-                                                            </div>
-                                                        </t>
-                                                    </div>
-                                                    <div class="col-md-5 text-md-end">
-                                                        <div class="text-muted"
-                                                            style="font-size:12px;">Disponible</div>
-                                                        <div
-                                                            style="font-weight:900; font-size:18px;">
-                                                            <t t-esc="product.available_qty" />
-                                                            <t
-                                                                t-esc="product.uom_id.name" />
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <t t-if="product.expected_delivery_date">
-                                                    <div class="mt-3 rounded-3 p-3"
-                                                        style="background:rgba(18,62,92,.06); border:1px solid rgba(18,62,92,.12);">
-                                                        <div
-                                                            class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
-                                                            <div>
-                                                                <div class="text-muted"
-                                                                    style="font-size:12px;">
-                                                                    Fecha estimada de entrega
-                                                                </div>
-                                                                <div style="font-weight:900;">
-                                                                    <i class="fa fa-calendar me-1"></i>
-                                                                    <t
-                                                                        t-esc="product.expected_delivery_date" />
-                                                                </div>
-                                                            </div>
-                                                            <span
-                                                                class="badge rounded-pill text-bg-light border"
-                                                                style="font-weight:900;">
-                                                                Planificada
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </t>
-                                            </div>
-
-                                            <!-- Comprar. Suelto entre dos secciones parecia parte del aviso
-                                                 de entrega que tiene encima; va pegado al bloque de precio
-                                                 porque precio, disponibilidad, entrega y accion son una sola
-                                                 decision.
-                                                 Y respeta el mismo veto de rol que la cuadricula del catalogo:
-                                                 antes se le ofrecia a cualquiera y a quien no puede comprarle
-                                                 a ese eslabon le terminaba en un 403. -->
-                                            <t t-if="not is_owner and product.state == 'published' and product.available_qty &gt; 0">
-                                                <t t-set="veto" t-value="'' if request.env.user._is_public() else product.motivo_no_comprable(request.env.user.partner_id)"/>
-                                                <a t-if="not veto" class="s-btn s-btn-primary s-btn-block mb-3"
-                                                   t-att-href="'/marketplace/buy/%s' % product.uuid_ref">
-                                                    <i class="fa fa-shopping-cart me-1"></i> Comprar
-                                                </a>
-                                                <span t-else="" class="s-btn s-btn-ghost s-btn-block disabled mb-3"
-                                                      t-att-title="veto">No disponible</span>
-                                            </t>
-
-                                            <!-- Especificaciones (id estable: ancla de herencias) -->
-                                            <div class="mp-sec-head" id="shrimp_product_specs_head">
-                                                <span class="mp-sec-ico"><i class="fa fa-list-ul"></i></span>
-                                                <h3 class="mp-sec-title">Especificaciones</h3>
-                                            </div>
-                                            <div class="mp-spec-grid mb-3">
-                                                <div class="mp-spec">
-                                                    <span class="mp-spec-ico"><i class="fa fa-flask"></i></span>
-                                                    <div class="mp-spec-body">
-                                                        <div class="mp-spec-label">Especie</div>
-                                                        <div class="mp-spec-value"><t t-esc="product.species_id.name or '—'"/></div>
-                                                    </div>
-                                                </div>
-                                                <div class="mp-spec">
-                                                    <span class="mp-spec-ico"><i class="fa fa-hourglass-half"></i></span>
-                                                    <div class="mp-spec-body">
-                                                        <div class="mp-spec-label">Etapa</div>
-                                                        <div class="mp-spec-value"><t t-esc="product.stage_id.name or '—'"/></div>
-                                                    </div>
-                                                </div>
-                                                <div class="mp-spec">
-                                                    <span class="mp-spec-ico"><i class="fa fa-sitemap"></i></span>
-                                                    <div class="mp-spec-body">
-                                                        <div class="mp-spec-label">Línea genética / cepa</div>
-                                                        <div class="mp-spec-value"><t t-esc="product.genetics_line_id.name or '—'"/></div>
-                                                    </div>
-                                                </div>
-                                                <div class="mp-spec">
-                                                    <span class="mp-spec-ico"><i class="fa fa-balance-scale"></i></span>
-                                                    <div class="mp-spec-body">
-                                                        <div class="mp-spec-label">Tamaño promedio</div>
-                                                        <div class="mp-spec-value"><t t-esc="product.avg_size_mg or '—'"/> mg</div>
-                                                    </div>
-                                                </div>
-                                                <div class="mp-spec">
-                                                    <span class="mp-spec-ico"><i class="fa fa-heartbeat"></i></span>
-                                                    <div class="mp-spec-body">
-                                                        <div class="mp-spec-label">Supervivencia</div>
-                                                        <div class="mp-spec-value"><t t-esc="product.survival_rate or '—'"/> %</div>
-                                                    </div>
-                                                </div>
-                                                <div class="mp-spec">
-                                                    <span class="mp-spec-ico"><i class="fa fa-map-marker"></i></span>
-                                                    <div class="mp-spec-body">
-                                                        <div class="mp-spec-label">Ubicación</div>
-                                                        <div class="mp-spec-value"><t t-esc="product.location or '—'"/></div>
-                                                    </div>
-                                                </div>
-                                                <t t-if="product.presentation">
-                                                    <div class="mp-spec">
-                                                        <span class="mp-spec-ico"><i class="fa fa-cube"></i></span>
-                                                        <div class="mp-spec-body">
-                                                            <div class="mp-spec-label">Presentación</div>
-                                                            <div class="mp-spec-value"><t t-esc="dict(product._fields['presentation'].selection).get(product.presentation)"/></div>
-                                                        </div>
-                                                    </div>
-                                                </t>
-                                                <t t-if="product.size_grade_id">
-                                                    <div class="mp-spec">
-                                                        <span class="mp-spec-ico"><i class="fa fa-balance-scale"></i></span>
-                                                        <div class="mp-spec-body">
-                                                            <div class="mp-spec-label">Talla</div>
-                                                            <div class="mp-spec-value"><t t-esc="product.size_grade_id.name"/></div>
-                                                        </div>
-                                                    </div>
-                                                </t>
-                                            </div>
-
-                                            <!-- Estado sanitario -->
-                                            <t t-if="product.health_status">
-                                                <div class="s-health mb-3">
-                                                    <div class="s-health-title"><i class="fa fa-stethoscope me-2"></i> Estado sanitario / observaciones</div>
-                                                    <p><t t-esc="product.health_status"/></p>
-                                                </div>
-                                            </t>
-
-                                            <!-- Actions -->
-                                            <div class="d-flex flex-wrap gap-2 mt-1 mp-detail-actions align-items-stretch">
-
-                                                <t t-set="p_vendido" t-value="product.has_purchases()"/>
-
-                                                <!-- Con venta no hay modificación (ya hay movimiento). -->
-                                                <t t-if="(is_owner or is_internal) and not p_vendido">
-                                                    <a class="s-btn s-btn-ghost"
-                                                        t-att-href="'/marketplace/products/%s/edit' % product.uuid_ref">
-                                                        <i class="fa fa-pencil me-1"></i> Editar </a>
-                                                </t>
-
-                                                <t t-if="is_owner and product.state == 'draft'">
-                                                    <form
-                                                        t-att-action="'/marketplace/products/%s/publish' % product.uuid_ref"
-                                                        method="post" class="d-inline">
-                                                        <input type="hidden" name="csrf_token"
-                                                            t-att-value="request.csrf_token()" />
-                                                        <button type="submit"
-                                                            class="s-btn s-btn-primary">
-                                                            <i class="fa fa-check me-1"></i>
-                                                            Publicar </button>
-                                                    </form>
-                                                </t>
-
-                                                <!-- Con venta: solo archivar (no se elimina). Sin venta: eliminar. -->
-                                                <t t-if="is_owner and product.active">
-                                                    <t t-if="p_vendido">
-                                                        <form method="post" class="d-inline"
-                                                              t-att-action="'/marketplace/products/%s/deactivate' % product.uuid_ref">
-                                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                                            <button type="button" class="s-btn s-btn-ghost prod-del-btn"
-                                                                    data-modo="archivar" t-att-data-nombre="product.name">
-                                                                <i class="fa fa-archive me-1"></i> Archivar</button>
-                                                        </form>
-                                                    </t>
-                                                    <t t-else="">
-                                                        <form method="post" class="d-inline"
-                                                              t-att-action="'/marketplace/products/%s/delete' % product.uuid_ref">
-                                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                                            <button type="button" class="s-btn s-btn-danger prod-del-btn"
-                                                                    data-modo="eliminar" t-att-data-nombre="product.name">
-                                                                <i class="fa fa-trash me-1"></i> Eliminar</button>
-                                                        </form>
-                                                    </t>
-                                                </t>
-                                                <t t-if="is_owner and not product.active">
-                                                    <form method="post" class="d-inline"
-                                                          t-att-action="'/marketplace/products/%s/reactivate' % product.uuid_ref">
-                                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                                        <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-refresh me-1"></i> Reactivar</button>
-                                                    </form>
-                                                </t>
-                                            </div>
-
-                                            <!-- Modal de confirmación (eliminar / archivar). -->
-                                            <t t-call="shrimp_marketplace.product_confirm_modal"/>
-
-                                        </div>
-                                    </div>
-                                </div>
-
                             </div>
-                        </div>
+                        </aside>
 
-                        <!-- COMPRADORES (solo dueño) -->
-                        <t t-if="is_owner or is_internal">
-                            <div class="col-12">
-                                <div class="mp-table-card">
+                        <!-- ===================== COLUMNA PRINCIPAL ===================== -->
+                        <div class="pd-main">
+
+                            <!-- Especificaciones (id estable: ancla de herencias) -->
+                            <div class="pd-sec" id="shrimp_product_specs_head" role="region" aria-labelledby="pd_specs_t">
+                                <div class="pd-sec-h">
+                                    <span class="pd-sec-ico" aria-hidden="true"><i class="fa fa-list-ul"/></span>
+                                    <div><h2 id="pd_specs_t">Especificaciones</h2><p>Ficha técnica del lote declarada por el vendedor.</p></div>
+                                </div>
+                                <div class="pd-sec-b">
+                                    <div class="mp-spec-grid">
+                                        <div t-att-class="'mp-spec' + ('' if product.species_id else ' is-empty')">
+                                            <span class="mp-spec-ico"><i class="fa fa-flask"></i></span>
+                                            <div class="mp-spec-body"><div class="mp-spec-label">Especie</div><div class="mp-spec-value"><t t-esc="product.species_id.name or '—'"/></div></div>
+                                        </div>
+                                        <div t-att-class="'mp-spec' + ('' if product.stage_id else ' is-empty')">
+                                            <span class="mp-spec-ico"><i class="fa fa-hourglass-half"></i></span>
+                                            <div class="mp-spec-body"><div class="mp-spec-label">Etapa</div><div class="mp-spec-value"><t t-esc="product.stage_id.name or '—'"/></div></div>
+                                        </div>
+                                        <div t-att-class="'mp-spec' + ('' if product.genetics_line_id else ' is-empty')">
+                                            <span class="mp-spec-ico"><i class="fa fa-sitemap"></i></span>
+                                            <div class="mp-spec-body"><div class="mp-spec-label">Línea genética / cepa</div><div class="mp-spec-value"><t t-esc="product.genetics_line_id.name or '—'"/></div></div>
+                                        </div>
+                                        <div t-att-class="'mp-spec' + ('' if product.avg_size_mg else ' is-empty')">
+                                            <span class="mp-spec-ico"><i class="fa fa-balance-scale"></i></span>
+                                            <div class="mp-spec-body"><div class="mp-spec-label">Tamaño promedio</div><div class="mp-spec-value"><t t-if="product.avg_size_mg"><t t-esc="fmtq(product.avg_size_mg)"/> mg</t><t t-else="">—</t></div></div>
+                                        </div>
+                                        <div t-att-class="'mp-spec' + ('' if product.survival_rate else ' is-empty')">
+                                            <span class="mp-spec-ico"><i class="fa fa-heartbeat"></i></span>
+                                            <div class="mp-spec-body"><div class="mp-spec-label">Supervivencia</div><div class="mp-spec-value"><t t-if="product.survival_rate"><t t-esc="fmtq(product.survival_rate)"/> %</t><t t-else="">—</t></div></div>
+                                        </div>
+                                        <div t-att-class="'mp-spec' + ('' if product.location else ' is-empty')">
+                                            <span class="mp-spec-ico"><i class="fa fa-map-marker"></i></span>
+                                            <div class="mp-spec-body"><div class="mp-spec-label">Ubicación</div><div class="mp-spec-value"><t t-esc="product.location or '—'"/></div></div>
+                                        </div>
+                                        <t t-if="product.presentation">
+                                            <div class="mp-spec">
+                                                <span class="mp-spec-ico"><i class="fa fa-cube"></i></span>
+                                                <div class="mp-spec-body"><div class="mp-spec-label">Presentación</div><div class="mp-spec-value"><t t-esc="dict(product._fields['presentation'].selection).get(product.presentation)"/></div></div>
+                                            </div>
+                                        </t>
+                                        <t t-if="product.size_grade_id">
+                                            <div class="mp-spec">
+                                                <span class="mp-spec-ico"><i class="fa fa-balance-scale"></i></span>
+                                                <div class="mp-spec-body"><div class="mp-spec-label">Talla</div><div class="mp-spec-value"><t t-esc="product.size_grade_id.name"/></div></div>
+                                            </div>
+                                        </t>
+                                    </div>
+
+                                    <!-- Estado sanitario -->
+                                    <t t-if="product.health_status">
+                                        <div class="s-health">
+                                            <div class="s-health-title"><i class="fa fa-stethoscope me-2"></i> Estado sanitario / observaciones</div>
+                                            <p><t t-esc="product.health_status"/></p>
+                                        </div>
+                                    </t>
+                                </div>
+                            </div>
+
+                            <!-- Certificados: resumen + botón que abre el modal -->
+                            <section class="pd-sec" id="pd_certs" aria-labelledby="pd_certs_t">
+                                <div class="pd-sec-h">
+                                    <span class="pd-sec-ico" aria-hidden="true"><i class="fa fa-certificate"/></span>
+                                    <div><h2 id="pd_certs_t">Certificados</h2><p>Del producto y del vendedor. Los vencidos se marcan «Vencido».</p></div>
+                                    <span t-if="cert_total" class="pf-chip-st pf-st-ok"><t t-esc="cert_total"/></span>
+                                </div>
+                                <div class="pd-sec-b">
+                                    <div t-if="cert_total" class="pd-cert-sum">
+                                        <div class="pd-cert-names">
+                                            <t t-foreach="vis_cert_lines[:4]" t-as="cl">
+                                                <span class="pf-tag"><i t-att-class="'fa ' + (('fa-exclamation-circle text-danger' if cl.shrimp_is_expired() else 'fa-check-circle') if cl.status == 'approved' else 'fa-clock-o text-warning')" aria-hidden="true"/><t t-esc="cl.certificate_id.name"/><t t-if="cl.status == 'approved' and cl.shrimp_is_expired()"> · Vencido</t></span>
+                                            </t>
+                                            <t t-foreach="valid_seller_certs[:max(0, 4 - len(vis_cert_lines))]" t-as="sc">
+                                                <span class="pf-tag"><i t-att-class="'fa ' + ('fa-exclamation-circle text-danger' if sc.shrimp_is_expired() else 'fa-check-circle')" aria-hidden="true"/><t t-esc="sc.certificate_id.name"/><t t-if="sc.shrimp_is_expired()"> · Vencido</t></span>
+                                            </t>
+                                            <span t-if="cert_total &gt; 4" class="pf-tag">+<t t-esc="cert_total - 4"/></span>
+                                        </div>
+                                        <button type="button" class="s-btn s-btn-ghost pd-cert-btn" data-bs-toggle="modal" data-bs-target="#pdCertModal" aria-haspopup="dialog">
+                                            <i class="fa fa-file-text-o me-1" aria-hidden="true"/> Ver certificados (<t t-esc="cert_total"/>)
+                                        </button>
+                                    </div>
+                                    <div t-else="" class="pd-empty">
+                                        <b>Sin certificados</b>
+                                        Este producto no tiene certificados cargados.
+                                    </div>
+                                </div>
+                            </section>
+
+                            <!-- COMPRADORES (solo dueño / interno) -->
+                            <t t-if="can_manage">
+                                <div class="mp-table-card" id="pd_buyers">
                                     <div class="card-body p-4">
                                         <div class="mp-sec-head">
                                             <span class="mp-sec-ico"><i class="fa fa-users"></i></span>
                                             <h3 class="mp-sec-title">Quiénes te compraron</h3>
-                                            <t t-if="buyers"><span class="s-badge s-badge--teal mp-sec-count"><t t-esc="len(buyers)"/></span></t>
+                                            <t t-if="buyers"><span class="pf-chip-st pf-st-info mp-sec-count"><t t-esc="len(buyers)"/></span></t>
                                         </div>
                                         <t t-if="not buyers">
-                                            <div class="text-muted" style="font-size:14px; padding:6px 0;">
-                                                <i class="fa fa-info-circle me-1"></i> Aún nadie te ha comprado este producto.
-                                            </div>
+                                            <div class="pd-empty">Aún nadie te ha comprado este producto.</div>
                                         </t>
-                                        <div t-if="buyers" class="table-responsive mp-table-wrap">
+                                        <div t-if="buyers" class="table-responsive mp-table-wrap pd-stack">
                                             <table class="table align-middle mb-0">
                                                 <thead>
-                                                    <tr>
-                                                        <th>Comprador</th>
-                                                        <th>Compras</th>
-                                                        <th>Cantidad</th>
-                                                        <th class="text-end">Total</th>
-                                                    </tr>
+                                                    <tr><th>Comprador</th><th>Compras</th><th>Cantidad</th><th class="text-end">Total</th></tr>
                                                 </thead>
                                                 <tbody>
                                                     <t t-foreach="buyers" t-as="b">
                                                         <tr>
-                                                            <td class="fw-semibold"><t t-esc="b['name']"/></td>
-                                                            <td><t t-esc="b['count']"/></td>
-                                                            <td><t t-esc="'%g' % b['qty']"/> <t t-esc="product.uom_id.name or ''"/></td>
-                                                            <td class="text-end fw-semibold">$<t t-esc="'%.2f' % b['amount']"/></td>
+                                                            <td class="fw-semibold" data-label="Comprador"><t t-esc="b['name']"/></td>
+                                                            <td data-label="Compras"><t t-esc="b['count']"/></td>
+                                                            <td data-label="Cantidad"><t t-esc="'%g' % b['qty']"/> <t t-esc="uom_name"/></td>
+                                                            <td class="text-end fw-semibold" data-label="Total">$<t t-esc="'%.2f' % b['amount']"/></td>
                                                         </tr>
                                                     </t>
                                                 </tbody>
                                                 <tfoot>
-                                                    <tr style="border-top:2px solid var(--shrimp-border-strong);">
+                                                    <tr>
                                                         <td class="fw-bold">Total</td>
                                                         <td></td>
-                                                        <td class="fw-bold"><t t-esc="'%g' % buyers_total_qty"/> <t t-esc="product.uom_id.name or ''"/></td>
-                                                        <td class="text-end fw-bold">$<t t-esc="'%.2f' % buyers_total_amount"/></td>
+                                                        <td class="fw-bold" data-label="Cantidad"><t t-esc="'%g' % buyers_total_qty"/> <t t-esc="uom_name"/></td>
+                                                        <td class="text-end fw-bold" data-label="Importe">$<t t-esc="'%.2f' % buyers_total_amount"/></td>
                                                     </tr>
                                                 </tfoot>
                                             </table>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        </t>
+                            </t>
 
-                        <!-- CERTIFICADOS DEL VENDEDOR (vigentes a la publicación) -->
-                        <t t-if="valid_seller_certs">
-                            <div class="col-12">
+                            <!-- EVOLUCIÓN (div.col-12 + h3: ancla de la ficha de calidad) -->
+                            <div class="col-12 pd-evo">
                                 <div class="mp-table-card">
                                     <div class="card-body p-4">
                                         <div class="mp-sec-head">
-                                            <span class="mp-sec-ico"><i class="fa fa-id-badge"></i></span>
-                                            <h3 class="mp-sec-title">Certificados del vendedor</h3>
-                                            <span class="s-badge s-badge--teal mp-sec-count"><t t-esc="len(valid_seller_certs)"/></span>
+                                            <span class="mp-sec-ico"><i class="fa fa-history"></i></span>
+                                            <h3 class="mp-sec-title">Evolución del producto</h3>
+                                            <t t-if="evolution_lines"><span class="pf-chip-st pf-st-info mp-sec-count"><t t-esc="len(evolution_lines)"/></span></t>
                                         </div>
-                                        <p class="text-muted" style="font-size:13px; margin:-6px 0 14px;">
-                                            Certificados del vendedor vigentes a la fecha de publicación
-                                            (<t t-esc="publish_date"/>).
-                                        </p>
-                                        <div class="table-responsive mp-table-wrap">
-                                            <table class="table align-middle mb-0">
-                                                <thead>
-                                                    <tr>
-                                                        <th>Certificado</th>
-                                                        <th>Entidad</th>
-                                                        <th>N°</th>
-                                                        <th>Emisión</th>
-                                                        <th>Expira</th>
-                                                        <th class="text-end">Archivo</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    <t t-foreach="valid_seller_certs" t-as="c">
-                                                        <tr>
-                                                            <td class="fw-semibold"><t t-esc="c.certificate_id.name"/></td>
-                                                            <td><t t-esc="c.certificate_id.issuer or '—'"/></td>
-                                                            <td><t t-esc="c.certificate_number or '—'"/></td>
-                                                            <td><t t-esc="c.issue_date or '—'"/></td>
-                                                            <td><t t-esc="c.expiry_date or '—'"/></td>
-                                                            <td class="text-end">
-                                                                <t t-if="c.file_attachment_id">
-                                                                    <button type="button"
-                                                                        class="s-btn s-btn-ghost btn-sm js-cert-view"
-                                                                        t-att-data-url="'/marketplace/product/%s/user-certificate/%s' % (product.uuid_ref, c.uuid_ref)">
-                                                                        Ver certificado
-                                                                    </button>
-                                                                </t>
-                                                                <t t-else="">
-                                                                    <span class="text-muted">—</span>
-                                                                </t>
-                                                            </td>
-                                                        </tr>
-                                                    </t>
-                                                </tbody>
-                                            </table>
-                                        </div>
+                                        <t t-if="evolution_lines">
+                                            <div class="table-responsive mp-table-wrap pd-evo-table">
+                                                <table class="table align-middle mb-0">
+                                                    <thead>
+                                                        <tr><th>Fecha</th><th>Etapa</th><th>Tamaño mg</th><th>Supervivencia</th><th>Stock disponible</th><th>Observación</th></tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <t t-foreach="evolution_lines" t-as="ev">
+                                                            <tr>
+                                                                <td data-label="Fecha"><t t-esc="fmtd(ev.date)"/></td>
+                                                                <td data-label="Etapa"><t t-esc="ev.stage_id.name or '—'"/></td>
+                                                                <td data-label="Tamaño mg"><t t-esc="ev.avg_size_mg or '—'"/></td>
+                                                                <td data-label="Supervivencia"><t t-if="ev.survival_rate"><t t-esc="ev.survival_rate"/> %</t><t t-else="">—</t></td>
+                                                                <td data-label="Stock disponible"><t t-if="ev.available_qty"><t t-esc="fmtq(ev.available_qty)"/> <t t-esc="uom_name"/></t><t t-else="">—</t></td>
+                                                                <td data-label="Observación"><t t-esc="ev.note or ev.health_status or '—'"/></td>
+                                                            </tr>
+                                                        </t>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </t>
+                                        <t t-else="">
+                                            <div class="pd-empty">
+                                                <b>Sin histórico de evolución</b>
+                                                Aún no se han registrado cambios productivos para este lote.
+                                            </div>
+                                        </t>
                                     </div>
                                 </div>
+                            </div>
+
+                            <!-- Modal de confirmación (eliminar / archivar). -->
+                            <t t-call="shrimp_marketplace.product_confirm_modal"/>
+                        </div>
+                    </div>
+
+                    <!-- ===================== MODAL: CERTIFICADOS ===================== -->
+                    <div t-if="cert_total" class="modal fade pf-modal" id="pdCertModal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="pdCertModalT" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h3 class="modal-title" id="pdCertModalT"><i class="fa fa-certificate pf-teal" aria-hidden="true"/> Certificados</h3>
+                                    <button type="button" class="pf-ib" data-bs-dismiss="modal" aria-label="Cerrar"><i class="fa fa-times" aria-hidden="true"/></button>
+                                </div>
+                                <div class="modal-body">
+                                    <t t-if="vis_cert_lines">
+                                        <div class="pd-cert-grp">Del producto</div>
+                                        <div class="pf-certs">
+                                            <t t-foreach="vis_cert_lines" t-as="line">
+                                                <div class="pf-cert">
+                                                    <span class="pf-cert-ico" aria-hidden="true"><i class="fa fa-file-text-o"/></span>
+                                                    <div>
+                                                        <div class="pf-cert-t">
+                                                            <t t-esc="line.certificate_id.name"/>
+                                                            <span t-if="line.source_user_certificate_line_id" class="pf-tag pf-t-user">Del perfil</span>
+                                                            <span t-if="line.status == 'approved' and line.shrimp_is_expired()" class="pf-tag pf-t-rej">Vencido</span>
+                                                            <span t-elif="line.status == 'approved'" class="pf-tag pf-st-ok">Aprobado</span>
+                                                            <span t-elif="line.status == 'rejected'" class="pf-tag pf-t-rej">Rechazado</span>
+                                                            <span t-else="" class="pf-tag pf-t-rev">En revisión</span>
+                                                        </div>
+                                                        <div class="pf-cert-m">
+                                                            <t t-esc="line.certificate_id.issuer or '—'"/>
+                                                            · N° <t t-esc="line.number or '—'"/>
+                                                            · emitido <t t-esc="fmtd(line.issue_date)"/>
+                                                            · vence <t t-esc="fmtd(line.expiry_date)"/>
+                                                        </div>
+                                                    </div>
+                                                    <div class="pf-cert-a">
+                                                        <button t-if="line.attachment_id" type="button" class="pf-ib js-cert-view"
+                                                                t-att-data-url="product.shrimp_cert_url(line.attachment_id)">
+                                                            <i class="fa fa-eye" aria-hidden="true"/> Ver certificado
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </t>
+                                        </div>
+                                    </t>
+                                    <t t-if="valid_seller_certs">
+                                        <div class="pd-cert-grp">Del vendedor</div>
+                                        <p class="pd-cert-note">Certificados aprobados del vendedor; los vencidos se marcan «Vencido».</p>
+                                        <div class="pf-certs">
+                                            <t t-foreach="valid_seller_certs" t-as="c">
+                                                <div class="pf-cert">
+                                                    <span class="pf-cert-ico" aria-hidden="true"><i class="fa fa-id-badge"/></span>
+                                                    <div>
+                                                        <div class="pf-cert-t"><t t-esc="c.certificate_id.name"/> <span t-if="c.shrimp_is_expired()" class="pf-tag pf-t-rej">Vencido</span><span t-else="" class="pf-tag pf-st-ok">Vigente</span></div>
+                                                        <div class="pf-cert-m">
+                                                            <t t-esc="c.certificate_id.issuer or '—'"/>
+                                                            · N° <t t-esc="c.certificate_number or '—'"/>
+                                                            · emitido <t t-esc="fmtd(c.issue_date)"/>
+                                                            · vence <t t-esc="fmtd(c.expiry_date)"/>
+                                                        </div>
+                                                    </div>
+                                                    <div class="pf-cert-a">
+                                                        <button t-if="c.file_attachment_id" type="button" class="pf-ib js-cert-view"
+                                                                t-att-data-url="'/marketplace/product/%s/user-certificate/%s' % (product.uuid_ref, c.uuid_ref)">
+                                                            <i class="fa fa-eye" aria-hidden="true"/> Ver certificado
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </t>
+                                        </div>
+                                    </t>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="s-btn s-btn-ghost" data-bs-dismiss="modal">Cerrar</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ===================== BARRA DE ACCIÓN (móvil) ===================== -->
+                    <div class="pd-mbar" id="pd_mbar">
+                        <div class="pd-mbar-p">
+                            <b>$<t t-esc="'%.2f' % price_shown"/></b>
+                            <span>/ <t t-esc="uom_name"/> · <t t-esc="fmtq(product.available_qty)"/> disp.</span>
+                        </div>
+                        <t t-if="can_buy">
+                            <a class="s-btn s-btn-primary" t-att-href="'/marketplace/buy/%s' % product.uuid_ref"><i class="fa fa-shopping-cart me-1" aria-hidden="true"/> Comprar</a>
+                        </t>
+                        <t t-elif="can_manage">
+                            <div class="pd-mbar-act">
+                                <a class="s-btn s-btn-primary" t-att-href="'/marketplace/products/%s/edit' % product.uuid_ref"><i class="fa fa-pencil me-1" aria-hidden="true"/> Editar</a>
+                                <a class="s-btn s-btn-ghost" href="#pd_owner" aria-label="Gestionar publicación" title="Gestionar publicación"><i class="fa fa-sliders" aria-hidden="true"/></a>
                             </div>
                         </t>
-
-                        <!-- CERTIFICATES -->
-                        <div class="col-12">
-                            <div class="mp-table-card">
-                                <div class="card-body p-4">
-
-                                    <div class="mp-sec-head">
-                                        <span class="mp-sec-ico"><i class="fa fa-file-text-o"></i></span>
-                                        <h3 class="mp-sec-title">Certificados del producto</h3>
-                                        <!-- Al público, solo los aprobados; el dueño ve también
-                                             los que están en revisión o rechazados. -->
-                                        <t t-set="vis_cert_lines" t-value="product.shrimp_visible_certificate_lines(owner_view=is_owner or is_internal)"/>
-                                        <t t-if="vis_cert_lines">
-                                            <span class="s-badge s-badge--teal mp-sec-count">
-                                                <t t-esc="len(vis_cert_lines)" />
-                                            </span>
-                                        </t>
-                                    </div>
-
-                                    <t t-if="vis_cert_lines">
-                                        <div class="table-responsive mp-table-wrap">
-                                            <table class="table align-middle mb-0">
-                                                <thead class="text-muted" style="font-size:12px;">
-                                                    <tr>
-                                                        <th>Certificado</th>
-                                                        <th>Entidad</th>
-                                                        <th>N°</th>
-                                                        <th>Emisión</th>
-                                                        <th>Expira</th>
-                                                        <th class="text-end">Archivo</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    <t t-foreach="vis_cert_lines"
-                                                        t-as="line">
-                                                        <tr>
-                                                            <td class="fw-semibold">
-                                                                <t t-esc="line.certificate_id.name" />
-                                                                <span t-if="line.status != 'approved'" class="s-badge ms-1">
-                                                                    <t t-esc="'Rechazado' if line.status == 'rejected' else 'En revisión'"/>
-                                                                </span>
-                                                            </td>
-                                                            <td>
-                                                                <t
-                                                                    t-esc="line.certificate_id.issuer" />
-                                                            </td>
-                                                            <td>
-                                                                <t t-esc="line.number or '—'" />
-                                                            </td>
-                                                            <td>
-                                                                <t t-esc="line.issue_date or '—'" />
-                                                            </td>
-                                                            <td>
-                                                                <t t-esc="line.expiry_date or '—'" />
-                                                            </td>
-                                                            <td class="text-end">
-                                                                <t t-if="line.attachment_id">
-                                                                    <button type="button"
-                                                                        class="s-btn s-btn-ghost btn-sm js-cert-view"
-                                                                        t-att-data-url="product.shrimp_cert_url(line.attachment_id)">
-                                                                        Ver certificado
-                                                                    </button>
-                                                                </t>
-                                                                <t t-else="">
-                                                                    <span class="text-muted">—</span>
-                                                                </t>
-                                                            </td>
-                                                        </tr>
-                                                    </t>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </t>
-
-                                    <t t-else="">
-                                        <div class="rounded-4 p-4 text-center"
-                                            style="background:#fff; border:1px dashed rgba(0,0,0,.12);">
-                                            <div style="font-weight:900;" class="mb-1">Sin
-                                                certificados</div>
-                                            <div class="text-muted" style="font-size:13px;">
-                                                Este producto no tiene certificados cargados.
-                                            </div>
-                                        </div>
-                                    </t>
-
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="col-12">
-                            <div class="mp-table-card">
-                                <div class="card-body p-4">
-                                    <div class="mp-sec-head">
-                                        <span class="mp-sec-ico"><i class="fa fa-history"></i></span>
-                                        <h3 class="mp-sec-title">Evolución del producto</h3>
-                                        <t t-if="evolution_lines">
-                                            <span class="s-badge s-badge--teal mp-sec-count">
-                                                <t t-esc="len(evolution_lines)" />
-                                            </span>
-                                        </t>
-                                    </div>
-
-                                    <t t-if="evolution_lines">
-                                        <div class="table-responsive mp-table-wrap">
-                                            <table class="table align-middle mb-0">
-                                                <thead class="text-muted" style="font-size:12px;">
-                                                    <tr>
-                                                        <th>Fecha</th>
-                                                        <th>Etapa</th>
-                                                        <th>Tamaño mg</th>
-                                                        <th>Supervivencia</th>
-                                                        <th>Stock disponible</th>
-                                                        <th>Observación</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    <t t-foreach="evolution_lines" t-as="ev">
-                                                        <tr>
-                                                            <td>
-                                                                <t t-esc="ev.date" />
-                                                            </td>
-                                                            <td>
-                                                                <t t-esc="ev.stage_id.name or '—'" />
-                                                            </td>
-                                                            <td>
-                                                                <t t-esc="ev.avg_size_mg or '—'" />
-                                                            </td>
-                                                            <td>
-                                                                <t t-esc="ev.survival_rate or '—'" />
-                                                                % </td>
-                                                            <td>
-                                                                <t t-esc="ev.available_qty or '—'" />
-                                                                <t
-                                                                    t-esc="product.uom_id.name" />
-                                                            </td>
-                                                            <td>
-                                                                <t
-                                                                    t-esc="ev.note or ev.health_status or '—'" />
-                                                            </td>
-                                                        </tr>
-                                                    </t>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </t>
-
-                                    <t t-else="">
-                                        <div class="rounded-4 p-4 text-center"
-                                            style="background:#fff; border:1px dashed rgba(0,0,0,.12);">
-                                            <div style="font-weight:900;" class="mb-1">
-                                                Sin histórico de evolución
-                                            </div>
-                                            <div class="text-muted" style="font-size:13px;">
-                                                Aún no se han registrado cambios productivos para
-                                                este lote.
-                                            </div>
-                                        </div>
-                                    </t>
-                                </div>
-                            </div>
-                        </div>
-
+                        <t t-else="">
+                            <span class="s-btn s-btn-ghost disabled" t-att-title="no_buy_why" aria-disabled="true">No disponible</span>
+                        </t>
                     </div>
+
                 </div>
             </div>
         </t>
 
-        <script>
+        <script type="text/javascript"><![CDATA[
             (function () {
-            function initMarketplaceGallery() {
-            const mainImg = document.getElementById("mp_main_img");
-            const thumbsWrap = document.getElementById("mp_thumbs");
-            const prevBtn = document.getElementById("mp_prev_btn");
-            const nextBtn = document.getElementById("mp_next_btn");
+            function init() {
+            var page = document.getElementById("pd_page");
+            if (!page) { return; }
 
-            if (!mainImg || !thumbsWrap) return;
-
-            function getThumbs() {
-            return Array.from(thumbsWrap.querySelectorAll(".mp-thumb"));
-            }
-
-            function setActive(idx) {
-            const thumbs = getThumbs();
-            const t = thumbs[idx];
-            if (!t) return;
-
+            // Galería: miniaturas, flechas y teclado.
+            var mainImg = document.getElementById("mp_main_img");
+            var thumbsWrap = document.getElementById("mp_thumbs");
+            var counter = document.getElementById("pd_gal_i");
+            if (mainImg && thumbsWrap) {
+            var thumbs = Array.prototype.slice.call(thumbsWrap.querySelectorAll(".mp-thumb"));
+            var setActive = function (idx) {
+            var t = thumbs[idx];
+            if (!t) { return; }
             mainImg.src = t.dataset.url;
             mainImg.dataset.index = String(idx);
-
-            thumbs.forEach((el, i) => {
-            if (i === idx) {
-            el.style.border = "2px solid rgba(18,62,92,.55)";
-            el.style.boxShadow = "0 8px 18px rgba(18,62,92,.15)";
-            } else {
-            el.style.border = "1px solid rgba(0,0,0,.12)";
-            el.style.boxShadow = "none";
-            }
-            });
-            }
-
+            thumbs.forEach(function (el, i) { el.classList.toggle("is-active", i === idx); });
+            if (counter) { counter.textContent = String(idx + 1); }
+            };
+            var go = function (d) {
+            var n = thumbs.length;
+            var cur = parseInt(mainImg.dataset.index || "0", 10);
+            setActive((cur + d + n) % n);
+            };
             thumbsWrap.addEventListener("click", function (e) {
-            const thumb = e.target.closest(".mp-thumb");
-            if (!thumb) return;
-
-            const idx = parseInt(thumb.dataset.index || "0", 10);
-            setActive(idx);
+            var t = e.target.closest(".mp-thumb");
+            if (t) { setActive(parseInt(t.dataset.index || "0", 10)); }
             });
-
-            function go(delta) {
-            const thumbs = getThumbs();
-            const n = thumbs.length;
-            if (!n) return;
-
-            const current = parseInt(mainImg.dataset.index || "0", 10);
-            const next = (current + delta + n) % n;
-            setActive(next);
-            }
-
-            if (prevBtn) prevBtn.addEventListener("click", () => go(-1));
-            if (nextBtn) nextBtn.addEventListener("click", () => go(1));
-
+            thumbsWrap.addEventListener("keydown", function (e) {
+            var t = e.target.closest(".mp-thumb");
+            if (t && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); setActive(parseInt(t.dataset.index || "0", 10)); }
+            });
+            var prev = document.getElementById("mp_prev_btn");
+            var next = document.getElementById("mp_next_btn");
+            if (prev) { prev.addEventListener("click", function () { go(-1); }); }
+            if (next) { next.addEventListener("click", function () { go(1); }); }
             setActive(0);
             }
 
-            if (document.readyState === "loading") {
-            document.addEventListener("DOMContentLoaded", initMarketplaceGallery);
-            } else {
-            initMarketplaceGallery();
+            // Columna derecha fija DEBAJO de la cabecera del sitio.
+            var stickyTop = function () {
+            var h = document.querySelector("header#top");
+            var top = 0;
+            if (h) {
+            var pos = window.getComputedStyle(h).position;
+            if (pos === "fixed" || pos === "sticky") { top = Math.max(0, Math.round(h.getBoundingClientRect().bottom)); }
             }
+            page.style.setProperty("--pd-top", top + "px");
+            };
+            var raf = null;
+            window.addEventListener("scroll", function () {
+            if (raf) { return; }
+            raf = requestAnimationFrame(function () { raf = null; stickyTop(); });
+            }, {passive: true});
+            window.addEventListener("resize", stickyTop);
+            stickyTop();
+
+            // Visor de certificado por encima del modal de la lista.
+            var cv = document.getElementById("certModal");
+            if (cv) { document.body.appendChild(cv); }
+            }
+            if (document.readyState === "loading") { document.addEventListener("DOMContentLoaded", init); } else { init(); }
             })();
-        </script>
+        ]]></script>
     </template>
 
     <template id="product_public_detail" name="Detalle Público - Marketplace">

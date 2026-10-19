@@ -3,10 +3,13 @@
   <!-- =================================================================
        Grupos para menús que se declaran en otros archivos del módulo.
 
-       El resto de menús lleva su groups= en el propio <menuitem>. Estos seis
-       no: viven en shrimp_reports.xml, shrimp_size_grade_views.xml y
+       El resto de menús lleva su groups= en el propio <menuitem>. Estos no:
+       viven en shrimp_reports.xml, shrimp_size_grade_views.xml y
        shrimp_user_cert_approval_views.xml, y se les pone el grupo aquí por
        escritura directa sobre ir.ui.menu para no tocar esos archivos.
+
+       19.0.1.24.0: los grupos son los de la app «CamaronMarket»
+       (group_marketplace_user / group_marketplace_manager), no los de datos.
 
        Este archivo debe cargarse EL ÚLTIMO de la lista 'data': sobrescribe
        registros que los otros archivos crean antes.
@@ -16,38 +19,48 @@
        cruzan las listas de precios de compra. Quien la edita mueve el precio
        al que se liquida una cosecha, así que va con el resto del catálogo. -->
   <record id="menu_shrimp_size_grade" model="ir.ui.menu">
-    <field name="group_ids" eval="[(6, 0, [ref('shrimp_marketplace.group_shrimp_manager')])]"/>
+    <field name="group_ids" eval="[(6, 0, [ref('shrimp_marketplace.group_marketplace_manager')])]"/>
   </record>
 
   <!-- Reportes agregados de todo el marketplace: ventas, comisiones cobradas y
        movimientos de TODOS los socios a la vez. Es la foto comercial del
        negocio, no el trabajo diario de nadie. -->
   <record id="menu_shrimp_reports_root" model="ir.ui.menu">
-    <field name="group_ids" eval="[(6, 0, [ref('shrimp_marketplace.group_shrimp_manager')])]"/>
+    <field name="group_ids" eval="[(6, 0, [ref('shrimp_marketplace.group_marketplace_manager')])]"/>
   </record>
   <record id="menu_report_sales" model="ir.ui.menu">
-    <field name="group_ids" eval="[(6, 0, [ref('shrimp_marketplace.group_shrimp_manager')])]"/>
+    <field name="group_ids" eval="[(6, 0, [ref('shrimp_marketplace.group_marketplace_manager')])]"/>
   </record>
   <record id="menu_report_commissions" model="ir.ui.menu">
-    <field name="group_ids" eval="[(6, 0, [ref('shrimp_marketplace.group_shrimp_manager')])]"/>
+    <field name="group_ids" eval="[(6, 0, [ref('shrimp_marketplace.group_marketplace_manager')])]"/>
   </record>
   <record id="menu_report_moves" model="ir.ui.menu">
-    <field name="group_ids" eval="[(6, 0, [ref('shrimp_marketplace.group_shrimp_manager')])]"/>
+    <field name="group_ids" eval="[(6, 0, [ref('shrimp_marketplace.group_marketplace_manager')])]"/>
   </record>
 
-  <!-- Aprobar certificados es cola de trabajo operativa, como las solicitudes
-       de chequeo: se queda en usuario interno, coherente con su menú padre. -->
+  <!-- Aprobar certificados (de usuario y de producto) es cola de trabajo
+       operativa: usuario de la app, coherente con su menú padre. -->
   <record id="menu_shrimp_cert_approval" model="ir.ui.menu">
-    <field name="group_ids" eval="[(6, 0, [ref('shrimp_marketplace.group_shrimp_user')])]"/>
+    <field name="group_ids" eval="[(6, 0, [ref('shrimp_marketplace.group_marketplace_user')])]"/>
+  </record>
+  <record id="menu_shrimp_product_cert_approval" model="ir.ui.menu">
+    <field name="group_ids" eval="[(6, 0, [ref('shrimp_marketplace.group_marketplace_user')])]"/>
   </record>
 
   <!-- El catálogo de certificados lo define shrimp_user_registry bajo
-       Contactos (ese módulo no conoce la app «Camaronera»); aquí se reubica
-       en su Configuración para que los certificados vivan en un solo lugar:
-       catálogo en Configuración, revisión en Aprobaciones. -->
+       Contactos (ese módulo no conoce la app «CamaronMarket»). Para que los
+       certificados vivan en un solo lugar (catálogo en Configuración, revisión
+       en Aprobaciones) la app declara aquí su propio menú y archiva el de
+       Contactos. Antes se le cambiaba el padre: al desinstalar el marketplace
+       Odoo lo habría convertido en una raíz huérfana; archivado, no. -->
+  <menuitem id="menu_shrimp_certificate_catalog_mk"
+    name="Catálogo de certificados"
+    parent="shrimp_marketplace.menu_shrimp_config_root"
+    action="shrimp_user_registry.action_shrimp_certificate_catalog"
+    sequence="15"
+    groups="base.group_system"/>
   <record id="shrimp_user_registry.menu_shrimp_certificate_catalog" model="ir.ui.menu">
-    <field name="parent_id" ref="shrimp_marketplace.menu_shrimp_config_root"/>
-    <field name="sequence">15</field>
+    <field name="active" eval="False"/>
   </record>
 
 </odoo>

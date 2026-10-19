@@ -84,6 +84,7 @@ class TestFilterDrawer(HttpCase):
         self.assertNotIn('id="sf_sec_size"', html)
         # Un solo estadío (nauplio): sin fila de chips. Un solo perfil: sin «Perfil».
         self.assertNotIn('id="sMisProdStages"', html)
+        self.assertNotIn('id="sf_sec_stage"', html)
         self.assertNotIn('id="sf_sec_role"', html)
         # Publicados y borrador: «Estado» sí; precios distintos: «Precio» sí.
         self.assertIn('id="sf_sec_pstate"', html)
@@ -108,6 +109,26 @@ class TestFilterDrawer(HttpCase):
         html = self._get("/marketplace/products?seller=no-existe")
         self.assertIn("Vendedor: no-existe", html)
         self.assertNotIn("Nauplio FD uno", html)
+
+    def test_mis_productos_etapa_en_el_cajon(self):
+        """Con dos estadíos la etapa es una sección del cajón (no una fila de
+        chips sobre la lista); ?stage= de antes sigue filtrando y se quita
+        con su etiqueta."""
+        producto(self.env, self.s["sem"], nombre="PL12 FD del semillero", etapa=MP + "shrimp_stage_pl12")
+        nauplio = self.env.ref(MP + "shrimp_stage_nauplio")
+        self._login("sem")
+        html = self._get("/marketplace/products?q=FD")
+        self.assertIn('id="sf_sec_stage"', html)
+        self.assertNotIn('id="sMisProdStages"', html)
+        self.assertNotIn("s-cat-chips", html)
+        html = self._get("/marketplace/products?q=FD&stage=%s" % nauplio.id)
+        self.assertIn('aria-label="Filtros, 1 activos"', html)
+        self.assertIn("Etapa: Nauplio", html)
+        self.assertNotIn("PL12 FD del semillero", html)
+        self.assertIn('href="/marketplace/products?q=FD#listado"', html)
+        cajon = html.split('id="sFilterPanel"')[1].split("</form>")[0]
+        self.assertNotIn('type="hidden" name="stage"', cajon)
+        self.assertEqual(self._count("/marketplace/products/count?q=FD&stage=%s" % nauplio.id), 3)
 
     # ----------------------------------------------------- catálogo/perfil
     def test_catalogo_secciones_segun_perfil(self):
@@ -207,8 +228,9 @@ class TestFilterDrawer(HttpCase):
         self.assertIn('action="/marketplace/purchase-history"', html)
         self.assertEqual(self._count("/marketplace/purchase-history/count?tx_state=done"), 1)
 
-    def test_solicitudes_sin_filtros_vacios(self):
+    def test_solicitudes_retiradas(self):
+        # D-28: la pantalla de solicitudes de chequeo ya no existe: lleva a
+        # «Mis compras» (con el aviso), sin filtros de estado.
         self._login("lab")
         html = self._get("/marketplace/check-requests")
-        # Sin solicitudes no hay estados que elegir.
         self.assertNotIn('id="sSolicitudesEstados"', html)

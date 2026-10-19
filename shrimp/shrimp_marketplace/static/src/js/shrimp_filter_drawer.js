@@ -15,6 +15,11 @@
    .js-filter-open botones que abren el cajón (sin JS: ancla :target)
    select[data-s-dep="campo"]  opciones con data-dep: solo las que casan con
                    el valor elegido en «campo» (p. ej. tallas según presentación)
+   .s-choice-chips[data-s-dep="campo"]  igual para chips (radios): solo se ven
+                   las .s-choice con data-dep del valor elegido en «campo» (p. ej.
+                   etapas según el tipo); si la marcada queda oculta vuelve a
+                   «Todas». Con data-s-min="2" la sección (.s-filter-sec) se
+                   oculta si quedan menos de 2 opciones.
    [data-s-clears="a,b"]       al cambiar este campo se vacían los campos a, b
                    (p. ej. el estadío al cambiar de tipo)
    .s-view-toggle[data-view-key][data-view-target][data-view-path]
@@ -112,6 +117,27 @@
                     if (!match && op.selected) { sel.value = ""; }
                 }
             });
+            form.querySelectorAll(".s-choice-chips[data-s-dep]").forEach(function (box) {
+                var dep = valueOf(box.getAttribute("data-s-dep"));
+                var visibles = 0, lostChecked = false;
+                box.querySelectorAll(".s-choice[data-dep]").forEach(function (item) {
+                    var match = !dep || item.getAttribute("data-dep") === dep;
+                    var inp = item.querySelector("input");
+                    item.hidden = !match;
+                    if (inp) {
+                        inp.disabled = !match;
+                        if (!match && inp.checked) { inp.checked = false; lostChecked = true; }
+                    }
+                    if (match) { visibles++; }
+                });
+                if (lostChecked) {
+                    var all = box.querySelector('input[value=""]');
+                    if (all) { all.checked = true; }
+                }
+                var min = parseInt(box.getAttribute("data-s-min") || "0", 10);
+                var sec = box.closest(".s-filter-sec");
+                if (sec && min) { sec.hidden = visibles < min; }
+            });
         }
 
         // ---- Botón «Ver N …» con el conteo en vivo ----
@@ -167,6 +193,13 @@
                 function (el) { return el.getClientRects().length > 0; });
         }
         function lockScroll(on) {
+            // Bloqueo compartido (shrimp_scroll_lock.js): sin scroll detrás,
+            // sin salto arriba y con el hueco de la barra compensado.
+            var SL = window.ShrimpScrollLock;
+            if (SL) {
+                if (on) { SL.lock(drawer); } else { SL.unlock(drawer); }
+                return;
+            }
             var root = document.documentElement;
             if (on) {
                 var sb = window.innerWidth - root.clientWidth;

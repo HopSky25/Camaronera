@@ -1,4 +1,64 @@
 <odoo>
   <!-- El registro público fue retirado del sitio web.
        (Se eliminó el menú website.menu "Registro" que apuntaba a /register.) -->
+
+  <!-- =================================================================
+       Ajustes › Técnico › CamaronMarket   (19.0.1.11.0)
+
+       Tablas internas de la plataforma: las llena el código (colas, bitácoras,
+       contadores, historiales, líneas que solo se ven dentro de su documento)
+       y nadie las trabaja a diario. No van en las aplicaciones del backoffice
+       (CamaronMarket, Verificador, Copacking); si soporte necesita mirarlas,
+       están aquí, solo en modo desarrollador (base.group_no_one, igual que el
+       resto de «Técnico») y solo para administradores del sistema (cada menú
+       hijo lleva base.group_system).
+
+       La carpeta vive en este módulo porque es la base de todos: los demás
+       (marketplace, verificación, API…) cuelgan aquí sus tablas internas.
+       ================================================================= -->
+  <menuitem id="menu_shrimp_technical_root"
+            name="CamaronMarket"
+            parent="base.menu_custom"
+            sequence="200"
+            groups="base.group_no_one"/>
+
+  <!-- Limitador de frecuencia (registro, inicio de sesión…): una fila por
+       intento. Soporte puede borrar las de una IP para desbloquearla. -->
+  <record id="view_shrimp_rate_limit_list" model="ir.ui.view">
+    <field name="name">shrimp.rate.limit.list</field>
+    <field name="model">shrimp.rate.limit</field>
+    <field name="arch" type="xml">
+      <list string="Intentos registrados" create="false" edit="false">
+        <field name="ts"/>
+        <field name="key"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_shrimp_rate_limit_search" model="ir.ui.view">
+    <field name="name">shrimp.rate.limit.search</field>
+    <field name="model">shrimp.rate.limit</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="key"/>
+        <group>
+          <filter name="g_key" string="Clave" context="{'group_by': 'key'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
+  <record id="action_shrimp_rate_limit" model="ir.actions.act_window">
+    <field name="name">Límites de intentos</field>
+    <field name="res_model">shrimp.rate.limit</field>
+    <field name="view_mode">list</field>
+    <field name="search_view_id" ref="view_shrimp_rate_limit_search"/>
+  </record>
+
+  <menuitem id="menu_shrimp_rate_limit"
+            name="Límites de intentos"
+            parent="menu_shrimp_technical_root"
+            action="action_shrimp_rate_limit"
+            sequence="90"
+            groups="base.group_system"/>
 </odoo>

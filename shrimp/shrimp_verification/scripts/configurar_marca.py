@@ -32,7 +32,7 @@ DATOS_EMPRESA = {
 }
 
 DESCRIPCION = (
-    "CamaronMarket conecta camaroneras, laboratorios y semilleros con sus compradores, "
+    "CamaronMarket conecta camaroneras, laboratorios y nauplieros con sus compradores, "
     "y deja constancia verificable de cada eslabón de la cadena: quién produjo el "
     "lote, quién lo movió y qué encontró el verificador en campo."
 )

@@ -1,0 +1,1005 @@
+/* ==========================================================================
+   CamaronMarket — MODO OSCURO (sitio y portal de las tres plataformas)
+   --------------------------------------------------------------------------
+   Se activa con data-bs-theme="dark" en <html> (modo de color de Bootstrap
+   5.3). Lo pone:
+     * el servidor, si hay cookie shrimp_theme (views/dark_mode_templates.xml),
+     * o el script en línea del <head> (preferencia guardada o la del sistema,
+       prefers-color-scheme) ANTES de pintar: no hay destello claro.
+   El botón luna/sol de la cabecera (static/src/js/shrimp_dark_mode.js) lo
+   cambia y lo recuerda (localStorage + cookie).
+
+   Capas:
+     1. ESTA hoja: tokens oscuros (variables shrimp / Bootstrap / Odoo) y los
+        componentes de Odoo y Bootstrap (cabecera, menús, modales, tablas,
+        formularios, utilidades bg-white/text-dark, estilos en línea...).
+     2. shrimp_dark_auto.css: GENERADA por scripts/generar_modo_oscuro.py a
+        partir de las hojas claras (colores escritos a mano -> oscuro).
+     3. Retoques a mano al final de esta hoja (lo que el generador no adivina).
+   Cada plataforma (verificadores, empaque) tiene su *_dark.css con su paleta.
+
+   Nada de esto toca el backend (web client) ni los PDF: viven en otros
+   bundles (web.assets_backend, web.report_assets_*), no en assets_frontend.
+   Contraste (WCAG AA, sobre --dk-surface #16212b): tinta 13.9:1, suave
+   8.9:1, tenue 6.1:1, texto de marca 9.0:1, teal 9.0:1; blanco sobre el
+   botón de marca #2a6f98 5.5:1.
+   ========================================================================== */
+
+/* ---- 1. Tokens ---------------------------------------------------------- */
+html[data-bs-theme="dark"],
+html[data-bs-theme="dark"] #wrapwrap {
+    color-scheme: dark;
+
+    /* Paleta oscura propia (navy profundo) */
+    --dk-bg: #0c141b;
+    --dk-bg-alt: #111b24;
+    --dk-surface: #16212b;
+    --dk-surface-2: #1c2935;
+    --dk-surface-3: #233241;
+    --dk-border: #2a3b4a;
+    --dk-border-strong: #385066;
+    --dk-ink: #e7eef4;
+    --dk-ink-soft: #b2c1cd;
+    --dk-ink-faint: #8fa1b1;
+    /* Variantes de TEXTO de los colores de marca (los tokens --shrimp-brand,
+       --shrimp-teal... siguen siendo los de FONDO de botón con texto blanco). */
+    --dk-brand-text: #8cc8ec;
+    --dk-teal-text: #5fd0dc;
+    --dk-success-text: #5fd39b;
+    --dk-warning-text: #f0c060;
+    --dk-danger-text: #ff8a7d;
+    --dk-coral-text: #ff9b7a;
+
+    /* Tokens shrimp (shrimp_base.css) */
+    --shrimp-brand: #2a6f98;
+    --shrimp-brand-ink: #3580ad;
+    --shrimp-brand-soft: #17324a;
+    --shrimp-teal: #0e7f8f;
+    --shrimp-teal-soft: #123a40;
+    --shrimp-ink: var(--dk-ink);
+    --shrimp-ink-soft: var(--dk-ink-soft);
+    --shrimp-ink-faint: var(--dk-ink-faint);
+    --shrimp-surface: var(--dk-surface);
+    --shrimp-bg: var(--dk-bg);
+    --shrimp-bg-alt: var(--dk-surface-2);
+    --shrimp-border: var(--dk-border);
+    --shrimp-border-strong: var(--dk-border-strong);
+    --shrimp-success-soft: #143528;
+    --shrimp-warning-soft: #3a2e12;
+    --shrimp-danger-soft: #3e1c1a;
+    --shrimp-state-cancel: var(--dk-ink-faint);
+    --shrimp-muted: var(--dk-ink-faint);
+    --shrimp-navy: var(--dk-brand-text);
+    --shrimp-shadow: none;
+    --shrimp-shadow-hover: none;
+
+    /* Panel (shrimp_panel.css), landing (.sl), verificadores (--vw-*) */
+    --sp-ink: var(--dk-ink);
+    --sp-muted: var(--dk-ink-faint);
+    --sp-line: rgba(255, 255, 255, .10);
+    --sl-ink: var(--dk-ink);
+    --sl-ink-soft: var(--dk-ink-soft);
+    --vw-ink: var(--dk-ink);
+    --vw-soft: var(--dk-ink-soft);
+    --vw-line: var(--dk-border);
+
+    /* Bootstrap 5.3 (Odoo compila las variables sin prefijo: --body-bg...) */
+    --body-bg: var(--dk-bg);
+    --body-bg-rgb: 12, 20, 27;
+    --body-color: var(--dk-ink);
+    --body-color-rgb: 231, 238, 244;
+    --emphasis-color: #fff;
+    --emphasis-color-rgb: 255, 255, 255;
+    --heading-color: var(--dk-ink);
+    --secondary-color: rgba(231, 238, 244, .72);
+    --secondary-bg: var(--dk-surface-2);
+    --secondary-bg-rgb: 28, 41, 53;
+    --tertiary-color: rgba(231, 238, 244, .5);
+    --tertiary-bg: var(--dk-surface);
+    --tertiary-bg-rgb: 22, 33, 43;
+    --border-color: var(--dk-border);
+    --border-color-translucent: rgba(255, 255, 255, .12);
+    --link-color: var(--dk-brand-text);
+    --link-color-rgb: 140, 200, 236;
+    --link-hover-color: #b5dcf3;
+    --link-hover-color-rgb: 181, 220, 243;
+    --code-color: #f39bc0;
+    --highlight-bg: #4d3d00;
+    --highlight-color: var(--dk-ink);
+    --form-valid-color: var(--dk-success-text);
+    --form-valid-border-color: var(--dk-success-text);
+    --form-invalid-color: var(--dk-danger-text);
+    --form-invalid-border-color: var(--dk-danger-text);
+    --primary-text-emphasis: var(--dk-brand-text);
+    --primary-bg-subtle: #17324a;
+    --primary-border-subtle: #2a5675;
+    --success-text-emphasis: var(--dk-success-text);
+    --success-bg-subtle: #143528;
+    --success-border-subtle: #1f5a40;
+    --warning-text-emphasis: var(--dk-warning-text);
+    --warning-bg-subtle: #3a2e12;
+    --warning-border-subtle: #6a5320;
+    --danger-text-emphasis: var(--dk-danger-text);
+    --danger-bg-subtle: #3e1c1a;
+    --danger-border-subtle: #6e302b;
+    --info-text-emphasis: var(--dk-teal-text);
+    --info-bg-subtle: #123a40;
+    --info-border-subtle: #1f5f68;
+    --light-text-emphasis: var(--dk-ink);
+    --light-bg-subtle: var(--dk-surface-2);
+    --light-border-subtle: var(--dk-border);
+    --dark-text-emphasis: var(--dk-ink);
+    --dark-bg-subtle: var(--dk-surface-3);
+    --dark-border-subtle: var(--dk-border-strong);
+}
+
+/* ---- 2. Página -------------------------------------------------------- */
+html[data-bs-theme="dark"] body,
+html[data-bs-theme="dark"] #wrapwrap {
+    background-color: var(--dk-bg);
+    color: var(--dk-ink);
+}
+/* Combinaciones de color de Odoo (o_cc1 = blanco, o_cc2 = gris claro): las
+   usan la barra, secciones de páginas de Odoo y bloques del editor. Las
+   o_cc3-5 ya son oscuras/de color y se quedan. */
+[data-bs-theme="dark"] .o_cc1,
+[data-bs-theme="dark"] .navbar-light {
+    --background-color: var(--dk-bg);
+    --color: var(--dk-ink);
+    --o-cc-bg: var(--dk-bg);
+    background-color: var(--dk-bg);
+    color: var(--dk-ink);
+}
+[data-bs-theme="dark"] .o_cc2 {
+    --background-color: var(--dk-bg-alt);
+    --color: var(--dk-ink);
+    --o-cc-bg: var(--dk-bg-alt);
+    background-color: var(--dk-bg-alt);
+    color: var(--dk-ink);
+}
+[data-bs-theme="dark"] .o_cc1 .text-muted,
+[data-bs-theme="dark"] .o_cc2 .text-muted,
+[data-bs-theme="dark"] .navbar-light .text-muted,
+[data-bs-theme="dark"] .text-muted { color: var(--dk-ink-faint) !important; }
+[data-bs-theme="dark"] .o_cc1 h1, [data-bs-theme="dark"] .o_cc1 h2, [data-bs-theme="dark"] .o_cc1 h3,
+[data-bs-theme="dark"] .o_cc1 h4, [data-bs-theme="dark"] .o_cc1 h5, [data-bs-theme="dark"] .o_cc1 h6,
+[data-bs-theme="dark"] .o_cc2 h1, [data-bs-theme="dark"] .o_cc2 h2, [data-bs-theme="dark"] .o_cc2 h3,
+[data-bs-theme="dark"] .o_cc2 h4, [data-bs-theme="dark"] .o_cc2 h5, [data-bs-theme="dark"] .o_cc2 h6 { color: var(--dk-ink); }
+[data-bs-theme="dark"] .o_cc1 a:not(.btn):not(.nav-link):not(.dropdown-item),
+[data-bs-theme="dark"] .o_cc1 .btn-link,
+[data-bs-theme="dark"] .o_cc2 a:not(.btn):not(.nav-link):not(.dropdown-item),
+[data-bs-theme="dark"] .o_cc2 .btn-link { color: var(--dk-brand-text); }
+[data-bs-theme="dark"] .o_cc1 .btn-link:hover,
+[data-bs-theme="dark"] .o_cc2 .btn-link:hover { color: var(--link-hover-color); }
+
+/* ---- 3. Cabecera (píldora flotante) ------------------------------------ */
+html[data-bs-theme="dark"] #wrapwrap header#top .navbar {
+    background-color: var(--dk-surface) !important;
+    border-color: rgba(255, 255, 255, .09) !important;
+    color: var(--dk-ink);
+}
+html[data-bs-theme="dark"] #wrapwrap header#top .navbar-toggler-icon {
+    --navbar-toggler-icon-bg: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='%23e7eef4' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+    background-image: var(--navbar-toggler-icon-bg) !important;
+    filter: none;
+}
+html[data-bs-theme="dark"] #wrapwrap header#top .btn_cta { color: #fff !important; }
+/* Menú lateral del móvil (offcanvas) */
+[data-bs-theme="dark"] .offcanvas,
+[data-bs-theme="dark"] .o_navbar_mobile {
+    --offcanvas-bg: var(--dk-surface);
+    --offcanvas-color: var(--dk-ink);
+    background-color: var(--dk-surface);
+    color: var(--dk-ink);
+}
+[data-bs-theme="dark"] header#top .o_navbar_mobile .nav-item { border-color: var(--dk-border) !important; }
+
+/* Logo: los tres logos tienen letras navy sobre transparente y no se leen
+   en oscuro. Se pone una «ficha» clara detrás (respeta los colores de la
+   marca sin necesitar una variante). */
+html[data-bs-theme="dark"] #wrapwrap header#top .navbar-brand.logo {
+    background: rgba(244, 248, 251, .94);
+    border-radius: 12px;
+    padding: 3px 10px !important;
+    line-height: 0;
+}
+html[data-bs-theme="dark"] #wrapwrap header#top .navbar-brand.logo img { filter: none; }
+
+/* ---- 4. Botón luna/sol --------------------------------------------------- */
+.shrimp-theme-item { display: flex; align-items: center; list-style: none; }
+.shrimp-theme-toggle {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 40px; height: 40px; min-width: 40px; padding: 0 !important;
+    border-radius: 11px !important;
+    border: 1px solid var(--shrimp-border-strong, #d3d9df) !important;
+    background: transparent; color: var(--shrimp-ink, #0d1b26) !important;
+    font-size: 17px; line-height: 1; cursor: pointer;
+    transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+}
+.shrimp-theme-toggle:hover {
+    background: var(--shrimp-brand-soft, #e7eef3);
+    color: var(--shrimp-brand, #123e5c) !important;
+}
+.shrimp-theme-toggle:focus-visible {
+    outline: 2px solid var(--shrimp-teal, #0e8ea0) !important;
+    outline-offset: 2px;
+}
+.shrimp-theme-toggle .shrimp-theme-ico-light { display: none; }
+[data-bs-theme="dark"] .shrimp-theme-toggle .shrimp-theme-ico-dark { display: none; }
+[data-bs-theme="dark"] .shrimp-theme-toggle .shrimp-theme-ico-light { display: inline-block; color: var(--dk-warning-text); }
+[data-bs-theme="dark"] .shrimp-theme-toggle:hover { color: var(--dk-brand-text) !important; }
+[data-bs-theme="dark"] .shrimp-theme-toggle:focus-visible { outline-color: var(--dk-teal-text) !important; }
+/* Junto a la hamburguesa (cabecera móvil) */
+.o_header_mobile_buttons_wrap .shrimp-theme-toggle { width: 38px; height: 38px; min-width: 38px; font-size: 16px; }
+@media (prefers-reduced-motion: reduce) { .shrimp-theme-toggle { transition: none; } }
+
+/* ---- 5. Componentes de Bootstrap / Odoo --------------------------------- */
+[data-bs-theme="dark"] .dropdown-menu {
+    --dropdown-bg: var(--dk-surface);
+    --dropdown-color: var(--dk-ink);
+    --dropdown-border-color: var(--dk-border);
+    --dropdown-link-color: var(--dk-ink);
+    --dropdown-link-hover-color: var(--dk-ink);
+    --dropdown-link-hover-bg: var(--dk-surface-2);
+    --dropdown-link-active-color: #fff;
+    --dropdown-link-active-bg: var(--shrimp-brand);
+    --dropdown-link-disabled-color: var(--dk-ink-faint);
+    --dropdown-header-color: var(--dk-ink-faint);
+    --dropdown-divider-bg: var(--dk-border);
+    background-color: var(--dk-surface);
+    color: var(--dk-ink);
+}
+[data-bs-theme="dark"] .dropdown-item { color: var(--dk-ink); }
+[data-bs-theme="dark"] .dropdown-item.disabled,
+[data-bs-theme="dark"] .dropdown-item:disabled { color: var(--dk-ink-faint); }
+[data-bs-theme="dark"] .dropdown-header { color: var(--dk-ink-faint); }
+[data-bs-theme="dark"] #wrapwrap #top_menu .dropdown-menu .dropdown-item:hover,
+[data-bs-theme="dark"] #wrapwrap #top_menu .dropdown-menu .dropdown-item:focus,
+[data-bs-theme="dark"] #wrapwrap #top_menu .dropdown-menu .dropdown-item.active,
+[data-bs-theme="dark"] #wrapwrap #top_menu .dropdown-menu .dropdown-item:active,
+[data-bs-theme="dark"] .mp-menu-item:hover, [data-bs-theme="dark"] .mp-menu-item:focus {
+    background-color: var(--shrimp-brand-soft) !important;
+    color: var(--dk-brand-text) !important;
+}
+[data-bs-theme="dark"] .text-primary-emphasis { color: var(--dk-brand-text) !important; }
+
+[data-bs-theme="dark"] .modal-content {
+    --modal-bg: var(--dk-surface);
+    --modal-color: var(--dk-ink);
+    --modal-border-color: var(--dk-border);
+    --modal-header-border-color: var(--dk-border);
+    --modal-footer-border-color: var(--dk-border);
+    background-color: var(--dk-surface);
+    color: var(--dk-ink);
+}
+[data-bs-theme="dark"] .modal-backdrop { --backdrop-bg: #000; --backdrop-opacity: .65; }
+[data-bs-theme="dark"] .popover { --popover-bg: var(--dk-surface-2); --popover-body-color: var(--dk-ink); --popover-header-bg: var(--dk-surface-3); --popover-border-color: var(--dk-border); }
+[data-bs-theme="dark"] .tooltip { --tooltip-bg: var(--dk-ink); --tooltip-color: var(--dk-bg); }
+
+[data-bs-theme="dark"] .card {
+    --card-bg: var(--dk-surface);
+    --card-color: var(--dk-ink);
+    --card-border-color: var(--dk-border);
+    --card-cap-bg: var(--dk-surface-2);
+    --card-cap-color: var(--dk-ink);
+    background-color: var(--dk-surface);
+    color: var(--dk-ink);
+}
+/* Odoo pinta el .card-body de las tarjetas con un blanco al 90 %
+   (:where(.card) .card-body:not(...), especificidad 0,4,0). */
+html[data-bs-theme="dark"] :where(.card:not([data-vxml])) .card-body:not(.card[data-vxml] .card-body) {
+    --background-color: transparent;
+    --color: var(--dk-ink);
+    background-color: transparent;
+    color: var(--dk-ink);
+}
+html[data-bs-theme="dark"] :where(.card:not([data-vxml])) .card-body:not(.card[data-vxml] .card-body) .text-muted { color: var(--dk-ink-faint) !important; }
+[data-bs-theme="dark"] .modal-content .form-control,
+[data-bs-theme="dark"] .modal-content .form-select { background-color: var(--shrimp-input-bg) !important; color: var(--dk-ink) !important; }
+[data-bs-theme="dark"] .modal-content .form-check-input:not(:checked) { background-color: var(--shrimp-input-bg) !important; }
+[data-bs-theme="dark"] .o_select_menu_menu,
+[data-bs-theme="dark"] .o_select_menu_menu .o_select_menu_searchbox,
+[data-bs-theme="dark"] .o_select_menu_menu .o_select_menu_group,
+[data-bs-theme="dark"] .o-autocomplete.ui-widget-content,
+[data-bs-theme="dark"] .o-autocomplete--dropdown-menu { background-color: var(--dk-surface) !important; color: var(--dk-ink); }
+[data-bs-theme="dark"] .o_navbar_mobile,
+[data-bs-theme="dark"] .o_mega_menu_is_offcanvas .o_mega_nav { background-color: var(--dk-surface) !important; }
+[data-bs-theme="dark"] .o_notification_manager .o_notification { --Notification__background-color: var(--dk-surface-2); }
+[data-bs-theme="dark"] .input-group-text.input-group-text-subtle { background-color: var(--dk-surface-2); color: var(--dk-ink-soft); }
+[data-bs-theme="dark"] .card-header,
+[data-bs-theme="dark"] .card-footer { background-color: var(--dk-surface-2); border-color: var(--dk-border); }
+[data-bs-theme="dark"] .list-group {
+    --list-group-bg: var(--dk-surface);
+    --list-group-color: var(--dk-ink);
+    --list-group-border-color: var(--dk-border);
+    --list-group-action-color: var(--dk-ink-soft);
+    --list-group-action-hover-bg: var(--dk-surface-2);
+    --list-group-action-hover-color: var(--dk-ink);
+    --list-group-disabled-color: var(--dk-ink-faint);
+    --list-group-disabled-bg: var(--dk-surface);
+}
+[data-bs-theme="dark"] .accordion { --accordion-bg: var(--dk-surface); --accordion-color: var(--dk-ink); --accordion-border-color: var(--dk-border); --accordion-btn-color: var(--dk-ink); --accordion-active-bg: var(--dk-surface-2); --accordion-active-color: var(--dk-brand-text); }
+[data-bs-theme="dark"] .nav-tabs { --nav-tabs-border-color: var(--dk-border); --nav-tabs-link-active-bg: var(--dk-surface); --nav-tabs-link-active-color: var(--dk-ink); --nav-tabs-link-active-border-color: var(--dk-border) var(--dk-border) var(--dk-surface); --nav-tabs-link-hover-border-color: var(--dk-border); }
+[data-bs-theme="dark"] .nav-link { --nav-link-color: var(--dk-brand-text); }
+[data-bs-theme="dark"] .breadcrumb { --breadcrumb-divider-color: var(--dk-ink-faint); --breadcrumb-item-active-color: var(--dk-ink-soft); }
+[data-bs-theme="dark"] .page-link,
+[data-bs-theme="dark"] .pagination {
+    --pagination-bg: var(--dk-surface);
+    --pagination-color: var(--dk-brand-text);
+    --pagination-border-color: var(--dk-border);
+    --pagination-hover-bg: var(--dk-surface-2);
+    --pagination-hover-color: var(--dk-ink);
+    --pagination-hover-border-color: var(--dk-border);
+    --pagination-focus-bg: var(--dk-surface-2);
+    --pagination-active-bg: var(--shrimp-brand);
+    --pagination-active-border-color: var(--shrimp-brand);
+    --pagination-disabled-bg: var(--dk-surface);
+    --pagination-disabled-color: var(--dk-ink-faint);
+    --pagination-disabled-border-color: var(--dk-border);
+}
+[data-bs-theme="dark"] .progress { --progress-bg: var(--dk-surface-3); }
+[data-bs-theme="dark"] hr { color: var(--dk-border); opacity: 1; }
+
+/* Toasts y notificaciones de Odoo */
+[data-bs-theme="dark"] .toast,
+[data-bs-theme="dark"] .o_notification {
+    --toast-bg: rgba(28, 41, 53, .97);
+    --toast-color: var(--dk-ink);
+    --toast-header-bg: var(--dk-surface-3);
+    --toast-header-color: var(--dk-ink);
+    --toast-border-color: var(--dk-border);
+    background-color: rgba(28, 41, 53, .97);
+    color: var(--dk-ink);
+}
+[data-bs-theme="dark"] .o_notification_manager .o_notification .o_notification_title,
+[data-bs-theme="dark"] .o_notification .o_notification_content { color: var(--dk-ink); }
+
+/* Tablas */
+[data-bs-theme="dark"] .table {
+    --table-color: var(--dk-ink);
+    --table-bg: transparent;
+    --table-border-color: var(--dk-border);
+    --table-accent-bg: transparent;
+    --table-striped-color: var(--dk-ink);
+    --table-striped-bg: rgba(255, 255, 255, .035);
+    --table-active-color: var(--dk-ink);
+    --table-active-bg: rgba(255, 255, 255, .07);
+    --table-hover-color: var(--dk-ink);
+    --table-hover-bg: rgba(255, 255, 255, .055);
+    color: var(--dk-ink);
+    border-color: var(--dk-border);
+}
+[data-bs-theme="dark"] .table-light,
+[data-bs-theme="dark"] .table > thead.table-light,
+[data-bs-theme="dark"] .table thead.bg-light,
+[data-bs-theme="dark"] .table-secondary {
+    --table-color: var(--dk-ink-soft);
+    --table-bg: var(--dk-surface-2);
+    --table-border-color: var(--dk-border);
+    --table-striped-bg: var(--dk-surface-2);
+    --table-hover-bg: var(--dk-surface-3);
+    color: var(--dk-ink-soft);
+    border-color: var(--dk-border);
+}
+[data-bs-theme="dark"] .mp-table-wrap tbody tr:hover,
+[data-bs-theme="dark"] .pk-comp tbody tr:hover { background: rgba(255, 255, 255, .045); }
+
+/* Formularios */
+[data-bs-theme="dark"] .form-control,
+[data-bs-theme="dark"] .form-select {
+    background-color: var(--shrimp-input-bg);
+    color: var(--dk-ink);
+    border-color: var(--shrimp-input-border);
+}
+[data-bs-theme="dark"] .input-group-text {
+    background-color: var(--shrimp-input-addon-bg);
+    color: var(--dk-ink-soft);
+    border-color: var(--shrimp-input-border);
+}
+[data-bs-theme="dark"] .form-control:focus,
+[data-bs-theme="dark"] .form-select:focus {
+    background-color: var(--shrimp-input-bg);
+    color: var(--dk-ink);
+    border-color: var(--shrimp-input-focus);
+}
+[data-bs-theme="dark"] .form-control::placeholder,
+[data-bs-theme="dark"] textarea::placeholder,
+[data-bs-theme="dark"] input::placeholder { color: var(--dk-ink-faint); opacity: 1; }
+[data-bs-theme="dark"] .form-control:disabled,
+[data-bs-theme="dark"] .form-select:disabled,
+[data-bs-theme="dark"] .form-control[readonly] { background-color: var(--shrimp-input-disabled-bg); color: var(--shrimp-input-disabled-ink); border-color: var(--shrimp-input-disabled-border); }
+[data-bs-theme="dark"] .form-check-input { background-color: var(--shrimp-input-bg); border-color: var(--shrimp-check-border); }
+[data-bs-theme="dark"] .form-check-input:checked { background-color: var(--shrimp-brand); border-color: var(--shrimp-brand); }
+[data-bs-theme="dark"] .form-text { color: var(--dk-ink-faint); }
+[data-bs-theme="dark"] .shrimp-bg label,
+[data-bs-theme="dark"] .s-label,
+[data-bs-theme="dark"] .form-label,
+[data-bs-theme="dark"] .col-form-label { color: var(--dk-ink); }
+/* Autorrelleno de Chrome: fondo oscuro en vez del amarillo claro */
+[data-bs-theme="dark"] input:-webkit-autofill,
+[data-bs-theme="dark"] input:-webkit-autofill:hover,
+[data-bs-theme="dark"] input:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--dk-ink);
+    -webkit-box-shadow: 0 0 0 1000px var(--dk-surface-2) inset !important;
+    caret-color: var(--dk-ink);
+}
+/* Controles nativos: color-scheme oscuro explícito en cada control para que
+   el navegador pinte en oscuro sus piezas propias (icono y popup del
+   calendario, flechas del input numérico, desplegable del select,
+   barras de scroll de textarea). Firefox lo resuelve sólo con esto.
+   OJO: con color-scheme oscuro Chrome YA dibuja el icono del calendario en
+   claro; un filter: invert() lo devolvía a oscuro (casi invisible). */
+[data-bs-theme="dark"] input,
+[data-bs-theme="dark"] select,
+[data-bs-theme="dark"] textarea { color-scheme: dark; }
+/* Icono del calendario/reloj (Chrome/Edge/Safari): claro y visible */
+[data-bs-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator,
+[data-bs-theme="dark"] input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+[data-bs-theme="dark"] input[type="time"]::-webkit-calendar-picker-indicator,
+[data-bs-theme="dark"] input[type="month"]::-webkit-calendar-picker-indicator,
+[data-bs-theme="dark"] input[type="week"]::-webkit-calendar-picker-indicator {
+    filter: none;
+    opacity: .85;
+    cursor: pointer;
+    border-radius: 4px;
+}
+[data-bs-theme="dark"] input::-webkit-calendar-picker-indicator:hover,
+[data-bs-theme="dark"] input::-webkit-calendar-picker-indicator:focus-visible {
+    opacity: 1;
+    background-color: rgba(255, 255, 255, .08);
+}
+/* Botón "Elegir archivo" del input file */
+[data-bs-theme="dark"] input[type="file"]::file-selector-button {
+    background-color: var(--dk-surface-3);
+    color: var(--dk-ink);
+    border-color: var(--shrimp-input-border, var(--dk-border));
+}
+[data-bs-theme="dark"] input[type="file"]:hover:not(:disabled):not([readonly])::file-selector-button {
+    background-color: var(--dk-border-strong);
+}
+/* Flecha del select: el bundle frontend ya trae la variante oscura de
+   Bootstrap ([data-bs-theme="dark"] .form-select { --form-select-bg-img:
+   flecha #dee2e6 }, prefijo vacío). Pero el select deshabilitado lleva una
+   flecha gris fija con background-image (bootstrap_review_frontend.scss). */
+[data-bs-theme="dark"] .form-select:disabled:not([multiple]) {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%238fa1b1' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+}
+
+/* Utilidades de color que Bootstrap NO adapta (llevan el color fijo) */
+[data-bs-theme="dark"] .bg-white,
+[data-bs-theme="dark"] .bg-body,
+[data-bs-theme="dark"] .bg-body-tertiary { background-color: var(--dk-surface) !important; }
+[data-bs-theme="dark"] .bg-white-85,
+[data-bs-theme="dark"] .bg-white-75,
+[data-bs-theme="dark"] .bg-o-color-4 {
+    --background-color: var(--dk-surface); --color: var(--dk-ink);
+    background-color: var(--dk-surface) !important; color: var(--dk-ink);
+}
+[data-bs-theme="dark"] .bg-white-50 { background-color: rgba(22, 33, 43, .6) !important; color: var(--dk-ink); }
+[data-bs-theme="dark"] .bg-light,
+[data-bs-theme="dark"] .bg-body-secondary,
+[data-bs-theme="dark"] .bg-100,
+[data-bs-theme="dark"] .bg-200 { background-color: var(--dk-surface-2) !important; }
+[data-bs-theme="dark"] .text-dark,
+[data-bs-theme="dark"] .text-black,
+[data-bs-theme="dark"] .text-body,
+[data-bs-theme="dark"] .text-900,
+[data-bs-theme="dark"] .text-800,
+[data-bs-theme="dark"] .link-dark { color: var(--dk-ink) !important; }
+[data-bs-theme="dark"] .text-secondary,
+[data-bs-theme="dark"] .text-body-secondary,
+[data-bs-theme="dark"] .text-600,
+[data-bs-theme="dark"] .text-700 { color: var(--dk-ink-soft) !important; }
+[data-bs-theme="dark"] .text-primary { color: var(--dk-brand-text) !important; }
+[data-bs-theme="dark"] .text-success { color: var(--dk-success-text) !important; }
+[data-bs-theme="dark"] .text-danger { color: var(--dk-danger-text) !important; }
+[data-bs-theme="dark"] .text-warning { color: var(--dk-warning-text) !important; }
+[data-bs-theme="dark"] .text-info { color: var(--dk-teal-text) !important; }
+[data-bs-theme="dark"] .text-bg-light { background-color: var(--dk-surface-3) !important; color: var(--dk-ink) !important; }
+[data-bs-theme="dark"] .text-bg-secondary { background-color: #3d5165 !important; color: #fff !important; }
+[data-bs-theme="dark"] .border,
+[data-bs-theme="dark"] .border-top,
+[data-bs-theme="dark"] .border-bottom,
+[data-bs-theme="dark"] .border-start,
+[data-bs-theme="dark"] .border-end { border-color: var(--dk-border) !important; }
+[data-bs-theme="dark"] .border-primary { border-color: var(--dk-brand-text) !important; }
+[data-bs-theme="dark"] .shadow,
+[data-bs-theme="dark"] .shadow-sm { box-shadow: none !important; }
+
+/* Botones de Bootstrap que llevan colores claros fijos */
+[data-bs-theme="dark"] .btn-light {
+    --btn-bg: var(--dk-surface-2); --btn-color: var(--dk-ink); --btn-border-color: var(--dk-border-strong);
+    --btn-hover-bg: var(--dk-surface-3); --btn-hover-color: #fff; --btn-hover-border-color: var(--dk-border-strong);
+    --btn-active-bg: var(--dk-surface-3); --btn-active-color: #fff;
+}
+[data-bs-theme="dark"] .btn-outline-secondary,
+[data-bs-theme="dark"] .btn-outline-dark {
+    --btn-color: var(--dk-ink-soft); --btn-border-color: var(--dk-border-strong);
+    --btn-hover-bg: var(--dk-surface-3); --btn-hover-color: #fff; --btn-hover-border-color: var(--dk-border-strong);
+    --btn-active-bg: var(--dk-surface-3); --btn-active-color: #fff;
+}
+[data-bs-theme="dark"] .btn-outline-primary {
+    --btn-color: var(--dk-brand-text); --btn-border-color: var(--dk-brand-text);
+    --btn-hover-bg: var(--shrimp-brand); --btn-hover-color: #fff; --btn-hover-border-color: var(--shrimp-brand);
+}
+[data-bs-theme="dark"] .btn-link { --btn-color: var(--dk-brand-text); --btn-hover-color: var(--link-hover-color); }
+[data-bs-theme="dark"] .btn-secondary {
+    --btn-bg: var(--dk-surface-3); --btn-color: var(--dk-ink); --btn-border-color: var(--dk-border-strong);
+    --btn-hover-bg: #2c3e50; --btn-hover-color: #fff;
+}
+
+/* Alertas de Bootstrap (las de Odoo llevan colores claros fijos) */
+[data-bs-theme="dark"] .alert-info { --alert-bg: #123a40; --alert-color: #bfeef3; --alert-border-color: #1f5f68; --alert-link-color: #e2fbff; }
+[data-bs-theme="dark"] .alert-success { --alert-bg: #143528; --alert-color: #c4f0da; --alert-border-color: #1f5a40; --alert-link-color: #e6fff2; }
+[data-bs-theme="dark"] .alert-warning { --alert-bg: #3a2e12; --alert-color: #f7e2b0; --alert-border-color: #6a5320; --alert-link-color: #fff2d4; }
+[data-bs-theme="dark"] .alert-danger { --alert-bg: #3e1c1a; --alert-color: #ffd0ca; --alert-border-color: #6e302b; --alert-link-color: #ffe7e3; }
+[data-bs-theme="dark"] .alert-primary { --alert-bg: #17324a; --alert-color: #cfe7f6; --alert-border-color: #2a5675; --alert-link-color: #e8f5fd; }
+[data-bs-theme="dark"] .alert-secondary,
+[data-bs-theme="dark"] .alert-light { --alert-bg: var(--dk-surface-2); --alert-color: var(--dk-ink); --alert-border-color: var(--dk-border); }
+[data-bs-theme="dark"] .alert { background-color: var(--alert-bg); color: var(--alert-color); border-color: var(--alert-border-color); }
+
+/* Badges suaves de Bootstrap 5.3 que vienen con fondos pastel */
+[data-bs-theme="dark"] .badge.bg-light { color: var(--dk-ink) !important; }
+
+/* Portal de Odoo (/my): tarjetas de documentos, barra lateral, buscador */
+[data-bs-theme="dark"] .o_portal_wrap,
+[data-bs-theme="dark"] .o_portal { color: var(--dk-ink); }
+[data-bs-theme="dark"] .o_portal_sidebar .card,
+[data-bs-theme="dark"] .o_portal_index_card a,
+[data-bs-theme="dark"] .o_portal_category .o_portal_index_card > a { background-color: var(--dk-surface); color: var(--dk-ink); border-color: var(--dk-border); }
+[data-bs-theme="dark"] .o_portal_navbar { background-color: transparent !important; }
+[data-bs-theme="dark"] .o_portal_search_panel .dropdown-toggle,
+[data-bs-theme="dark"] .o_portal_search_panel .form-control { background-color: var(--dk-surface-2); color: var(--dk-ink); }
+
+/* Login / restablecer contraseña de Odoo */
+[data-bs-theme="dark"] .oe_login_form,
+[data-bs-theme="dark"] .oe_reset_password_form,
+[data-bs-theme="dark"] .oe_signup_form { color: var(--dk-ink); }
+
+/* Barra de consentimiento de cookies de Odoo */
+[data-bs-theme="dark"] #website_cookies_bar .modal-content,
+[data-bs-theme="dark"] .o_cookies_discrete .modal-content { background-color: var(--dk-surface-2); color: var(--dk-ink); }
+
+/* Barra de desplazamiento */
+html[data-bs-theme="dark"] { scrollbar-color: #33475a var(--dk-bg); }
+
+/* ---- 6. Estilos EN LÍNEA de las plantillas -----------------------------
+   Algunos bloques llevan colores en style="...". Sin tocar las plantillas,
+   se reconocen por el atributo (solo los que salen en páginas web; los de
+   correos y PDF no pasan por aquí). */
+[data-bs-theme="dark"] [style*="background:#fff;"],
+[data-bs-theme="dark"] [style$="background:#fff"],
+[data-bs-theme="dark"] [style*="background: #fff;"],
+[data-bs-theme="dark"] [style*="background-color:#fff;"],
+[data-bs-theme="dark"] [style*="background-color: #fff;"],
+[data-bs-theme="dark"] [style*="background-color:#ffffff"],
+[data-bs-theme="dark"] [style*="background:#ffffff"] { background: var(--dk-surface) !important; }
+[data-bs-theme="dark"] [style*="background:#f2f4f8"],
+[data-bs-theme="dark"] [style*="background:#f8f9fa"],
+[data-bs-theme="dark"] [style*="background-color:#f8f9fa"] { background: var(--dk-surface-2) !important; }
+[data-bs-theme="dark"] [style*="background:#eef7f9"] { background: #123a40 !important; border-color: #1f5f68 !important; }
+[data-bs-theme="dark"] [style*="background:#fdf8ee"],
+[data-bs-theme="dark"] [style*="background:#fdf3e3"],
+[data-bs-theme="dark"] [style*="background:#fdf1e0"],
+[data-bs-theme="dark"] [style*="background:#fff4e5"] { background: #3a2e12 !important; border-color: #6a5320 !important; }
+[data-bs-theme="dark"] [style*="background:rgba(0,0,0,.02)"] { background: rgba(255, 255, 255, .03) !important; }
+[data-bs-theme="dark"] [style*="rgba(0,0,0,.06)"],
+[data-bs-theme="dark"] [style*="rgba(0,0,0,.12)"],
+[data-bs-theme="dark"] [style*="solid #ddd"] { border-color: var(--dk-border) !important; }
+[data-bs-theme="dark"] [style*="color:#123e5c"],
+[data-bs-theme="dark"] [style*="color:#123E5C"],
+[data-bs-theme="dark"] [style*="color:#243b45"],
+[data-bs-theme="dark"] [style*="color:#222"],
+[data-bs-theme="dark"] [style*="color:#333"] { color: var(--dk-ink) !important; }
+[data-bs-theme="dark"] [style*="color:#666"],
+[data-bs-theme="dark"] [style*="color:#5A6B74"],
+[data-bs-theme="dark"] [style*="color:#5a6b74"],
+[data-bs-theme="dark"] [style*="color:#8a98a0"] { color: var(--dk-ink-soft) !important; }
+[data-bs-theme="dark"] [style*="color:#7a5610"],
+[data-bs-theme="dark"] [style*="color:#a8510d"],
+[data-bs-theme="dark"] [style*="color:#a86a10"],
+[data-bs-theme="dark"] [style*="color:#a97b12"] { color: var(--dk-warning-text) !important; }
+[data-bs-theme="dark"] [style*="color:#1f7d56"] { color: var(--dk-success-text) !important; }
+[data-bs-theme="dark"] [style*="color:#b3261e"],
+[data-bs-theme="dark"] [style*="color:#b42318"],
+[data-bs-theme="dark"] [style*="color:#dc3545"] { color: var(--dk-danger-text) !important; }
+[data-bs-theme="dark"] [style*="color:var(--shrimp-brand)"] { color: var(--dk-brand-text) !important; }
+
+/* ==========================================================================
+   7. RETOQUES A MANO (después de la hoja generada)
+   ========================================================================== */
+
+/* Página: las secciones «tint» y los fondos de página propios */
+/* La landing (.sl) redefine su tinta en el propio elemento */
+[data-bs-theme="dark"] .sl { --sl-ink: var(--dk-ink); --sl-ink-soft: var(--dk-ink-soft); }
+[data-bs-theme="dark"] .s-landing,
+[data-bs-theme="dark"] .s-hero,
+[data-bs-theme="dark"] .sl { background: var(--dk-bg); }
+[data-bs-theme="dark"] .s-section--tint,
+[data-bs-theme="dark"] .sl-section--tint { background: var(--dk-bg-alt); }
+[data-bs-theme="dark"] .sl-wave path { fill: var(--dk-bg); }
+/* Botón blanco sobre los héroes: se queda blanco (es el CTA principal) */
+[data-bs-theme="dark"] .sl-btn--primary { background: #fff; color: #0b2f47 !important; }
+[data-bs-theme="dark"] .sl-btn--primary:hover { background: #e3f1f8; }
+[data-bs-theme="dark"] .s-cta-final { background: linear-gradient(135deg, #0b2f47 0%, #123e5c 60%, #2e7da6 130%); }
+[data-bs-theme="dark"] .s-cta-final .s-btn-primary { background: #fff; color: #0b2f47 !important; border-color: #fff; }
+[data-bs-theme="dark"] .s-cta-final .s-btn-primary:hover { background: #e3f1f8; }
+/* Marcos de imágenes de la landing: la imagen manda, borde sutil */
+[data-bs-theme="dark"] .sl-media-frame,
+[data-bs-theme="dark"] .s-feature-media { background: var(--dk-surface); border-color: var(--dk-border); }
+[data-bs-theme="dark"] .sl-media-glow { opacity: .28; }
+
+/* Tarjetas de producto: la franja en degradado y el precio con brillo */
+[data-bs-theme="dark"] .s-prod-card { background: var(--dk-surface); border-color: var(--dk-border); }
+[data-bs-theme="dark"] .s-prod-card:hover { border-color: var(--dk-border-strong); }
+[data-bs-theme="dark"] .s-prod-fav { background: rgba(22, 33, 43, .9); }
+[data-bs-theme="dark"] .s-prod-fav:hover, [data-bs-theme="dark"] .s-prod-fav.active { background: var(--dk-surface-2); color: var(--dk-danger-text); }
+[data-bs-theme="dark"] .s-cat-chip.active,
+[data-bs-theme="dark"] .s-choice input:checked + span,
+[data-bs-theme="dark"] .s-view-btn.is-active,
+[data-bs-theme="dark"] .s-view-btn.is-active:hover,
+[data-bs-theme="dark"] .pf-chip input:checked + span,
+[data-bs-theme="dark"] .sp-tab.is-active { color: #fff !important; }
+[data-bs-theme="dark"] .s-drawer-backdrop { background: rgba(0, 0, 0, .6); }
+[data-bs-theme="dark"] .s-drawer-panel { border-left: 1px solid var(--dk-border); }
+
+/* Estrellas vacías y separadores de las listas */
+[data-bs-theme="dark"] .s-rating .s-rating-empty,
+[data-bs-theme="dark"] .s-star-input label { color: #46596b; }
+
+/* Ficha de producto: marco de la galería y miniaturas */
+[data-bs-theme="dark"] .pd-gal-frame img.mp-gallery-main { background: var(--dk-surface-2); }
+[data-bs-theme="dark"] .pd .mp-arrow { background: rgba(28, 41, 53, .92); color: var(--dk-ink); }
+[data-bs-theme="dark"] .pd .mp-arrow:hover { background: var(--dk-surface-3); }
+[data-bs-theme="dark"] .pd-gal-state .pd-pill { background: rgba(22, 33, 43, .94); }
+[data-bs-theme="dark"] .pd-chip--brand { background: var(--shrimp-brand); border-color: var(--shrimp-brand); color: #fff; }
+
+/* Botones «primario» deshabilitados (formulario de producto) */
+[data-bs-theme="dark"] .pf .s-btn-primary[disabled] { background: #2f4252; border-color: #2f4252; color: var(--dk-ink-soft) !important; }
+
+/* Etiqueta «Nuevo» del menú, contador de filtros */
+[data-bs-theme="dark"] .mp-menu-new { background: #143528; color: var(--dk-success-text); }
+[data-bs-theme="dark"] .mp-mi-navy { color: #fff; }
+
+/* Tarjetas «Mi panel» de /my y KPI de reportes */
+[data-bs-theme="dark"] .mp-tile--accent { background: linear-gradient(180deg, rgba(46, 158, 107, .12), var(--dk-surface)); }
+[data-bs-theme="dark"] .mp-tile-ico, [data-bs-theme="dark"] .mp-tile-ico i { color: #fff !important; }
+[data-bs-theme="dark"] .sp-kpi { color: var(--dk-ink) !important; }
+
+/* Toast propio (fondo = tinta, que en oscuro es clara) */
+[data-bs-theme="dark"] .s-toast { background: var(--dk-surface-3); color: var(--dk-ink); border: 1px solid var(--dk-border-strong); }
+[data-bs-theme="dark"] .s-toast--success { background: #1b6e49; color: #fff; border-color: #1b6e49; }
+[data-bs-theme="dark"] .s-toast--danger { background: #a3322a; color: #fff; border-color: #a3322a; }
+[data-bs-theme="dark"] .s-pay-overlay, [data-bs-theme="dark"] .sf-modal, [data-bs-theme="dark"] .buy-modal { background: rgba(0, 0, 0, .65); }
+
+/* Asistente de alta (shrimp_user_registry: el CSS claro no se toca; se
+   tiñe desde aquí). */
+/* Tokens de campos y tarjetas anidadas (shrimp_base.css 19.0.1.9.0: «el
+   modo oscuro solo redefine estos tokens»). Se declaran también en
+   .shrimp-signup por si la hoja clara los fija en el propio asistente.
+   Campos más oscuros que la tarjeta, borde visible (3.0:1 con el fondo),
+   texto de ayuda 7:1 y etiqueta 12:1. */
+html[data-bs-theme="dark"],
+html[data-bs-theme="dark"] #wrapwrap,
+[data-bs-theme="dark"] .shrimp-signup {
+    --shrimp-input-bg: #101a23;
+    --shrimp-input-bg-hover: #13202b;
+    --shrimp-input-ink: var(--dk-ink);
+    --shrimp-input-color: var(--dk-ink);
+    --shrimp-input-border: #3a5166;
+    --shrimp-input-border-hover: #56708a;
+    --shrimp-input-placeholder: #8fa1b1;
+    --shrimp-input-ring: rgba(95, 208, 220, .25);
+    --shrimp-input-focus: var(--dk-teal-text);
+    --shrimp-input-disabled-bg: #1a2631;
+    --shrimp-input-disabled-ink: #7d8e9d;
+    --shrimp-input-disabled-border: #2a3b4a;
+    --shrimp-input-addon-bg: #233241;
+    --shrimp-input-addon-bg-hover: #2c3e50;
+    --shrimp-label-ink: #cfdbe5;
+    --shrimp-help-ink: #9fb0be;
+    --shrimp-check-border: #56708a;
+    --shrimp-card-bg: #1c2935;
+    --shrimp-card-border: #2c3e4f;
+    --shrimp-card-head-border: #2a3b4a;
+    --shrimp-card-item-bg: #16212b;
+}
+[data-bs-theme="dark"] .shrimp-signup { --wiz-border: var(--dk-border); --wiz-brand: var(--shrimp-brand); }
+[data-bs-theme="dark"] .shrimp-steps { background: var(--dk-surface); border-color: var(--dk-border); }
+[data-bs-theme="dark"] .shrimp-steps li { color: var(--dk-ink-soft); }
+[data-bs-theme="dark"] .shrimp-steps li.is-current { background: var(--shrimp-brand); color: #fff; }
+[data-bs-theme="dark"] .shrimp-steps li.is-current .shrimp-step-num { background: #fff; color: #0b2f47; }
+[data-bs-theme="dark"] .shrimp-steps li.is-done .shrimp-step-num { background: #143528; color: var(--dk-success-text); }
+[data-bs-theme="dark"] .shrimp-choice-row > .shrimp-choice { background: var(--shrimp-card-item-bg); border-color: var(--dk-border-strong); }
+[data-bs-theme="dark"] .shrimp-choice:hover { border-color: var(--dk-brand-text); }
+[data-bs-theme="dark"] .shrimp-choice.is-checked,
+[data-bs-theme="dark"] .shrimp-choice:has(input:checked) { border-color: var(--dk-brand-text); background: #17324a; box-shadow: 0 0 0 3px rgba(140, 200, 236, .18); }
+[data-bs-theme="dark"] .shrimp-choice.is-checked .shrimp-choice-ico,
+[data-bs-theme="dark"] .shrimp-choice:has(input:checked) .shrimp-choice-ico { background: var(--shrimp-brand); color: #fff; }
+[data-bs-theme="dark"] .shrimp-choice-title,
+[data-bs-theme="dark"] .shrimp-profile-title,
+[data-bs-theme="dark"] .shrimp-prof-sec-title { color: var(--dk-ink); }
+[data-bs-theme="dark"] .shrimp-choice-hint,
+[data-bs-theme="dark"] .shrimp-profile-hint,
+[data-bs-theme="dark"] .shrimp-subhead,
+[data-bs-theme="dark"] .shrimp-optional { color: var(--dk-ink-faint); }
+[data-bs-theme="dark"] .shrimp-profile-card { background: var(--shrimp-card-item-bg); border-color: var(--dk-border-strong); }
+[data-bs-theme="dark"] .shrimp-profile-card.is-checked { border-color: var(--dk-brand-text); box-shadow: 0 0 0 2px rgba(140, 200, 236, .25); }
+[data-bs-theme="dark"] .shrimp-legal-body { background: var(--dk-surface-2); color: var(--dk-ink-soft); }
+[data-bs-theme="dark"] .shrimp-wizard-nav { background: rgba(22, 33, 43, .94); border-color: var(--dk-border); }
+
+/* Documentos legales (/legal/...) */
+[data-bs-theme="dark"] .shrimp-legal-doc,
+[data-bs-theme="dark"] .shrimp-legal-doc p,
+[data-bs-theme="dark"] .shrimp-legal-doc li { color: var(--dk-ink-soft); }
+[data-bs-theme="dark"] .shrimp-legal-doc h1,
+[data-bs-theme="dark"] .shrimp-legal-doc h2,
+[data-bs-theme="dark"] .shrimp-legal-doc h3,
+[data-bs-theme="dark"] .shrimp-legal-doc h4,
+[data-bs-theme="dark"] .shrimp-legal-doc strong { color: var(--dk-ink); }
+
+/* Imágenes de contenido algo más tenues para no deslumbrar */
+[data-bs-theme="dark"] .s-prod-img,
+[data-bs-theme="dark"] .pd-gal-frame img,
+[data-bs-theme="dark"] .sl-media-frame img,
+[data-bs-theme="dark"] .s-feature-media img { filter: brightness(.94); }
+
+/* Menú lateral del móvil: cerrar (×) y botón del buscador */
+[data-bs-theme="dark"] .o_navbar_mobile .btn-close,
+[data-bs-theme="dark"] .offcanvas .btn-close { filter: invert(1) grayscale(100%) brightness(200%); }
+[data-bs-theme="dark"] .bg-o-color-3 {
+    --background-color: var(--dk-surface-3); --color: var(--dk-ink);
+    background-color: var(--dk-surface-3) !important; color: var(--dk-ink) !important;
+}
+
+/* ==========================================================================
+   Asistente de alta 19.0.1.9.0: certificados (tarjetas y modal), acordeón
+   legal, instalaciones/piscinas y bloque de la verificadora. Casi todo sale
+   de los tokens --shrimp-input-* / --shrimp-card-*; aquí solo lo que la hoja
+   clara fija con color propio (chips, aviso «Falta adjuntar», modal).
+   ========================================================================== */
+[data-bs-theme="dark"] .shrimp-legal-page,
+[data-bs-theme="dark"] .shrimp-cmodal {
+    --shrimp-card-bg: #1c2935; --shrimp-card-border: #2c3e4f; --shrimp-card-head-border: #2a3b4a;
+    --shrimp-card-item-bg: #16212b; --shrimp-help-ink: var(--dk-ink-soft);
+}
+[data-bs-theme="dark"] .shrimp-cert-item.is-missing { background: rgba(240, 192, 96, .08); border-color: rgba(240, 192, 96, .45); }
+[data-bs-theme="dark"] .shrimp-cert-item.is-missing .shrimp-cert-ico { background: rgba(240, 192, 96, .16); color: var(--dk-warning-text); }
+[data-bs-theme="dark"] .shrimp-cert-item.is-missing .shrimp-cert-m,
+[data-bs-theme="dark"] .shrimp-cert-count.is-missing { color: var(--dk-warning-text); }
+[data-bs-theme="dark"] .shrimp-cert-name, [data-bs-theme="dark"] .shrimp-cert-t,
+[data-bs-theme="dark"] .shrimp-fac-ititle, [data-bs-theme="dark"] .shrimp-pond-head,
+[data-bs-theme="dark"] .shrimp-sec-title, [data-bs-theme="dark"] .shrimp-sub > summary { color: var(--dk-ink); }
+[data-bs-theme="dark"] .shrimp-chip { background: rgba(140, 200, 236, .14); color: var(--dk-brand-text); }
+[data-bs-theme="dark"] .shrimp-chip.is-pending { background: rgba(160, 165, 255, .16); color: #b8bcff; }
+[data-bs-theme="dark"] .shrimp-chip.is-req { background: rgba(240, 192, 96, .16); color: var(--dk-warning-text); }
+[data-bs-theme="dark"] .shrimp-cert-ico, [data-bs-theme="dark"] .shrimp-cert-gico,
+[data-bs-theme="dark"] .shrimp-sec-ico, [data-bs-theme="dark"] .shrimp-prof-sec-ico { background: rgba(140, 200, 236, .12); color: var(--dk-brand-text); }
+[data-bs-theme="dark"] .shrimp-cert-btn { color: var(--dk-ink); }
+[data-bs-theme="dark"] .shrimp-cert-btn.is-del { color: var(--dk-danger-text); }
+[data-bs-theme="dark"] .shrimp-cert-addrow, [data-bs-theme="dark"] .shrimp-pond-add,
+[data-bs-theme="dark"] .shrimp-sub > summary .fa { color: var(--dk-brand-text); }
+[data-bs-theme="dark"] .shrimp-pond-area { color: var(--dk-success-text); }
+[data-bs-theme="dark"] .shrimp-cmodal .modal-content { background: var(--dk-surface); color: var(--dk-ink); }
+[data-bs-theme="dark"] .shrimp-cmodal .modal-footer { background: var(--dk-surface); }
+[data-bs-theme="dark"] .shrimp-cmodal .shrimp-cm-x { background: var(--dk-surface-2); color: var(--dk-ink-soft); border-color: var(--dk-border); }
+[data-bs-theme="dark"] .shrimp-fdrop { background: var(--dk-surface-2); color: var(--dk-ink-soft); border-color: var(--dk-border-strong); }
+[data-bs-theme="dark"] .shrimp-fdrop:hover, [data-bs-theme="dark"] .shrimp-fdrop.is-over { background: rgba(95, 208, 220, .10); border-color: var(--dk-teal-text); }
+[data-bs-theme="dark"] .shrimp-fdrop.has-file { background: rgba(95, 211, 155, .10); border-color: var(--dk-success-text); }
+[data-bs-theme="dark"] .shrimp-fdrop.has-file b { color: var(--dk-ink); }
+[data-bs-theme="dark"] .shrimp-fdrop.is-bad { background: rgba(255, 138, 125, .10); border-color: var(--dk-danger-text); }
+[data-bs-theme="dark"] .shrimp-cm-err { color: var(--dk-danger-text); }
+[data-bs-theme="dark"] .shrimp-legal-toggle:hover { background: rgba(255, 255, 255, .03); }
+[data-bs-theme="dark"] .shrimp-legal-ver { background: rgba(255, 255, 255, .08); color: var(--dk-ink-soft); }
+[data-bs-theme="dark"] .shrimp-legal-badge { background: rgba(255, 255, 255, .08); color: var(--dk-ink-soft); }
+[data-bs-theme="dark"] .shrimp-legal-badge.is-req { background: rgba(255, 138, 125, .14); color: var(--dk-danger-text); }
+[data-bs-theme="dark"] .shrimp-legal-item.is-accepted .shrimp-legal-status { color: var(--dk-success-text); }
+[data-bs-theme="dark"] .shrimp-legal-acc .shrimp-legal-body { color: var(--dk-ink-soft); }
+[data-bs-theme="dark"] .shrimp-legal-acc .shrimp-legal-body h1, [data-bs-theme="dark"] .shrimp-legal-acc .shrimp-legal-body h2,
+[data-bs-theme="dark"] .shrimp-legal-acc .shrimp-legal-body h3 { color: var(--dk-ink); }
+[data-bs-theme="dark"] .shrimp-sec-head { border-top-color: var(--dk-border); }
+
+/* ==========================================================================
+   INICIO · Equipo de campo de la verificadora en el asistente (tabla + modal)
+   shrimp_user_registry 19.0.1.10.0 / shrimp_verification 19.0.1.18.0.
+   La tabla y el modal salen de los tokens --shrimp-card-* (y el modal ya
+   hereda .shrimp-cmodal); aquí solo lo que la hoja clara fija con color propio.
+   ========================================================================== */
+[data-bs-theme="dark"] .shrimp-sub > summary .shrimp-team-count { color: var(--dk-brand-text); }
+[data-bs-theme="dark"] .shrimp-tech-table th,
+[data-bs-theme="dark"] .shrimp-tech-mail { color: var(--dk-ink-soft); }
+[data-bs-theme="dark"] .shrimp-tech-table th { background: var(--dk-surface-2); border-bottom-color: var(--dk-border); }
+[data-bs-theme="dark"] .shrimp-tech-wrap { background: var(--dk-surface); border-color: var(--dk-border); }
+[data-bs-theme="dark"] .shrimp-tech-table td { border-bottom-color: var(--dk-border); color: var(--dk-ink); }
+[data-bs-theme="dark"] .shrimp-tech-table td.shrimp-tech-mail { color: var(--dk-ink-soft); }
+[data-bs-theme="dark"] .shrimp-tech-table tr.is-missing td { background: rgba(240, 192, 96, .08); }
+[data-bs-theme="dark"] .shrimp-tech-q { color: var(--dk-danger-text); }
+[data-bs-theme="dark"] .shrimp-cert-btn.is-del.is-solid { background: #c0392b; border-color: #c0392b; color: #fff; }
+[data-bs-theme="dark"] .shrimp-pw-eye { color: var(--dk-ink-soft); }
+[data-bs-theme="dark"] .shrimp-pw-eye:hover { background: rgba(255, 255, 255, .06); color: var(--dk-ink); }
+[data-bs-theme="dark"] .shrimp-pw-eye[aria-pressed="true"] { color: var(--dk-teal-text); }
+[data-bs-theme="dark"] .shrimp-tmodal .form-control.is-invalid { border-color: var(--dk-danger-text); }
+@media (max-width: 575.98px) {
+    [data-bs-theme="dark"] .shrimp-tech-wrap { background: transparent; }
+    [data-bs-theme="dark"] .shrimp-tech-table tr { background: var(--dk-surface); border-color: var(--dk-border); }
+    [data-bs-theme="dark"] .shrimp-tech-table tr.is-missing { background: rgba(240, 192, 96, .08); border-color: rgba(240, 192, 96, .45); }
+    [data-bs-theme="dark"] .shrimp-tech-table tr.is-missing td { background: transparent; }
+    [data-bs-theme="dark"] .shrimp-tech-table td::before { color: var(--dk-ink-faint); }
+}
+/* FIN · Equipo de campo de la verificadora
+   ========================================================================== */
+
+/* ==========================================================================
+   Registro · tabla única de certificados (shrimp_user_registry 19.0.1.10.1)
+   Reutiliza .shrimp-tech-table (ya cubierta arriba); aquí solo lo nuevo.
+   ========================================================================== */
+[data-bs-theme="dark"] .shrimp-cert-note { background: rgba(240, 192, 96, .10); border-color: rgba(240, 192, 96, .40); color: var(--dk-warning-text); }
+[data-bs-theme="dark"] .shrimp-chip.is-missing { background: rgba(240, 192, 96, .16); color: var(--dk-warning-text); }
+[data-bs-theme="dark"] .shrimp-cert-table td.shrimp-cert-dim,
+[data-bs-theme="dark"] .shrimp-cert-table td.shrimp-cert-file { color: var(--dk-ink-soft); }
+/* FIN · Tabla única de certificados
+   ========================================================================== */
+
+/* ==========================================================================
+   INICIO · Paso «Instalaciones» con dos tablas + modales (shrimp_marketplace
+   19.0.1.22.4). Las tablas y modales reutilizan .shrimp-tech-table y
+   .shrimp-cmodal (ya resueltos arriba); aquí lo que la hoja clara fija con
+   color propio: bloques, aviso «primero una instalación», código, segmentado
+   de capacidad y cálculo en vivo.
+   ========================================================================== */
+[data-bs-theme="dark"] .shrimp-fac-block { background: #1c2935; border-color: #2c3e4f; }
+[data-bs-theme="dark"] .shrimp-fac-bhead { border-bottom-color: var(--dk-border); }
+[data-bs-theme="dark"] .shrimp-fac-block .shrimp-prof-sec-title { color: var(--dk-ink); }
+[data-bs-theme="dark"] .shrimp-fac-block .shrimp-prof-sec-desc { color: var(--dk-ink-soft); }
+[data-bs-theme="dark"] .shrimp-fac-count { color: var(--dk-brand-text); }
+[data-bs-theme="dark"] .shrimp-fac-need { background: rgba(140, 200, 236, .10); color: var(--dk-brand-text); border-color: rgba(140, 200, 236, .28); }
+[data-bs-theme="dark"] .shrimp-fac-block .shrimp-cert-empty { background: var(--dk-surface); border-color: var(--dk-border); color: var(--dk-ink-soft); }
+[data-bs-theme="dark"] .shrimp-fac-block .shrimp-cert-addrow { background: var(--dk-surface); border-color: var(--dk-border-strong); }
+[data-bs-theme="dark"] .shrimp-fac-block .shrimp-cert-addrow:hover:not(:disabled) { border-color: var(--dk-brand-text); }
+[data-bs-theme="dark"] .shrimp-fac-block .shrimp-cert-addhint { color: var(--dk-ink-faint); }
+[data-bs-theme="dark"] .shrimp-fac-code { background: rgba(255, 255, 255, .08); color: var(--dk-ink-soft); }
+[data-bs-theme="dark"] .shrimp-seg { background: #1c2935; border-color: var(--dk-border); }
+[data-bs-theme="dark"] .shrimp-seg-opt span { color: var(--dk-ink-soft); }
+[data-bs-theme="dark"] .shrimp-seg-opt.is-on span,
+[data-bs-theme="dark"] .shrimp-seg-opt input:checked + span { background: var(--dk-surface-2); color: var(--dk-brand-text); box-shadow: none;
+    outline: 1px solid var(--dk-border-strong); }
+[data-bs-theme="dark"] .shrimp-pm-calc { background: rgba(95, 211, 155, .10); color: var(--dk-success-text); }
+[data-bs-theme="dark"] .shrimp-pmodal .form-control.is-invalid,
+[data-bs-theme="dark"] .shrimp-fmodal .form-select.is-invalid { border-color: var(--dk-danger-text); }
+/* FIN · Paso «Instalaciones» con dos tablas + modales
+   ========================================================================== */
+
+/* ==========================================================================
+   INICIO · Secciones en tarjeta del asistente y envío protegido
+   (shrimp_user_registry 19.0.1.10.2). La tarjeta sale de los tokens
+   --shrimp-card-*; aquí los chips, el icono de la cabecera y la capa modal.
+   ========================================================================== */
+[data-bs-theme="dark"] .shrimp-card-sec { background: var(--shrimp-card-bg, #1c2935); border-color: var(--shrimp-card-border, #2c3e4f); }
+[data-bs-theme="dark"] .shrimp-card-sec .shrimp-prof-sec-desc { color: var(--dk-ink-soft); }
+[data-bs-theme="dark"] .shrimp-sec-chip,
+[data-bs-theme="dark"] .shrimp-card-sec .shrimp-sec-chip.shrimp-cert-count { background: rgba(140, 200, 236, .14); color: var(--dk-brand-text); }
+[data-bs-theme="dark"] .shrimp-card-sec .shrimp-sec-chip.is-missing { background: rgba(240, 192, 96, .16); color: var(--dk-warning-text); }
+[data-bs-theme="dark"] .shrimp-sec-chip.is-done { background: rgba(95, 211, 155, .14); color: var(--dk-success-text); }
+[data-bs-theme="dark"] .shrimp-card-sec .shrimp-legal-all { background: var(--shrimp-card-item-bg, #16212b); border-color: var(--shrimp-card-border, #2c3e4f); color: var(--dk-ink); }
+[data-bs-theme="dark"] .shrimp-cert-table .shrimp-cert-ibtn { background: var(--dk-surface-2); border-color: var(--dk-border-strong); }
+[data-bs-theme="dark"] .shrimp-cert-table .shrimp-cert-ibtn:hover { border-color: var(--dk-brand-text); }
+[data-bs-theme="dark"] .shrimp-cert-table .shrimp-cert-ibtn.is-del:hover { background: rgba(255, 138, 125, .12); border-color: var(--dk-danger-text); }
+[data-bs-theme="dark"] .shrimp-sg { background: rgba(3, 8, 12, .7); }
+[data-bs-theme="dark"] .shrimp-sg-box { background: var(--dk-surface); color: var(--dk-ink); border: 1px solid var(--dk-border); box-shadow: 0 24px 50px rgba(0, 0, 0, .5); }
+[data-bs-theme="dark"] .shrimp-sg-text { color: var(--dk-ink-soft); }
+[data-bs-theme="dark"] .shrimp-sg-spin { border-color: rgba(140, 200, 236, .18); border-top-color: var(--dk-teal-text); }
+[data-bs-theme="dark"] .shrimp-sg-btn { background: var(--dk-surface-2); border-color: var(--dk-border-strong); color: var(--dk-ink); }
+[data-bs-theme="dark"] .shrimp-sg-btn:hover { border-color: var(--dk-brand-text); }
+[data-bs-theme="dark"] .shrimp-sg-btn.is-primary { background: var(--shrimp-brand, #1a6a9a); border-color: var(--shrimp-brand, #1a6a9a); color: #fff; }
+[data-bs-theme="dark"] .shrimp-sg-btn:focus-visible { outline-color: var(--dk-teal-text); }
+[data-bs-theme="dark"] .shrimp-sg-late { background: rgba(240, 192, 96, .12); color: var(--dk-warning-text); }
+/* FIN · Secciones en tarjeta y envío protegido
+   ========================================================================== */
+
+/* ==========================================================================
+   INICIO · Entrega y recepción (.rc-; shrimp_panel.css). Lo que el
+   generador no traduce: fondos de chips/alertas sobre la superficie oscura,
+   el punto «actual» de la línea de tiempo y el botón de reportar.
+   ========================================================================== */
+[data-bs-theme="dark"] .rc-chip--info, [data-bs-theme="dark"] .rc-alert--info { background: rgba(94, 200, 214, .12); }
+[data-bs-theme="dark"] .rc-chip--warn, [data-bs-theme="dark"] .rc-alert--warn { background: rgba(240, 192, 96, .12); }
+[data-bs-theme="dark"] .rc-chip--danger { background: rgba(255, 138, 125, .12); }
+[data-bs-theme="dark"] .rc-chip--ok, [data-bs-theme="dark"] .rc-alert--ok { background: rgba(95, 211, 155, .12); }
+[data-bs-theme="dark"] .rc-chip--auto { background: rgba(140, 200, 236, .12); }
+[data-bs-theme="dark"] .rc-step.is-current .rc-dot { background: var(--dk-surface); border-color: var(--dk-teal-text); box-shadow: 0 0 0 4px rgba(94, 200, 214, .16); }
+[data-bs-theme="dark"] .rc-step.is-late .rc-dot { background: rgba(255, 138, 125, .12); border-color: var(--dk-danger-text); }
+[data-bs-theme="dark"] .rc-countdown { background: var(--dk-surface-2); border-color: var(--dk-border); }
+[data-bs-theme="dark"] .rc-issue { background: var(--dk-surface-2); border-color: var(--dk-border); }
+[data-bs-theme="dark"] .rc-incidence { background: rgba(255, 138, 125, .10); color: var(--dk-ink); }
+[data-bs-theme="dark"] .rc-btn-danger { background: #b5402f; border-color: #b5402f; color: #fff; }
+[data-bs-theme="dark"] .rc-btn-danger:hover { background: #c95443; border-color: #c95443; }
+/* FIN · Entrega y recepción
+   ========================================================================== */
+
+/* ==========================================================================
+   INICIO · «¡Compra realizada!» (.tk-; shrimp_thanks.css). La hoja clara
+   solo usa tokens; aquí, los textos de éxito/aviso sobre la banda oscura y
+   los puntos de la línea de tiempo.
+   ========================================================================== */
+[data-bs-theme="dark"] .tk-hero { border-bottom-color: var(--dk-border); }
+[data-bs-theme="dark"] .tk-eyebrow .pd-tipo,
+[data-bs-theme="dark"] .tk-chip--ok,
+[data-bs-theme="dark"] .tk-chip--ok .fa { color: var(--dk-success-text); }
+[data-bs-theme="dark"] .tk-hero--wait .tk-eyebrow .pd-tipo { color: var(--dk-warning-text); }
+[data-bs-theme="dark"] .tk-hero--cancel .tk-eyebrow .pd-tipo { color: var(--dk-ink-soft); }
+[data-bs-theme="dark"] .tk-chip { background: var(--dk-surface); border-color: var(--dk-border); color: var(--dk-ink-soft); }
+[data-bs-theme="dark"] .tk-hero-ico { box-shadow: 0 0 0 8px rgba(95, 211, 155, .12); }
+[data-bs-theme="dark"] .tk-step.is-current .tk-dot { background: var(--dk-surface); border-color: var(--dk-teal-text); color: var(--dk-teal-text); box-shadow: 0 0 0 4px rgba(94, 200, 214, .16); }
+[data-bs-theme="dark"] .tk-step.is-late .tk-dot { background: rgba(255, 138, 125, .12); border-color: var(--dk-danger-text); color: var(--dk-danger-text); }
+[data-bs-theme="dark"] .tk-party-n a { color: var(--dk-brand-text); }
+/* FIN · «¡Compra realizada!»
+   ========================================================================== */
+
+/* ==========================================================================
+   INICIO · Retraso de entrega (.rd-; shrimp_panel.css). Lo que el generador
+   no traduce: cajas de fechas y de decisión sobre la superficie oscura, el
+   punto «actual» del historial y el botón de cancelar.
+   ========================================================================== */
+[data-bs-theme="dark"] .rd-facts > div,
+[data-bs-theme="dark"] .rd-rep-item { background: var(--dk-surface-2); border-color: var(--dk-border); }
+[data-bs-theme="dark"] .rd-ev::before { background: var(--dk-border-strong); }
+[data-bs-theme="dark"] .rd-ev--warn .rd-ev-dot { background: rgba(240, 192, 96, .14); border-color: var(--dk-warning-text); color: var(--dk-warning-text); }
+[data-bs-theme="dark"] .rd-ev--info .rd-ev-dot { background: rgba(94, 200, 214, .12); border-color: var(--dk-teal-text); color: var(--dk-teal-text); }
+[data-bs-theme="dark"] .rd-ev--danger .rd-ev-dot { background: rgba(255, 138, 125, .12); border-color: var(--dk-danger-text); }
+[data-bs-theme="dark"] .rd-ev--current .rd-ev-dot { background: var(--dk-surface); border-color: var(--dk-teal-text); box-shadow: 0 0 0 4px rgba(94, 200, 214, .16); }
+[data-bs-theme="dark"] .rd-box { background: var(--dk-surface-2); border-color: var(--dk-border); border-left-color: var(--dk-teal-text); }
+[data-bs-theme="dark"] .rd-box--warn { background: rgba(240, 192, 96, .10); border-left-color: var(--dk-warning-text); }
+[data-bs-theme="dark"] .rd-box--danger { background: rgba(255, 138, 125, .10); border-left-color: var(--dk-danger-text); }
+[data-bs-theme="dark"] .rd-box .rc-issue { background: var(--dk-surface); border-color: var(--dk-border); }
+[data-bs-theme="dark"] .rd-btn-ghost-danger { background: transparent; }
+[data-bs-theme="dark"] .rd-btn-ghost-danger:hover, [data-bs-theme="dark"] .rd-btn-ghost-danger:focus { background: rgba(255, 138, 125, .12); border-color: var(--dk-danger-text); }
+/* FIN · Retraso de entrega
+   ========================================================================== */
+
+/* ===== Formulario de producto: origen (instalación → piscina → siembras) ===== */
+[data-bs-theme="dark"] .pf-help-warn { color: #f0c36d; }
+[data-bs-theme="dark"] .pf-q { color: #6fd3df; }
+/* ===== fin formulario de producto: origen ===== */
+
+/* ==========================================================================
+   INICIO · Mi cuenta (.ma-; shrimp_my_account.css, 19.0.1.28.0). La hoja
+   clara usa tokens (superficie, tarjetas, campos); aquí, los textos de marca
+   sobre fondos suaves y la barra de guardado.
+   ========================================================================== */
+[data-bs-theme="dark"] .ma-a-ok { background: var(--shrimp-success-soft); color: var(--dk-success-text); border-color: #1f5a3f; }
+[data-bs-theme="dark"] .ma-nav-a.is-current,
+[data-bs-theme="dark"] .ma-nav-a.is-current .fa { color: var(--dk-brand-text) !important; }
+[data-bs-theme="dark"] .ma-nav-n { background: var(--dk-surface-3); color: var(--dk-ink-soft); }
+[data-bs-theme="dark"] .ma-card-ico,
+[data-bs-theme="dark"] .ma-fac-ico,
+[data-bs-theme="dark"] .ma-card .mp-table-card .mp-sec-ico { background: var(--dk-surface-3); color: var(--dk-brand-text); }
+[data-bs-theme="dark"] .ma-note { background: var(--shrimp-brand-soft); color: var(--dk-brand-text); }
+[data-bs-theme="dark"] .ma-fac-type { color: var(--dk-teal-text); }
+[data-bs-theme="dark"] .ma-actions { background: var(--dk-surface-2); border-color: var(--dk-border-strong); box-shadow: 0 6px 18px rgba(0, 0, 0, .35); }
+[data-bs-theme="dark"] .ma-card-tg { background: var(--dk-surface-2); border-color: var(--dk-border); color: var(--dk-ink-soft); }
+[data-bs-theme="dark"] .ma-fac.is-focus { border-color: var(--dk-teal-text); }
+[data-bs-theme="dark"] .ma-card .mp-table-card { background: var(--shrimp-card-bg) !important; border-color: var(--shrimp-card-border) !important; }
+/* FIN · Mi cuenta
+   ========================================================================== */
+
+/* ==========================================================================
+   INICIO · Estado real del lote (.evo-; shrimp_product_evolution.css). La
+   hoja clara usa tokens; aquí, las insignias, el origen y el gráfico.
+   ========================================================================== */
+[data-bs-theme="dark"] .evo-cmp-col { background: var(--dk-surface-2); border-color: var(--dk-border); }
+[data-bs-theme="dark"] .evo-cmp-obs { background: var(--dk-surface); border-color: var(--dk-teal-text); }
+[data-bs-theme="dark"] .evo-cmp-obs.is-div { border-color: var(--dk-warning-text); }
+[data-bs-theme="dark"] .evo-badge-div { background: rgba(240, 192, 96, .14); color: var(--dk-warning-text); }
+[data-bs-theme="dark"] .evo-badge-ok { background: rgba(95, 211, 155, .12); color: var(--dk-success-text); }
+[data-bs-theme="dark"] .evo-fact, [data-bs-theme="dark"] .evo-chart { border-color: var(--dk-border); background: var(--dk-surface); }
+[data-bs-theme="dark"] .evo-origin { background: rgba(94, 200, 214, .14); color: var(--dk-teal-text); }
+[data-bs-theme="dark"] .evo-origin--quality { background: rgba(140, 200, 236, .12); color: var(--dk-brand-text); }
+[data-bs-theme="dark"] .evo-c-grid { stroke: var(--dk-border); }
+[data-bs-theme="dark"] .evo-c-dot { stroke: var(--dk-surface); }
+[data-bs-theme="dark"] .evo-c-size .evo-c-line { stroke: var(--dk-teal-text); }
+[data-bs-theme="dark"] .evo-c-size .evo-c-dot { fill: var(--dk-teal-text); }
+[data-bs-theme="dark"] .evo-c-surv .evo-c-line { stroke: var(--dk-brand-text); }
+[data-bs-theme="dark"] .evo-c-surv .evo-c-dot { fill: var(--dk-brand-text); }
+[data-bs-theme="dark"] .evo-modal .modal-footer { background: var(--dk-surface); }
+/* FIN · Estado real del lote
+   ========================================================================== */

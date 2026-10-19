@@ -16,7 +16,7 @@
             name="Mi cuenta - datos de la empacadora">
     <xpath expr="//div[hasclass('d-flex') and hasclass('flex-wrap') and hasclass('gap-2')]"
            position="before">
-      <t t-if="partner.shrimp_user_type == 'empacadora'">
+      <t t-if="partner._shrimp_active_role() == 'empacadora'">
 
         <div class="mp-table-card mb-4">
           <div class="card-body p-4">
@@ -68,9 +68,13 @@
             </div>
             <div class="row g-3">
               <div class="col-md-6">
-                <label class="form-label small text-muted">Nombre de la planta</label>
+                <label class="form-label small text-muted">Nombre de la planta <span class="shrimp-optional">(opcional)</span></label>
                 <input class="form-control" type="text" name="emp_planta_nombre"
-                       t-att-value="partner.emp_planta_nombre or ''"/>
+                       t-att-value="partner.emp_planta_nombre or ''"
+                       t-att-placeholder="partner.commercial_partner_id.name"/>
+                <div class="form-text">
+                  Si lo dejas vacío, tu ficha muestra el nombre de tu empresa.
+                </div>
               </div>
               <div class="col-md-6">
                 <label class="form-label small text-muted">Ubicación</label>
@@ -81,12 +85,12 @@
                 </div>
               </div>
               <div class="col-md-6">
-                <label class="form-label small text-muted">Capacidad (lb/día)</label>
+                <label class="form-label small text-muted">Capacidad referencial (lb/día) <span class="shrimp-optional">(opcional)</span></label>
                 <input class="form-control" type="number" step="1" min="0"
-                       name="emp_capacidad_lb_dia"
+                       name="emp_capacidad_lb_dia" placeholder="Ej. 50000"
                        t-att-value="partner.shrimp_capacity_value or ''"/>
                 <div class="form-text">
-                  Le dice al productor si puedes recibirle una cosecha grande de una vez.
+                  Solo como referencia para los productores.
                 </div>
               </div>
             </div>
@@ -174,7 +178,7 @@
            mientras no la conteste la pantalla enseña la cifra marcada como
            supuesto nuestro.
            =============================================================== -->
-      <t t-if="partner.shrimp_user_type == 'camaronera'">
+      <t t-if="partner._shrimp_active_role() == 'camaronera'">
         <div class="mp-table-card mb-4">
           <div class="card-body p-4">
             <div class="mp-sec-head">
@@ -215,7 +219,7 @@
          Sin esto la empacadora edita a ciegas: rellena campos sin saber cómo
          quedan en la pantalla con la que el cliente decide. -->
     <xpath expr="//div[@id='mpAccountActions']" position="inside">
-      <a t-if="partner.shrimp_user_type == 'empacadora'"
+      <a t-if="partner._shrimp_active_role() == 'empacadora'"
          class="s-btn s-btn-ghost"
          t-attf-href="/marketplace/packers/#{partner.uuid_ref}">
         <i class="fa fa-eye me-1"/> Ver mi ficha pública

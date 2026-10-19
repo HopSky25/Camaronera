@@ -79,8 +79,9 @@ class ApiError(Exception):
         # constancia de un intento fallido (p. ej. de inicio de sesión) que
         # tiene que contar aunque la respuesta sea un error.
         self.keep_changes = keep_changes
-        # Miembros adicionales del problem+json (RFC 9457 §3.2), p. ej.
-        # min_version y download_url en el 426 app-update-required.
+        # Miembros adicionales del problem+json (RFC 9457 §3.2): p. ej.
+        # min_version y download_url del 426 app-update-required, o "code" y
+        # "accept_url" de los bloqueos de cuenta.
         self.extra = dict(extra or {})
 
 
@@ -651,6 +652,121 @@ def role_domain(*roles):
             ("shrimp_role_ids", "any", [("role", "in", roles), ("state", "=", "approved")])]
 
 
+# ---------------------------------------------------------------------------
+# Permisos de los subusuarios en la API (CR-12, decisión D-12)
+# ---------------------------------------------------------------------------
+# La misma regla que el portal (shrimp_user_registry/models/
+# shrimp_permission_matrix.py): una clave actúa con los permisos ACTUALES de
+# su usuario; si el administrador se los quita, la clave deja de poder
+# escribir. (método, ruta) -> (permiso o tupla, alcance). «any» = en alguno
+# de sus perfiles: el registro trae su propio perfil y el modelo lo vuelve a
+# comprobar. Un test exige que toda ruta de escritura esté aquí.
+API_ROUTE_PERMISSIONS = {
+    ("POST", "/me/active-role"): ("none", "active"),
+    ("PATCH", "/me"): ("manage_account", "active"),
+    ("POST", "/facilities"): ("sell", "active"),
+    ("PATCH", "/facilities/{id}"): ("sell", "active"),
+    ("PUT", "/facilities/{id}"): ("sell", "active"),
+    ("DELETE", "/facilities/{id}"): ("sell", "active"),
+    ("POST", "/ponds"): ("sell", "active"),
+    ("PATCH", "/ponds/{id}"): ("sell", "active"),
+    ("PUT", "/ponds/{id}"): ("sell", "active"),
+    ("DELETE", "/ponds/{id}"): ("sell", "active"),
+    ("POST", "/products"): ("sell", "active"),
+    ("PATCH", "/products/{id}"): ("sell", "any"),
+    ("PUT", "/products/{id}"): ("sell", "any"),
+    ("POST", "/products/{id}:publish"): ("sell", "any"),
+    ("POST", "/products/{id}:archive"): ("sell", "any"),
+    ("POST", "/products/{id}:unarchive"): ("sell", "any"),
+    ("DELETE", "/products/{id}"): ("sell", "any"),
+    ("POST", "/products/{id}/evolutions"): ("sell", "any"),
+    ("POST", "/products/{id}/observations"): ("sell", "any"),
+    ("POST", "/lots/{id}/allocations"): ("sell", "active"),
+    ("POST", "/lots/{id}:transfer-profile"): ("sell", "any"),
+    ("POST", "/products/{id}:change-profile"): ("sell", "any"),
+    ("POST", "/exports"): ("sell", "active"),
+    ("POST", "/exports/{id}:cancel"): ("sell", "any"),
+    ("POST", "/price-lists"): ("sell", "active"),
+    ("PUT", "/price-lists/{id}"): ("sell", "any"),
+    ("POST", "/price-lists/{id}:publish"): ("sell", "any"),
+    ("POST", "/price-lists/{id}:archive"): ("sell", "any"),
+    ("POST", "/price-lists/{id}:correct"): ("sell", "any"),
+    ("POST", "/price-lists/{id}:renew"): ("sell", "any"),
+    ("POST", "/harvest/forecasts"): ("sell", "active"),
+    ("POST", "/harvest/forecasts/{id}:publish"): ("sell", "any"),
+    ("POST", "/harvest/forecasts/{id}:cancel"): ("sell", "any"),
+    ("POST", "/harvest/forecasts/{id}:harvest"): ("sell", "any"),
+    ("POST", "/harvest/forecasts/{id}/commitments"): ("buy", "active"),
+    ("POST", "/harvest/commitments/{id}:accept"): ("sell", "any"),
+    ("POST", "/harvest/commitments/{id}:reject"): ("sell", "any"),
+    ("POST", "/harvest/commitments/{id}:withdraw"): ("buy", "any"),
+    ("POST", "/harvest/commitments/{id}:desist"): (("buy", "sell"), "any"),
+    ("POST", "/harvest/commitments/{id}:buy"): ("buy", "any"),
+    ("POST", "/harvest/commitments/{id}/confirmation"): (("buy", "sell"), "any"),
+    ("POST", "/harvest/commitments/{id}/confirmation:revert"): (("buy", "sell"), "any"),
+    ("POST", "/transactions/{id}/trace-token:rotate"): (("buy", "sell"), "any"),
+    ("POST", "/transactions/{id}:receive"): ("buy", "any"),
+    ("POST", "/transactions/{id}:report-issue"): ("buy", "any"),
+    ("POST", "/transactions/{id}:complete"): ("buy", "any"),
+    ("POST", "/transactions/{id}:dispatch"): ("sell", "any"),
+    ("POST", "/transactions/{id}:notify-delay"): ("sell", "any"),
+    ("POST", "/transactions/{id}:delay-accept"): ("buy", "any"),
+    ("POST", "/transactions/{id}:delay-counter"): ("buy", "any"),
+    ("POST", "/transactions/{id}:delay-reject"): ("sell", "any"),
+    ("POST", "/transactions/{id}:cancel"): (("buy", "sell"), "any"),
+    ("POST", "/transactions/{id}:cancel-request"): (("buy", "sell"), "any"),
+    ("POST", "/transactions/{id}:cancel-request-accept"): (("buy", "sell"), "any"),
+    ("POST", "/transactions/{id}:cancel-request-reject"): (("buy", "sell"), "any"),
+    ("POST", "/transactions/{id}:cancel-request-withdraw"): (("buy", "sell"), "any"),
+    ("POST", "/transactions/{id}:switch-verifier"): ("buy", "any"),
+    ("POST", "/check-requests/{id}:approve"): ("sell", "any"),
+    ("POST", "/check-requests/{id}:reject"): ("sell", "any"),
+    ("POST", "/verifications"): ("buy", "active"),
+    ("POST", "/verifications/{id}/acceptance"): ("buy", "any"),
+    ("POST", "/verifications/{id}/acceptance:revert"): ("buy", "any"),
+    ("POST", "/verifications/{id}:assign"): ("approve", "any"),
+    ("POST", "/verifications/{id}:start"): ("approve", "any"),
+    ("PATCH", "/verifications/{id}/report"): ("approve", "any"),
+    ("POST", "/verifications/{id}:verdict"): ("approve", "any"),
+    ("POST", "/verifications/{id}:respond"): ("approve", "any"),
+    ("POST", "/verifications/{id}:support-technicians"): ("approve", "any"),
+    ("PATCH", "/verifications/{id}/declared-report"): (("buy", "sell"), "any"),
+    ("POST", "/verifications/{id}:declare"): (("buy", "sell"), "any"),
+    ("PATCH", "/dispatches/{id}"): ("sell", "any"),
+    ("POST", "/dispatches/{id}/arrival"): ("approve", "any"),
+    ("POST", "/copack/requests"): ("buy", "active"),
+    ("POST", "/copack/requests/{id}:cancel"): ("buy", "any"),
+    ("POST", "/copack/requests/{id}/offers"): ("sell", "active"),
+    ("POST", "/copack/offers/{id}:withdraw"): ("sell", "any"),
+    ("POST", "/copack/offers/{id}:accept"): ("buy", "any"),
+    ("POST", "/copack/offers/{id}:reject"): ("buy", "any"),
+    ("POST", "/copack/orders"): ("sell", "active"),
+    ("POST", "/copack/orders/{id}:reception"): ("sell", "any"),
+    ("POST", "/copack/orders/{id}:packing"): ("sell", "any"),
+    ("POST", "/copack/orders/{id}:sign"): (("buy", "sell"), "any"),
+    ("POST", "/copack/orders/{id}:revert-signature"): (("buy", "sell"), "any"),
+    ("POST", "/copack/orders/{id}:reopen"): (("buy", "sell"), "any"),
+    ("POST", "/copack/orders/{id}:close"): (("buy", "sell"), "any"),
+    ("POST", "/copack/orders/{id}:cancel"): (("buy", "sell"), "any"),
+    ("POST", "/copack/orders/{id}:return"): ("sell", "any"),
+    ("POST", "/copack/orders/{id}:platform-cancel"): ("sell", "any"),
+    ("POST", "/copack/orders/{id}:cancel-request-withdraw"): ("sell", "any"),
+    ("POST", "/copack/orders/{id}:return-sign"): ("buy", "any"),
+    ("POST", "/copack/tariffs"): ("sell", "active"),
+    ("PUT", "/copack/tariffs/{id}"): ("sell", "any"),
+    ("POST", "/copack/tariffs/{id}:publish"): ("sell", "any"),
+    ("POST", "/copack/tariffs/{id}:archive"): ("sell", "any"),
+    ("POST", "/webhooks"): ("manage_account", "active"),
+    ("PATCH", "/webhooks/{id}"): ("manage_account", "active"),
+    ("DELETE", "/webhooks/{id}"): ("manage_account", "active"),
+    ("POST", "/webhooks/{id}:ping"): ("manage_account", "active"),
+    ("POST", "/webhooks/{id}:rotate-secret"): ("manage_account", "active"),
+    ("POST", "/webhooks/{id}/deliveries/{delivery}:resend"): ("manage_account", "active"),
+}
+# Lecturas que también exigen permiso (facturas de la plataforma).
+API_READ_PERMISSIONS = {}
+
+
 # Perfil con el que actúa la petición ("Actuar como"). No se llama `role`
 # porque varios listados ya usan ?role= con otro sentido (buyer/seller,
 # issuer/recipient...).
@@ -676,7 +792,7 @@ class ApiCtx:
         self.env = env
         self.key = key
         self.user = env.user
-        self.partner = env.user.partner_id.sudo() if key else env["res.partner"].sudo()
+        self.partner = env.user.shrimp_actor_partner_id.sudo() if key else env["res.partner"].sudo()
         self.params = params or {}
         self.body = body if body is not None else {}
         self.method = method
@@ -709,17 +825,57 @@ class ApiCtx:
     @property
     def role(self):
         """Perfil con el que actúa esta petición: el pedido (si la cuenta lo
-        tiene aprobado) o, por defecto, el perfil activo de la cuenta."""
+        tiene aprobado y el usuario de la clave puede usarlo) o, por defecto,
+        el perfil FIJADO en la clave (BA-11: la integración no cambia de
+        perfil porque el usuario cambie el suyo en el portal) o, si la clave
+        no fija ninguno o ya no vale, el perfil activo del usuario."""
         if self._role is None:
-            activo = self.partner._shrimp_effective_type() if self.partner else False
+            activo = self.key_role() or (
+                self.partner._shrimp_effective_type() if self.partner else False)
             pedido = (str(self._acting_role_raw).strip() if self._acting_role_raw else "")
             if pedido and pedido != activo:
                 if not self.partner or not self.partner._shrimp_has_role(pedido):
                     raise forbidden("Tu cuenta no tiene aprobado el perfil «%s»." % pedido)
+                if not self.partner._shrimp_user_allows(None, pedido):
+                    raise forbidden("El administrador de tu cuenta no te dio acceso al perfil «%s»."
+                                    % pedido)
                 self._role = pedido
             else:
                 self._role = activo or False
         return self._role
+
+    def key_role(self):
+        """Perfil fijado en la clave si sigue siendo válido para su usuario
+        (perfil aprobado de la cuenta y permitido al usuario), o False."""
+        key = self.key
+        rol = key and "acting_role" in key._fields and key.sudo().acting_role
+        if not rol or not self.partner:
+            return False
+        if not self.partner._shrimp_has_role(rol) or not self.partner._shrimp_user_allows(None, rol):
+            return False
+        return rol
+
+    def enforce_member_permission(self):
+        """CR-12: un subusuario solo hace por la API lo que le permite su
+        administrador (misma matriz que el portal). 403 ``permission-denied``
+        con el permiso que falta."""
+        if not self.key or (self.route and self.route.public) or not self.route:
+            return
+        user = self.user
+        if not user._shrimp_restricted_member():
+            return
+        tabla = API_ROUTE_PERMISSIONS if self.method not in ("GET", "HEAD") else API_READ_PERMISSIONS
+        regla = tabla.get((self.method, self.route.path))
+        if not regla:
+            return
+        perm, scope = regla
+        role = self.role if scope == "active" and perm not in ("manage_account", "admin", "none") \
+            else None
+        if user._shrimp_has_perm(perm, role=role, scope=scope):
+            return
+        raise ApiError(403, "permission-denied", user._shrimp_perm_message(perm, role),
+                       extra={"code": "permission_denied",
+                              "permission": list(perm) if isinstance(perm, tuple) else perm})
 
     # --- parámetros --------------------------------------------------------
     def int_param(self, name, default=None, lo=None, hi=None):
@@ -798,3 +954,113 @@ class ApiCtx:
 
     def clean(self, spec, partial=False):
         return clean(self, self.body, spec, partial=partial)
+
+    # --- estado de la cuenta y documentos legales ----------------------------
+    def enforce_account_gate(self):
+        """Las mismas reglas que el portal, en la puerta de la API privada.
+
+        * Versiones MAYORES de documentos legales sin aceptar -> 403
+          ``legal-acceptance-required`` en TODO (como la redirección del
+          portal), salvo ``GET /me``, que queda libre para diagnosticar.
+        * Perfil con el que actúa la petición RECHAZADO -> 403
+          ``account-rejected`` (también lecturas, salvo ``GET /me``).
+        * Perfil PENDIENTE de aprobación -> solo lectura: las escrituras dan
+          403 ``account-pending``.
+
+        Decisión del usuario (D-08): una cuenta pendiente puede LEER con
+        las claves que ya tuviera, pero no crear claves nuevas.
+        """
+        if not self.key or (self.route and self.route.public):
+            return
+        diagnostico = self.method in ("GET", "HEAD") and self.route is not None \
+            and self.route.path == "/me"
+        if diagnostico:
+            return
+        user = self.user
+        pendientes = legal_pending_documents(self.env, user)
+        if pendientes:
+            nombres = ", ".join(pendientes)
+            raise ApiError(
+                403, "legal-acceptance-required",
+                "Hay versiones nuevas de documentos legales que se deben aceptar antes de seguir "
+                "usando la plataforma (%s). Acéptalas en %s." % (nombres, legal_accept_url()),
+                extra={"code": "legal_acceptance_required", "accept_url": legal_accept_url(),
+                       "pending_documents": pendientes})
+        partner = self.partner
+        if not partner:
+            return
+        try:
+            role = self.role
+        except ApiError:
+            # Perfil pedido no aprobado: lo rechaza el handler que lo use; la
+            # puerta mira la cuenta con su perfil activo.
+            role = partner._shrimp_effective_type()
+        state = account_state(partner, role)
+        if state == "rejected":
+            raise ApiError(
+                403, "account-rejected",
+                "La plataforma rechazó tu cuenta (perfil «%s»): la API no está disponible. "
+                "Escribe a la administración si crees que es un error." % (role or "-"),
+                extra={"code": "account_rejected", "role": role or None})
+        if state == "pending" and self.method not in ("GET", "HEAD"):
+            raise ApiError(
+                403, "account-pending",
+                "Tu cuenta (perfil «%s») está pendiente de aprobación: mientras tanto la API es "
+                "de solo lectura." % (role or "-"),
+                extra={"code": "account_pending", "role": role or None})
+
+    def require_publishing_allowed(self):
+        """Vendedor con la publicación suspendida por strikes
+        (shrimp.seller.suspension): no crea ni publica productos por la
+        API. El resto de la API (despachos, recepción...) sigue abierta
+        para que pueda cumplir lo que tiene en curso."""
+        if "shrimp.seller.suspension" not in self.env:
+            return
+        if self.env["shrimp.seller.suspension"].sudo()._shrimp_active_for(self.partner):
+            raise ApiError(
+                403, "seller-suspended",
+                "La publicación de tu cuenta está suspendida por incumplimientos de entrega: "
+                "se levanta sola cuando tus strikes activos bajan del límite, o antes si la "
+                "plataforma la revisa.",
+                extra={"code": "seller_suspended"})
+
+
+def legal_accept_url():
+    try:
+        from odoo.http import request as _req
+        base = _req.httprequest.host_url.rstrip("/") if _req else ""
+    except Exception:  # noqa: BLE001
+        base = ""
+    return base + "/my/legal/accept"
+
+
+def legal_pending_documents(env, user):
+    """Nombres de los documentos con versión MAYOR sin aceptar que bloquean
+    a `user` (los suyos y los de su empresa que solo acepta el
+    administrador). Lista vacía si no hay bloqueo.
+
+    Durante los tests de Odoo se apaga igual que la puerta del portal
+    (parámetro shrimp_user_registry.privacy_gate_in_tests = 1 la enciende)."""
+    import odoo.modules.module
+    if not user or user._is_public() or user._is_internal() or user._is_superuser():
+        return []
+    if "shrimp.legal.document" not in env:
+        return []
+    if odoo.modules.module.current_test and env["ir.config_parameter"].sudo().get_param(
+            "shrimp_user_registry.privacy_gate_in_tests") != "1":
+        return []
+    pend = env["shrimp.legal.document"].sudo()._shrimp_pending(user)
+    return [st["document"].name for st in list(pend["major"]) + list(pend["company_major"])]
+
+
+def account_state(partner, role=None):
+    """Estado de aprobación del perfil `role` de la cuenta de `partner`
+    (approved / pending / rejected). Sin perfil, el de la cuenta."""
+    if not partner:
+        return "approved"
+    holder = partner.sudo()._shrimp_role_holder()
+    if role:
+        state = holder._shrimp_role_state(role)
+        if state:
+            return state
+    return holder.shrimp_account_state or "approved"

@@ -19,8 +19,9 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     __package__ = "demo_masivo"  # noqa: A001
 
-from demo_masivo import (calidad, copacking, declaradas, empacadora,  # noqa: E402
-                         marketplace, mismo_nivel, multiperfil, registro, verificacion)
+from demo_masivo import (aquagold, calidad, copacking, declaradas, empacadora,  # noqa: E402
+                         marketplace, mismo_nivel, multiperfil, observaciones, registro,
+                         verificacion)
 
 
 def main():
@@ -41,6 +42,12 @@ def main():
     # Verificaciones declaradas por las partes: semilla propia, tampoco
     # cambia nada de lo anterior.
     declaradas.construir(M)
+    # Historial verificado de AQUAGOLD (ranking de proveedores y tableros):
+    # semilla propia, tampoco cambia nada de lo anterior.
+    aquagold.construir(M)
+    # «Estado real del lote»: observaciones con parámetros de agua y alguna
+    # divergencia con lo publicado. Semilla propia: no cambia nada de lo anterior.
+    observaciones.construir(M)
 
     total = {}
     for f in M["archivos"]:

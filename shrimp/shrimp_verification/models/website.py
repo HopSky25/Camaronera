@@ -1,5 +1,7 @@
 from odoo import api, fields, models
 
+from .website_navbar import SHRIMP_VERIFIER_JOBS
+
 
 class Website(models.Model):
     _inherit = "website"
@@ -65,20 +67,21 @@ class Website(models.Model):
     _SHRIMP_DOMINIO_VERIFICADORES = "http://verificadores.localhost:8069"
 
     # Árbol de menús del sitio de verificadores. Los desplegables con estilo
-    # (navbar_dropdown_inherit) los reconocen por su CLAVE, no por el nombre.
+    # (navbar_dropdown_inherit) los reconocen por su CLAVE, no por el nombre,
+    # y pintan su CONTENIDO desde website._shrimp_verifier_jobs() /
+    # _shrimp_verifier_company_links() (models/website_navbar.py): los hijos
+    # guardados aquí solo sirven al editor del sitio y al menú sin estilo, y
+    # salen de la MISMA lista (antes decían «Verificaciones abiertas» /
+    # «Todas» mientras la barra decía «Por iniciar» / «Todas mis
+    # verificaciones»).
     _SHRIMP_MENU_VERIFICADOR = [
         ("Mi bandeja", "/verifier/inbox", 10, False, []),
-        ("Verificaciones", "#", 20, "verifier_jobs", [
-            ("Verificaciones abiertas", "/verifier/inbox?state=open"),
-            ("En campo", "/verifier/inbox?state=in_field"),
-            ("Por dictaminar", "/verifier/inbox?state=done"),
-            ("Ya verificadas", "/verifier/inbox?state=approved"),
-            ("Todas", "/verifier/inbox"),
-        ]),
+        ("Verificaciones", "#", 20, "verifier_jobs",
+         [(label, url) for _k, label, url, *_r in SHRIMP_VERIFIER_JOBS]),
         ("Mi empresa", "#", 30, "verifier_company", [
             ("Perfil y cuenta bancaria", "/verifier/profile"),
             ("Mi equipo", "/verifier/technicians"),
-            ("Mi acreditación", "/marketplace/my-certificates"),
+            ("Mi acreditación", "/marketplace/my-account#certificados"),
             ("Mis reportes", "/verifier/reports"),
         ]),
     ]
@@ -167,7 +170,7 @@ class WebsiteMenu(models.Model):
 
     def _compute_visible(self):
         super()._compute_visible()
-        partner = self.env.user.partner_id
+        partner = self.env.user.shrimp_actor_partner_id
         es_admin = None
         for menu in self:
             if not menu.is_visible:

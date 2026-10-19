@@ -13,4 +13,61 @@
             </xpath>
         </field>
     </record>
+
+    <!-- En el punto de emisión: mostrar el/los POS atados -->
+    <record id="point_sri_form_pos" model="ir.ui.view">
+        <field name="name">ec.sri.point.form.pos</field>
+        <field name="model">ec.sri.point</field>
+        <field name="inherit_id" ref="l10n_ec_sri_community.point_sri_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Puntos de venta (POS)" name="pos">
+                    <button name="action_ec_sri_add_pos" type="object" string="Agregar POS"
+                            class="btn-primary" icon="fa-plus"/>
+                    <field name="pos_config_ids" readonly="1">
+                        <list create="false" edit="false" delete="false">
+                            <field name="name" string="Punto de venta"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="invoice_journal_id"/>
+                            <field name="ec_sri_final_consumer_id"/>
+                        </list>
+                    </field>
+                    <p class="text-muted">Usa "Agregar POS" para vincular un punto de venta existente
+                    (también puedes hacerlo desde el propio módulo de Punto de Venta, campo
+                    "Punto de emisión SRI"). Un punto de emisión puede tener varios POS.</p>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- En la lista de puntos de emisión: columna con el/los POS (vacía si solo factura) -->
+    <record id="point_sri_list_pos" model="ir.ui.view">
+        <field name="name">ec.sri.point.list.pos</field>
+        <field name="model">ec.sri.point</field>
+        <field name="inherit_id" ref="l10n_ec_sri_community.point_sri_list"/>
+        <field name="arch" type="xml">
+            <field name="document_summary" position="after">
+                <field name="pos_config_ids" widget="many2many_tags" string="POS"/>
+            </field>
+        </field>
+    </record>
+
+    <!-- Modal para vincular un POS existente al punto de emisión -->
+    <record id="view_sri_point_pos_wizard_form" model="ir.ui.view">
+        <field name="name">ec.sri.point.pos.wizard.form</field>
+        <field name="model">ec.sri.point.pos.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Agregar punto de venta">
+                <group>
+                    <field name="company_id" invisible="1"/>
+                    <field name="point_id" invisible="1"/>
+                    <field name="pos_config_id"/>
+                </group>
+                <footer>
+                    <button name="action_link" type="object" string="Agregar" class="btn-primary"/>
+                    <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
 </odoo>

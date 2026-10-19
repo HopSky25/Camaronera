@@ -83,12 +83,14 @@
         <field name="search_view_id" ref="view_shrimp_profile_transfer_search"/>
     </record>
 
+    <!-- Movimiento interno entre perfiles de la misma cuenta: lo crea el
+         portal y se ve en el lote. Solo en Ajustes › Técnico › CamaronMarket. -->
     <menuitem id="menu_shrimp_profile_transfer"
               name="Transferencias entre perfiles"
-              parent="shrimp_marketplace.menu_shrimp_inventory_root"
+              parent="shrimp_user_registry.menu_shrimp_technical_root"
               action="shrimp_marketplace.action_shrimp_profile_transfer"
-              sequence="25"
-              groups="shrimp_marketplace.group_shrimp_user"/>
+              sequence="70"
+              groups="base.group_system"/>
 
     <!-- Lote: perfil que lo tiene, lote padre, transferencias y chatter. -->
     <record id="view_shrimp_stock_lot_form_profile" model="ir.ui.view">

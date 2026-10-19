@@ -26,15 +26,21 @@ def b64(data):
 def digest(node):
     return b64(hashlib.sha1(canonical(node)).digest())
 
-def sign_xml(data, p12, password):
-    root = parse_xml(data)
-    if root.get('id') != 'comprobante' or root.findall('{%s}Signature' % DS):
-        raise ValueError('Se requiere XML sin firma y con id comprobante.')
-    private, cert, chain = load_key_and_certificates(p12, password.encode() if password else None)
+def validity(cert):
+    """Vigencia en UTC; cryptography < 42 no tiene los atributos *_utc."""
+    before = getattr(cert, 'not_valid_before_utc', None) or cert.not_valid_before.replace(tzinfo=timezone.utc)
+    after = getattr(cert, 'not_valid_after_utc', None) or cert.not_valid_after.replace(tzinfo=timezone.utc)
+    return before, after
+
+def load_certificate(p12, password):
+    """Abre el .p12 y aplica las exigencias de la firma del SRI (ficha, sección 6):
+    RSA de 2048 bits o más, certificado vigente y con uso de firma digital.
+    La usan la subida del certificado y cada firma, para que fallen igual."""
+    private, cert, _chain = load_key_and_certificates(p12, password.encode() if password else None)
     if not isinstance(private, rsa.RSAPrivateKey) or not cert or private.key_size < 2048:
         raise ValueError('Se requiere certificado RSA con clave privada de al menos 2048 bits.')
-    now = datetime.now(timezone.utc)
-    if not cert.not_valid_before_utc <= now <= cert.not_valid_after_utc:
+    before, after = validity(cert)
+    if not before <= datetime.now(timezone.utc) <= after:
         raise ValueError('El certificado no está vigente.')
     try:
         usage = cert.extensions.get_extension_for_class(x509.KeyUsage).value
@@ -42,6 +48,14 @@ def sign_xml(data, p12, password):
             raise ValueError('El certificado no permite firma digital.')
     except x509.ExtensionNotFound:
         pass
+    return private, cert
+
+def sign_xml(data, p12, password):
+    root = parse_xml(data)
+    if root.get('id') != 'comprobante' or root.findall('{%s}Signature' % DS):
+        raise ValueError('Se requiere XML sin firma y con id comprobante.')
+    private, cert = load_certificate(p12, password)
+    now = datetime.now(timezone.utc)
     serial = uuid4().hex
     sid, kid, pid, rid = ['%s-%s' % (prefix, serial) for prefix in ('Signature','KeyInfo','SignedProperties','Document')]
     sig = etree.SubElement(root, '{%s}Signature' % DS, nsmap={'ds':DS,'etsi':XA}, Id=sid)

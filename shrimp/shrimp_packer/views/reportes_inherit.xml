@@ -12,7 +12,7 @@
             name="Mis reportes - precios de compra">
     <xpath expr="//div[hasclass('sf-banner')]" position="after">
       <t t-set="pk_resumen"
-         t-value="request.env['shrimp.price.list'].sudo().resumen_mejor_precio(request.env.user.partner_id)"/>
+         t-value="request.env['shrimp.price.list'].sudo().resumen_mejor_precio(request.env.user.shrimp_actor_partner_id)"/>
       <t t-if="pk_resumen">
         <div class="pk-rep mb-4">
 

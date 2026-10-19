@@ -253,6 +253,37 @@ class TestNavbarPlataformas(HttpCase):
         self.assertEqual(etiquetas["my_products"], "Mis lotes y corridas")
         self.assertNotIn("services", self._secciones(socio))
 
+    def test_instalaciones_por_perfil(self):
+        """«Instalaciones» (Mi cuenta#instalaciones) para los tres perfiles
+        con instalaciones, con su vocabulario, dentro de «Mi cuenta ▾»
+        (Más herramientas). La siembra sigue siendo solo de la camaronera."""
+        casos = {"semillero": (self.s["sem"], "Centros y tanques"),
+                 "laboratorio": (self.s["lab"], "Laboratorios y tanques"),
+                 "camaronera": (self.s["cam"], "Fincas y piscinas")}
+        for rol, (socio, texto) in casos.items():
+            with self.subTest(rol=rol):
+                self.assertTrue(self._puede(socio, "manage_facilities"))
+                items = {it["key"]: it for it in
+                         self.env["website"]._shrimp_nav_tree(socio)["sections"]["panel"]["items"]}
+                self.assertIn("facilities", items)
+                self.assertEqual(items["facilities"]["label"], texto)
+                self.assertEqual(items["facilities"]["url"], "/marketplace/my-account#instalaciones")
+                self.assertEqual(self._puede(socio, "manage_ponds"), rol == "camaronera")
+                if self._ruta("/marketplace/sowings/new"):
+                    self.assertEqual("sowing_new" in items, rol == "camaronera")
+        if self.emp:
+            self.assertFalse(self._puede(self.emp, "manage_facilities"))
+            panel = self.env["website"]._shrimp_nav_tree(self.emp)["sections"].get("panel", {})
+            self.assertNotIn("facilities", [it["key"] for it in panel.get("items", [])])
+        # En la barra renderizada del laboratorio, dentro de «Mi cuenta ▾».
+        self._usar_sitio("main")
+        self.authenticate("lab.secnav", CLAVE)
+        _e, _m, cuenta, _p = self._barra(self._pagina())
+        self.assertIn("facilities", cuenta)
+        cabecera = self._cabecera()
+        self.assertIn('href="/marketplace/my-account#instalaciones"', cabecera)
+        self.assertIn("Laboratorios y tanques", cabecera)
+
     def test_camaronera(self):
         socio = self.s["cam"]
         sec = self._secciones(socio)
@@ -281,7 +312,10 @@ class TestNavbarPlataformas(HttpCase):
         esperado = ["offer", "price_lists", "harvests_offered", "purchases"]
         self.assertEqual([k for k in sec["buy"] if k in esperado], esperado)
         self.assertIn("supplier_ranking", sec["buy"])
-        self.assertFalse({"publish", "inventory", "buy_camaronera"} & claves)
+        self.assertFalse({"publish", "buy_camaronera"} & claves)
+        # Su camarón comprado queda en /marketplace/my-lots (Mi panel ya lo
+        # enlazaba como «Inventario»; ahora barra y panel coinciden).
+        self.assertIn("inventory", claves)
         self.assertEqual("exports" in claves, self._ruta("/marketplace/exports"))
         if self._puede(self.emp, "request_copack"):
             self.assertEqual(sec["services"], ["copack"])
@@ -310,13 +344,17 @@ class TestNavbarPlataformas(HttpCase):
         socios = [self.s["sem"], self.s["lab"], self.s["cam"]] + ([self.emp] if self.emp else [])
         for socio in socios:
             with self.subTest(rol=socio.shrimp_user_type):
-                urls = [u for _s, _k, _l, u in self._links(
-                    socio, sections=("sell", "buy", "services", "account"))]
+                enlaces = self._links(socio, sections=("sell", "buy", "services", "account"))
+                urls = [u for _s, _k, _l, u in enlaces]
                 self.assertEqual(len(urls), len(set(urls)), urls)
                 textos = [l for _s, _k, l, _u in self._links(socio)]
                 self.assertEqual(len(textos), len(set(textos)), textos)
+                # «Panel completo» (/my) solo dentro de «Mi cuenta ▾» (en
+                # lugar del «Mi cuenta» nativo, /my/home), nunca en los
+                # desplegables de la barra.
+                urls_barra = [u for _s, k, _l, u in enlaces if k != "portal_home"]
                 for ruta in RETIRADAS + ("/marketplace", "/marketplace/calendar"):
-                    self.assertNotIn(ruta, urls)
+                    self.assertNotIn(ruta, urls_barra)
 
     def test_my_por_rol(self):
         """/my: tarjetas del perfil; sin «Solicitudes de chequeo»; «Mi panel»
@@ -401,11 +439,14 @@ class TestNavbarPlataformas(HttpCase):
         mig.migrate(self.env.cr, "19.0.1.9.0")
         self.assertEqual(W._shrimp_alinear_menus_portal(), 0)
         self.assertEqual(foto(), primera)
-        # Lo que el cliente borra después no se vuelve a crear, y lo que
+        # Lo que el cliente borra después no se vuelve a crear (salvo «Mi
+        # panel», obligatorio: es la entrada a /my/dashboard), y lo que
         # renombra se respeta.
         M.search([("website_id", "=", sitio.id), ("shrimp_key", "=", "panel")]).unlink()
+        M.search([("website_id", "=", sitio.id), ("shrimp_key", "=", "services")]).unlink()
         M.search([("website_id", "=", sitio.id), ("shrimp_key", "=", "buy")]).name = "Compras"
         W._shrimp_alinear_menus_portal()
-        self.assertFalse(M.search([("website_id", "=", sitio.id), ("shrimp_key", "=", "panel")]))
+        self.assertEqual(len(M.search([("website_id", "=", sitio.id), ("shrimp_key", "=", "panel")])), 1)
+        self.assertFalse(M.search([("website_id", "=", sitio.id), ("shrimp_key", "=", "services")]))
         self.assertEqual(M.search([("website_id", "=", sitio.id), ("shrimp_key", "=", "buy")]).name,
                          "Compras")

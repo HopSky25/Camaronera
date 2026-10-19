@@ -1,0 +1,121 @@
+/* ==========================================================================
+   CamaronMarket — «¡Compra realizada!» (plantilla buy_thanks)
+   Rediseño 2026-10 a todo el ancho: banda de éxito, detalle a la izquierda
+   (tarjetas .pf-sec) y resumen del pago fijo a la derecha (.bp-sum, de
+   shrimp_buy.css). En móvil, una columna y barra inferior (.pd-mbar).
+   Solo tokens (var(--shrimp-*)): el modo oscuro los redefine; lo demás va
+   en el bloque «Compra realizada» de shrimp_dark.css.
+   Todo lo nuevo va bajo .tk- (thanks).
+   ========================================================================== */
+
+/* ---------- Banda de éxito (todo el ancho) ---------- */
+.tk-hero { width: 100%; border-bottom: 1px solid var(--shrimp-border); background: var(--shrimp-success-soft); }
+.tk-hero--wait { background: var(--shrimp-warning-soft); }
+.tk-hero--cancel { background: var(--shrimp-bg-alt); }
+.tk-hero-in { max-width: var(--shrimp-maxw); margin: 0 auto; padding: 30px clamp(16px, 4vw, 40px) 26px; display: flex; align-items: center; gap: 22px; }
+.tk-hero-ico { width: 72px; height: 72px; min-width: 72px; border-radius: 50%; display: grid; place-items: center; font-size: 32px; color: #fff; background: var(--shrimp-success); box-shadow: 0 0 0 8px rgba(31, 143, 95, .14); }
+.tk-hero--wait .tk-hero-ico { background: var(--shrimp-warning); box-shadow: 0 0 0 8px rgba(183, 121, 31, .14); }
+.tk-hero--cancel .tk-hero-ico { background: var(--shrimp-ink-faint); box-shadow: none; }
+.tk-hero-txt { min-width: 0; }
+.tk-eyebrow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 12.5px; color: var(--shrimp-ink-soft); font-weight: 600; margin-bottom: 4px; }
+.tk-eyebrow .pd-tipo { text-transform: uppercase; letter-spacing: .06em; font-weight: 800; color: var(--shrimp-success); }
+.tk-hero--wait .tk-eyebrow .pd-tipo { color: var(--shrimp-warning); }
+.tk-hero--cancel .tk-eyebrow .pd-tipo { color: var(--shrimp-ink-soft); }
+.tk-hero h1 { margin: 0; font-size: clamp(24px, 3.2vw, 34px); font-weight: 800; letter-spacing: -.02em; color: var(--shrimp-ink); }
+.tk-hero p { margin: 4px 0 0; font-size: 15px; color: var(--shrimp-ink-soft); }
+.tk-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.tk-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: var(--shrimp-radius-pill); font-size: 12.5px; font-weight: 700; background: var(--shrimp-surface); color: var(--shrimp-ink-soft); border: 1px solid var(--shrimp-border); white-space: nowrap; }
+.tk-chip .fa { color: var(--shrimp-ink-faint); }
+.tk-chip--ok { color: var(--shrimp-success); }
+.tk-chip--ok .fa { color: var(--shrimp-success); }
+
+.tk-page { padding-top: 22px; }
+.tk-note { margin-bottom: 18px; }
+.tk-layout { margin-top: 0; }
+
+/* ---------- Tu compra ---------- */
+.tk-prod { display: flex; align-items: center; gap: 14px; padding-bottom: 16px; margin-bottom: 16px; border-bottom: 1px solid var(--shrimp-border); }
+.tk-thumb { position: relative; width: 72px; height: 72px; flex: 0 0 auto; border-radius: 12px; overflow: hidden; display: grid; place-items: center; border: 1px solid var(--shrimp-border); background: var(--shrimp-bg-alt); color: var(--shrimp-ink-faint); font-size: 22px; }
+.tk-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.tk-prod-n { min-width: 0; flex: 1 1 0; display: flex; flex-direction: column; gap: 3px; }
+.tk-prod-n > b { font-size: 16px; font-weight: 800; color: var(--shrimp-ink); line-height: 1.25; overflow-wrap: anywhere; }
+.tk-prod-n > span { font-size: 13px; color: var(--shrimp-ink-soft); }
+.tk-prod-t { text-align: right; flex: 0 0 auto; }
+.tk-prod-t small { display: block; font-size: 11.5px; color: var(--shrimp-ink-faint); text-transform: uppercase; letter-spacing: .05em; font-weight: 700; }
+.tk-prod-t b { font-size: 20px; font-weight: 800; color: var(--shrimp-ink); letter-spacing: -.01em; white-space: nowrap; }
+.tk-specs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+/* ---------- Partes ---------- */
+.tk-parties { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.tk-party { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--shrimp-border); border-radius: 12px; background: var(--shrimp-bg); min-width: 0; }
+.tk-party .pd-avatar { width: 42px; height: 42px; font-size: 15px; }
+.tk-avatar-b { background: var(--shrimp-bg-alt); color: var(--shrimp-ink-soft); }
+.tk-party-n { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.tk-party-n small { font-size: 11.5px; color: var(--shrimp-ink-faint); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.tk-party-n a, .tk-party-n b { font-size: 14.5px; font-weight: 800; color: var(--shrimp-ink); overflow-wrap: anywhere; }
+.tk-party-n a { color: var(--shrimp-brand); }
+.tk-party-n .bp-rate { font-size: 12.5px; color: var(--shrimp-ink-soft); }
+
+/* ---------- Entrega ---------- */
+.tk-kv b { font-size: 14.5px; text-align: right; }
+
+/* ---------- Próximos pasos (línea de tiempo vertical) ---------- */
+.tk-tl { list-style: none; margin: 0; padding: 0; }
+.tk-step { position: relative; display: flex; gap: 14px; padding: 0 0 18px; }
+.tk-step:last-child { padding-bottom: 0; }
+.tk-step::before { content: ""; position: absolute; left: 15px; top: 32px; bottom: 0; width: 2px; background: var(--shrimp-border); }
+.tk-step:last-child::before { display: none; }
+.tk-step.is-done::before { background: var(--shrimp-success); }
+.tk-dot { position: relative; z-index: 1; width: 32px; height: 32px; min-width: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; background: var(--shrimp-bg-alt); color: var(--shrimp-ink-faint); border: 2px solid var(--shrimp-border-strong); }
+.tk-step.is-done .tk-dot { background: var(--shrimp-success); border-color: var(--shrimp-success); color: #fff; }
+.tk-step.is-current .tk-dot { background: var(--shrimp-surface); border-color: var(--shrimp-teal); color: var(--shrimp-teal); box-shadow: 0 0 0 4px var(--shrimp-input-ring); }
+.tk-step.is-late .tk-dot { background: var(--shrimp-danger-soft); border-color: var(--shrimp-danger); color: var(--shrimp-danger); }
+.tk-step > div { padding-top: 5px; min-width: 0; }
+.tk-step-t { font-weight: 800; font-size: 14.5px; color: var(--shrimp-ink); }
+.tk-step-d { font-size: 13px; color: var(--shrimp-ink-soft); line-height: 1.45; margin-top: 2px; }
+.tk-step-d b { color: var(--shrimp-ink); }
+
+/* ---------- Reseña ---------- */
+.tk-rate-q { font-size: 16px; font-weight: 800; margin: 0 0 10px; color: var(--shrimp-ink); }
+.tk-rate-c { margin: 10px 0 0; font-size: 13.5px; }
+
+/* ---------- Acciones del resumen ---------- */
+.tk-actions { display: flex; flex-direction: column; gap: 8px; margin: 14px 18px 0; }
+.tk-actions .s-btn { width: 100%; justify-content: center; min-height: 42px; font-size: 14px; }
+.tk-actions .s-btn-primary { min-height: 48px; font-size: 15px; }
+.tk-actions-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.tk-actions .tk-btn-sub { font-size: 12px; font-weight: 500; opacity: .85; margin-left: 3px; }
+.tk-actions-why { font-size: 12.5px; color: var(--shrimp-ink-faint); text-align: center; padding: 6px 0; }
+
+/* ========================================================================
+   Responsive
+   ======================================================================== */
+@media (max-width: 1199.98px) {
+    .tk-specs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 991.98px) {
+    .tk-page { padding-bottom: 104px; }
+    /* Como la ficha: el resumen (importes y acciones) sube detrás de la banda. */
+    .tk .bp-aside { order: -1; margin: 0 0 18px; }
+    .tk-mbar .pd-mbar-act .s-btn-primary { width: auto; padding: 0 16px; }
+}
+@media (max-width: 640px) {
+    .tk-hero-in { padding: 20px 14px 18px; gap: 14px; align-items: flex-start; }
+    .tk-hero-ico { width: 52px; height: 52px; min-width: 52px; font-size: 24px; box-shadow: 0 0 0 5px rgba(31, 143, 95, .14); }
+    .tk-hero p { font-size: 14px; }
+    .tk-chips { flex-wrap: nowrap; overflow-x: auto; margin-right: -14px; padding-right: 14px; scrollbar-width: none; }
+    .tk-chips::-webkit-scrollbar { display: none; }
+    .tk-page { padding-top: 14px; }
+    .tk .pf-sec-h { padding: 14px; }
+    .tk .pf-sec-b { padding: 14px; }
+    .tk-prod { flex-wrap: wrap; }
+    .tk-prod-t { flex-basis: 100%; text-align: left; display: flex; align-items: baseline; justify-content: space-between; }
+    .tk-specs { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .tk-specs .mp-spec { padding: 9px 10px; gap: 8px; }
+    .tk-specs .mp-spec-ico { display: none; }
+    .tk-parties { grid-template-columns: minmax(0, 1fr); }
+}
+@media print {
+    .tk-mbar, .tk-actions { display: none !important; }
+    .tk-hero { background: none; }
+}

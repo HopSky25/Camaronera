@@ -1,0 +1,84 @@
+/* «Estado real del lote» (.evo-): bloque de la ficha del producto, modal
+   «Registrar observación» y botón en «Mis productos». Solo tokens; el modo
+   oscuro ajusta lo propio en shrimp_dark.css (bloque «Estado real del lote»). */
+
+/* ---------- Publicado vs observado ---------- */
+.evo-cmp { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 10px; align-items: stretch; margin-bottom: 14px; }
+.evo-cmp-col { border: 1px solid var(--shrimp-border); border-radius: 12px; padding: 12px 14px; background: var(--shrimp-bg); min-width: 0; }
+.evo-cmp-obs { background: var(--shrimp-surface); border-color: var(--shrimp-teal); }
+.evo-cmp-obs.is-div { border-color: var(--shrimp-warning, #d39b22); }
+.evo-cmp-h { font-size: 12px; font-weight: 700; color: var(--shrimp-ink-soft); text-transform: uppercase; letter-spacing: .03em; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.evo-cmp-date { text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--shrimp-ink-faint); }
+.evo-cmp-stage { font-size: 20px; font-weight: 800; color: var(--shrimp-ink); margin: 4px 0 2px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.evo-cmp-sub { font-size: 13px; color: var(--shrimp-ink-soft); }
+.evo-cmp-arrow { display: flex; align-items: center; color: var(--shrimp-ink-faint); }
+.evo-badge-div, .evo-badge-ok { font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 2px 8px; display: inline-flex; gap: 4px; align-items: center; }
+.evo-badge-div { background: var(--shrimp-warning-soft); color: #8a5a00; }
+.evo-badge-ok { background: var(--shrimp-success-soft); color: #17603f; }
+
+.evo-div-box { margin: 0 0 14px; }
+.evo-div-box .evo-apply { margin-top: 10px; }
+.evo-div-lock { margin-top: 8px; font-weight: 600; }
+.evo-stock-hint { margin: 12px 0 0; }
+
+/* ---------- Datos de la última observación ---------- */
+.evo-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.evo-fact { border: 1px solid var(--shrimp-border); border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.evo-fact--wide { grid-column: 1 / -1; }
+.evo-k { font-size: 11.5px; font-weight: 700; color: var(--shrimp-ink-faint); text-transform: uppercase; letter-spacing: .03em; }
+.evo-k small { text-transform: none; letter-spacing: 0; font-weight: 600; }
+.evo-v { font-size: 14px; color: var(--shrimp-ink); overflow-wrap: anywhere; }
+.evo-fact--w .evo-v { font-weight: 700; }
+
+/* ---------- Mini gráficos (una serie cada uno; sin doble eje) ---------- */
+.evo-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 14px; }
+.evo-chart { margin: 0; border: 1px solid var(--shrimp-border); border-radius: 12px; padding: 10px 12px 6px; }
+.evo-chart figcaption { font-size: 12.5px; color: var(--shrimp-ink-soft); display: flex; justify-content: space-between; gap: 8px; }
+.evo-chart figcaption b { color: var(--shrimp-ink); }
+.evo-chart svg { width: 100%; height: 120px; display: block; overflow: visible; }
+.evo-c-grid { stroke: var(--shrimp-border); stroke-width: 1; }
+.evo-c-lbl { font-size: 10px; fill: var(--shrimp-ink-faint); }
+.evo-c-line { stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.evo-c-dot { stroke: var(--shrimp-surface); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.evo-c-dot:hover { r: 6; }
+.evo-c-size .evo-c-line { stroke: var(--shrimp-teal); }
+.evo-c-size .evo-c-dot { fill: var(--shrimp-teal); }
+.evo-c-surv .evo-c-line { stroke: var(--shrimp-brand); }
+.evo-c-surv .evo-c-dot { fill: var(--shrimp-brand); }
+
+/* ---------- Historial ---------- */
+.evo-hist { margin-top: 14px; }
+.evo-hist > summary { cursor: pointer; font-weight: 700; color: var(--shrimp-ink); padding: 6px 0; min-height: 44px; display: flex; align-items: center; }
+.evo-table td, .evo-table th { font-size: 13px; }
+.evo-note { max-width: 260px; overflow-wrap: anywhere; }
+.evo-pub-then { display: block; color: var(--shrimp-ink-faint); font-size: 11.5px; }
+.evo-origin { font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 2px 8px; white-space: nowrap; background: var(--shrimp-teal-soft); color: #0b5f6b; }
+.evo-origin--quality { background: var(--shrimp-brand-soft); color: var(--shrimp-brand); }
+.evo-acts { white-space: nowrap; }
+.evo-acts .pf-ib { width: 36px; height: 36px; }
+.evo-until { display: block; color: var(--shrimp-ink-faint); font-size: 11px; }
+.evo-locked { color: var(--shrimp-ink-faint); }
+.evo-cta { margin-top: 14px; }
+.evo-sub { font-size: 12.5px; font-weight: 600; color: var(--shrimp-ink-faint); margin-left: 4px; }
+
+/* ---------- Modal ---------- */
+.evo-modal .modal-dialog { max-width: 680px; }
+.evo-modal-lead { font-size: 13.5px; color: var(--shrimp-ink-soft); margin: 0 0 12px; }
+.evo-fs { border: 0; padding: 0; margin: 0 0 16px; }
+.evo-fs legend { font-size: 13px; font-weight: 800; color: var(--shrimp-ink); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 10px; float: none; width: auto; }
+.evo-fs legend .pf-opt { text-transform: none; letter-spacing: 0; }
+.evo-g4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.evo-qty-help { display: flex; flex-direction: column; justify-content: flex-end; }
+.evo-qty-help .pf-alert { margin: 8px 0 0; }
+.evo-edit-hint { margin: 0; }
+.evo-flash { margin-bottom: 12px; }
+.evo-list-flash { padding-top: 12px; }
+
+@media (max-width: 767.98px) {
+    .evo-cmp { grid-template-columns: minmax(0, 1fr); }
+    .evo-cmp-arrow { justify-content: center; transform: rotate(90deg); }
+    .evo-g4 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+
+/* «Registrar observación» en «Gestionar publicación»: a todo el ancho de la rejilla. */
+.pd-owner .mp-detail-actions > [data-evo-action] { grid-column: 1 / -1; justify-content: center; width: 100%; }

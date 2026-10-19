@@ -1,0 +1,74 @@
+/* ==========================================================================
+   CamaronMarket Verificadores — MODO OSCURO (paleta teal)
+   Retoques a mano; la base está en shrimp_marketplace/static/src/css/
+   shrimp_dark.css y lo automático en verification_dark_auto.css (generado).
+   Mayor especificidad que #wrapwrap.o_shrimp_verifier (verification.css),
+   que redefine los tokens de marca en claro.
+   Contraste sobre --dk-surface: teal de texto #5fd3de 9.2:1; blanco sobre
+   el botón #0d7c88 4.9:1.
+   ========================================================================== */
+html[data-bs-theme="dark"] #wrapwrap.o_shrimp_verifier {
+    --shrimp-brand: #0d7c88;
+    --shrimp-brand-ink: #11909e;
+    --shrimp-brand-soft: #123a40;
+    --shrimp-teal: #0e8a99;
+    --shrimp-teal-soft: #123a40;
+    --dk-brand-text: #5fd3de;
+    --dk-teal-text: #6fe0e8;
+    --link-color: #5fd3de;
+    --link-color-rgb: 95, 211, 222;
+}
+/* Enlaces de texto del sitio en teal claro (no los botones ni los menús). */
+html[data-bs-theme="dark"] #wrapwrap.o_shrimp_verifier a:not(.btn):not(.s-btn):not(.vl-btn):not(.dropdown-item):not(.nav-link):not(.sv-kpi):not(.sv-card):not(.vw-kpi):not(.vw-order):not(.mp-tile):not(.navbar-brand) {
+    color: var(--dk-teal-text);
+}
+
+/* Portada (vl-*): fondo de página y secciones alternas oscuras, el héroe y
+   las bandas en degradado se quedan. */
+[data-bs-theme="dark"] .vl-page { background: var(--dk-bg); color: var(--dk-ink); }
+[data-bs-theme="dark"] .vl-section--alt { background: var(--dk-bg-alt); }
+[data-bs-theme="dark"] .vl-stats { background: var(--dk-surface); border-color: var(--dk-border); }
+[data-bs-theme="dark"] .vl-stat { border-color: var(--dk-border); }
+[data-bs-theme="dark"] .vl-stat .n,
+[data-bs-theme="dark"] .vl-yield .n,
+[data-bs-theme="dark"] .vw-order-yield,
+[data-bs-theme="dark"] .vl-eyebrow { color: var(--dk-teal-text); }
+[data-bs-theme="dark"] .vl-an-step { color: #35505a; }
+[data-bs-theme="dark"] .vl-card { background: var(--dk-surface); }
+[data-bs-theme="dark"] .vl-card-foot { background: #123a40; border-color: #1f5f68; }
+[data-bs-theme="dark"] .vl-float { background: var(--dk-surface-2); border: 1px solid var(--dk-border); }
+[data-bs-theme="dark"] .vl-benefit:hover,
+[data-bs-theme="dark"] .vl-an:hover,
+[data-bs-theme="dark"] .vl-faq details[open] { border-color: #1f5f68; }
+[data-bs-theme="dark"] .vl-step::after { background: repeating-linear-gradient(90deg, #1f5f68 0 9px, transparent 9px 16px); }
+/* La ficha de la verificadora: cabecera en degradado (se queda) */
+[data-bs-theme="dark"] .sv-info-card { background: var(--dk-surface); }
+[data-bs-theme="dark"] .sv-info-pdf { background: transparent; border-color: var(--dk-brand-text); color: var(--dk-brand-text); }
+[data-bs-theme="dark"] .sv-info-pdf:hover { background: var(--shrimp-brand); color: #fff; }
+[data-bs-theme="dark"] .sv-switch-input { background: var(--dk-surface-3); border-color: var(--dk-border-strong); }
+[data-bs-theme="dark"] .sv-switch-input::before { background: #cfd9e1; border-color: #8fa1b1; }
+[data-bs-theme="dark"] .sv-switch-input:checked { background: #0e8a99; border-color: #5fd3de; }
+[data-bs-theme="dark"] .vp-count--blue { background: #2a6f98; }
+
+/* ==========================================================================
+   REDISEÑO 2026-10 (.vr- portal de la verificadora, .svb- página de compra)
+   Casi todo usa tokens (--shrimp-*), que el modo oscuro ya redefine. Aquí
+   solo lo que lleva color fijo o necesita más contraste.
+   ========================================================================== */
+[data-bs-theme="dark"] .vr-sub-h .vr-n,
+[data-bs-theme="dark"] .vrp .sv-section .sv-num { background: #0d7c88; color: #fff; }
+[data-bs-theme="dark"] .vr-pill--assigned,
+[data-bs-theme="dark"] .vr-pill--info,
+[data-bs-theme="dark"] .vr-pill--done,
+[data-bs-theme="dark"] .vr-chip--resp,
+[data-bs-theme="dark"] .vr-chip--apoyo,
+[data-bs-theme="dark"] .vr-ico,
+[data-bs-theme="dark"] .vr-av { color: var(--dk-brand-text, #5fd3de); }
+[data-bs-theme="dark"] .vr-order-yield,
+[data-bs-theme="dark"] .vr-order-go { color: var(--dk-teal-text, #6fe0e8); }
+[data-bs-theme="dark"] .vr-savebar,
+[data-bs-theme="dark"] .vl-panel-in { box-shadow: 0 6px 18px rgba(0, 0, 0, .45); }
+[data-bs-theme="dark"] .svb-switch span::before { background: #e8eef2; }
+[data-bs-theme="dark"] .svb-switch input:checked + span { background: #0e8a99; }
+[data-bs-theme="dark"] .vr-tl .is-actual .vr-tl-dot::after { background: var(--dk-brand-text, #5fd3de); }
+[data-bs-theme="dark"] .vr-tl .is-actual .vr-tl-dot { border-color: var(--dk-brand-text, #5fd3de); }

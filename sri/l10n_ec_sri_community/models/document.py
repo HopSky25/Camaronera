@@ -3,17 +3,20 @@ import hashlib
 import secrets
 import re
 import json
+import logging
 from datetime import timedelta
 from lxml import etree
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError, AccessError
-from ..services import builders, signature, transport, xml_utils
+from ..services import builders, signature, transport, validators, xml_utils
 from .config import DOC_TYPES
 
 PROTECTED={'state','access_key','numeric_code','sequence','environment','unsigned_xml','signed_xml','authorized_xml',
            'authorization_number','authorization_date','payload_hash','attempts','next_attempt','last_message',
            'was_sent','company_snapshot','source_snapshot','retention_move_id','fiscal_number'}
 EDITABLE_META={'message_follower_ids','message_partner_ids','activity_ids'}
+
+_logger=logging.getLogger(__name__)
 
 class SriDocument(models.Model):
     _name='ec.sri.document'
@@ -26,7 +29,7 @@ class SriDocument(models.Model):
     partner_id=fields.Many2one('res.partner',required=True,check_company=True)
     document_type=fields.Selection(DOC_TYPES,required=True,string='Tipo de documento',default='01')
     point_id=fields.Many2one('ec.sri.point',check_company=True,string='Punto de emisión')
-    date=fields.Date(required=True,default=fields.Date.context_today,string='Fecha emisión')
+    date=fields.Date(required=True,default=lambda s:validators.today_ec(),string='Fecha emisión')
     move_id=fields.Many2one('account.move',check_company=True,copy=False,ondelete='restrict',string='Documento contable')
     picking_id=fields.Many2one('stock.picking',check_company=True,copy=False,ondelete='restrict',string='Transferencia')
     mode=fields.Selection([('native','Generar desde Odoo'),('xml','XML externo sin firma')],default='native',required=True)
@@ -128,6 +131,12 @@ class SriDocument(models.Model):
             if not self.move_id or self.move_id.move_type!='in_invoice' or self.move_id.state!='posted':
                 raise UserError(_('Seleccione una factura de proveedor publicada.'))
             if not self.retention_ids: raise UserError(_('Ingrese los códigos, bases y porcentajes retenidos.'))
+            bill_date=self.move_id.invoice_date
+            if bill_date and self.date<bill_date:
+                raise UserError(_('La retención no puede tener fecha anterior a la factura que sustenta (%s).',bill_date))
+            if bill_date and self.date>validators.add_business_days(bill_date,validators.RETENTION_BUSINESS_DAYS):
+                self._event('warning',_('La retención se emite después de %s días hábiles desde la factura del proveedor '
+                    '(Reglamento, art. 8).',validators.RETENTION_BUSINESS_DAYS))
             support=self.move_id._ec_sri_support_data()
             support['withholdings']=[dict(code=l.tax_type,retention_code=l.retention_code,base=l.base,rate=l.rate) for l in self.retention_ids]
             data=dict(date=self.date.strftime('%d/%m/%Y'),address=self.point_id.address,period=self.period or self.date.strftime('%m/%Y'),
@@ -145,6 +154,12 @@ class SriDocument(models.Model):
             environment=rec.company_id.ec_sri_environment
             if rec.environment and rec.environment!=environment:
                 raise UserError(_('Restaure el ambiente original del comprobante antes de corregirlo.'))
+            today=validators.today_ec()
+            if rec.date>today:
+                raise UserError(_('La fecha de emisión %s es futura.',rec.date))
+            if environment=='2' and not rec.access_key and rec.date!=today:
+                raise UserError(_('Desde el 01/01/2026 el comprobante se transmite al SRI en el momento de generarse '
+                    '(Res. NAC-DGERCGC25-00000014): la fecha de emisión debe ser la de hoy, %s.',today))
             source={}
             try:
                 if rec.mode=='xml':
@@ -159,8 +174,10 @@ class SriDocument(models.Model):
                     if p['vat'] not in ids: raise ValueError('El receptor del XML no coincide con el contacto.')
                 else:
                     point=rec.point_id
-                    if not point or point.company_id!=rec.company_id or point.document_type!=rec.document_type or point.environment!=environment:
+                    if not point or point.company_id!=rec.company_id or rec.document_type not in point.line_ids.mapped('document_type') or point.environment!=environment:
                         raise UserError(_('Seleccione el punto correcto para empresa, documento y ambiente.'))
+                    if rec.move_id.ec_sri_point_id and rec.move_id.ec_sri_point_id!=point:
+                        raise UserError(_('El punto de emisión debe ser el de la factura: %s.',rec.move_id.ec_sri_point_id.display_name))
                     if rec.move_id and rec.move_id.partner_id.commercial_partner_id!=rec.partner_id.commercial_partner_id:
                         raise UserError(_('El contacto debe coincidir con el documento contable.'))
                     if rec.picking_id and rec.picking_id.partner_id.commercial_partner_id!=rec.partner_id.commercial_partner_id:
@@ -172,19 +189,29 @@ class SriDocument(models.Model):
                             seq=rec.move_id._ec_sri_number_parts()
                             if seq[:2]!=(point.establishment,point.emission): raise UserError(_('El punto no coincide con la numeración contable.'))
                             sequence=seq[2]
-                        else: sequence=point.sequence_id.next_by_id()
+                        else: sequence=point._sequence_for(rec.document_type).next_by_id()
                         key=xml_utils.access_key(rec.date,rec.document_type,company['vat'],environment,point.establishment,point.emission,sequence,numeric)
                     raw,source=rec._native_data(key,company)
                 cert,password=rec.company_id._ec_sri_certificate()
                 signed=signature.sign_xml(raw,cert,password)
+                if len(signed)>validators.MAX_XML_BYTES:
+                    raise ValueError('El comprobante firmado pesa %s KB; el SRI admite hasta 320 KB por comprobante.' % (len(signed)//1024))
                 xml_utils.validate_document(signed,company['vat'],environment,rec.document_type)
             except (ValueError,etree.LxmlError) as exc:
                 raise UserError(_('No se pudo preparar el comprobante: %s',str(exc))) from exc
+            except UserError:
+                raise
+            except Exception as exc:  # noqa: BLE001 - un fallo inesperado no debe salir como error 500
+                _logger.exception('SRI: fallo inesperado al preparar el comprobante %s',rec.id)
+                raise UserError(_('No se pudo preparar el comprobante por un error interno (%s). Revise el registro del servidor.',
+                    type(exc).__name__)) from exc
             rec._set(dict(access_key=key,sequence=key[30:39],numeric_code=key[39:47],environment=environment,
                           unsigned_xml=base64.b64encode(raw),signed_xml=base64.b64encode(signed),
                           payload_hash=hashlib.sha256(signed).hexdigest(),company_snapshot=company,source_snapshot=json.loads(json.dumps(source,default=str)),
                           state='queued',attempts=0,next_attempt=fields.Datetime.now(),last_message=False))
             rec._event('prepared','XML validado y firmado. En cola de envío.')
+            warning=rec.partner_id._ec_sri_identification_warning()
+            if warning: rec._event('warning',warning)
         # Transmisión inmediata (Resolución NAC-DGERCGC25-00000017): en lugar
         # de esperar el ciclo de 1 minuto, se dispara el cron para que envíe al
         # SRI en segundos tras confirmar la transacción. Se mantiene todo el
@@ -294,11 +321,21 @@ class SriDocument(models.Model):
             doc._set(dict(state='draft',next_attempt=False,was_sent=False))
 
     def action_record_cancellation(self):
-        if not self.env.user.has_group('account.group_account_manager'): raise AccessError(_('Requiere administrador contable.'))
+        if not self.env.user.has_group('l10n_ec_sri_community.group_sri_manager'): raise AccessError(_('Requiere el permiso Administrador de Ecuador SRI.'))
         for doc in self:
             if not doc._lock(): continue
             if doc.state!='authorized' or not all([doc.cancellation_reason,doc.cancellation_evidence,doc.cancellation_date]):
                 raise UserError(_('Registre motivo, fecha y constancia de anulación realizada en el portal SRI.'))
+            if doc.document_type=='01' and doc.partner_id._ec_sri_identification_code()=='07' and \
+                    doc.date>=validators.FINAL_CONSUMER_RULES_FROM:
+                raise UserError(_('Las facturas a consumidor final no se pueden anular una vez transmitidas al SRI '
+                    '(Res. NAC-DGERCGC25-00000014, art. 3).'))
+            if not doc.date<=doc.cancellation_date<=validators.today_ec():
+                raise UserError(_('La fecha de anulación debe estar entre la emisión (%s) y hoy.',doc.date))
+            deadline=validators.cancellation_deadline(doc.date)
+            if doc.cancellation_date>deadline:
+                doc._event('warning',_('La anulación es posterior al plazo en línea (%s, día 7 del mes siguiente). Pasado el '
+                    'plazo, una factura solo se anula con nota de crédito.',deadline))
             doc._set({'state':'cancelled'});doc._event('cancellation',doc.cancellation_reason)
 
     def action_ride(self):
@@ -308,8 +345,8 @@ class SriDocument(models.Model):
 
     def action_post_retention(self):
         self.ensure_one()
-        if not self.env.user.has_group('account.group_account_manager'):
-            raise AccessError(_('La contabilización de retenciones requiere administrador contable.'))
+        if not self.env.user.has_group('l10n_ec_sri_community.group_sri_manager'):
+            raise AccessError(_('La contabilización de retenciones requiere el permiso Administrador de Ecuador SRI.'))
         if not self._lock(): return
         if self.retention_move_id:
             return {'type':'ir.actions.act_window','res_model':'account.move','view_mode':'form','res_id':self.retention_move_id.id}
@@ -405,8 +442,8 @@ class RetentionLine(models.Model):
         if 'document_id' in vals: raise UserError(_('No puede trasladar una retención a otro comprobante.'))
         fiscal_fields=set(vals)-{'account_id','base_box','tax_box'}
         if fiscal_fields and any(r.document_id.state!='draft' for r in self): raise UserError(_('El comprobante está bloqueado.'))
-        if set(vals)&{'account_id','base_box','tax_box'} and not self.env.user.has_group('account.group_account_manager'):
-            raise AccessError(_('Requiere administrador contable para cambiar cuentas o casilleros.'))
+        if set(vals)&{'account_id','base_box','tax_box'} and not self.env.user.has_group('l10n_ec_sri_community.group_sri_manager'):
+            raise AccessError(_('Cambiar cuentas o casilleros requiere el permiso Administrador de Ecuador SRI.'))
         if 'account_id' in vals and any(r.document_id.retention_move_id for r in self):
             raise UserError(_('La retención ya está contabilizada.'))
         return super().write(vals)

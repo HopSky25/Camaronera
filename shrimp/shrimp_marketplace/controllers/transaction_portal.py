@@ -14,6 +14,7 @@ from odoo.addons.shrimp_user_registry.controllers.main import (
 
 from .filter_drawer import (
     fd_context, fd_json_count, fd_range_label, fd_tags, fd_valid_date)
+from odoo.addons.shrimp_user_registry.controllers.main import require_permission
 
 # Nombres de mes en espanol para las graficas del portal.
 MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun",
@@ -155,8 +156,9 @@ class ShrimpTransactionPortalController(http.Controller):
             "delivery_asc": "delivery_date asc, create_date desc",
             "delivery_desc": "delivery_date desc, create_date desc",
             "qty_desc": "transaction_qty desc, create_date desc",
-            "price_desc": "product_id.price desc, create_date desc",
-            "price_asc": "product_id.price asc, create_date desc",
+            # D-17: el precio que vale es el congelado en la compra.
+            "price_desc": "price_unit desc, create_date desc",
+            "price_asc": "price_unit asc, create_date desc",
         }
         return order_map.get(order, "create_date desc")
 
@@ -298,17 +300,18 @@ class ShrimpTransactionPortalController(http.Controller):
         seller = product.seller_partner_id
         reviews = seller.sudo()._shrimp_seller_reviews(limit=20)
 
-        check_fee = float(request.env["ir.config_parameter"].sudo().get_param(
-            "shrimp_marketplace.check_fee") or 0.0)
-
         unit_price = product.price_for_partner(buyer_partner)
         has_custom_price = unit_price != product.price
 
+        # Matriz de verificación (vendedor → comprador): «none» oculta la
+        # sección de verificación; «mandatory» oculta la compra directa.
+        verification_policy = product.sudo()._shrimp_verification_policy(buyer_partner)
+
         return request.render("shrimp_marketplace.buy_product", {
+            "verification_policy": verification_policy,
             "product": product,
             "seller": seller,
             "reviews": reviews,
-            "check_fee": check_fee,
             "unit_price": unit_price,
             "has_custom_price": has_custom_price,
         })
@@ -342,35 +345,26 @@ class ShrimpTransactionPortalController(http.Controller):
         tx = result["transaction"]
         return request.redirect(f"/marketplace/thanks/{tx.uuid_ref}?paid=1")
 
+    # ------------------------------------------------------------------
+    # Solicitud de chequeo: RETIRADA por completo (decisión D-28). Las rutas
+    # viejas no dan 404 (un enlace o formulario antiguo): devuelven a «Mis
+    # compras» con la explicación y no crean ni cobran nada. El histórico
+    # queda en el back-office (Ajustes › Técnico).
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _shrimp_check_retired_redirect(target="/marketplace/purchases"):
+        msg = flash_message(request.env["shrimp.check.request"]._shrimp_retired_text())
+        sep = "&" if "?" in target else "?"
+        return request.redirect("%s%serror=validation&message=%s" % (target, sep, msg))
+
     @http.route("/marketplace/buy/<product_ref>/request-check", type="http", auth="user", website=True, methods=["POST"], csrf=True)
     def request_check(self, product_ref, **post):
-        """RETIRADA. La solicitud de chequeo se sustituyó por la compra con
-        verificación en campo (shrimp_verification), que cubre lo mismo con
-        técnico, informe y firma de las partes. La ruta se conserva para que
-        un formulario viejo no termine en un 404: devuelve a la ficha con la
-        explicación y no crea nada (ni cobra nada)."""
         product = self._get_product_for_purchase(product_ref)
-        msg = flash_message(
-            "La solicitud de chequeo ya no está disponible: compra con "
-            "verificación en campo para que un verificador acreditado inspeccione "
-            "el producto antes de concretar la compra.")
-        return request.redirect(
-            f"/marketplace/buy/{product.uuid_ref}?error=validation&message={msg}")
+        return self._shrimp_check_retired_redirect("/marketplace/buy/%s" % product.uuid_ref)
 
     @http.route("/marketplace/check-request/thanks/<check_request_ref>", type="http", auth="user", website=True, methods=["GET"])
     def check_request_thanks(self, check_request_ref, **kwargs):
-        check_request = request.env["shrimp.check.request"].sudo().resolve_ref(check_request_ref)
-
-        if not check_request:
-            raise NotFound()
-
-        current_partner = self._get_current_partner()
-        if current_partner not in (check_request.buyer_partner_id, check_request.seller_partner_id):
-            raise NotFound()
-
-        return request.render("shrimp_marketplace.check_request_thanks", {
-            "check_request": check_request,
-        })
+        return self._shrimp_check_retired_redirect()
 
     @http.route("/marketplace/thanks/<tx_ref>", type="http", auth="user", website=True)
     def marketplace_thanks(self, tx_ref, **kw):
@@ -511,21 +505,109 @@ class ShrimpTransactionPortalController(http.Controller):
             })
         return request.redirect("/marketplace/purchases?saved=review")
 
-    @http.route("/marketplace/purchases/<tx_ref>/receive", type="http", auth="user",
-                website=True, methods=["POST"], csrf=True)
-    def marketplace_receive_purchase(self, tx_ref, **post):
-        """El comprador confirma la recepción de la compra: sube su inventario
-        (producto en borrador), respetando la fecha de entrega."""
+    # ------------------------------------------------------------------
+    # Recepción (shrimp_transaction_reception.py): confirmar, reportar un
+    # problema y, del lado del vendedor, marcar el despacho.
+    # ------------------------------------------------------------------
+    _RECEPTION_PHOTO_MIMETYPES = {"image/png", "image/jpeg", "image/webp", "application/pdf"}
+
+    @staticmethod
+    def _reception_back(post, default):
+        """Vuelve a la página desde la que se envió (solo rutas propias)."""
+        destino = (post.get("next") or "").strip()
+        if not destino.startswith("/marketplace/") or "//" in destino or "\\" in destino:
+            destino = default
+        return destino
+
+    @staticmethod
+    def _with_params(url, **params):
+        ancla = ""
+        if "#" in url:
+            url, ancla = url.split("#", 1)
+            ancla = "#" + ancla
+        partes = "&".join("%s=%s" % (k, quote(str(v))) for k, v in params.items() if v)
+        return url + (("&" if "?" in url else "?") + partes if partes else "") + ancla
+
+    def _reception_photo(self):
+        archivo = request.httprequest.files.get("photo")
+        if not archivo:
+            return None
+        contenido, mime, nombre = read_upload(archivo, allowed=self._RECEPTION_PHOTO_MIMETYPES)
+        if not contenido:
+            return None
+        return {"content": contenido, "mimetype": mime, "name": nombre}
+
+    def _purchase_of_buyer(self, tx_ref):
         partner = self._get_current_partner()
         tx = request.env["shrimp.transaction"].sudo().resolve_ref(tx_ref)
         if not tx or tx.buyer_partner_id.id != partner.id:
             raise Forbidden()
+        return tx, partner
+
+    @http.route("/marketplace/purchases/<tx_ref>/receive", type="http", auth="user",
+                website=True, methods=["POST"], csrf=True)
+    def marketplace_receive_purchase(self, tx_ref, **post):
+        """El comprador confirma la recepción (nota y foto opcionales): sube
+        su inventario (producto en borrador) y la compra queda completada."""
+        tx, partner = self._purchase_of_buyer(tx_ref)
+        volver = self._reception_back(post, "/marketplace/purchases")
         try:
-            tx.action_receive()
-        except ValidationError as e:
-            msg = flash_message(e.args[0] if e.args else ustr(e))
-            return request.redirect(f"/marketplace/purchases?error=receive&message={msg}")
-        return request.redirect("/marketplace/purchases?saved=received")
+            with request.env.cr.savepoint():
+                tx.shrimp_confirm_reception(
+                    note=post.get("note"), photo=self._reception_photo(), actor=partner)
+        except (ValidationError, AccessError) as e:
+            msg = e.args[0] if e.args else ustr(e)
+            return request.redirect(self._with_params(volver, error="receive", message=flash_message(msg)))
+        return request.redirect(self._with_params(volver, saved="received"))
+
+    @http.route("/marketplace/purchases/<tx_ref>/report", type="http", auth="user",
+                website=True, methods=["POST"], csrf=True)
+    def marketplace_report_reception_issue(self, tx_ref, **post):
+        """«Reportar un problema»: la compra queda con incidencia (no se
+        confirma sola) y se avisa al vendedor y a la plataforma."""
+        tx, partner = self._purchase_of_buyer(tx_ref)
+        volver = self._reception_back(post, "/marketplace/purchases")
+        try:
+            with request.env.cr.savepoint():
+                tx.shrimp_report_reception_issue(
+                    post.get("note"), photo=self._reception_photo(), actor=partner)
+        except (ValidationError, AccessError) as e:
+            msg = e.args[0] if e.args else ustr(e)
+            return request.redirect(self._with_params(volver, error="receive", message=flash_message(msg)))
+        return request.redirect(self._with_params(volver, saved="incidence"))
+
+    @http.route("/marketplace/sales/<tx_ref>/dispatch", type="http", auth="user",
+                website=True, methods=["POST"], csrf=True)
+    def marketplace_mark_dispatched(self, tx_ref, **post):
+        """El vendedor marca la compra como despachada."""
+        partner = self._get_current_partner()
+        tx = request.env["shrimp.transaction"].sudo().resolve_ref(tx_ref)
+        if not tx or tx.seller_partner_id.id != partner.id:
+            raise Forbidden()
+        volver = self._reception_back(post, "/marketplace/sales")
+        try:
+            with request.env.cr.savepoint():
+                tx.action_mark_dispatched(note=post.get("note"), actor=partner)
+        except (ValidationError, AccessError) as e:
+            msg = e.args[0] if e.args else ustr(e)
+            return request.redirect(self._with_params(volver, error="dispatch", message=flash_message(msg)))
+        return request.redirect(self._with_params(volver, saved="dispatched"))
+
+    @http.route("/marketplace/purchases/<tx_ref>/reception/<string:kind>", type="http",
+                auth="user", website=True)
+    def marketplace_reception_file(self, tx_ref, kind, **kw):
+        """Foto de la recepción o de la incidencia, solo para las dos partes."""
+        partner = self._get_current_partner()
+        tx = request.env["shrimp.transaction"].sudo().resolve_ref(tx_ref)
+        if not tx or partner not in (tx.buyer_partner_id, tx.seller_partner_id):
+            raise NotFound()
+        adjunto = {"reception": tx.reception_photo_id,
+                   "incidence": tx.incidence_photo_id}.get(kind)
+        if not adjunto or not adjunto.sudo().raw:
+            raise NotFound()
+        adjunto = adjunto.sudo()
+        return request.make_response(adjunto.raw, headers=binary_headers(
+            adjunto.raw, adjunto.mimetype, adjunto.name, download=bool(kw.get("download"))))
 
     @http.route("/marketplace/sales/<tx_ref>/rate-buyer", type="http", auth="user",
                 website=True, methods=["POST"], csrf=True)
@@ -765,6 +847,9 @@ class ShrimpTransactionPortalController(http.Controller):
             raise NotFound()
         if tx.state not in self._RATEABLE_STATES:
             raise NotFound()
+        # Subusuarios: solo con el permiso «facturación».
+        if not partner.sudo()._shrimp_user_has_billing():
+            raise Forbidden()
 
         invoice = tx.invoice_id
         if invoice and invoice.state == "posted":
@@ -809,8 +894,15 @@ class ShrimpTransactionPortalController(http.Controller):
         if solo_vendedor:
             if tx.seller_partner_id != partner:
                 raise NotFound()
-        elif partner not in (tx.buyer_partner_id, tx.seller_partner_id):
+            # CR-12 / D-43: la factura del vendedor la registra quien tiene
+            # «Vender» o «Facturación» en el perfil de esa venta.
+            require_permission(("sell", "billing"), role=tx.seller_role or None, scope="any")
+            return tx
+        if partner not in (tx.buyer_partner_id, tx.seller_partner_id):
             raise NotFound()
+        # Facturas: subusuarios solo con el permiso «facturación».
+        if not partner.sudo()._shrimp_user_has_billing():
+            raise Forbidden()
         return tx
 
     @http.route("/marketplace/sales/<tx_ref>/invoice", type="http", auth="user",

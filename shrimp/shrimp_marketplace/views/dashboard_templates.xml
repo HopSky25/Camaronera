@@ -148,17 +148,22 @@
                             </div>
                         </t>
 
-                        <!-- Accesos directos -->
+                        <!-- Accesos directos: la MISMA tabla que la barra superior
+                             (website._shrimp_nav_actions, models/website_navbar.py),
+                             agrupada como sus desplegables. -->
                         <div class="sp-card" id="sp_shortcuts">
                             <div class="sp-card-head"><h3><i class="fa fa-th-large me-2"/>Accesos</h3></div>
-                            <div class="sp-short">
-                                <t t-foreach="p['shortcuts']" t-as="sc">
-                                    <a t-att-href="sc['url']">
-                                        <span t-att-class="'sp-ico sp-ico--%s' % (sc.get('tone') or 'navy')"><i t-att-class="'fa %s' % (sc.get('icon') or 'fa-arrow-right')"/></span>
-                                        <span><t t-esc="sc['label']"/></span>
-                                    </a>
-                                </t>
-                            </div>
+                            <t t-foreach="p.get('shortcut_groups') or []" t-as="grp">
+                                <div class="sp-short-group" t-att-data-shrimp-section="grp['section']"><t t-esc="grp['label']"/></div>
+                                <div class="sp-short">
+                                    <t t-foreach="grp['items']" t-as="sc">
+                                        <a t-att-href="sc['url']" t-att-data-shrimp-nav="sc.get('key') or ''">
+                                            <span t-att-class="'sp-ico sp-ico--%s' % (sc.get('tone') or 'navy')"><i t-att-class="'fa %s' % (sc.get('icon') or 'fa-arrow-right')"/></span>
+                                            <span><t t-esc="sc['label']"/></span>
+                                        </a>
+                                    </t>
+                                </div>
+                            </t>
                         </div>
                     </t>
 
@@ -188,7 +193,7 @@
     <template id="portal_my_home_mi_panel" inherit_id="portal.portal_my_home" name="Mi panel en /my">
         <xpath expr="//div[@id='oe_structure_portal_my_home_1']" position="after">
             <t t-set="sp_dash" t-value="request.env['shrimp.dashboard']"/>
-            <t t-set="sp_role" t-value="sp_dash._panel_active_role(request.env.user.partner_id)"/>
+            <t t-set="sp_role" t-value="sp_dash._panel_active_role(request.env.user.shrimp_actor_partner_id)"/>
             <a t-if="sp_dash._panel_supported(sp_role)" href="/my/dashboard" class="sp-mypanel-card" id="sp_mypanel_card">
                 <span class="sp-mypanel-ico"><i class="fa fa-tachometer"/></span>
                 <span class="sp-mypanel-txt">
@@ -201,4 +206,39 @@
         </xpath>
     </template>
 
+
+    <!-- =====================================================================
+         «Este perfil se usa en su sitio»: la cuenta entra al marketplace con
+         un perfil de otra plataforma (verificadora, planta de maquila) y no
+         tiene ningún perfil del marketplace. Se le explica y se le enlaza.
+         ===================================================================== -->
+    <template id="site_profile_page" name="Perfil de otro sitio">
+        <t t-call="website.layout">
+            <div class="shrimp-bg sp-page">
+                <div class="shrimp-page sp-wrap py-5" id="shrimp_site_profile">
+                    <div class="sp-card p-4 mx-auto" style="max-width: 640px;">
+                        <h1 class="h4 mb-2"><i class="fa fa-id-badge me-2" aria-hidden="true"/>Este perfil se usa en su sitio</h1>
+                        <p class="mb-3">
+                            <t t-if="active_label">Tu cuenta trabaja como <strong><t t-esc="active_label"/></strong>, un perfil
+                            que se usa en su propia plataforma y no en <t t-esc="website.name"/>.</t>
+                            <t t-else="">Los perfiles de tu cuenta se usan en su propia plataforma y no en <t t-esc="website.name"/>.</t>
+                            Entra allí con tu misma cuenta (correo y contraseña).
+                        </p>
+                        <ul class="list-unstyled mb-3">
+                            <li t-foreach="site_links" t-as="sl" class="mb-2" t-att-data-role="sl['role']">
+                                <a t-att-href="sl['url']" class="s-btn s-btn-primary" rel="noopener">
+                                    <t t-esc="sl['label']"/>: ir a <t t-esc="sl['site']"/> <i class="fa fa-external-link ms-1" aria-hidden="true"/>
+                                </a>
+                            </li>
+                        </ul>
+                        <p class="small text-muted mb-0" t-if="website.sudo().shrimp_platform == 'main'">
+                            ¿Quieres comprar o vender en <t t-esc="website.name"/>? Agrega un perfil del marketplace
+                            (naupliero, laboratorio, camaronera o empacadora) en
+                            <a href="/marketplace/my-account#perfiles">Mi cuenta</a>.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
 </odoo>

@@ -109,30 +109,56 @@ class ShrimpVerificationFee(models.AbstractModel):
                 S.get_float("shrimp_verification.fee_max", FEE_MAX, minimum=0))
 
     @api.model
-    def compute(self, qty):
-        """Honorario para un lote de `qty` unidades: base + variable, acotado
-        entre el mínimo y el máximo configurados."""
-        base, centavos, minimo, maximo = self._parametros()
+    def tarifa(self, verifier=None):
+        """Tarifa que se aplica, como dict:
 
-        importe = base + (max(0.0, qty or 0.0) * centavos / 100.0)
-        if minimo:
-            importe = max(importe, minimo)
-        if maximo:
-            importe = min(importe, maximo)
+        * Con una verificadora que publicó su tarifa en el perfil
+          (ver_fee_base / ver_fee_por_lb, decisión D-40): ESA tarifa, tal cual
+          (base en USD + USD por unidad del lote). El mínimo y el tope globales
+          NO se le aplican: nunca se aplicaron a las tarifas de las
+          verificadoras y la decisión fue cobrar la tarifa publicada.
+        * Sin verificadora, o una sin tarifa configurada (las dos en 0): los
+          parámetros globales de Ajustes (base + centavos por unidad, con su
+          mínimo y su tope), como siempre.
+        """
+        ver = verifier.sudo() if verifier else None
+        if ver and ((ver.ver_fee_base or 0.0) > 0 or (ver.ver_fee_por_lb or 0.0) > 0):
+            return {"fuente": "verifier", "base": max(0.0, ver.ver_fee_base or 0.0),
+                    "por_unidad": max(0.0, ver.ver_fee_por_lb or 0.0), "minimo": 0.0, "maximo": 0.0}
+        base, centavos, minimo, maximo = self._parametros()
+        return {"fuente": "platform", "base": base, "por_unidad": centavos / 100.0,
+                "minimo": minimo, "maximo": maximo}
+
+    @api.model
+    def compute(self, qty, verifier=None):
+        """Honorario para un lote de `qty` unidades con la tarifa de
+        `verifier` (o la global si no la tiene): base + variable, acotado entre
+        el mínimo y el máximo cuando la tarifa es la global."""
+        t = self.tarifa(verifier)
+        importe = t["base"] + max(0.0, qty or 0.0) * t["por_unidad"]
+        if t["minimo"]:
+            importe = max(importe, t["minimo"])
+        if t["maximo"]:
+            importe = min(importe, t["maximo"])
         return round(importe, 2)
 
     @api.model
-    def desglose(self, qty):
+    def desglose(self, qty, verifier=None):
         """Los mismos números, desagregados, para poder explicárselos al
         comprador en vez de mostrarle un total sin origen."""
-        base, centavos, _minimo, _maximo = self._parametros()
-        variable = round(max(0.0, qty or 0.0) * centavos / 100.0, 2)
-        total = self.compute(qty)
+        t = self.tarifa(verifier)
+        variable = round(max(0.0, qty or 0.0) * t["por_unidad"], 2)
+        total = self.compute(qty, verifier)
         return {
-            "base": base,
-            "centavos": centavos,
+            "base": t["base"],
+            # Centavos por unidad (nombre histórico; la API pública lo usa).
+            "centavos": t["por_unidad"] * 100.0,
+            "por_unidad": t["por_unidad"],
+            "fuente": t["fuente"],
+            "minimo": t["minimo"],
+            "maximo": t["maximo"],
             "variable": variable,
             "total": total,
-            "topado": total < round(base + variable, 2),
-            "minimo_aplicado": total > round(base + variable, 2),
+            "topado": total < round(t["base"] + variable, 2),
+            "minimo_aplicado": total > round(t["base"] + variable, 2),
         }

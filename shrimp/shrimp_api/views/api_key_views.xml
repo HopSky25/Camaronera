@@ -35,6 +35,9 @@
                     <button name="action_revoke" type="object" string="Revocar"
                             class="btn-danger" invisible="revoked_at"
                             confirm="La integración que use esta clave dejará de funcionar. ¿Revocar?"/>
+                    <button name="action_renew" type="object" string="Renovar"
+                            invisible="revoked_at"
+                            confirm="Se alarga esta misma clave un periodo completo desde hoy. ¿Renovar?"/>
                     <field name="status" widget="statusbar"/>
                 </header>
                 <sheet>
@@ -58,6 +61,8 @@
                             <field name="call_count"/>
                             <field name="revoked_at"/>
                             <field name="revoked_by_id"/>
+                            <field name="renewed_at"/>
+                            <field name="expiry_notice_sent_at"/>
                         </group>
                     </group>
                     <group>
@@ -120,6 +125,7 @@
                 <filter name="f_app" string="De la app" domain="[('is_app_key', '=', True)]"/>
                 <filter name="f_supervisor" string="De supervisor" domain="[('is_supervisor_key', '=', True)]"/>
                 <filter name="f_act_as" string="Actuar como (supervisor)" domain="[('supervisor_key_id', '!=', False)]"/>
+                <filter name="f_expired" string="Caducadas" domain="[('expires_at', '&lt;', context_today().strftime('%Y-%m-%d'))]"/>
             </search>
         </field>
     </record>

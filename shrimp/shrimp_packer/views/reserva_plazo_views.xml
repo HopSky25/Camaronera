@@ -1,0 +1,60 @@
+<odoo>
+  <!-- Back-office de reservas: plazo de compra del lote reservado, quién
+       rompió y «Anular incumplimiento» (causa justificada). Hueco #8. -->
+  <record id="view_harvest_commitment_list_backoffice_plazo" model="ir.ui.view">
+    <field name="name">shrimp.harvest.commitment.list.backoffice.plazo</field>
+    <field name="model">shrimp.harvest.commitment</field>
+    <field name="inherit_id" ref="shrimp_packer.view_harvest_commitment_list_backoffice"/>
+    <field name="arch" type="xml">
+      <field name="state" position="after">
+        <field name="reservation_state" optional="show" widget="badge"/>
+        <field name="purchase_deadline" optional="show"/>
+        <field name="break_side" optional="hide"/>
+      </field>
+    </field>
+  </record>
+
+  <record id="view_harvest_commitment_form_backoffice_plazo" model="ir.ui.view">
+    <field name="name">shrimp.harvest.commitment.form.backoffice.plazo</field>
+    <field name="model">shrimp.harvest.commitment</field>
+    <field name="inherit_id" ref="shrimp_packer.view_harvest_commitment_form_backoffice"/>
+    <field name="arch" type="xml">
+      <field name="state" position="before">
+        <button name="action_open_anular_incumplimiento" type="object"
+                string="Anular incumplimiento" invisible="state != 'broken'"
+                groups="shrimp_marketplace.group_marketplace_manager"/>
+      </field>
+      <field name="transaction_id" position="after">
+        <field name="reservation_state"/>
+        <field name="purchase_deadline"/>
+      </field>
+      <field name="notes" position="before">
+        <group string="Incumplimiento" invisible="state != 'broken'">
+          <field name="break_side"/>
+          <field name="broken_by_partner_id"/>
+          <field name="broken_at"/>
+          <field name="break_reason"/>
+        </group>
+      </field>
+    </field>
+  </record>
+
+  <record id="view_harvest_breach_annul_form" model="ir.ui.view">
+    <field name="name">shrimp.harvest.breach.annul.form</field>
+    <field name="model">shrimp.harvest.breach.annul</field>
+    <field name="arch" type="xml">
+      <form string="Anular incumplimiento">
+        <p>El compromiso pasa a «sin efecto» y deja de contar en la fiabilidad de reservas
+          de quien lo rompió. Se avisa a las dos partes con esta justificación.</p>
+        <group>
+          <field name="commitment_id"/>
+          <field name="justification" placeholder="Causa justificada (p. ej. mortalidad documentada, cierre de planta)"/>
+        </group>
+        <footer>
+          <button name="action_confirm" type="object" string="Anular incumplimiento" class="btn-primary"/>
+          <button special="cancel" string="Cancelar"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+</odoo>

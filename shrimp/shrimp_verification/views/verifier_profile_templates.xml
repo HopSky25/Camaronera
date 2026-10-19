@@ -3,41 +3,48 @@
   <!-- ================= PERFIL DEL VERIFICADOR ================= -->
   <template id="verifier_profile" name="Verificador - Perfil y cuenta">
     <t t-call="website.layout">
-      <div class="shrimp-bg">
-        <div class="shrimp-page py-4 sf-fields" style="max-width:960px;">
-
-          <div class="sf-banner mb-4">
-            <div class="sf-banner-row">
-              <div class="sf-banner-txt">
-                <h1>Mi cuenta</h1>
-                <p>Datos de tu empresa verificadora y la cuenta bancaria donde recibes tus honorarios.</p>
+      <div class="shrimp-bg vr-bg">
+        <div class="vr-page vrp sf-fields">
+          <header class="vr-ph">
+            <div class="vr-ph-txt">
+              <div class="vr-eyebrow"><i class="fa fa-id-badge"/> Perfil de la verificadora</div>
+              <h1 t-esc="empresa.name"/>
+              <p class="vr-ph-sub">Datos de tu empresa verificadora, acreditación, tarifa y la cuenta bancaria donde recibes tus honorarios.</p>
+              <div class="vr-ph-meta">
+                <span t-if="empresa.verifier_is_accredited" class="vr-pill vr-pill--ok">Acreditada</span>
+                <span t-else="" class="vr-pill vr-pill--warn">Sin acreditación vigente</span>
+                <span t-if="empresa.verifier_rating_count"><i class="fa fa-star"/><t t-esc="'{:.1f}'.format(empresa.verifier_rating_avg)"/> (<t t-esc="empresa.verifier_rating_count"/> reseñas)</span>
               </div>
-              <span class="sf-kicker"><i class="fa fa-id-badge"></i> Perfil</span>
             </div>
+          </header>
+          <div class="vr-alerts">
+            <div t-if="error" class="pf-alert pf-a-bad" role="alert"><i class="fa fa-exclamation-triangle"/><div t-esc="message or 'No se pudo guardar.'"/></div>
+            <div t-if="saved" class="pf-alert vr-a-ok" role="status"><i class="fa fa-check-circle"/><div>Datos guardados.</div></div>
+            <div t-if="not es_admin" class="pf-alert pf-a-info" role="note"><i class="fa fa-lock"/><div>Solo el administrador de la empresa puede editar estos datos.</div></div>
           </div>
-
-          <t t-if="error"><div class="alert alert-danger"><t t-esc="message or 'No se pudo guardar.'"/></div></t>
-          <t t-if="saved">
-            <div class="alert alert-success" role="alert"><i class="fa fa-check-circle me-1"></i> Datos guardados.</div>
-          </t>
-          <t t-if="not es_admin">
-            <div class="alert alert-info" role="alert">Solo el administrador de la empresa puede editar estos datos.</div>
-          </t>
-
-          <!-- Para el técnico la ficha es de solo lectura: el formulario no
-               apunta al endpoint de guardado (que igualmente responde 403). -->
-          <form t-att-method="'post' if es_admin else None"
+          <div class="vr-prof">
+            <nav class="vr-nav" aria-label="Secciones del perfil">
+              <ul>
+                <li><a href="#vp_0"><i class="fa fa-building"/> Datos de la empresa</a></li>
+                <li><a href="#vp_1"><i class="fa fa-university"/> Cuenta bancaria para cobros</a></li>
+                <li><a href="#vp_2"><i class="fa fa-address-book"/> Contacto operativo</a></li>
+                <li><a href="#vp_3"><i class="fa fa-map-o"/> Cobertura y logística</a></li>
+                <li><a href="#vp_4"><i class="fa fa-flask"/> Capacidades técnicas</a></li>
+                <li><a href="#vp_5"><i class="fa fa-certificate"/> Acreditación</a></li>
+                <li><a href="#vp_6"><i class="fa fa-file-text-o"/> Facturación</a></li>
+                <li><a href="#vp_7"><i class="fa fa-money"/> Tarifa</a></li>
+              </ul>
+            </nav>
+            <div style="min-width:0;">
+          <form class="vr-fields" t-att-method="'post' if es_admin else None"
                 t-att-action="'/verifier/profile/save' if es_admin else None"
                 t-att-enctype="'multipart/form-data' if es_admin else None">
             <input t-if="es_admin" type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
 
             <!-- Datos de la empresa -->
-            <div class="mp-table-card mb-4">
-              <div class="card-body p-4">
-                <div class="mp-sec-head">
-                  <span class="mp-sec-ico"><i class="fa fa-building"></i></span>
-                  <h3 class="mp-sec-title">Datos de la empresa</h3>
-                </div>
+            <section class="pf-sec" id="vp_0">
+              <div class="pf-sec-h"><span class="vr-ico"><i class="fa fa-building"/></span><div><h2>Datos de la empresa</h2></div></div>
+              <div class="pf-sec-b">
                 <div class="row g-3">
                   <div class="col-md-6">
                     <label class="form-label">Razón social</label>
@@ -65,16 +72,12 @@
                   </div>
                 </div>
               </div>
-            </div>
+            </section>
 
             <!-- Cuenta bancaria -->
-            <div class="mp-table-card mb-4">
-              <div class="card-body p-4">
-                <div class="mp-sec-head">
-                  <span class="mp-sec-ico"><i class="fa fa-university"></i></span>
-                  <h3 class="mp-sec-title">Cuenta bancaria para cobros</h3>
-                </div>
-                <p class="text-muted" style="font-size:13px; margin-top:-6px;">Aquí se depositan tus honorarios de verificación.</p>
+            <section class="pf-sec" id="vp_1">
+              <div class="pf-sec-h"><span class="vr-ico"><i class="fa fa-university"/></span><div><h2>Cuenta bancaria para cobros</h2><p>Aquí se depositan tus honorarios de verificación.</p></div></div>
+              <div class="pf-sec-b">
                 <div class="row g-3">
                   <div class="col-md-6">
                     <label class="form-label">Banco</label>
@@ -103,15 +106,12 @@
                   </div>
                 </div>
               </div>
-            </div>
+            </section>
 
             <!-- Contacto operativo -->
-            <div class="mp-table-card mb-4">
-              <div class="card-body p-4">
-                <div class="mp-sec-head">
-                  <span class="mp-sec-ico"><i class="fa fa-address-book"></i></span>
-                  <h3 class="mp-sec-title">Contacto operativo</h3>
-                </div>
+            <section class="pf-sec" id="vp_2">
+              <div class="pf-sec-h"><span class="vr-ico"><i class="fa fa-address-book"/></span><div><h2>Contacto operativo</h2></div></div>
+              <div class="pf-sec-b">
                 <div class="row g-3">
                   <div class="col-md-4">
                     <label class="form-label">Email de avisos</label>
@@ -127,15 +127,12 @@
                   </div>
                 </div>
               </div>
-            </div>
+            </section>
 
             <!-- Cobertura y logística -->
-            <div class="mp-table-card mb-4">
-              <div class="card-body p-4">
-                <div class="mp-sec-head">
-                  <span class="mp-sec-ico"><i class="fa fa-map-o"></i></span>
-                  <h3 class="mp-sec-title">Cobertura y logística</h3>
-                </div>
+            <section class="pf-sec" id="vp_3">
+              <div class="pf-sec-h"><span class="vr-ico"><i class="fa fa-map-o"/></span><div><h2>Cobertura y logística</h2></div></div>
+              <div class="pf-sec-b">
                 <div class="row g-3">
                   <div class="col-md-6">
                     <label class="form-label">Provincias / zonas que cubre</label>
@@ -157,15 +154,12 @@
                   </div>
                 </div>
               </div>
-            </div>
+            </section>
 
             <!-- Capacidades técnicas -->
-            <div class="mp-table-card mb-4">
-              <div class="card-body p-4">
-                <div class="mp-sec-head">
-                  <span class="mp-sec-ico"><i class="fa fa-flask"></i></span>
-                  <h3 class="mp-sec-title">Capacidades técnicas</h3>
-                </div>
+            <section class="pf-sec" id="vp_4">
+              <div class="pf-sec-h"><span class="vr-ico"><i class="fa fa-flask"/></span><div><h2>Capacidades técnicas</h2></div></div>
+              <div class="pf-sec-b">
                 <div class="row g-3">
                   <div class="col-md-6">
                     <label class="form-label">Tipos de análisis que realiza</label>
@@ -181,14 +175,25 @@
                   </div>
                 </div>
               </div>
-            </div>
+            </section>
 
             <!-- Acreditación -->
-            <div class="mp-table-card mb-4">
-              <div class="card-body p-4">
-                <div class="mp-sec-head">
-                  <span class="mp-sec-ico"><i class="fa fa-certificate"></i></span>
-                  <h3 class="mp-sec-title">Acreditación</h3>
+            <section class="pf-sec" id="vp_5">
+              <div class="pf-sec-h"><span class="vr-ico"><i class="fa fa-certificate"/></span><div><h2>Acreditación</h2></div></div>
+              <div class="pf-sec-b">
+                <t t-set="acc_line" t-value="empresa.verifier_accreditation_line_id"/>
+                <div class="vr-acc">
+                  <span t-attf-class="vr-ico #{'vr-ico--ok' if empresa.verifier_is_accredited else 'vr-ico--warn'}"><i t-attf-class="fa fa-#{'check-circle' if empresa.verifier_is_accredited else 'hourglass-half'}"/></span>
+                  <div style="min-width:0; flex:1 1 220px;">
+                    <b t-if="empresa.verifier_is_accredited">Acreditación aprobada y vigente</b>
+                    <b t-else="">Acreditación pendiente o vencida</b>
+                    <span>
+                      <t t-if="acc_line and acc_line.expiry_date">Vigente hasta el <t t-esc="acc_line.expiry_date.strftime('%d/%m/%Y')"/>. </t>
+                      <t t-if="empresa.verifier_is_accredited">Los compradores te ven en la lista de verificadoras.</t>
+                      <t t-else="">Sin acreditación vigente no recibes órdenes nuevas.</t>
+                    </span>
+                  </div>
+                  <a t-if="empresa.ver_acred_cert" href="/verifier/profile/accreditation" target="_blank" class="s-btn s-btn-ghost btn-sm"><i class="fa fa-file-pdf-o me-1"/> Ver certificado</a>
                 </div>
                 <div class="row g-3">
                   <div class="col-md-4">
@@ -218,16 +223,12 @@
                   </div>
                 </div>
               </div>
-            </div>
+            </section>
 
             <!-- Facturación -->
-            <div class="mp-table-card mb-4">
-              <div class="card-body p-4">
-                <div class="mp-sec-head">
-                  <span class="mp-sec-ico"><i class="fa fa-file-text-o"></i></span>
-                  <h3 class="mp-sec-title">Facturación</h3>
-                </div>
-                <p class="text-muted" style="font-size:13px; margin-top:-6px;">Por si difieren de los datos operativos.</p>
+            <section class="pf-sec" id="vp_6">
+              <div class="pf-sec-h"><span class="vr-ico"><i class="fa fa-file-text-o"/></span><div><h2>Facturación</h2><p>Por si difieren de los datos operativos.</p></div></div>
+              <div class="pf-sec-b">
                 <div class="row g-3">
                   <div class="col-md-4">
                     <label class="form-label">RUC</label>
@@ -243,16 +244,12 @@
                   </div>
                 </div>
               </div>
-            </div>
+            </section>
 
             <!-- Tarifa -->
-            <div class="mp-table-card mb-4">
-              <div class="card-body p-4">
-                <div class="mp-sec-head">
-                  <span class="mp-sec-ico"><i class="fa fa-money"></i></span>
-                  <h3 class="mp-sec-title">Tarifa</h3>
-                </div>
-                <p class="text-muted" style="font-size:13px; margin-top:-6px;">Se muestra al comprador al elegir verificador.</p>
+            <section class="pf-sec" id="vp_7">
+              <div class="pf-sec-h"><span class="vr-ico"><i class="fa fa-money"/></span><div><h2>Tarifa</h2><p>Es el honorario que se le cobra al comprador que te elige: base + USD por libra × cantidad. Sin tarifa, se aplica la de la plataforma.</p></div></div>
+              <div class="pf-sec-b">
                 <div class="row g-3">
                   <div class="col-md-6">
                     <label class="form-label">Honorario base por verificación (USD)</label>
@@ -261,18 +258,23 @@
                   <div class="col-md-6">
                     <label class="form-label">Honorario por libra (USD)</label>
                     <input type="number" step="0.0001" min="0" class="form-control" name="ver_fee_por_lb" t-att-value="empresa.ver_fee_por_lb or ''" t-att-readonly="not es_admin or None"/>
+                    <div class="form-text">En dólares por libra: 0,02 = 2 centavos por libra. Con 1.000 lb y base $250 serían $270.</div>
+                    <label t-if="es_admin" class="form-check mt-2 small">
+                      <input type="checkbox" class="form-check-input" name="ver_fee_por_lb_confirm" value="1"/>
+                      <span class="form-check-label">Confirmo esta tarifa por libra aunque sea de 0,50 USD o más.</span>
+                    </label>
                   </div>
                 </div>
               </div>
+            </section>
+
+            <div t-if="es_admin" class="vr-savebar">
+              <span class="vr-savebar-t"><i class="fa fa-info-circle me-1"/>Los cambios se aplican al guardar.</span>
+              <span class="vr-savebar-acts"><button type="submit" class="s-btn s-btn-primary"><i class="fa fa-check me-1"/> Guardar cambios</button></span>
             </div>
-
-            <t t-if="es_admin">
-              <div class="text-end">
-                <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-check me-1"></i> Guardar cambios</button>
-              </div>
-            </t>
           </form>
-
+            </div>
+          </div>
         </div>
       </div>
     </t>
@@ -284,75 +286,64 @@
        formato sobre el resultado. En este proyecto se usa str.format(). -->
   <template id="verifier_reports" name="Verificador - Mis reportes">
     <t t-call="website.layout">
-      <div class="shrimp-bg">
-        <div class="shrimp-page shrimp-page--full py-4">
-
-          <div class="sf-banner mb-4">
-            <div class="sf-banner-row">
-              <div class="sf-banner-txt">
-                <h1>Mis reportes</h1>
-                <p>Resumen de tu actividad como verificador: verificaciones, resultados y honorarios.</p>
-              </div>
-              <span class="sf-kicker"><i class="fa fa-bar-chart"></i> Reportes</span>
+      <t t-set="tot_fin" t-value="stats['finalizadas'] or 0"/>
+      <div class="shrimp-bg vr-bg">
+        <div class="vr-page vrp">
+          <header class="vr-ph">
+            <div class="vr-ph-txt">
+              <div class="vr-eyebrow"><i class="fa fa-bar-chart"/> Reportes</div>
+              <h1>Mis reportes</h1>
+              <p class="vr-ph-sub">Resumen de la actividad de <t t-esc="empresa.name"/>: verificaciones, resultados y honorarios.</p>
             </div>
+            <div class="vr-ph-acts"><a class="s-btn s-btn-ghost" href="/verifier/inbox"><i class="fa fa-inbox me-1"/> Ir a la bandeja</a></div>
+          </header>
+
+          <div class="vr-kpis">
+            <div class="vr-kpi"><span class="vr-ico"><i class="fa fa-clipboard"/></span><span><span class="vr-kpi-v" t-esc="stats['total']"/><span class="vr-kpi-l">Verificaciones</span></span></div>
+            <div class="vr-kpi"><span class="vr-ico vr-ico--warn"><i class="fa fa-hourglass-half"/></span><span><span class="vr-kpi-v" t-esc="stats['abiertas']"/><span class="vr-kpi-l">Abiertas</span></span></div>
+            <div class="vr-kpi"><span class="vr-ico vr-ico--ok"><i class="fa fa-check-circle"/></span><span><span class="vr-kpi-v" t-esc="'{:.0f} %'.format(stats['tasa_aprob'])"/><span class="vr-kpi-l">Tasa de aprobación</span></span></div>
+            <div class="vr-kpi"><span class="vr-ico"><i class="fa fa-money"/></span><span><span class="vr-kpi-v">$<t t-esc="'{:,.0f}'.format(stats['honorarios'])"/></span><span class="vr-kpi-l">Honorarios de la empresa</span></span></div>
           </div>
 
-          <!-- KPIs -->
-          <div class="row g-3 mb-4">
-            <div class="col-6 col-lg-3">
-              <div class="vw-kpi"><span class="vw-kpi-ico"><i class="fa fa-clipboard-list"></i></span>
-                <span class="vw-kpi-body"><span class="vw-kpi-num"><t t-esc="stats['total']"/></span><span class="vw-kpi-lbl">Total verificaciones</span></span></div>
-            </div>
-            <div class="col-6 col-lg-3">
-              <div class="vw-kpi vw-kpi--field"><span class="vw-kpi-ico"><i class="fa fa-hourglass-half"></i></span>
-                <span class="vw-kpi-body"><span class="vw-kpi-num"><t t-esc="stats['abiertas']"/></span><span class="vw-kpi-lbl">Abiertas</span></span></div>
-            </div>
-            <div class="col-6 col-lg-3">
-              <div class="vw-kpi vw-kpi--done"><span class="vw-kpi-ico"><i class="fa fa-check-circle"></i></span>
-                <span class="vw-kpi-body"><span class="vw-kpi-num"><t t-esc="'{:.0f} %'.format(stats['tasa_aprob'])"/></span><span class="vw-kpi-lbl">Tasa de aprobación</span></span></div>
-            </div>
-            <div class="col-6 col-lg-3">
-              <div class="vw-kpi vw-kpi--new"><span class="vw-kpi-ico"><i class="fa fa-money"></i></span>
-                <span class="vw-kpi-body"><span class="vw-kpi-num">$<t t-esc="'{:,.0f}'.format(stats['honorarios'])"/></span><span class="vw-kpi-lbl">Honorarios</span></span></div>
-            </div>
-          </div>
-
-          <div class="row g-4">
-            <div class="col-lg-4">
-              <div class="mp-table-card h-100"><div class="card-body p-4">
-                <div class="mp-sec-head"><span class="mp-sec-ico"><i class="fa fa-gavel"></i></span><h3 class="mp-sec-title">Veredictos</h3></div>
-                <div class="mp-spec-grid" style="grid-template-columns:1fr;">
-                  <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-check"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Aprobadas</div><div class="mp-spec-value"><t t-esc="stats['aprobadas']"/></div></div></div>
-                  <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-times"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Rechazadas</div><div class="mp-spec-value"><t t-esc="stats['rechazadas']"/></div></div></div>
-                  <div class="mp-spec"><span class="mp-spec-ico"><i class="fa fa-balance-scale"></i></span><div class="mp-spec-body"><div class="mp-spec-label">Rendimiento promedio</div><div class="mp-spec-value"><t t-esc="'{:.1f} %'.format(stats['avg_yield'])"/></div></div></div>
+          <div class="vr-layout">
+            <div class="vr-main">
+              <section class="pf-sec">
+                <div class="pf-sec-h"><span class="vr-ico"><i class="fa fa-history"/></span><div><h2>Últimas verificaciones <span class="vr-count" t-esc="len(ultimas)"/></h2><p>Las diez más recientes.</p></div></div>
+                <div class="pf-sec-b">
+                  <table t-if="ultimas" class="vr-table vr-table--stack">
+                    <thead><tr><th>Referencia</th><th>Producto</th><th>Técnicos</th><th class="vr-num">Rend.</th><th>Estado</th></tr></thead>
+                    <tbody>
+                      <t t-foreach="ultimas" t-as="v">
+                        <tr>
+                          <td class="vr-td-main" data-label="Referencia"><a t-attf-href="/verifier/verifications/#{v.uuid_ref}" t-esc="v.name"/></td>
+                          <td data-label="Producto" t-esc="v.product_id.name"/>
+                          <td data-label="Técnicos"><t t-esc="v.technician_partner_id.name or '—'"/><span t-if="v.support_technician_ids" class="vr-muted small"> +<t t-esc="len(v.support_technician_ids)"/> apoyo</span></td>
+                          <td class="vr-num" data-label="Rendimiento" t-esc="'{:.1f} %'.format(v.yield_pct) if v.total_processed_lb else '—'"/>
+                          <td data-label="Estado"><span t-attf-class="vr-pill vr-pill--sm vr-pill--#{v.state}" t-esc="dict(v._fields['state'].selection).get(v.state)"/></td>
+                        </tr>
+                      </t>
+                    </tbody>
+                  </table>
+                  <div t-else="" class="vr-empty"><span class="vr-ico"><i class="fa fa-clipboard"/></span><h3>Aún no tienes verificaciones</h3><p>Cuando un comprador te elija, la orden aparecerá en tu bandeja.</p></div>
                 </div>
-              </div></div>
+              </section>
             </div>
-            <div class="col-lg-8">
-              <div class="mp-table-card h-100"><div class="card-body p-4">
-                <div class="mp-sec-head"><span class="mp-sec-ico"><i class="fa fa-history"></i></span><h3 class="mp-sec-title">Últimas verificaciones</h3></div>
-                <t t-if="ultimas">
-                  <div class="table-responsive">
-                    <table class="table align-middle mb-0">
-                      <thead><tr><th>Referencia</th><th>Producto</th><th class="text-end">Rend.</th><th>Estado</th></tr></thead>
-                      <tbody>
-                        <t t-foreach="ultimas" t-as="v">
-                          <tr>
-                            <td style="font-weight:700;"><t t-esc="v.name"/></td>
-                            <td><t t-esc="v.product_id.name"/></td>
-                            <td class="text-end"><t t-esc="'{:.1f} %'.format(v.yield_pct) if v.total_processed_lb else '—'"/></td>
-                            <td><span t-attf-class="sv-badge sv-badge--#{v.state}"><t t-esc="dict(v._fields['state'].selection).get(v.state)"/></span></td>
-                          </tr>
-                        </t>
-                      </tbody>
-                    </table>
+            <aside class="vr-aside">
+              <section class="pf-sec mb-0">
+                <div class="pf-sec-h"><span class="vr-ico"><i class="fa fa-gavel"/></span><div><h2>Veredictos</h2><p><t t-esc="tot_fin"/> finalizadas</p></div></div>
+                <div class="pf-sec-b">
+                  <div class="vr-bars">
+                    <div class="vr-bar-row"><span>Aprobadas</span><span class="vr-bar vr-bar--ok"><span t-attf-style="width: #{(100.0 * stats['aprobadas'] / tot_fin) if tot_fin else 0}%"/></span><b t-esc="stats['aprobadas']"/></div>
+                    <div class="vr-bar-row"><span>Rechazadas</span><span class="vr-bar vr-bar--bad"><span t-attf-style="width: #{(100.0 * stats['rechazadas'] / tot_fin) if tot_fin else 0}%"/></span><b t-esc="stats['rechazadas']"/></div>
                   </div>
-                </t>
-                <t t-else=""><div class="p-3 text-center text-muted">Aún no tienes verificaciones.</div></t>
-              </div></div>
-            </div>
+                  <dl class="vr-facts mt-3">
+                    <div><dt>Rendimiento promedio</dt><dd t-esc="'{:.1f} %'.format(stats['avg_yield'])"/></div>
+                    <div><dt>Abiertas</dt><dd t-esc="stats['abiertas']"/></div>
+                  </dl>
+                </div>
+              </section>
+            </aside>
           </div>
-
         </div>
       </div>
     </t>

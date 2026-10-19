@@ -46,7 +46,7 @@ class Website(models.Model):
         destino = super()._shrimp_login_landing(user)
         if (not destino and self.shrimp_platform == "copacker" and user
                 and not user._is_public() and not user._is_internal()
-                and user.partner_id.sudo()._shrimp_role_holder().shrimp_user_type == "maquilador"):
+                and user.sudo()._shrimp_current_role() == "maquilador"):
             return "/copacker/inbox"
         return destino
 

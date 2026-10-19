@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Página de la compra: plazos de la verificadora y, si vencieron,
+         «Cancelar sin costo» / «Cambiar de verificadora» para el comprador
+         (models/shrimp_verification_deadline.py). -->
+    <template id="traceability_screen_verification_deadline" inherit_id="shrimp_marketplace.traceability_screen"
+              priority="95" name="Trazabilidad - plazos de la verificadora">
+        <xpath expr="//div[@id='shrimp_trace_summary']" position="after">
+            <t t-set="vd_tx" t-value="tx.sudo()"/>
+            <t t-set="vd_ver" t-value="vd_tx.verification_ids[:1]"/>
+            <t t-set="vd_me" t-value="request.env.user.shrimp_actor_partner_id"/>
+            <t t-set="vd_buyer" t-value="vd_me == vd_tx.buyer_partner_id"/>
+            <t t-set="vd_part" t-value="vd_buyer or vd_me == vd_tx.seller_partner_id"/>
+            <t t-set="vd_on" t-value="vd_ver and vd_part and vd_ver._shrimp_deadline_applies()"/>
+            <!-- En una segunda opinión (D-25) cambia de verificadora quien la pidió (el vendedor). -->
+            <t t-set="vd_chooser" t-value="(vd_me == vd_tx.seller_partner_id) if (vd_ver and vd_ver.second_opinion_of_id) else vd_buyer"/>
+            <div t-if="vd_on" class="mp-table-card mb-4 rc-card rd-card" id="verificacion-plazo">
+                <div class="card-body p-4">
+                    <div class="mp-sec-head">
+                        <span class="mp-sec-ico"><i class="fa fa-hourglass-half"></i></span>
+                        <h3 class="mp-sec-title">Plazos de la verificadora</h3>
+                        <t t-if="vd_ver.deadline_overdue">
+                            <span class="rc-chip rc-chip--danger ms-auto"><i class="fa fa-exclamation-triangle me-1"></i> Plazo vencido</span>
+                        </t>
+                        <t t-else="">
+                            <span class="rc-chip rc-chip--info ms-auto"><i class="fa fa-clock-o me-1"></i> En plazo</span>
+                        </t>
+                    </div>
+                    <div t-if="request.params.get('saved') == 'verifier_switched'" class="rc-alert rc-alert--ok">
+                        <i class="fa fa-check-circle me-1"></i> Listo: la orden pasó a la nueva verificadora, con plazos desde ahora.
+                    </div>
+                    <div t-if="request.params.get('error') in ('verdeadline', 'delay')" class="rc-alert rc-alert--warn">
+                        <i class="fa fa-exclamation-triangle me-1"></i>
+                        <t t-esc="request.params.get('message') or 'No se pudo completar la acción.'"/>
+                    </div>
+                    <dl class="rd-facts">
+                        <div><dt>Verificadora</dt><dd><t t-esc="vd_ver.verifier_partner_id.name"/></dd></div>
+                        <div t-if="vd_ver.state == 'received' and vd_ver.verifier_response == 'pending' and vd_ver.verifier_response_deadline"><dt>Aceptar o declinar hasta</dt><dd><t t-esc="vd_tx.shrimp_fmt_dt(vd_ver.verifier_response_deadline)"/></dd></div>
+                        <div t-if="vd_ver.state == 'received'"><dt>Asignar técnico hasta</dt><dd><t t-esc="vd_tx.shrimp_fmt_dt(vd_ver.deadline_assign)"/></dd></div>
+                        <div><dt>Veredicto hasta</dt><dd><t t-esc="vd_tx.shrimp_fmt_dt(vd_ver.deadline_verdict)"/></dd></div>
+                        <div t-if="vd_ver.shrimp_auto_cancel_at()"><dt>Se cancela sola el</dt><dd><t t-esc="vd_tx.shrimp_fmt_dt(vd_ver.shrimp_auto_cancel_at())"/></dd></div>
+                    </dl>
+                    <p t-if="not vd_ver.deadline_overdue" class="rc-help mb-0">
+                        Si la verificadora no cumple estos plazos, la plataforma recibe un aviso y el comprador puede cancelar sin costo o cambiar de verificadora.
+                    </p>
+                    <t t-if="vd_ver.deadline_overdue and not vd_buyer and not vd_chooser">
+                        <p class="rc-help mb-0"><t t-if="vd_ver.deadline_overdue == 'declined'">La verificadora declinó la orden.</t><t t-else="">La verificadora no cumplió su plazo.</t> El comprador puede cancelar sin costo o cambiar de verificadora; no es un incumplimiento del vendedor.</p>
+                    </t>
+                    <t t-if="vd_ver.deadline_overdue and (vd_buyer or vd_chooser)">
+                        <t t-set="vd_back" t-value="'/marketplace/purchases/%s/traceability#verificacion-plazo' % vd_tx.uuid_ref"/>
+                        <div class="rd-box rd-box--danger">
+                            <div class="rd-box-t"><i class="fa fa-unlock me-1"></i>
+                                <t t-if="vd_ver.deadline_overdue == 'assign'">La verificadora no asignó un técnico a tiempo.</t>
+                                <t t-elif="vd_ver.deadline_overdue == 'declined'">La verificadora declinó la orden<t t-if="vd_ver.verifier_decline_reason">: «<t t-esc="vd_ver.verifier_decline_reason"/>»</t>.</t>
+                                <t t-elif="vd_ver.deadline_overdue == 'response'">La verificadora no aceptó ni declinó la orden a tiempo.</t>
+                                <t t-else="">La verificadora no emitió el veredicto a tiempo.</t>
+                            </div>
+                            <p class="rc-help mt-1 mb-0">Puedes cambiar a otra verificadora acreditada (el honorario se recalcula con su tarifa; plazos desde ahora) o cancelar la compra sin costo.</p>
+                            <details t-if="vd_chooser" class="rc-issue mt-3" t-att-open="'open' if vd_ver.deadline_overdue in ('declined', 'response') else None">
+                                <summary><i class="fa fa-exchange me-1"></i> Cambiar de verificadora</summary>
+                                <form method="post" class="rc-form" t-att-action="'/marketplace/purchases/%s/verifier/assign' % vd_tx.uuid_ref">
+                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                    <input type="hidden" name="next" t-att-value="vd_back"/>
+                                    <t t-set="vd_opts" t-value="request.env['res.partner'].sudo().with_context(shrimp_exclude_partner_ids=[vd_tx.seller_partner_id.commercial_partner_id.id]).available_verifiers().filtered(lambda v: v != vd_ver.verifier_partner_id)"/>
+                                    <label class="rc-label" for="vdVerifier">Nueva verificadora</label>
+                                    <select class="form-select" name="verifier_ref" id="vdVerifier" required="required">
+                                        <option value="">Elige…</option>
+                                        <t t-foreach="vd_opts" t-as="vd_v">
+                                            <option t-att-value="vd_v.uuid_ref"><t t-esc="vd_v.name"/> — honorario $<t t-esc="'{:,.2f}'.format(vd_ver.shrimp_fee_for(vd_v))"/></option>
+                                        </t>
+                                    </select>
+                                    <p class="rc-help mt-2 mb-0"><i class="fa fa-info-circle me-1"></i>
+                                        El honorario se recalcula con la tarifa de la nueva verificadora
+                                        (hoy pagaste $<t t-esc="'{:,.2f}'.format(vd_ver.fee or 0)"/>): si cambia, se anula el cobro
+                                        anterior y se emite uno por el importe nuevo.</p>
+                                    <div class="rc-actions">
+                                        <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-exchange me-1"></i> Cambiar verificadora</button>
+                                    </div>
+                                </form>
+                            </details>
+                            <details t-if="vd_buyer" class="rc-issue rd-cancel mt-3">
+                                <summary><i class="fa fa-ban me-1"></i> Cancelar compra sin costo</summary>
+                                <form method="post" class="rc-form" t-att-action="'/marketplace/purchases/%s/cancel' % vd_tx.uuid_ref">
+                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                    <input type="hidden" name="next" t-att-value="vd_back"/>
+                                    <ul class="rd-effects">
+                                        <li>La compra y la verificación quedan canceladas.</li>
+                                        <li>Se anula el honorario de verificación (nota de crédito si ya estaba facturado).</li>
+                                        <li>Se libera el stock reservado del vendedor; el vendedor no recibe strike.</li>
+                                    </ul>
+                                    <label class="rc-label" for="vdCancelNote">Nota <span class="rc-opt">(opcional)</span></label>
+                                    <textarea class="form-control" name="note" id="vdCancelNote" rows="2" maxlength="2000"></textarea>
+                                    <div class="rc-actions">
+                                        <button type="submit" class="s-btn rc-btn-danger"><i class="fa fa-ban me-1"></i> Confirmar cancelación</button>
+                                    </div>
+                                </form>
+                            </details>
+                        </div>
+                    </t>
+                </div>
+            </div>
+        </xpath>
+    </template>
+</odoo>

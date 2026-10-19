@@ -145,6 +145,7 @@ def me(user, key):
             "name": key.name,
             "scopes": sorted(key._api_scope_codes()),
             "expires_at": iso_dt(key.expires_at),
+            "acting_role": (key.acting_role or None) if "acting_role" in key._fields else None,
         },
         # Modo supervisor (contrato, Anexo B): false para el socio. Con una
         # clave de «actuar como» read_only es true y viewed_by dice quién mira.
@@ -157,9 +158,20 @@ def me(user, key):
     # "roles" lista todos con su estado de aprobación.
     titular = p._shrimp_role_holder()
     out["active_role"] = p._shrimp_effective_type() or None
+    # "type" es el perfil ACTIVO (compatibilidad): el de este usuario (CR-12).
+    out["type"] = out["active_role"] or out.get("type")
     out["roles"] = [{"role": r.role, "label": p._shrimp_type_label(r.role), "state": r.state,
-                     "active": r.role == titular.shrimp_user_type}
+                     "active": r.role == out["active_role"]}
                     for r in titular.shrimp_role_ids]
+    # Estado de la cuenta y documentos legales (19.0.1.9.0): GET /me responde
+    # siempre, también a una cuenta bloqueada, para que el integrador vea
+    # por qué el resto de la API le da 403.
+    from .framework import account_state, legal_accept_url, legal_pending_documents
+    actor = user.shrimp_actor_partner_id.sudo() or p
+    out["account_state"] = account_state(actor, actor._shrimp_effective_type())
+    pendientes = legal_pending_documents(user.env, user)
+    out["legal"] = {"acceptance_required": bool(pendientes), "pending_documents": pendientes,
+                    "accept_url": legal_accept_url() if pendientes else None}
     mios = set(p._shrimp_roles())
     if "empacadora" in mios:
         out["preferences"]["accepts_harvest_reservations"] = bool(p.reserva_acepta)
@@ -250,6 +262,8 @@ def product_public(p):
         "certificates": _cert_lines(p),
         "seller_rating": {"avg": round(p.seller_partner_id.shrimp_rating_avg or 0.0, 2),
                           "count": p.seller_partner_id.shrimp_rating_count or 0},
+        # Lo que el vendedor observa en el lote (la etapa de arriba es la publicada).
+        "real_status": real_status(p),
         "updated_at": iso_dt(p.write_date),
     }
 
@@ -278,7 +292,39 @@ def evolution(e):
     return {"id": e.uuid_ref, "date": iso_dt(e.date), "stage": ref(e.stage_id),
             "avg_size_mg": e.avg_size_mg, "survival_rate": e.survival_rate,
             "health_status": e.health_status or None, "available_qty": e.available_qty,
-            "note": e.note or None}
+            "note": e.note or None,
+            # «Estado real del lote» (campos nuevos; los clientes viejos los ignoran).
+            "origin": e.origin}
+
+
+def observation(e, owner=False):
+    """Observación del vendedor o muestreo de calidad («Estado real del lote»).
+    La cantidad estimada solo la ve el dueño."""
+    e = e.sudo()
+    div = e.shrimp_divergence()
+    out = {
+        "id": e.uuid_ref, "date": iso_dt(e.date), "origin": e.origin,
+        "stage": ref(e.stage_id), "published_stage": ref(e.published_stage_id),
+        "avg_size_mg": e.avg_size_mg or None, "survival_rate": e.survival_rate or None,
+        "health_status": e.health_status or None,
+        "note": (e.note or None) if e.origin == "observation" else None,
+        "water": {"temperature_c": e.water_temp_c or None, "salinity_ppt": e.salinity_ppt or None,
+                  "dissolved_oxygen_mg_l": e.dissolved_oxygen_mgl or None, "ph": e.water_ph or None},
+        "diverges_from_publication": bool(div),
+        "divergence": ({"stage": div["stage"], "size": div["size"],
+                        "size_pct": round(div["size_pct"], 2)} if div else None),
+    }
+    if owner:
+        out.update({"estimated_qty": e.estimated_qty or None,
+                    "editable": e.shrimp_is_editable(),
+                    "editable_until": iso_dt(e.shrimp_edit_deadline()) if e.origin == "observation" else None})
+    return out
+
+
+def real_status(p):
+    """Última observación del lote (o None): «Estado real del lote»."""
+    last = p.sudo().shrimp_last_observation() if hasattr(p, "shrimp_last_observation") else None
+    return observation(last) if last else None
 
 
 def facility(f):
@@ -350,6 +396,9 @@ def export(e):
             "total": money(e.amount_total, cur) if e.amount_total else None,
             "lines": [{"lot": l.lot_id.uuid_ref, "product": ref(l.product_id), "qty": l.qty,
                        "move": l.move_id.uuid_ref or None} for l in e.line_ids],
+            # D-35: anulación con motivo; con DAE/factura, pendiente de aprobación.
+            "cancel_state": e.cancel_state or None,
+            "cancel_reason": e.cancel_reason or None,
             "updated_at": iso_dt(e.write_date)}
 
 
@@ -400,8 +449,118 @@ def transaction(t, partner):
             "date": iso_date(t.seller_invoice_date),
             "has_file": bool(t.seller_invoice_attachment_id),
         } if t.has_seller_invoice else None,
+        # Entrega y recepción por el comprador (campo nuevo: los clientes que
+        # no lo conocen lo ignoran).
+        "reception": reception(t) if "reception_status" in t._fields else None,
+        # Retraso de entrega: aviso, negociación y cancelación sin costo
+        # (campo nuevo, compatible).
+        "delay": delay(t, role) if "delay_ids" in t._fields and _delay_ready(t.env) else None,
+        # Cancelación general y verificación vencida (campo nuevo, compatible).
+        "cancellation": cancellation(t, role) if "cancellation_ids" in t._fields else None,
         "created_at": iso_dt(t.create_date),
         "updated_at": iso_dt(t.write_date),
+    }
+
+
+def reception(t):
+    """Entrega y recepción de una compra (shrimp_transaction_reception.py)."""
+    t = t.sudo()
+    return {
+        "required": bool(t.reception_required),
+        "status": t.reception_status or None,
+        "dispatched_at": iso_dt(t.dispatched_at),
+        "dispatch_note": t.dispatch_note or None,
+        "can_confirm_from": iso_date(t.reception_start_date) if t.reception_required else None,
+        "deadline": iso_date(t.reception_deadline) if t.reception_required else None,
+        "days_left": t.reception_days_left if (t.reception_required and t.state == "confirmed") else None,
+        "received_at": iso_dt(t.received_date),
+        "auto_confirmed": bool(t.reception_auto_confirmed),
+        "note": t.reception_note or None,
+        "incidence": {
+            "reported_at": iso_dt(t.incidence_date),
+            "note": t.incidence_note or None,
+            "resolution": t.incidence_resolution or None,
+        } if t.reception_had_incidence else None,
+    }
+
+
+def cancellation(t, role):
+    """Cancelación de la compra (shrimp_marketplace/models/shrimp_transaction_cancel.py):
+    qué puede hacer quien consulta, la solicitud de mutuo acuerdo abierta y,
+    si ya se canceló, quién, por qué y con qué efectos."""
+    t = t.sudo()
+    try:
+        from odoo.addons.shrimp_marketplace.models.shrimp_transaction_cancel import shrimp_cancel_ready
+    except ImportError:
+        return None
+    if not shrimp_cancel_ready(t.env):
+        return None
+    abierta = t.state not in ("done", "cancel")
+    causa = t.shrimp_buyer_cancel_cause() if (abierta and role == "buyer") else False
+    req = t.shrimp_cancel_request_open() if abierta else t.cancellation_ids.browse()
+    hecha = t.shrimp_cancellation()
+    ver_vencida = t.shrimp_verification_overdue() if (
+        abierta and hasattr(t, "shrimp_verification_overdue")) else False
+    return {
+        "buyer_can_cancel": bool(causa),
+        "buyer_cancel_reason": causa or None,
+        "seller_can_cancel": bool(abierta and role == "seller" and t.shrimp_seller_can_cancel()),
+        "can_request_mutual": bool(abierta and not t.shrimp_mutual_cancel_problem()),
+        "verification_overdue": ver_vencida or None,
+        "can_switch_verifier": bool(ver_vencida and role == "buyer"),
+        "request": {
+            "requested_by": req.requested_side, "reason": req.reason or None,
+            "requested_at": iso_dt(req.requested_at), "deadline": iso_dt(req.response_deadline),
+            "waiting_for": "seller" if req.requested_side == "buyer" else "buyer",
+        } if req else None,
+        "cancelled": {
+            "by": hecha.kind, "cause": hecha.cause or None, "reason": hecha.reason or None,
+            "at": iso_dt(hecha.done_at), "seller_fault": bool(hecha.seller_fault),
+            "stock_returned_qty": hecha.stock_returned_qty, "charges_voided": hecha.charges_voided,
+        } if hecha else None,
+    }
+
+
+def _delay_ready(env):
+    try:
+        from odoo.addons.shrimp_marketplace.models.shrimp_transaction_delay import shrimp_delay_ready
+    except ImportError:
+        return False
+    return shrimp_delay_ready(env)
+
+
+def delay(t, role):
+    """Retraso de entrega de una compra (shrimp_transaction_delay.py)."""
+    t = t.sudo()
+    if not (t.reception_required and t._shrimp_is_direct_delivery()):
+        return None
+    abierto = t.shrimp_delay_open()
+    causa = t.shrimp_delay_cancel_cause() if role == "buyer" else False
+    return {
+        "original_date": iso_date(t.shrimp_delay_original_date()),
+        "max_date": iso_date(t.shrimp_delay_cap_date()),
+        "notices_used": len(t._shrimp_delay_notices()),
+        "notices_left": t.shrimp_delay_notices_left(),
+        "can_notify": bool(role == "seller" and t.shrimp_delay_can_notify()),
+        "can_cancel": bool(causa),
+        "cancel_reason": causa or None,
+        "pending": {
+            "state": abierto.state,
+            "proposed_date": iso_date(abierto.new_date),
+            "counter_date": iso_date(abierto.counter_date),
+            "buyer_deadline": iso_dt(abierto.buyer_deadline),
+            "seller_deadline": iso_dt(abierto.seller_deadline),
+            "waiting_for": "buyer" if abierto.state == "proposed" else "seller",
+        } if abierto else None,
+        "history": [{
+            "kind": d.kind, "state": d.state, "notified_at": iso_dt(d.notice_date),
+            "previous_date": iso_date(d.old_date), "proposed_date": iso_date(d.new_date),
+            "reason": d.reason or None, "note": d.note or None,
+            "counter_date": iso_date(d.counter_date), "counter_note": d.counter_note or None,
+            "agreed_date": iso_date(d.final_date),
+            "rejected_without_answer": bool(d.rejected_auto),
+            "cancel_reason": d.cancel_cause or None, "cancelled_at": iso_dt(d.cancelled_at),
+        } for d in t.delay_ids.sorted(lambda d: (d.notice_date, d.id))],
     }
 
 
@@ -440,6 +599,8 @@ def verification_role(v, partner):
         return "seller"
     if partner == v.technician_partner_id:
         return "technician"
+    if partner in v.support_technician_ids:
+        return "support_technician"
     if partner == v.verifier_partner_id:
         return "verifier"
     return None
@@ -465,13 +626,29 @@ def verification(v, partner, detail=False):
         "technician_assigned": bool(v.technician_partner_id),
         # El nombre del técnico solo lo ve su empresa (y él mismo).
         "technician": ref(v.technician_partner_id)
-        if verification_role(v, partner) in ("verifier", "technician") else None,
+        if verification_role(v, partner) in ("verifier", "technician", "support_technician") else None,
+        # Equipo de campo: técnicos de apoyo (cargan datos, no firman).
+        "support_technicians": [ref(t) for t in v.support_technician_ids]
+        if verification_role(v, partner) in ("verifier", "technician", "support_technician") else [],
         "dispatch": v.dispatch_id.uuid_ref or None,
         "dispatch_eta": iso_dt(v.dispatch_eta),
         "fee": money(v.fee, v.currency_id),
         "acceptance_state": v.acceptance_state,
         "acceptance_deadline": iso_dt(v.acceptance_deadline),
         "verified_at": iso_dt(v.verified_date),
+        # Decisiones de la auditoría de procesos (shrimp_verification 19.0.1.24.0).
+        "verifier_response": getattr(v, "verifier_response", None) or None,
+        "verifier_response_deadline": iso_dt(getattr(v, "verifier_response_deadline", False)),
+        "rejection_reason": getattr(v, "rejection_kind", None) or None,
+        "contest_state": getattr(v, "contest_state", None) or None,
+        "contest_deadline": iso_dt(getattr(v, "contest_deadline", False)),
+        "second_opinion_of": v.second_opinion_of_id.uuid_ref
+        if getattr(v, "second_opinion_of_id", False) else None,
+        "counter_outcome": getattr(v, "counter_outcome", None) or None,
+        "declared_deadline": iso_dt(getattr(v, "declared_deadline", False)),
+        # La liquidación solo la ve la empresa verificadora.
+        "payout_state": (getattr(v, "payout_state", None) or None)
+        if verification_role(v, partner) == "verifier" else None,
         "line_count": len(v.line_ids),
         "count_count": len(v.count_ids),
         "updated_at": iso_dt(v.write_date),
@@ -544,7 +721,8 @@ def dispatch(d, partner):
         role = "seller"
     elif partner == d.buyer_partner_id:
         role = "buyer"
-    elif partner in (d.verifier_partner_id, d.technician_partner_id):
+    elif partner in (d.verifier_partner_id, d.technician_partner_id) \
+            or partner in d.verification_id.support_technician_ids:
         role = "verifier"
     return {
         "id": d.uuid_ref, "my_role": role, "state": d.state,
@@ -585,6 +763,11 @@ def price_list(l, partner, detail=False):
         out["recipients"] = [ref(p) for p in l.recipient_ids]
         out["auto_publish"] = bool(l.auto_publish)
         out["auto_publish_date"] = iso_date(l.auto_publish_date)
+        # D-15 / D-48: corrección de listas publicadas y caducidad.
+        out["expires_on"] = iso_date(l.expires_on)
+        out["supersedes"] = l.supersedes_id.uuid_ref or None
+        out["superseded_by"] = l.superseded_by_id.uuid_ref or None
+        out["archive_reason"] = l.archive_reason or None
     if detail:
         out["quality_conditions"] = l.quality_conditions or None
         out["lines"] = [{"size_grade": ref(x.size_grade_id), "presentation": x.presentation,
@@ -672,6 +855,9 @@ def copack_offer(o):
             "rate_per_lb": money(o.rate_per_lb, o.currency_id), "capacity_lb": o.capacity_lb,
             "available_from": iso_date(o.available_from), "available_to": iso_date(o.available_to),
             "estimated_total": money(o.estimated_total, o.currency_id), "notes": o.notes or None,
+            "expires_on": iso_date(o.expires_on) if "expires_on" in o._fields else None,
+            "closed_reason": (o.closed_reason or None) if "closed_reason" in o._fields else None,
+            "reject_reason": (o.reject_reason or None) if "reject_reason" in o._fields else None,
             "updated_at": iso_dt(o.write_date)}
 
 
@@ -686,6 +872,10 @@ def copack_request(r, partner, detail=False):
            "needed_to": iso_date(r.needed_to), "supplies_notes": r.supplies_notes or None,
            "notes": r.notes or None, "order": r.order_id.uuid_ref or None,
            "updated_at": iso_dt(r.write_date)}
+    if "expires_on" in r._fields:
+        out.update({"expires_on": iso_date(r.expires_on),
+                    "parent_request": r.parent_request_id.uuid_ref or None,
+                    "remainder_requests": [c.uuid_ref for c in r.child_request_ids]})
     if detail:
         offers = r.offer_ids if client else r.offer_ids.filtered(
             lambda o: o.copacker_partner_id == partner)
@@ -713,6 +903,21 @@ def copack_order(o, partner, detail=False):
            "balanced": bool(o.cuadra), "tolerance_pct": o.tolerance_pct,
            "service_amount": money(o.service_amount, cur),
            "updated_at": iso_dt(o.write_date)}
+    if "acceptance_deadline" in o._fields:
+        pending = o.pending_cancellation_id
+        out.update({
+            "acceptance_deadline": iso_dt(o.acceptance_deadline),
+            "tacit_acceptance": bool(o.tacit_acceptance),
+            "signed_at": iso_dt(o.signed_date),
+            "billable": bool(o.es_facturable),
+            "mediation_resolution": o.mediation_resolution or None,
+            "cancelled_by": o.cancelled_by or None,
+            "cancel_reason": o.cancel_reason or None,
+            "pending_cancellation": {
+                "kind": pending.kind, "reason": pending.reason,
+                "returned_lb": pending.returned_lb or None,
+                "requested_at": iso_dt(pending.requested_at)} if pending else None,
+        })
     if detail:
         out.update({
             "supplies_notes": o.supplies_notes or None,
@@ -720,6 +925,7 @@ def copack_order(o, partner, detail=False):
             "supplies_issue": o.supplies_issue or None,
             "signatures": [{"role": a.role, "partner": ref(a.partner_id), "round": a.ronda,
                             "decision": a.decision, "reason": a.reason or None,
+                            "tacit": bool(a.auto) if "auto" in a._fields else False,
                             "decided_at": iso_dt(a.decided_at),
                             "can_revert": a.signoff_can_undo(actor=partner)
                             if a.partner_id == partner else False}
@@ -757,6 +963,8 @@ def webhook_subscription(s):
             "failure_count": s.failure_count, "last_success_at": iso_dt(s.last_success_at),
             "last_failure_at": iso_dt(s.last_failure_at), "last_error": s.last_error or None,
             "disabled_reason": s.disabled_reason or None,
+            "auto_disabled_at": iso_dt(s.auto_disabled_at),
+            "held_count": s._held_count(),
             "created_at": iso_dt(s.create_date), "updated_at": iso_dt(s.write_date)}
 
 
@@ -766,4 +974,5 @@ def webhook_delivery(d):
             "resource": {"type": d.resource_type, "uuid": d.resource_uuid},
             "occurred_at": iso_dt(d.occurred_at), "state": d.state, "attempts": d.attempts,
             "next_attempt_at": iso_dt(d.next_attempt_at), "last_status_code": d.last_status_code or None,
-            "last_error": d.last_error or None, "delivered_at": iso_dt(d.delivered_at)}
+            "last_error": d.last_error or None, "delivered_at": iso_dt(d.delivered_at),
+            "resend_count": d.resend_count}

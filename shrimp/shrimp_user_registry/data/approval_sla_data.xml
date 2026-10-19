@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- D-19: plazo de aprobación de perfiles (48 horas hábiles por defecto,
+       parámetro shrimp_user_registry.approval_sla_hours). Recordatorio al
+       equipo que aprueba y escalamiento (approval_escalation_emails). -->
+  <data noupdate="1">
+    <record id="ir_cron_shrimp_role_approval_sla" model="ir.cron">
+      <field name="name">Aprobaciones: perfiles fuera de plazo (recordatorio y escalamiento)</field>
+      <field name="model_id" ref="model_shrimp_partner_role"/>
+      <field name="state">code</field>
+      <field name="code">model._cron_approval_sla()</field>
+      <field name="interval_number">1</field>
+      <field name="interval_type">hours</field>
+      <field name="active" eval="True"/>
+    </record>
+  </data>
+</odoo>

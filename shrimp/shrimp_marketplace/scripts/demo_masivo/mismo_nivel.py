@@ -52,7 +52,7 @@ def construir(M):
 def _marketplace(M):
     P = M["partners"]
     f = Archivo("shrimp_marketplace", "demo_17_masivo_mismo_nivel.xml",
-                "Compras al mismo nivel: semillero -> semillero y laboratorio -> laboratorio\n"
+                "Compras al mismo nivel: naupliero -> naupliero y laboratorio -> laboratorio\n"
                 "     (el comprador revende lo recibido como producto propio).")
     M["archivos"].append(f)
 
@@ -111,7 +111,7 @@ def _marketplace(M):
 
     # ---- semillero -> semillero: nauplios para cubrir un faltante de desove
     sa, sb = M["sem"][1], M["sem"][2]
-    f.seccion("Semillero -> semillero: nauplios para cubrir un faltante de desove")
+    f.seccion("Naupliero -> naupliero: nauplios para cubrir un faltante de desove")
     pa = producto(f"{PREFIJO}prod_sem_a", "sem", sa, "semillero", "shrimp_stage_nauplio",
                   f"Nauplios SPR - excedente de desove ({_nombre_corto(P, sa)})", 180000.0, 0.55, -30)
     f.rec(pa["xid"], "shrimp.product", prod_vals(pa), context="{'skip_initial_lot': True}")

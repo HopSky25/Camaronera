@@ -6,5 +6,6 @@ from . import ruc_service
 from . import config
 from . import res_config_settings
 from . import document
+from . import account_journal
 from . import account_move
 from . import stock_picking

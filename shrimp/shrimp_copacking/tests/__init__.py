@@ -9,3 +9,6 @@ from . import test_copack_empaque_propio
 from . import test_ajustes_copacking
 from . import test_filter_drawer_copack
 from . import test_copack_bandeja
+from . import test_menus_backoffice
+from . import test_perfiles_por_sitio
+from . import test_copack_decisiones

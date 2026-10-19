@@ -20,7 +20,7 @@
        en producción, donde hoy no hay verificaciones de empacadoras, la
        portada queda exactamente igual que antes.
 
-       El líder es el mismo que corona /marketplace/proveedores, porque se
+       El líder es el mismo que corona /marketplace/suppliers, porque se
        reutiliza el mismo cálculo. La portada y el ranking no pueden decir
        dos nombres distintos.
        ================================================================ -->
@@ -28,9 +28,11 @@
             inherit_id="shrimp_marketplace.landing"
             name="Portada - tablero de la empacadora">
     <xpath expr="//section[hasclass('sl-hero')]" position="before">
+      <!-- Misma regla de acceso que /marketplace/suppliers (perfil activo que
+           emite listas de precios y cuenta aprobada): dashboard_para(). -->
       <t t-set="pk_dash"
-         t-value="request.env['shrimp.proveedor.ranking'].sudo().dashboard_empacadora(request.env.user.partner_id)
-                  if request and request.env.user.partner_id.shrimp_user_type == 'empacadora' else None"/>
+         t-value="request.env['shrimp.proveedor.ranking'].sudo().dashboard_para(request.env.user.shrimp_actor_partner_id)
+                  if request and not request.env.user._is_public() else None"/>
 
       <section class="sl-section pk-dash" t-if="pk_dash">
         <div class="sl-wrap">
@@ -44,7 +46,7 @@
                 <i class="fa fa-trophy"></i> Tu mejor proveedor, verificado en tu planta
               </span>
               <h2 class="sl-h2 pk-dash-titulo">
-                <a t-attf-href="/marketplace/vendedor/#{L['proveedor'].uuid_ref}"
+                <a t-attf-href="/marketplace/sellers/#{L['proveedor'].uuid_ref}"
                    t-esc="L['proveedor'].name"/>
               </h2>
               <p class="pk-dash-sub">
@@ -53,7 +55,7 @@
                 <t t-if="L['ultima']">· último el <t t-esc="L['ultima'].strftime('%d/%m/%Y')"/></t>
               </p>
             </div>
-            <a class="s-btn s-btn-primary pk-dash-btn" href="/marketplace/proveedores">
+            <a class="s-btn s-btn-primary pk-dash-btn" href="/marketplace/suppliers">
               <i class="fa fa-list-ol me-1"></i> Ver el ranking completo
             </a>
           </div>
@@ -63,18 +65,22 @@
           <div class="pk-oferta-kpis pk-dash-kpis">
             <div>
               <span>Rendimiento</span>
-              <strong><t t-esc="'{:.1f}'.format(L['rendimiento'])"/> %</strong>
+              <strong t-if="L['rendimiento'] is not None"><t t-esc="'{:.1f}'.format(L['rendimiento'])"/> %</strong>
+              <strong t-else="" class="pk-muted">—</strong>
               <div class="pk-prov-n">
                 sobre <t t-esc="L['rendimiento_n']"/> lotes
-                <t t-if="L['rendimiento_n'] &gt; 1 and L['rendimiento_max'] - L['rendimiento_min'] &gt; 0.05">
+                <t t-if="L['rendimiento_n'] &gt; 1 and L['rendimiento_max'] is not None and L['rendimiento_min'] is not None and L['rendimiento_max'] - L['rendimiento_min'] &gt; 0.05">
                   · de <t t-esc="'{:.1f}'.format(L['rendimiento_min'])"/> a <t t-esc="'{:.1f}'.format(L['rendimiento_max'])"/>
                 </t>
               </div>
             </div>
             <div>
               <span>Clase A</span>
-              <strong><t t-esc="'{:.0f}'.format(L['clase_a'] or 0.0)"/> %</strong>
-              <div class="pk-prov-n">de lo clasificado</div>
+              <t t-if="L['clase_a'] is not None">
+                <strong><t t-esc="'{:.0f}'.format(L['clase_a'])"/> %</strong>
+                <div class="pk-prov-n">de lo clasificado</div>
+              </t>
+              <t t-else=""><strong class="pk-muted">—</strong><div class="pk-prov-n">sin clasificar</div></t>
             </div>
             <div>
               <span>Fue lo publicado</span>
@@ -159,8 +165,8 @@
                 <div class="pk-dash-fila pk-dash-fila--lider">
                   <span class="pk-dash-pos">1</span>
                   <span class="pk-dash-nombre" t-esc="L['proveedor'].name"/>
-                  <span class="pk-dash-rend"><t t-esc="'{:.1f}'.format(L['rendimiento'])"/> %</span>
-                  <span class="pk-prov-score" t-esc="'{:.0f}'.format(L['puntaje'])"/>
+                  <span class="pk-dash-rend" t-if="L['rendimiento'] is not None"><t t-esc="'{:.1f}'.format(L['rendimiento'])"/> %</span>
+                  <span class="pk-prov-score" t-if="L['puntaje'] is not None" t-esc="'{:.0f}'.format(L['puntaje'])"/>
                 </div>
                 <t t-foreach="pk_dash['resto']" t-as="f">
                   <div class="pk-dash-fila">
@@ -183,7 +189,7 @@
                 <t t-esc="R['pesos']['cumplimiento']"/> % cumplimiento.
               </p>
               <a t-if="L['ofertas']" class="s-btn s-btn-primary mt-2"
-                 t-attf-href="/marketplace/vendedor/#{L['proveedor'].uuid_ref}">
+                 t-attf-href="/marketplace/sellers/#{L['proveedor'].uuid_ref}">
                 <i class="fa fa-cubes me-1"></i>
                 <t t-esc="L['ofertas']"/> lote<t t-if="L['ofertas'] != 1">s</t> de
                 <t t-esc="L['proveedor'].name"/> a la venta ahora

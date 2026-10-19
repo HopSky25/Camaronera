@@ -1,0 +1,409 @@
+<odoo>
+    <!-- ================================================================
+         «Estado real del lote» (19.0.1.30.0)
+
+         La etapa publicada es la TEÓRICA de venta; aquí se ve lo que el
+         vendedor observa en el lote real (observaciones y fichas de calidad),
+         separado de los «Cambios en la publicación» (la tabla de siempre,
+         «Evolución del producto», que ahora solo lista esos cambios).
+
+         Todo por herencia: product_detail (bloque, aviso de divergencia,
+         botón en «Gestionar publicación», modal) y products_list (botón en
+         cada tarjeta y el mismo modal). Estilos en
+         static/src/css/shrimp_product_evolution.css; comportamiento en
+         static/src/js/shrimp_product_evolution.js.
+         ================================================================ -->
+
+    <!-- Modal «Registrar observación» (crear / corregir). Mismo estilo que el
+         modal de certificados del formulario; pantalla completa en móvil.
+         El disparador lleva data-evo-action (URL del POST), data-evo-tipos,
+         data-evo-unit, data-evo-qty (stock publicado), data-evo-uom,
+         data-evo-name y, al corregir, data-evo-obs (JSON). -->
+    <template id="evo_observation_modal" name="Modal: registrar observación del lote">
+        <t t-set="evo_all_stages" t-value="request.env['shrimp.stage'].sudo().search([('active', '=', True)])"/>
+        <div class="modal fade pf-modal evo-modal" id="evoObsModal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="evoObsModalT" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
+                <form class="modal-content" method="post" id="evoObsForm" novalidate="novalidate" action="#">
+                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                    <input type="hidden" name="next" t-att-value="evo_next or request.httprequest.path"/>
+                    <div class="modal-header">
+                        <h3 class="modal-title" id="evoObsModalT"><i class="fa fa-binoculars pf-teal" aria-hidden="true"/> <span data-evo-title="1">Registrar observación</span></h3>
+                        <button type="button" class="pf-ib" data-bs-dismiss="modal" aria-label="Cerrar"><i class="fa fa-times" aria-hidden="true"/></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="evo-modal-lead">
+                            <b data-evo-name="1"/>
+                            Registra cómo está el lote <b>de verdad</b>. No cambia la publicación ni el stock: los compradores lo ven en «Estado real del lote».
+                        </p>
+
+                        <fieldset class="evo-fs">
+                            <legend>Básicos</legend>
+                            <div class="pf-grid pf-g2">
+                                <div class="pf-f">
+                                    <label class="pf-lbl" for="evoDate">Fecha y hora <span class="pf-req" aria-hidden="true">*</span></label>
+                                    <input class="pf-inp" id="evoDate" name="date" type="datetime-local" required="required"/>
+                                    <div class="pf-emsg" hidden="hidden"><i class="fa fa-exclamation-circle" aria-hidden="true"/> <span>Indica una fecha que no sea futura.</span></div>
+                                </div>
+                                <div class="pf-f">
+                                    <label class="pf-lbl" for="evoStage">Etapa observada <span class="pf-req" aria-hidden="true">*</span></label>
+                                    <select class="pf-sel" id="evoStage" name="stage" required="required">
+                                        <option value="">Selecciona…</option>
+                                        <t t-foreach="evo_all_stages" t-as="st">
+                                            <option t-att-value="st.uuid_ref" t-att-data-tipo="st._shrimp_tipo()"><t t-esc="st.name"/></option>
+                                        </t>
+                                    </select>
+                                    <div class="pf-emsg" hidden="hidden"><i class="fa fa-exclamation-circle" aria-hidden="true"/> <span>Elige la etapa que ves en el lote.</span></div>
+                                    <div class="pf-help" data-evo-published="1"/>
+                                </div>
+                                <div class="pf-f">
+                                    <label class="pf-lbl" for="evoSize"><span data-evo-size-lbl="1">Talla promedio</span> <span class="pf-opt">· <span data-evo-unit="1">mg</span></span></label>
+                                    <input class="pf-inp" id="evoSize" name="size" type="number" min="0" step="any" inputmode="decimal" data-min="0"/>
+                                    <div class="pf-emsg" hidden="hidden"><i class="fa fa-exclamation-circle" aria-hidden="true"/> <span>No puede ser negativo.</span></div>
+                                </div>
+                                <div class="pf-f">
+                                    <label class="pf-lbl" for="evoSurv">Supervivencia <span class="pf-opt">· %</span></label>
+                                    <input class="pf-inp" id="evoSurv" name="survival_rate" type="number" min="0" max="100" step="0.1" inputmode="decimal" data-min="0" data-max="100"/>
+                                    <div class="pf-emsg" hidden="hidden"><i class="fa fa-exclamation-circle" aria-hidden="true"/> <span>Entre 0 y 100 %.</span></div>
+                                </div>
+                                <div class="pf-f pf-span2">
+                                    <label class="pf-lbl" for="evoHealth">Estado sanitario</label>
+                                    <input class="pf-inp" id="evoHealth" name="health_status" type="text" maxlength="1000" placeholder="Ej. Sin signos de enfermedad, buen nado"/>
+                                </div>
+                                <div class="pf-f pf-span2">
+                                    <label class="pf-lbl" for="evoNote">Nota <span class="pf-opt">· opcional</span></label>
+                                    <textarea class="pf-inp pf-ta" id="evoNote" name="note" rows="2" maxlength="1000" placeholder="Lo que quieras que sepan los compradores"/>
+                                </div>
+                            </div>
+                        </fieldset>
+
+                        <fieldset class="evo-fs">
+                            <legend>Parámetros de agua <span class="pf-opt">· deja vacío lo que no mediste</span></legend>
+                            <div class="pf-grid evo-g4">
+                                <div class="pf-f">
+                                    <label class="pf-lbl" for="evoTemp">Temperatura <span class="pf-opt">· °C</span></label>
+                                    <input class="pf-inp" id="evoTemp" name="water_temp_c" type="number" min="0" max="40" step="0.1" inputmode="decimal" data-min="0" data-max="40"/>
+                                    <div class="pf-emsg" hidden="hidden"><i class="fa fa-exclamation-circle" aria-hidden="true"/> <span>Entre 0 y 40 °C.</span></div>
+                                </div>
+                                <div class="pf-f">
+                                    <label class="pf-lbl" for="evoSal">Salinidad <span class="pf-opt">· ppt</span></label>
+                                    <input class="pf-inp" id="evoSal" name="salinity_ppt" type="number" min="0" max="60" step="0.1" inputmode="decimal" data-min="0" data-max="60"/>
+                                    <div class="pf-emsg" hidden="hidden"><i class="fa fa-exclamation-circle" aria-hidden="true"/> <span>Entre 0 y 60 ppt.</span></div>
+                                </div>
+                                <div class="pf-f">
+                                    <label class="pf-lbl" for="evoO2">O₂ disuelto <span class="pf-opt">· mg/L</span></label>
+                                    <input class="pf-inp" id="evoO2" name="dissolved_oxygen_mgl" type="number" min="0" max="20" step="0.1" inputmode="decimal" data-min="0" data-max="20"/>
+                                    <div class="pf-emsg" hidden="hidden"><i class="fa fa-exclamation-circle" aria-hidden="true"/> <span>Entre 0 y 20 mg/L.</span></div>
+                                </div>
+                                <div class="pf-f">
+                                    <label class="pf-lbl" for="evoPh">pH</label>
+                                    <input class="pf-inp" id="evoPh" name="water_ph" type="number" min="0" max="14" step="0.01" inputmode="decimal" data-min="0" data-max="14"/>
+                                    <div class="pf-emsg" hidden="hidden"><i class="fa fa-exclamation-circle" aria-hidden="true"/> <span>Entre 0 y 14.</span></div>
+                                </div>
+                            </div>
+                        </fieldset>
+
+                        <fieldset class="evo-fs">
+                            <legend>Cantidad estimada</legend>
+                            <div class="pf-grid pf-g2">
+                                <div class="pf-f">
+                                    <label class="pf-lbl" for="evoQty">Cantidad en el lote <span class="pf-opt">· <span data-evo-uom="1"/></span></label>
+                                    <input class="pf-inp" id="evoQty" name="estimated_qty" type="number" min="0" step="any" inputmode="decimal" data-min="0"/>
+                                    <div class="pf-emsg" hidden="hidden"><i class="fa fa-exclamation-circle" aria-hidden="true"/> <span>No puede ser negativa.</span></div>
+                                </div>
+                                <div class="pf-f evo-qty-help">
+                                    <div class="pf-help">Informativa: <b>no cambia el stock publicado</b> (<span data-evo-stock="1"/>).</div>
+                                    <div class="pf-alert pf-a-warn evo-qty-warn" hidden="hidden" role="status">
+                                        <i class="fa fa-exclamation-triangle" aria-hidden="true"/>
+                                        <div>Estimas menos de lo que tienes publicado. Si no vas a poder entregarlo, ajusta el stock del producto.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </fieldset>
+                        <p class="pf-help evo-edit-hint">Podrás corregirla o borrarla durante <b t-esc="request.env['shrimp.product.evolution']._shrimp_edit_hours()"/> h; después queda fija como evidencia para los compradores.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="s-btn s-btn-ghost" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="s-btn s-btn-primary" id="evoObsSave"><i class="fa fa-check" aria-hidden="true"/> <span data-evo-save="1">Guardar</span></button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Confirmación para borrar una observación -->
+        <div class="modal fade pf-modal pf-modal-sm" id="evoDelModal" tabindex="-1" role="alertdialog" aria-modal="true" aria-labelledby="evoDelT" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <form class="modal-content" method="post" id="evoDelForm" action="#">
+                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                    <input type="hidden" name="next" t-att-value="evo_next or request.httprequest.path"/>
+                    <div class="modal-body pf-del-body">
+                        <div class="pf-del-ico" aria-hidden="true"><i class="fa fa-exclamation-triangle"/></div>
+                        <h3 id="evoDelT">Borrar observación</h3>
+                        <p>¿Borrar la observación del <b data-evo-del-date="1"/>? Ya no la verán los compradores.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="s-btn s-btn-ghost" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="s-btn s-btn-danger"><i class="fa fa-trash" aria-hidden="true"/> Borrar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </template>
+
+    <!-- Atributos del botón que abre el modal para un producto. -->
+    <template id="evo_trigger_attrs" name="Botón: registrar observación">
+        <button type="button" t-att-class="evo_btn_class or 's-btn s-btn-ghost'" data-bs-toggle="modal" data-bs-target="#evoObsModal"
+                aria-haspopup="dialog" title="Registrar observación"
+                t-att-data-evo-action="'/marketplace/products/%s/observations' % evo_p.uuid_ref"
+                t-att-data-evo-tipos="','.join(set(evo_p.shrimp_observation_stages().mapped(lambda s: s._shrimp_tipo())))"
+                t-att-data-evo-unit="evo_p.shrimp_observation_size_unit()"
+                t-att-data-evo-qty="evo_p.available_qty"
+                t-att-data-evo-uom="evo_p.uom_id.name or ''"
+                t-att-data-evo-name="evo_p.name"
+                t-att-data-evo-stage="evo_p.stage_id.uuid_ref or ''"
+                t-att-data-evo-stage-name="evo_p.stage_id.name or ''">
+            <i class="fa fa-binoculars" aria-hidden="true"/><t t-if="not evo_icon_only"> Registrar observación</t>
+        </button>
+    </template>
+
+    <!-- Avisos tras guardar (las dos pantallas). -->
+    <template id="evo_flash" name="Avisos de observaciones">
+        <t t-set="evo_err" t-value="request.params.get('obs_error')"/>
+        <t t-set="evo_ok" t-value="request.params.get('obs')"/>
+        <div t-if="evo_ok in ('saved', 'updated', 'deleted', 'applied')" class="pf-alert pd-a-ok evo-flash" role="status" id="evo_flash">
+            <i class="fa fa-check-circle" aria-hidden="true"/>
+            <div t-if="evo_ok == 'saved'">Observación registrada. La publicación no cambió.</div>
+            <div t-elif="evo_ok == 'updated'">Observación corregida.</div>
+            <div t-elif="evo_ok == 'deleted'">Observación borrada.</div>
+            <div t-else="">Publicación actualizada a lo observado.</div>
+        </div>
+        <div t-if="evo_err" class="pf-alert pf-a-bad evo-flash" role="alert" id="evo_flash_err">
+            <i class="fa fa-exclamation-circle" aria-hidden="true"/>
+            <div t-esc="(request.session.pop('shrimp_flash_message', None) if evo_err == 'flash' else None) or 'No se pudo guardar la observación. Revisa los datos.'"/>
+        </div>
+    </template>
+
+    <!-- ================================================================
+         Ficha del producto
+         ================================================================ -->
+    <template id="product_detail_evolution_real" inherit_id="shrimp_marketplace.product_detail"
+              name="Detalle de producto - Estado real del lote">
+        <!-- Aviso de divergencia (dueño) arriba, con los demás avisos. -->
+        <xpath expr="//div[hasclass('pd-alerts')]" position="before">
+            <t t-set="evo_can" t-value="product._shrimp_user_can_observe()"/>
+            <t t-set="evo_last" t-value="product.shrimp_last_observation()"/>
+            <t t-set="evo_div" t-value="evo_last and evo_last.shrimp_divergence()"/>
+        </xpath>
+        <xpath expr="//div[hasclass('pd-alerts')]" position="inside">
+            <t t-call="shrimp_marketplace.evo_flash"/>
+            <div t-if="evo_div and (evo_can or is_internal)" class="pf-alert pf-a-warn evo-div-alert" role="alert" id="evo_div_top">
+                <i class="fa fa-exclamation-triangle" aria-hidden="true"/>
+                <div>
+                    <span class="pd-alert-t">Lo que observaste no coincide con lo publicado.</span>
+                    <t t-esc="evo_div['text'][:1].upper() + evo_div['text'][1:]"/>.
+                    <a href="#evo_real">Ver el estado real del lote</a>
+                </div>
+            </div>
+        </xpath>
+
+        <!-- Botón en «Gestionar publicación» -->
+        <xpath expr="//div[hasclass('mp-detail-actions')]" position="inside">
+            <t t-if="evo_can and product.active">
+                <t t-call="shrimp_marketplace.evo_trigger_attrs">
+                    <t t-set="evo_p" t-value="product"/>
+                </t>
+            </t>
+        </xpath>
+
+        <!-- Bloque «Estado real del lote», antes de los certificados. -->
+        <xpath expr="//section[@id='pd_certs']" position="before">
+            <t t-set="evo_obs" t-value="product.shrimp_observations()"/>
+            <section t-if="evo_obs or evo_can" class="pd-sec evo-real" id="evo_real" aria-labelledby="evo_real_t">
+                <div class="pd-sec-h">
+                    <span class="pd-sec-ico" aria-hidden="true"><i class="fa fa-binoculars"/></span>
+                    <div>
+                        <h2 id="evo_real_t">Estado real del lote</h2>
+                        <p>Lo que el vendedor observa en el lote. La etapa publicada es la de venta.</p>
+                    </div>
+                    <span t-if="evo_obs" class="pf-chip-st pf-st-info"><t t-esc="len(evo_obs)"/></span>
+                </div>
+                <div class="pd-sec-b">
+                    <t t-if="evo_last">
+                        <t t-set="evo_unit" t-value="product.shrimp_observation_size_unit()"/>
+                        <!-- Publicado vs observado -->
+                        <div class="evo-cmp" role="group" aria-label="Publicado frente a observado">
+                            <div class="evo-cmp-col">
+                                <div class="evo-cmp-h"><i class="fa fa-tag" aria-hidden="true"/> Publicado</div>
+                                <div class="evo-cmp-stage" t-esc="product.stage_id.name or '—'"/>
+                                <div class="evo-cmp-sub">
+                                    <t t-if="product.avg_size_mg">Talla <t t-esc="product.shrimp_published_size_display()"/></t>
+                                    <t t-if="product.avg_size_mg and product.survival_rate"> · </t>
+                                    <t t-if="product.survival_rate">Superv. <t t-esc="'%g' % product.survival_rate"/> %</t>
+                                </div>
+                            </div>
+                            <div class="evo-cmp-arrow" aria-hidden="true"><i class="fa fa-arrow-right"/></div>
+                            <div t-att-class="'evo-cmp-col evo-cmp-obs' + (' is-div' if evo_div else '')">
+                                <div class="evo-cmp-h"><i class="fa fa-binoculars" aria-hidden="true"/> Observado <span class="evo-cmp-date" t-esc="evo_last.shrimp_local_dt().strftime('%d/%m/%Y %H:%M')"/></div>
+                                <div class="evo-cmp-stage">
+                                    <t t-esc="evo_last.stage_id.name or '—'"/>
+                                    <span t-if="evo_div" class="evo-badge-div"><i class="fa fa-exclamation-triangle" aria-hidden="true"/> Difiere</span>
+                                    <span t-else="" class="evo-badge-ok"><i class="fa fa-check" aria-hidden="true"/> Coincide</span>
+                                </div>
+                                <div class="evo-cmp-sub">
+                                    <t t-if="evo_last.avg_size_mg">Talla <t t-esc="evo_last.shrimp_size_display()"/></t>
+                                    <t t-if="evo_last.avg_size_mg and evo_last.survival_rate"> · </t>
+                                    <t t-if="evo_last.survival_rate">Superv. <t t-esc="'%g' % evo_last.survival_rate"/> %</t>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Divergencia: al dueño, con el botón explícito -->
+                        <div t-if="evo_div and evo_can" class="pf-alert pf-a-warn evo-div-box" role="status" id="evo_div_owner">
+                            <i class="fa fa-lightbulb-o" aria-hidden="true"/>
+                            <div>
+                                <span class="pd-alert-t">¿El lote ya es así?</span>
+                                Actualiza la publicación para que los compradores compren lo que hay. No se cambia nada sin que lo pidas.
+                                <t t-if="evo_div['stage'] and p_vendido">
+                                    <div class="evo-div-lock"><i class="fa fa-lock me-1" aria-hidden="true"/>El lote ya tiene ventas: la etapa publicada no se puede cambiar. Tus observaciones siguen visibles.</div>
+                                </t>
+                                <form t-else="" method="post" class="evo-apply" t-att-action="'/marketplace/products/%s/observations/%s/apply' % (product.uuid_ref, evo_last.uuid_ref)">
+                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                    <input type="hidden" name="next" t-att-value="'/marketplace/product/%s' % product.uuid_ref"/>
+                                    <button type="submit" class="s-btn s-btn-primary btn-sm" id="evo_apply_btn">
+                                        <i class="fa fa-refresh me-1" aria-hidden="true"/>
+                                        <t t-if="evo_div['stage']">Actualizar publicación a la etapa observada (<t t-esc="evo_last.stage_id.name"/>)</t>
+                                        <t t-else="">Actualizar la talla publicada a la observada</t>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        <!-- Divergencia: al comprador, informativa -->
+                        <div t-if="evo_div and not evo_can and not is_internal" class="pf-alert pf-a-info evo-div-box" role="status">
+                            <i class="fa fa-info-circle" aria-hidden="true"/>
+                            <div>La última observación del vendedor no coincide con lo publicado: <t t-esc="evo_div['text']"/>.</div>
+                        </div>
+
+                        <!-- Última observación: datos -->
+                        <div class="evo-facts">
+                            <div class="evo-fact" t-if="evo_last.health_status"><span class="evo-k">Estado sanitario</span><span class="evo-v" t-esc="evo_last.health_status"/></div>
+                            <t t-foreach="evo_last.shrimp_water_rows()" t-as="wr">
+                                <div class="evo-fact evo-fact--w"><span class="evo-k" t-esc="wr[0]"/><span class="evo-v" t-esc="wr[1]"/></div>
+                            </t>
+                            <div class="evo-fact" t-if="evo_last.estimated_qty and (evo_can or is_internal)">
+                                <span class="evo-k">Cantidad estimada <small>(informativa)</small></span>
+                                <span class="evo-v"><t t-esc="fmtq(evo_last.estimated_qty)"/> <t t-esc="uom_name"/></span>
+                            </div>
+                            <div class="evo-fact evo-fact--wide" t-if="evo_last.note and evo_last.origin == 'observation'"><span class="evo-k">Nota</span><span class="evo-v" t-esc="evo_last.note"/></div>
+                        </div>
+                        <div t-if="evo_can and evo_last.shrimp_stock_hint()" class="pf-alert pf-a-warn evo-stock-hint" role="status" id="evo_stock_hint">
+                            <i class="fa fa-cubes" aria-hidden="true"/>
+                            <div>Estimas <b><t t-esc="fmtq(evo_last.estimated_qty)"/> <t t-esc="uom_name"/></b> y tienes publicados <b><t t-esc="fmtq(product.available_qty)"/> <t t-esc="uom_name"/></b> disponibles. La cantidad estimada no cambia el stock: si no vas a poder entregarlo, ajusta el stock del producto.</div>
+                        </div>
+
+                        <!-- Mini gráficos -->
+                        <t t-set="evo_charts" t-value="product.shrimp_observation_chart()"/>
+                        <div t-if="evo_charts" class="evo-charts">
+                            <t t-foreach="evo_charts" t-as="ch"><t t-out="ch"/></t>
+                        </div>
+
+                        <!-- Historial -->
+                        <details class="evo-hist" t-att-open="'open' if len(evo_obs) &lt;= 6 else None">
+                            <summary>Historial de observaciones (<t t-esc="len(evo_obs)"/>)</summary>
+                            <div class="table-responsive mp-table-wrap pd-stack">
+                                <table class="table align-middle mb-0 evo-table">
+                                    <thead>
+                                        <tr><th>Fecha</th><th>Origen</th><th>Etapa</th><th>Talla</th><th>Superv.</th><th>Agua</th><th>Nota</th><th t-if="evo_can"><span class="visually-hidden">Acciones</span></th></tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr t-foreach="evo_obs" t-as="ev">
+                                            <td data-label="Fecha" t-esc="ev.shrimp_local_dt().strftime('%d/%m/%Y %H:%M')"/>
+                                            <td data-label="Origen"><span t-att-class="'evo-origin evo-origin--%s' % ev.origin" t-esc="ev.shrimp_origin_label()"/></td>
+                                            <td data-label="Etapa">
+                                                <t t-esc="ev.stage_id.name or '—'"/>
+                                                <small t-if="ev.published_stage_id and ev.published_stage_id != ev.stage_id" class="evo-pub-then">publicada <t t-esc="ev.published_stage_id.name"/></small>
+                                            </td>
+                                            <td data-label="Talla" t-esc="ev.shrimp_size_display()"/>
+                                            <td data-label="Superv."><t t-if="ev.survival_rate"><t t-esc="'%g' % ev.survival_rate"/> %</t><t t-else="">—</t></td>
+                                            <td data-label="Agua">
+                                                <t t-set="wrs" t-value="ev.shrimp_water_rows()"/>
+                                                <t t-if="wrs"><t t-esc="' · '.join(w[1] for w in wrs)"/></t><t t-else="">—</t>
+                                            </td>
+                                            <td data-label="Nota" class="evo-note"><t t-esc="ev.shrimp_observation()"/></td>
+                                            <td t-if="evo_can" class="evo-acts" data-label="">
+                                                <t t-if="ev.shrimp_is_editable()">
+                                                    <button type="button" class="pf-ib" data-bs-toggle="modal" data-bs-target="#evoObsModal" title="Corregir" aria-label="Corregir observación"
+                                                            t-att-data-evo-action="'/marketplace/products/%s/observations/%s/update' % (product.uuid_ref, ev.uuid_ref)"
+                                                            t-att-data-evo-tipos="','.join(set(product.shrimp_observation_stages().mapped(lambda s: s._shrimp_tipo())))"
+                                                            t-att-data-evo-unit="evo_unit" t-att-data-evo-qty="product.available_qty" t-att-data-evo-uom="uom_name"
+                                                            t-att-data-evo-name="product.name" t-att-data-evo-stage-name="product.stage_id.name or ''"
+                                                            t-att-data-evo-obs="ev.shrimp_json_str()"><i class="fa fa-pencil" aria-hidden="true"/></button>
+                                                    <button type="button" class="pf-ib evo-del" data-bs-toggle="modal" data-bs-target="#evoDelModal" title="Borrar" aria-label="Borrar observación"
+                                                            t-att-data-evo-action="'/marketplace/products/%s/observations/%s/delete' % (product.uuid_ref, ev.uuid_ref)"
+                                                            t-att-data-evo-date="ev.shrimp_local_dt().strftime('%d/%m/%Y %H:%M')"><i class="fa fa-trash" aria-hidden="true"/></button>
+                                                    <small class="evo-until">hasta <t t-esc="ev.shrimp_local_dt(ev.shrimp_edit_deadline()).strftime('%d/%m %H:%M')"/></small>
+                                                </t>
+                                                <span t-elif="ev.origin == 'observation'" class="evo-locked" title="Fija: evidencia para los compradores"><i class="fa fa-lock" aria-hidden="true"/></span>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </details>
+                    </t>
+                    <div t-else="" class="pd-empty">
+                        <b>Sin observaciones del lote</b>
+                        Registra cómo está el lote de verdad (etapa, talla, supervivencia, agua). No cambia la publicación.
+                    </div>
+                    <div t-if="evo_can and product.active" class="evo-cta">
+                        <t t-call="shrimp_marketplace.evo_trigger_attrs">
+                            <t t-set="evo_p" t-value="product"/>
+                            <t t-set="evo_btn_class" t-value="'s-btn s-btn-primary'"/>
+                        </t>
+                    </div>
+                </div>
+            </section>
+        </xpath>
+
+        <!-- «Evolución del producto» (la tabla de siempre): solo los cambios
+             en la publicación. El h3 no se toca: es el ancla de la ficha de
+             calidad. -->
+        <xpath expr="//div[hasclass('pd-evo')]" position="before">
+            <t t-set="evolution_lines" t-value="product.shrimp_publication_changes()"/>
+        </xpath>
+        <xpath expr="//div[hasclass('pd-evo')]//h3" position="after">
+            <span class="evo-sub">Cambios en la publicación</span>
+        </xpath>
+
+        <!-- Modal (al final de la columna principal) -->
+        <xpath expr="//t[@t-call='shrimp_marketplace.product_confirm_modal']" position="before">
+            <t t-if="evo_can">
+                <t t-set="evo_next" t-value="'/marketplace/product/%s' % product.uuid_ref"/>
+                <t t-call="shrimp_marketplace.evo_observation_modal"/>
+            </t>
+        </xpath>
+    </template>
+
+    <!-- ================================================================
+         Mis productos: botón por tarjeta y el mismo modal
+         ================================================================ -->
+    <template id="products_list_evolution_real" inherit_id="shrimp_marketplace.products_list"
+              name="Mis productos - Registrar observación">
+        <xpath expr="//div[@id='listado']" position="before">
+            <div class="shrimp-page shrimp-page--full evo-list-flash" t-if="request.params.get('obs') or request.params.get('obs_error')">
+                <t t-call="shrimp_marketplace.evo_flash"/>
+            </div>
+        </xpath>
+        <xpath expr="//div[hasclass('s-prod-actions')]/t[@t-if='p.active']/a[i[hasclass('fa-eye')]]" position="after">
+            <t t-if="p._shrimp_user_can_observe()">
+                <t t-call="shrimp_marketplace.evo_trigger_attrs">
+                    <t t-set="evo_p" t-value="p"/>
+                    <t t-set="evo_icon_only" t-value="True"/>
+                    <t t-set="evo_btn_class" t-value="'s-btn s-btn-ghost btn-sm evo-list-btn'"/>
+                </t>
+            </t>
+        </xpath>
+        <xpath expr="//t[@t-call='shrimp_marketplace.product_confirm_modal']" position="before">
+            <t t-set="evo_next" t-value="'/marketplace/products'"/>
+            <t t-call="shrimp_marketplace.evo_observation_modal"/>
+        </xpath>
+    </template>
+</odoo>

@@ -16,7 +16,15 @@ VER_SCHEMA = obj(id="uuid", reference="string", my_role="string", state="string"
                  verification_mode="string", verification_label="string",
                  transaction="string", product="ref", buyer="ref", seller="ref", verifier="ref",
                  fee="money", acceptance_state="string", verified_at="datetime",
-                 line_count="integer", count_count="integer", updated_at="datetime")
+                 line_count="integer", count_count="integer", updated_at="datetime",
+                 # Equipo de campo (solo lo ven la empresa y sus técnicos).
+                 technician="ref",
+                 support_technicians={"type": "array", "items": {"$ref": "#/components/schemas/Ref"}},
+                 # Decisiones de la auditoría (19.0.1.23.0).
+                 verifier_response="string", verifier_response_deadline="datetime",
+                 rejection_reason="string", contest_state="string", contest_deadline="datetime",
+                 second_opinion_of="string", counter_outcome="string",
+                 declared_deadline="datetime", payout_state="string")
 VER_STATES = ["received", "assigned", "in_field", "done", "approved", "approved_obs", "rejected", "cancelled",
               "declared_draft", "declared"]
 
@@ -31,7 +39,8 @@ def _role_domain(ctx, role):
         company = ctx.partner.shrimp_verifier_company()
         return [("verifier_partner_id", "=", company.id or 0)]
     if role == "technician":
-        return [("technician_partner_id", "=", p)]
+        # Responsable o de apoyo (equipo de campo).
+        return ["|", ("technician_partner_id", "=", p), ("support_technician_ids", "in", [p])]
     return []
 
 
@@ -125,7 +134,9 @@ def _as_verifier(ctx, id, editable=False):
     v = _verification(ctx, id).sudo()
     company = ctx.partner.shrimp_verifier_company()
     is_admin = bool(company) and ctx.partner.shrimp_is_verifier_admin() and v.verifier_partner_id == company
-    is_tech = v.technician_partner_id == ctx.partner
+    # Técnico asignado: responsable o de apoyo (los dos cargan datos de campo;
+    # el veredicto lo filtra _puede_dictaminar: solo responsable o empresa).
+    is_tech = v.shrimp_is_assigned_tech(ctx.partner)
     if not (is_admin or is_tech):
         raise forbidden("Esta operación es de la empresa verificadora o del técnico asignado.")
     if editable and v.is_final:
@@ -171,6 +182,42 @@ def verification_assign(ctx, id):
     if not tech:
         raise invalid("Ese técnico no pertenece a tu empresa.")
     v.action_assign_technician(tech)
+    return S.verification(v, ctx.partner, detail=True)
+
+
+SUPPORT_SPEC = {"add": F("array", items={"technician": F("string", required=True)},
+                         description="Técnicos de apoyo a sumar (uuid de técnicos activos de la empresa)"),
+                "remove": F("array", items={"technician": F("string", required=True)},
+                            description="Técnicos de apoyo a quitar")}
+
+
+@api_route("POST", "/verifications/{id}:support-technicians", signed=True, scope="verifications:write",
+           tags=[TAG_VER], body=SUPPORT_SPEC,
+           summary="El administrador de la verificadora suma o quita técnicos de apoyo",
+           description="Los técnicos de apoyo cargan datos de campo (informe, inicio en campo) "
+                       "pero no firman el veredicto: lo firma el técnico responsable "
+                       "(technician) o la empresa. Exige un responsable asignado.",
+           response=VER_SCHEMA)
+def verification_support_technicians(ctx, id):
+    v, is_admin = _as_verifier(ctx, id, editable=True)
+    if not is_admin:
+        raise forbidden("El equipo lo arma el administrador de la empresa verificadora.")
+    body = ctx.clean(SUPPORT_SPEC)
+    company = ctx.partner.shrimp_verifier_company()
+    techs = company.field_tech_ids.filtered("active")
+
+    def resolve(items):
+        refs = [i["technician"] for i in (items or [])]
+        found = techs.filtered(lambda t: t.uuid_ref in refs)
+        if len(found) != len(set(refs)):
+            raise invalid("Algún técnico no es un técnico activo de tu empresa.")
+        return found
+
+    add, remove = resolve(body.get("add")), resolve(body.get("remove"))
+    if remove:
+        v.action_remove_support_technician(remove)
+    if add:
+        v.action_add_support_technician(add)
     return S.verification(v, ctx.partner, detail=True)
 
 
@@ -247,22 +294,89 @@ def verification_report(ctx, id):
     return S.verification(v, ctx.partner, detail=True)
 
 
+VERDICT_SPEC = {
+    "verdict": F("enum", required=True, enum=["approve", "approve_obs", "reject"]),
+    "notes": F("text", description="Obligatorio con observaciones o rechazo"),
+    "reject_reason": F("enum", enum=["field", "not_presented"],
+                       description="Solo con verdict=reject. «field» (por defecto): producto no "
+                                   "conforme según el informe de campo; exige la verificación en "
+                                   "campo o con el informe completo. «not_presented»: el producto "
+                                   "no se presentó en la planta; se puede emitir sin trabajo de "
+                                   "campo y exige arrival_at y al menos una foto (photos)."),
+    "arrival_at": F("datetime", description="Hora de llegada del técnico a la planta "
+                                            "(obligatoria con not_presented)"),
+    "photos": F("array", items={"data": F("string", required=True, max_length=7 * 1024 * 1024,
+                                          description="Imagen en base64 (JPEG/PNG, 5 MB máx.)"),
+                                "name": F("string")},
+                description="Fotos de evidencia (obligatorias con not_presented si la "
+                            "verificación todavía no tiene fotos)"),
+}
+
+
 @api_route("POST", "/verifications/{id}:verdict", signed=True, scope="verifications:write", tags=[TAG_VER],
-           body={"verdict": F("enum", required=True, enum=["approve", "approve_obs", "reject"]),
-                 "notes": F("text", description="Obligatorio con observaciones o rechazo")},
-           summary="Emite el veredicto (técnico que fue a campo o administrador)", response=VER_SCHEMA)
+           # Las fotos de evidencia van en base64 en el cuerpo: el tope general
+           # de 1 MB no alcanzaría ni para una.
+           body=VERDICT_SPEC, max_body=8 * 1024 * 1024,
+           summary="Emite el veredicto (técnico que fue a campo o administrador)",
+           description="Aprobar, aprobar con observaciones o rechazar por el informe exigen el "
+                       "trabajo de campo (state in_field o done). Sin campo solo se puede rechazar "
+                       "con reject_reason=not_presented y evidencia (fotos + arrival_at): el "
+                       "honorario lo paga el vendedor y suma un strike. Un rechazo por el informe "
+                       "deja al vendedor un plazo para pedir una segunda opinión: la compra se "
+                       "cancela cuando el rechazo queda firme.",
+           response=VER_SCHEMA)
 def verification_verdict(ctx, id):
     v, _admin = _as_verifier(ctx, id, editable=True)
     if not v._puede_dictaminar(ctx.partner):
         raise forbidden("El veredicto lo firma el técnico que fue a campo o el administrador.")
-    body = ctx.clean({"verdict": F("enum", required=True, enum=["approve", "approve_obs", "reject"]),
-                      "notes": F("text")})
+    body = ctx.clean(VERDICT_SPEC)
     state = {"approve": "approved", "approve_obs": "approved_obs", "reject": "rejected"}[body["verdict"]]
+    if state == "rejected" and body.get("reject_reason") == "not_presented":
+        photos = []
+        for i, foto in enumerate(body.get("photos") or []):
+            try:
+                raw = base64.b64decode(foto["data"], validate=True)
+            except (binascii.Error, ValueError):
+                raise invalid("photos[%s].data no es base64 válido." % i)
+            mime = guess_mimetype(raw)
+            if len(raw) > 5 * 1024 * 1024 or mime not in ("image/jpeg", "image/png", "image/webp"):
+                raise invalid("photos[%s] tiene que ser una imagen JPEG/PNG/WebP de 5 MB como máximo." % i)
+            photos.append((foto.get("name") or "evidencia_%s" % (i + 1), raw, mime))
+        if photos:
+            att = ctx.env["ir.attachment"].sudo().create([{
+                "name": nombre, "type": "binary", "datas": base64.b64encode(raw), "mimetype": mime,
+                "res_model": "shrimp.verification", "res_id": v.id, "public": False,
+            } for nombre, raw, mime in photos])
+            v.write({"photo_ids": [(4, a.id) for a in att]})
+        v.action_not_presented(body.get("arrival_at") or False, body.get("notes"))
+        return S.verification(v, ctx.partner, detail=True)
     if v.state == "in_field":
         v.action_mark_done()
-    v._close(state, notes=body.get("notes") or None)
-    if state == "rejected":
-        v.transaction_id.action_cancel_for_verification()
+    v._close(state, notes=body.get("notes") or None,
+             rejection_kind="field" if state == "rejected" else None)
+    return S.verification(v, ctx.partner, detail=True)
+
+
+@api_route("POST", "/verifications/{id}:respond", scope="verifications:write", tags=[TAG_VER],
+           body={"decision": F("enum", required=True, enum=["accept", "decline"]),
+                 "reason": F("text", description="Obligatorio al declinar")},
+           summary="La verificadora acepta o declina la orden (administrador de la empresa)",
+           description="Dentro del plazo de respuesta (24 h por defecto desde la asignación) y antes "
+                       "de ir a campo. Declinada (o sin respuesta en el plazo), el comprador elige "
+                       "otra verificadora o cancela sin costo. Asignar el técnico también acepta la "
+                       "orden.",
+           response=VER_SCHEMA)
+def verification_respond(ctx, id):
+    v, is_admin = _as_verifier(ctx, id, editable=True)
+    if not is_admin:
+        raise forbidden("La orden la acepta o la declina el administrador de la empresa verificadora.")
+    body = ctx.clean({"decision": F("enum", required=True, enum=["accept", "decline"]),
+                      "reason": F("text")})
+    v._shrimp_check_response_admin(ctx.partner)
+    if body["decision"] == "accept":
+        v.action_verifier_accept()
+    else:
+        v.action_verifier_decline(body.get("reason"))
     return S.verification(v, ctx.partner, detail=True)
 
 
@@ -272,7 +386,8 @@ def verification_verdict(ctx, id):
 MODE_DOC = ("«platform»: verificadora acreditada de la plataforma (verifier obligatorio, con "
             "honorario). «declared»: verificación declarada por las partes (sin verificadora "
             "de la plataforma ni honorario): el comprador o el vendedor cargan el informe y lo "
-            "presentan; la otra parte lo acepta/rechaza/contraoferta. No existe «no aplica».")
+            "presentan; la otra parte lo acepta/rechaza/contraoferta. Si la matriz de verificación "
+            "(vendedor → comprador) dice «No aplica» para la compra, se rechaza con 422.")
 DECLARED_SPEC = {
     "declared_source": F("enum", enum=["external", "self"],
                          description="external: verificadora externa; self: verificación propia"),
@@ -306,7 +421,8 @@ def verification_buy(ctx):
         if not vals.get("verifier"):
             raise invalid("En modo «platform» hay que indicar verifier.")
         verifier = ctx.env["res.partner"].sudo().browse(vals["verifier"])
-        fee = ctx.env["shrimp.verification.fee"].sudo().compute(vals["qty"])
+        # La tarifa publicada por la verificadora elegida (o la global si no tiene).
+        fee = ctx.env["shrimp.verification.fee"].sudo().compute(vals["qty"], verifier)
     else:
         if vals.get("verifier"):
             raise invalid("En modo «declared» no se elige verificadora de la plataforma.")

@@ -1,4 +1,5 @@
-"""Compras y ventas: transacciones, trazabilidad, cobros y solicitudes de chequeo."""
+"""Compras y ventas: transacciones, trazabilidad y cobros (las solicitudes de chequeo
+se retiraron: 410 Gone)."""
 
 from odoo.http import request
 
@@ -6,7 +7,7 @@ from . import serializers as S
 from .framework import ApiError, ApiResponse, F, api_route, forbidden, obj, paginate
 
 TAG_TX = "compras y ventas"
-TAG_CHK = "solicitudes de chequeo"
+TAG_CHK = "solicitudes de chequeo (retirado)"
 
 TX_SCHEMA = obj(id="uuid", reference="string", my_role="string", state="string", type="string",
                 product="ref", seller="ref", buyer="ref", qty="number", uom="ref",
@@ -15,6 +16,10 @@ TX_SCHEMA = obj(id="uuid", reference="string", my_role="string", state="string",
                 seller_invoice={"type": ["object", "null"],
                                 "description": "Factura de la mercadería registrada por el vendedor "
                                                "(número, clave de acceso, fecha, si hay archivo)"},
+                reception={"type": ["object", "null"],
+                           "description": "Entrega y recepción: si la compra pide confirmación de "
+                                          "recepción, despacho, plazo (deadline, days_left), si se "
+                                          "confirmó automáticamente e incidencia"},
                 updated_at="datetime")
 TX_STATES = ["draft", "pending_verification", "pending_acceptance", "confirmed", "done", "cancel"]
 
@@ -64,6 +69,9 @@ def transaction_traceability(ctx, id):
     return {
         "public": tx._public_traceability_data(),
         "public_url": tx.traceability_url(),
+        # D-29: si la página pública se muestra (public / cancelled) o no
+        # (withdrawn / unavailable). public_url se conserva igual.
+        "public_status": tx.shrimp_trace_public_status(),
         "moves": [S.move(m) for m in data["moves"]],
         "lots": [{"id": l.uuid_ref, "product": S.ref(l.product_id), "owner": S.ref(l.owner_id),
                   "initial_qty": l.initial_qty, "uom": S.ref(l.uom_id)} for l in data["lots"]],
@@ -104,13 +112,51 @@ def transaction_rotate_token(ctx, id):
     return {"public_url": tx.sudo().traceability_url()}
 
 
+RECEIVE_BODY = {"note": F("text", description="Nota opcional de la recepción")}
+ISSUE_BODY = {"note": F("text", required=True, description="Qué problema hubo con la entrega")}
+DISPATCH_BODY = {"note": F("text", description="Nota opcional para el comprador")}
+
+
 @api_route("POST", "/transactions/{id}:receive", scope="transactions:write", tags=[TAG_TX],
-           summary="El comprador confirma la recepción (desde la fecha de entrega)", response=TX_SCHEMA)
+           summary="El comprador confirma la recepción (desde la fecha de entrega o el despacho)",
+           description="Cuerpo opcional ({note}). Sube el lote al inventario del comprador y "
+                       "deja la compra completada. Si la compra pide confirmación de recepción y "
+                       "el comprador no la confirma en el plazo, la plataforma la confirma sola.",
+           body=RECEIVE_BODY, response=TX_SCHEMA)
 def transaction_receive(ctx, id):
     tx = _my_tx(ctx, id)
     if tx.sudo().buyer_partner_id != ctx.partner:
         raise forbidden("La recepción la confirma el comprador.")
-    tx.sudo().action_receive()
+    vals = ctx.clean(RECEIVE_BODY)
+    tx.sudo().shrimp_confirm_reception(note=vals.get("note"), actor=ctx.partner)
+    return S.transaction(tx, ctx.partner)
+
+
+@api_route("POST", "/transactions/{id}:report-issue", scope="transactions:write", tags=[TAG_TX],
+           summary="El comprador reporta un problema con la entrega en vez de confirmarla",
+           description="La compra queda con incidencia (reception.status = incidence): no se "
+                       "confirma automáticamente y la plataforma la revisa.",
+           body=ISSUE_BODY, response=TX_SCHEMA)
+def transaction_report_issue(ctx, id):
+    tx = _my_tx(ctx, id)
+    if tx.sudo().buyer_partner_id != ctx.partner:
+        raise forbidden("El problema lo reporta el comprador.")
+    vals = ctx.clean(ISSUE_BODY)
+    tx.sudo().shrimp_report_reception_issue(vals.get("note"), actor=ctx.partner)
+    return S.transaction(tx, ctx.partner)
+
+
+@api_route("POST", "/transactions/{id}:dispatch", scope="transactions:write", tags=[TAG_TX],
+           summary="El vendedor marca la compra como despachada",
+           description="Desde el despacho el comprador puede confirmar la recepción y, si la "
+                       "compra la pide, empieza a correr su plazo.",
+           body=DISPATCH_BODY, response=TX_SCHEMA)
+def transaction_dispatch(ctx, id):
+    tx = _my_tx(ctx, id)
+    if tx.sudo().seller_partner_id != ctx.partner:
+        raise forbidden("El despacho lo marca el vendedor.")
+    vals = ctx.clean(DISPATCH_BODY)
+    tx.sudo().action_mark_dispatched(note=vals.get("note"), actor=ctx.partner)
     return S.transaction(tx, ctx.partner)
 
 
@@ -137,56 +183,43 @@ def charges_list(ctx):
 
 
 # ---------------------------------------------------------------------------
-# Solicitudes de chequeo
+# Solicitudes de chequeo: RETIRADAS (decisión D-28)
 # ---------------------------------------------------------------------------
-CHK_SCHEMA = obj(id="uuid", reference="string", my_role="string", state="string", product="ref",
-                 seller="ref", buyer="ref", qty="number", check_fee="money", transaction="ref")
-CHK_STATES = ["requested", "under_review", "approved", "rejected", "cancelled"]
+# El flujo se retiró por completo: se compra directo o con verificación en
+# campo. Las rutas siguen declaradas para que un integrador viejo reciba un
+# 410 Gone con la explicación (y no un 404 que parezca un error de URL).
+CHK_GONE_DETAIL = ("Las solicitudes de chequeo se retiraron de la plataforma: compra directo "
+                   "(desde el marketplace) o con verificación en campo (POST /verifications). "
+                   "Las solicitudes anteriores se conservan solo como histórico interno.")
+
+
+def _check_requests_gone():
+    raise ApiError(410, "check-requests-retired", CHK_GONE_DETAIL, title="Recurso retirado")
 
 
 @api_route("GET", "/check-requests", scope=("transactions:read", "transactions:write"),
-           tags=[TAG_CHK], paginated=True, summary="Solicitudes de chequeo donde participo",
-           params={"role": F("enum", enum=["buyer", "seller"]), "state": F("enum", enum=CHK_STATES)},
-           response=CHK_SCHEMA)
+           tags=[TAG_CHK], summary="RETIRADO (410 Gone): solicitudes de chequeo",
+           description=CHK_GONE_DETAIL)
 def check_requests_list(ctx):
-    role = ctx.enum_param("role", ["buyer", "seller"])
-    if role:
-        domain = [("%s_partner_id" % role, "=", ctx.partner.id)]
-    else:
-        domain = ["|", ("buyer_partner_id", "=", ctx.partner.id),
-                  ("seller_partner_id", "=", ctx.partner.id)]
-    state = ctx.enum_param("state", CHK_STATES)
-    if state:
-        domain.append(("state", "=", state))
-    return paginate(ctx, "shrimp.check.request", domain, lambda c: S.check_request(c, ctx.partner))
+    _check_requests_gone()
 
 
 @api_route("GET", "/check-requests/{id}", scope=("transactions:read", "transactions:write"),
-           tags=[TAG_CHK], summary="Detalle de una solicitud de chequeo", response=CHK_SCHEMA)
+           tags=[TAG_CHK], summary="RETIRADO (410 Gone): detalle de una solicitud de chequeo",
+           description=CHK_GONE_DETAIL)
 def check_request_get(ctx, id):
-    return S.check_request(ctx.get_own("shrimp.check.request", id, "La solicitud"), ctx.partner)
-
-
-def _seller_check_request(ctx, id):
-    cr = ctx.get_own("shrimp.check.request", id, "La solicitud").sudo()
-    if cr.seller_partner_id != ctx.partner:
-        raise forbidden("La solicitud la resuelve el vendedor.")
-    if cr.state not in ("requested", "under_review"):
-        raise ApiError(409, "invalid-state", "La solicitud ya está resuelta.")
-    return cr
+    _check_requests_gone()
 
 
 @api_route("POST", "/check-requests/{id}:approve", scope=("transactions:write", "products:write"),
-           tags=[TAG_CHK], summary="El vendedor aprueba: se ejecuta la compra", response=CHK_SCHEMA)
+           tags=[TAG_CHK], summary="RETIRADO (410 Gone): aprobar una solicitud de chequeo",
+           description=CHK_GONE_DETAIL)
 def check_request_approve(ctx, id):
-    cr = _seller_check_request(ctx, id)
-    cr.action_approve()
-    return S.check_request(cr, ctx.partner)
+    _check_requests_gone()
 
 
 @api_route("POST", "/check-requests/{id}:reject", scope=("transactions:write", "products:write"),
-           tags=[TAG_CHK], summary="El vendedor rechaza la solicitud", response=CHK_SCHEMA)
+           tags=[TAG_CHK], summary="RETIRADO (410 Gone): rechazar una solicitud de chequeo",
+           description=CHK_GONE_DETAIL)
 def check_request_reject(ctx, id):
-    cr = _seller_check_request(ctx, id)
-    cr.action_reject()
-    return S.check_request(cr, ctx.partner)
+    _check_requests_gone()

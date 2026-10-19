@@ -23,7 +23,6 @@ _ec_sri_company_data).
 """
 
 import logging
-import re
 
 _logger = logging.getLogger(__name__)
 
@@ -35,11 +34,25 @@ _logger = logging.getLogger(__name__)
 # 14 %, y esas también hay que poder reconstruirlas.
 IVA_POR_TARIFA = {
     0.0: ("0", "zero"),      # IVA 0 %
-    5.0: ("8", "taxable"),   # IVA diferenciado 5 %
+    5.0: ("5", "taxable"),   # IVA 5 % (el código 8 es "IVA diferenciado", no el 5 %)
     12.0: ("2", "taxable"),  # histórico
     13.0: ("10", "taxable"),  # histórico
     14.0: ("3", "taxable"),  # histórico
     15.0: ("4", "taxable"),  # vigente
+}
+
+# El 0 % no distingue IVA 0, no objeto y exento: todos valen 0. El grupo de impuestos
+# de l10n_ec (l10n_ec_type) sí los distingue, así que se usa primero.
+IVA_POR_GRUPO = {
+    "vat05": ("5", "taxable"),
+    "vat08": ("8", "taxable"),
+    "vat12": ("2", "taxable"),
+    "vat13": ("10", "taxable"),
+    "vat14": ("3", "taxable"),
+    "vat15": ("4", "taxable"),
+    "zero_vat": ("0", "zero"),
+    "not_charged_vat": ("6", "non_taxable"),
+    "exempt_vat": ("7", "exempt"),
 }
 
 CODIGO_IVA = "2"  # tabla 16: 2 = IVA
@@ -68,7 +81,12 @@ def _configurar_impuestos(env):
     ])
     tocados = 0
     for impuesto in impuestos:
-        datos = IVA_POR_TARIFA.get(round(impuesto.amount, 2))
+        tipo = impuesto.tax_group_id.l10n_ec_type
+        if tipo:
+            # Con grupo de l10n_ec el tipo manda; las retenciones, el ICE, etc. no son IVA.
+            datos = IVA_POR_GRUPO.get(tipo)
+        else:
+            datos = IVA_POR_TARIFA.get(round(impuesto.amount, 2))
         if not datos:
             continue
         porcentaje, bolsa = datos
@@ -107,39 +125,14 @@ def _habilitar_companias(env):
     return tocadas
 
 
-def _identificar_contactos(env):
-    """Deduce el tipo de identificación del SRI a partir del número.
-
-    En Ecuador la longitud lo dice sin ambigüedad: 13 dígitos es RUC y 10 es
-    cédula. Sin este campo, facturar a un contacto se cae con "Configure
-    Identificación SRI", y son datos que ya están en la ficha.
-
-    Un pasaporte o una identificación del exterior no se pueden deducir del
-    número, así que esos se dejan vacíos a propósito: es preferible que
-    alguien los complete a etiquetarlos mal, porque el tipo viaja en el XML.
-    """
-    Partner = env["res.partner"].sudo()
-    tocados = 0
-    for partner in Partner.search([("ec_sri_identification_type", "=", False),
-                                   ("vat", "!=", False)]):
-        numero = (partner.vat or "").strip()
-        if re.fullmatch(r"[0-9]{13}", numero):
-            partner.ec_sri_identification_type = "04"   # RUC
-        elif re.fullmatch(r"[0-9]{10}", numero):
-            partner.ec_sri_identification_type = "05"   # Cédula
-        else:
-            continue
-        tocados += 1
-    return tocados
-
-
 def post_init_hook(env):
+    # El tipo de identificación del contacto se deriva del NATIVO de Odoo
+    # (l10n_latam_identification_type_id), no se duplica ni se precarga aquí.
     impuestos = _configurar_impuestos(env)
     companias = _habilitar_companias(env)
-    contactos = _identificar_contactos(env)
     _logger.info(
         "SRI Community: %s impuesto(s) con código del catálogo, "
-        "%s compañía(s) de Ecuador habilitadas en ambiente de PRUEBAS, "
-        "%s contacto(s) con tipo de identificación. Falta el RUC, la "
-        "dirección matriz, el punto de emisión y el certificado para emitir.",
-        impuestos, companias, contactos)
+        "%s compañía(s) de Ecuador habilitadas en ambiente de PRUEBAS. "
+        "Falta el RUC, la dirección matriz, el punto de emisión y el "
+        "certificado para emitir.",
+        impuestos, companias)

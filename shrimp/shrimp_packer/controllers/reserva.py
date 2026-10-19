@@ -79,7 +79,7 @@ class ShrimpReservaCamaronera(ShrimpReservaBase):
         formulario entero a una empacadora para reventar al final. Una pantalla
         que no lleva a ningún sitio es peor que no tenerla.
         """
-        if self._partner().shrimp_user_type != "camaronera":
+        if self._partner()._shrimp_active_role() != "camaronera":
             raise Forbidden()
 
     def _mia(self, ref):
@@ -278,7 +278,7 @@ class ShrimpReservaEmpacadora(ShrimpReservaBase):
     """La bandeja de quien compra a ciegas."""
 
     def _solo_empacadora(self):
-        if self._partner().shrimp_user_type != "empacadora":
+        if self._partner()._shrimp_active_role() != "empacadora":
             raise Forbidden()
         # Una empacadora recién registrada no opera hasta su aprobación.
         require_operational(self._partner())
@@ -454,7 +454,7 @@ class ShrimpReservaConfirmacion(ShrimpReservaBase):
         firma = request.env["shrimp.harvest.confirmation"].sudo().resolve_ref(ref)
         if not firma:
             raise NotFound()
-        socio = request.env.user.partner_id
+        socio = request.env.user.shrimp_actor_partner_id
         compromiso = firma.commitment_id
         if socio not in (compromiso.farmer_partner_id, compromiso.packer_partner_id):
             raise Forbidden()
@@ -464,7 +464,7 @@ class ShrimpReservaConfirmacion(ShrimpReservaBase):
                 auth="user", website=True, methods=["POST"], csrf=True)
     def firmar(self, ref, **post):
         firma = self._mi_firma(ref)
-        socio = request.env.user.partner_id
+        socio = request.env.user.shrimp_actor_partner_id
         compromiso = firma.commitment_id
         if socio == compromiso.farmer_partner_id:
             destino = "/marketplace/reservations/%s" % compromiso.forecast_id.uuid_ref
@@ -486,7 +486,7 @@ class ShrimpReservaConfirmacion(ShrimpReservaBase):
     def deshacer(self, ref, **post):
         """Cada parte deshace SU firma mientras se pueda (ver el modelo)."""
         firma = self._mi_firma(ref)
-        socio = request.env.user.partner_id
+        socio = request.env.user.shrimp_actor_partner_id
         compromiso = firma.commitment_id
         if socio == compromiso.farmer_partner_id:
             destino = "/marketplace/reservations/%s" % compromiso.forecast_id.uuid_ref

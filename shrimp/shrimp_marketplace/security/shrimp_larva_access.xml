@@ -68,7 +68,7 @@
         <field name="name">Ficha de calidad: propias o de lotes públicos (portal)</field>
         <field name="model_id" ref="model_shrimp_product_quality"/>
         <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
-        <field name="domain_force">['|', ('seller_partner_id', '=', user.partner_id.id), ('product_id.state', 'in', ('published', 'sold'))]</field>
+        <field name="domain_force">['|', ('seller_partner_id', '=', user.shrimp_actor_partner_id.id), ('product_id.state', 'in', ('published', 'sold'))]</field>
         <field name="perm_read" eval="True"/>
         <field name="perm_write" eval="False"/>
         <field name="perm_create" eval="False"/>
@@ -78,7 +78,7 @@
         <field name="name">Avísame: solo los propios (portal)</field>
         <field name="model_id" ref="model_shrimp_larva_interest"/>
         <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
-        <field name="domain_force">[('partner_id', '=', user.partner_id.id)]</field>
+        <field name="domain_force">[('partner_id', '=', user.shrimp_actor_partner_id.id)]</field>
         <field name="perm_read" eval="True"/>
         <field name="perm_write" eval="False"/>
         <field name="perm_create" eval="False"/>

@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import re
 
+from markupsafe import Markup
+
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError, ValidationError
 
@@ -34,7 +36,7 @@ class ResPartner(models.Model):
 
     shrimp_user_type = fields.Selection(
         [
-            ("semillero", "Semillero"),
+            ("semillero", "Naupliero"),
             ("laboratorio", "Laboratorio"),
             ("camaronera", "Camaronera"),
         ],
@@ -50,7 +52,57 @@ class ResPartner(models.Model):
         string="Política de privacidad aceptada el", readonly=True, copy=False)
     shrimp_privacy_version = fields.Char(
         string="Versión de la política aceptada", readonly=True, copy=False, size=16)
+    shrimp_privacy_ip = fields.Char(
+        string="IP desde la que aceptó la política", readonly=True, copy=False, size=64)
     vat_or_id = fields.Char(string="RUC o Cédula", index=True)
+
+    # ------------------------------------------------------------------
+    # Datos del registro (asistente de alta, 19.0.1.6.0)
+    # ------------------------------------------------------------------
+    shrimp_person_type = fields.Selection(
+        [("natural", "Persona natural"), ("juridica", "Persona jurídica")],
+        string="Tipo de persona")
+    shrimp_contact_name = fields.Char(
+        string="Nombre de quien administra la cuenta",
+        help="La persona que creó la cuenta (administradora). El nombre del "
+             "socio es el nombre comercial de la empresa.")
+    shrimp_actividad = fields.Char(string="Actividad económica")
+    shrimp_num_piscinas = fields.Integer(string="Piscinas declaradas al registrarse")
+    shrimp_permiso_ambiental = fields.Char(
+        string="Permiso / registro ambiental (MAATE)",
+        help="Licencia, registro o permiso ambiental de la finca, si aplica.")
+    shrimp_permiso_funcionamiento = fields.Char(
+        string="Registro / permiso de funcionamiento",
+        help="Laboratorio o naupliero: registro o permiso ante la autoridad "
+             "acuícola (MPCEIP / Subsecretaría de Acuacultura), si aplica.")
+    # Antes solo lo definía shrimp_packer; ahora también el registro de
+    # camaroneras del asistente de alta (misma columna).
+    shrimp_registro_acuicola = fields.Char(
+        string="Registro acuícola (GR-)",
+        help="Código del registro de camaroneras, p. ej. GR-1104.")
+
+    # Documentos legales aceptados (historial inmutable) y usuarios de la cuenta.
+    shrimp_legal_acceptance_ids = fields.One2many(
+        "shrimp.legal.acceptance", "commercial_partner_id", string="Contratos aceptados")
+    shrimp_legal_acceptance_count = fields.Integer(
+        string="N.º de contratos aceptados", compute="_compute_shrimp_legal_acceptance_count")
+    shrimp_member_ids = fields.One2many(
+        "shrimp.account.member", "company_id", string="Usuarios de la cuenta")
+
+    def _compute_shrimp_legal_acceptance_count(self):
+        data = self.env["shrimp.legal.acceptance"].sudo()._read_group(
+            [("commercial_partner_id", "in", self.ids)], ["commercial_partner_id"], ["__count"])
+        cuenta = {p.id: n for p, n in data}
+        for rec in self:
+            rec.shrimp_legal_acceptance_count = cuenta.get(rec.id, 0)
+
+    def action_view_shrimp_legal_acceptances(self):
+        self.ensure_one()
+        action = self.env["ir.actions.act_window"]._for_xml_id(
+            "shrimp_user_registry.action_shrimp_legal_acceptance")
+        action["domain"] = [("commercial_partner_id", "=", self.commercial_partner_id.id)]
+        action["context"] = {}
+        return action
 
     # Aprobación interna de la cuenta. Los roles con poder operativo sobre
     # terceros (empacadora, maquilador) nacen "pendientes" al registrarse por
@@ -75,6 +127,18 @@ class ResPartner(models.Model):
              "perfiles, refleja el estado del perfil ACTIVO (cada perfil se "
              "aprueba por separado en shrimp_role_ids).",
     )
+
+    # D-20: cuenta SUSPENDIDA (Términos §6, Contrato §4 y §9). Es un estado de
+    # toda la cuenta, aparte de la aprobación de cada perfil
+    # (shrimp_account_state refleja la del perfil activo y se sincroniza con
+    # las líneas de perfil; por eso la suspensión va en su propio campo).
+    # Suspendida: sus lotes y listas de precios se retiran, las compras en
+    # curso terminan con normalidad y no puede empezar ninguna nueva.
+    shrimp_suspended = fields.Boolean(
+        string="Cuenta suspendida", index=True, copy=False, readonly=True)
+    shrimp_suspended_at = fields.Datetime(string="Suspendida el", readonly=True, copy=False)
+    shrimp_suspension_reason = fields.Text(
+        string="Motivo de la suspensión", readonly=True, copy=False, groups="base.group_user")
 
     # ------------------------------------------------------------------
     # Varios perfiles por cuenta
@@ -132,8 +196,14 @@ class ResPartner(models.Model):
     # Representante y teléfono quedan, como antes, solo para usuarios internos
     # por RPC: el portal los ve a través de las pantallas, que los leen en sudo.
     shrimp_razon_social = fields.Char(string="Razón social")
+    # Nombre comercial (19.0.1.8.0): el `name` del socio es ahora su nombre
+    # legal (razón social de la sociedad o nombres y apellidos de la persona
+    # natural); el nombre con el que opera, si tiene uno, va aquí.
+    shrimp_nombre_comercial = fields.Char(string="Nombre comercial")
     shrimp_representante = fields.Char(
         string="Representante legal", groups="base.group_user")
+    shrimp_representante_cedula = fields.Char(
+        string="Cédula del representante legal", groups="base.group_user", size=10)
     shrimp_telefono = fields.Char(string="Teléfono", groups="base.group_user")
     shrimp_ubicacion = fields.Char(
         string="Ubicación", help="Dirección o sector de la planta, finca o laboratorio.")
@@ -186,14 +256,14 @@ class ResPartner(models.Model):
         "sem_partner_photo_rel",
         "partner_id",
         "attachment_id",
-        string="Fotos (Semillero)",
+        string="Fotos (Naupliero)",
     )
     sem_facility_photo_attachment_ids = fields.Many2many(
         "ir.attachment",
         "sem_partner_facility_photo_rel",
         "partner_id",
         "attachment_id",
-        string="Fotos Instalaciones (Semillero)",
+        string="Fotos Instalaciones (Naupliero)",
     )
 
     # ------------------------------------------------------------------
@@ -261,15 +331,79 @@ class ResPartner(models.Model):
             # Perfiles que no conviven con ningún otro en la misma cuenta
             # (shrimp_verification: el verificador).
             "exclusive_profile": set(),
+            # Ver cobros y facturas de la plataforma (subusuarios: permiso
+            # «facturación»).
+            "view_billing": {self.SHRIMP_ANY},
+            # Editar la ficha de la empresa, certificados, claves API y
+            # webhooks (subusuarios: permiso de cuenta «gestionar cuenta»).
+            "manage_account": {self.SHRIMP_ANY},
         }
 
+    @api.model
+    def _shrimp_capability_permissions(self):
+        """Capacidad -> permiso de subusuario que la habilita.
+
+        Lo que no está aquí solo exige «ver» el perfil; las capacidades
+        estructurales (alta, aprobación, agregar perfil...) no dependen del
+        usuario (None)."""
+        return {
+            "buy_from_semillero": "buy", "buy_from_laboratorio": "buy",
+            "buy_from_camaronera": "buy", "commit_harvest": "buy", "request_copack": "buy",
+            "sell_products": "sell", "issue_price_lists": "sell", "declare_harvest": "sell",
+            "provide_copack": "sell", "register_exports": "sell", "manage_ponds": "sell",
+            "verify": "approve",
+            "view_billing": "billing",
+            "manage_account": "manage_account",
+            "signup": None, "requires_approval": None, "add_profile": None,
+            "exclusive_profile": None,
+        }
+
+    def _shrimp_user_has_billing(self):
+        """True si el usuario de la petición puede ver cobros y facturas de
+        esta cuenta (subusuario: permiso «facturación» en algún perfil)."""
+        self.ensure_one()
+        user = self.env.user
+        if not user or user._is_public() or user._is_internal() or user._is_superuser():
+            return True
+        miembro = user._shrimp_subuser_member()
+        if not miembro or miembro.company_id != self._shrimp_role_holder():
+            return True
+        return any(miembro.permission_ids.mapped("can_billing"))
+
+    def _shrimp_user_allows(self, capability, role):
+        """Permisos del USUARIO de la petición (subusuario) sobre esta cuenta.
+
+        True si no hay restricción: el usuario no es subusuario de esta
+        empresa (es su administrador, un usuario interno, otra empresa...)."""
+        self.ensure_one()
+        user = self.env.user
+        if not user or user._is_public() or user._is_internal() or user._is_superuser():
+            return True
+        miembro = user._shrimp_subuser_member()
+        if not miembro or miembro.company_id != self._shrimp_role_holder():
+            return True
+        permiso = self._shrimp_capability_permissions().get(capability, "view")
+        if permiso is None:
+            return True
+        return miembro._allows(role, permiso)
+
     def _shrimp_effective_type(self):
-        """El perfil ACTIVO del socio, o el de su empresa si es un contacto hijo."""
+        """El perfil ACTIVO del socio, o el de su empresa si es un contacto hijo.
+
+        Perfil activo POR USUARIO (CR-12): si quien hace la petición
+        (env.user) es de esta cuenta, el perfil que ÉL eligió
+        (res.users.shrimp_active_profile, validado contra sus permisos); para
+        los demás (la contraparte, un usuario interno, un cron), el perfil
+        por defecto de la empresa (shrimp_user_type)."""
         self.ensure_one()
         socio = self.sudo()
-        if not socio.shrimp_user_type and socio.parent_id:
-            return socio.parent_id.shrimp_user_type
-        return socio.shrimp_user_type
+        holder = socio.parent_id if (not socio.shrimp_user_type and socio.parent_id) else socio
+        user = self.env.user
+        if holder.shrimp_user_type and user and user.share and not user._is_public():
+            propio = user._shrimp_profile_for(holder)
+            if propio:
+                return propio
+        return holder.shrimp_user_type
 
     # ------------------------------------------------------------------
     # Perfiles (multi-rol): API para el resto de módulos
@@ -366,14 +500,31 @@ class ResPartner(models.Model):
                 ("shrimp_role_ids", "any", [("role", "in", roles), ("state", "=", "approved")])]
 
     def _shrimp_set_active_role(self, role):
-        """Cambia el perfil activo ("Actuar como"). Solo a un perfil aprobado."""
+        """Cambia el perfil activo ("Actuar como"). Solo a un perfil aprobado.
+
+        Si quien lo pide (env.user) es usuario de esta cuenta, cambia SU
+        perfil activo (res.users.shrimp_active_profile): los demás miembros
+        siguen con el suyo (CR-12). Un usuario interno (backoffice,
+        migraciones) cambia el perfil por defecto de la empresa
+        (shrimp_user_type)."""
         self.ensure_one()
         socio = self._shrimp_role_holder()
-        if role == socio.shrimp_user_type:
+        user = self.env.user
+        por_usuario = bool(user) and user._shrimp_manages_profile_of(socio)
+        actual = socio._shrimp_effective_type() if por_usuario else socio.shrimp_user_type
+        if role == actual:
             return True
         if role not in socio._shrimp_roles():
             raise UserError(_("No tienes el perfil «%s» aprobado.") % self._shrimp_type_label(role))
-        socio.write({"shrimp_user_type": role})
+        if not socio._shrimp_user_allows(None, role):
+            raise UserError(_("El administrador de tu cuenta no te dio acceso al perfil «%s».")
+                            % self._shrimp_type_label(role))
+        if por_usuario:
+            user.sudo().write({"shrimp_active_profile": role})
+            # Reglas de acceso cacheadas por usuario (ir_rule usa el perfil).
+            self.env.registry.clear_cache()
+        else:
+            socio.write({"shrimp_user_type": role})
         return True
 
     @api.model
@@ -408,9 +559,17 @@ class ResPartner(models.Model):
                 limpios.pop("shrimp_capacity_unit", None)
             if limpios:
                 socio.write(limpios)
+        if linea and linea.state == "rejected" and not linea._shrimp_rerequests_left():
+            # D-18: un perfil rechazado se vuelve a pedir un número limitado
+            # de veces (parámetro shrimp_user_registry.role_max_rerequests).
+            raise ValidationError(_(
+                "Ya pediste el perfil «%(r)s» %(n)s veces después de un rechazo. Escribe a la "
+                "administración si crees que es un error.") % {
+                    "r": self._shrimp_type_label(role), "n": linea.rerequest_count})
         estado = "pending" if self._shrimp_type_can(role, "requires_approval") else "approved"
         if linea:
-            linea.write({"state": estado, "request_date": fields.Datetime.now()})
+            linea.write({"state": estado, "request_date": fields.Datetime.now(),
+                         "rerequest_count": (linea.rerequest_count or 0) + 1})
         else:
             linea = self.env["shrimp.partner.role"].sudo().create({
                 "partner_id": socio.id, "role": role, "state": estado})
@@ -456,23 +615,41 @@ class ResPartner(models.Model):
 
     def _shrimp_profile_switcher_info(self):
         """Datos del selector «Perfil: X ▾» de la barra superior, o None si
-        no aplica (sin tipo, contacto hijo o perfil exclusivo)."""
+        no aplica (sin tipo, contacto hijo o perfil exclusivo). El perfil
+        activo es el del USUARIO de la petición (CR-12)."""
         self.ensure_one()
         socio = self.sudo()
         if not socio.shrimp_user_type or socio._shrimp_role_holder() != socio:
             return None
         exclusivos = set(self._shrimp_types_with("exclusive_profile"))
-        if socio.shrimp_user_type in exclusivos:
+        activo = socio._shrimp_effective_type()
+        if activo in exclusivos or socio.shrimp_user_type in exclusivos:
             return None
         etiqueta = self._shrimp_type_label
         aprobados = socio._shrimp_roles()
         pendientes = [r for r in socio._shrimp_roles(include_pending=True) if r not in aprobados]
         tiene = set(aprobados) | set(pendientes)
+        pendiente_activo = socio._shrimp_role_state(activo) != "approved"
+        user = self.env.user
+        sub = user._shrimp_subuser_member() if user and not user._is_public() else None
+        if sub and sub.company_id == socio:
+            # Subusuario: solo los perfiles que le dio el administrador, y no
+            # puede agregar perfiles.
+            permitidos = set(sub._allowed_roles())
+            return {
+                "active": activo,
+                "active_label": etiqueta(activo),
+                "active_pending": pendiente_activo,
+                "roles": [(r, etiqueta(r), r == activo)
+                          for r in aprobados if r in permitidos],
+                "pending": [],
+                "can_add": False,
+            }
         return {
-            "active": socio.shrimp_user_type,
-            "active_label": etiqueta(socio.shrimp_user_type),
-            "active_pending": socio.shrimp_account_state != "approved",
-            "roles": [(r, etiqueta(r), r == socio.shrimp_user_type) for r in aprobados],
+            "active": activo,
+            "active_label": etiqueta(activo),
+            "active_pending": pendiente_activo,
+            "roles": [(r, etiqueta(r), r == activo) for r in aprobados],
             "pending": [(r, etiqueta(r)) for r in pendientes],
             "can_add": any(r not in tiene for r in self._shrimp_addable_roles()),
         }
@@ -525,8 +702,12 @@ class ResPartner(models.Model):
         if role and role != activo:
             if not self._shrimp_has_role(role):
                 return False
-            return self._shrimp_type_can(role, capability)
-        return self._shrimp_type_can(activo, capability)
+            ok = self._shrimp_type_can(role, capability)
+        else:
+            role = activo
+            ok = self._shrimp_type_can(activo, capability)
+        # Subusuario: además, el permiso que le dio el administrador.
+        return ok and self._shrimp_user_allows(capability, role)
 
     @api.model
     def _shrimp_type_label(self, user_type):
@@ -555,6 +736,11 @@ class ResPartner(models.Model):
         socio = self.sudo()
         if socio.parent_id and not socio.shrimp_user_type:
             socio = socio.parent_id
+        if socio.shrimp_suspended:
+            # D-20: una cuenta suspendida no opera con ningún perfil.
+            return False
+        # Sin `role`: el perfil activo de quien pregunta (por usuario).
+        role = role or socio._shrimp_effective_type()
         if role and role != socio.shrimp_user_type:
             return socio._shrimp_role_state(role) == "approved"
         return socio.shrimp_account_state == "approved"
@@ -601,11 +787,103 @@ class ResPartner(models.Model):
                 partner_ids=rec.ids, subtype_xmlid="mail.mt_comment")
         return True
 
-    def action_shrimp_reject_account(self):
-        self.write({"shrimp_account_state": "rejected"})
+    def action_shrimp_reject_account(self, reason=None):
+        """Rechazar la cuenta = rechazar su perfil por defecto, con motivo
+        obligatorio y aviso por correo (D-18). Sin motivo, abre el asistente."""
+        lineas = self.env["shrimp.partner.role"].sudo()
         for rec in self:
-            rec.message_post(body=_("Cuenta rechazada por %s.") % self.env.user.name)
+            linea = rec.sudo().shrimp_role_ids.filtered(lambda r: r.role == rec.shrimp_user_type)[:1]
+            if linea:
+                lineas |= linea
+            elif reason:
+                rec.write({"shrimp_account_state": "rejected"})
+                rec.message_post(body=_("Cuenta rechazada por %(u)s. Motivo: %(m)s") % {
+                    "u": self.env.user.name, "m": reason}, partner_ids=rec.ids,
+                    subtype_xmlid="mail.mt_comment")
+                rec._shrimp_withdraw_publications(reason=reason)
+            else:
+                raise UserError(_("Indica el motivo del rechazo: se le envía al socio."))
+        if lineas:
+            if not reason:
+                return lineas.action_open_reject_wizard()
+            lineas.action_reject(reason=reason)
         return True
+
+    # ------------------------------------------------------------------
+    # D-20: suspensión de la cuenta
+    # ------------------------------------------------------------------
+    def action_shrimp_open_suspend_wizard(self):
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Suspender cuenta"),
+            "res_model": "shrimp.account.suspend",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"default_partner_ids": [(6, 0, self.ids)]},
+        }
+
+    def action_shrimp_suspend_account(self, reason=None):
+        """Suspende la cuenta (D-20): motivo obligatorio, aviso por correo,
+        retira sus publicaciones; lo ya comprado/vendido sigue su curso."""
+        reason = (reason or "").strip()
+        if not reason:
+            raise UserError(_("Indica el motivo de la suspensión: se le envía al socio."))
+        for rec in self.sudo():
+            holder = rec._shrimp_role_holder()
+            holder.write({"shrimp_suspended": True, "shrimp_suspended_at": fields.Datetime.now(),
+                          "shrimp_suspension_reason": reason})
+            retirado = holder._shrimp_withdraw_publications(reason=reason)
+            holder.message_post(
+                body=Markup("<p>%s</p><p><b>%s</b> %s</p><p>%s</p>") % (
+                    _("Tu cuenta en CamaronMarket fue SUSPENDIDA."), _("Motivo:"), reason,
+                    _("Tus lotes y listas de precios publicados se retiraron (%s). Las compras y "
+                      "ventas en curso siguen hasta cerrarse, pero no puedes empezar otras "
+                      "mientras dure la suspensión.") % (
+                        ", ".join("%s: %s" % (k, v) for k, v in retirado.items()) or _("nada"))),
+                subject=_("Cuenta suspendida"),
+                partner_ids=holder._shrimp_admin_partners().ids,
+                subtype_xmlid="mail.mt_comment")
+        self.env.registry.clear_cache()
+        return True
+
+    def action_shrimp_unsuspend_account(self):
+        for rec in self.sudo():
+            holder = rec._shrimp_role_holder()
+            holder.write({"shrimp_suspended": False, "shrimp_suspended_at": False})
+            holder.message_post(
+                body=_("Se levantó la suspensión de tu cuenta: ya puedes volver a publicar y "
+                       "comprar. Tus publicaciones retiradas quedaron en borrador."),
+                subject=_("Suspensión levantada"),
+                partner_ids=holder._shrimp_admin_partners().ids,
+                subtype_xmlid="mail.mt_comment")
+        self.env.registry.clear_cache()
+        return True
+
+    def _shrimp_admin_partners(self):
+        """Contactos a avisar de la cuenta: el propio socio y sus administradores."""
+        self.ensure_one()
+        socio = self.sudo()
+        res = socio
+        if "shrimp_member_ids" in socio._fields:
+            res |= socio.shrimp_member_ids.filtered(
+                lambda m: m.is_admin and m.active).mapped("user_id.partner_id")
+        return res.filtered("email")
+
+    def _shrimp_withdraw_publications(self, roles=None, reason=None):
+        """Retira lo que la cuenta tiene publicado (D-20): cada módulo con
+        publicaciones lo amplía (lotes, listas de precios...). `roles`: solo
+        lo publicado con esos perfiles (un perfil rechazado); None = todo.
+        Devuelve {qué: cuántos}."""
+        self.ensure_one()
+        return {}
+
+    def _shrimp_suspension_problem(self):
+        """'' o el motivo por el que la cuenta no puede empezar operaciones."""
+        self.ensure_one()
+        holder = self.sudo()._shrimp_role_holder()
+        if holder.shrimp_suspended:
+            return _("La cuenta «%s» está suspendida: no puede empezar operaciones nuevas.") % holder.name
+        return ""
 
     def action_shrimp_reset_account(self):
         self.write({"shrimp_account_state": "pending"})
@@ -615,10 +893,16 @@ class ResPartner(models.Model):
         # Unicidad SOLO para partners del marketplace (con shrimp_user_type).
         # Índices únicos PARCIALES: no afectan a los contactos estándar de Odoo
         # (CRM, ventas, compras...), que sí pueden repetir nombre/correo/RUC.
+        #
+        # Nombre (19.0.1.8.0): el `name` de una persona natural es su nombre
+        # completo y dos personas distintas pueden llamarse igual (las separa
+        # la cédula). El nombre solo es único entre las que no son naturales.
         self.env.cr.execute("""
-            CREATE UNIQUE INDEX IF NOT EXISTS shrimp_partner_uniq_name_normalized
+            DROP INDEX IF EXISTS shrimp_partner_uniq_name_normalized;
+            CREATE UNIQUE INDEX IF NOT EXISTS shrimp_partner_uniq_name_normalized_v2
             ON res_partner (x_name_normalized)
-            WHERE shrimp_user_type IS NOT NULL AND x_name_normalized IS NOT NULL;
+            WHERE shrimp_user_type IS NOT NULL AND x_name_normalized IS NOT NULL
+              AND shrimp_person_type IS DISTINCT FROM 'natural';
 
             CREATE UNIQUE INDEX IF NOT EXISTS shrimp_partner_uniq_email_normalized
             ON res_partner (x_email_normalized)
@@ -686,7 +970,7 @@ class ResPartner(models.Model):
         # Limpieza de textos adicionales (perfil común y sus alias).
         text_fields = [
             "shrimp_razon_social", "shrimp_representante", "shrimp_telefono",
-            "shrimp_ubicacion",
+            "shrimp_ubicacion", "shrimp_nombre_comercial",
             "lab_razon_social", "lab_ubicacion", "farm_razon_social",
             "farm_representante", "farm_telefono", "farm_ubicacion",
         ]

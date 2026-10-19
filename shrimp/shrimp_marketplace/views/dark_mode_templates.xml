@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- ================================================================
+       MODO OSCURO del sitio y del portal (las tres plataformas).
+
+       * <html data-bs-theme="dark|light">: lo pinta el SERVIDOR si el
+         visitante ya eligió (cookie shrimp_theme), así la primera pintura
+         sale en su modo. Si no eligió, el script en línea del <head>
+         sigue la preferencia del sistema (prefers-color-scheme) o la
+         guardada en localStorage, ANTES de que se pinte nada.
+       * En modo edición / traducción del sitio NO se aplica: el editor
+         trabaja siempre sobre la versión clara (es la que se guarda).
+       * Solo website.layout (sitio, portal /my, login): el backend
+         (web.webclient_bootstrap) y los PDF (web.report_layout) no pasan
+         por aquí ni cargan assets_frontend.
+       Estilos: static/src/css/shrimp_dark*.css. Botón: static/src/js/
+       shrimp_dark_mode.js.
+       ================================================================ -->
+  <template id="dark_mode_layout" inherit_id="website.layout" name="Modo oscuro (atributo y script del head)">
+    <xpath expr="//html" position="before">
+      <t t-set="shrimp_theme_lock" t-value="bool(editable or translatable)"/>
+      <t t-set="shrimp_theme" t-value="(not shrimp_theme_lock and request and request.httprequest.cookies.get('shrimp_theme') in ('dark', 'light')) and request.httprequest.cookies.get('shrimp_theme') or None"/>
+      <t t-if="shrimp_theme" t-set="nothing" t-value="html_data.update({'data-bs-theme': shrimp_theme})"/>
+      <t t-if="shrimp_theme_lock" t-set="nothing" t-value="html_data.update({'data-shrimp-theme-lock': '1'})"/>
+    </xpath>
+    <xpath expr="//head/script[@id='web.layout.odooscript']" position="before">
+      <script id="shrimp_theme_boot" t-if="not shrimp_theme_lock">
+(function () {
+    try {
+        var d = document.documentElement;
+        var m = document.cookie.match(/(?:^|;\s*)shrimp_theme=(dark|light)/);
+        var t = m ? m[1] : null;
+        if (!t) {
+            try { t = window.localStorage.getItem("shrimp_theme"); } catch (e) { t = null; }
+            if (t === "dark" || t === "light") {
+                document.cookie = "shrimp_theme=" + t + "; path=/; max-age=31536000; SameSite=Lax";
+            } else {
+                t = "light";
+                if (window.matchMedia) {
+                    if (window.matchMedia("(prefers-color-scheme: dark)").matches) { t = "dark"; }
+                }
+            }
+        }
+        d.setAttribute("data-bs-theme", t);
+    } catch (e) { /* sin modo oscuro: el sitio sigue en claro */ }
+})();
+      </script>
+    </xpath>
+  </template>
+
+  <!-- El botón luna/sol (accesible: aria-label y title cambian con el modo;
+       aria-pressed = modo oscuro activo). El servidor ya lo pinta con el
+       texto correcto si hay cookie; si se sigue al sistema, lo ajusta el JS. -->
+  <template id="dark_mode_toggle_button" name="Modo oscuro (botón)">
+    <t t-set="_sh_dark" t-value="shrimp_theme == 'dark'"/>
+    <button type="button" t-attf-class="shrimp-theme-toggle o_not_editable #{_sh_btn_class or ''}"
+            data-shrimp-theme-toggle=""
+            t-att-aria-pressed="'true' if _sh_dark else 'false'"
+            t-att-aria-label="'Activar modo claro' if _sh_dark else 'Activar modo oscuro'"
+            t-att-title="'Activar modo claro' if _sh_dark else 'Activar modo oscuro'">
+      <i class="fa fa-moon-o shrimp-theme-ico-dark" aria-hidden="true"/>
+      <i class="fa fa-sun-o shrimp-theme-ico-light" aria-hidden="true"/>
+    </button>
+  </template>
+
+  <!-- Escritorio: a la IZQUIERDA de «Iniciar sesión» (y, con sesión, del
+       selector de perfil y del menú del usuario, que van detrás). Se engancha
+       al marcador del botón de inicio de sesión, que llaman TODAS las
+       plantillas de cabecera; prioridad 15 para quedar antes que el <li> de
+       portal.user_sign_in (16). En la cabecera móvil va junto a la
+       hamburguesa (plantilla siguiente), no dentro del menú lateral. -->
+  <template id="dark_mode_toggle_desktop" inherit_id="portal.placeholder_user_sign_in" priority="15"
+            name="Modo oscuro (botón en la cabecera)">
+    <xpath expr="." position="inside">
+      <li t-if="not is_mobile and not editable and not translatable" class="nav-item shrimp-theme-item o_no_autohide_item">
+        <t t-call="shrimp_marketplace.dark_mode_toggle_button"/>
+      </li>
+    </xpath>
+  </template>
+
+  <template id="dark_mode_toggle_mobile" inherit_id="website.template_header_mobile"
+            name="Modo oscuro (botón junto a la hamburguesa)">
+    <xpath expr="//ul[hasclass('o_header_mobile_buttons_wrap')]" position="inside">
+      <li t-if="not editable and not translatable" class="nav-item shrimp-theme-item">
+        <t t-call="shrimp_marketplace.dark_mode_toggle_button"/>
+      </li>
+    </xpath>
+  </template>
+</odoo>

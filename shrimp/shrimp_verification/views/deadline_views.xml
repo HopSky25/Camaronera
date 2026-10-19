@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Plazos de la verificadora, reasignación y cancelación por la
+       plataforma (models/shrimp_verification_deadline.py). -->
+  <record id="view_shrimp_verification_form_deadline" model="ir.ui.view">
+    <field name="name">shrimp.verification.form.deadline</field>
+    <field name="model">shrimp.verification</field>
+    <field name="inherit_id" ref="shrimp_verification.view_shrimp_verification_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//header/field[@name='state']" position="before">
+        <button name="action_open_reassign_wizard" type="object" string="Reasignar verificadora"
+                invisible="verification_mode != 'platform' or state not in ('received', 'assigned', 'in_field', 'done')"
+                groups="shrimp_marketplace.group_shrimp_manager"/>
+        <button name="action_open_cancel_purchase_wizard" type="object"
+                string="Cancelar verificación y compra" class="btn-danger"
+                invisible="state in ('approved', 'approved_obs', 'rejected', 'cancelled', 'declared')"
+                groups="shrimp_marketplace.group_shrimp_manager"/>
+      </xpath>
+      <xpath expr="//sheet/div[hasclass('oe_title')]" position="after">
+        <field name="verification_mode" invisible="1"/>
+        <div class="alert alert-danger" role="alert" invisible="not deadline_overdue">
+          Plazo vencido: <field name="deadline_overdue" readonly="1" class="d-inline"/>.
+          El comprador puede cancelar sin costo o cambiar de verificadora; la plataforma puede
+          reasignarla o cancelarla.
+        </div>
+        <group invisible="verification_mode != 'platform' or state not in ('received', 'assigned', 'in_field', 'done')">
+          <group string="Plazos de la verificadora">
+            <field name="deadline_assign" invisible="state != 'received'"/>
+            <field name="deadline_verdict"/>
+          </group>
+        </group>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="view_shrimp_verification_reassign_wizard_form" model="ir.ui.view">
+    <field name="name">shrimp.verification.reassign.wizard.form</field>
+    <field name="model">shrimp.verification.reassign.wizard</field>
+    <field name="arch" type="xml">
+      <form string="Reasignar verificadora">
+        <group>
+          <field name="verification_id"/>
+          <field name="current_verifier_id"/>
+          <field name="verifier_partner_id" options="{'no_create': True}"/>
+          <field name="reason" placeholder="Por qué se reasigna: se envía a las partes y a las verificadoras."/>
+        </group>
+        <div class="alert alert-info" role="alert">
+          La orden pasa a la nueva verificadora: vuelve a «Recibida», sin técnico, con plazos desde
+          ahora y el mismo honorario. Se avisa a la verificadora anterior, a la nueva y a las partes.
+        </div>
+        <footer>
+          <button name="action_confirm" type="object" string="Reasignar" class="btn-primary"/>
+          <button string="Volver" special="cancel" class="btn-secondary"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <record id="res_config_settings_view_form_verification_deadline" model="ir.ui.view">
+    <field name="name">res.config.settings.form.shrimp.verification.deadline</field>
+    <field name="model">res.config.settings</field>
+    <field name="inherit_id" ref="shrimp_verification.res_config_settings_view_form_verification"/>
+    <field name="arch" type="xml">
+      <xpath expr="//block[@name='shrimp_verification_block']" position="inside">
+        <setting string="Plazos de la verificadora"
+                 help="Plazo para asignar técnico (desde la orden) y para emitir el veredicto (desde la fecha de entrega o cosecha). Antes de vencer se recuerda a la verificadora; al vencer se avisa a las partes y a la plataforma, y el comprador puede cancelar sin costo o cambiar de verificadora. Si nadie la resuelve, se cancela sola tras los días indicados (0 = nunca).">
+          <div class="content-group">
+            <div class="row mt16">
+              <label for="shrimp_ver_deadline_assign_hours" class="col-lg-6 o_light_label"/>
+              <field name="shrimp_ver_deadline_assign_hours"/>
+              <span class="text-muted">horas</span>
+            </div>
+            <div class="row">
+              <label for="shrimp_ver_deadline_verdict_days" class="col-lg-6 o_light_label"/>
+              <field name="shrimp_ver_deadline_verdict_days"/>
+              <span class="text-muted">días</span>
+            </div>
+            <div class="row">
+              <label for="shrimp_ver_deadline_reminder_hours" class="col-lg-6 o_light_label"/>
+              <field name="shrimp_ver_deadline_reminder_hours"/>
+              <span class="text-muted">horas</span>
+            </div>
+            <div class="row">
+              <label for="shrimp_ver_deadline_auto_cancel_days" class="col-lg-6 o_light_label"/>
+              <field name="shrimp_ver_deadline_auto_cancel_days"/>
+              <span class="text-muted">días</span>
+            </div>
+          </div>
+        </setting>
+      </xpath>
+    </field>
+  </record>
+</odoo>

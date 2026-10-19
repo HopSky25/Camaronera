@@ -5,6 +5,18 @@ from odoo.addons.shrimp_marketplace.tests.common import (
     CLAVE, PDF_MIN, crear_socios, producto)
 
 
+def matriz_abierta(env):
+    """Archiva las reglas de la matriz de verificación: vuelve la lógica de
+    siempre (camarón adulto = obligatoria; resto = opcional).
+
+    Los tests de la MAQUINARIA de verificación (informe, aceptación, cobros,
+    trazabilidad) usan larva laboratorio→camaronera para no depender de
+    shrimp_packer; con la matriz del cliente esa pareja es «no aplica». La
+    matriz se prueba aparte (test_matriz_verificacion).
+    """
+    env["shrimp.verification.rule"].sudo().search([]).write({"active": False})
+
+
 def montar_verificacion(env, sufijo="v"):
     """Cadena laboratorio→camaronera con verificación en campo.
 
@@ -13,6 +25,7 @@ def montar_verificacion(env, sufijo="v"):
     alcance "larvae" se dictamina con cuatro datos y no exige tallas ni
     metabisulfito.
     """
+    matriz_abierta(env)
     s = crear_socios(env, sufijo)
     Socio = env["res.partner"]
     portal = env.ref("base.group_portal")

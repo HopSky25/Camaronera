@@ -60,12 +60,19 @@
               </td>
             </tr>
             <tr t-if="ver.verification_mode == 'platform'">
-              <th style="width:28%;">Técnico de campo</th>
+              <th style="width:28%;">Técnico responsable</th>
               <td>
                 <strong t-esc="ver.technician_partner_id.name or ver.verifier_partner_id.name or '—'"/>
                 <t t-if="ver.technician_partner_id and ver.technician_partner_id != ver.verifier_partner_id">
-                  · quien realizó la inspección
+                  · dirigió la inspección y firmó el informe
                 </t>
+              </td>
+            </tr>
+            <tr t-if="ver.verification_mode == 'platform' and ver.support_technician_ids">
+              <th style="width:28%;">Técnicos de apoyo</th>
+              <td>
+                <t t-esc="', '.join(ver.support_technician_ids.mapped('name'))"/>
+                · participaron en la toma de datos de campo
               </td>
             </tr>
             <tr t-if="ver.verification_mode == 'platform'">

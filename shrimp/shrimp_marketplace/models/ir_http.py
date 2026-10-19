@@ -1,4 +1,9 @@
+import logging
+
 from odoo import models
+from odoo.http import request
+
+_logger = logging.getLogger(__name__)
 
 # Rutas viejas (español) -> nuevas (inglés) de shrimp_marketplace. El redirector genérico
 # (shrimp_user_registry/models/ir_http.py, _serve_fallback) responde 301/308
@@ -122,3 +127,66 @@ class IrHttp(models.AbstractModel):
     @classmethod
     def _shrimp_legacy_routes(cls):
         return super()._shrimp_legacy_routes() + _LEGACY_ROUTES
+
+    # ------------------------------------------------------------------
+    # Perfiles por sitio: cada sitio trabaja con SU perfil
+    # ------------------------------------------------------------------
+    # Rutas en las que no se toca el perfil activo: el login, la aceptación
+    # de documentos, el propio cambio de perfil, el alta y lo técnico.
+    _SHRIMP_SITE_ROLE_EXEMPT = (
+        "/web", "/website/", "/my/legal", "/my/privacy", "/my/profile/",
+        "/my/site-profile", "/register", "/logout", "/shrimp_", "/odoo",
+    )
+    # Último perfil usado en cada sitio (sesión, que es por dominio): al
+    # volver de otro sitio se recupera ese y no el primero de la lista.
+    _SHRIMP_SITE_ROLE_KEY = "shrimp_site_role_%s"
+
+    @classmethod
+    def _shrimp_site_role_gate(cls, endpoint):
+        """Alinea el perfil ACTIVO de la cuenta con el sitio de la petición
+        (website._shrimp_align_active_role): en el marketplace, una cuenta que
+        navegaba como verificadora o maquilador vuelve a su último perfil del
+        marketplace; en los sitios de verificadores y de empaque, a su perfil
+        propio. Solo GET de páginas web de usuarios de portal."""
+        hreq = request.httprequest
+        if hreq.method not in ("GET", "HEAD"):
+            return
+        if getattr(request.dispatcher, "routing_type", "http") != "http":
+            return
+        routing = getattr(endpoint, "routing", None) or {}
+        if not routing.get("website"):
+            return
+        web = getattr(request, "website", None)
+        user = request.env.user
+        if not web or not user or user._is_public() or user._is_internal():
+            return
+        ruta = hreq.path or "/"
+        if ruta.startswith(cls._SHRIMP_SITE_ROLE_EXEMPT):
+            return
+        if getattr(request.env.cr, "readonly", False):
+            return
+        web = web.sudo()
+        if "shrimp_platform" not in web._fields:
+            return
+        clave = cls._SHRIMP_SITE_ROLE_KEY % web.id
+        holder = user.sudo()._shrimp_account_company()
+        # Perfil activo POR USUARIO (CR-12).
+        activo = holder.with_user(user).sudo()._shrimp_effective_type() if holder else False
+        if not activo:
+            return
+        if web._shrimp_role_allowed_here(activo):
+            if request.session.get(clave) != activo:
+                request.session[clave] = activo
+            return
+        with request.env.cr.savepoint():
+            nuevo = web._shrimp_align_active_role(user, preferred=request.session.get(clave))
+        if nuevo and nuevo != activo:
+            request.session[clave] = nuevo
+
+    @classmethod
+    def _dispatch(cls, endpoint):
+        try:
+            cls._shrimp_site_role_gate(endpoint)
+        except Exception:  # noqa: BLE001 - nunca tumbar la página por esto
+            _logger.exception("shrimp: no se pudo alinear el perfil activo con el sitio")
+        return super()._dispatch(endpoint)

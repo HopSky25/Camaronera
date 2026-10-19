@@ -78,6 +78,33 @@
     --shrimp-maxw: 1280px;
     --shrimp-maxw-wide: 1440px;
     --shrimp-font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+    /* Campos de formulario (19.0.1.9.0): BLANCOS y con borde visible sobre
+       cualquier fondo (también dentro de tarjetas grises). El modo oscuro
+       solo redefine estos tokens. El color de foco sale de --shrimp-teal de
+       cada plataforma (var(--shrimp-input-focus, var(--shrimp-teal))). */
+    --shrimp-input-bg: #ffffff;
+    --shrimp-input-bg-hover: #ffffff;
+    --shrimp-input-border: #c3cdd9;
+    --shrimp-input-border-hover: #8796a6;
+    --shrimp-input-placeholder: #66727f;      /* 4.9:1 sobre blanco (AA) */
+    --shrimp-input-ring: rgba(14, 142, 160, .18);
+    --shrimp-input-disabled-bg: #eef1f4;
+    --shrimp-input-disabled-ink: #7c8794;
+    --shrimp-input-disabled-border: #dde3e9;
+    --shrimp-input-addon-bg: #eef2f6;         /* botón del selector de archivo */
+    --shrimp-input-addon-bg-hover: #e3e9ef;
+    --shrimp-input-radius: 12px;
+    --shrimp-input-minh: 44px;
+    --shrimp-label-ink: #33424e;
+    --shrimp-help-ink: #5f6b78;               /* textos de ayuda (AA) */
+    --shrimp-check-border: #8796a6;           /* casillas y radios */
+    /* Tarjeta anidada (bloques de perfil del registro, grupos de
+       certificados e instalaciones). */
+    --shrimp-card-bg: #f6f8fa;
+    --shrimp-card-border: #dde4ea;
+    --shrimp-card-head-border: #e6ebf0;
+    --shrimp-card-item-bg: #ffffff;           /* elementos dentro de la tarjeta gris */
 }
 
 /* ---- Layout base -------------------------------------------------------- */
@@ -207,18 +234,32 @@
 .shrimp-bg .form-select,
 .shrimp-bg textarea.form-control {
     border-radius: var(--shrimp-radius-sm);
-    border: 1px solid var(--shrimp-border-strong);
+    border: 1px solid var(--shrimp-input-border, #c3cdd9);
+    background-color: var(--shrimp-input-bg, #fff);
     font-size: var(--fs-body);
-    color: var(--shrimp-ink);
+    color: var(--shrimp-input-ink, var(--shrimp-ink));
     padding: 10px 12px;
     transition: border-color .15s ease, box-shadow .15s ease;
 }
+.shrimp-bg .form-control::placeholder { color: var(--shrimp-input-placeholder, #66727f); opacity: 1; }
+.shrimp-bg .form-control:hover:not(:focus):not(:disabled),
+.shrimp-bg .form-select:hover:not(:focus):not(:disabled) { border-color: var(--shrimp-input-border-hover, #8796a6); }
 .shrimp-bg .form-control:focus,
 .shrimp-bg .form-select:focus {
-    border-color: var(--shrimp-teal);
-    box-shadow: 0 0 0 3px var(--shrimp-teal-soft);
+    border-color: var(--shrimp-input-focus, var(--shrimp-teal));
+    box-shadow: 0 0 0 3px var(--shrimp-input-ring, var(--shrimp-teal-soft));
     outline: none;
 }
+.shrimp-bg .form-control:disabled,
+.shrimp-bg .form-select:disabled {
+    background-color: var(--shrimp-input-disabled-bg, #eef1f4);
+    color: var(--shrimp-input-disabled-ink, #7c8794);
+    border-color: var(--shrimp-input-disabled-border, #dde3e9);
+    cursor: not-allowed;
+}
+/* Casillas y radios: borde visible (el de Bootstrap casi no se ve sobre gris). */
+.shrimp-bg .form-check-input { border: 1.5px solid var(--shrimp-check-border, #8796a6); }
+.shrimp-bg .form-check-input:focus-visible { box-shadow: 0 0 0 3px var(--shrimp-input-ring, rgba(14, 142, 160, .18)) !important; }
 .shrimp-bg label, .s-label {
     font-weight: 600; font-size: var(--fs-sm); color: var(--shrimp-ink); margin-bottom: 6px; display: inline-block;
 }

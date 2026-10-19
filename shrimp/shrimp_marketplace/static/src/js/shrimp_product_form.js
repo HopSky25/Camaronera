@@ -224,28 +224,46 @@
         }
 
         // ------------------------------------------- piscina por instalación
+        // Sin instalación no hay piscina ni siembras: ambos bloques se ocultan
+        // y sus campos se desactivan (no viajan en el POST; el servidor los
+        // descarta igual). Con instalación, solo sus piscinas/tanques; las
+        // siembras, solo con piscina elegida.
         var pond = $("#originPond");
+        var pondBlk = $("#pfPondBlk");
+        var allocBlk = $("#pfAllocBlk");
+        function esTanque() { var r = role(); return r === "laboratorio" || r === "semillero"; }
         function applyPonds() {
-            if (!pond) { return; }
+            if (!pond) { applyAllocs(); return; }
             var f = checked("origin_facility_ref");
             var fv = f ? f.value : "";
             var ok = false;
+            var n = 0;
             $$("option", pond).forEach(function (o) {
                 if (!o.value) { return; }
-                var vis = !fv || o.dataset.facility === fv;
+                var vis = !!fv && o.dataset.facility === fv;
                 o.hidden = !vis;
                 o.disabled = !vis;
+                if (vis) { n += 1; }
                 if (vis && o.selected) { ok = true; }
             });
             if (!ok) { pond.value = ""; }
+            show(pondBlk, !!fv);
+            pond.disabled = !fv;
+            show($("#pfPondEmpty"), !!fv && !n);
+            show($("#pfPondHelp"), !!fv && n > 0);
+            var lbl = $("#pfPondLbl");
+            if (lbl) { lbl.textContent = esTanque() ? "Tanque de origen" : "Piscina de origen"; }
+            var none = $("#pfPondNone");
+            if (none) { none.textContent = esTanque() ? "Sin tanque" : "Sin piscina"; }
             pondCtx();
+            applyAllocs();
         }
         function pondCtx() {
             var box = $("#pfPondCtx");
             if (!box || !pond) { return; }
             var o = pond.options[pond.selectedIndex];
             box.textContent = "";
-            if (!o || !o.value) { box.hidden = true; return; }
+            if (!o || !o.value || pond.disabled) { box.hidden = true; return; }
             [["Tipo", o.dataset.type], [o.dataset.sizeK, o.dataset.sizeV], ["Ubicación", o.dataset.loc]].forEach(function (kv) {
                 if (!kv[1]) { return; }
                 var s = el("span", null, kv[0] + " ");
@@ -253,6 +271,62 @@
                 box.appendChild(s);
             });
             box.hidden = false;
+        }
+
+        // ------------------------------------------------ siembras de origen
+        // Lo que se sembró (comprado a otro) en la piscina/tanque elegido antes
+        // de la fecha de producción: de eso sale el producto. Aguas arriba de
+        // la larva está el nauplio; del camarón, la larva. El nauplio sale de
+        // reproductores (no hay stock que enlazar): sin bloque.
+        var UPSTREAM = {nauplio: [], larva: ["nauplio", "larva"], camaron: ["larva", "camaron", "nauplio"]};
+        var ALLOC_TXT = {
+            camaron: {
+                title: "Larva sembrada en esta piscina",
+                help: "Los lotes de larva que compraste a laboratorios y sembraste en esta piscina antes de la fecha de producción: de ellos sale este camarón.",
+                chain: "qué larva se sembró, a qué laboratorio se le compró y, más arriba, de qué naupliero venía el nauplio",
+            },
+            larva: {
+                title: "Nauplio sembrado en este tanque",
+                help: "Los lotes de nauplio que compraste a nauplieros y sembraste en este tanque antes de la fecha de producción: de ellos sale esta larva.",
+                chain: "qué nauplio se sembró y a qué naupliero se le compró",
+            },
+        };
+        function applyAllocs() {
+            if (!allocBlk) { return; }
+            var pv = pond && !pond.disabled ? pond.value : "";
+            var tipo = tipoActual();
+            var ups = UPSTREAM[tipo] || [];
+            var cutoff = allocBlk.dataset.cutoff || "";
+            var on = !!pv && ups.length > 0;
+            var n = 0;
+            $$(".pf-ck", allocBlk).forEach(function (l) {
+                var vis = on && l.dataset.pond === pv && ups.indexOf(l.dataset.tipo) >= 0 &&
+                    (!cutoff || (l.dataset.date || "") <= cutoff);
+                l.hidden = !vis;
+                var i = l.querySelector("input");
+                i.disabled = !vis;
+                if (!vis) { i.checked = false; }
+                if (vis) { n += 1; }
+            });
+            show(allocBlk, on);
+            $$('input[name="origin_allocation_present"]', allocBlk).forEach(function (i) { i.disabled = !on; });
+            show($("#pfAllocEmpty"), on && !n);
+            var t = ALLOC_TXT[tipo];
+            if (t) {
+                $("#pfAllocTitle").textContent = t.title;
+                $("#pfAllocHelp").textContent = t.help;
+                $("#pfAllocWhatChain").textContent = t.chain;
+            }
+        }
+        var allocQ = $("#pfAllocQ");
+        if (allocQ) {
+            allocQ.addEventListener("click", function (e) {
+                e.preventDefault();
+                var box = $("#pfAllocWhat");
+                var abrir = box.hidden;
+                box.hidden = !abrir;
+                allocQ.setAttribute("aria-expanded", abrir ? "true" : "false");
+            });
         }
 
         // ================================================================ FOTOS
@@ -776,12 +850,14 @@
             var expired = cards.filter(function (c) { return validity(c.dataset.expiry).state === "exp"; }).length;
             var pcr = cards.some(function (c) { return /^PCR/i.test(c.dataset.code || "") && validity(c.dataset.expiry).state !== "exp"; });
             var fac = checked("origin_facility_ref");
-            var allocs = $$('input[name="origin_allocation_ref"]:checked').length;
+            var allocs = $$('input[name="origin_allocation_ref"]:checked:not(:disabled)').length;
             var rec = {
                 photos: photoThumbs().length > 0,
                 locdate: !!($("#pfLocation") && $("#pfLocation").value) && !!($("#pfDelivery") && $("#pfDelivery").value),
                 survgen: tipo !== "camaron" && !!num($("#pfSurv") && $("#pfSurv").value) && !!($("#pfGenetics") && $("#pfGenetics").value),
-                origin: tipo === "camaron" && !!(pond && pond.value) && (allocs > 0 || !$("#pfAllocBlk")),
+                // Con piscina y con siembras (marcadas o propuestas solas).
+                origin: tipo === "camaron" && !!(pond && pond.value && !pond.disabled) &&
+                    (allocs > 0 || !allocBlk || $$(".pf-ck:not([hidden])", allocBlk).length > 0),
                 pcr: pcr,
                 expired: expired === 0,
             };
@@ -899,7 +975,11 @@
                 mb.appendChild(document.createTextNode(cfg.draft ? "para publicar" : "para guardar"));
             }
             var ac = $("#pfAllocCount");
-            if (ac) { ac.textContent = c.allocs ? c.allocs + " marcada" + (c.allocs > 1 ? "s" : "") : "Automáticas"; }
+            if (ac) {
+                ac.textContent = c.allocs ? c.allocs + " marcado" + (c.allocs > 1 ? "s" : "") + " a mano" : "Se proponen solos";
+                ac.title = c.allocs ? "Solo los lotes marcados quedan como origen de este producto." :
+                    "Si no marcas ninguno, el sistema propone los lotes sembrados en esta piscina o tanque antes de la fecha de producción.";
+            }
             show($("#pfCertEmpty"), !c.cards);
             preview(c);
         }
@@ -1025,13 +1105,13 @@
         form.addEventListener("input", function (e) { clearErrorFor(e.target); refresh(); });
         form.addEventListener("change", function (e) {
             var n = e.target.name;
-            if (e.target === seller) { applyRole(); applyStage(); fieldError("seller", false); }
-            if (n === "stage_id") { applyStage(); fieldError("stage", false); }
+            if (e.target === seller) { applyRole(); applyStage(); applyPonds(); fieldError("seller", false); }
+            if (n === "stage_id") { applyStage(); applyAllocs(); fieldError("stage", false); }
             if (n === "presentation") { applySizes(); fieldError("presentation", false); }
             if (n === "size_grade_id") { fieldError("size_grade", false); }
             if (n === "uom_id") { uomTouched = true; }
             if (n === "origin_facility_ref") { applyPonds(); }
-            if (e.target === pond) { pondCtx(); }
+            if (e.target === pond) { pondCtx(); applyAllocs(); }
             refresh();
         });
         // El combo de provincia escribe el hidden sin evento.

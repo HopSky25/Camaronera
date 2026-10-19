@@ -1,6 +1,7 @@
 import base64
 
 from odoo import api, fields, models
+from odoo.exceptions import UserError, ValidationError
 from odoo.tools import file_open
 from odoo.tools.image import image_process
 
@@ -72,12 +73,22 @@ class WebsiteMenu(models.Model):
                     continue
                 menu.is_visible = False
         elif self.env.user.share:
+            rol_con_panel = None
             for menu in self:
                 if not menu.is_visible:
                     continue
                 plataforma = menu.website_id.sudo().shrimp_platform or "main"
                 if menu.url in SHRIMP_HIDDEN_WITH_SESSION_URLS.get(plataforma, ()):
                     menu.is_visible = False
+                elif menu.shrimp_key == "panel":
+                    # «Mi panel» solo para los perfiles que tienen panel
+                    # (/my/dashboard manda a /my al verificador o al
+                    # maquilador).
+                    if rol_con_panel is None:
+                        Dash = self.env["shrimp.dashboard"].sudo()
+                        rol_con_panel = Dash._panel_supported(
+                            Dash._panel_active_role(self.env.user.partner_id))
+                    menu.is_visible = rol_con_panel
 
     shrimp_key = fields.Selection(
         SHRIMP_MENU_KEYS, string="Clave de menú de la plataforma", index=True,
@@ -117,6 +128,110 @@ class Website(models.Model):
         web = website or self.env["website"].get_current_website()
         return web.sudo().shrimp_platform if web else "main"
 
+    # ------------------------------------------------------------------
+    # Perfiles por sitio
+    # ------------------------------------------------------------------
+    # El perfil PROPIO de cada plataforma: la verificadora se registra, se
+    # agrega, acepta su anexo y opera solo en CamaronMarket Verificadores; el
+    # maquilador (planta de maquila), solo en CamaronMarket Empaque. El
+    # marketplace admite todos los demás (naupliero, laboratorio, camaronera,
+    # empacadora...). Los roles van como texto: este módulo no depende de los
+    # módulos que los definen.
+    _SHRIMP_PLATFORM_ROLE = {"verifier": "verificador", "copacker": "maquilador"}
+
+    @api.model
+    def _shrimp_role_platform(self, role):
+        """Plataforma donde se usa `role` ('main' para los del marketplace)."""
+        for plataforma, rol in self._SHRIMP_PLATFORM_ROLE.items():
+            if rol == role:
+                return plataforma
+        return "main"
+
+    def _shrimp_role_allowed_here(self, role):
+        """True si `role` se puede registrar, agregar, activar y usar en este
+        sitio (sin sitio: el marketplace)."""
+        plataforma = (self[:1].sudo().shrimp_platform or "main") if self else "main"
+        return bool(role) and self._shrimp_role_platform(role) == plataforma
+
+    def _shrimp_site_roles(self, roles):
+        """Los `roles` (en su orden) que se usan en este sitio."""
+        return [r for r in (roles or []) if self._shrimp_role_allowed_here(r)]
+
+    @api.model
+    def _shrimp_role_site_url(self, role, path="/"):
+        """URL de `path` en el sitio donde se usa `role`: absoluta si ese
+        sitio tiene dominio; None si no existe o no tiene dominio (la ruta
+        relativa caería en el sitio actual)."""
+        sitio = self._shrimp_platform_site(self._shrimp_role_platform(role))
+        dominio = (sitio.domain or "").strip().rstrip("/") if sitio else ""
+        if not dominio:
+            return None
+        if "://" not in dominio:
+            dominio = "https://" + dominio
+        return dominio + path
+
+    def _shrimp_offsite_links(self, roles, path="/web/login"):
+        """[{role, label, site, url}] de los `roles` que NO se usan en este
+        sitio, con el enlace a `path` en su propio sitio (solo los sitios con
+        dominio configurado)."""
+        Partner = self.env["res.partner"]
+        res = []
+        for r in roles or []:
+            if self._shrimp_role_allowed_here(r):
+                continue
+            url = self._shrimp_role_site_url(r, path)
+            if not url:
+                continue
+            sitio = self._shrimp_platform_site(self._shrimp_role_platform(r))
+            res.append({"role": r, "label": Partner._shrimp_type_label(r),
+                        "site": sitio.name, "url": url})
+        return res
+
+    def _shrimp_site_fallback_role(self, user, preferred=None):
+        """Perfil aprobado de la cuenta de `user` que se usa en este sitio y
+        que el usuario puede activar (el preferido si vale; si no, el primero
+        en el orden de los perfiles), o None."""
+        holder = user.sudo()._shrimp_account_company()
+        if not holder:
+            return None
+        holder = holder.with_user(user).sudo()
+        candidatos = [r for r in self._shrimp_site_roles(holder._shrimp_roles())
+                      if holder._shrimp_user_allows(None, r)]
+        if preferred and preferred in candidatos:
+            return preferred
+        return candidatos[0] if candidatos else None
+
+    def _shrimp_align_active_role(self, user, preferred=None):
+        """Si el perfil ACTIVO de `user` no se usa en este sitio y la cuenta
+        tiene otro aprobado (y permitido a este usuario) que sí, lo activa.
+        Desde CR-12 el perfil activo es POR USUARIO: cambiarlo aquí no se lo
+        cambia a los demás miembros de la cuenta; al volver al otro sitio se
+        vuelve a alinear.
+
+        Devuelve el perfil activo resultante: puede seguir siendo de otro
+        sitio si la cuenta no tiene ninguno de este."""
+        self.ensure_one()
+        if not user or user._is_public() or user._is_internal():
+            return None
+        user = user.sudo()
+        holder = user._shrimp_account_company()
+        # Perfil activo POR USUARIO (CR-12): el de este usuario, no el de la empresa.
+        activo = holder.with_user(user).sudo()._shrimp_effective_type() if holder else False
+        if not activo or self._shrimp_role_allowed_here(activo):
+            return activo
+        # Solo quien maneja los perfiles de la cuenta (su dueño o un miembro
+        # del equipo): un técnico de campo no cambia el perfil de la empresa.
+        if holder != user.partner_id and not user._shrimp_member():
+            return activo
+        nuevo = self._shrimp_site_fallback_role(user, preferred=preferred)
+        if not nuevo:
+            return activo
+        try:
+            holder.with_user(user).sudo()._shrimp_set_active_role(nuevo)
+        except (UserError, ValidationError):
+            return activo
+        return nuevo
+
     # Botón principal de la cabecera para el visitante sin sesión: el alta
     # de cada plataforma.
     _SHRIMP_HEADER_CTA = {
@@ -143,8 +258,16 @@ class Website(models.Model):
         self.ensure_one()
         if not user or user._is_public() or user._is_internal():
             return None
+        # Cada sitio trabaja con SU perfil: si el activo es de otro sitio y
+        # la cuenta tiene uno de este, se cambia antes de decidir la llegada.
+        activo = self._shrimp_align_active_role(user)
         if (self.shrimp_platform or "main") == "main":
-            Dashboard = self.env["shrimp.dashboard"].sudo()
+            if activo and not self._shrimp_role_allowed_here(activo):
+                # Solo tiene perfiles de otro sitio (p. ej. una verificadora
+                # que entra por el marketplace): se le explica y se le enlaza.
+                return "/my/site-profile"
+            # El perfil activo es POR USUARIO (CR-12): se lee como `user`.
+            Dashboard = self.env["shrimp.dashboard"].with_user(user).sudo()
             role = Dashboard._panel_active_role(user.partner_id)
             if role and Dashboard._panel_supported(role):
                 return "/my/dashboard"
@@ -209,8 +332,14 @@ class Website(models.Model):
          ("Mi cuenta",), ("/marketplace/copacking", "/marketplace/empaque")),
     ]
     # Sitios (ids) a los que ya se les CREARON los menús que faltaban: si
-    # después el cliente borra uno desde el editor, no se vuelve a crear.
+    # después el cliente borra uno desde el editor, no se vuelve a crear...
     _SHRIMP_NAV_PARAM = "shrimp_marketplace.navbar_v2_sites"
+    # ...salvo los OBLIGATORIOS: «Mi panel» es la entrada a /my/dashboard y
+    # se recrea siempre que falte. En la base Pruebas los menús del sitio se
+    # rehicieron (2026-10-12) después de que la marca anterior ya tenía el
+    # sitio como «hecho», y «Mi panel» no volvió a crearse: el naupliero no
+    # tenía cómo llegar a su panel desde la barra.
+    _SHRIMP_NAV_REQUIRED = ("panel",)
 
     @api.model
     def _shrimp_alinear_menus_portal(self):
@@ -224,7 +353,8 @@ class Website(models.Model):
         * un menú con clave vieja (products / operations / account) o sin
           clave pero con la URL de siempre se convierte: clave nueva, URL y
           orden de la barra, y el nombre solo si era el nombre por defecto;
-        * si falta un menú (Mi panel, Servicios) se crea UNA vez por sitio.
+        * si falta un menú (Servicios) se crea UNA vez por sitio; «Mi panel»
+          (obligatorio, _SHRIMP_NAV_REQUIRED) se crea siempre que falte.
         Los sitios de las otras plataformas (verificadores, empaque) tienen
         su propio árbol y no se tocan. Devuelve cuántos menús cambió/creó.
         """
@@ -258,7 +388,7 @@ class Website(models.Model):
                         vals["name"] = nombre
                     viejo.write(vals)
                     cambios += 1
-                elif str(sitio.id) not in hechos:
+                elif str(sitio.id) not in hechos or clave in self._SHRIMP_NAV_REQUIRED:
                     menus |= M.create({"name": nombre, "url": url, "parent_id": raiz.id,
                                        "sequence": seq, "website_id": sitio.id,
                                        "shrimp_key": clave})
@@ -268,7 +398,7 @@ class Website(models.Model):
         # sitio nuevo. Se crea con website_id explícito para que NO se
         # duplique en los sitios que ya existen (verificadores, empaque).
         principal = self.env.ref("website.main_menu", raise_if_not_found=False)
-        if principal and "tpl" not in hechos:
+        if principal:
             if not M.search_count([("website_id", "=", False), ("shrimp_key", "=", "panel")]):
                 M.create({"name": "Mi panel", "url": "/my/dashboard", "parent_id": principal.id,
                           "sequence": 15, "website_id": False, "shrimp_key": "panel"})

@@ -7,3 +7,7 @@ from . import test_panel_packer
 from . import test_mismo_nivel_packer
 from . import test_seis_fallos_packer
 from . import test_filter_drawer_packer
+from . import test_dashboard_proveedores
+from . import test_reserva_plazo
+from . import test_decisiones_listas
+from . import test_relink_listas

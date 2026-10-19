@@ -2,64 +2,76 @@
 
   <!-- ================================================================
        MIS TARIFAS
+       Rediseño 19.0.1.15.0 (.cpk-, copacking_portal.css).
        ================================================================ -->
   <template id="copacker_tariffs" name="Mis tarifas">
     <t t-call="website.layout">
-      <div class="shrimp-bg">
-        <div class="shrimp-page shrimp-page--full py-4">
+      <div class="shrimp-bg cpk">
+        <div class="shrimp-page shrimp-page--full cpk-page">
 
-          <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-            <div>
-              <h2 class="mb-1">Mis tarifas</h2>
-              <p class="text-muted mb-0">
-                Cada tarifa va dirigida a los clientes que elijas. Nadie ve la del vecino.
-              </p>
+          <header class="cpk-ph">
+            <div class="cpk-ph-txt">
+              <div class="cpk-eyebrow"><i class="fa fa-tags" aria-hidden="true"/> Mi planta</div>
+              <h1>Mis tarifas</h1>
+              <p>Cada tarifa va dirigida a los clientes que elijas. Nadie ve la del vecino.</p>
             </div>
-            <form method="post" action="/copacker/tariffs/new" class="d-flex flex-wrap gap-2">
+            <form method="post" action="/copacker/tariffs/new" class="cpk-ph-acts">
               <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-              <input type="text" name="name" class="form-control" placeholder="Nombre de la tarifa"/>
-              <button type="submit" class="btn btn-primary text-nowrap">Nueva</button>
+              <label class="cpk-sr" for="cpk_tar_new">Nombre de la tarifa</label>
+              <input type="text" name="name" id="cpk_tar_new" class="form-control" style="max-width:280px" placeholder="Nombre de la tarifa"/>
+              <button type="submit" class="s-btn s-btn-primary text-nowrap"><i class="fa fa-plus" aria-hidden="true"/> Nueva</button>
             </form>
-          </div>
+          </header>
 
-          <t t-if="mensaje"><div class="alert alert-success">Guardada.</div></t>
+          <t t-if="mensaje"><div class="pf-alert cpk-a-ok" role="status"><i class="fa fa-check-circle" aria-hidden="true"/><div>Guardada.</div></div></t>
 
           <t t-if="not tarifas">
-            <div class="alert alert-light border">
-              Todavía no tienes tarifas. Los clientes solo ven tus precios de referencia
-              del directorio hasta que les dirijas una.
+            <div class="cpk-empty">
+              <div class="cpk-empty-ico" aria-hidden="true"><i class="fa fa-tags"/></div>
+              <h2>Todavía no tienes tarifas.</h2>
+              <p>
+                Los clientes solo ven tus precios de referencia
+                del directorio hasta que les dirijas una. Ponle nombre arriba y pulsa «Nueva».
+              </p>
             </div>
           </t>
           <t t-else="">
-            <div class="table-responsive">
-            <table class="table table-hover bg-white align-middle">
-              <thead>
-                <tr>
-                  <th>Nombre</th><th>Vigencia</th><th class="text-end">Renglones</th>
-                  <th class="text-end">Destinatarios</th><th>Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-                <t t-foreach="tarifas" t-as="t">
+            <div class="cpk-table-card">
+              <table class="cpk-table s-stack-table">
+                <thead>
                   <tr>
-                    <td><a t-attf-href="/copacker/tariffs/#{t.uuid_ref}"><t t-esc="t.name"/></a></td>
-                    <td class="small">
-                      desde <t t-esc="t.valid_from"/>
-                      <t t-if="t.open_ended"> · sin fin</t>
-                      <t t-elif="t.valid_to"> hasta <t t-esc="t.valid_to"/></t>
-                    </td>
-                    <td class="text-end"><t t-esc="t.line_count"/></td>
-                    <td class="text-end"><t t-esc="t.recipient_count"/></td>
-                    <td>
-                      <t t-if="t.is_current"><span class="badge text-bg-success">Vigente</span></t>
-                      <t t-elif="t.state == 'draft'"><span class="badge text-bg-secondary">Borrador</span></t>
-                      <t t-else=""><span class="badge text-bg-light text-dark">
-                        <t t-esc="dict(t._fields['state'].selection).get(t.state)"/></span></t>
-                    </td>
+                    <th scope="col">Nombre</th><th scope="col">Vigencia</th><th scope="col" class="num">Renglones</th>
+                    <th scope="col" class="num">Destinatarios</th><th scope="col">Estado</th>
+                    <th scope="col"><span class="cpk-sr">Acciones</span></th>
                   </tr>
-                </t>
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  <t t-foreach="tarifas" t-as="t">
+                    <tr>
+                      <td class="s-stack-title"><a class="cpk-ref" t-attf-href="/copacker/tariffs/#{t.uuid_ref}"><t t-esc="t.name"/></a></td>
+                      <td class="s-stack-wide" data-label="Vigencia">
+                        <span class="muted">
+                          desde <t t-esc="t.valid_from"/>
+                          <t t-if="t.open_ended"> · sin fin</t>
+                          <t t-elif="t.valid_to"> hasta <t t-esc="t.valid_to"/></t>
+                        </span>
+                      </td>
+                      <td class="num" data-label="Renglones"><t t-esc="t.line_count"/></td>
+                      <td class="num" data-label="Destinatarios"><t t-esc="t.recipient_count"/></td>
+                      <td data-label="Estado">
+                        <t t-if="t.is_current"><span class="cpk-pill cpk-pill--sm cpk-pill--ok">Vigente</span></t>
+                        <t t-elif="t.state == 'draft'"><span class="cpk-pill cpk-pill--sm cpk-pill--warn">Borrador</span></t>
+                        <t t-else=""><span class="cpk-pill cpk-pill--sm cpk-pill--muted">
+                          <t t-esc="dict(t._fields['state'].selection).get(t.state)"/></span></t>
+                      </td>
+                      <td class="act s-stack-actions">
+                        <a t-attf-href="/copacker/tariffs/#{t.uuid_ref}" class="s-btn s-btn-ghost s-btn-sm"
+                           t-attf-aria-label="Editar #{t.name}">Editar</a>
+                      </td>
+                    </tr>
+                  </t>
+                </tbody>
+              </table>
             </div>
           </t>
 
@@ -73,178 +85,253 @@
        ================================================================ -->
   <template id="copacker_tariff_form" name="Tarifa de empaque">
     <t t-call="website.layout">
-      <div class="shrimp-bg">
-        <div class="shrimp-page py-4">
+      <div class="shrimp-bg cpk">
+        <div class="shrimp-page cpk-page">
 
-          <a href="/copacker/tariffs" class="btn btn-sm btn-link mb-2">&#8592; Mis tarifas</a>
-          <t t-if="mensaje == 'archivada'">
-            <div class="alert alert-warning">
-              Tarifa archivada. Deja de estar vigente y sus destinatarios ya no la ven.
+          <div class="cpk-top">
+            <a href="/copacker/tariffs" class="s-back"><i class="fa fa-arrow-left" aria-hidden="true"/> Mis tarifas</a>
+          </div>
+          <header class="cpk-ph">
+            <div class="cpk-ph-txt">
+              <div class="cpk-eyebrow"><i class="fa fa-tags" aria-hidden="true"/> Tarifa de empaque</div>
+              <h1>
+                <t t-esc="t.name"/>
+                <t t-if="t.is_current"><span class="cpk-pill cpk-pill--lg cpk-pill--ok">Vigente</span></t>
+                <t t-elif="t.state == 'draft'"><span class="cpk-pill cpk-pill--lg cpk-pill--warn">Borrador</span></t>
+                <t t-else=""><span class="cpk-pill cpk-pill--lg cpk-pill--muted"><t t-esc="dict(t._fields['state'].selection).get(t.state)"/></span></t>
+              </h1>
             </div>
+          </header>
+
+          <t t-if="mensaje == 'archivada'">
+            <div class="pf-alert pf-a-warn" role="status"><i class="fa fa-archive" aria-hidden="true"/>
+              <div>Tarifa archivada. Deja de estar vigente y sus destinatarios ya no la ven.</div></div>
           </t>
-          <t t-elif="mensaje"><div class="alert alert-success">Guardada.</div></t>
-          <t t-if="error"><div class="alert alert-danger"><t t-esc="error"/></div></t>
+          <t t-elif="mensaje"><div class="pf-alert cpk-a-ok" role="status"><i class="fa fa-check-circle" aria-hidden="true"/><div>Guardada.</div></div></t>
+          <t t-if="error"><div class="pf-alert pf-a-bad" role="alert"><i class="fa fa-exclamation-triangle" aria-hidden="true"/><div><t t-esc="error"/></div></div></t>
 
-          <form method="post" t-attf-action="/copacker/tariffs/#{t.uuid_ref}/save">
-            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+          <div class="cpk-layout">
+            <form method="post" id="cpk_tariff_form" class="cpk-main" t-attf-action="/copacker/tariffs/#{t.uuid_ref}/save">
+              <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
 
-            <div class="card mb-3">
-              <div class="card-body">
-                <div class="row g-3">
-                  <div class="col-md-6">
-                    <label class="form-label">Nombre</label>
-                    <input type="text" name="name" class="form-control" t-att-value="t.name"/>
+              <section class="cpk-card" aria-labelledby="cpk_tf_1">
+                <div class="cpk-card-h">
+                  <span class="cpk-card-ico" aria-hidden="true"><i class="fa fa-file-text-o"/></span>
+                  <div class="cpk-card-htxt">
+                    <h2 class="cpk-card-t" id="cpk_tf_1">Datos de la tarifa</h2>
+                    <p class="cpk-card-d">Nombre, vigencia y condiciones que acompañan a los precios.</p>
                   </div>
-                  <div class="col-md-3">
-                    <label class="form-label">Lote mínimo (lb)</label>
-                    <input type="number" step="1" min="0" name="min_lot_lb"
-                           class="form-control" t-att-value="int(t.min_lot_lb)"/>
-                  </div>
-                  <div class="col-md-3">
-                    <label class="form-label">Vigente hasta</label>
-                    <input type="date" name="valid_to" class="form-control" t-att-value="t.valid_to or ''"/>
-                    <div class="form-check mt-1">
-                      <input type="checkbox" name="open_ended" class="form-check-input"
-                             t-att-checked="'checked' if t.open_ended else None"/>
-                      <label class="form-check-label small">Sin fecha de fin</label>
+                </div>
+                <div class="cpk-card-b">
+                  <div class="cpk-fgrid">
+                    <div class="cpk-f cpk-f--6">
+                      <label class="cpk-lbl" for="cpk_tf_name">Nombre</label>
+                      <input type="text" name="name" id="cpk_tf_name" class="form-control" t-att-value="t.name"/>
+                    </div>
+                    <div class="cpk-f cpk-f--6">
+                      <label class="cpk-lbl" for="cpk_tf_min">Lote mínimo <span class="cpk-opt">(opcional)</span></label>
+                      <div class="cpk-ig">
+                        <input type="number" step="1" min="0" name="min_lot_lb" id="cpk_tf_min"
+                               class="form-control" t-att-value="int(t.min_lot_lb)"/>
+                        <span class="cpk-ig-a">lb</span>
+                      </div>
+                    </div>
+                    <div class="cpk-f cpk-f--6">
+                      <label class="cpk-lbl" for="cpk_tf_to">Vigente hasta</label>
+                      <input type="date" name="valid_to" id="cpk_tf_to" class="form-control" t-att-value="t.valid_to or ''"/>
+                    </div>
+                    <div class="cpk-f cpk-f--6">
+                      <span class="cpk-lbl cpk-lbl-ghost d-none d-md-flex" aria-hidden="true">&#160;</span>
+                      <label class="cpk-check" for="cpk_tf_open">
+                        <input type="checkbox" name="open_ended" id="cpk_tf_open" class="form-check-input"
+                               t-att-checked="'checked' if t.open_ended else None"/>
+                        <span><b>Sin fecha de fin</b><small>Vale hasta que la archives.</small></span>
+                      </label>
+                    </div>
+                    <div class="cpk-f cpk-f--6">
+                      <label class="cpk-lbl" for="cpk_tf_pay">Forma de pago <span class="cpk-opt">(opcional)</span></label>
+                      <input type="text" name="payment_notes" id="cpk_tf_pay" class="form-control"
+                             t-att-value="t.payment_notes or ''"/>
+                    </div>
+                    <div class="cpk-f cpk-f--6">
+                      <label class="cpk-lbl" for="cpk_tf_cond">Condiciones del servicio <span class="cpk-opt">(opcional)</span></label>
+                      <textarea name="conditions" id="cpk_tf_cond" class="form-control" rows="2"><t t-esc="t.conditions or ''"/></textarea>
                     </div>
                   </div>
-                  <div class="col-md-6">
-                    <label class="form-label">Forma de pago</label>
-                    <input type="text" name="payment_notes" class="form-control"
-                           t-att-value="t.payment_notes or ''"/>
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label">Condiciones del servicio</label>
-                    <textarea name="conditions" class="form-control" rows="2"><t t-esc="t.conditions or ''"/></textarea>
-                  </div>
                 </div>
-              </div>
-            </div>
+              </section>
 
-            <!-- RENGLONES. Columnas paralelas y reemplazo en bloque: editar en
-                 sitio con formularios planos es mas fragil. -->
-            <div class="card mb-3">
-              <div class="card-body">
-                <h6 class="text-uppercase text-muted small mb-1">Renglones</h6>
-                <p class="text-muted small">
-                  El tramo «desde» es lo que hace útil la tarifa: a más volumen, menos
-                  precio. Deja un renglón desde 0 y añade otro desde el volumen en que
-                  bajas.
-                </p>
-                <div class="table-responsive">
-                <table class="table table-sm align-middle">
-                  <thead>
-                    <tr>
-                      <th style="width:22%">Presentación</th>
-                      <th style="width:38%">Formato de empaque</th>
-                      <th style="width:20%">Desde (lb)</th>
-                      <th style="width:20%">$ / lb</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <t t-set="filas" t-value="list(t.line_ids.sorted(lambda l: (l.presentation, l.from_lb)))"/>
-                    <t t-foreach="filas + [None, None, None]" t-as="l">
+              <!-- RENGLONES. Columnas paralelas y reemplazo en bloque: editar en
+                   sitio con formularios planos es mas fragil. -->
+              <section class="cpk-card" aria-labelledby="cpk_tf_2">
+                <div class="cpk-card-h">
+                  <span class="cpk-card-ico" aria-hidden="true"><i class="fa fa-list-ol"/></span>
+                  <div class="cpk-card-htxt">
+                    <h2 class="cpk-card-t" id="cpk_tf_2">Renglones</h2>
+                    <p class="cpk-card-d">
+                      El tramo «desde» es lo que hace útil la tarifa: a más volumen, menos
+                      precio. Deja un renglón desde 0 y añade otro desde el volumen en que
+                      bajas.
+                    </p>
+                  </div>
+                  <span class="cpk-pill cpk-pill--muted cpk-pill--nodot"><t t-esc="len(t.line_ids)"/></span>
+                </div>
+                <div class="cpk-card-b">
+                  <table class="cpk-lines">
+                    <thead>
                       <tr>
-                        <td>
-                          <select name="l_presentation" class="form-select form-select-sm">
-                            <option value="entero" t-att-selected="'selected' if l and l.presentation == 'entero' else None">Entero</option>
-                            <option value="cola" t-att-selected="'selected' if l and l.presentation == 'cola' else None">Cola</option>
-                            <option value="valor_agregado" t-att-selected="'selected' if l and l.presentation == 'valor_agregado' else None">Valor agregado</option>
-                          </select>
-                        </td>
-                        <td>
-                          <input type="text" name="l_format" class="form-control form-control-sm"
-                                 placeholder="master 5 lb" t-att-value="l.pack_format if l else ''"/>
-                        </td>
-                        <td>
-                          <input type="number" step="1" min="0" name="l_from"
-                                 class="form-control form-control-sm"
-                                 t-att-value="int(l.from_lb) if l else 0"/>
-                        </td>
-                        <td>
-                          <input type="number" step="0.001" min="0" name="l_rate"
-                                 class="form-control form-control-sm"
-                                 t-att-value="l.rate_per_lb if l else ''"/>
-                        </td>
+                        <th scope="col" style="width:22%">Presentación</th>
+                        <th scope="col" style="width:38%">Formato de empaque</th>
+                        <th scope="col" style="width:20%">Desde (lb)</th>
+                        <th scope="col" style="width:20%">$ / lb</th>
                       </tr>
-                    </t>
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      <t t-set="filas" t-value="list(t.line_ids.sorted(lambda l: (l.presentation, l.from_lb)))"/>
+                      <t t-foreach="filas + [None, None, None]" t-as="l">
+                        <tr t-att-class="None if l else 'is-new'">
+                          <td data-label="Presentación">
+                            <select name="l_presentation" class="form-select form-select-sm" t-attf-aria-label="Presentación, renglón #{l_index + 1}">
+                              <option value="entero" t-att-selected="'selected' if l and l.presentation == 'entero' else None">Entero</option>
+                              <option value="cola" t-att-selected="'selected' if l and l.presentation == 'cola' else None">Cola</option>
+                              <option value="valor_agregado" t-att-selected="'selected' if l and l.presentation == 'valor_agregado' else None">Valor agregado</option>
+                            </select>
+                          </td>
+                          <td data-label="Formato de empaque">
+                            <input type="text" name="l_format" class="form-control form-control-sm"
+                                   placeholder="master 5 lb" t-att-value="l.pack_format if l else ''"
+                                   t-attf-aria-label="Formato, renglón #{l_index + 1}"/>
+                          </td>
+                          <td data-label="Desde (lb)">
+                            <input type="number" step="1" min="0" name="l_from"
+                                   class="form-control form-control-sm"
+                                   t-att-value="int(l.from_lb) if l else 0"
+                                   t-attf-aria-label="Desde (lb), renglón #{l_index + 1}"/>
+                          </td>
+                          <td data-label="$ / lb">
+                            <input type="number" step="0.001" min="0" name="l_rate"
+                                   class="form-control form-control-sm"
+                                   t-att-value="l.rate_per_lb if l else ''"
+                                   t-attf-aria-label="Precio por libra, renglón #{l_index + 1}"/>
+                          </td>
+                        </tr>
+                      </t>
+                    </tbody>
+                  </table>
+                  <p class="cpk-note mt-2">
+                    <i class="fa fa-info-circle" aria-hidden="true"/>
+                    Las filas con borde punteado son nuevas. Los renglones sin formato o sin precio se descartan al guardar.
+                  </p>
                 </div>
-                <p class="text-muted small mb-0">
-                  Los renglones sin formato o sin precio se descartan al guardar.
-                </p>
-              </div>
-            </div>
+              </section>
 
-            <div class="card mb-3">
-              <div class="card-body">
-                <h6 class="text-uppercase text-muted small mb-1">Dirigida a</h6>
-                <!-- Aqui salian TODAS las camaroneras y empacadoras de la
-                     plataforma. Ahora solo tus contrapartes: quien te dirigió
-                     una solicitud y aquellos con los que tienes órdenes. -->
-                <p class="text-muted small">
-                  Solo estos clientes la verán. Ninguno ve lo que le cobras a otro.
-                  La lista son los clientes con los que ya tienes trato: los que te
-                  pidieron servicio directamente y aquellos con los que tienes órdenes.
-                </p>
-                <t t-if="not clientes">
-                  <div class="alert alert-light border mb-0">
-                    Todavía no hay ningún cliente con el que dirigir esta tarifa. Aparecen
-                    aquí en cuanto alguien te pida servicio a ti en concreto o te adjudique
-                    un trabajo. Mientras tanto, lo que te trae clientes es el directorio:
-                    revísalo en <a href="/copacker/profile">Perfil y capacidad</a>.
+              <section class="cpk-card" aria-labelledby="cpk_tf_3">
+                <div class="cpk-card-h">
+                  <span class="cpk-card-ico" aria-hidden="true"><i class="fa fa-users"/></span>
+                  <div class="cpk-card-htxt">
+                    <h2 class="cpk-card-t" id="cpk_tf_3">Dirigida a</h2>
+                    <!-- Aqui salian TODAS las camaroneras y empacadoras de la
+                         plataforma. Ahora solo tus contrapartes: quien te dirigió
+                         una solicitud y aquellos con los que tienes órdenes. -->
+                    <p class="cpk-card-d">
+                      Solo estos clientes la verán. Ninguno ve lo que le cobras a otro.
+                      La lista son los clientes con los que ya tienes trato: los que te
+                      pidieron servicio directamente y aquellos con los que tienes órdenes.
+                    </p>
                   </div>
-                </t>
-                <t t-else="">
-                  <div class="row g-2" style="max-height:260px; overflow:auto">
-                    <t t-foreach="clientes" t-as="c">
-                      <div class="col-md-6">
-                        <div class="form-check">
+                </div>
+                <div class="cpk-card-b">
+                  <t t-if="not clientes">
+                    <div class="cpk-empty cpk-empty--sm mb-0">
+                      <div class="cpk-empty-ico" aria-hidden="true"><i class="fa fa-users"/></div>
+                      <p>
+                        Todavía no hay ningún cliente con el que dirigir esta tarifa. Aparecen
+                        aquí en cuanto alguien te pida servicio a ti en concreto o te adjudique
+                        un trabajo. Mientras tanto, lo que te trae clientes es el directorio:
+                        revísalo en <a href="/copacker/profile">Perfil y capacidad</a>.
+                      </p>
+                    </div>
+                  </t>
+                  <t t-else="">
+                    <div class="cpk-recips">
+                      <t t-foreach="clientes" t-as="c">
+                        <label class="cpk-check" t-attf-for="cpk_rc_#{c_index}">
                           <input type="checkbox" name="recipient_refs" class="form-check-input"
+                                 t-attf-id="cpk_rc_#{c_index}"
                                  t-att-value="c.uuid_ref"
                                  t-att-checked="'checked' if c in t.recipient_ids else None"/>
-                          <label class="form-check-label">
-                            <t t-esc="c.name"/>
-                            <span class="text-muted small">
-                              (<t t-esc="dict(c._fields['shrimp_user_type'].selection).get(c.shrimp_user_type)"/>)
-                            </span>
-                          </label>
-                        </div>
-                      </div>
-                    </t>
-                  </div>
-                </t>
+                          <span>
+                            <b><t t-esc="c.name"/></b>
+                            <small><t t-esc="dict(c._fields['shrimp_user_type'].selection).get(c.shrimp_user_type)"/></small>
+                          </span>
+                        </label>
+                      </t>
+                    </div>
+                  </t>
+                </div>
+              </section>
+
+              <!-- En el móvil la columna de acciones queda arriba: aquí se
+                   repiten los botones al pie del formulario. -->
+              <div class="cpk-actions cpk-actions--sticky d-lg-none">
+                <button type="submit" class="s-btn s-btn-ghost">Guardar borrador</button>
+                <button type="submit" name="publicar" value="1" class="s-btn s-btn-primary">Guardar y publicar</button>
               </div>
-            </div>
-
-            <button type="submit" class="btn btn-outline-primary">Guardar borrador</button>
-            <button type="submit" name="publicar" value="1" class="btn btn-primary">
-              Guardar y publicar
-            </button>
-          </form>
-
-          <!-- Fuera del formulario de guardado a proposito: son dos acciones
-               distintas y anidar formularios no es HTML valido. Sin esto,
-               action_archive_tariff() no tenia por donde llamarse y una tarifa
-               equivocada se quedaba vigente para sus destinatarios. -->
-          <t t-if="t.state != 'archived'">
-            <form method="post" t-attf-action="/copacker/tariffs/#{t.uuid_ref}/archive"
-                  class="mt-3">
-              <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-              <button type="submit" class="btn btn-sm btn-outline-danger">Archivar la tarifa</button>
-              <span class="text-muted small ms-2">
-                Deja de estar vigente y sus destinatarios dejan de verla. No borra nada.
-              </span>
             </form>
-          </t>
-          <t t-else="">
-            <p class="text-muted small mt-3 mb-0">
-              Esta tarifa está archivada: no la ve nadie. Si la vuelves a necesitar,
-              «Guardar y publicar» la pone otra vez en vigor.
-            </p>
-          </t>
+
+            <aside class="cpk-aside" aria-label="Guardar la tarifa">
+              <section class="cpk-card">
+                <div class="cpk-card-h">
+                  <span class="cpk-card-ico" aria-hidden="true"><i class="fa fa-floppy-o"/></span>
+                  <div class="cpk-card-htxt">
+                    <h2 class="cpk-card-t">Guardar</h2>
+                    <p class="cpk-card-d">El borrador no lo ve nadie. Al publicarla la ven sus destinatarios mientras esté vigente.</p>
+                  </div>
+                </div>
+                <div class="cpk-card-b">
+                  <dl class="cpk-kv">
+                    <div><dt>Renglones</dt><dd><t t-esc="t.line_count"/></dd></div>
+                    <div><dt>Destinatarios</dt><dd><t t-esc="t.recipient_count"/></dd></div>
+                    <div><dt>Vigencia</dt><dd>desde <t t-esc="t.valid_from"/><t t-if="t.open_ended"> · sin fin</t><t t-elif="t.valid_to"> hasta <t t-esc="t.valid_to"/></t></dd></div>
+                  </dl>
+                </div>
+                <div class="cpk-card-f d-none d-lg-flex">
+                  <button type="submit" form="cpk_tariff_form" name="publicar" value="1" class="s-btn s-btn-primary w-100">
+                    <i class="fa fa-check" aria-hidden="true"/> Guardar y publicar
+                  </button>
+                  <button type="submit" form="cpk_tariff_form" class="s-btn s-btn-ghost w-100">Guardar borrador</button>
+                </div>
+              </section>
+
+              <!-- Fuera del formulario de guardado a proposito: son dos acciones
+                   distintas y anidar formularios no es HTML valido. Sin esto,
+                   action_archive_tariff() no tenia por donde llamarse y una tarifa
+                   equivocada se quedaba vigente para sus destinatarios. -->
+              <t t-if="t.state != 'archived'">
+                <form method="post" t-attf-action="/copacker/tariffs/#{t.uuid_ref}/archive"
+                      class="cpk-card cpk-card--quiet">
+                  <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                  <div class="cpk-card-h cpk-card-h--flat">
+                    <span class="cpk-card-ico cpk-card-ico--bad" aria-hidden="true"><i class="fa fa-archive"/></span>
+                    <div class="cpk-card-htxt">
+                      <h2 class="cpk-card-t">Archivar</h2>
+                      <p class="cpk-card-d">Deja de estar vigente y sus destinatarios dejan de verla. No borra nada.</p>
+                    </div>
+                  </div>
+                  <div class="cpk-card-f">
+                    <button type="submit" class="s-btn s-btn-danger s-btn-sm w-100">Archivar la tarifa</button>
+                  </div>
+                </form>
+              </t>
+              <t t-else="">
+                <p class="cpk-foot-note">
+                  <i class="fa fa-archive" aria-hidden="true"/>
+                  Esta tarifa está archivada: no la ve nadie. Si la vuelves a necesitar,
+                  «Guardar y publicar» la pone otra vez en vigor.
+                </p>
+              </t>
+            </aside>
+          </div>
 
         </div>
       </div>
@@ -253,139 +340,216 @@
 
   <!-- ================================================================
        PERFIL Y CAPACIDAD
+       Mismo armazón que Mi cuenta (.ma-page / .ma-nav / .ma-card de
+       shrimp_marketplace): navegación lateral fija en escritorio y tarjetas
+       plegables en el móvil (shrimp_my_account.js se engancha solo a .ma-page).
        ================================================================ -->
   <template id="copacker_profile" name="Perfil de la planta">
     <t t-call="website.layout">
-      <div class="shrimp-bg">
-        <div class="shrimp-page py-4">
+      <div class="shrimp-bg cpk">
+        <div class="shrimp-page ma-page cpk-page">
 
-          <h2 class="mb-1">Mi planta</h2>
-          <p class="text-muted">Esto es lo que ven los clientes cuando buscan quién empaca.</p>
-
-          <t t-if="mensaje"><div class="alert alert-success">Guardado.</div></t>
-          <t t-if="error"><div class="alert alert-danger"><t t-esc="error"/></div></t>
-
-          <form method="post" action="/copacker/profile/save">
-            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-
-            <div class="card mb-3">
-              <div class="card-body">
-                <h6 class="text-uppercase text-muted small mb-3">Identificación</h6>
-                <div class="row g-3">
-                  <div class="col-md-6">
-                    <label class="form-label">Razón social *</label>
-                    <input type="text" name="pack_razon_social" class="form-control"
-                           required="required" t-att-value="maq.shrimp_razon_social or ''"/>
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label">Representante legal</label>
-                    <input type="text" name="pack_representante" class="form-control"
-                           t-att-value="maq.shrimp_representante or ''"/>
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label">Ubicación de la planta *</label>
-                    <input type="text" name="pack_ubicacion" class="form-control"
-                           required="required" t-att-value="maq.shrimp_ubicacion or ''"/>
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label">Teléfono</label>
-                    <input type="text" name="pack_telefono" class="form-control"
-                           t-att-value="maq.shrimp_telefono or ''"/>
-                  </div>
-                </div>
-              </div>
+          <header class="cpk-ph ma-ph">
+            <div class="cpk-ph-txt">
+              <div class="cpk-eyebrow"><i class="fa fa-industry" aria-hidden="true"/> Mi planta</div>
+              <h1>
+                Mi planta
+                <t t-if="maq.pack_en_directorio"><span class="cpk-pill cpk-pill--ok">En el directorio</span></t>
+                <t t-else=""><span class="cpk-pill cpk-pill--warn">Fuera del directorio</span></t>
+              </h1>
+              <p>Esto es lo que ven los clientes cuando buscan quién empaca.</p>
             </div>
+          </header>
 
-            <div class="card mb-3">
-              <div class="card-body">
-                <h6 class="text-uppercase text-muted small mb-1">Habilitación</h6>
-                <p class="text-muted small">
-                  El código de establecimiento sale impreso en el certificado de
-                  trazabilidad del lote. Es lo que permite que el camarón que empacas
-                  se pueda exportar, y lo que tu cliente necesita demostrar.
-                </p>
-                <div class="row g-3">
-                  <div class="col-md-4">
-                    <label class="form-label">Código de establecimiento</label>
-                    <input type="text" name="pack_codigo_establecimiento" class="form-control"
-                           t-att-value="maq.pack_codigo_establecimiento or ''"/>
-                  </div>
-                  <div class="col-md-4">
-                    <label class="form-label">Vigente desde</label>
-                    <input type="date" name="pack_habilitacion_desde" class="form-control"
-                           t-att-value="maq.pack_habilitacion_desde or ''"/>
-                  </div>
-                  <div class="col-md-4">
-                    <label class="form-label">Vigente hasta</label>
-                    <input type="date" name="pack_habilitacion_hasta" class="form-control"
-                           t-att-value="maq.pack_habilitacion_hasta or ''"/>
-                  </div>
-                </div>
-              </div>
-            </div>
+          <t t-if="mensaje"><div class="pf-alert ma-a-ok" role="status"><i class="fa fa-check-circle" aria-hidden="true"/><div>Guardado.</div></div></t>
+          <t t-if="error"><div class="pf-alert pf-a-bad" role="alert"><i class="fa fa-exclamation-triangle" aria-hidden="true"/><div><t t-esc="error"/></div></div></t>
 
-            <div class="card mb-3">
-              <div class="card-body">
-                <h6 class="text-uppercase text-muted small mb-1">Capacidad y tarifas de referencia</h6>
-                <p class="text-muted small">
-                  Estos precios son públicos: aparecen en el directorio para que el
-                  cliente pueda preseleccionar. La tarifa firme se la mandas dirigida y
-                  no la ve nadie más.
-                </p>
-                <div class="row g-3">
-                  <div class="col-md-4">
-                    <label class="form-label">Capacidad (lb/semana)</label>
-                    <input type="number" step="1" min="0" name="pack_capacidad_lb_semana"
-                           class="form-control" t-att-value="int(maq.shrimp_capacity_value)"/>
+          <div class="ma-layout">
+            <nav class="ma-nav" aria-label="Secciones del perfil">
+              <ul class="ma-nav-list">
+                <li><a class="ma-nav-a is-current" href="#identificacion"><i class="fa fa-id-card-o" aria-hidden="true"/> Identificación</a></li>
+                <li><a class="ma-nav-a" href="#habilitacion"><i class="fa fa-certificate" aria-hidden="true"/> Habilitación</a></li>
+                <li><a class="ma-nav-a" href="#capacidad"><i class="fa fa-tachometer" aria-hidden="true"/> Capacidad y tarifas</a></li>
+                <li><a class="ma-nav-a" href="#directorio"><i class="fa fa-eye" aria-hidden="true"/> Directorio</a></li>
+              </ul>
+            </nav>
+
+            <div class="ma-main">
+              <form method="post" action="/copacker/profile/save">
+                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+
+                <section class="ma-card" id="identificacion" aria-labelledby="cpk_pf_1">
+                  <div class="ma-card-h">
+                    <span class="ma-card-ico" aria-hidden="true"><i class="fa fa-id-card-o"/></span>
+                    <div class="ma-card-htxt">
+                      <h2 class="ma-card-title" id="cpk_pf_1">Identificación</h2>
+                      <p class="ma-card-desc">Quién eres y dónde está la planta.</p>
+                    </div>
+                    <button type="button" class="ma-card-tg" aria-expanded="true" aria-label="Plegar o desplegar"><i class="fa fa-chevron-down" aria-hidden="true"/></button>
                   </div>
-                  <div class="col-md-4">
-                    <label class="form-label">Lote mínimo (lb)</label>
-                    <input type="number" step="1" min="0" name="pack_lote_minimo_lb"
-                           class="form-control" t-att-value="int(maq.pack_lote_minimo_lb)"/>
-                  </div>
-                  <div class="col-md-4">
-                    <label class="form-label">Presentaciones que manejas</label>
-                    <input type="text" name="pack_presentaciones" class="form-control"
-                           t-att-value="maq.pack_presentaciones or ''"/>
-                  </div>
-                  <div class="col-md-4">
-                    <label class="form-label">Entero, desde ($/lb)</label>
-                    <input type="number" step="0.001" min="0" name="pack_desde_entero"
-                           class="form-control" t-att-value="maq.pack_desde_entero or ''"/>
-                  </div>
-                  <div class="col-md-4">
-                    <label class="form-label">Cola, desde ($/lb)</label>
-                    <input type="number" step="0.001" min="0" name="pack_desde_cola"
-                           class="form-control" t-att-value="maq.pack_desde_cola or ''"/>
-                  </div>
-                  <div class="col-md-4">
-                    <label class="form-label">Valor agregado, desde ($/lb)</label>
-                    <input type="number" step="0.001" min="0" name="pack_desde_valor_agregado"
-                           class="form-control" t-att-value="maq.pack_desde_valor_agregado or ''"/>
-                  </div>
-                  <div class="col-12">
-                    <label class="form-label">Aclaración de la tarifa</label>
-                    <input type="text" name="pack_tarifa_nota" class="form-control"
-                           placeholder="Precios referenciales; la tarifa firme depende del volumen."
-                           t-att-value="maq.pack_tarifa_nota or ''"/>
-                  </div>
-                  <div class="col-12">
-                    <div class="form-check">
-                      <input type="checkbox" name="pack_en_directorio" class="form-check-input"
-                             t-att-checked="'checked' if maq.pack_en_directorio else None"/>
-                      <label class="form-check-label">
-                        <b>Aparecer en el directorio.</b>
-                        Si lo apagas dejas de salir a quien busca planta, y solo podrás
-                        trabajar con quien ya te conoce.
-                      </label>
+                  <div class="ma-card-b">
+                    <p class="cpk-legend"><span><span class="cpk-req">*</span> obligatorio</span><span>Lo demás es opcional</span></p>
+                    <div class="cpk-fgrid">
+                      <div class="cpk-f cpk-f--6">
+                        <label class="cpk-lbl" for="cpk_pf_rs">Razón social <span class="cpk-req" aria-hidden="true">*</span></label>
+                        <input type="text" name="pack_razon_social" id="cpk_pf_rs" class="form-control"
+                               required="required" t-att-value="maq.shrimp_razon_social or ''"/>
+                      </div>
+                      <div class="cpk-f cpk-f--6">
+                        <label class="cpk-lbl" for="cpk_pf_rep">Representante legal</label>
+                        <input type="text" name="pack_representante" id="cpk_pf_rep" class="form-control"
+                               t-att-value="maq.shrimp_representante or ''"/>
+                      </div>
+                      <div class="cpk-f cpk-f--6">
+                        <label class="cpk-lbl" for="cpk_pf_ubi">Ubicación de la planta <span class="cpk-req" aria-hidden="true">*</span></label>
+                        <input type="text" name="pack_ubicacion" id="cpk_pf_ubi" class="form-control"
+                               required="required" t-att-value="maq.shrimp_ubicacion or ''"/>
+                      </div>
+                      <div class="cpk-f cpk-f--6">
+                        <label class="cpk-lbl" for="cpk_pf_tel">Teléfono</label>
+                        <input type="text" name="pack_telefono" id="cpk_pf_tel" class="form-control"
+                               t-att-value="maq.shrimp_telefono or ''"/>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            </div>
+                </section>
 
-            <button type="submit" class="btn btn-primary">Guardar</button>
-          </form>
+                <section class="ma-card" id="habilitacion" aria-labelledby="cpk_pf_2">
+                  <div class="ma-card-h">
+                    <span class="ma-card-ico" aria-hidden="true"><i class="fa fa-certificate"/></span>
+                    <div class="ma-card-htxt">
+                      <h2 class="ma-card-title" id="cpk_pf_2">Habilitación</h2>
+                      <p class="ma-card-desc">
+                        El código de establecimiento sale impreso en el certificado de
+                        trazabilidad del lote. Es lo que permite que el camarón que empacas
+                        se pueda exportar, y lo que tu cliente necesita demostrar.
+                      </p>
+                    </div>
+                    <button type="button" class="ma-card-tg" aria-expanded="true" aria-label="Plegar o desplegar"><i class="fa fa-chevron-down" aria-hidden="true"/></button>
+                  </div>
+                  <div class="ma-card-b">
+                    <div class="cpk-fgrid">
+                      <div class="cpk-f cpk-f--4">
+                        <label class="cpk-lbl" for="cpk_pf_cod">Código de establecimiento</label>
+                        <input type="text" name="pack_codigo_establecimiento" id="cpk_pf_cod" class="form-control"
+                               t-att-value="maq.pack_codigo_establecimiento or ''"/>
+                      </div>
+                      <div class="cpk-f cpk-f--4">
+                        <label class="cpk-lbl" for="cpk_pf_hd">Vigente desde</label>
+                        <input type="date" name="pack_habilitacion_desde" id="cpk_pf_hd" class="form-control"
+                               t-att-value="maq.pack_habilitacion_desde or ''"/>
+                      </div>
+                      <div class="cpk-f cpk-f--4">
+                        <label class="cpk-lbl" for="cpk_pf_hh">Vigente hasta</label>
+                        <input type="date" name="pack_habilitacion_hasta" id="cpk_pf_hh" class="form-control"
+                               t-att-value="maq.pack_habilitacion_hasta or ''"/>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="ma-card" id="capacidad" aria-labelledby="cpk_pf_3">
+                  <div class="ma-card-h">
+                    <span class="ma-card-ico" aria-hidden="true"><i class="fa fa-tachometer"/></span>
+                    <div class="ma-card-htxt">
+                      <h2 class="ma-card-title" id="cpk_pf_3">Capacidad y tarifas de referencia</h2>
+                      <p class="ma-card-desc">
+                        Estos precios son públicos: aparecen en el directorio para que el
+                        cliente pueda preseleccionar. La tarifa firme se la mandas dirigida y
+                        no la ve nadie más.
+                      </p>
+                    </div>
+                    <button type="button" class="ma-card-tg" aria-expanded="true" aria-label="Plegar o desplegar"><i class="fa fa-chevron-down" aria-hidden="true"/></button>
+                  </div>
+                  <div class="ma-card-b">
+                    <div class="cpk-fgrid">
+                      <div class="cpk-f cpk-f--4">
+                        <label class="cpk-lbl" for="cpk_pf_cap">Capacidad</label>
+                        <div class="cpk-ig">
+                          <input type="number" step="1" min="0" name="pack_capacidad_lb_semana" id="cpk_pf_cap"
+                                 class="form-control" t-att-value="int(maq.shrimp_capacity_value)"/>
+                          <span class="cpk-ig-a">lb/semana</span>
+                        </div>
+                      </div>
+                      <div class="cpk-f cpk-f--4">
+                        <label class="cpk-lbl" for="cpk_pf_lote">Lote mínimo</label>
+                        <div class="cpk-ig">
+                          <input type="number" step="1" min="0" name="pack_lote_minimo_lb" id="cpk_pf_lote"
+                                 class="form-control" t-att-value="int(maq.pack_lote_minimo_lb)"/>
+                          <span class="cpk-ig-a">lb</span>
+                        </div>
+                      </div>
+                      <div class="cpk-f cpk-f--4">
+                        <label class="cpk-lbl" for="cpk_pf_pres">Presentaciones que manejas</label>
+                        <input type="text" name="pack_presentaciones" id="cpk_pf_pres" class="form-control"
+                               t-att-value="maq.pack_presentaciones or ''"/>
+                      </div>
+                      <div class="cpk-f cpk-f--4">
+                        <label class="cpk-lbl" for="cpk_pf_ent">Entero, desde</label>
+                        <div class="cpk-ig">
+                          <span class="cpk-ig-a">$</span>
+                          <input type="number" step="0.001" min="0" name="pack_desde_entero" id="cpk_pf_ent"
+                                 class="form-control" t-att-value="maq.pack_desde_entero or ''"/>
+                          <span class="cpk-ig-a">/ lb</span>
+                        </div>
+                      </div>
+                      <div class="cpk-f cpk-f--4">
+                        <label class="cpk-lbl" for="cpk_pf_cola">Cola, desde</label>
+                        <div class="cpk-ig">
+                          <span class="cpk-ig-a">$</span>
+                          <input type="number" step="0.001" min="0" name="pack_desde_cola" id="cpk_pf_cola"
+                                 class="form-control" t-att-value="maq.pack_desde_cola or ''"/>
+                          <span class="cpk-ig-a">/ lb</span>
+                        </div>
+                      </div>
+                      <div class="cpk-f cpk-f--4">
+                        <label class="cpk-lbl" for="cpk_pf_va">Valor agregado, desde</label>
+                        <div class="cpk-ig">
+                          <span class="cpk-ig-a">$</span>
+                          <input type="number" step="0.001" min="0" name="pack_desde_valor_agregado" id="cpk_pf_va"
+                                 class="form-control" t-att-value="maq.pack_desde_valor_agregado or ''"/>
+                          <span class="cpk-ig-a">/ lb</span>
+                        </div>
+                      </div>
+                      <div class="cpk-f">
+                        <label class="cpk-lbl" for="cpk_pf_nota">Aclaración de la tarifa</label>
+                        <input type="text" name="pack_tarifa_nota" id="cpk_pf_nota" class="form-control"
+                               placeholder="Precios referenciales; la tarifa firme depende del volumen."
+                               t-att-value="maq.pack_tarifa_nota or ''"/>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="ma-card" id="directorio" aria-labelledby="cpk_pf_4">
+                  <div class="ma-card-h">
+                    <span class="ma-card-ico" aria-hidden="true"><i class="fa fa-eye"/></span>
+                    <div class="ma-card-htxt">
+                      <h2 class="ma-card-title" id="cpk_pf_4">Directorio</h2>
+                      <p class="ma-card-desc">Si apareces, los clientes te encuentran cuando buscan quién empaca.</p>
+                    </div>
+                    <button type="button" class="ma-card-tg" aria-expanded="true" aria-label="Plegar o desplegar"><i class="fa fa-chevron-down" aria-hidden="true"/></button>
+                  </div>
+                  <div class="ma-card-b">
+                    <label class="cpk-check" for="cpk_pf_dir">
+                      <input type="checkbox" name="pack_en_directorio" id="cpk_pf_dir" class="form-check-input"
+                             t-att-checked="'checked' if maq.pack_en_directorio else None"/>
+                      <span>
+                        <b>Aparecer en el directorio.</b>
+                        <small>Si lo apagas dejas de salir a quien busca planta, y solo podrás
+                          trabajar con quien ya te conoce.</small>
+                      </span>
+                    </label>
+                  </div>
+                </section>
+
+                <div class="cpk-actions cpk-actions--sticky cpk-actions--end">
+                  <span class="cpk-note">Los cambios se ven en el directorio al guardar.</span>
+                  <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-check" aria-hidden="true"/> Guardar</button>
+                </div>
+              </form>
+            </div>
+          </div>
 
         </div>
       </div>

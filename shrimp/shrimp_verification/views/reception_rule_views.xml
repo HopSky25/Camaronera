@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Matriz de verificación: columna «Confirmación de recepción» (recepción
+       por el comprador con confirmación automática; ver
+       shrimp_marketplace/models/shrimp_transaction_reception.py). Herencia
+       aparte para no tocar el archivo de la vista principal. -->
+  <record id="view_shrimp_verification_rule_list_reception" model="ir.ui.view">
+    <field name="name">shrimp.verification.rule.list.reception</field>
+    <field name="model">shrimp.verification.rule</field>
+    <field name="inherit_id" ref="shrimp_verification.view_shrimp_verification_rule_list"/>
+    <field name="arch" type="xml">
+      <xpath expr="//field[@name='policy']" position="after">
+        <!-- D-26: informativa; toda compra directa lleva recepción. -->
+        <field name="requires_reception_confirmation" widget="boolean_toggle" readonly="1"
+               optional="hide"/>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="view_shrimp_verification_rule_search_reception" model="ir.ui.view">
+    <field name="name">shrimp.verification.rule.search.reception</field>
+    <field name="model">shrimp.verification.rule</field>
+    <field name="inherit_id" ref="shrimp_verification.view_shrimp_verification_rule_search"/>
+    <field name="arch" type="xml">
+      <xpath expr="//filter[@name='f_mandatory']" position="after">
+        <filter name="f_reception" string="Con confirmación de recepción"
+                domain="[('requires_reception_confirmation', '=', True)]"/>
+      </xpath>
+    </field>
+  </record>
+</odoo>

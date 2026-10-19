@@ -1,24 +1,5 @@
 <odoo>
-    <record id="mail_template_shrimp_check_request" model="mail.template">
-        <field name="name">Solicitud de chequeo marketplace</field>
-        <field name="model_id" ref="model_shrimp_check_request" />
-        <field name="subject">Solicitud de chequeo - {{ object.name }}</field>
-        <field name="email_from">{{ (user.email_formatted or '') }}</field>
-        <field name="body_html" type="html">
-            <div>
-                <p>Se ha generado una nueva solicitud de chequeo.</p>
-                <p><strong>Referencia:</strong> <t t-out="object.name or ''"/></p>
-                <p><strong>Producto:</strong> <t t-out="object.product_id.name or ''"/></p>
-                <p><strong>Especie:</strong> <t t-out="object.product_id.species_id.name or ''"/></p>
-                <p><strong>Etapa:</strong> <t t-out="object.product_id.stage_id.name or ''"/></p>
-                <p><strong>Línea genética:</strong> <t t-out="object.product_id.genetics_line_id.name or ''"/></p>
-                <p><strong>Vendedor:</strong> <t t-out="object.seller_partner_id.name or ''"/></p>
-                <p><strong>Comprador:</strong> <t t-out="object.buyer_partner_id.name or ''"/></p>
-                <p><strong>Cantidad:</strong> <t t-out="object.qty or ''"/> <t t-out="object.uom_id.name or ''"/></p>
-                <p><strong>Estado:</strong> <t t-out="object.state or ''"/></p>
-            </div>
-        </field>
-    </record>
+    <!-- La plantilla «Solicitud de chequeo» se borró con el flujo (D-28). -->
 
     <!-- Producto creado -->
     <record id="mail_template_shrimp_product_created" model="mail.template">

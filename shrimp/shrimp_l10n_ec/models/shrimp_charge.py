@@ -1,375 +1,732 @@
-"""Puente entre los cobros de la plataforma y el SRI (l10n_ec_sri_community).
+"""Puente entre los cobros de la plataforma y el SRI.
 
-Cómo emite el módulo SRI una factura (y por qué este puente hace lo que hace)
-=============================================================================
-* El NÚMERO de la factura (001-003-000000007) lo pone la numeración estándar
-  de Odoo/l10n_ec al contabilizar: sale del diario de ventas
-  (``l10n_ec_entity`` = establecimiento, ``l10n_ec_emission`` = punto) y del
-  tipo de documento latam (01 factura, 04 nota de crédito). El secuencial de
-  ``ec.sri.point`` NO se usa para facturas ni notas (solo en guías y
-  retenciones).
-* El comprobante es un ``ec.sri.document`` (borrador) atado a la factura
-  contabilizada (``move_id``) y a un ``ec.sri.point`` del MISMO tipo de
-  documento, del MISMO ambiente que la compañía y con establecimiento y punto
-  IGUALES a los del número de la factura; si no, ``action_queue`` lo rechaza.
-* ``action_queue`` valida la compañía (``_ec_sri_company_data``: RUC de 13
-  dígitos, dirección matriz...), arma el XML desde la factura, lo FIRMA con el
-  certificado del servidor y lo deja «En cola»; el cron del módulo SRI lo
-  envía y consulta la autorización.
+Cierra el circuito de facturación electrónica (auditoría de procesos, hueco
+crítico #4 / CR-04, CR-05, CR-06, ME-20):
 
-Qué hace el puente
-==================
-1. Antes de contabilizar (``_prepare_service_invoice``): elige diario y punto
-   de emisión, pone el documento 01 y la forma de pago, y valida todo lo que
-   el SRI va a exigir. Si falta algo, lanza: la factura NO se contabiliza (no
-   se gasta un número fiscal) y el cobro queda en «Error» con el motivo.
-2. Después de contabilizar (``_after_service_invoice_posted``): crea el
-   comprobante en BORRADOR y despierta el cron de este módulo. En la petición
-   del usuario no se firma ni se envía nada.
-3. El cron ``_cron_sri_queue_service_documents`` firma y encola
-   (``action_queue``) los borradores de los cobros; si falla (p. ej. sin
-   certificado) lo anota en el historial del comprobante y reintenta.
-4. La anulación sale como nota de crédito 04 con el mismo circuito.
+* Configuración explícita: con el SRI activo, sin diario de servicios, punto
+  de emisión (01 y 04), forma de pago o certificado, el cobro NO se factura:
+  se queda «Por facturar» con el motivo a la vista, sin gastar intentos. Antes
+  se usaba en silencio el diario de ventas por defecto, que no emite.
+* Nota de crédito (04) por el mismo camino que la factura (01): se firma, se
+  envía y se espera la autorización. Solo se emite sobre una factura
+  AUTORIZADA; si el SRI no autorizó la factura, se anula en contabilidad sin
+  nota de crédito.
+* El estado del comprobante en el SRI vuelve al cobro: «Rechazado por el SRI»
+  con el mensaje del SRI, actividad al responsable de facturación, reenvío
+  tras corregir (botón o cron) con tope de intentos y aviso al agotarlos.
+* Pagador sin RUC ni cédula: consumidor final si el total no pasa del límite
+  del SRI (USD 50) y está permitido en Ajustes; si no, el cobro espera y se le
+  piden los datos fiscales al pagador.
 """
 import logging
 
+from markupsafe import Markup, escape
+
 from odoo import _, api, fields, models
-from odoo.exceptions import UserError
+from odoo.osv import expression
 
 _logger = logging.getLogger(__name__)
 
-# Tipo de documento SRI -> xmlid del tipo de documento latam de l10n_ec.
-_LATAM_DOC = {"01": "l10n_ec.ec_dt_01", "04": "l10n_ec.ec_dt_04"}
-_DOC_NAME = {"01": "Factura (01)", "04": "Nota de crédito (04)"}
-_ENV_NAME = {"1": "Pruebas", "2": "Producción"}
+# Motivo con el que nacen los cobros de los datos de demostración.
+DEMO_MARK = "Datos de demostración"
 
+# Estados de ec.sri.document que significan «no autorizado».
+SRI_FAILED = ("rejected", "error")
+SRI_IN_FLIGHT = ("queued", "waiting")
 
-def _sri_error(message):
-    return UserError(_("Factura electrónica (SRI): %s", message))
+QUEUE_STATUS = [
+    ("blocked", "Bloqueado (configuración o datos del pagador)"),
+    ("to_invoice", "Por facturar"),
+    ("exhausted", "Intentos agotados"),
+    ("error", "Error al facturar"),
+    ("sri_pending", "En el SRI (en cola / esperando)"),
+    ("sri_not_sent", "Contabilizado, sin enviar al SRI"),
+    ("sri_rejected", "Rechazado por el SRI"),
+    ("credit_pending", "Nota de crédito pendiente"),
+    ("ok", "Autorizado / cerrado"),
+]
 
 
 class ShrimpCharge(models.Model):
     _inherit = "shrimp.charge"
 
-    sri_document_id = fields.Many2one(
-        "ec.sri.document", string="Comprobante SRI",
-        compute="_compute_sri_document", groups="account.group_account_invoice",
-        help="Comprobante electrónico de la factura del servicio.")
-    sri_document_state = fields.Selection(
-        selection=lambda self: self.env["ec.sri.document"]._fields["state"].selection,
-        string="Estado SRI", compute="_compute_sri_document",
-        groups="account.group_account_invoice")
-    sri_refund_document_id = fields.Many2one(
-        "ec.sri.document", string="Comprobante SRI de la nota de crédito",
-        compute="_compute_sri_document", groups="account.group_account_invoice")
-
-    @api.depends("invoice_id.ec_sri_document_ids.state", "refund_id.ec_sri_document_ids")
-    def _compute_sri_document(self):
-        for charge in self:
-            charge.sri_document_id = charge.invoice_id.ec_sri_document_ids.filtered(
-                lambda d: d.document_type == "01")[:1]
-            charge.sri_document_state = charge.sri_document_id.state or False
-            charge.sri_refund_document_id = charge.refund_id.ec_sri_document_ids.filtered(
-                lambda d: d.document_type == "04")[:1]
+    # Todo calculado (sin columnas nuevas): se lee del comprobante SRI de la
+    # factura y de la nota de crédito.
+    sri_invoice_state = fields.Selection(
+        related="invoice_id.ec_sri_state", string="SRI · factura")
+    sri_refund_state = fields.Selection(
+        related="refund_id.ec_sri_state", string="SRI · nota de crédito")
+    sri_last_message = fields.Text(
+        string="Última respuesta del SRI", compute="_compute_sri_queue")
+    sri_short_error = fields.Char(
+        string="Motivo", compute="_compute_sri_queue",
+        help="Resumen del último error o respuesta del SRI (completo en la ficha).")
+    sri_queue_status = fields.Selection(
+        QUEUE_STATUS, string="Situación en la cola SRI", compute="_compute_sri_queue",
+        search="_search_sri_queue_status")
+    sri_q_pending = fields.Boolean(
+        string="Cola SRI: pendientes", compute="_compute_sri_queue",
+        search="_search_sri_q_pending")
+    sri_q_error = fields.Boolean(
+        string="Cola SRI: en error", compute="_compute_sri_queue",
+        search="_search_sri_q_error")
+    sri_q_rejected = fields.Boolean(
+        string="Cola SRI: rechazados", compute="_compute_sri_queue",
+        search="_search_sri_q_rejected")
+    sri_q_retry = fields.Boolean(
+        string="Cola SRI: por reintentar", compute="_compute_sri_queue",
+        search="_search_sri_q_retry")
+    sri_q_exhausted = fields.Boolean(
+        string="Cola SRI: intentos agotados", compute="_compute_sri_queue",
+        search="_search_sri_q_exhausted")
 
     # ------------------------------------------------------------------
-    # Configuración
+    # Lectura del estado SRI
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _sri_main_doc(move, code):
+        if not move:
+            return move.env["ec.sri.document"]
+        return move.sudo().ec_sri_document_ids.filtered(
+            lambda d: d.document_type == code)[:1]
+
+    def _sri_invoice_doc(self):
+        self.ensure_one()
+        return self._sri_main_doc(self.invoice_id, "01")
+
+    def _sri_refund_doc(self):
+        self.ensure_one()
+        return self._sri_main_doc(self.refund_id, "04")
+
+    def _sri_status_of(self, maximo):
+        """Situación del cobro en la cola (una sola, para la columna)."""
+        self.ensure_one()
+        st = self.state
+        sri = self._shrimp_sri_enabled()
+        if st in ("pending", "error"):
+            if self.invoice_attempts >= maximo:
+                return "exhausted"
+            if st == "pending" and self.invoice_error and not self.invoice_attempts:
+                return "blocked"
+            return "error" if st == "error" else "to_invoice"
+        if st == "sri_rejected":
+            if self.invoice_attempts >= maximo:
+                return "exhausted"
+            return "sri_rejected"
+        if st == "to_credit":
+            return "exhausted" if self.invoice_attempts >= maximo else "credit_pending"
+        move_doc = False
+        if st == "invoiced" and sri and self.invoice_id.l10n_latam_use_documents:
+            move_doc = self._sri_invoice_doc()
+        elif st == "credited" and sri and self.refund_id.l10n_latam_use_documents:
+            move_doc = self._sri_refund_doc()
+        else:
+            return "ok"
+        if not move_doc or move_doc.state == "draft":
+            return "sri_not_sent"
+        if move_doc.state in SRI_IN_FLIGHT:
+            return "sri_pending"
+        if move_doc.state in SRI_FAILED:
+            return "sri_rejected"
+        return "ok"
+
+    @api.depends("state", "invoice_attempts", "invoice_error", "invoice_id", "refund_id",
+                 "invoice_id.ec_sri_document_ids.state", "refund_id.ec_sri_document_ids.state",
+                 "invoice_id.ec_sri_document_ids.last_message",
+                 "refund_id.ec_sri_document_ids.last_message")
+    def _compute_sri_queue(self):
+        maximo = self._shrimp_max_auto_attempts()
+        for charge in self:
+            status = charge._sri_status_of(maximo)
+            doc = charge._sri_refund_doc() if charge.state == "credited" \
+                else charge._sri_invoice_doc()
+            charge.sri_queue_status = status
+            charge.sri_last_message = doc.last_message if doc else False
+            texto = " ".join((charge.invoice_error or charge.sri_last_message or "").split())
+            charge.sri_short_error = (texto[:110] + "…") if len(texto) > 110 else texto
+            charge.sri_q_pending = status in (
+                "blocked", "to_invoice", "sri_pending", "sri_not_sent", "credit_pending")
+            charge.sri_q_error = status in ("error", "exhausted") or bool(
+                doc and doc.state == "error")
+            charge.sri_q_rejected = status == "sri_rejected"
+            charge.sri_q_retry = status in (
+                "to_invoice", "error", "sri_rejected", "credit_pending")
+            charge.sri_q_exhausted = status == "exhausted"
+
+    # Búsquedas: se calculan con sudo (el filtro lo usa quien no tiene
+    # permisos del SRI) y devuelven un dominio por id.
+    @api.model
+    def _sri_queue_ids(self, predicate):
+        # Abiertos + facturados/acreditados cuyo comprobante no está autorizado.
+        candidatos = self.sudo().search([
+            "|", "|",
+            ("state", "in", ("pending", "error", "to_credit", "sri_rejected")),
+            "&", ("state", "=", "invoiced"),
+            ("invoice_id.ec_sri_document_ids.state", "!=", "authorized"),
+            "&", "&", ("state", "=", "credited"), ("refund_id", "!=", False),
+            ("refund_id.ec_sri_document_ids.state", "!=", "authorized"),
+        ])
+        return candidatos.filtered(predicate).ids
+
+    @api.model
+    def _sri_bool_search(self, fname, operator, value):
+        # Odoo 19 normaliza «= True» a «in [True]».
+        if operator in ("in", "not in"):
+            valores = {bool(v) for v in value}
+            if len(valores) != 1:
+                return expression.TRUE_DOMAIN if (len(valores) > 1) == (operator == "in") \
+                    else expression.FALSE_DOMAIN
+            value, operator = valores.pop(), ("=" if operator == "in" else "!=")
+        if operator not in ("=", "!="):
+            return expression.FALSE_DOMAIN
+        ids = self._sri_queue_ids(lambda c: c[fname])
+        positivo = (operator == "=") == bool(value)
+        return [("id", "in" if positivo else "not in", ids)]
+
+    def _search_sri_q_pending(self, operator, value):
+        return self._sri_bool_search("sri_q_pending", operator, value)
+
+    def _search_sri_q_error(self, operator, value):
+        return self._sri_bool_search("sri_q_error", operator, value)
+
+    def _search_sri_q_rejected(self, operator, value):
+        return self._sri_bool_search("sri_q_rejected", operator, value)
+
+    def _search_sri_q_retry(self, operator, value):
+        return self._sri_bool_search("sri_q_retry", operator, value)
+
+    def _search_sri_q_exhausted(self, operator, value):
+        return self._sri_bool_search("sri_q_exhausted", operator, value)
+
+    def _search_sri_queue_status(self, operator, value):
+        if operator in ("=", "!="):
+            valores = {value}
+        elif operator in ("in", "not in"):
+            valores = set(value)
+        else:
+            return expression.FALSE_DOMAIN
+        ids = self._sri_queue_ids(lambda c: c.sri_queue_status in valores)
+        return [("id", "not in" if operator in ("!=", "not in") else "in", ids)]
+
+    # ------------------------------------------------------------------
+    # Configuración y datos del pagador
     # ------------------------------------------------------------------
     def _shrimp_sri_enabled(self):
         self.ensure_one()
         return bool(self.company_id.ec_sri_enabled)
 
-    @api.model
-    def _shrimp_sri_find_point(self, company, establishment, emission, code):
-        """El punto de emisión (único por compañía, establecimiento, punto,
-        tipo de documento y ambiente) que corresponde a un número fiscal."""
-        if not establishment or not emission:
-            return self.env["ec.sri.point"]
-        return self.env["ec.sri.point"].sudo().search([
-            ("company_id", "=", company.id),
-            ("establishment", "=", establishment),
-            ("emission", "=", emission),
-            ("document_type", "=", code),
-            ("environment", "=", company.ec_sri_environment),
-        ], limit=1)
+    def _shrimp_sri_point(self, journal):
+        return self.company_id.shrimp_service_sri_point_id or journal.ec_sri_point_id
 
     @api.model
-    def _shrimp_sri_point_missing(self, company, journal, code):
-        return _sri_error(_(
-            "falta el punto de emisión de %(doc)s %(est)s-%(emi)s en ambiente "
-            "%(amb)s de la compañía %(cia)s (diario «%(diario)s»). Créelo en "
-            "Ecuador SRI › Establecimientos › Puntos de emisión.",
-            doc=_DOC_NAME[code], est=journal.l10n_ec_entity or "???",
-            emi=journal.l10n_ec_emission or "???",
-            amb=_ENV_NAME.get(company.ec_sri_environment, company.ec_sri_environment),
-            cia=company.name, diario=journal.display_name))
+    def _shrimp_final_consumer_allowed(self):
+        return self.env["shrimp.settings"].get_bool(
+            "shrimp_l10n_ec.final_consumer_fallback", True)
 
     @api.model
-    def _shrimp_sri_check_journal(self, journal):
-        if not journal.l10n_latam_use_documents:
-            raise _sri_error(_(
-                "el diario «%s» no usa documentos (Usar documentos en el diario).",
-                journal.display_name))
-        if not journal.l10n_ec_entity or not journal.l10n_ec_emission:
-            raise _sri_error(_(
-                "el diario «%s» no tiene establecimiento y punto de emisión "
-                "(001-001) configurados.", journal.display_name))
+    def _shrimp_final_consumer_partner(self):
+        return self.env.ref("l10n_ec.ec_final_consumer", raise_if_not_found=False)
 
-    def _shrimp_sri_journal_and_point(self, invoice):
-        """Diario de la factura de servicio y su punto de emisión (Factura 01).
-
-        * Con punto configurado en la compañía: se usa ese punto y el diario de
-          ventas que numera con su mismo establecimiento y punto (el
-          configurado, o el primero que coincida).
-        * Sin punto configurado: el diario (configurado o el de la factura) y
-          el punto cuyo establecimiento y punto son los del diario.
-        """
+    def _shrimp_payer_has_tax_id(self):
+        """¿El pagador tiene una identificación que el SRI acepte?"""
         self.ensure_one()
-        company = self.company_id
-        point = company.shrimp_service_sri_point_id.sudo()
-        journal = company.shrimp_service_journal_id
-        if point:
-            if point.company_id != company:
-                raise _sri_error(_("el punto de emisión «%s» es de otra compañía.",
-                                   point.display_name))
-            if not point.active:
-                raise _sri_error(_("el punto de emisión «%s» está archivado.",
-                                   point.display_name))
-            if point.document_type != "01":
-                raise _sri_error(_(
-                    "el punto de emisión «%s» configurado para la plataforma no es "
-                    "de Factura (01).", point.display_name))
-            if point.environment != company.ec_sri_environment:
-                raise _sri_error(_(
-                    "el punto de emisión «%(p)s» es del ambiente %(pa)s y la "
-                    "compañía emite en %(ca)s.", p=point.display_name,
-                    pa=_ENV_NAME.get(point.environment, point.environment),
-                    ca=_ENV_NAME.get(company.ec_sri_environment, company.ec_sri_environment)))
-            numeracion = (point.establishment, point.emission)
-            if journal:
-                if (journal.l10n_ec_entity, journal.l10n_ec_emission) != numeracion:
-                    raise _sri_error(_(
-                        "el diario «%(d)s» numera %(de)s-%(dp)s y el punto de emisión "
-                        "«%(p)s» es %(pe)s-%(pp)s. Tienen que coincidir.",
-                        d=journal.display_name, de=journal.l10n_ec_entity or "???",
-                        dp=journal.l10n_ec_emission or "???", p=point.display_name,
-                        pe=point.establishment, pp=point.emission))
-            elif (invoice.journal_id.l10n_ec_entity, invoice.journal_id.l10n_ec_emission) == numeracion \
-                    and invoice.journal_id.l10n_latam_use_documents:
-                journal = invoice.journal_id
-            else:
-                journal = self.env["account.journal"].sudo().search([
-                    ("company_id", "=", company.id), ("type", "=", "sale"),
-                    ("l10n_latam_use_documents", "=", True),
-                    ("l10n_ec_entity", "=", point.establishment),
-                    ("l10n_ec_emission", "=", point.emission),
-                ], limit=1)
-                if not journal:
-                    raise _sri_error(_(
-                        "no hay un diario de ventas con documentos que numere "
-                        "%(e)s-%(p)s para el punto de emisión «%(n)s». Créelo o "
-                        "elija el diario en Ajustes › CamaronMarket.",
-                        e=point.establishment, p=point.emission, n=point.display_name))
-            self._shrimp_sri_check_journal(journal)
-            return journal, point
-        journal = journal or invoice.journal_id
-        self._shrimp_sri_check_journal(journal)
-        point = self._shrimp_sri_find_point(
-            company, journal.l10n_ec_entity, journal.l10n_ec_emission, "01")
-        if not point:
-            raise self._shrimp_sri_point_missing(company, journal, "01")
-        return journal, point
-
-    def _shrimp_sri_sync_partner(self, partner):
-        partner = partner.sudo()
-        (partner | partner.commercial_partner_id)._shrimp_sync_identification_type()
-
-    @api.model
-    def _shrimp_sri_validate(self, move):
-        """Lo que el módulo SRI exigirá al firmar, comprobado ANTES de
-        contabilizar para no gastar un número fiscal en una factura que no se
-        podrá emitir. Traduce los errores del módulo SRI a un mensaje del
-        cobro."""
+        payer = self.payer_partner_id.commercial_partner_id.sudo()
+        if not payer.vat:
+            return False
+        payer._shrimp_sync_identification_type()
         try:
-            move.company_id._ec_sri_company_data()
-            move.partner_id._ec_sri_partner_data()
-            move._ec_sri_lines()
-        except UserError as e:
-            raise _sri_error(e.args[0]) from e
-        if not move.l10n_ec_sri_payment_id:
-            raise _sri_error(_("falta la forma de pago SRI (Ajustes › CamaronMarket)."))
+            data = payer._ec_sri_partner_data()
+        except Exception:  # noqa: BLE001 - UserError del SRI: datos incompletos
+            return False
+        return data.get("type") not in (False, None, "07")
 
-    @api.model
-    def _shrimp_sri_clean_lines(self, move):
-        """Descripción de cada línea en UNA línea y hasta 300 caracteres: el
-        XSD del SRI (``descripcion``, patrón ``[^\\n]*``) rechaza saltos de
-        línea, y la línea que genera Ventas es «[CÓDIGO] Producto\\nconcepto».
-        Solo lo detectaría la validación al firmar, con el número ya gastado."""
-        for line in move.invoice_line_ids.filtered(lambda l: l.display_type == "product"):
-            name = " ".join((line.name or "").split())[:300]
-            if name != line.name:
-                line.name = name
+    def _shrimp_estimated_total(self):
+        """Total con impuestos que tendría la factura (para el límite del
+        consumidor final)."""
+        self.ensure_one()
+        product = self._get_service_product(self.charge_type, self.company_id)
+        taxes = product.taxes_id.filtered(lambda t: t.company_id == self.company_id)
+        if not taxes:
+            return self.amount or 0.0
+        res = taxes.compute_all(self.unit_amount or 0.0, currency=self.currency_id,
+                                quantity=self.invoice_qty or 1.0, product=product)
+        return res["total_included"]
 
-    @api.model
-    def _shrimp_sri_set_document_type(self, move, code):
-        doc_type = self.env.ref(_LATAM_DOC[code])
-        if move.l10n_latam_document_type_id != doc_type:
-            if doc_type not in move.l10n_latam_available_document_type_ids:
-                raise _sri_error(_(
-                    "%(doc)s no está permitida para %(p)s con su tipo de "
-                    "identificación (%(t)s).", doc=_DOC_NAME[code],
-                    p=move.partner_id.display_name,
-                    t=move.partner_id.l10n_latam_identification_type_id.name or _("sin tipo")))
-            move.l10n_latam_document_type_id = doc_type
+    def _shrimp_use_final_consumer(self):
+        """Factura a «consumidor final» (9999999999999): pagador sin RUC ni
+        cédula, permitido en Ajustes y total dentro del límite del SRI."""
+        self.ensure_one()
+        if not self._shrimp_sri_enabled() or self._shrimp_payer_has_tax_id():
+            return False
+        if not self._shrimp_final_consumer_allowed() or not self._shrimp_final_consumer_partner():
+            return False
+        from odoo.addons.l10n_ec_sri_community.services import validators
+        return self._shrimp_estimated_total() <= validators.FINAL_CONSUMER_LIMIT
+
+    def _invoicing_blocker(self):
+        motivo = super()._invoicing_blocker()
+        if motivo or not self._shrimp_sri_enabled():
+            return motivo
+        problemas = self.company_id._shrimp_sri_config_problems()
+        if problemas:
+            return _("Facturación electrónica sin configurar: %s") % " ".join(problemas)
+        if not self._shrimp_payer_has_tax_id() and not self._shrimp_use_final_consumer():
+            from odoo.addons.l10n_ec_sri_community.services import validators
+            return _(
+                "El pagador %(p)s no tiene RUC ni cédula válidos. Se le pidieron sus "
+                "datos fiscales; el cobro se facturará cuando los complete (a consumidor "
+                "final solo se factura hasta USD %(l)s y si está permitido en Ajustes).") % {
+                    "p": self.payer_partner_id.commercial_partner_id.display_name,
+                    "l": validators.FINAL_CONSUMER_LIMIT}
+        return False
+
+    def _on_invoicing_blocked(self, reason):
+        """Primer bloqueo por falta de datos fiscales: se le piden al pagador."""
+        res = super()._on_invoicing_blocked(reason)
+        payer = self.payer_partner_id.commercial_partner_id
+        if self._shrimp_sri_enabled() and payer.email \
+                and not self.company_id._shrimp_sri_config_problems() \
+                and not self._shrimp_payer_has_tax_id():
+            self.message_notify(
+                partner_ids=payer.ids,
+                subject=_("Complete sus datos de facturación"),
+                body=_(
+                    "Para emitirle la factura electrónica del servicio %(c)s (%(d)s) "
+                    "necesitamos su RUC o cédula. Complételo en «Mi cuenta» de la "
+                    "plataforma; la factura se emitirá automáticamente.") % {
+                        "c": self.name, "d": self.description or self.origin or ""})
+        return res
 
     # ------------------------------------------------------------------
-    # Factura de servicio
+    # Factura (01)
     # ------------------------------------------------------------------
+    def _prepare_sale_order_vals(self, product):
+        vals = super()._prepare_sale_order_vals(product)
+        if self._shrimp_use_final_consumer():
+            vals["partner_id"] = self._shrimp_final_consumer_partner().id
+            vals["note"] = _("Servicio prestado a %s (consumidor final: sin RUC ni "
+                             "cédula registrados).") % self.payer_partner_id.display_name
+        return vals
+
     def _prepare_service_invoice(self, invoice):
-        """Deja la factura de servicio lista para el SRI antes de contabilizar."""
+        """Deja la factura de servicio lista para el SRI antes de contabilizar.
+
+        Diario y punto de emisión de la plataforma (obligatorios: los exige
+        _invoicing_blocker), tipo de documento 01 (Factura) y forma de pago.
+        El cliente necesita su tipo de identificación (RUC/cédula/pasaporte):
+        se sincroniza desde su número.
+        """
         invoice = super()._prepare_service_invoice(invoice)
         if not self._shrimp_sri_enabled():
             return invoice
         company = self.company_id
-        try:
-            company._ec_sri_company_data()
-        except UserError as e:
-            raise _sri_error(e.args[0]) from e
-        self._shrimp_sri_sync_partner(self.payer_partner_id)
-        journal, _point = self._shrimp_sri_journal_and_point(invoice)
+        self.payer_partner_id.commercial_partner_id._shrimp_sync_identification_type()
         vals = {}
-        if invoice.journal_id != journal:
+        journal = company.shrimp_service_journal_id
+        if journal and invoice.journal_id != journal:
             vals["journal_id"] = journal.id
+        point = company.shrimp_service_sri_point_id
+        if point:
+            vals["ec_sri_point_id"] = point.id
+            vals["ec_sri_establishment_id"] = point.establishment_id.id
         if company.shrimp_service_payment_id:
             vals["l10n_ec_sri_payment_id"] = company.shrimp_service_payment_id.id
         if vals:
             invoice.write(vals)
-        self._shrimp_sri_set_document_type(invoice, "01")
-        self._shrimp_sri_clean_lines(invoice)
-        self._shrimp_sri_validate(invoice)
+        # El XSD del SRI no admite saltos de línea en <descripcion>, y Ventas
+        # arma la línea como «[CÓDIGO] Producto\nConcepto»: una sola línea.
+        for line in invoice.invoice_line_ids.filtered(
+                lambda l: l.display_type == "product" and "\n" in (l.name or "")):
+            line.name = " – ".join(p.strip() for p in line.name.splitlines() if p.strip())[:300]
+        factura = self.env.ref("l10n_ec.ec_dt_01", raise_if_not_found=False)
+        if factura and invoice.l10n_latam_use_documents \
+                and invoice.l10n_latam_document_type_id != factura \
+                and factura in invoice.l10n_latam_available_document_type_ids:
+            invoice.l10n_latam_document_type_id = factura
         return invoice
 
-    def _shrimp_sri_auto_emit(self):
-        self.ensure_one()
-        return self._shrimp_sri_enabled() and self.company_id.shrimp_sri_auto_emit
-
-    def _shrimp_sri_create_document(self, move, code, reason=False):
-        """Comprobante en BORRADOR para la factura/nota contabilizada.
-
-        No firma ni envía: lo encola el cron de este módulo, fuera de la
-        petición del usuario. Idempotente."""
-        self.ensure_one()
-        existing = move.ec_sri_document_ids.filtered(lambda d: d.document_type == code)[:1]
-        if existing:
-            return existing
-        establishment, emission, _seq = move._ec_sri_number_parts()
-        point = self._shrimp_sri_find_point(move.company_id, establishment, emission, code)
-        if not point:
-            raise self._shrimp_sri_point_missing(move.company_id, move.journal_id, code)
-        document = self.env["ec.sri.document"].sudo().with_company(move.company_id).create({
-            "company_id": move.company_id.id,
-            "partner_id": move.partner_id.id,
-            "document_type": code,
-            "point_id": point.id,
-            "date": move.invoice_date,
-            "move_id": move.id,
-            "mode": "native",
-            "reason": reason or False,
-        })
-        cron = self.env.ref("shrimp_l10n_ec.ir_cron_shrimp_sri_queue", raise_if_not_found=False)
-        if cron:
-            cron.sudo()._trigger()
-        return document
-
     def _after_service_invoice_posted(self, invoice):
+        """Encola el comprobante electrónico para el SRI (si está activado).
+
+        Solo encola: la firma y el envío los hace el cron del módulo SRI. Si
+        falla, la factura sigue contabilizada y el cobro pasa a «Rechazado por
+        el SRI» con el motivo (ver _after_service_invoice_failed).
+        """
         res = super()._after_service_invoice_posted(invoice)
-        if self._shrimp_sri_auto_emit() and invoice.l10n_latam_use_documents:
-            self._shrimp_sri_create_document(invoice, "01")
+        if self._shrimp_sri_enabled() and self.company_id.shrimp_sri_auto_emit \
+                and invoice.l10n_latam_use_documents:
+            invoice.action_ec_sri_emit()
+        return res
+
+    def _after_service_invoice_failed(self, invoice, error):
+        res = super()._after_service_invoice_failed(invoice, error)
+        if self._shrimp_sri_enabled() and invoice.l10n_latam_use_documents:
+            self.write({"state": "sri_rejected", "invoice_attempts": 0,
+                        "invoice_error": _("Factura %(f)s contabilizada, pero no se pudo "
+                                           "preparar/enviar al SRI: %(e)s") % {
+                                               "f": invoice.name, "e": str(error)[:1500]}})
+            self._shrimp_escalate(
+                _("La factura %(f)s del cobro %(c)s no se pudo enviar al SRI: %(e)s. "
+                  "Corrija la causa y use «Reintentar» en el cobro.") % {
+                      "f": invoice.name, "c": self.name, "e": str(error)[:500]},
+                summary=_("Factura no enviada al SRI"))
         return res
 
     # ------------------------------------------------------------------
-    # Nota de crédito
+    # Nota de crédito (04)
     # ------------------------------------------------------------------
     def _prepare_refund_vals(self, reason):
-        """La nota de crédito del SRI es el documento 04 y lleva el motivo."""
+        """La nota de crédito del SRI es el documento 04 (no la 01 de la
+        factura que anula) y lleva el motivo."""
         vals = super()._prepare_refund_vals(reason)
         if self._shrimp_sri_enabled() and self.invoice_id.l10n_latam_use_documents:
-            vals["l10n_latam_document_type_id"] = self.env.ref(_LATAM_DOC["04"]).id
+            nota = self.env.ref("l10n_ec.ec_dt_04", raise_if_not_found=False)
+            if nota:
+                vals["l10n_latam_document_type_id"] = nota.id
             vals["ec_sri_reason"] = (reason or _("Anulación del servicio"))[:300]
         return vals
 
     def _prepare_service_refund(self, refund, reason):
-        """Valida la nota de crédito antes de contabilizarla: punto de emisión
-        04 con el establecimiento y punto del diario, y los datos del SRI."""
+        """Nota de crédito del SRI (04): exige el motivo y el punto de emisión."""
         refund = super()._prepare_service_refund(refund, reason)
-        if not self._shrimp_sri_enabled() or not refund.l10n_latam_use_documents:
+        if not self._shrimp_sri_enabled():
             return refund
-        if not refund.ec_sri_reason:
-            refund.ec_sri_reason = (reason or _("Anulación del servicio"))[:300]
-        self._shrimp_sri_set_document_type(refund, "04")
-        journal = refund.journal_id
-        self._shrimp_sri_check_journal(journal)
-        if not self._shrimp_sri_find_point(
-                refund.company_id, journal.l10n_ec_entity, journal.l10n_ec_emission, "04"):
-            raise self._shrimp_sri_point_missing(refund.company_id, journal, "04")
-        self._shrimp_sri_clean_lines(refund)
-        self._shrimp_sri_validate(refund)
+        vals = {"ec_sri_reason": (reason or _("Anulación del servicio"))[:300]}
+        point = self._shrimp_sri_point(refund.journal_id) or self.invoice_id.ec_sri_point_id
+        if point:
+            vals["ec_sri_point_id"] = point.id
+            vals["ec_sri_establishment_id"] = point.establishment_id.id
+        refund.write(vals)
         return refund
 
-    def _try_credit(self):
-        to_credit = self.sudo().filtered(lambda c: c.state == "to_credit")
-        res = super()._try_credit()
-        for charge in to_credit.filtered(lambda c: c.state == "credited" and c.refund_id):
-            refund = charge.refund_id
-            if not charge._shrimp_sri_auto_emit() or not refund.l10n_latam_use_documents \
-                    or refund.state != "posted":
-                continue
-            try:
-                with self.env.cr.savepoint():
-                    charge._shrimp_sri_create_document(refund, "04", refund.ec_sri_reason)
-            except Exception as e:  # noqa: BLE001 - la nota ya está contabilizada
-                _logger.warning("Cobro %s: no se pudo crear el comprobante SRI de la "
-                                "nota %s: %s", charge.name, refund.name, e)
-                charge.message_post(body=_(
-                    "La nota de crédito %(f)s quedó contabilizada, pero no se pudo "
-                    "crear su comprobante electrónico: %(e)s", f=refund.name, e=e))
+    def _credit_precheck(self):
+        """Nota de crédito solo sobre una factura AUTORIZADA por el SRI."""
+        decision = super()._credit_precheck()
+        if decision[0] != "proceed" or not self._shrimp_sri_enabled() \
+                or not self.invoice_id.l10n_latam_use_documents:
+            return decision
+        invoice = self.invoice_id
+        doc = self._sri_invoice_doc()
+        if doc.state == "authorized":
+            if invoice.partner_id.commercial_partner_id._ec_sri_identification_code() == "07":
+                return "keep", _(
+                    "La factura %s se emitió a consumidor final: el SRI no admite nota de "
+                    "crédito ni anulación (Res. NAC-DGERCGC25-00000014). Queda vigente; "
+                    "la devolución, si corresponde, se gestiona fuera del comprobante."
+                ) % invoice.name
+            return "proceed", None
+        if doc.state in SRI_IN_FLIGHT:
+            return "wait", _(
+                "La factura %s sigue en el SRI (en cola / esperando autorización): la nota "
+                "de crédito se emitirá cuando el SRI la autorice.") % invoice.name
+        if doc.state == "error" and doc.was_sent:
+            motivo = _(
+                "La factura %s quedó «Requiere revisión» en el SRI después de enviarse: "
+                "consulte su estado en el SRI (botón «Consultar» del comprobante) antes "
+                "de anular el cobro.") % invoice.name
+            if self.invoice_error != motivo:
+                self._shrimp_escalate(motivo, summary=_("Anulación pendiente: consultar SRI"))
+            return "wait", motivo
+        estado = dict(doc._fields["state"].selection).get(doc.state) if doc \
+            else _("sin comprobante")
+        return "void", _("estado SRI: %s") % estado
+
+    @api.model
+    def _shrimp_credit_auto_emit(self):
+        return self.env["shrimp.settings"].get_bool("shrimp_l10n_ec.credit_auto_emit", True)
+
+    def _after_service_refund_posted(self, refund):
+        """La NC (04) va por el mismo camino que la factura: se firma, se
+        encola y el cron del SRI la envía y espera la autorización. Si en
+        Ajustes se pidió revisión de contabilidad, queda una actividad."""
+        res = super()._after_service_refund_posted(refund)
+        if not (self._shrimp_sri_enabled() and refund.l10n_latam_use_documents):
+            return res
+        if self._shrimp_credit_auto_emit() and self.company_id.shrimp_sri_auto_emit:
+            refund.action_ec_sri_emit()
+        else:
+            self._shrimp_escalate(
+                _("La nota de crédito %(n)s del cobro %(c)s está contabilizada y espera "
+                  "revisión de contabilidad antes de enviarse al SRI (use «Reintentar» "
+                  "en el cobro o «Emitir» en la nota).") % {"n": refund.name, "c": self.name},
+                summary=_("Revisar y emitir nota de crédito"))
         return res
 
     # ------------------------------------------------------------------
-    # Cron: firmar y encolar fuera de la petición del usuario
+    # Respuesta del SRI -> cobro
     # ------------------------------------------------------------------
     @api.model
-    def _cron_sri_queue_service_documents(self, limit=50):
-        """Firma y encola (``action_queue``) los comprobantes en borrador de
-        las facturas y notas de crédito de los cobros. El envío al SRI lo hace
-        después el cron del módulo SRI.
+    def _shrimp_on_sri_state(self, docs):
+        """Lo llama ec.sri.document al cambiar de estado. Nunca lanza."""
+        reintentar_credito = False
+        for doc in docs.sudo():
+            move = doc.move_id
+            if not move or doc.document_type not in ("01", "04"):
+                continue
+            campo = "invoice_id" if doc.document_type == "01" else "refund_id"
+            charges = self.sudo().search([(campo, "=", move.id)])
+            mensaje = doc.last_message or ""
+            for charge in charges:
+                if doc.state == "authorized":
+                    if charge.state == "sri_rejected":
+                        charge.write({"state": "invoiced", "invoice_error": False})
+                    elif charge.state in ("invoiced", "credited") and charge.invoice_error:
+                        charge.write({"invoice_error": False})
+                    charge.message_post(body=_("%(d)s autorizado por el SRI (%(n)s).") % {
+                        "d": doc.name, "n": doc.authorization_number or ""})
+                    charge._shrimp_close_escalations(_("Autorizado por el SRI."))
+                    if charge.state == "to_credit":
+                        reintentar_credito = True
+                elif doc.state in SRI_FAILED:
+                    estado = dict(doc._fields["state"].selection).get(doc.state)
+                    texto = _("%(d)s: %(e)s por el SRI. %(m)s") % {
+                        "d": doc.name, "e": estado, "m": mensaje}
+                    vals = {"invoice_error": texto[:2000]}
+                    if campo == "invoice_id" and charge.state == "invoiced":
+                        # Primer rechazo: los intentos cuentan los reenvíos.
+                        vals.update(state="sri_rejected", invoice_attempts=0)
+                    charge.write(vals)
+                    if charge.state == "to_credit":
+                        reintentar_credito = True
+                        continue
+                    agotado = charge.invoice_attempts >= self._shrimp_max_auto_attempts()
+                    charge._shrimp_escalate(
+                        texto + " " + (_("Se agotaron los reenvíos automáticos: corrija y use "
+                                         "«Reintentar».") if agotado else
+                                       _("Corrija los datos (cliente, impuestos, punto) y use "
+                                         "«Reintentar» en el cobro; si corrige el cliente, el "
+                                         "reenvío es automático.")),
+                        summary=_("Comprobante rechazado por el SRI"))
+        if reintentar_credito:
+            cron = self.env.ref("shrimp_marketplace.ir_cron_shrimp_charge_retry",
+                                raise_if_not_found=False)
+            if cron:
+                cron.sudo()._trigger()
+        return True
 
-        Solo toca borradores nunca numerados (sin clave de acceso): uno
-        corregido tras un rechazo lo vuelve a encolar una persona."""
-        Document = self.env["ec.sri.document"].sudo()
-        docs = Document.search([
-            ("state", "=", "draft"), ("mode", "=", "native"),
-            ("document_type", "in", ("01", "04")), ("access_key", "=", False),
-            ("move_id", "!=", False),
-        ], order="id", limit=limit * 4)
-        docs = docs.filtered(lambda d: d.company_id.ec_sri_enabled
-                             and d.company_id.shrimp_sri_auto_emit)
-        if not docs:
-            return True
-        moves = docs.move_id
-        charges = self.sudo().search(["|", ("invoice_id", "in", moves.ids),
-                                      ("refund_id", "in", moves.ids)])
-        own = set((charges.invoice_id | charges.refund_id).ids)
-        for doc in docs.filtered(lambda d: d.move_id.id in own)[:limit]:
+    # ------------------------------------------------------------------
+    # Reenvío tras corregir
+    # ------------------------------------------------------------------
+    def _sri_failed_doc(self):
+        """Comprobante del cobro que hay que reenviar (o crear y enviar)."""
+        self.ensure_one()
+        if self.state == "sri_rejected" and self.invoice_id:
+            doc = self._sri_invoice_doc()
+            return self.invoice_id, doc
+        if self.state == "invoiced" and self.invoice_id.l10n_latam_use_documents:
+            doc = self._sri_invoice_doc()
+            if not doc or doc.state in SRI_FAILED + ("draft",):
+                return self.invoice_id, doc
+        if self.state == "credited" and self.refund_id \
+                and self.refund_id.l10n_latam_use_documents:
+            doc = self._sri_refund_doc()
+            if not doc or doc.state in SRI_FAILED + ("draft",):
+                return self.refund_id, doc
+        return False, False
+
+    def _sri_resend(self, move, doc):
+        """Corrige (si hace falta) y vuelve a encolar el comprobante."""
+        self.payer_partner_id.commercial_partner_id._shrimp_sync_identification_type()
+        if not doc:
+            move.action_ec_sri_emit()
+            return
+        doc = doc.sudo()
+        if doc.state == "rejected":
+            doc.action_correct()
+        if doc.state == "error":
+            if doc.signed_xml:
+                doc.action_resume()
+                self.env.ref("l10n_ec_sri_community.ir_cron_sri_queue").sudo()._trigger()
+                return
+        if doc.state == "draft":
+            company = self.company_id
+            if company.shrimp_service_payment_id and move.move_type == "out_invoice" \
+                    and not move.l10n_ec_sri_payment_id:
+                move.write({"l10n_ec_sri_payment_id": company.shrimp_service_payment_id.id})
+            doc.action_queue()
+
+    def _retry_fiscal(self, manual=False):
+        res = super()._retry_fiscal(manual=manual)
+        maximo = self._shrimp_max_auto_attempts()
+        for charge in self.sudo():
+            if not charge._shrimp_sri_enabled():
+                continue
+            move, doc = charge._sri_failed_doc()
+            if not move:
+                continue
+            if doc and doc.state in SRI_IN_FLIGHT + ("authorized",):
+                continue
+            if not manual and charge.invoice_attempts >= maximo:
+                continue
+            problemas = charge.company_id._shrimp_sri_config_problems()
+            if problemas:
+                charge.write({"invoice_error": _("Facturación electrónica sin configurar: %s")
+                              % " ".join(problemas)})
+                continue
+            intentos = charge.invoice_attempts + 1
+            ahora = fields.Datetime.now()
             try:
                 with self.env.cr.savepoint():
-                    doc.action_queue()
-            except Exception as e:  # noqa: BLE001 - que un comprobante no frene a los demás
-                message = _("No se pudo firmar y encolar: %s",
-                            e.args[0] if isinstance(e, UserError) and e.args else e)
-                _logger.warning("SRI: comprobante %s de %s: %s", doc.id,
-                                doc.move_id.name, message)
-                last = doc.event_ids.filtered(lambda ev: ev.operation == "shrimp_queue")[:1]
-                if last.description != message:
-                    doc._event("shrimp_queue", message)
+                    charge._sri_resend(move, doc)
+            except Exception as e:  # noqa: BLE001
+                _logger.warning("No se pudo reenviar al SRI el cobro %s: %s", charge.name, e)
+                charge.write({"invoice_error": _("Reenvío al SRI fallido: %s") % str(e)[:1900],
+                              "invoice_attempts": intentos, "last_attempt_at": ahora})
+                if intentos >= maximo or manual:
+                    charge._shrimp_escalate(_(
+                        "No se pudo reenviar al SRI %(m)s del cobro %(c)s (intento %(n)s): "
+                        "%(e)s") % {"m": move.name, "c": charge.name, "n": intentos,
+                                    "e": str(e)[:500]},
+                        summary=_("Comprobante rechazado por el SRI"))
+                continue
+            charge.write({"invoice_attempts": intentos, "last_attempt_at": ahora,
+                          "invoice_error": _("%s reenviado al SRI; esperando su respuesta.")
+                          % move.name})
+            charge.message_post(body=_("%(m)s reenviado al SRI (intento %(n)s).") % {
+                "m": move.name, "n": intentos})
+        return res
+
+    @api.model
+    def _cron_retry_fiscal(self):
+        """Reenvía solos los comprobantes rechazados cuya causa probable ya se
+        corrigió: el cliente se modificó después del último intento, o el
+        comprobante quedó en «Requiere revisión» por fallos de conexión. El
+        resto espera al botón «Reintentar» (reenviar lo mismo daría el mismo
+        rechazo)."""
+        res = super()._cron_retry_fiscal()
+        maximo = self._shrimp_max_auto_attempts()
+        candidatos = self.sudo().search([
+            ("state", "in", ("sri_rejected", "credited")),
+            ("invoice_attempts", "<", maximo),
+        ], limit=200, order="last_attempt_at asc nulls first, id asc")
+        listos = self.browse()
+        for charge in candidatos:
+            move, doc = charge._sri_failed_doc()
+            if not move:
+                continue
+            corregido = not charge.last_attempt_at or (
+                charge.payer_partner_id.commercial_partner_id.write_date
+                and charge.payer_partner_id.commercial_partner_id.write_date
+                > charge.last_attempt_at)
+            conexion = doc and doc.state == "error" and doc.signed_xml \
+                and "Límite de intentos" in (doc.last_message or "")
+            sin_enviar = not doc or doc.state == "draft"
+            if corregido or conexion or sin_enviar:
+                listos |= charge
+        listos._retry_fiscal()
+        return res
+
+    # ------------------------------------------------------------------
+    # Backlog y resumen diario
+    # ------------------------------------------------------------------
+    @api.model
+    def _shrimp_sri_backlog_domain(self, company):
+        """Backlog: cobros sin factura que ya agotaron los intentos automáticos
+        (el cron no los vuelve a tomar)."""
+        return [("company_id", "=", company.id), ("state", "in", ("pending", "error")),
+                ("invoice_id", "=", False),
+                ("invoice_attempts", ">=", self._shrimp_max_auto_attempts()),
+                # Los cobros de los datos de demostración no se facturan nunca
+                # (scripts/demo_masivo/comun.py: CHG_DEMO).
+                ("invoice_error", "not like", DEMO_MARK)]
+
+    @api.model
+    def _shrimp_sri_requeue_backlog(self, company):
+        """Vuelve a poner en la cola los cobros pendientes o con error que ya
+        agotaron sus intentos (backlog), SOLO con la configuración completa.
+        No factura nada aquí: el cron horario los toma de 200 en 200, los más
+        antiguos primero."""
+        from odoo.exceptions import UserError
+        problemas = company._shrimp_sri_config_problems()
+        if problemas:
+            raise UserError(_("Complete primero la configuración de la facturación "
+                              "electrónica:\n- %s") % "\n- ".join(problemas))
+        charges = self.sudo().search(self._shrimp_sri_backlog_domain(company))
+        anular = charges.filtered(lambda c: c._shrimp_backlog_should_cancel())
+        if anular:
+            anular.action_cancel_charge(_(
+                "Backlog: compra cancelada sin verificación realizada; el honorario no "
+                "se factura."))
+            charges -= anular
+        if charges:
+            charges.write({"state": "pending", "invoice_attempts": 0,
+                           "invoice_error": False, "last_attempt_at": False})
+            cron = self.env.ref("shrimp_marketplace.ir_cron_shrimp_charge_retry",
+                                raise_if_not_found=False)
+            if cron:
+                cron.sudo()._trigger()
+            _logger.info("Cola SRI: %s cobros reencolados por %s", len(charges),
+                         self.env.user.login)
+        return len(charges)
+
+    @api.model
+    def _shrimp_sri_queue_summary(self):
+        """Conteo por situación (solo lo que no está cerrado)."""
+        maximo = self._shrimp_max_auto_attempts()
+        ids = self._sri_queue_ids(lambda c: True)
+        resumen = {}
+        antiguo = {}
+        for charge in self.sudo().browse(ids):
+            if (charge.invoice_error or "").startswith(DEMO_MARK):
+                continue
+            status = charge._sri_status_of(maximo)
+            if status == "ok":
+                continue
+            resumen[status] = resumen.get(status, 0) + 1
+            fecha = charge.date or charge.create_date
+            if fecha and (status not in antiguo or fecha < antiguo[status]):
+                antiguo[status] = fecha
+        return resumen, antiguo
+
+    @api.model
+    def _cron_sri_daily_summary(self):
+        """Correo diario a los administradores de CamaronMarket con el estado
+        de la cola SRI (solo si hay algo pendiente o la configuración está
+        incompleta). Ajustes › CamaronMarket › «Resumen diario de la cola SRI»."""
+        if not self.env["shrimp.settings"].get_bool("shrimp_l10n_ec.daily_summary", True):
+            return False
+        resumen, antiguo = self._shrimp_sri_queue_summary()
+        companies = self.env["res.company"].sudo().search([("ec_sri_enabled", "=", True)])
+        problemas = {c: c._shrimp_sri_config_problems() for c in companies}
+        problemas = {c: p for c, p in problemas.items() if p}
+        if not resumen and not problemas:
+            return False
+        grupo = self.env.ref("shrimp_marketplace.group_marketplace_manager",
+                             raise_if_not_found=False)
+        usuarios = grupo.sudo().all_user_ids.filtered(
+            lambda u: u.active and u._is_internal() and u.email and u.id != 1) if grupo \
+            else self.env["res.users"]
+        if not usuarios:
+            return False
+        etiquetas = dict(QUEUE_STATUS)
+        filas = Markup("").join(
+            Markup("<tr><td style='padding:2px 12px 2px 0'>%s</td>"
+                   "<td style='text-align:right'><b>%s</b></td>"
+                   "<td style='padding-left:12px;color:#666'>%s</td></tr>") % (
+                etiquetas[k], resumen[k],
+                fields.Date.to_string(antiguo[k].date()) if antiguo.get(k) else "")
+            for k, _l in QUEUE_STATUS if resumen.get(k))
+        cuerpo = Markup("<p>%s</p>") % _("Estado de la cola de facturación electrónica (SRI) "
+                                         "de CamaronMarket:")
+        if filas:
+            cuerpo += Markup("<table><tr><th style='text-align:left'>%s</th><th>%s</th>"
+                             "<th style='padding-left:12px'>%s</th></tr>%s</table>") % (
+                _("Situación"), _("Cobros"), _("Más antiguo"), filas)
+        for company, lista in problemas.items():
+            cuerpo += Markup("<p><b>%s</b></p><ul>%s</ul>") % (
+                _("Configuración incompleta en %s (nada se factura hasta completarla):")
+                % company.name,
+                Markup("").join(Markup("<li>%s</li>") % escape(p) for p in lista))
+        base = self.env["ir.config_parameter"].sudo().get_param("web.base.url", "")
+        accion = self.env.ref("shrimp_l10n_ec.action_shrimp_sri_queue", raise_if_not_found=False)
+        if accion and base:
+            cuerpo += Markup("<p><a href='%s/odoo/action-%s'>%s</a></p>") % (
+                base, accion.id, _("Abrir la Cola SRI"))
+        self.env["mail.mail"].sudo().create({
+            "subject": _("CamaronMarket · Cola SRI: %s cobros requieren seguimiento")
+            % sum(resumen.values()),
+            "body_html": cuerpo,
+            "email_to": ",".join(usuarios.mapped("email_formatted")),
+            "auto_delete": True,
+        })
         return True

@@ -21,11 +21,11 @@
     <field name="perm_create" eval="False"/>
     <field name="perm_unlink" eval="False"/>
     <field name="domain_force">['|',
-        ('issuer_partner_id','=',user.partner_id.id),
+        ('issuer_partner_id','=',user.shrimp_actor_partner_id.id),
         '&amp;',
         ('state','=','published'),
         ('recipient_ids','in',
-            [user.partner_id.id] + ([user.partner_id.parent_id.id] if user.partner_id.parent_id else []))]</field>
+            [user.shrimp_actor_partner_id.id] + ([user.partner_id.parent_id.id] if user.partner_id.parent_id else []))]</field>
   </record>
 
   <!-- Escritura: solo el emisor toca su lista. -->
@@ -37,7 +37,7 @@
     <field name="perm_write" eval="True"/>
     <field name="perm_create" eval="True"/>
     <field name="perm_unlink" eval="True"/>
-    <field name="domain_force">[('issuer_partner_id','=',user.partner_id.id)]</field>
+    <field name="domain_force">[('issuer_partner_id','=',user.shrimp_actor_partner_id.id)]</field>
   </record>
 
   <!-- Los renglones y las bonificaciones heredan la misma regla: si no, se
@@ -59,11 +59,11 @@
     <field name="perm_create" eval="False"/>
     <field name="perm_unlink" eval="False"/>
     <field name="domain_force">['|',
-        ('price_list_id.issuer_partner_id','=',user.partner_id.id),
+        ('price_list_id.issuer_partner_id','=',user.shrimp_actor_partner_id.id),
         '&amp;',
         ('price_list_id.state','=','published'),
         ('price_list_id.recipient_ids','in',
-            [user.partner_id.id] + ([user.partner_id.parent_id.id] if user.partner_id.parent_id else []))]</field>
+            [user.shrimp_actor_partner_id.id] + ([user.partner_id.parent_id.id] if user.partner_id.parent_id else []))]</field>
   </record>
 
   <record id="rule_price_list_line_portal_write" model="ir.rule">
@@ -74,7 +74,7 @@
     <field name="perm_write" eval="True"/>
     <field name="perm_create" eval="True"/>
     <field name="perm_unlink" eval="True"/>
-    <field name="domain_force">[('price_list_id.issuer_partner_id','=',user.partner_id.id)]</field>
+    <field name="domain_force">[('price_list_id.issuer_partner_id','=',user.shrimp_actor_partner_id.id)]</field>
   </record>
 
   <record id="rule_price_list_bonus_portal" model="ir.rule">
@@ -86,11 +86,11 @@
     <field name="perm_create" eval="False"/>
     <field name="perm_unlink" eval="False"/>
     <field name="domain_force">['|',
-        ('price_list_id.issuer_partner_id','=',user.partner_id.id),
+        ('price_list_id.issuer_partner_id','=',user.shrimp_actor_partner_id.id),
         '&amp;',
         ('price_list_id.state','=','published'),
         ('price_list_id.recipient_ids','in',
-            [user.partner_id.id] + ([user.partner_id.parent_id.id] if user.partner_id.parent_id else []))]</field>
+            [user.shrimp_actor_partner_id.id] + ([user.partner_id.parent_id.id] if user.partner_id.parent_id else []))]</field>
   </record>
 
   <record id="rule_price_list_bonus_portal_write" model="ir.rule">
@@ -101,7 +101,7 @@
     <field name="perm_write" eval="True"/>
     <field name="perm_create" eval="True"/>
     <field name="perm_unlink" eval="True"/>
-    <field name="domain_force">[('price_list_id.issuer_partner_id','=',user.partner_id.id)]</field>
+    <field name="domain_force">[('price_list_id.issuer_partner_id','=',user.shrimp_actor_partner_id.id)]</field>
   </record>
 
 </odoo>

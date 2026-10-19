@@ -24,8 +24,17 @@ class ShrimpCopackerRegistry(ShrimpRegistryController):
     @http.route("/register/copacker", type="http", auth="public",
                 website=True, sitemap=True)
     def registro_maquilador(self, **kw):
-        return request.render("shrimp_copacking.registry_form_maquilador",
-                              {"values": {}})
+        # El asistente común con el perfil de maquilador ya marcado (en la
+        # plataforma de empaque es el único que se ofrece). Desde otro sitio
+        # se manda al de empaque (o, si no tiene dominio, al alta de este).
+        if not _es_sitio_maquiladores():
+            url = request.website.sudo()._shrimp_role_site_url(
+                "maquilador", "/register/copacker")
+            if url:
+                return request.redirect(url, local=False)
+            return request.redirect("/register")
+        return self._render_signup("shrimp_user_registry.registry_form", {},
+                                   preselect=["maquilador"])
 
     @http.route()
     def registro_form(self, **kw):
@@ -36,22 +45,26 @@ class ShrimpCopackerRegistry(ShrimpRegistryController):
         return super().registro_form(**kw)
 
     def _allowed_user_types(self):
-        # En la plataforma de maquiladores solo se registra un maquilador; en
-        # el sitio del marketplace también se admite (su ruta /register/
-        # maquilador es pública allí), pero NO en la de verificadores.
+        # La planta de maquila se registra (y se agrega a una cuenta) SOLO en
+        # la plataforma de empaque, donde es el único perfil. En el
+        # marketplace y en el de verificadores no se ofrece: allí se enlaza a
+        # su alta (_signup_other_sites).
         if _es_sitio_maquiladores():
             return {"maquilador"}
-        tipos = super()._allowed_user_types()
-        if tipos & self._signup_types():
-            tipos = tipos | {"maquilador"}
-        return tipos
+        return super()._allowed_user_types() - {"maquilador"}
 
-    def _registro_form_template(self, user_type):
-        # Al que falla el alta hay que devolverlo a SU formulario, no al común:
-        # si no, pierde todo lo escrito y encima ve campos de otro rol.
-        if user_type == "maquilador" or _es_sitio_maquiladores():
-            return "shrimp_copacking.registry_form_maquilador"
-        return super()._registro_form_template(user_type)
+    def _signup_other_sites(self):
+        otros = super()._signup_other_sites()
+        # Solo en el marketplace: en el sitio de verificadores no se anuncia
+        # el de empaque.
+        if request.website.sudo().shrimp_platform == "main":
+            web = request.website.sudo()
+            url = web._shrimp_role_site_url("maquilador", "/register/copacker")
+            sitio = web._shrimp_platform_site("copacker")
+            if url and sitio:
+                otros.append({"role": "maquilador", "text": _("¿Eres planta de maquila?"),
+                              "site": sitio.name, "url": url})
+        return otros
 
     def _extra_partner_vals(self, user_type, post):
         vals = super()._extra_partner_vals(user_type, post)

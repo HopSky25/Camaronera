@@ -151,8 +151,8 @@ class TestVerificacionDeclarada(TransactionCase):
             vendedor.sudo().action_accept(actor=self.s["cam"])
         vendedor.sudo().action_accept(actor=self.s["lab"])
         self.assertEqual(v.acceptance_state, "closed")
-        self.assertEqual(tx.state, "confirmed")
-        self.assertTrue(tx.can_be_completed or tx.state == "confirmed")
+        self.assertEqual(tx.state, "done")  # el informe aceptado completa la compra (hueco #1)
+        self.assertTrue(tx.can_be_completed or tx.state in ("confirmed", "done"))
         # Sin honorario; la comisión de la venta sí.
         cobros = self.env["shrimp.charge"].search([("transaction_id", "=", tx.id)])
         self.assertFalse(cobros.filtered(lambda c: c.charge_type == "verification_fee"))
@@ -226,11 +226,13 @@ class TestVerificacionDeclarada(TransactionCase):
         self.assertEqual(comprador.decision, "pending")
         self.assertEqual(vendedor.decision, "accepted")
         self.assertEqual(v.state, "declared", "deshacer una contraoferta no retira la declaración")
-        comprador.sudo().action_counter(precio * 0.8, actor=self.s["cam"])
-        vendedor.sudo().action_accept(actor=self.s["lab"])
+        # D-38: una sola contraoferta por compra (aunque se haya deshecho).
+        with self.assertRaises(UserError):
+            comprador.sudo().action_counter(precio * 0.8, actor=self.s["cam"])
+        comprador.sudo().action_accept(actor=self.s["cam"])
         self.assertEqual(v.acceptance_state, "closed")
-        self.assertAlmostEqual(tx.price_unit, round(precio * 0.8, 2), places=2)
-        self.assertEqual(tx.state, "confirmed")
+        self.assertAlmostEqual(tx.price_unit, precio, places=2)
+        self.assertEqual(tx.state, "done")  # el informe aceptado completa la compra (hueco #1)
 
     def test_deshacer_de_la_otra_parte(self):
         _lote, v = self._declarada("Larva dcl undo otra")
@@ -266,7 +268,7 @@ class TestVerificacionDeclarada(TransactionCase):
         self.assertEqual(comprador.decision, "pending")
         comprador.sudo().action_accept(actor=self.s["cam"])
         self.assertEqual(v.acceptance_state, "closed")
-        self.assertEqual(tx.state, "confirmed")
+        self.assertEqual(tx.state, "done")  # el informe aceptado completa la compra (hueco #1)
 
     def test_vencimiento_del_plazo(self):
         _lote, v = self._declarada("Larva dcl plazo")
@@ -274,7 +276,7 @@ class TestVerificacionDeclarada(TransactionCase):
         v.sudo().acceptance_deadline = fields.Datetime.now() - timedelta(days=1)
         self.env["shrimp.verification"]._cron_vencer_plazos()
         self.assertEqual(v.acceptance_state, "closed")
-        self.assertEqual(v.transaction_id.state, "confirmed")
+        self.assertEqual(v.transaction_id.state, "done")  # el informe aceptado completa la compra (hueco #1)
 
     def test_cancelar_borrador_libera_reserva(self):
         lote, v = self._declarada("Larva dcl cancela")

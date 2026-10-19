@@ -65,7 +65,7 @@ class ShrimpSignoffMixin(models.AbstractModel):
     def _signoff_check_actor(self, actor=None):
         """`actor` es quien dice firmar; tiene que ser el titular de la fila."""
         self.ensure_one()
-        actor = actor or self.env.user.partner_id
+        actor = actor or self.env.user.shrimp_actor_partner_id
         if actor != self.partner_id:
             raise AccessError(_(
                 "Cada parte firma la suya. Esta corresponde a «%s».")
@@ -254,7 +254,7 @@ class ShrimpSignoffMixin(models.AbstractModel):
         """Lo que necesita la pantalla: ¿puede deshacer?, ¿por qué no?, ¿hasta cuándo?"""
         self.ensure_one()
         rec = self.sudo()
-        actor = actor or self.env.user.partner_id
+        actor = actor or self.env.user.shrimp_actor_partner_id
         if actor != rec.partner_id:
             return {"can": False, "blocker": _("No es tu firma."), "until": ""}
         bloqueo = rec._signoff_undo_blocker()

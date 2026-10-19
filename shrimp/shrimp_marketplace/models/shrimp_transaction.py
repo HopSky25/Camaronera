@@ -31,11 +31,11 @@ class ShrimpTransaction(models.Model):
 
     transaction_type = fields.Selection(
         [
-            ("semillero_to_laboratorio", "Semillero → Laboratorio"),
+            ("semillero_to_laboratorio", "Naupliero → Laboratorio"),
             ("laboratorio_to_camaronera", "Laboratorio → Camaronera"),
             ("camaronera_to_buyer", "Camaronera → Comprador"),
             # Compras al mismo nivel de la cadena (ver _TX_TYPE_SAME_LEVEL).
-            ("semillero_to_semillero", "Semillero → Semillero"),
+            ("semillero_to_semillero", "Naupliero → Naupliero"),
             ("laboratorio_to_laboratorio", "Laboratorio → Laboratorio"),
             ("camaronera_to_camaronera", "Camaronera → Camaronera"),
         ],
@@ -170,9 +170,13 @@ class ShrimpTransaction(models.Model):
         access_key, date y attachment_id (ya validado por el controlador).
         """
         self.ensure_one()
-        actor = actor or self.env.user.partner_id
+        actor = actor or self.env.user.shrimp_actor_partner_id
         if actor != self.seller_partner_id and self.env.user.share:
             raise AccessError(_("La factura de la mercadería la registra el vendedor."))
+        if self.env.user.share:
+            # CR-12 / D-43: la registra quien tiene «Vender» o «Facturación» en
+            # el perfil de la venta.
+            self.env.user._shrimp_require_perm(("sell", "billing"), role=self.seller_role)
         if self.state not in ("confirmed", "done"):
             raise ValidationError(_(
                 "La factura se registra cuando la compra está confirmada."))
@@ -452,6 +456,13 @@ class ShrimpTransaction(models.Model):
         perfil que la cuenta no tiene aprobado no sirve para comprar.
         """
         Partner = self.env["res.partner"]
+        # D-20: ninguna de las dos partes puede estar suspendida (las compras
+        # en curso no pasan por aquí: la regla solo se mira al crearlas).
+        for parte in (buyer, seller):
+            if parte and hasattr(parte, "_shrimp_suspension_problem"):
+                motivo = parte.sudo()._shrimp_suspension_problem()
+                if motivo:
+                    return motivo
         # El contexto shrimp_buyer_role ("comprar actuando como") vale como
         # buyer_role explícito para todos los caminos de compra.
         buyer_role = buyer_role or self.env.context.get("shrimp_buyer_role") or None
@@ -778,7 +789,12 @@ class ShrimpTransaction(models.Model):
                     "Solo puedes confirmar la recepción de una compra confirmada."))
 
             delivery = rec._delivery_date()
-            if fields.Date.context_today(rec) < delivery:
+            # Se puede confirmar desde la fecha de entrega o desde que el
+            # vendedor marcó el despacho (shrimp_transaction_reception.py). El
+            # cron (plazo vencido) y la plataforma (incidencia resuelta) no se
+            # frenan por la fecha.
+            if not (self.env.context.get("shrimp_reception_skip_date") or rec.dispatched_at) \
+                    and fields.Date.context_today(rec) < delivery:
                 raise ValidationError(_(
                     "Aún no puedes confirmar la recepción: la fecha de entrega es %s."
                 ) % delivery.strftime("%d/%m/%Y"))

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Permisos de los subusuarios (CR-12): página 403 y desactivación de los
+       formularios que el usuario no puede enviar. -->
+  <template id="permission_denied" name="Sin permiso para esta acción">
+    <t t-call="website.layout">
+      <div class="container py-5" style="max-width:720px;">
+        <div class="alert alert-warning shrimp-permission-denied" role="alert">
+          <h4 class="alert-heading"><i class="fa fa-lock me-1"/> No tienes permiso para esta acción</h4>
+          <p class="mb-1" t-esc="(exception and exception.description) or 'Tu usuario no tiene permiso para esta acción.'"/>
+          <p class="mb-0">El administrador de tu cuenta decide qué puede hacer cada usuario en «Mi equipo».
+            Si lo necesitas, pídeselo. <a href="javascript:history.back()">Volver</a></p>
+        </div>
+      </div>
+    </t>
+  </template>
+
+  <!-- D-20: aviso de cuenta suspendida en todo el portal. -->
+  <template id="suspended_banner_layout" inherit_id="website.layout" name="Aviso de cuenta suspendida">
+    <xpath expr="//main" position="before">
+      <t t-set="shrimp_susp" t-value="request and not request.env.user._is_public() and request.env.user.share and request.env.user.sudo()._shrimp_account_company()"/>
+      <div t-if="shrimp_susp and shrimp_susp.shrimp_suspended" id="shrimpSuspendedBanner"
+           class="alert alert-danger mb-0 rounded-0 text-center" role="alert">
+        <i class="fa fa-ban me-1"/> Tu cuenta está <b>suspendida</b>: tus publicaciones se retiraron y no puedes
+        empezar compras ni ventas nuevas. Las que están en curso siguen hasta cerrarse.
+        Revisa el correo con el motivo o escribe a la administración.
+      </div>
+    </xpath>
+  </template>
+
+  <template id="permission_guard_layout" inherit_id="website.layout" name="Permisos del subusuario en la página">
+    <xpath expr="//main" position="after">
+      <t t-set="shrimp_denied" t-value="request and not request.env.user._is_public() and request.env.user._shrimp_denied_route_patterns()"/>
+      <t t-if="shrimp_denied and (shrimp_denied['post'] or shrimp_denied['get'])">
+        <div id="shrimpPermissionDeny" class="d-none" t-att-data-deny="json.dumps(shrimp_denied)"/>
+        <script type="text/javascript" src="/shrimp_user_registry/static/src/js/permission_guard.js"/>
+      </t>
+    </xpath>
+  </template>
+</odoo>

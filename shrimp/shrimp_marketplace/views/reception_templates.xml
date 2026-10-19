@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ==================================================================
+         Recepción de la compra por el comprador (con confirmación
+         automática) y despacho marcado por el vendedor.
+         Ver models/shrimp_transaction_reception.py.
+         ================================================================== -->
+
+    <!-- Formulario del comprador: confirmar (nota y foto opcionales) o
+         reportar un problema. Lo usan la página de la compra y el modal de
+         «Mis compras». Espera `tx` y `rc_next` (a dónde volver). -->
+    <template id="s_reception_form" name="Recepción: formulario del comprador">
+        <t t-set="rc_id" t-value="tx.uuid_ref"/>
+        <div class="rc-forms">
+            <form method="post" enctype="multipart/form-data" class="rc-form"
+                  t-att-action="'/marketplace/purchases/%s/receive' % tx.uuid_ref">
+                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                <input type="hidden" name="next" t-att-value="rc_next"/>
+                <label class="rc-label" t-att-for="'rcNote%s' % rc_id">Nota <span class="rc-opt">(opcional)</span></label>
+                <textarea class="form-control" name="note" rows="2" t-att-id="'rcNote%s' % rc_id"
+                          maxlength="2000" placeholder="Ej.: llegó completo y en buen estado."></textarea>
+                <label class="rc-label mt-2" t-att-for="'rcPhoto%s' % rc_id">Foto <span class="rc-opt">(opcional)</span></label>
+                <input type="file" class="form-control" name="photo" t-att-id="'rcPhoto%s' % rc_id"
+                       accept="image/jpeg,image/png,image/webp,application/pdf"/>
+                <div class="rc-actions">
+                    <button type="submit" class="s-btn s-btn-primary rc-btn-confirm">
+                        <i class="fa fa-check-circle me-1"></i> Confirmar recepción
+                    </button>
+                </div>
+                <p class="rc-help">Al confirmar, el lote pasa a tu inventario (en borrador) y la entrega del vendedor queda como cumplida.</p>
+            </form>
+            <details t-if="tx.reception_status != 'incidence'" class="rc-issue">
+                <summary><i class="fa fa-exclamation-triangle me-1"></i> Reportar un problema</summary>
+                <form method="post" enctype="multipart/form-data" class="rc-form"
+                      t-att-action="'/marketplace/purchases/%s/report' % tx.uuid_ref">
+                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                    <input type="hidden" name="next" t-att-value="rc_next"/>
+                    <label class="rc-label" t-att-for="'rcIssue%s' % rc_id">¿Qué pasó?</label>
+                    <textarea class="form-control" name="note" rows="3" required="required" maxlength="2000"
+                              t-att-id="'rcIssue%s' % rc_id"
+                              placeholder="Ej.: llegó menos cantidad, mortalidad alta, no llegó…"></textarea>
+                    <label class="rc-label mt-2" t-att-for="'rcIssuePhoto%s' % rc_id">Foto <span class="rc-opt">(opcional)</span></label>
+                    <input type="file" class="form-control" name="photo" t-att-id="'rcIssuePhoto%s' % rc_id"
+                           accept="image/jpeg,image/png,image/webp,application/pdf"/>
+                    <div class="rc-actions">
+                        <button type="submit" class="s-btn rc-btn-danger">
+                            <i class="fa fa-flag me-1"></i> Enviar reporte
+                        </button>
+                    </div>
+                    <p class="rc-help">La compra queda «Con incidencia»: no se confirma sola y la plataforma revisa el caso con las dos partes.</p>
+                </form>
+            </details>
+        </div>
+    </template>
+
+    <!-- Plazo de recepción en una línea (lista y tarjeta). Espera `tx`. -->
+    <template id="s_reception_countdown" name="Recepción: cuenta atrás">
+        <t t-if="tx.state == 'confirmed' and tx.reception_status == 'incidence'">
+            <span class="rc-chip rc-chip--danger"><i class="fa fa-flag me-1"></i> Con incidencia</span>
+        </t>
+        <t t-elif="tx.state == 'confirmed' and tx.reception_required and tx.shrimp_reception_window_open()">
+            <t t-set="rc_left" t-value="tx.reception_days_left"/>
+            <span t-att-class="'rc-chip ' + ('rc-chip--warn' if rc_left &lt;= 3 else 'rc-chip--info')"
+                  t-att-title="'Si no confirmas ni reportas un problema, se confirmará automáticamente el %s.' % ((tx.reception_deadline and (tx.reception_deadline + relativedelta(days=1)).strftime('%d/%m/%Y')) or '')">
+                <i class="fa fa-hourglass-half me-1"></i>
+                <t t-if="rc_left &gt; 1">Tienes <t t-esc="rc_left"/> días para confirmar</t>
+                <t t-elif="rc_left == 1">Tienes 1 día para confirmar</t>
+                <t t-else="">Último día para confirmar</t>
+            </span>
+        </t>
+    </template>
+
+    <!-- ==================================================================
+         Página de la compra (trazabilidad privada de las partes): tarjeta
+         «Entrega y recepción» con la línea de tiempo y las acciones.
+         ================================================================== -->
+    <template id="traceability_screen_reception" inherit_id="shrimp_marketplace.traceability_screen"
+              priority="15" name="Trazabilidad - entrega y recepción">
+        <xpath expr="//div[@id='shrimp_trace_summary']" position="after">
+            <t t-set="rc_tx" t-value="tx.sudo()"/>
+            <t t-set="rc_me" t-value="request.env.user.shrimp_actor_partner_id"/>
+            <t t-set="rc_buyer" t-value="rc_me == rc_tx.buyer_partner_id"/>
+            <t t-set="rc_seller" t-value="rc_me == rc_tx.seller_partner_id"/>
+            <div t-if="rc_tx.state in ('confirmed', 'done') and rc_tx._shrimp_is_direct_delivery()"
+                 class="mp-table-card mb-4 rc-card" id="recepcion">
+                <div class="card-body p-4">
+                    <div class="mp-sec-head">
+                        <span class="mp-sec-ico"><i class="fa fa-truck"></i></span>
+                        <h3 class="mp-sec-title">Entrega y recepción</h3>
+                        <t t-if="rc_tx.state == 'done' and rc_tx.reception_auto_confirmed">
+                            <span class="rc-chip rc-chip--auto ms-auto"><i class="fa fa-magic me-1"></i> Confirmada automáticamente</span>
+                        </t>
+                        <t t-elif="rc_tx.state == 'done'">
+                            <span class="rc-chip rc-chip--ok ms-auto"><i class="fa fa-check me-1"></i> Recibida</span>
+                        </t>
+                        <t t-elif="rc_tx.reception_status == 'incidence'">
+                            <span class="rc-chip rc-chip--danger ms-auto"><i class="fa fa-flag me-1"></i> Con incidencia</span>
+                        </t>
+                        <t t-elif="rc_tx.shrimp_delivery_overdue()">
+                            <span class="rc-chip rc-chip--danger ms-auto"><i class="fa fa-clock-o me-1"></i> Entrega atrasada</span>
+                        </t>
+                    </div>
+
+                    <!-- Avisos de la acción que se acaba de hacer -->
+                    <t t-set="rc_saved" t-value="request.params.get('saved')"/>
+                    <div t-if="rc_saved == 'received'" class="rc-alert rc-alert--ok">
+                        <i class="fa fa-check-circle me-1"></i> Recepción confirmada. El lote está en tu inventario (en borrador): publícalo cuando quieras desde «Mis productos».
+                    </div>
+                    <div t-if="rc_saved == 'incidence'" class="rc-alert rc-alert--warn">
+                        <i class="fa fa-flag me-1"></i> Reporte enviado. La plataforma y el vendedor ya fueron avisados; la compra no se confirmará automáticamente mientras se revisa.
+                    </div>
+                    <div t-if="rc_saved == 'dispatched'" class="rc-alert rc-alert--ok">
+                        <i class="fa fa-truck me-1"></i> Despacho marcado. Avisamos al comprador para que confirme la recepción.
+                    </div>
+                    <div t-if="request.params.get('error') in ('receive', 'dispatch')" class="rc-alert rc-alert--warn">
+                        <i class="fa fa-exclamation-triangle me-1"></i>
+                        <t t-esc="request.params.get('message') or 'No se pudo completar la acción.'"/>
+                    </div>
+
+                    <!-- Línea de tiempo -->
+                    <ol class="rc-tl">
+                        <li class="rc-step is-done">
+                            <span class="rc-dot"><i class="fa fa-check"></i></span>
+                            <div class="rc-step-b">
+                                <div class="rc-step-t">Compra confirmada</div>
+                                <div class="rc-step-d"><t t-esc="rc_tx.shrimp_fmt_dt(rc_tx.shrimp_operation_datetime())"/></div>
+                            </div>
+                        </li>
+                        <li t-att-class="'rc-step ' + ('is-done' if rc_tx.dispatched_at or rc_tx.state == 'done' else ('is-late' if rc_tx.shrimp_delivery_overdue() else 'is-current'))">
+                            <span class="rc-dot"><i t-att-class="'fa ' + ('fa-check' if rc_tx.dispatched_at or rc_tx.state == 'done' else 'fa-truck')"></i></span>
+                            <div class="rc-step-b">
+                                <div class="rc-step-t">Despachado</div>
+                                <div class="rc-step-d">
+                                    <t t-if="rc_tx.dispatched_at">el <t t-esc="rc_tx.shrimp_fmt_dt(rc_tx.dispatched_at)"/></t>
+                                    <t t-elif="rc_tx.state == 'done'">sin marcar por el vendedor</t>
+                                    <t t-elif="rc_tx.delivery_date">entrega prevista el <t t-esc="rc_tx.delivery_date.strftime('%d/%m/%Y')"/></t>
+                                    <t t-else="">pendiente</t>
+                                </div>
+                                <div t-if="rc_tx.dispatch_note" class="rc-step-n">“<t t-esc="rc_tx.dispatch_note"/>”</div>
+                            </div>
+                        </li>
+                        <li t-att-class="'rc-step ' + ('is-done' if rc_tx.state == 'done' else ('is-late' if rc_tx.reception_status == 'incidence' else ('is-current' if rc_tx.shrimp_reception_window_open() else '')))">
+                            <span class="rc-dot"><i t-att-class="'fa ' + ('fa-check' if rc_tx.state == 'done' else ('fa-flag' if rc_tx.reception_status == 'incidence' else 'fa-inbox'))"></i></span>
+                            <div class="rc-step-b">
+                                <t t-if="rc_tx.state == 'done' and rc_tx.reception_auto_confirmed">
+                                    <div class="rc-step-t">Confirmado automáticamente</div>
+                                    <div class="rc-step-d">el <t t-esc="rc_tx.shrimp_fmt_dt(rc_tx.received_date)"/> · el comprador no respondió en el plazo y se considera que el vendedor cumplió</div>
+                                </t>
+                                <t t-elif="rc_tx.state == 'done'">
+                                    <div class="rc-step-t">Recibido</div>
+                                    <div class="rc-step-d">el <t t-esc="rc_tx.shrimp_fmt_dt(rc_tx.received_date)"/><t t-if="rc_tx.received_by_id"> · <t t-esc="rc_tx.received_by_id.name"/></t></div>
+                                </t>
+                                <t t-elif="rc_tx.reception_status == 'incidence'">
+                                    <div class="rc-step-t">Con incidencia</div>
+                                    <div class="rc-step-d">reportada el <t t-esc="rc_tx.shrimp_fmt_dt(rc_tx.incidence_date)"/> · la revisa la plataforma</div>
+                                </t>
+                                <t t-else="">
+                                    <div class="rc-step-t">Recibido</div>
+                                    <div class="rc-step-d">
+                                        <t t-if="rc_tx.reception_required and rc_tx.reception_deadline">
+                                            el comprador confirma hasta el <t t-esc="rc_tx.reception_deadline.strftime('%d/%m/%Y')"/><t t-if="rc_tx.dispatched_at">; si no, se confirma automáticamente</t><t t-else="">; sin despacho no se confirma sola</t>
+                                        </t>
+                                        <t t-else="">lo confirma el comprador</t>
+                                    </div>
+                                </t>
+                                <div t-if="rc_tx.reception_note" class="rc-step-n">“<t t-esc="rc_tx.reception_note"/>”</div>
+                                <a t-if="rc_tx.reception_photo_id" class="rc-file"
+                                   t-att-href="'/marketplace/purchases/%s/reception/reception' % rc_tx.uuid_ref" target="_blank">
+                                    <i class="fa fa-camera me-1"></i> Ver foto de la recepción
+                                </a>
+                            </div>
+                        </li>
+                    </ol>
+
+                    <!-- Incidencia: lo que se reportó -->
+                    <div t-if="rc_tx.incidence_note" class="rc-incidence">
+                        <div class="rc-label"><i class="fa fa-flag me-1"></i> Problema reportado por el comprador</div>
+                        <p class="mb-1"><t t-esc="rc_tx.incidence_note"/></p>
+                        <a t-if="rc_tx.incidence_photo_id" class="rc-file"
+                           t-att-href="'/marketplace/purchases/%s/reception/incidence' % rc_tx.uuid_ref" target="_blank">
+                            <i class="fa fa-camera me-1"></i> Ver foto
+                        </a>
+                        <p t-if="rc_tx.incidence_resolution" class="mb-0 mt-1 rc-help">Resolución: <t t-esc="rc_tx.incidence_resolution"/></p>
+                    </div>
+
+                    <!-- Comprador -->
+                    <t t-if="rc_buyer and rc_tx.state == 'confirmed'">
+                        <t t-if="rc_tx.shrimp_reception_window_open()">
+                            <div t-if="rc_tx.reception_required and rc_tx.reception_status == 'waiting'" class="rc-countdown">
+                                <div class="rc-countdown-n"><t t-esc="max(rc_tx.reception_days_left, 0)"/></div>
+                                <div>
+                                    <div class="rc-countdown-t">
+                                        <t t-if="rc_tx.reception_days_left &gt; 1">Tienes <t t-esc="rc_tx.reception_days_left"/> días para confirmar la recepción</t>
+                                        <t t-elif="rc_tx.reception_days_left == 1">Tienes 1 día para confirmar la recepción</t>
+                                        <t t-else="">Hoy es el último día para confirmar la recepción</t>
+                                    </div>
+                                    <div class="rc-help">Hasta el <t t-esc="rc_tx.reception_deadline.strftime('%d/%m/%Y')"/>.
+                                        <t t-if="rc_tx.dispatched_at">Si no confirmas ni reportas un problema, se confirmará automáticamente y se dará por cumplida la entrega.</t>
+                                        <t t-else="">El vendedor todavía no marcó el despacho: sin despacho la compra no se confirma sola; si no llega, podrás cancelarla sin costo.</t>
+                                    </div>
+                                </div>
+                            </div>
+                            <t t-set="rc_next" t-value="'/marketplace/purchases/%s/traceability#recepcion' % rc_tx.uuid_ref"/>
+                            <t t-call="shrimp_marketplace.s_reception_form">
+                                <t t-set="tx" t-value="rc_tx"/>
+                            </t>
+                        </t>
+                        <div t-else="" class="rc-alert rc-alert--info">
+                            <i class="fa fa-calendar me-1"></i>
+                            Podrás confirmar la recepción desde la fecha de entrega
+                            (<t t-esc="rc_tx.delivery_date and rc_tx.delivery_date.strftime('%d/%m/%Y')"/>)
+                            o en cuanto el vendedor marque el despacho.
+                        </div>
+                    </t>
+
+                    <!-- Vendedor -->
+                    <t t-if="rc_seller and rc_tx.state == 'confirmed'">
+                        <form t-if="not rc_tx.dispatched_at and rc_tx.reception_status != 'incidence'" method="post" class="rc-form rc-dispatch"
+                              t-att-action="'/marketplace/sales/%s/dispatch' % rc_tx.uuid_ref">
+                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                            <input type="hidden" name="next" t-att-value="'/marketplace/purchases/%s/traceability#recepcion' % rc_tx.uuid_ref"/>
+                            <label class="rc-label" for="rcDispatchNote">Nota para el comprador <span class="rc-opt">(opcional)</span></label>
+                            <textarea class="form-control" name="note" id="rcDispatchNote" rows="2" maxlength="2000"
+                                      placeholder="Ej.: sale hoy en el camión de las 15:00, transportista Juan Pérez."></textarea>
+                            <div class="rc-actions">
+                                <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-truck me-1"></i> Marcar como despachado</button>
+                            </div>
+                            <p class="rc-help">
+                                <t t-if="rc_tx.reception_required">Desde el despacho, el comprador tiene <t t-esc="rc_tx._shrimp_reception_days()"/> días para confirmar la recepción; si no responde, se confirma automáticamente a tu favor.</t>
+                                <t t-else="">El comprador podrá confirmar la recepción desde el despacho.</t>
+                            </p>
+                        </form>
+                        <div t-elif="rc_tx.reception_status != 'incidence'" class="rc-alert rc-alert--info">
+                            <i class="fa fa-hourglass-half me-1"></i> Esperando que el comprador confirme la recepción<t t-if="rc_tx.reception_required and rc_tx.reception_deadline"> (hasta el <t t-esc="rc_tx.reception_deadline.strftime('%d/%m/%Y')"/>; después se confirma automáticamente)</t>.
+                        </div>
+                    </t>
+                </div>
+            </div>
+        </xpath>
+    </template>
+</odoo>

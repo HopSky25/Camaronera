@@ -6,7 +6,7 @@
     <record id="mail_template_precios_cambiaron" model="mail.template">
       <field name="name">Precios: cambió lo que te pagan</field>
       <field name="model_id" ref="shrimp_packer.model_shrimp_price_list"/>
-      <field name="subject">{{ object.issuer_partner_id.name }} cambió precios de tallas que tienes en stock</field>
+      <field name="subject">{{ object.issuer_partner_id.name }} {{ 'te envió su lista de precios' if ctx.get('primera') else 'cambió precios de tallas que tienes en stock' }}</field>
       <field name="email_from">{{ user.company_id.email_formatted or user.email_formatted or '' }}</field>
       <field name="body_html" type="html">
         <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#243b45;max-width:600px;">
@@ -21,7 +21,8 @@
             <t t-out="object.issuer_partner_id.name or ''"/> publicó precios nuevos
           </h2>
           <p style="margin:0 0 16px;color:#3d5560;">
-            Estos son los cambios en tallas que tienes disponibles ahora mismo.
+            <t t-if="ctx.get('primera')">Es la primera lista que te envía. Estos son sus precios para las tallas que tienes disponibles ahora mismo.</t>
+            <t t-else="">Estos son los cambios en tallas que tienes disponibles ahora mismo.</t>
             <t t-out="object.texto_ventana()"/>.
           </p>
 
@@ -40,7 +41,8 @@
                   <span style="color:#8b9ba3;font-size:12px;"> <t t-out="c['presentacion']"/></span>
                 </td>
                 <td style="padding:7px 10px;border:1px solid #eef2f4;text-align:right;color:#8b9ba3;">
-                  <t t-out="'%.2f' % c['antes']"/>
+                  <t t-if="c['antes'] is None">nuevo</t>
+                  <t t-else="" t-out="'%.2f' % c['antes']"/>
                 </td>
                 <td style="padding:7px 10px;border:1px solid #eef2f4;text-align:right;font-weight:bold;color:#123E5C;">
                   <t t-out="'%.2f' % c['ahora']"/>
@@ -55,7 +57,8 @@
                 </td>
                 <t t-set="col_efecto" t-value="'#0f7c88' if c['efecto'] &gt;= 0 else '#b3261e'"/>
                 <td t-attf-style="padding:7px 10px;border:1px solid #eef2f4;text-align:right;font-weight:bold;color:{{col_efecto}};">
-                  <t t-out="('+' if c['efecto'] &gt;= 0 else '') + '${:,.0f}'.format(c['efecto'])"/>
+                  <t t-if="c.get('nuevo')" t-out="'${:,.0f}'.format(c['efecto'])"/>
+                  <t t-else="" t-out="('+' if c['efecto'] &gt;= 0 else '') + '${:,.0f}'.format(c['efecto'])"/>
                 </td>
               </tr>
             </t>
@@ -76,6 +79,36 @@
           <p style="color:#8b9ba3;font-size:12px;border-top:1px solid #e3eaed;padding-top:12px;margin-top:22px;">
             Recibes este aviso porque esta lista va dirigida a ti y tienes stock
             en las tallas que cambiaron.
+          </p>
+        </div>
+      </field>
+    </record>
+
+    <!-- D-48: aviso a la empacadora de que su lista «hasta segunda orden»
+         está por caducar. Se renueva con un clic desde la lista. -->
+    <record id="mail_template_lista_por_caducar" model="mail.template">
+      <field name="name">Listas: tu lista está por caducar</field>
+      <field name="model_id" ref="shrimp_packer.model_shrimp_price_list"/>
+      <field name="subject">Tu lista «{{ object.name }}» caduca el {{ object.expires_on and object.expires_on.strftime('%d/%m/%Y') or '' }}</field>
+      <field name="email_from">{{ user.company_id.email_formatted or user.email_formatted or '' }}</field>
+      <field name="body_html" type="html">
+        <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#243b45;max-width:600px;">
+          <div style="border-bottom:3px solid #14A0B0;padding-bottom:10px;margin-bottom:18px;">
+            <span style="font-size:22px;font-weight:bold;color:#123E5C;">tr</span><span style="font-size:22px;font-weight:bold;color:#14A0B0;">azul</span>
+          </div>
+          <p>Hola <t t-out="ctx.get('destinatario') or ''"/>,</p>
+          <p>
+            Tu lista de precios «<strong t-out="object.name or ''"/>» rige «hasta segunda orden»
+            y caduca el <strong t-out="object.expires_on and object.expires_on.strftime('%d/%m/%Y') or ''"/>
+            (<t t-out="ctx.get('dias') or 0"/> día(s)). Ese día deja de verse como vigente para tus
+            <t t-out="object.recipient_count"/> proveedor(es).
+          </p>
+          <p>Si los precios siguen valiendo, renuévala; si cambiaron, usa «Duplicar y corregir» y publica la nueva.</p>
+          <p>
+            <a t-attf-href="{{ object.get_base_url() }}/marketplace/price-lists/{{ object.uuid_ref }}"
+               style="background:#123E5C;color:#ffffff;padding:11px 20px;border-radius:6px;text-decoration:none;display:inline-block;">
+              Ver y renovar la lista
+            </a>
           </p>
         </div>
       </field>

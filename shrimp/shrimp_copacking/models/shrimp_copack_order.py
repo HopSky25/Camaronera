@@ -1,5 +1,9 @@
+from datetime import timedelta
+
 from odoo import api, fields, models, _
 from odoo.exceptions import AccessError, ValidationError
+
+from . import copack_plazos
 
 from odoo.addons.shrimp_marketplace.models.shrimp_selection import (
     PRESENTATIONS_WITH_VALUE_ADDED)
@@ -26,7 +30,8 @@ class ShrimpCopackOrder(models.Model):
 
     _name = "shrimp.copack.order"
     _description = "Orden de servicio de empaque"
-    _inherit = ["mail.thread", "mail.activity.mixin", "shrimp.uuid.mixin"]
+    _inherit = ["mail.thread", "mail.activity.mixin", "shrimp.uuid.mixin",
+                "shrimp.copack.notify.mixin"]
     _order = "id desc"
 
     name = fields.Char(
@@ -175,6 +180,48 @@ class ShrimpCopackOrder(models.Model):
         ],
         string="Acta", default="na", required=True, readonly=True, index=True)
 
+    # --- plazo del acta (D-14) ---
+    # El cliente tiene un plazo para firmar, con recordatorios. Si calla, el
+    # acta se da por aceptada (como el informe de verificación): sin plazo,
+    # un cliente que no firmaba dejaba al maquilador sin cobrar para siempre.
+    acceptance_deadline = fields.Datetime(
+        string="Plazo de firma del acta", readonly=True, copy=False, index=True,
+        help="Si a esta hora una parte no firmó, su firma se da por conforme "
+             "(el silencio vale conformidad). Ajustes › Empaque: horas para firmar.")
+    acceptance_reminder_marks = fields.Char(
+        string="Recordatorios de firma enviados", readonly=True, copy=False)
+    tacit_acceptance = fields.Boolean(
+        string="Aceptada por silencio", readonly=True, copy=False,
+        help="El acta se cerró porque venció el plazo sin la firma de una de las partes.")
+    signed_date = fields.Datetime(
+        string="Firmada el", readonly=True, copy=False, index=True,
+        help="Cuándo quedó firmada el acta. La orden firmada se cierra sola pasado el "
+             "plazo de Ajustes › Empaque.")
+    # --- mediación de la plataforma (D-14) ---
+    dispute_date = fields.Datetime(string="En disputa desde", readonly=True, copy=False)
+    mediation_resolution = fields.Selection(
+        [("upheld", "La plataforma dio por buena el acta"),
+         ("reopened", "La plataforma reabrió el acta")],
+        string="Resolución de la plataforma", readonly=True, copy=False, tracking=True)
+    mediation_note = fields.Text(string="Nota de la mediación", readonly=True, copy=False)
+    # --- cancelación (D-14, D-34) ---
+    cancel_reason = fields.Text(string="Motivo de la cancelación", readonly=True, copy=False)
+    cancelled_by = fields.Selection(
+        [("client", "El cliente"), ("copacker", "La planta"),
+         ("platform", "La plataforma"), ("system", "Automática")],
+        string="Cancelada por", readonly=True, copy=False)
+    cancellation_ids = fields.One2many(
+        "shrimp.copack.cancellation", "order_id", string="Solicitudes de cancelación")
+    pending_cancellation_id = fields.Many2one(
+        "shrimp.copack.cancellation", string="Cancelación pendiente",
+        compute="_compute_pending_cancellation")
+
+    @api.depends("cancellation_ids.state")
+    def _compute_pending_cancellation(self):
+        for rec in self:
+            rec.pending_cancellation_id = rec.cancellation_ids.filtered(
+                lambda c: c.state == "pending")[:1]
+
     # --- empaque propio ---
     # Una cuenta con perfil Maquilador APROBADO puede empacar su propio
     # camarón (el que tiene como camaronera o el que compró como empacadora).
@@ -216,8 +263,10 @@ class ShrimpCopackOrder(models.Model):
                 # liquida (su paso por la trazabilidad lo decide
                 # _shrimp_consta_en_trazabilidad).
                 not rec.self_packing
-                and rec.state in ("packed", "signed", "closed")
-                and rec.acceptance_state != "disputed"
+                # D-14: facturable (liquidación) y en el certificado SOLO
+                # desde «firmada» —por las dos partes o por silencio del
+                # cliente—. Antes contaba ya al empacar, con el acta abierta.
+                and rec.state in ("signed", "closed")
                 # Sin libras empacadas no hay nada que cobrar; cobrar cero es
                 # ruido en la liquidacion, no un cobro.
                 and (rec.packed_lb or 0.0) > 0
@@ -400,17 +449,40 @@ class ShrimpCopackOrder(models.Model):
     # ------------------------------------------------------------------
     # Recorrido
     # ------------------------------------------------------------------
+    def _shrimp_check_puede_operar(self):
+        """D-34: la planta tiene que estar operativa (perfil Maquilador
+        aprobado) para recibir y empacar, venga por donde venga; y con una
+        cancelación pendiente el trabajo se detiene."""
+        for rec in self:
+            if not rec.self_packing and not rec.copacker_partner_id.shrimp_is_operational(
+                    role="maquilador"):
+                raise ValidationError(_(
+                    "«%s» no está operativa: su perfil de maquilador está pendiente de "
+                    "aprobación o fue rechazado.") % (rec.copacker_partner_id.name or ""))
+            if rec.pending_cancellation_id:
+                raise ValidationError(_(
+                    "Hay una solicitud de cancelación pendiente sobre esta orden: el trabajo "
+                    "queda detenido hasta que se resuelva."))
+
     def action_register_reception(self):
         self._shrimp_check_plant_license()
+        self._shrimp_check_puede_operar()
         for rec in self:
             if rec.state != "confirmed":
                 raise ValidationError(_("La recepción se registra sobre una orden adjudicada."))
             if not rec.received_lb:
                 raise ValidationError(_("Hay que indicar cuántas libras se recibieron."))
             rec.write({"state": "received", "received_date": fields.Datetime.now()})
+            if not rec.self_packing:
+                rec._cpk_notify(
+                    rec.client_partner_id, _("Tu camarón llegó a la planta (%s)") % rec.name,
+                    _("%(maq)s registró la recepción de %(lb)s lb para la orden %(o)s.") % {
+                        "maq": rec.copacker_partner_id.name or "", "o": rec.name,
+                        "lb": "{:,.2f}".format(rec.received_lb or 0.0)})
 
     def action_register_packing(self):
         self._shrimp_check_plant_license()
+        self._shrimp_check_puede_operar()
         for rec in self:
             if rec.state != "received":
                 raise ValidationError(_("Primero hay que registrar la recepción."))
@@ -455,7 +527,18 @@ class ShrimpCopackOrder(models.Model):
                 "order_id": self.id, "role": rol,
                 "partner_id": socio.id, "ronda": ronda,
             })
-        self.acceptance_state = "open"
+        plazo = fields.Datetime.now() + timedelta(hours=copack_plazos.acceptance_hours(self.env))
+        self.write({"acceptance_state": "open", "acceptance_deadline": plazo,
+                    "acceptance_reminder_marks": False, "tacit_acceptance": False})
+        self._cpk_notify(
+            self.client_partner_id, _("Firma el acta de empaque %s") % self.name,
+            _("%(maq)s registró el empaque: recibidas %(r)s lb, empacadas %(e)s lb. Revisa el "
+              "cuadre y firma el acta antes del %(plazo)s. Si no firmas ni das tu "
+              "disconformidad en ese plazo, el acta se da por aceptada.") % {
+                "maq": self.copacker_partner_id.name or "",
+                "r": "{:,.2f}".format(self.received_lb or 0.0),
+                "e": "{:,.2f}".format(self.packed_lb or 0.0),
+                "plazo": self._cpk_fmt_dt(plazo)})
 
     def _evaluar_acta(self):
         self.ensure_one()
@@ -466,13 +549,168 @@ class ShrimpCopackOrder(models.Model):
             return
         decisiones = self.acceptance_ids.filtered("active").mapped("decision")
         if "rejected" in decisiones:
-            self.acceptance_state = "disputed"
+            if self.acceptance_state != "disputed":
+                self.write({"acceptance_state": "disputed",
+                            "dispute_date": fields.Datetime.now(),
+                            "mediation_resolution": False, "mediation_note": False})
+                self._shrimp_open_mediation()
         elif decisiones and all(d == "accepted" for d in decisiones):
-            self.write({"acceptance_state": "closed", "state": "signed"})
-            self._register_platform_charge()
-            # Con el acta firmada por los dos, las libras empacadas quedan
-            # aceptadas: es el momento de mover el inventario.
-            self._shrimp_apply_packing_stock()
+            self._shrimp_sign_acta()
+
+    def _shrimp_sign_acta(self):
+        """El acta queda firmada (por las dos partes, por silencio o por la
+        plataforma): comisión, inventario, aviso y, si así está configurado,
+        cierre inmediato."""
+        self.ensure_one()
+        self.write({"acceptance_state": "closed", "state": "signed",
+                    "signed_date": fields.Datetime.now()})
+        self._register_platform_charge()
+        # Con el acta firmada por los dos, las libras empacadas quedan
+        # aceptadas: es el momento de mover el inventario.
+        self._shrimp_apply_packing_stock()
+        self._cpk_close_platform_activities(_("Acta firmada."))
+        cierre = copack_plazos.autoclose_hours(self.env)
+        texto = _("El acta de la orden %(o)s quedó firmada%(como)s: %(e)s lb empacadas. El "
+                  "empaque ya es facturable y consta en la trazabilidad.") % {
+            "o": self.name, "e": "{:,.2f}".format(self.packed_lb or 0.0),
+            "como": (" " + _("por silencio (venció el plazo de firma)"))
+            if self.tacit_acceptance else (
+                " " + _("por resolución de la plataforma")
+                if self.mediation_resolution == "upheld" else "")}
+        if cierre:
+            texto += " " + _("La orden se cerrará sola en %s horas.") % cierre
+        self._cpk_notify(self.client_partner_id | self.copacker_partner_id,
+                         _("Acta firmada: %s") % self.name, texto)
+        if not cierre:
+            self._shrimp_autoclose()
+
+    def _shrimp_autoclose(self):
+        for rec in self.filtered(lambda o: o.state == "signed"):
+            rec.action_close()
+            rec.message_post(body=_("Orden cerrada automáticamente tras la firma del acta."))
+        return True
+
+    @api.model
+    def _cpk_fmt_dt(self, valor):
+        if not valor:
+            return ""
+        return fields.Datetime.context_timestamp(self, valor).strftime("%d/%m/%Y %H:%M")
+
+    def _cpk_portal_url(self, partner=None):
+        self.ensure_one()
+        return "/marketplace/copacking/orders/%s" % self.uuid_ref
+
+    # ------------------------------------------------------------------
+    # Plazo del acta y mediación (D-14)
+    # ------------------------------------------------------------------
+    def _shrimp_open_mediation(self):
+        """Disputa: aviso a la otra parte y actividad de mediación para la
+        plataforma, que puede dar por buena el acta o reabrirla."""
+        self.ensure_one()
+        rechazo = self.acceptance_ids.filtered(lambda f: f.active and f.decision == "rejected")[:1]
+        quien = rechazo.partner_id
+        otra = (self.client_partner_id | self.copacker_partner_id) - quien
+        motivo = rechazo.reason or ""
+        self._cpk_notify(
+            otra, _("Acta en disputa: %s") % self.name,
+            _("%(q)s no dio conformidad al acta de la orden %(o)s. Motivo: %(m)s. Pueden "
+              "aclararlo y reabrir el acta para rectificar; la plataforma media la disputa.")
+            % {"q": quien.name or "", "o": self.name, "m": motivo})
+        self._cpk_notify_platform(
+            _("La orden de empaque %(o)s está en disputa: %(q)s no dio conformidad (%(m)s). "
+              "Media entre las partes y resuélvela desde la orden: «Dar por buena el acta» "
+              "o «Reabrir para rectificar».") % {"o": self.name, "q": quien.name or "",
+                                                  "m": motivo},
+            _("Disputa de empaque %s") % self.name,
+            _("Mediar disputa del acta %s") % self.name,
+            deadline=fields.Date.context_today(self) + timedelta(
+                days=copack_plazos.mediation_days(self.env)))
+
+    def _shrimp_tacit_acceptance(self):
+        """Venció el plazo de firma: las firmas pendientes se dan por
+        conformes (el silencio vale conformidad)."""
+        for rec in self:
+            if rec.state != "packed" or rec.acceptance_state != "open":
+                continue
+            pendientes = rec.acceptance_ids.filtered(
+                lambda f: f.active and f.decision == "pending")
+            if not pendientes:
+                continue
+            rec.tacit_acceptance = True
+            for firma in pendientes:
+                firma._firmar("accepted", _(
+                    "Aceptada por silencio: venció el plazo de firma del acta (%s).")
+                    % rec._cpk_fmt_dt(rec.acceptance_deadline), auto=True)
+        return True
+
+    @api.model
+    def _cron_copack_acta(self, limit=500):
+        """Cada hora: recordatorios de firma, aceptación por silencio al vencer
+        el plazo y cierre automático de las órdenes firmadas."""
+        ahora = fields.Datetime.now()
+        abiertas = self.sudo().search([
+            ("state", "=", "packed"), ("acceptance_state", "=", "open"),
+            ("acceptance_deadline", "!=", False)], limit=limit)
+        for rec in abiertas:
+            if rec.acceptance_deadline <= ahora:
+                rec._shrimp_tacit_acceptance()
+                continue
+            marcas = set((rec.acceptance_reminder_marks or "").split())
+            for horas in copack_plazos.reminder_hours(self.env):
+                clave = "r%s" % horas
+                if clave in marcas or ahora < rec.acceptance_deadline - timedelta(hours=horas):
+                    continue
+                marcas.add(clave)
+                pendientes = rec.acceptance_ids.filtered(
+                    lambda f: f.active and f.decision == "pending").mapped("partner_id")
+                if pendientes:
+                    rec._cpk_notify(
+                        pendientes, _("Recordatorio: firma el acta %s") % rec.name,
+                        _("El acta de la orden %(o)s vence el %(p)s. Si no firmas ni das tu "
+                          "disconformidad antes, se da por aceptada.") % {
+                            "o": rec.name, "p": rec._cpk_fmt_dt(rec.acceptance_deadline)})
+                # Un solo recordatorio por pasada: si se saltó uno (plazo
+                # corto), los dos no salen juntos.
+                break
+            rec.acceptance_reminder_marks = " ".join(sorted(marcas)) or False
+        horas = copack_plazos.autoclose_hours(self.env)
+        firmadas = self.sudo().search([
+            ("state", "=", "signed"), ("self_packing", "=", False),
+            "|", ("signed_date", "=", False),
+            ("signed_date", "<=", ahora - timedelta(hours=horas))], limit=limit)
+        firmadas._shrimp_autoclose()
+        return True
+
+    def _shrimp_check_platform(self):
+        if not (self.env.su or self.env.user._is_superuser()
+                or self.env.user.has_group("shrimp_copacking.group_copacking_manager")
+                or self.env.user.has_group("shrimp_marketplace.group_shrimp_manager")):
+            raise AccessError(_("Esta acción la hace la plataforma."))
+
+    def action_mediation_uphold(self, note):
+        """Mediación: la plataforma da por buena el acta en disputa (las
+        cifras declaradas quedan firmadas; la disconformidad queda archivada
+        en el historial)."""
+        self._shrimp_check_platform()
+        note = (note or "").strip()
+        if not note:
+            raise ValidationError(_("Explica la resolución: es lo que leen las dos partes."))
+        for rec in self:
+            if rec.state != "packed" or rec.acceptance_state != "disputed":
+                raise ValidationError(_("Solo se media un acta en disputa."))
+            rec.write({"mediation_resolution": "upheld", "mediation_note": note})
+            rec.message_post(body=_("Mediación de la plataforma: el acta se da por buena. %s")
+                             % note)
+            rec._shrimp_sign_acta()
+        return True
+
+    def action_mediation_reopen(self, note):
+        """Mediación: la plataforma reabre el acta para que la planta rectifique."""
+        self._shrimp_check_platform()
+        for rec in self:
+            rec.action_reabrir_acta(note, platform=True)
+            rec.write({"mediation_resolution": "reopened", "mediation_note": note})
+        return True
 
     # ------------------------------------------------------------------
     # Inventario: el empaque transforma el lote del cliente
@@ -594,7 +832,7 @@ class ShrimpCopackOrder(models.Model):
                     "o": rec.name or "", "lb": "{:,.2f}".format(rec.packed_lb or 0.0)},
             })
 
-    def action_reabrir_acta(self, motivo, actor=None):
+    def action_reabrir_acta(self, motivo, actor=None, platform=False):
         """Saca del atasco a una orden cuya acta quedo en disputa.
 
         Sin esto, `disputed` era un estado sin salida: una parte firmaba "no
@@ -627,10 +865,16 @@ class ShrimpCopackOrder(models.Model):
             raise ValidationError(_(
                 "Para reabrir el acta hay que decir por qué: es lo que la otra "
                 "parte va a leer y lo que queda en el expediente."))
-        actor = actor or self.env.user.partner_id
+        if platform:
+            # Mediación (D-14): la plataforma reabre; quién lo pide lo
+            # comprueba action_mediation_reopen.
+            self._shrimp_check_platform()
+            actor = self.env["res.partner"]
+        else:
+            actor = actor or self.env.user.shrimp_actor_partner_id
         # Igual que al firmar: el controlador trabaja en sudo, asi que el
         # control de quien es quien tiene que estar aqui y no en el ACL.
-        if actor not in (self.client_partner_id | self.copacker_partner_id):
+        if not platform and actor not in (self.client_partner_id | self.copacker_partner_id):
             raise AccessError(_(
                 "El acta la reabre una de las dos partes de la orden."))
         if self.state != "packed" or self.acceptance_state != "disputed":
@@ -653,9 +897,17 @@ class ShrimpCopackOrder(models.Model):
             # rectifique sobre lo declarado en vez de escribirlo de cero.
             "packed_date": False,
         })
+        quien = actor.name if actor else _("la plataforma (mediación)")
         self.message_post(body=_(
             "Acta reabierta por %(quien)s. Motivo: %(motivo)s")
-            % {"quien": actor.name or "", "motivo": motivo})
+            % {"quien": quien or "", "motivo": motivo})
+        self._cpk_close_platform_activities(_("Acta reabierta."))
+        self._cpk_notify(
+            (self.client_partner_id | self.copacker_partner_id) - actor,
+            _("Acta reabierta: %s") % self.name,
+            _("%(q)s reabrió el acta de la orden %(o)s. Motivo: %(m)s. La planta rectifica el "
+              "empaque y las dos partes vuelven a firmar.") % {
+                "q": quien or "", "o": self.name, "m": motivo})
         return True
 
     def action_close(self):
@@ -673,26 +925,87 @@ class ShrimpCopackOrder(models.Model):
             if rec.request_id and rec.request_id.state == "assigned":
                 rec.request_id.state = "done"
 
-    def action_cancel(self):
+    # ------------------------------------------------------------------
+    # Cancelación (D-14, D-34)
+    # ------------------------------------------------------------------
+    def _shrimp_role_of(self, actor):
+        self.ensure_one()
+        if not actor:
+            return None
+        if actor == self.copacker_partner_id and not self.self_packing:
+            return "copacker"
+        if actor == self.client_partner_id:
+            return "client"
+        return False
+
+    def shrimp_cancel_problem(self, actor=None, role=None):
+        """'' si se puede cancelar ahora; si no, por qué. UNA regla para el
+        portal, la API y el backoffice.
+
+        * firmada o cerrada: nunca; empacada: tampoco (el camino es el acta);
+        * el cliente (dueño del camarón): antes de empacar;
+        * la planta: antes de recibir el camarón, con motivo (la solicitud se
+          reabre a las demás plantas). Con el camarón del cliente en planta,
+          NO cancela sola: acta de devolución firmada por el cliente o
+          aprobación de la plataforma (D-34);
+        * la plataforma (actor None): antes de empacar.
+        """
+        self.ensure_one()
+        if role is None and actor is not None:
+            role = self._shrimp_role_of(actor)
+            if role is False:
+                return _("Esta orden la cancela una de sus dos partes.")
+        if self.state == "cancelled":
+            return _("La orden ya está cancelada.")
+        if self.state in ("signed", "closed"):
+            return _("Un trabajo ya firmado no se cancela.")
+        if self.self_packing:
+            return ""
+        if self.state == "packed":
+            return _("Esta orden ya está empacada: no se cancela. Si no estás conforme, no "
+                     "firmes el acta (queda en disputa) y reabre el acta para rectificar el "
+                     "empaque.")
+        if role == "copacker" and self.state == "received":
+            return _("El camarón del cliente ya está en tu planta: no puedes cancelar sin su "
+                     "consentimiento. Registra un acta de devolución para que el cliente la "
+                     "firme, o pide la aprobación de la plataforma.")
+        return ""
+
+    def action_cancel(self, actor=None, reason=None):
+        """Cancela la orden comprobando quién y cuándo (shrimp_cancel_problem).
+        Sin `actor` la cancela la plataforma (backoffice, tests)."""
         for rec in self:
-            if rec.state in ("signed", "closed"):
-                raise ValidationError(_("Un trabajo ya firmado no se cancela."))
-            if rec.self_packing:
-                # Sin contraparte a la que proteger: hasta el cierre interno
-                # (que es cuando se mueve el inventario) se puede anular.
-                rec.state = "cancelled"
-                continue
-            # Empacada = el maquilador ya hizo el trabajo y el acta está a la
-            # firma. Antes el cliente podía cancelar aquí y no pagar un
-            # servicio prestado. Desde "empacada" el camino es el acta: firmar,
-            # o no dar conformidad (disputa) y reabrirla para rectificar; una
-            # orden reabierta vuelve a "recibida" y sí se puede cancelar.
-            if rec.state == "packed":
+            role = rec._shrimp_role_of(actor) if actor is not None else "platform"
+            if role is False:
+                raise AccessError(_("Esta orden la cancela una de sus dos partes."))
+            problema = rec.shrimp_cancel_problem(
+                actor=actor, role=None if role == "platform" else role)
+            if problema:
+                raise ValidationError(problema)
+            motivo = (reason or "").strip()
+            if role == "copacker" and not motivo:
                 raise ValidationError(_(
-                    "Esta orden ya está empacada: no se cancela. Si no estás "
-                    "conforme, no firmes el acta (queda en disputa) y reabre el "
-                    "acta para rectificar el empaque."))
-            rec.state = "cancelled"
+                    "Explica al cliente por qué cancelas: es lo que va a leer, y la "
+                    "solicitud vuelve a salir a las demás plantas."))
+            rec._shrimp_do_cancel(role, motivo, reopen=(role == "copacker"))
+        return True
+
+    def _shrimp_do_cancel(self, by, reason, reopen=False):
+        """Aplica la cancelación. No comprueba quién: lo hace quien llama.
+
+        * La oferta adjudicada pasa a «cancelada».
+        * Si cancela la planta (por sí misma antes de recibir, con acta de
+          devolución o con aprobación de la plataforma), la solicitud se
+          REABRE a las demás plantas (D-14). Si cancela el cliente, la
+          plataforma o el sistema, la solicitud se cancela con la orden.
+        """
+        for rec in self:
+            if rec.state == "cancelled":
+                continue
+            rec.write({"state": "cancelled", "cancelled_by": by if by else "platform",
+                       "cancel_reason": reason or False})
+            if rec.self_packing:
+                continue
             # Cerrar el acta tambien. Sin esto las firmas pendientes seguian
             # vivas: las dos partes firmaban una orden CANCELADA, _evaluar_acta
             # la pasaba a "signed", de ahi a "closed", y acababa cobrandose en
@@ -701,6 +1014,47 @@ class ShrimpCopackOrder(models.Model):
                 rec.acceptance_ids.filtered(
                     lambda f: f.active and f.decision == "pending").unlink()
                 rec.acceptance_state = "na"
+            rec.cancellation_ids.filtered(lambda c: c.state == "pending").write(
+                {"state": "withdrawn"})
+            if rec.offer_id and rec.offer_id.state == "accepted":
+                rec.offer_id.write({"state": "cancelled", "closed_reason": "order_cancelled"})
+            rec._cpk_close_platform_activities(_("Orden cancelada."))
+            solicitud = rec.request_id
+            if solicitud and solicitud.state == "assigned" and solicitud.order_id == rec:
+                if reopen:
+                    solicitud._shrimp_reopen(reason or _("sin motivo"),
+                                             excluir=rec.copacker_partner_id)
+                elif not self.env.context.get("shrimp_copack_from_request"):
+                    solicitud.write({"state": "cancelled"})
+                    solicitud.offer_ids.filtered(lambda o: o.state == "sent").write(
+                        {"state": "rejected", "closed_reason": "request_cancelled"})
+            quien = dict(self._fields["cancelled_by"].selection).get(rec.cancelled_by, "")
+            texto = _("%(q)s canceló la orden de empaque %(o)s.%(m)s") % {
+                "q": quien, "o": rec.name,
+                "m": (" " + _("Motivo: %s") % reason) if reason else ""}
+            if reopen:
+                texto += " " + _("La solicitud vuelve a estar publicada para las demás plantas.")
+            destinos = rec.client_partner_id | rec.copacker_partner_id
+            if by == "client":
+                destinos = rec.copacker_partner_id
+            elif by == "copacker":
+                destinos = rec.client_partner_id | rec.copacker_partner_id
+            rec._cpk_notify(destinos, _("Orden %s cancelada") % rec.name, texto)
+        return True
+
+    def action_request_return(self, reason, returned_lb=0.0, notes=None, actor=None):
+        """D-34: la planta, con el camarón del cliente en su planta, propone
+        cancelar devolviéndolo. Queda un acta de devolución que el cliente firma
+        (o rechaza). Firmada, la orden se cancela y la solicitud se reabre."""
+        self.ensure_one()
+        return self.env["shrimp.copack.cancellation"]._shrimp_request(
+            self, "return", reason, actor=actor, returned_lb=returned_lb, notes=notes)
+
+    def action_request_platform_cancel(self, reason, actor=None):
+        """D-34: la planta pide a la plataforma que apruebe la cancelación."""
+        self.ensure_one()
+        return self.env["shrimp.copack.cancellation"]._shrimp_request(
+            self, "platform", reason, actor=actor)
 
     # ------------------------------------------------------------------
     # Empaque propio (la empresa empaca su camarón en su propia planta)

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Retraso de entrega y strikes (19.0.1.26.0):
+       * fija desde qué día cuentan los atrasos para strikes y cancelación
+         (las compras viejas no reciben una tanda de strikes);
+       * crea UNA VEZ los borradores de las versiones nuevas del Contrato de
+         uso (sección general), de los Términos y de los anexos de perfil que
+         hablan de entregas, copiando el texto vigente y agregando las
+         secciones nuevas. No publica nada: la administración los revisa y los
+         publica (Mayor / Menor) desde Documentos legales.
+       Ver models/shrimp_delay_policy.py. -->
+  <function model="shrimp.delay.policy" name="_shrimp_create_policy_drafts"/>
+</odoo>

@@ -17,30 +17,62 @@
        Los usuarios internos nuevos NO lo tienen por defecto: hay que
        asignárselo (así un usuario de contabilidad no ve el marketplace).
        ================================================================= -->
+  <!-- =================================================================
+       19.0.1.24.0 — tres aplicaciones en el backoffice.
+
+       El backoffice ya no es una sola app: CamaronMarket (este módulo),
+       Verificador (shrimp_verification) y Copacking (shrimp_copacking). Cada
+       app tiene sus dos grupos, «Usuario» y «Administrador», que deciden QUÉ
+       APP SE VE y si aparecen sus menús de configuración.
+
+       El acceso a los DATOS sigue siendo el de siempre: Operador
+       (group_shrimp_user) y Administrador (group_shrimp_manager). Las tres
+       apps comparten modelos (la compra, el producto, el cobro…), así que el
+       acceso no se parte por app: cada rol de app implica el grupo de datos
+       que le corresponde. Esos dos grupos ya no se eligen en la ficha del
+       usuario (sin privilegio): llegan solos con el rol de cada app.
+       ================================================================= -->
   <record id="res_groups_privilege_shrimp" model="res.groups.privilege">
-    <field name="name">Camaronera (marketplace)</field>
+    <field name="name">CamaronMarket · Marketplace</field>
     <field name="sequence">60</field>
   </record>
 
   <record id="group_shrimp_user" model="res.groups">
-    <field name="name">Operador</field>
+    <field name="name">Operador (datos de la plataforma)</field>
     <field name="sequence">10</field>
-    <field name="privilege_id" ref="res_groups_privilege_shrimp"/>
+    <field name="privilege_id" eval="False"/>
     <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
-    <field name="comment">Opera el backoffice del marketplace: lee, crea y edita, sin borrar compras, cobros, verificaciones ni órdenes.</field>
+    <field name="comment">Acceso a los datos de la plataforma: lee, crea y edita, sin borrar compras, cobros, verificaciones ni órdenes. Lo da el rol «Usuario» de cualquiera de las tres apps.</field>
   </record>
 
   <record id="group_shrimp_manager" model="res.groups">
+    <field name="name">Administrador (datos de la plataforma)</field>
+    <field name="sequence">20</field>
+    <field name="privilege_id" eval="False"/>
+    <field name="implied_ids" eval="[(4, ref('group_shrimp_user'))]"/>
+    <field name="user_ids" eval="[(4, ref('base.user_root')), (4, ref('base.user_admin'))]"/>
+    <field name="comment">Control total de los datos de la plataforma, incluido el borrado. Lo da el rol «Administrador» de cualquiera de las tres apps.</field>
+  </record>
+
+  <!-- App «CamaronMarket» (marketplace): quién la ve en el selector de apps. -->
+  <record id="group_marketplace_user" model="res.groups">
+    <field name="name">Usuario</field>
+    <field name="sequence">10</field>
+    <field name="privilege_id" ref="res_groups_privilege_shrimp"/>
+    <field name="implied_ids" eval="[(4, ref('group_shrimp_user'))]"/>
+    <field name="comment">Ve la app CamaronMarket: aprobaciones, productos, compras, socios y empacadoras.</field>
+  </record>
+
+  <record id="group_marketplace_manager" model="res.groups">
     <field name="name">Administrador</field>
     <field name="sequence">20</field>
     <field name="privilege_id" ref="res_groups_privilege_shrimp"/>
-    <field name="implied_ids" eval="[(4, ref('group_shrimp_user'))]"/>
-    <field name="user_ids" eval="[(4, ref('base.user_root')), (4, ref('base.user_admin'))]"/>
-    <field name="comment">Control total del marketplace, incluido el borrado y la configuración.</field>
+    <field name="implied_ids" eval="[(4, ref('group_marketplace_user')), (4, ref('group_shrimp_manager'))]"/>
+    <field name="comment">Además: reportes, documentos legales y configuración del marketplace.</field>
   </record>
 
   <!-- Todo administrador del sistema es administrador del marketplace. -->
   <record id="base.group_system" model="res.groups">
-    <field name="implied_ids" eval="[(4, ref('group_shrimp_manager'))]"/>
+    <field name="implied_ids" eval="[(4, ref('group_shrimp_manager')), (4, ref('group_marketplace_manager'))]"/>
   </record>
 </odoo>

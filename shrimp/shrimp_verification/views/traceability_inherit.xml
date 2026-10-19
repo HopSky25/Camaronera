@@ -55,9 +55,12 @@
               <div class="mp-spec" t-if="ver.verification_mode == 'platform'">
                 <span class="mp-spec-ico"><i class="fa fa-user-o"/></span>
                 <div class="mp-spec-body">
-                  <div class="mp-spec-label">Técnico de campo</div>
+                  <div class="mp-spec-label">Técnico responsable</div>
                   <div class="mp-spec-value">
                     <t t-esc="ver.technician_partner_id.name or ver.verifier_partner_id.name"/>
+                  </div>
+                  <div t-if="ver.support_technician_ids" class="small text-soft">
+                    Apoyo: <t t-esc="', '.join(ver.support_technician_ids.mapped('name'))"/>
                   </div>
                 </div>
               </div>

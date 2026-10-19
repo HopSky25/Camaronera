@@ -35,17 +35,21 @@ class ShrimpProduct(models.Model):
              "cerraron: pendientes de veredicto o esperando la firma de las partes.",
     )
 
-    @api.depends("seller_role")
+    @api.depends("seller_role", "stage_id", "stage_id.code")
     def _compute_requires_verification(self):
+        Rule = self.env["shrimp.verification.rule"].sudo()
         for rec in self:
-            # Obligatoria solo en camarón adulto. En larvas se puede pedir, pero
-            # no se impone: el informe ademas es distinto (a un nauplio no se le
-            # mide metabisulfito, sabor ni talla comercial).
             # Varios perfiles: lo decide el ROL del lote, no el perfil con el
             # que navega su vendedor (antes, cambiar de perfil activo habría
             # recalculado todos sus lotes).
             es_adulto = rec.seller_role == "camaronera"
-            rec.requires_verification = es_adulto
+            # Obligatoria «en general» (sin mirar quién compra) según la matriz
+            # de verificación; sin regla, la lógica de siempre: camarón adulto.
+            # Lo que vale en una compra concreta lo dice
+            # _shrimp_verification_policy(comprador).
+            tipo = rec._shrimp_tipo()
+            rec.requires_verification = Rule._policy_for(
+                rec.seller_role, None, tipo) == "mandatory"
             rec.verification_scope = "adult" if es_adulto else "larvae"
 
     @api.depends(
@@ -72,9 +76,29 @@ class ShrimpProduct(models.Model):
             rec.reserved_qty = (rec.reserved_qty or 0.0) + pending
             rec.available_qty = max(0.0, (rec.available_qty or 0.0) - pending)
 
-    def _shrimp_requires_verification(self):
+    def _shrimp_verification_policy(self, buyer_partner=None, buyer_role=None):
+        """«none» / «optional» / «mandatory» para esta compra.
+
+        Punto ÚNICO de lectura de la matriz de verificación
+        (shrimp.verification.rule): lo usan la página de compra, la ficha, los
+        controladores, la API, la compra directa y la verificada, y la reserva
+        de cosecha. `buyer_role`: perfil con el que se compra (por defecto el
+        del contexto ``shrimp_buyer_role`` o el perfil activo del comprador).
+        Sin comprador, la política general del lote.
+        """
         self.ensure_one()
-        return bool(self.requires_verification)
+        role = buyer_role or self.env.context.get("shrimp_buyer_role")
+        if not role and buyer_partner:
+            role = buyer_partner.sudo()._shrimp_effective_type()
+        tipo = self._shrimp_tipo()
+        return self.env["shrimp.verification.rule"].sudo()._policy_for(
+            self._shrimp_seller_role(), role or None, tipo)
+
+    def _shrimp_requires_verification(self, buyer_partner=None, buyer_role=None):
+        self.ensure_one()
+        if not buyer_partner and not buyer_role and not self.env.context.get("shrimp_buyer_role"):
+            return bool(self.requires_verification)
+        return self._shrimp_verification_policy(buyer_partner, buyer_role) == "mandatory"
 
     # ------------------------------------------------------------------
     # Compra sujeta a verificación
@@ -123,6 +147,16 @@ class ShrimpProduct(models.Model):
         motivo = self.motivo_no_comprable(buyer_partner)
         if motivo:
             raise ValidationError(motivo)
+
+        # Matriz de verificación: si para esta pareja de perfiles la
+        # verificación «no aplica», no se abre (ni plataforma ni declarada), y
+        # con ella tampoco honorario, informe ni plazo de aceptación. Va en el
+        # modelo para que la cumplan el portal, la API y la reserva aunque el
+        # POST venga fabricado a mano.
+        if self._shrimp_verification_policy(buyer_partner) == "none":
+            raise ValidationError(_(
+                "Esta compra no lleva verificación en campo (no aplica entre "
+                "estos perfiles): cómprala directo."))
 
         if mode == "declared":
             # Sin verificadora de la plataforma: los controles de conflicto de

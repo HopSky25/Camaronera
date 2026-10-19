@@ -204,7 +204,17 @@
 }
 
 /* Etiquetas de filtros activos (removibles) */
-.s-active-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 12px; }
+/* Una sola línea compacta (tipo, etapa y demás filtros viven en el cajón):
+   si no caben, se desplaza en horizontal en lugar de crecer hacia abajo. */
+.s-active-tags {
+    display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; margin: 0 0 12px;
+    overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain; padding: 2px 2px;
+}
+.s-active-tags::-webkit-scrollbar { display: none; }
+.s-active-tags > * { flex: 0 0 auto; }
+.s-active-clear { white-space: nowrap; }
+.s-choice[hidden], .s-filter-sec[hidden] { display: none !important; }
 .s-active-tag {
     display: inline-flex; align-items: center; gap: 7px; max-width: 100%;
     padding: 5px 10px 5px 12px; border-radius: var(--shrimp-radius-pill);
@@ -264,7 +274,9 @@
 .s-drawer-foot .s-btn-primary { flex: 1.6 1 0; }
 .s-drawer-foot .s-btn-primary[aria-busy="true"] { opacity: .75; }
 .s-drawer-foot .s-btn-primary.is-zero { background: var(--shrimp-ink-soft); border-color: var(--shrimp-ink-soft); }
-html.s-drawer-lock, html.s-drawer-lock body { overflow: hidden !important; }
+/* Respaldo si no carga shrimp_scroll_lock.js (que pone html.shrimp-sl-ready y
+   bloquea él): solo el body; en <html> también subía la página arriba. */
+html.s-drawer-lock:not(.shrimp-sl-ready) body { overflow: hidden !important; }
 @media (max-width: 575.98px) {
     .s-drawer-panel { width: 100%; box-shadow: none; }
 }
@@ -1121,24 +1133,38 @@ header#top #top_menu .show > .dropdown-toggle::after { transform: rotate(180deg)
 /* Chips de estado (Requerido / Opcional / Múltiples) */
 .sf .badge.rounded-pill { border-radius: var(--shrimp-radius-pill) !important; padding: 6px 13px !important; font-weight: 700 !important; font-size: 11.5px !important; background: var(--shrimp-brand-soft) !important; color: var(--shrimp-brand) !important; border: 0 !important; }
 
-/* Inputs (ganan a los estilos inline con !important) */
+/* Inputs (ganan a los estilos inline con !important).
+   19.0.1.22.0: campo BLANCO con borde visible y hover (antes gris sin borde:
+   sobre las tarjetas grises del registro no se distinguía dónde escribir).
+   Colores en tokens --shrimp-input-* (shrimp_base.css) que el modo oscuro
+   redefine. */
 .sf .form-label { font-weight: 700 !important; font-size: 13px; color: var(--shrimp-ink); margin-bottom: 7px; }
 .sf .form-control, .sf .form-select, .sf textarea.form-control {
-    border: 1.5px solid transparent !important;
-    border-radius: 12px !important; padding: 12px 14px !important;
-    font-size: 14.5px; background-color: #f2f5f8 !important; box-shadow: none !important;
+    border: 1px solid var(--shrimp-input-border, #c3cdd9) !important;
+    border-radius: var(--shrimp-input-radius, 12px) !important; padding: 11px 14px !important;
+    font-size: 14.5px; color: var(--shrimp-input-ink, var(--shrimp-ink));
+    background-color: var(--shrimp-input-bg, #fff) !important; box-shadow: none !important;
     transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
 }
-.sf .form-control::placeholder { color: var(--shrimp-ink-faint); }
-.sf .form-control:hover:not(:focus), .sf .form-select:hover:not(:focus), .sf textarea.form-control:hover:not(:focus) { background-color: #eaeff4 !important; }
-.sf .form-control:focus, .sf .form-select:focus, .sf textarea.form-control:focus {
-    border-color: var(--shrimp-teal) !important; background-color: #fff !important;
-    box-shadow: 0 0 0 3px rgba(14,142,160,.16) !important;
+.sf .form-select { padding-right: 38px !important; }
+.sf .form-control::placeholder, .sf textarea.form-control::placeholder { color: var(--shrimp-input-placeholder, #66727f); opacity: 1; }
+.sf .form-control:hover:not(:focus):not(:disabled), .sf .form-select:hover:not(:focus):not(:disabled), .sf textarea.form-control:hover:not(:focus):not(:disabled) {
+    border-color: var(--shrimp-input-border-hover, #8796a6) !important; background-color: var(--shrimp-input-bg-hover, #fff) !important;
 }
+.sf .form-control:focus, .sf .form-select:focus, .sf textarea.form-control:focus {
+    border-color: var(--shrimp-input-focus, var(--shrimp-teal)) !important; background-color: var(--shrimp-input-bg, #fff) !important;
+    box-shadow: 0 0 0 3px var(--shrimp-input-ring, rgba(14,142,160,.18)) !important;
+}
+.sf .form-control:disabled, .sf .form-select:disabled, .sf textarea.form-control:disabled {
+    background-color: var(--shrimp-input-disabled-bg, #eef1f4) !important; color: var(--shrimp-input-disabled-ink, #7c8794);
+    border-color: var(--shrimp-input-disabled-border, #dde3e9) !important; cursor: not-allowed; opacity: 1;
+}
+.sf .form-control.is-invalid, .sf .form-select.is-invalid { border-color: var(--shrimp-danger, #c0392b) !important; }
+.sf .form-control.is-invalid:focus, .sf .form-select.is-invalid:focus { box-shadow: 0 0 0 3px rgba(192, 57, 43, .16) !important; }
 /* Placeholder de la galería "Sin fotos" en gris */
 .sf #np_main_placeholder { background: #eef1f4 !important; color: var(--shrimp-ink-faint); font-weight: 600; }
 .sf .form-control-sm, .sf .form-select-sm { padding: 8px 11px !important; font-size: 13.5px; border-radius: 10px !important; }
-.sf .form-text { color: var(--shrimp-ink-faint) !important; font-size: 12.5px; }
+.sf .form-text { color: var(--shrimp-help-ink, #5f6b78) !important; font-size: 12.5px; }
 
 /* Guía lateral */
 .sf .col-lg-4 ol { color: var(--shrimp-ink-soft); }
@@ -1367,29 +1393,38 @@ header#top #top_menu .show > .dropdown-toggle::after { transform: rotate(180deg)
 .sf-fields input[type="email"],
 .sf-fields input[type="password"],
 .sf-fields input[type="search"] {
-    border: 1.5px solid transparent !important;
-    border-radius: 12px !important;
-    background-color: #f2f5f8 !important;
+    border: 1px solid var(--shrimp-input-border, #c3cdd9) !important;
+    border-radius: var(--shrimp-input-radius, 12px) !important;
+    background-color: var(--shrimp-input-bg, #fff) !important;
     box-shadow: none !important;
     transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
 }
-.sf-fields .form-control::placeholder { color: var(--shrimp-ink-faint); }
-.sf-fields .form-control:hover:not(:focus),
-.sf-fields .form-select:hover:not(:focus),
-.sf-fields textarea.form-control:hover:not(:focus),
-.sf-fields input:hover:not(:focus) { background-color: #eaeff4 !important; }
+.sf-fields .form-control::placeholder { color: var(--shrimp-input-placeholder, #66727f); opacity: 1; }
+.sf-fields .form-control:hover:not(:focus):not(:disabled),
+.sf-fields .form-select:hover:not(:focus):not(:disabled),
+.sf-fields textarea.form-control:hover:not(:focus):not(:disabled),
+.sf-fields input:hover:not(:focus):not(:disabled) {
+    border-color: var(--shrimp-input-border-hover, #8796a6) !important;
+    background-color: var(--shrimp-input-bg-hover, #fff) !important;
+}
 .sf-fields .form-control:focus,
 .sf-fields .form-select:focus,
 .sf-fields textarea.form-control:focus,
 .sf-fields input:focus {
-    border-color: var(--shrimp-teal) !important;
-    background-color: #fff !important;
-    box-shadow: 0 0 0 3px rgba(14,142,160,.16) !important;
+    border-color: var(--shrimp-input-focus, var(--shrimp-teal)) !important;
+    background-color: var(--shrimp-input-bg, #fff) !important;
+    box-shadow: 0 0 0 3px var(--shrimp-input-ring, rgba(14,142,160,.18)) !important;
+}
+.sf-fields .form-control:disabled,
+.sf-fields .form-select:disabled {
+    background-color: var(--shrimp-input-disabled-bg, #eef1f4) !important;
+    border-color: var(--shrimp-input-disabled-border, #dde3e9) !important;
+    color: var(--shrimp-input-disabled-ink, #7c8794); cursor: not-allowed;
 }
 .sf-fields .form-label,
 .sf-fields label:not(.sv-verifier):not(.btn) { font-weight: 700; color: var(--shrimp-ink); }
 /* No pisar el input-group-text (ícono de búsqueda) */
-.sf-fields .input-group-text { background:#f2f5f8 !important; border:1.5px solid transparent !important; }
+.sf-fields .input-group-text { background: var(--shrimp-input-addon-bg, #eef2f6) !important; border: 1px solid var(--shrimp-input-border, #c3cdd9) !important; }
 
 /* ==========================================================================
    DISEÑO PLANO: sin sombras en todos los templates (marketplace y verificador)

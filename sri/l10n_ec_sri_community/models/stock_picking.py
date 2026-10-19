@@ -4,8 +4,8 @@ from odoo.exceptions import UserError
 class Picking(models.Model):
     _inherit='stock.picking'
     ec_sri_carrier_id=fields.Many2one('res.partner',string='Transportista SRI',check_company=True)
-    ec_sri_driver_id=fields.Many2one('ec.sri.driver',string='Transportista (maestro)',help='Fuente estructurada del transportista; si se define, tiene prioridad sobre el contacto transportista.')
-    ec_sri_vehicle_id=fields.Many2one('ec.sri.vehicle',string='Vehículo',help='Si se define, su placa tiene prioridad sobre el campo Placa.')
+    ec_sri_driver_id=fields.Many2one('ec.sri.driver',string='Transportista (maestro)',check_company=True,help='Fuente estructurada del transportista; si se define, tiene prioridad sobre el contacto transportista.')
+    ec_sri_vehicle_id=fields.Many2one('ec.sri.vehicle',string='Vehículo',check_company=True,help='Si se define, su placa tiene prioridad sobre el campo Placa.')
     ec_sri_plate=fields.Char('Placa')
     ec_sri_departure=fields.Char('Dirección partida')
     ec_sri_destination=fields.Char('Dirección destino')
@@ -20,7 +20,7 @@ class Picking(models.Model):
         doc=self.ec_sri_document_ids[:1]
         if not doc:
             if not self.partner_id or not self.ec_sri_start: raise UserError(_('Indique destinatario e inicio del transporte.'))
-            point=self.env['ec.sri.point'].search([('company_id','=',self.company_id.id),('document_type','=','06'),
+            point=self.env['ec.sri.point'].search([('company_id','=',self.company_id.id),('line_ids.document_type','=','06'),
                 ('environment','=',self.company_id.ec_sri_environment)],limit=1)
             doc=self.env['ec.sri.document'].create(dict(company_id=self.company_id.id,partner_id=self.partner_id.id,
                 picking_id=self.id,document_type='06',point_id=point.id,date=self.ec_sri_start))

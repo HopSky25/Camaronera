@@ -1,0 +1,269 @@
+<odoo>
+
+  <!-- ================================================================
+       ASISTENTE DE ALTA: PASO «INSTALACIONES» (19.0.1.22.0; 19.0.1.22.4)
+
+       Las instalaciones (shrimp.partner.facility) y sus piscinas o tanques
+       (shrimp.partner.pond) son de este módulo, así que el paso lo agrega
+       aquí al asistente común. Solo se ve si el perfil marcado tiene
+       instalaciones (data-step-roles): camaronera → finca; laboratorio →
+       laboratorio; naupliero → centro de producción. Empacadora y maquilador
+       declaran su planta en su bloque del paso «Perfil»; el verificador no
+       tiene instalaciones.
+
+       19.0.1.22.4: UNA tabla «Instalaciones» (con su tipo, sin separar por
+       perfil) y UNA tabla «Piscinas y tanques» (cada una apunta a su
+       instalación). «Agregar…» y «Editar» abren un modal (el mismo Dialog de
+       los certificados y del equipo de campo: foco atrapado, Esc, pantalla
+       completa en el móvil); en el móvil las tablas se ven como tarjetas.
+
+       Es opcional («Lo haré después»): lo mismo se gestiona luego en
+       /marketplace/my-facilities. Nombres que se envían (campos ocultos que
+       arma signup_facilities.js; los valida y crea
+       ShrimpRegistryFacilities._signup_facilities):
+         fac_<i>_type (farm | laboratory | hatchery), fac_<i>_name, _code,
+         _state_id, _city, _address, _lat, _lng
+         pond_<i>_<j>_name, _code, _type, _mode (dimensions | volume),
+         _length, _width, _depth, _volume   (i = índice de su instalación)
+       Contexto: signup_facility_roles (perfiles con instalaciones),
+       signup_fac_kinds_json (tipos de instalación y sus tipos de piscina) y
+       signup_fac_prefill_json (al volver con un error del servidor).
+       ================================================================ -->
+  <template id="signup_facilities_step" inherit_id="shrimp_user_registry.registry_form"
+            name="Registro - paso de instalaciones">
+    <xpath expr="//li[@data-step-key='docs']" position="before">
+      <li t-if="signup_facility_roles" data-step="fac" data-step-key="facilities"><span class="shrimp-step-num">4</span><span class="shrimp-step-txt">Instalaciones</span></li>
+    </xpath>
+    <xpath expr="//section[@data-step-key='docs']" position="before">
+      <section t-if="signup_facility_roles" class="card mb-4 shrimp-step" data-step="fac" data-step-key="facilities"
+               t-att-data-step-roles="' '.join(signup_facility_roles)" id="shrimp_reg_step_facilities">
+        <div class="card-body p-4">
+          <div class="s-eyebrow mb-1 shrimp-step-eyebrow">Paso 4</div>
+          <h2 class="h5 mb-1">Tus instalaciones</h2>
+          <p class="small text-muted mb-3">Registra tus fincas, laboratorios o centros de producción y sus piscinas o tanques.
+            Es opcional: también puedes hacerlo después en <a href="/marketplace/my-facilities" target="_blank" rel="noopener">«Mis instalaciones»</a>.
+            Las piscinas que registres aquí se pueden elegir como origen al publicar un producto.</p>
+          <label class="shrimp-later form-check" for="shrimpFacLater">
+            <input class="form-check-input" type="checkbox" id="shrimpFacLater" name="facilities_later" value="1"
+                   t-att-checked="'checked' if (values or {}).get('facilities_later') else None"/>
+            <span><b>Lo haré después</b> <span class="shrimp-optional">— no registro instalaciones ahora</span></span>
+          </label>
+
+          <div id="shrimpFacilities" t-att-data-prefill="signup_fac_prefill_json or '[]'"
+               t-att-data-kinds="signup_fac_kinds_json or '[]'" data-max-fac="20" data-max-pond="60">
+            <!-- Instalaciones -->
+            <div class="shrimp-fac-block" id="facBlock">
+              <div class="shrimp-fac-bhead">
+                <span class="shrimp-prof-sec-ico" aria-hidden="true"><i class="fa fa-map-marker"/></span>
+                <div class="shrimp-prof-sec-htxt">
+                  <h3 class="shrimp-prof-sec-title" id="facTitle">Instalaciones <span class="shrimp-fac-count" id="facCount" aria-live="polite"></span></h3>
+                  <p class="shrimp-prof-sec-desc" id="facDesc">Cada finca, laboratorio o centro de producción con su ubicación.</p>
+                </div>
+              </div>
+              <div class="shrimp-fac-bbody">
+                <p class="shrimp-cert-empty" id="facEmpty">Aún no agregas instalaciones.</p>
+                <div class="shrimp-tech-wrap" id="facWrap" hidden="hidden">
+                  <table class="shrimp-tech-table shrimp-fac-table" aria-labelledby="facTitle">
+                    <thead>
+                      <tr><th scope="col">Nombre</th><th scope="col">Tipo</th><th scope="col">Ubicación</th>
+                        <th scope="col" class="shrimp-fac-num-h">N.º piscinas/tanques</th>
+                        <th scope="col" class="shrimp-tech-acts-h">Acciones</th></tr>
+                    </thead>
+                    <tbody id="facBody"></tbody>
+                  </table>
+                </div>
+                <button type="button" class="shrimp-cert-addrow" id="facAdd">
+                  <i class="fa fa-plus" aria-hidden="true"/> Agregar instalación <span class="shrimp-cert-addhint" id="facAddHint">opcional</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Piscinas y tanques -->
+            <div class="shrimp-fac-block" id="pondBlock">
+              <div class="shrimp-fac-bhead">
+                <span class="shrimp-prof-sec-ico" aria-hidden="true"><i class="fa fa-tint"/></span>
+                <div class="shrimp-prof-sec-htxt">
+                  <h3 class="shrimp-prof-sec-title" id="pondTitle">Piscinas y tanques <span class="shrimp-fac-count" id="pondCount" aria-live="polite"></span></h3>
+                  <p class="shrimp-prof-sec-desc">Cada una en su instalación, con sus medidas (área en hectáreas o volumen en m³).</p>
+                </div>
+              </div>
+              <div class="shrimp-fac-bbody">
+                <p class="shrimp-fac-need" id="pondNeed"><i class="fa fa-info-circle" aria-hidden="true"/>
+                  Para agregar una piscina primero debes agregar una instalación.</p>
+                <p class="shrimp-cert-empty" id="pondEmpty" hidden="hidden">Aún no agregas piscinas ni tanques.</p>
+                <div class="shrimp-tech-wrap" id="pondWrap" hidden="hidden">
+                  <table class="shrimp-tech-table shrimp-pond-table" aria-labelledby="pondTitle">
+                    <thead>
+                      <tr><th scope="col">Nombre</th><th scope="col">Instalación</th><th scope="col">Tipo</th>
+                        <th scope="col">Medidas</th>
+                        <th scope="col" class="shrimp-tech-acts-h">Acciones</th></tr>
+                    </thead>
+                    <tbody id="pondBody"></tbody>
+                  </table>
+                </div>
+                <button type="button" class="shrimp-cert-addrow" id="pondAdd" disabled="disabled" aria-describedby="pondNeed">
+                  <i class="fa fa-plus" aria-hidden="true"/> Agregar piscina/tanque <span class="shrimp-cert-addhint" id="pondAddHint">opcional</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Lo que se envía (campos ocultos fac_* / pond_*). -->
+            <div id="shrimpFacData" class="d-none"></div>
+            <p class="visually-hidden" id="facLive" aria-live="polite"></p>
+            <noscript><p class="small text-muted mb-0 mt-2">Activa JavaScript para agregar instalaciones; también puedes
+              hacerlo después en «Mis instalaciones».</p></noscript>
+          </div>
+
+          <!-- Modal de la instalación: sus campos NO tienen name (se copian a
+               la fila al guardar). Al iniciar se mueve fuera del <form>. -->
+          <div class="modal fade shrimp-cmodal shrimp-tmodal shrimp-fmodal" id="shrimpFacModal" tabindex="-1" role="dialog" aria-modal="true"
+               aria-labelledby="shrimpFmTitle" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h3 class="modal-title" id="shrimpFmTitle"><i class="fa fa-map-marker" aria-hidden="true"/> <span>Agregar instalación</span></h3>
+                  <button type="button" class="shrimp-cm-x" data-cm-close="1" aria-label="Cerrar"><i class="fa fa-times" aria-hidden="true"/></button>
+                </div>
+                <div class="modal-body">
+                  <div class="row g-3">
+                    <div class="col-12">
+                      <label class="form-label" for="shrimpFmType">Tipo de instalación <span class="text-danger">*</span></label>
+                      <select class="form-select" id="shrimpFmType" aria-describedby="shrimpFmTypeHelp shrimpFmTypeErr"></select>
+                      <div class="form-text" id="shrimpFmTypeHelp">Según los perfiles que elegiste en el paso «Perfil».</div>
+                      <div class="shrimp-cm-err" id="shrimpFmTypeErr" hidden="hidden" role="alert"></div>
+                    </div>
+                    <div class="col-12 col-sm-8">
+                      <label class="form-label" for="shrimpFmName">Nombre <span class="text-danger">*</span></label>
+                      <input class="form-control" id="shrimpFmName" type="text" maxlength="120" autocomplete="off"
+                             placeholder="Ej. Finca El Porvenir" aria-describedby="shrimpFmNameErr"/>
+                      <div class="shrimp-cm-err" id="shrimpFmNameErr" hidden="hidden" role="alert"></div>
+                    </div>
+                    <div class="col-12 col-sm-4">
+                      <label class="form-label" for="shrimpFmCode">Código <span class="shrimp-optional">(opcional)</span></label>
+                      <input class="form-control" id="shrimpFmCode" type="text" maxlength="40" autocomplete="off"
+                             placeholder="Ej. F-01" aria-describedby="shrimpFmCodeErr"/>
+                      <div class="shrimp-cm-err" id="shrimpFmCodeErr" hidden="hidden" role="alert"></div>
+                    </div>
+                    <div class="col-12 col-sm-6">
+                      <label class="form-label" for="shrimpFmState">Provincia</label>
+                      <select class="form-select" id="shrimpFmState">
+                        <option value="">Elige…</option>
+                        <t t-foreach="ec_states or []" t-as="st">
+                          <option t-att-value="st.id"><t t-esc="st.name"/></option>
+                        </t>
+                      </select>
+                    </div>
+                    <div class="col-12 col-sm-6">
+                      <label class="form-label" for="shrimpFmCity">Cantón</label>
+                      <input class="form-control" id="shrimpFmCity" type="text" maxlength="80" autocomplete="off" placeholder="Ej. Machala"/>
+                    </div>
+                    <div class="col-12">
+                      <label class="form-label" for="shrimpFmAddress">Dirección o sector</label>
+                      <input class="form-control" id="shrimpFmAddress" type="text" maxlength="200" autocomplete="off" placeholder="Ej. Sitio Puerto Jelí"/>
+                    </div>
+                    <div class="col-6">
+                      <label class="form-label" for="shrimpFmLat">Latitud <span class="shrimp-optional">(opcional)</span></label>
+                      <input class="form-control" id="shrimpFmLat" type="text" inputmode="decimal" autocomplete="off"
+                             placeholder="-3.2581" aria-describedby="shrimpFmLatErr"/>
+                      <div class="shrimp-cm-err" id="shrimpFmLatErr" hidden="hidden" role="alert"></div>
+                    </div>
+                    <div class="col-6">
+                      <label class="form-label" for="shrimpFmLng">Longitud <span class="shrimp-optional">(opcional)</span></label>
+                      <input class="form-control" id="shrimpFmLng" type="text" inputmode="decimal" autocomplete="off"
+                             placeholder="-79.9554" aria-describedby="shrimpFmLngErr"/>
+                      <div class="shrimp-cm-err" id="shrimpFmLngErr" hidden="hidden" role="alert"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-outline-secondary" data-cm-close="1">Cancelar</button>
+                  <button type="button" class="btn btn-primary" id="shrimpFmSave"><i class="fa fa-check me-1" aria-hidden="true"/>Guardar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal de la piscina o tanque. -->
+          <div class="modal fade shrimp-cmodal shrimp-tmodal shrimp-pmodal" id="shrimpPondModal" tabindex="-1" role="dialog" aria-modal="true"
+               aria-labelledby="shrimpPmTitle" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h3 class="modal-title" id="shrimpPmTitle"><i class="fa fa-tint" aria-hidden="true"/> <span>Agregar piscina o tanque</span></h3>
+                  <button type="button" class="shrimp-cm-x" data-cm-close="1" aria-label="Cerrar"><i class="fa fa-times" aria-hidden="true"/></button>
+                </div>
+                <div class="modal-body">
+                  <div class="row g-3">
+                    <div class="col-12">
+                      <label class="form-label" for="shrimpPmFac">Instalación <span class="text-danger">*</span></label>
+                      <select class="form-select" id="shrimpPmFac" aria-describedby="shrimpPmFacErr"></select>
+                      <div class="shrimp-cm-err" id="shrimpPmFacErr" hidden="hidden" role="alert"></div>
+                    </div>
+                    <div class="col-12 col-sm-8">
+                      <label class="form-label" for="shrimpPmName">Nombre <span class="text-danger">*</span></label>
+                      <input class="form-control" id="shrimpPmName" type="text" maxlength="80" autocomplete="off"
+                             placeholder="Ej. P1" aria-describedby="shrimpPmNameErr"/>
+                      <div class="shrimp-cm-err" id="shrimpPmNameErr" hidden="hidden" role="alert"></div>
+                    </div>
+                    <div class="col-12 col-sm-4">
+                      <label class="form-label" for="shrimpPmCode">Código <span class="shrimp-optional">(opcional)</span></label>
+                      <input class="form-control" id="shrimpPmCode" type="text" maxlength="40" autocomplete="off" aria-describedby="shrimpPmCodeErr"/>
+                      <div class="shrimp-cm-err" id="shrimpPmCodeErr" hidden="hidden" role="alert"></div>
+                    </div>
+                    <div class="col-12">
+                      <label class="form-label" for="shrimpPmType">Tipo</label>
+                      <select class="form-select" id="shrimpPmType" aria-describedby="shrimpPmTypeHelp"></select>
+                      <div class="form-text" id="shrimpPmTypeHelp">Los tipos dependen de la instalación elegida.</div>
+                    </div>
+                    <div class="col-12">
+                      <fieldset class="shrimp-pm-mode">
+                        <legend class="form-label">Capacidad</legend>
+                        <div class="shrimp-seg">
+                          <label class="shrimp-seg-opt"><input type="radio" name="shrimpPmMode" id="shrimpPmModeDim" value="dimensions" checked="checked"/>
+                            <span>Por dimensiones</span></label>
+                          <label class="shrimp-seg-opt"><input type="radio" name="shrimpPmMode" id="shrimpPmModeVol" value="volume"/>
+                            <span>Volumen directo</span></label>
+                        </div>
+                      </fieldset>
+                    </div>
+                    <div class="col-4 shrimp-pm-dim">
+                      <label class="form-label" for="shrimpPmLength">Largo (m)</label>
+                      <input class="form-control" id="shrimpPmLength" type="text" inputmode="decimal" autocomplete="off" aria-describedby="shrimpPmDimErr"/>
+                    </div>
+                    <div class="col-4 shrimp-pm-dim">
+                      <label class="form-label" for="shrimpPmWidth">Ancho (m)</label>
+                      <input class="form-control" id="shrimpPmWidth" type="text" inputmode="decimal" autocomplete="off" aria-describedby="shrimpPmDimErr"/>
+                    </div>
+                    <div class="col-4 shrimp-pm-dim">
+                      <label class="form-label" for="shrimpPmDepth">Prof. (m)</label>
+                      <input class="form-control" id="shrimpPmDepth" type="text" inputmode="decimal" autocomplete="off" aria-describedby="shrimpPmDimErr"/>
+                    </div>
+                    <div class="col-12 shrimp-pm-dim shrimp-pm-errrow">
+                      <div class="shrimp-cm-err" id="shrimpPmDimErr" hidden="hidden" role="alert"></div>
+                    </div>
+                    <div class="col-12 col-sm-6 shrimp-pm-vol" hidden="hidden">
+                      <label class="form-label" for="shrimpPmVolume">Volumen (m³)</label>
+                      <input class="form-control" id="shrimpPmVolume" type="text" inputmode="decimal" autocomplete="off" aria-describedby="shrimpPmVolumeErr"/>
+                      <div class="shrimp-cm-err" id="shrimpPmVolumeErr" hidden="hidden" role="alert"></div>
+                    </div>
+                    <div class="col-12">
+                      <div class="shrimp-pm-calc" id="shrimpPmCalc" aria-live="polite"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-outline-secondary" data-cm-close="1">Cancelar</button>
+                  <button type="button" class="btn btn-primary" id="shrimpPmSave"><i class="fa fa-check me-1" aria-hidden="true"/>Guardar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </xpath>
+    <xpath expr="//script[contains(@src, 'signup_wizard.js')]" position="after">
+      <script t-if="signup_facility_roles" type="text/javascript" defer="defer" src="/shrimp_marketplace/static/src/js/signup_facilities.js"/>
+    </xpath>
+  </template>
+
+</odoo>

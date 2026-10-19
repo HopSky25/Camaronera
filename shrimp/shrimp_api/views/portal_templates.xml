@@ -15,6 +15,28 @@
         </xpath>
     </template>
 
+    <!-- D-44/D-46: avisos de integraciones (claves por caducar o caducadas,
+         webhooks desactivados por fallos). -->
+    <template id="portal_api_notices" name="Avisos de integraciones (API)">
+        <t t-foreach="api_notices or []" t-as="n">
+            <div t-attf-class="alert alert-#{n['level']} d-flex justify-content-between align-items-center shrimp-api-notice">
+                <span t-esc="n['text']"/>
+                <a t-if="page_name not in ('api_keys', 'api_webhooks')" t-att-href="n['url']" class="btn btn-sm btn-light ms-3 text-nowrap">Revisar</a>
+            </div>
+        </t>
+    </template>
+
+    <template id="portal_my_home_api_notices" inherit_id="portal.portal_my_home" name="Avisos de integraciones (API) en Mi cuenta">
+        <xpath expr="//div[hasclass('o_portal_my_home')]" position="before">
+            <t t-if="request.env.user.share">
+                <t t-set="api_notices" t-value="request.env['shrimp.api.key'].sudo()._shrimp_portal_api_notices(request.env.user)"/>
+                <div t-if="api_notices" class="container mt-3" id="shrimp_api_home_notices">
+                    <t t-call="shrimp_api.portal_api_notices"/>
+                </div>
+            </t>
+        </xpath>
+    </template>
+
     <template id="portal_api_nav" name="Navegación de integraciones">
         <ul class="nav nav-tabs mb-4">
             <li class="nav-item">
@@ -35,10 +57,15 @@
             <div class="container py-3">
                 <h3 class="mb-3">Integraciones (API)</h3>
                 <t t-call="shrimp_api.portal_api_nav"/>
+                <t t-call="shrimp_api.portal_api_notices"/>
+                <div t-if="message" class="alert alert-info" t-esc="message"/>
 
                 <div t-if="not allowed" class="alert alert-warning">
                     Las claves de la API externa son para cuentas de socios del portal.
                     Las integraciones internas usan la API JSON-2 de Odoo.
+                </div>
+                <div t-if="allowed and account_block" class="alert alert-warning" id="api_account_block">
+                    <t t-esc="account_block"/>
                 </div>
                 <div t-if="error" class="alert alert-danger" t-esc="error"/>
 
@@ -65,11 +92,20 @@
                                     <td><t t-esc="k.name"/> <span t-if="k.is_app_key" class="badge text-bg-info">App</span> <span t-if="k.supervisor_user_id" class="badge text-bg-warning" t-att-title="'Solo lectura, emitida por el supervisor ' + (k.supervisor_user_id.name or '')">Supervisor (solo lectura)</span></td>
                                     <td><code t-esc="k.display_key"/></td>
                                     <td><small t-esc="', '.join(k.scope_ids.mapped('code'))"/></td>
-                                    <td><span t-field="k.expires_at" t-options="{'widget': 'date'}"/></td>
+                                    <td>
+                                        <span t-field="k.expires_at" t-options="{'widget': 'date'}"/>
+                                        <span t-if="k._expires_soon()" class="badge text-bg-warning ms-1">Caduca pronto</span>
+                                    </td>
                                     <td><span t-field="k.last_used"/></td>
-                                    <td><span t-attf-class="badge #{'text-bg-success' if k.status == 'active' else 'text-bg-secondary'}" t-esc="dict(k._fields['status'].selection).get(k.status)"/></td>
-                                    <td class="text-end">
-                                        <form t-if="k.status == 'active'" t-attf-action="/my/api-keys/#{k.uuid_ref}/revoke" method="post"
+                                    <td><span t-attf-class="badge #{'text-bg-success' if k.status == 'active' else ('text-bg-danger' if k.status == 'expired' else 'text-bg-secondary')}" t-esc="dict(k._fields['status'].selection).get(k.status)"/></td>
+                                    <td class="text-end text-nowrap">
+                                        <form t-if="k._can_renew()" class="d-inline"
+                                              t-attf-action="/my/api-keys/#{k.uuid_ref}/renew" method="post"
+                                              t-att-title="'Alarga esta misma clave %s días desde hoy (no cambia el secreto)' % lifetime_days">
+                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                            <button t-attf-class="btn btn-sm #{'btn-primary' if (k.status == 'expired' or k._expires_soon()) else 'btn-outline-secondary'}">Renovar</button>
+                                        </form>
+                                        <form t-if="k.status == 'active'" class="d-inline" t-attf-action="/my/api-keys/#{k.uuid_ref}/revoke" method="post"
                                               onsubmit="return confirm('La integración que use esta clave dejará de funcionar. ¿Revocar?');">
                                             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                             <button class="btn btn-sm btn-outline-danger">Revocar</button>
@@ -117,7 +153,7 @@
                     </div>
                 </div>
 
-                <div class="card" t-if="allowed">
+                <div class="card" t-if="allowed and not account_block">
                     <div class="card-header"><strong>Crear una clave</strong></div>
                     <div class="card-body">
                         <form action="/my/api-keys/new" method="post">
@@ -131,7 +167,7 @@
                                     <label class="form-label">Caducidad</label>
                                     <select name="expiry_days" class="form-select">
                                         <t t-foreach="expiry_choices" t-as="c">
-                                            <option t-att-value="c[0]" t-att-selected="c[0] == 90 and 'selected'"><t t-esc="c[1]"/></option>
+                                            <option t-att-value="c[0]" t-att-selected="c[0] == lifetime_days and 'selected'"><t t-esc="c[1]"/></option>
                                         </t>
                                     </select>
                                 </div>
@@ -173,6 +209,7 @@
             <div class="container py-3">
                 <h3 class="mb-3">Integraciones (API)</h3>
                 <t t-call="shrimp_api.portal_api_nav"/>
+                <t t-call="shrimp_api.portal_api_notices"/>
                 <div t-if="error" class="alert alert-danger" t-esc="error"/>
                 <div t-if="message" class="alert alert-info" t-esc="message"/>
                 <div t-if="secret" class="alert alert-success">
@@ -197,9 +234,12 @@
                                         <span t-if="s.active" class="badge text-bg-success">Activa</span>
                                         <span t-else="" class="badge text-bg-secondary">Inactiva</span>
                                         <small t-if="s.disabled_reason" class="d-block text-muted" t-esc="s.disabled_reason"/>
+                                        <t t-set="s_held" t-value="s._held_count() if not s.active else 0"/>
+                                        <small t-if="s_held" class="d-block text-muted"><t t-esc="s_held"/> evento(s) retenido(s): se reenvían al reactivarla (los de los últimos <t t-esc="resend_days"/> días).</small>
                                     </td>
                                     <td><small t-esc="s.last_error or ''"/></td>
                                     <td class="text-end text-nowrap">
+                                        <a class="btn btn-sm btn-outline-secondary" t-attf-href="/my/webhooks/#{s.uuid_ref}">Entregas</a>
                                         <form class="d-inline" t-attf-action="/my/webhooks/#{s.uuid_ref}/ping" method="post">
                                             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                             <button class="btn btn-sm btn-outline-secondary">Ping</button>
@@ -220,6 +260,7 @@
                     </div>
                 </div>
 
+                <div t-if="manage_block" class="alert alert-warning" id="api_manage_block" t-esc="manage_block"/>
                 <div class="card" t-if="allowed">
                     <div class="card-header"><strong>Nueva suscripción</strong></div>
                     <div class="card-body">
@@ -253,6 +294,58 @@
                             </div>
                             <button class="btn btn-primary mt-3">Crear suscripción</button>
                         </form>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <!-- D-44: historial de entregas de una suscripción con «Reenviar». -->
+    <template id="portal_webhook_deliveries" name="Entregas de un webhook">
+        <t t-call="portal.portal_layout">
+            <t t-set="breadcrumbs_searchbar" t-value="False"/>
+            <div class="container py-3">
+                <h3 class="mb-3">Integraciones (API)</h3>
+                <t t-call="shrimp_api.portal_api_nav"/>
+                <p><a href="/my/webhooks">&#8592; Webhooks</a></p>
+                <h4>Entregas de «<t t-esc="sub.name"/>»</h4>
+                <p class="text-muted mb-2"><small t-esc="sub.url"/></p>
+                <div t-if="error" class="alert alert-danger" t-esc="error"/>
+                <div t-if="message" class="alert alert-info" t-esc="message"/>
+                <div t-if="not sub.active" class="alert alert-warning">
+                    La suscripción está inactiva<t t-if="sub.disabled_reason">: <t t-esc="sub.disabled_reason"/></t>.
+                    Al reactivarla se reenvían solos los eventos no entregados de los últimos
+                    <t t-esc="resend_days"/> días.
+                </div>
+                <p class="text-muted"><small>Cada entrega se intenta hasta 8 veces con espera creciente
+                    (1 min a 24 h); después queda «Fallida». «Reenviar» la vuelve a poner en cola con el mismo
+                    identificador de evento (<code>X-Trazul-Delivery</code>), para que tu sistema pueda descartar duplicados.
+                    Se muestran las <t t-esc="len(deliveries)"/> más recientes.</small></p>
+                <div class="card">
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0 align-middle">
+                            <thead><tr><th>Evento</th><th>Ocurrió</th><th>Estado</th><th>Intentos</th><th>Último error</th><th/></tr></thead>
+                            <tbody>
+                                <tr t-if="not deliveries"><td colspan="6" class="text-muted">Sin entregas.</td></tr>
+                                <tr t-foreach="deliveries" t-as="d">
+                                    <td><code t-esc="d.event_type"/></td>
+                                    <td><span t-field="d.occurred_at"/></td>
+                                    <td>
+                                        <span t-attf-class="badge #{'text-bg-success' if d.state == 'success' else ('text-bg-danger' if d.state == 'dead' else ('text-bg-warning' if d.state in ('retrying', 'held') else 'text-bg-secondary'))}"
+                                              t-esc="dict(d._fields['state'].selection).get(d.state)"/>
+                                        <small t-if="d.resend_count" class="d-block text-muted">Reenviada <t t-esc="d.resend_count"/> vez/veces</small>
+                                    </td>
+                                    <td t-esc="d.attempts"/>
+                                    <td><small t-esc="d.last_error or ''"/></td>
+                                    <td class="text-end">
+                                        <form t-if="sub.active and d.state in resendable" t-attf-action="/my/webhooks/#{sub.uuid_ref}/deliveries/#{d.uuid_ref}/resend" method="post">
+                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                            <button class="btn btn-sm btn-outline-primary">Reenviar</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>

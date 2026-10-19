@@ -1,0 +1,398 @@
+<odoo>
+
+  <!-- ===================== Documento legal (versión vigente o anterior) ===================== -->
+  <template id="pagina_documento_legal" name="Documento legal">
+    <t t-call="website.layout">
+      <div class="container py-5 shrimp-legal-doc" style="max-width:900px;">
+        <div t-if="not is_current" class="alert alert-warning">
+          Estás viendo una versión anterior (<t t-esc="version.name"/>), sustituida el
+          <t t-esc="version.superseded_date" t-options="{'widget': 'date'}"/>.
+          <a t-att-href="doc.public_url">Ver la versión vigente</a>.
+        </div>
+        <h1><t t-esc="doc.display_label()"/></h1>
+        <p class="text-muted">
+          Versión <t t-esc="version.name"/> · publicada el <t t-esc="version.published_date" t-options="{'widget': 'date'}"/>
+          · CamaronMarket · <a t-att-href="doc.history_url()">Historial de versiones</a>
+        </p>
+        <div class="shrimp-legal-content" t-out="version.content"/>
+        <t t-if="doc.doc_type == 'contract' and annexes">
+          <h4 class="mt-4">Anexos por perfil</h4>
+          <ul>
+            <li t-foreach="annexes" t-as="a"><a t-att-href="a.public_url"><t t-esc="a.display_label()"/></a></li>
+          </ul>
+        </t>
+        <p class="text-muted small mt-4 mb-1">Datos personales: <t t-call="shrimp_user_registry.dpo_contacto"/>.
+          Tus derechos, en <a href="/my/data">Mi cuenta → Mis datos</a>.</p>
+        <p class="text-muted small">Huella SHA-256 del texto: <code t-esc="version.content_hash"/></p>
+      </div>
+    </t>
+  </template>
+
+  <template id="pagina_historial_legal" name="Historial de un documento legal">
+    <t t-call="website.layout">
+      <div class="container py-5" style="max-width:900px;">
+        <h1>Historial: <t t-esc="doc.display_label()"/></h1>
+        <p class="text-muted">Todas las versiones publicadas, de la más reciente a la más antigua.</p>
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead><tr><th>Versión</th><th>Publicada</th><th>Sustituida</th><th>Tipo de cambio</th><th>Resumen</th><th></th></tr></thead>
+            <tbody>
+              <tr t-foreach="versions" t-as="v">
+                <td><b t-esc="v.name"/> <span t-if="v.state == 'published'" class="badge text-bg-success">Vigente</span></td>
+                <td><t t-esc="v.published_date" t-options="{'widget': 'date'}"/></td>
+                <td><t t-if="v.superseded_date" t-esc="v.superseded_date" t-options="{'widget': 'date'}"/></td>
+                <td><t t-if="v.change_type == 'major'">Mayor</t><t t-else="">Menor</t></td>
+                <td class="small" style="white-space:pre-line;"><t t-esc="v.change_summary"/></td>
+                <td><a t-att-href="'%s/%s' % (doc.history_url(), v.name)">Ver</a></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <a t-att-href="doc.public_url">Volver a la versión vigente</a>
+      </div>
+    </t>
+  </template>
+
+  <!-- ===================== Mis datos + historial de aceptaciones ===================== -->
+  <template id="pagina_mis_datos" name="Mis datos personales">
+    <t t-call="website.layout">
+      <div class="container py-5" style="max-width:900px;">
+        <h1>Mis datos</h1>
+        <p class="text-muted">Tus derechos sobre tus datos personales (LOPDP). Respondemos en un máximo de 15 días. Para cualquier duda, <t t-call="shrimp_user_registry.dpo_contacto"/>.</p>
+        <div t-if="enviado" class="alert alert-success">Recibimos tu solicitud. Te responderemos al correo de tu cuenta.</div>
+        <div t-if="limitado" class="alert alert-warning">Ya enviaste varias solicitudes en la última hora. Espera un rato antes de enviar otra.</div>
+        <div class="card mb-4"><div class="card-body">
+          <p class="mb-1"><b>Cuenta:</b> <t t-esc="socio.name"/> · <t t-esc="socio.email"/></p>
+          <p class="mb-0">Lee la <a href="/privacy">Política de privacidad</a>, los <a href="/legal/terms">Términos y condiciones</a>,
+            la <a href="/legal/cookies">Política de cookies</a> y el <a href="/legal/contract">Contrato de uso</a>.</p>
+          <p t-if="pending and (pending['major'] or pending['minor'])" class="mb-0 mt-2">
+            <a href="/my/legal/accept?redirect=/my/data" class="btn btn-sm btn-outline-primary">Tienes documentos por aceptar</a>
+          </p>
+        </div></div>
+
+        <h4>Contratos y políticas aceptados</h4>
+        <p class="text-muted small">Cada aceptación tiene su comprobante en PDF con el texto exacto, la fecha, la IP y la huella SHA-256.</p>
+        <div class="table-responsive mb-4" id="shrimpMisAceptaciones">
+          <table class="table table-sm align-middle">
+            <thead><tr><th>Documento</th><th>Versión</th><th>Perfil</th><th>Fecha</th><th>Aceptó</th><th>Canal</th><th>Comprobante</th></tr></thead>
+            <tbody>
+              <tr t-foreach="acceptances" t-as="a">
+                <td><t t-esc="a.document_name"/></td>
+                <td><t t-esc="a.version_code"/></td>
+                <td><t t-if="a.role" t-esc="a.document_id.display_label().split(': ')[-1]"/></td>
+                <td><t t-esc="a.accepted_at" t-options="{'widget': 'datetime'}"/></td>
+                <td><t t-esc="a.user_name"/></td>
+                <td><span t-field="a.channel"/></td>
+                <td>
+                  <a t-if="a.receipt_state != 'migrated'" t-att-href="'/my/legal/receipt/%s?download=1' % a.uuid_ref">Descargar</a>
+                  <span t-else="" class="text-muted small">Migrado</span>
+                </td>
+              </tr>
+              <tr t-if="not acceptances"><td colspan="7" class="text-muted">Sin aceptaciones registradas.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h4>Descargar mis datos</h4>
+        <p class="text-muted small">Copia portable (ZIP con un JSON completo y una hoja CSV por sección) de tus datos personales<t t-if="is_account_admin"> y, si lo eliges, de los de tu cuenta de empresa</t>. Se genera al momento.</p>
+        <form method="post" action="/my/data/export" class="card mb-4" id="shrimpExportarDatos"><div class="card-body d-flex flex-wrap gap-2 align-items-center">
+          <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+          <button type="submit" name="scope" value="own" class="btn btn-outline-primary">Mis datos personales</button>
+          <button t-if="is_account_admin" type="submit" name="scope" value="company" class="btn btn-outline-primary">Mis datos y los de la cuenta <t t-esc="company and company.name"/></button>
+        </div></form>
+
+        <t t-if="data_requests">
+          <h4>Mis solicitudes</h4>
+          <div class="table-responsive mb-4" id="shrimpMisSolicitudes">
+            <table class="table table-sm align-middle">
+              <thead><tr><th>Número</th><th>Tipo</th><th>Recibida</th><th>Plazo</th><th>Estado</th><th>Respuesta</th></tr></thead>
+              <tbody>
+                <tr t-foreach="data_requests" t-as="r">
+                  <td><t t-esc="r.name"/></td>
+                  <td><span t-field="r.request_type"/></td>
+                  <td><t t-esc="r.received_at" t-options="{'widget': 'date'}"/></td>
+                  <td><t t-esc="r.deadline" t-options="{'widget': 'date'}"/></td>
+                  <td><span t-field="r.state"/><div t-if="r.state == 'on_hold' and r.hold_reason" class="small text-muted" t-esc="r.hold_reason"/></td>
+                  <td><div t-if="r.response" t-out="r.response" class="small"/></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </t>
+
+        <h4>Presentar una solicitud</h4>
+        <form method="post" action="/my/data/request" class="card"><div class="card-body">
+          <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+          <div class="mb-3">
+            <label class="form-label" for="tipo">Qué necesitas</label>
+            <select class="form-select" name="tipo" id="tipo" required="required">
+              <option value="acceso">Una copia de todos mis datos</option>
+              <option value="rectificacion">Corregir un dato</option>
+              <option value="portabilidad">Recibir mis datos en un formato portable</option>
+              <option value="oposicion">Oponerme a un uso concreto de mis datos</option>
+              <option value="eliminacion">Eliminar mi cuenta y mis datos</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="detalle">Detalle (opcional)</label>
+            <textarea class="form-control" name="detalle" id="detalle" rows="3" placeholder="Por ejemplo: corregir el teléfono del representante"></textarea>
+          </div>
+          <p class="text-muted" style="font-size:13px;">La eliminación anonimiza tus datos personales y cierra tu acceso. Por ley conservamos durante 7 años el nombre fiscal y el RUC o cédula en compras, cobros, facturas y certificados, y los comprobantes de aceptación de documentos legales. Si tu cuenta tiene operaciones abiertas, la eliminación se hace cuando se cierren.<t t-if="not is_account_admin"> Como usuario de una cuenta de empresa, tu solicitud se refiere a tus propios datos personales; los de la empresa los pide su administrador.</t></p>
+          <button type="submit" class="btn btn-primary">Enviar solicitud</button>
+        </div></form>
+      </div>
+    </t>
+  </template>
+
+  <!-- ===================== Aceptación de versiones nuevas ===================== -->
+  <template id="pagina_aceptar_documentos" name="Aceptar documentos legales">
+    <t t-call="website.layout">
+      <div class="container py-5 shrimp-legal-page" style="max-width:820px;">
+        <h1 t-if="activate">Antes de usar este perfil</h1>
+        <h1 t-else="">Actualizamos nuestros documentos</h1>
+        <div t-if="error" class="alert alert-danger" t-esc="error"/>
+
+        <div t-if="company_blocked" class="alert alert-warning">
+          <p class="mb-1"><b>El administrador de tu cuenta tiene que aceptar:</b></p>
+          <ul class="mb-1">
+            <li t-foreach="company_blocked" t-as="st"><t t-esc="st['document'].display_label()"/> (versión <t t-esc="st['version'].name"/>)</li>
+          </ul>
+          <p class="mb-0">Hasta entonces no puedes seguir usando la plataforma con esta cuenta. Avísale para que entre y los acepte.</p>
+        </div>
+
+        <form t-if="items" method="post" action="/my/legal/accept" class="card" data-shrimp-submit-guard="1"
+              data-guard-title="Guardando tu aceptación…" data-guard-text="Estamos registrando los documentos que aceptaste. No cierres esta ventana."><div class="card-body">
+          <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+          <input type="hidden" name="redirect" t-att-value="redirect"/>
+          <input t-if="activate" type="hidden" name="activate" t-att-value="activate"/>
+          <input type="hidden" name="source" t-att-value="source"/>
+          <p>Lee cada documento y marca la casilla. Los marcados como <b>obligatorios</b> hay que aceptarlos para seguir;
+            los demás tienen cambios menores y puedes aceptarlos ahora o más tarde.</p>
+          <div class="shrimp-legal-docs">
+            <label t-if="len(items) &gt; 1" class="shrimp-legal-all form-check">
+              <input class="form-check-input" type="checkbox"/>
+              <span>He leído y acepto todos los documentos</span>
+            </label>
+            <div class="shrimp-legal-acc">
+              <t t-foreach="items" t-as="st">
+                <t t-call="shrimp_user_registry.legal_doc_item">
+                  <t t-set="doc" t-value="st['document']"/>
+                  <t t-set="ver" t-value="st['version']"/>
+                  <t t-set="item_dep" t-value="False"/>
+                  <t t-set="item_required" t-value="doc.id in required_ids"/>
+                  <t t-set="item_data_req" t-value="False"/>
+                  <t t-set="item_checked" t-value="False"/>
+                  <t t-set="item_badge" t-value="'required' if doc.id in required_ids else 'minor'"/>
+                  <t t-set="item_summary" t-value="ver.change_summary"/>
+                </t>
+              </t>
+            </div>
+          </div>
+          <div class="mt-3 d-flex flex-wrap gap-2">
+            <button type="submit" class="btn btn-primary">Aceptar y continuar</button>
+            <a t-if="not required_ids" t-att-href="redirect" class="btn btn-outline-secondary">Más tarde</a>
+            <a href="/web/session/logout" class="btn btn-link">Salir</a>
+          </div>
+        </div></form>
+        <p t-if="not items and company_blocked"><a href="/web/session/logout" class="btn btn-outline-secondary">Salir</a></p>
+        <script type="text/javascript" src="/shrimp_user_registry/static/src/js/legal_accordion.js"/>
+        <script type="text/javascript" src="/shrimp_user_registry/static/src/js/submit_guard.js"/>
+      </div>
+    </t>
+  </template>
+
+  <!-- ===================== Aviso de cambios MENORES en el portal ===================== -->
+  <template id="legal_banner_layout" inherit_id="website.layout" name="Aviso de documentos legales">
+    <xpath expr="//main" position="before">
+      <t t-set="shrimp_legal_minor" t-value="request and not request.env.user._is_public() and request.env['shrimp.legal.document'].sudo()._shrimp_banner_request()"/>
+      <div t-if="shrimp_legal_minor" class="alert alert-info shrimp-legal-banner d-flex flex-wrap align-items-center gap-2 mb-0" role="status" id="shrimpLegalBanner">
+        <span class="me-auto"><i class="fa fa-file-text-o me-1"/>Actualizamos
+          <t t-foreach="shrimp_legal_minor" t-as="st"><t t-esc="st['document'].display_label()"/><t t-if="not st_last">, </t></t>.
+          Son cambios menores: acéptalos cuando te convenga.</span>
+        <a class="btn btn-sm btn-primary" t-att-href="'/my/legal/accept?source=banner&amp;redirect=%s' % (request.httprequest.path)">Revisar y aceptar</a>
+        <form method="post" action="/my/legal/dismiss" class="m-0">
+          <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+          <input type="hidden" name="redirect" t-att-value="request.httprequest.path"/>
+          <button type="submit" class="btn btn-sm btn-link">Recordármelo luego</button>
+        </form>
+      </div>
+    </xpath>
+  </template>
+
+  <!-- ===================== Mi equipo (administrador de la cuenta) ===================== -->
+  <template id="pagina_mi_equipo" name="Usuarios de la cuenta">
+    <t t-call="website.layout">
+      <div class="container py-5" style="max-width:1000px;">
+        <h1>Mi equipo</h1>
+        <p class="text-muted">Personas que usan la cuenta de <b t-esc="empresa.name"/>. Tú eres el administrador:
+          invitas usuarios, decides con qué perfiles y para qué puede entrar cada uno, y los desactivas cuando dejan
+          la empresa. Los subusuarios actúan en nombre de la empresa, pero no agregan perfiles ni aceptan el contrato.</p>
+        <div class="alert alert-light border small shrimp-perm-legend" role="note">
+          <b>Qué permite cada permiso.</b>
+          <b>Ver</b>: entrar con ese perfil y consultar (solo lectura).
+          <b>Comprar</b>: compras, recepciones, cancelaciones y contraofertas como comprador.
+          <b>Vender</b>: precios, stock, publicar / archivar / eliminar productos, mover entre perfiles,
+          factura del vendedor, despachos, avisos de retraso y cancelaciones como vendedor.
+          <b>Aprobar</b>: veredictos de verificación. <b>Facturación</b>: facturas y cobros de la plataforma.
+          <b>Gestionar cuenta</b> (de toda la cuenta, no de un perfil): datos de la empresa, certificados,
+          claves API y webhooks. Cada usuario elige su propio perfil activo.
+        </div>
+        <div t-if="saved" class="alert alert-success">Cambios guardados.</div>
+        <div t-if="error" class="alert alert-danger" t-esc="error"/>
+
+        <div class="table-responsive mb-4">
+          <table class="table align-middle shrimp-team-table">
+            <thead><tr><th>Usuario</th><th>Estado</th><th>Último acceso</th><th>Permisos por perfil</th><th></th></tr></thead>
+            <tbody>
+              <tr t-foreach="miembros" t-as="m" t-att-data-member="m.uuid_ref">
+                <td><b t-esc="m.user_id.name"/><br/><span class="small text-muted" t-esc="m.login"/>
+                  <span t-if="m.is_admin" class="badge text-bg-primary">Administrador</span>
+                  <div class="small text-muted">Aceptaciones: <t t-esc="actividad.get(m.id, 0)"/></div></td>
+                <td><span t-if="m.state == 'active'" class="badge text-bg-success">Activo</span>
+                  <span t-elif="m.state == 'invited'" class="badge text-bg-warning">Invitación pendiente</span>
+                  <span t-else="" class="badge text-bg-secondary">Desactivado</span></td>
+                <td class="small"><t t-if="m.last_login" t-esc="m.last_login" t-options="{'widget': 'datetime'}"/><t t-else="">—</t></td>
+                <td>
+                  <t t-if="m.is_admin"><span class="small text-muted">Todos los perfiles y permisos, y gestionar la cuenta</span></t>
+                  <form t-else="" method="post" t-att-action="'/my/team/%s/permissions' % m.uuid_ref" class="small">
+                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                    <t t-set="pd" t-value="m._permissions_dict()"/>
+                    <div t-foreach="roles" t-as="r" class="mb-1">
+                      <b t-esc="r[1]"/>:
+                      <span class="shrimp-perm-grid d-inline-flex">
+                        <label t-foreach="perm_labels" t-as="pl" class="form-check form-check-inline m-0">
+                          <input class="form-check-input" type="checkbox" value="1" t-att-name="'perm_%s_%s' % (r[0], pl[0])"
+                                 t-att-checked="'checked' if pl[0] in pd.get(r[0], set()) else None"/> <t t-esc="pl[1]"/>
+                        </label>
+                      </span>
+                    </div>
+                    <div class="mb-1 shrimp-perm-account">
+                      <b>Cuenta</b>:
+                      <label class="form-check form-check-inline m-0">
+                        <input class="form-check-input" type="checkbox" value="1" name="perm_manage_account"
+                               t-att-checked="'checked' if m.can_manage_account else None"/> Gestionar cuenta
+                      </label>
+                    </div>
+                    <button type="submit" class="btn btn-sm btn-outline-primary">Guardar permisos</button>
+                  </form>
+                </td>
+                <td class="text-end">
+                  <t t-if="not m.is_admin">
+                    <form method="post" t-att-action="'/my/team/%s/toggle' % m.uuid_ref" class="d-inline">
+                      <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                      <button type="submit" class="btn btn-sm btn-outline-secondary"><t t-if="m.active">Desactivar</t><t t-else="">Reactivar</t></button>
+                    </form>
+                    <form t-if="m.state == 'invited'" method="post" t-att-action="'/my/team/%s/resend' % m.uuid_ref" class="d-inline">
+                      <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                      <button type="submit" class="btn btn-sm btn-link">Reenviar invitación</button>
+                    </form>
+                    <details t-if="m.active" class="d-inline-block text-start shrimp-make-admin">
+                      <summary class="btn btn-sm btn-link text-danger">Hacer administrador</summary>
+                      <form method="post" t-att-action="'/my/team/%s/make-admin' % m.uuid_ref" class="card card-body small mt-1"
+                            onsubmit="return confirm('¿Transferir la administración de la cuenta? Dejarás de ser administrador.');">
+                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                        <input type="hidden" name="confirm" value="1"/>
+                        <input type="hidden" name="prev_custom" value="1"/>
+                        <p class="mb-1"><b t-esc="m.user_id.name"/> pasará a administrar la cuenta. Tú quedarás como usuario
+                          con estos permisos (desmarca lo que no quieras conservar):</p>
+                        <div t-foreach="roles" t-as="r" class="mb-1">
+                          <b t-esc="r[1]"/>:
+                          <label t-foreach="perm_labels" t-as="pl" class="form-check form-check-inline m-0">
+                            <input class="form-check-input" type="checkbox" value="1" t-att-name="'prev_%s_%s' % (r[0], pl[0])"
+                                   t-att-checked="'checked' if pl[0] in prev_perms.get(r[0], set()) else None"/> <t t-esc="pl[1]"/>
+                          </label>
+                        </div>
+                        <div class="mb-2"><b>Cuenta</b>:
+                          <label class="form-check form-check-inline m-0">
+                            <input class="form-check-input" type="checkbox" value="1" name="prev_manage_account" checked="checked"/> Gestionar cuenta
+                          </label>
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-danger">Transferir la administración</button>
+                      </form>
+                    </details>
+                  </t>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h4>Invitar a un usuario</h4>
+        <form method="post" action="/my/team/invite" class="card"><div class="card-body">
+          <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+          <div class="row g-3">
+            <div class="col-12 col-md-4"><label class="form-label small text-muted">Nombre</label>
+              <input class="form-control" name="name" required="required"/></div>
+            <div class="col-12 col-md-4"><label class="form-label small text-muted">Correo</label>
+              <input class="form-control" type="email" name="email" required="required"/></div>
+            <div class="col-12 col-md-4"><label class="form-label small text-muted">Celular</label>
+              <input class="form-control" type="tel" name="phone"/></div>
+            <div class="col-12">
+              <div class="small text-muted mb-1">Perfiles y permisos</div>
+              <div t-foreach="roles" t-as="r" class="mb-1 small">
+                <b t-esc="r[1]"/>:
+                <label t-foreach="perm_labels" t-as="pl" class="form-check form-check-inline m-0">
+                  <input class="form-check-input" type="checkbox" value="1" t-att-name="'perm_%s_%s' % (r[0], pl[0])"/> <t t-esc="pl[1]"/>
+                </label>
+              </div>
+              <div class="mb-1 small"><b>Cuenta</b>:
+                <label class="form-check form-check-inline m-0">
+                  <input class="form-check-input" type="checkbox" value="1" name="perm_manage_account"/> Gestionar cuenta
+                </label>
+              </div>
+            </div>
+          </div>
+          <p class="small text-muted mt-2">Le llegará un correo con un enlace para crear su contraseña. Al entrar
+            tendrá que aceptar la política de privacidad, los términos y la política de cookies.</p>
+          <button type="submit" class="btn btn-primary">Enviar invitación</button>
+        </div></form>
+      </div>
+    </t>
+  </template>
+
+  <!-- ===================== Comprobante PDF de aceptación ===================== -->
+  <!-- Seguro para wkhtmltopdf: tablas, sin flex/grid ni JS. -->
+  <template id="report_legal_acceptance_document" name="Comprobante de aceptación">
+    <t t-call="web.html_container">
+      <t t-foreach="docs" t-as="o">
+        <t t-call="web.basic_layout">
+          <div class="page" style="font-family: Helvetica, Arial, sans-serif; font-size: 10.5pt; color:#222;">
+            <h2 style="margin:0 0 4px 0;">Comprobante de aceptación</h2>
+            <p style="margin:0 0 12px 0; color:#666;">CamaronMarket · Documento legal versionado · Ley Orgánica de Protección de Datos Personales (Ecuador)</p>
+            <table style="width:100%; border-collapse:collapse;" cellpadding="4">
+              <tr><td style="width:32%; color:#666; border-bottom:1px solid #ddd;">Documento</td><td style="border-bottom:1px solid #ddd;"><b t-esc="o.document_name"/></td></tr>
+              <tr><td style="color:#666; border-bottom:1px solid #ddd;">Versión</td><td style="border-bottom:1px solid #ddd;"><t t-esc="o.version_code"/> (publicada el <t t-esc="o.version_id.published_date" t-options="{'widget': 'datetime'}"/>)</td></tr>
+              <tr t-if="o.role"><td style="color:#666; border-bottom:1px solid #ddd;">Perfil</td><td style="border-bottom:1px solid #ddd;"><span t-field="o.role"/></td></tr>
+              <tr><td style="color:#666; border-bottom:1px solid #ddd;">Empresa</td><td style="border-bottom:1px solid #ddd;"><t t-esc="o.company_name"/> · RUC/Cédula <t t-esc="o.company_vat or '—'"/></td></tr>
+              <tr><td style="color:#666; border-bottom:1px solid #ddd;">Aceptado por</td><td style="border-bottom:1px solid #ddd;"><t t-esc="o.user_name"/> (<t t-esc="o.user_login"/>)<t t-if="o.is_account_admin"> · administrador de la cuenta</t></td></tr>
+              <tr><td style="color:#666; border-bottom:1px solid #ddd;">Fecha y hora (UTC)</td><td style="border-bottom:1px solid #ddd;"><t t-esc="o.accepted_at"/></td></tr>
+              <tr><td style="color:#666; border-bottom:1px solid #ddd;">IP</td><td style="border-bottom:1px solid #ddd;"><t t-esc="o.ip or '—'"/></td></tr>
+              <tr><td style="color:#666; border-bottom:1px solid #ddd;">Navegador</td><td style="border-bottom:1px solid #ddd; font-size:8.5pt;"><t t-esc="o.user_agent or '—'"/></td></tr>
+              <tr><td style="color:#666; border-bottom:1px solid #ddd;">Canal</td><td style="border-bottom:1px solid #ddd;"><span t-field="o.channel"/></td></tr>
+              <tr><td style="color:#666; border-bottom:1px solid #ddd;">SHA-256 del texto</td><td style="border-bottom:1px solid #ddd; font-family: Courier, monospace; font-size:8.5pt;"><t t-esc="o.content_hash"/></td></tr>
+              <tr><td style="color:#666; border-bottom:1px solid #ddd;">Hash del comprobante</td><td style="border-bottom:1px solid #ddd; font-family: Courier, monospace; font-size:8.5pt;"><t t-esc="o.receipt_hash"/></td></tr>
+              <tr><td style="color:#666;">Código</td><td style="font-family: Courier, monospace; font-size:8.5pt;"><t t-esc="o.uuid_ref"/></td></tr>
+            </table>
+            <h3 style="margin:18px 0 6px 0;">Texto aceptado</h3>
+            <div style="border:1px solid #ccc; padding:10px;" t-out="o.receipt_text_html()"/>
+            <p style="margin-top:12px; color:#666; font-size:8.5pt;">La huella SHA-256 permite comprobar que el texto no cambió:
+              se calcula sobre el texto publicado de esta versión. El hash del comprobante se calcula sobre los datos de esta
+              aceptación (usuario, empresa, documento, versión, huella del texto, fecha, IP, navegador y canal).</p>
+          </div>
+        </t>
+      </t>
+    </t>
+  </template>
+
+  <record id="action_report_legal_acceptance" model="ir.actions.report">
+    <field name="name">Comprobante de aceptación</field>
+    <field name="model">shrimp.legal.acceptance</field>
+    <field name="report_type">qweb-pdf</field>
+    <field name="report_name">shrimp_user_registry.report_legal_acceptance_document</field>
+    <field name="report_file">shrimp_user_registry.report_legal_acceptance_document</field>
+    <field name="print_report_name">'Comprobante-aceptacion-%s' % object.uuid_ref</field>
+    <field name="binding_model_id" ref="model_shrimp_legal_acceptance"/>
+    <field name="binding_type">report</field>
+  </record>
+
+</odoo>

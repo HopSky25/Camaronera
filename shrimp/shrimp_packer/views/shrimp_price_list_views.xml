@@ -7,42 +7,51 @@
       <form>
         <header>
           <button name="action_publish" type="object" string="Publicar"
-                  class="btn-primary" invisible="state == 'published'"/>
+                  class="btn-primary" invisible="state != 'draft'"/>
+          <!-- D-15: una lista publicada no se edita ni vuelve a borrador; se
+               corrige en una copia que, al publicarse, la reemplaza. -->
+          <button name="action_duplicate_correct" type="object" string="Duplicar y corregir"
+                  class="btn-primary" invisible="state != 'published'"/>
+          <!-- D-48: renovar una lista «hasta segunda orden» antes de que caduque. -->
+          <button name="action_renew" type="object" string="Renovar"
+                  invisible="state != 'published' or not open_ended"/>
           <button name="action_archive_list" type="object" string="Archivar"
                   invisible="state != 'published'"/>
-          <button name="action_back_to_draft" type="object" string="Volver a borrador"
-                  invisible="state == 'draft'"/>
           <button name="action_duplicate_for_next" type="object"
                   string="Copiar para la próxima"/>
           <field name="state" widget="statusbar"/>
         </header>
         <sheet>
           <div class="oe_title">
-            <h1><field name="name" placeholder="Semana 32"/></h1>
+            <h1><field name="name" readonly="state != 'draft'" placeholder="Semana 32"/></h1>
           </div>
           <group>
             <group>
-              <field name="issuer_partner_id"/>
-              <field name="issue_date"/>
-              <field name="currency_id" groups="base.group_multi_currency"/>
+              <field name="issuer_partner_id" readonly="state != 'draft'"/>
+              <field name="issue_date" readonly="state != 'draft'"/>
+              <field name="currency_id" readonly="state != 'draft'" groups="base.group_multi_currency"/>
               <field name="is_current"/>
+              <field name="expires_on" invisible="not open_ended or not expires_on"/>
+              <field name="supersedes_id" invisible="not supersedes_id"/>
+              <field name="superseded_by_id" invisible="not superseded_by_id"/>
+              <field name="archive_reason" invisible="not archive_reason"/>
             </group>
             <group>
               <!-- Del calendario de la plataforma: el aguaje en curso o uno
                    próximo. El modelo lo exige al publicar y rechaza uno
                    pasado al crear o cambiarlo. -->
-              <field name="aguaje_id" options="{'no_create': True, 'no_open': True}"
+              <field name="aguaje_id" readonly="state != 'draft'" options="{'no_create': True, 'no_open': True}"
                      domain="[('date_to', '&gt;=', context_today().strftime('%Y-%m-%d'))]"
                      required="state == 'draft' and not id"/>
               <field name="aguaje_txt" invisible="not aguaje_id"/>
-              <field name="dispatch_from"/>
-              <field name="open_ended"/>
-              <field name="dispatch_to" invisible="open_ended"/>
+              <field name="dispatch_from" readonly="state != 'draft'"/>
+              <field name="open_ended" readonly="state != 'draft'"/>
+              <field name="dispatch_to" readonly="state != 'draft'" invisible="open_ended"/>
             </group>
           </group>
           <notebook>
             <page string="Precios por talla">
-              <field name="line_ids">
+              <field name="line_ids" readonly="state != 'draft'">
                 <list editable="bottom">
                   <field name="size_grade_id"/>
                   <field name="presentation" readonly="1"/>
@@ -55,7 +64,7 @@
               </field>
             </page>
             <page string="Bonificaciones">
-              <field name="bonus_ids">
+              <field name="bonus_ids" readonly="state != 'draft'">
                 <list editable="bottom">
                   <field name="sequence" widget="handle"/>
                   <field name="name"/>
@@ -67,15 +76,15 @@
             </page>
             <page string="Condiciones y pago">
               <group>
-                <field name="quality_conditions"
+                <field name="quality_conditions" readonly="state != 'draft'"
                        placeholder="No branquias sucias. Sin sabores, no picados, no hongos, no color amarillo, no color mezclado."/>
               </group>
               <group>
                 <group string="Forma de pago">
-                  <field name="advance_pct"/>
-                  <field name="advance_days"/>
-                  <field name="balance_days"/>
-                  <field name="payment_notes"/>
+                  <field name="advance_pct" readonly="state != 'draft'"/>
+                  <field name="advance_days" readonly="state != 'draft'"/>
+                  <field name="balance_days" readonly="state != 'draft'"/>
+                  <field name="payment_notes" readonly="state != 'draft'"/>
                 </group>
               </group>
             </page>
@@ -99,7 +108,9 @@
         <field name="aguaje_txt" optional="show"/>
         <field name="line_count"/>
         <field name="is_current"/>
+        <field name="expires_on" optional="show"/>
         <field name="state"/>
+        <field name="archive_reason" optional="hide"/>
       </list>
     </field>
   </record>

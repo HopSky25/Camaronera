@@ -116,9 +116,17 @@ class ShrimpExportPortal(http.Controller):
         exp = request.env["shrimp.export"].sudo().resolve_ref(export_ref)
         if not exp or exp.partner_id != partner:
             raise NotFound()
-        if exp.state != "cancelled":
-            exp.action_cancel(reason=(post.get("reason") or "").strip() or _("Anulada por el titular"),
-                              actor=partner)
+        # D-35: el motivo es obligatorio; con DAE o factura la anulación queda
+        # pendiente de aprobación de la plataforma.
+        try:
+            with request.env.cr.savepoint():
+                if exp.state != "cancelled":
+                    exp.action_cancel(reason=(post.get("reason") or "").strip(), actor=partner)
+        except (ValidationError, AccessError) as e:
+            return request.redirect("/marketplace/exports?error=validation&message=%s"
+                                    % flash_message(e.args[0] if e.args else ""))
+        if exp.cancel_state == "pending":
+            return request.redirect("/marketplace/exports?saved=cancel_pending")
         return request.redirect("/marketplace/exports?saved=cancelled")
 
     # ------------------------------------------------------------------

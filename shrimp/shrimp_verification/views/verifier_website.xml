@@ -68,6 +68,25 @@
           </div>
         </section>
 
+        <!-- ================= TU PANEL (con sesión de verificadora) ================= -->
+        <t t-set="vl_me" t-value="request.env.user.shrimp_actor_partner_id if not request.env.user._is_public() else False"/>
+        <t t-set="vl_emp" t-value="vl_me.shrimp_verifier_company() if vl_me else False"/>
+        <section t-if="vl_emp" class="vl-panel">
+          <div class="vl-wrap">
+            <t t-set="vl_V" t-value="request.env['shrimp.verification'].sudo()"/>
+            <t t-set="vl_dom" t-value="[('verifier_partner_id', '=', vl_emp.id)] if vl_me.shrimp_is_verifier_admin() else vl_V._shrimp_assigned_tech_domain(vl_me)"/>
+            <div class="vrp vl-panel-in">
+              <div class="vr-eyebrow"><i class="fa fa-inbox"/> Tu panel · <span class="vr-ref" t-esc="vl_emp.name"/></div>
+              <div class="vr-kpis mb-0">
+                <a class="vr-kpi" href="/verifier/inbox?state=pending"><span class="vr-ico"><i class="fa fa-hourglass-start"/></span><span><span class="vr-kpi-v" t-esc="vl_V.search_count(vl_dom + [('state', 'in', ['received', 'assigned'])])"/><span class="vr-kpi-l">Por iniciar</span></span></a>
+                <a class="vr-kpi" href="/verifier/inbox?state=in_field"><span class="vr-ico vr-ico--warn"><i class="fa fa-map-marker"/></span><span><span class="vr-kpi-v" t-esc="vl_V.search_count(vl_dom + [('state', '=', 'in_field')])"/><span class="vr-kpi-l">En campo</span></span></a>
+                <a class="vr-kpi" href="/verifier/inbox?state=done"><span class="vr-ico vr-ico--ok"><i class="fa fa-gavel"/></span><span><span class="vr-kpi-v" t-esc="vl_V.search_count(vl_dom + [('state', '=', 'done')])"/><span class="vr-kpi-l">Por dictaminar</span></span></a>
+                <a class="vr-kpi" t-att-href="'/verifier/technicians' if vl_me.shrimp_is_verifier_admin() else '/verifier/profile'"><span class="vr-ico"><i t-attf-class="fa fa-#{'users' if vl_me.shrimp_is_verifier_admin() else 'id-badge'}"/></span><span><span class="vr-kpi-v"><i class="fa fa-arrow-right"/></span><span class="vr-kpi-l"><t t-if="vl_me.shrimp_is_verifier_admin()">Mis técnicos</t><t t-else="">Mi empresa</t></span></span></a>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <!-- ================= BANDA DE MÉTRICAS ================= -->
         <section class="vl-stats">
           <div class="vl-wrap">
@@ -107,7 +126,7 @@
               <div class="vl-benefit">
                 <span class="vl-benefit-ico"><i class="fa fa-money"/></span>
                 <h3>Cobras por lote</h3>
-                <p>Tu tarifa por verificación se liquida a la cuenta bancaria que registras en tu perfil. La plataforma hace la cuenta.</p>
+                <p>Publicas tu tarifa (base + por libra) en tu perfil: es lo que paga el comprador que te elige. Se liquida a la cuenta bancaria que registras.</p>
               </div>
             </div>
           </div>
@@ -178,7 +197,7 @@
                 <p>Registras tu empresa con su acreditación, gestionas a tu equipo de técnicos y repartes las órdenes que llegan de los compradores.</p>
                 <ul class="vl-aud-list">
                   <li><i class="fa fa-check"/> Acreditación verificada</li>
-                  <li><i class="fa fa-check"/> Reparto de órdenes a técnicos</li>
+                  <li><i class="fa fa-check"/> Responsable y técnicos de apoyo por orden</li>
                   <li><i class="fa fa-check"/> Cuenta bancaria para cobros</li>
                   <li><i class="fa fa-check"/> Reportes de tu actividad</li>
                 </ul>
@@ -191,7 +210,7 @@
                 <h3>Técnico de campo</h3>
                 <p>Recibes las órdenes asignadas, vas a campo y levantas el informe con los cinco análisis directamente desde el móvil.</p>
                 <ul class="vl-aud-list">
-                  <li><i class="fa fa-check"/> Bandeja con tus asignaciones</li>
+                  <li><i class="fa fa-check"/> Bandeja con tus órdenes (responsable o apoyo)</li>
                   <li><i class="fa fa-check"/> Informe guiado por pasos</li>
                   <li><i class="fa fa-check"/> Veredicto con fotos y notas</li>
                   <li><i class="fa fa-check"/> Historial de tu trabajo</li>
@@ -222,7 +241,7 @@
               </details>
               <details>
                 <summary>¿Puedo trabajar con un equipo?</summary>
-                <p>Sí. Das de alta a tus técnicos desde el panel y les repartes las órdenes que llegan. Cada informe queda a nombre de tu empresa verificadora.</p>
+                <p>Sí. Das de alta a tus técnicos desde el panel y en cada orden eliges un <b>técnico responsable</b> (dirige la inspección y firma el informe) y, si hace falta, <b>técnicos de apoyo</b> que cargan muestreo, fotos, sabor y notas. La plataforma le paga a tu empresa; cada informe muestra quién participó.</p>
               </details>
               <details>
                 <summary>¿Qué pasa si rechazo un lote?</summary>

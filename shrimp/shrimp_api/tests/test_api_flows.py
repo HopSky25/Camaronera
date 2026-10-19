@@ -223,7 +223,8 @@ class TestApiFlows(ApiCase):
         self.assertIsNone(detail["technician"])
         self.assertFalse(int_ids(detail))
         tx.invalidate_recordset()
-        self.assertEqual(tx.state, "confirmed")
+        # El informe aceptado completa la compra verificada (hueco #1).
+        self.assertEqual(tx.state, "done")
         # El ranking de proveedores ya cuenta este lote.
         ranking = self.api("GET", "/suppliers/ranking", raw=self.raw_packer).json()
         self.assertEqual(ranking["rows"][0]["supplier"]["id"], self.farm_a.uuid_ref)

@@ -2,6 +2,8 @@ import re
 
 from odoo.tests import HttpCase, tagged
 
+from .legal_utils import signup_post
+
 
 def _csrf(texto):
     m = re.search(r'name="csrf_token"\s+value="([^"]+)"', texto) or \
@@ -17,10 +19,10 @@ class TestRegistroSeguridad(HttpCase):
     def _alta(self, tipo, correo, ruc, **extra):
         token = _csrf(self.url_open("/register").text)
         self.assertTrue(token, "el formulario de registro debe traer CSRF")
-        datos = {
-            "csrf_token": token, "shrimp_user_type": tipo, "name": "Alta %s" % correo,
-            "email": correo, "password": "Clave-segura-123", "vat_or_id": ruc,
-        }
+        # 19.0.1.6.0: el asistente exige datos de empresa, una cédula/RUC
+        # válido (el `ruc` de cada test ya no pasa el dígito verificador) y
+        # aceptar contrato, políticas y anexo.
+        datos = signup_post(self.env, [tipo], correo, csrf_token=token)
         datos.update(extra)
         return self.url_open("/register/submit", data=datos)
 
@@ -28,7 +30,8 @@ class TestRegistroSeguridad(HttpCase):
         return bool(self.env["res.users"].sudo().search([("login", "=", correo)]))
 
     def test_tipo_fuera_de_la_lista_blanca(self):
-        # Verificador solo en su plataforma; un tipo inventado, nunca.
+        # Verificador sin su acreditación adjunta (o sin el módulo de
+        # verificación), no; un tipo inventado, nunca.
         r = self._alta("verificador", "verif.alta@prueba.test", "0955511111001")
         self.assertEqual(r.status_code, 200)
         self.assertFalse(self._existe("verif.alta@prueba.test"))

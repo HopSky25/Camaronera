@@ -74,7 +74,7 @@ class TestDeshacerAceptacion(TransactionCase):
         comprador.sudo().action_accept(actor=self.s["cam"])
         vendedor.sudo().action_accept(actor=self.s["lab"])
         self.assertEqual(self.v.acceptance_state, "closed")
-        self.assertEqual(self.tx.state, "confirmed")
+        self.assertEqual(self.tx.state, "done")  # el informe aceptado completa la compra (hueco #1)
 
     def test_rechazo_no_cancela_hasta_cerrar_la_ronda_y_se_deshace(self):
         abrir_ronda(self.v)
@@ -141,15 +141,20 @@ class TestDeshacerAceptacion(TransactionCase):
         self.assertEqual(vendedor.decision, "accepted")
         self.assertEqual(self.tx.price_unit, precio)
         self.assertEqual(self.v.acceptance_state, "waiting")
-        # Dos contraofertas: deshacer la segunda deja la primera.
+        # D-38: una sola contraoferta por compra, aunque se haya deshecho.
+        with self.assertRaises(UserError):
+            comprador.sudo().action_counter(precio - 2.0, actor=self.s["cam"])
+
+    def test_contraoferta_rechazada_cierra_al_precio_original(self):
+        """D-22: si el vendedor rechaza la contraoferta, la compra se cierra al
+        precio original y ya no hay nada que deshacer."""
+        abrir_ronda(self.v, cumple=False)
+        comprador, vendedor = self._posturas()
+        precio = self.tx.price_unit
         comprador.sudo().action_counter(precio - 1.0, actor=self.s["cam"])
-        comprador.sudo().action_counter(precio - 2.0, actor=self.s["cam"])
-        comprador.sudo().action_signoff_undo(actor=self.s["cam"])
-        self.assertEqual(comprador.decision, "counter")
-        self.assertAlmostEqual(comprador.counter_price, precio - 1.0)
-        # Si el vendedor ya respondió, no se deshace.
         vendedor.sudo().action_reject(reason="Ni hablar", actor=self.s["lab"])
-        self.assertEqual(self.v.acceptance_state, "broken")
+        self.assertEqual(self.v.acceptance_state, "closed")
+        self.assertEqual(self.tx.price_unit, precio)
         with self.assertRaises(UserError):
             comprador.sudo().action_signoff_undo(actor=self.s["cam"])
 

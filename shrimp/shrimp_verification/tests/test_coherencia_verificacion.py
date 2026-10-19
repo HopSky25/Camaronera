@@ -63,7 +63,7 @@ class TestCoherenciaVerificacion(TransactionCase):
         comprador.sudo().action_accept(actor=self.s["cam"])
         self.assertFalse(self._comisiones())
         vendedor.sudo().action_accept(actor=self.s["lab"])
-        self.assertEqual(self.tx.state, "confirmed")
+        self.assertEqual(self.tx.state, "done")  # el informe aceptado completa la compra (hueco #1)
         self.assertEqual(len(self._comisiones()), 1)
         # Repetir el cierre no cobra dos veces.
         self.tx.action_confirm()
@@ -73,6 +73,9 @@ class TestCoherenciaVerificacion(TransactionCase):
             lambda c: c.state not in ("cancelled", "credited"))), 1)
 
     def test_reasignar_honorario_emite_nota_de_credito(self):
+        # Sin plazo de segunda opinión (D-25): el rechazo queda firme en el
+        # acto y se reasigna el honorario.
+        self.env["ir.config_parameter"].sudo().set_param("shrimp_verification.contest_hours", "0")
         cobro_inicial = self.v.fee_charge_id
         self.v.write({"larvae_qty_verified": 10.0, "larvae_survival_rate": 90.0,
                       "larvae_avg_size_mg": 5.0, "larvae_health_status": "rejected",

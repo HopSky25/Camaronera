@@ -4,11 +4,12 @@
        DIRECTORIO: quien empaca, donde y desde cuanto.
        Es la primera pantalla a proposito: nadie contrata un servicio sin
        saber antes quien lo presta y por donde van los precios.
+       Rediseño 19.0.1.15.0: tarjetas de planta .cpk-plant.
        ================================================================ -->
   <template id="copack_directory" name="Servicio de empaque">
     <t t-call="website.layout">
-      <div class="shrimp-bg">
-        <div class="shrimp-page shrimp-page--full py-4">
+      <div class="shrimp-bg cpk">
+        <div class="shrimp-page shrimp-page--full cpk-page py-4">
 
           <div class="sf-banner mb-4">
             <div class="sf-banner-row">
@@ -28,97 +29,105 @@
             <t t-call="shrimp_marketplace.s_filter_toolbar"/>
             <t t-call="shrimp_marketplace.s_filter_tags"/>
           </div>
-          <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-            <div class="text-soft" style="font-size:var(--fs-sm);">
-              <strong><t t-esc="len(maquiladores)"/></strong> planta(s)
-            </div>
-            <div class="d-flex flex-wrap gap-2">
-              <a href="/marketplace/copacking/requests" class="btn btn-outline-primary">Mis solicitudes</a>
-              <a href="/marketplace/copacking/orders" class="btn btn-outline-primary">Mis órdenes</a>
+          <div class="cpk-count">
+            <span><b><t t-esc="len(maquiladores)"/></b> planta(s)</span>
+            <div class="cpk-ph-acts">
+              <a href="/marketplace/copacking/requests" class="s-btn s-btn-ghost s-btn-sm"><i class="fa fa-inbox" aria-hidden="true"/> Mis solicitudes</a>
+              <a href="/marketplace/copacking/orders" class="s-btn s-btn-ghost s-btn-sm"><i class="fa fa-cube" aria-hidden="true"/> Mis órdenes</a>
+              <a href="/marketplace/copacking/requests/new" class="s-btn s-btn-primary s-btn-sm"><i class="fa fa-globe" aria-hidden="true"/> Solicitud abierta</a>
             </div>
           </div>
 
           <t t-if="not maquiladores">
-            <div class="alert alert-light border">
-              <t t-if="total_plantas">Ninguna planta cumple esos filtros.
-                <a t-att-href="fd['clear_url']">Quitar filtros</a></t>
-              <t t-else="">Todavía no hay plantas publicadas en el directorio.</t>
+            <div class="cpk-empty">
+              <div class="cpk-empty-ico" aria-hidden="true"><i class="fa fa-industry"/></div>
+              <t t-if="total_plantas">
+                <h2>Ninguna planta cumple esos filtros.</h2>
+                <div class="cpk-empty-acts"><a t-att-href="fd['clear_url']" class="s-btn s-btn-ghost">Quitar filtros</a></div>
+              </t>
+              <t t-else="">
+                <h2>Todavía no hay plantas publicadas en el directorio.</h2>
+                <p>Puedes publicar una solicitud abierta: las plantas que se sumen la verán en su bandeja.</p>
+              </t>
             </div>
           </t>
 
-          <div class="row g-3">
+          <div class="cpk-plants">
             <t t-foreach="maquiladores" t-as="m">
-              <div class="col-12 col-lg-6">
-                <div class="card h-100">
-                  <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start">
-                      <h5 class="card-title mb-1"><t t-esc="m.name"/></h5>
-                      <t t-if="m.pack_habilitacion_hasta and m.pack_habilitacion_hasta &gt;= hoy">
-                        <span class="badge text-bg-success">Habilitación vigente</span>
-                      </t>
-                      <t t-elif="m.pack_codigo_establecimiento">
-                        <span class="badge text-bg-warning">Habilitación por confirmar</span>
+              <article class="cpk-plant">
+                <div class="cpk-plant-h">
+                  <span class="cpk-ava" aria-hidden="true"><t t-esc="(m.name or '?')[:2]"/></span>
+                  <div class="cpk-plant-n">
+                    <h2><a t-attf-href="/marketplace/copacking/plants/#{m.uuid_ref}"><t t-esc="m.name"/></a></h2>
+                    <div class="cpk-plant-loc">
+                      <span><i class="fa fa-map-marker" aria-hidden="true"></i><t t-esc="m.shrimp_ubicacion or 'Ubicación no indicada'"/></span>
+                      <t t-if="m.pack_codigo_establecimiento">
+                        <span>Establecimiento <b><t t-esc="m.pack_codigo_establecimiento"/></b></span>
                       </t>
                     </div>
-                    <p class="text-muted mb-2">
-                      <i class="fa fa-map-marker"></i> <t t-esc="m.shrimp_ubicacion or 'Ubicación no indicada'"/>
-                      <t t-if="m.pack_codigo_establecimiento">
-                        &#160;·&#160; Establecimiento <b><t t-esc="m.pack_codigo_establecimiento"/></b>
+                    <div class="mt-1">
+                      <t t-if="m.pack_habilitacion_hasta and m.pack_habilitacion_hasta &gt;= hoy">
+                        <span class="cpk-pill cpk-pill--sm cpk-pill--ok">Habilitación vigente</span>
                       </t>
-                    </p>
-
-                    <div class="row g-2 small">
+                      <t t-elif="m.pack_codigo_establecimiento">
+                        <span class="cpk-pill cpk-pill--sm cpk-pill--warn">Habilitación por confirmar</span>
+                      </t>
+                    </div>
+                  </div>
+                </div>
+                <div class="cpk-plant-b">
+                  <t t-if="m.pack_desde_entero or m.pack_desde_cola or m.pack_desde_valor_agregado">
+                    <p class="cpk-sub mb-0">Tarifas de referencia, desde</p>
+                    <div class="cpk-rates">
                       <t t-if="m.pack_desde_entero">
-                        <div class="col-4">
-                          <div class="text-muted">Entero desde</div>
-                          <div class="fw-bold">$ <t t-esc="round(m.pack_desde_entero, 2)"/> / lb</div>
+                        <div class="cpk-rate">
+                          <span class="cpk-rate-l">Entero</span>
+                          <span class="cpk-rate-v">$ <t t-esc="round(m.pack_desde_entero, 2)"/> <small>/ lb</small></span>
                         </div>
                       </t>
                       <t t-if="m.pack_desde_cola">
-                        <div class="col-4">
-                          <div class="text-muted">Cola desde</div>
-                          <div class="fw-bold">$ <t t-esc="round(m.pack_desde_cola, 2)"/> / lb</div>
+                        <div class="cpk-rate">
+                          <span class="cpk-rate-l">Cola</span>
+                          <span class="cpk-rate-v">$ <t t-esc="round(m.pack_desde_cola, 2)"/> <small>/ lb</small></span>
                         </div>
                       </t>
                       <t t-if="m.pack_desde_valor_agregado">
-                        <div class="col-4">
-                          <div class="text-muted">Valor agregado desde</div>
-                          <div class="fw-bold">$ <t t-esc="round(m.pack_desde_valor_agregado, 2)"/> / lb</div>
+                        <div class="cpk-rate">
+                          <span class="cpk-rate-l">Valor agregado</span>
+                          <span class="cpk-rate-v">$ <t t-esc="round(m.pack_desde_valor_agregado, 2)"/> <small>/ lb</small></span>
                         </div>
                       </t>
                     </div>
+                  </t>
+                  <t t-else="">
+                    <div class="cpk-rates-none">Sin tarifas de referencia: pídele servicio y te responde con la suya.</div>
+                  </t>
 
-                    <div class="row g-2 small mt-1">
-                      <t t-if="m.shrimp_capacity_value">
-                        <div class="col-6">
-                          <div class="text-muted">Capacidad</div>
-                          <div><t t-esc="int(m.shrimp_capacity_value)"/> lb / semana</div>
-                        </div>
-                      </t>
-                      <t t-if="m.pack_lote_minimo_lb">
-                        <div class="col-6">
-                          <div class="text-muted">Lote mínimo</div>
-                          <div><t t-esc="int(m.pack_lote_minimo_lb)"/> lb</div>
-                        </div>
-                      </t>
-                    </div>
-
-                    <t t-if="m.pack_tarifa_nota">
-                      <p class="text-muted small fst-italic mt-2 mb-0"><t t-esc="m.pack_tarifa_nota"/></p>
+                  <div class="cpk-facts" t-if="m.shrimp_capacity_value or m.pack_lote_minimo_lb">
+                    <t t-if="m.shrimp_capacity_value">
+                      <span><i class="fa fa-tachometer" aria-hidden="true"/>Capacidad <b><t t-esc="'{:,.0f}'.format(m.shrimp_capacity_value)"/> lb / semana</b></span>
+                    </t>
+                    <t t-if="m.pack_lote_minimo_lb">
+                      <span><i class="fa fa-cubes" aria-hidden="true"/>Lote mínimo <b><t t-esc="'{:,.0f}'.format(m.pack_lote_minimo_lb)"/> lb</b></span>
                     </t>
                   </div>
-                  <div class="card-footer bg-transparent d-flex flex-wrap gap-2">
-                    <a t-attf-href="/marketplace/copacking/plants/#{m.uuid_ref}"
-                       class="btn btn-sm btn-outline-secondary">Ver planta</a>
-                    <a t-attf-href="/marketplace/copacking/requests/new?a=#{m.uuid_ref}"
-                       class="btn btn-sm btn-primary">Pedirle servicio</a>
-                  </div>
+
+                  <t t-if="m.pack_tarifa_nota">
+                    <p class="cpk-quote"><t t-esc="m.pack_tarifa_nota"/></p>
+                  </t>
                 </div>
-              </div>
+                <div class="cpk-plant-f">
+                  <a t-attf-href="/marketplace/copacking/plants/#{m.uuid_ref}"
+                     class="s-btn s-btn-ghost">Ver planta</a>
+                  <a t-attf-href="/marketplace/copacking/requests/new?a=#{m.uuid_ref}"
+                     class="s-btn s-btn-primary">Pedirle servicio</a>
+                </div>
+              </article>
             </t>
           </div>
 
-          <p class="text-muted small mt-4 mb-0">
+          <p class="cpk-foot-note mt-4">
+            <i class="fa fa-info-circle" aria-hidden="true"/>
             Las tarifas de arriba son referenciales. La firme depende del volumen y te la
             manda la planta dirigida solo a ti.
           </p>
@@ -166,101 +175,148 @@
        ================================================================ -->
   <template id="copack_plant" name="Planta de empaque">
     <t t-call="website.layout">
-      <div class="shrimp-bg">
-        <div class="shrimp-page py-4">
+      <div class="shrimp-bg cpk">
+        <div class="shrimp-page cpk-page">
 
-          <a href="/marketplace/copacking" class="btn btn-sm btn-link mb-2">&#8592; Volver al directorio</a>
-          <h2 class="mb-1"><t t-esc="maq.name"/></h2>
-          <p class="text-muted">
-            <t t-esc="maq.shrimp_ubicacion or ''"/>
-            <t t-if="maq.pack_codigo_establecimiento">
-              &#160;·&#160; Establecimiento <b><t t-esc="maq.pack_codigo_establecimiento"/></b>
-            </t>
-          </p>
-
-          <div class="card mb-3">
-            <div class="card-body">
-              <h6 class="text-uppercase text-muted small mb-3">Datos de la planta</h6>
-              <dl class="row mb-0">
-                <dt class="col-sm-4">Razón social</dt>
-                <dd class="col-sm-8"><t t-esc="maq.shrimp_razon_social or '—'"/></dd>
-                <dt class="col-sm-4">Representante</dt>
-                <dd class="col-sm-8"><t t-esc="maq.shrimp_representante or '—'"/></dd>
-                <dt class="col-sm-4">Presentaciones</dt>
-                <dd class="col-sm-8"><t t-esc="maq.pack_presentaciones or '—'"/></dd>
-                <dt class="col-sm-4">Capacidad</dt>
-                <dd class="col-sm-8">
-                  <t t-if="maq.shrimp_capacity_value"><t t-esc="int(maq.shrimp_capacity_value)"/> lb / semana</t>
-                  <t t-else="">—</t>
-                </dd>
-                <dt class="col-sm-4">Habilitación</dt>
-                <dd class="col-sm-8">
-                  <t t-if="maq.pack_habilitacion_hasta">
-                    hasta <t t-esc="maq.pack_habilitacion_hasta"/>
-                    <t t-if="maq.pack_habilitacion_hasta &gt;= hoy">
-                      <span class="badge text-bg-success ms-1">vigente</span>
-                    </t>
-                    <t t-else="">
-                      <span class="badge text-bg-danger ms-1">vencida</span>
-                    </t>
-                  </t>
-                  <t t-else="">no registrada</t>
-                </dd>
-              </dl>
-            </div>
+          <div class="cpk-top">
+            <a href="/marketplace/copacking" class="s-back"><i class="fa fa-arrow-left" aria-hidden="true"/> Volver al directorio</a>
           </div>
-
-          <!-- La tarifa firme solo aparece si esta planta me la dirigio: la
-               regla de acceso ya filtra, aqui solo se decide que mensaje dar. -->
-          <t t-if="tarifas">
-            <t t-foreach="tarifas" t-as="t">
-              <div class="card mb-3">
-                <div class="card-body">
-                  <div class="d-flex justify-content-between align-items-start mb-2">
-                    <h6 class="mb-0"><t t-esc="t.name"/></h6>
-                    <span class="badge text-bg-primary">Tarifa dirigida a ti</span>
-                  </div>
-                  <t t-if="t.min_lot_lb">
-                    <p class="small text-muted mb-2">Lote mínimo: <t t-esc="int(t.min_lot_lb)"/> lb</p>
+          <header class="cpk-ph">
+            <div class="cpk-ph-txt cpk-hero">
+              <span class="cpk-ava cpk-ava--lg" aria-hidden="true"><t t-esc="(maq.name or '?')[:2]"/></span>
+              <div class="cpk-min0">
+                <div class="cpk-eyebrow"><i class="fa fa-industry" aria-hidden="true"/> Planta de empaque</div>
+                <h1>
+                  <t t-esc="maq.name"/>
+                  <t t-if="maq.pack_habilitacion_hasta and maq.pack_habilitacion_hasta &gt;= hoy">
+                    <span class="cpk-pill cpk-pill--ok">Habilitación vigente</span>
                   </t>
-                  <div class="table-responsive">
-                  <table class="table table-sm mb-2">
-                    <thead>
-                      <tr>
-                        <th>Presentación</th><th>Formato</th>
-                        <th class="text-end">Desde (lb)</th><th class="text-end">$ / lb</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <t t-foreach="t.line_ids.sorted(lambda l: (l.presentation, l.from_lb))" t-as="l">
-                        <tr>
-                          <td><t t-esc="dict(l._fields['presentation'].selection).get(l.presentation)"/></td>
-                          <td><t t-esc="l.pack_format"/></td>
-                          <td class="text-end"><t t-esc="int(l.from_lb)"/></td>
-                          <td class="text-end fw-bold">$ <t t-esc="round(l.rate_per_lb, 3)"/></td>
-                        </tr>
-                      </t>
-                    </tbody>
-                  </table>
-                  </div>
-                  <t t-if="t.conditions">
-                    <p class="small text-muted mb-0"><t t-esc="t.conditions"/></p>
+                  <t t-elif="maq.pack_habilitacion_hasta">
+                    <span class="cpk-pill cpk-pill--bad">Habilitación vencida</span>
+                  </t>
+                </h1>
+                <div class="cpk-meta">
+                  <t t-if="maq.shrimp_ubicacion"><span><i class="fa fa-map-marker" aria-hidden="true"/> <t t-esc="maq.shrimp_ubicacion"/></span></t>
+                  <t t-if="maq.pack_codigo_establecimiento">
+                    <span class="cpk-sep" aria-hidden="true"/>
+                    <span>Establecimiento <b><t t-esc="maq.pack_codigo_establecimiento"/></b></span>
                   </t>
                 </div>
               </div>
-            </t>
-          </t>
-          <t t-else="">
-            <div class="alert alert-light border">
-              Esta planta todavía no te ha dirigido una tarifa. Los precios de referencia
-              del directorio te sirven para hacerte una idea; pídele el servicio y te
-              responderá con su tarifa firme para tu volumen.
             </div>
-          </t>
+          </header>
 
-          <a t-attf-href="/marketplace/copacking/requests/new?a=#{maq.uuid_ref}" class="btn btn-primary">
-            Pedirle servicio
-          </a>
+          <div class="cpk-layout">
+            <div class="cpk-main">
+              <section class="cpk-card" aria-labelledby="cpk_pl_datos">
+                <div class="cpk-card-h">
+                  <span class="cpk-card-ico" aria-hidden="true"><i class="fa fa-building-o"/></span>
+                  <div class="cpk-card-htxt"><h2 class="cpk-card-t" id="cpk_pl_datos">Datos de la planta</h2></div>
+                </div>
+                <div class="cpk-card-b">
+                  <dl class="cpk-kv">
+                    <div><dt>Razón social</dt><dd><t t-esc="maq.shrimp_razon_social or '—'"/></dd></div>
+                    <div><dt>Representante</dt><dd><t t-esc="maq.shrimp_representante or '—'"/></dd></div>
+                    <div><dt>Presentaciones</dt><dd><t t-esc="maq.pack_presentaciones or '—'"/></dd></div>
+                    <div><dt>Capacidad</dt>
+                      <dd><t t-if="maq.shrimp_capacity_value"><t t-esc="'{:,.0f}'.format(maq.shrimp_capacity_value)"/> lb / semana</t><t t-else="">—</t></dd></div>
+                    <div><dt>Habilitación</dt>
+                      <dd>
+                        <t t-if="maq.pack_habilitacion_hasta">
+                          hasta <t t-esc="maq.pack_habilitacion_hasta"/>
+                          <t t-if="maq.pack_habilitacion_hasta &gt;= hoy">
+                            <span class="cpk-pill cpk-pill--sm cpk-pill--ok ms-1">vigente</span>
+                          </t>
+                          <t t-else="">
+                            <span class="cpk-pill cpk-pill--sm cpk-pill--bad ms-1">vencida</span>
+                          </t>
+                        </t>
+                        <t t-else="">no registrada</t>
+                      </dd></div>
+                  </dl>
+                </div>
+              </section>
+
+              <!-- La tarifa firme solo aparece si esta planta me la dirigio: la
+                   regla de acceso ya filtra, aqui solo se decide que mensaje dar. -->
+              <t t-if="tarifas">
+                <t t-foreach="tarifas" t-as="t">
+                  <section class="cpk-card">
+                    <div class="cpk-card-h">
+                      <span class="cpk-card-ico" aria-hidden="true"><i class="fa fa-tags"/></span>
+                      <div class="cpk-card-htxt">
+                        <h2 class="cpk-card-t"><t t-esc="t.name"/></h2>
+                        <t t-if="t.min_lot_lb">
+                          <p class="cpk-card-d">Lote mínimo: <t t-esc="'{:,.0f}'.format(t.min_lot_lb)"/> lb</p>
+                        </t>
+                      </div>
+                      <span class="cpk-pill cpk-pill--brand">Tarifa dirigida a ti</span>
+                    </div>
+                    <div class="cpk-card-b">
+                      <div class="cpk-table-card mb-0">
+                        <table class="cpk-table s-stack-table">
+                          <thead>
+                            <tr>
+                              <th scope="col">Presentación</th><th scope="col">Formato</th>
+                              <th scope="col" class="num">Desde (lb)</th><th scope="col" class="num">$ / lb</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <t t-foreach="t.line_ids.sorted(lambda l: (l.presentation, l.from_lb))" t-as="l">
+                              <tr>
+                                <td class="s-stack-title"><t t-esc="dict(l._fields['presentation'].selection).get(l.presentation)"/></td>
+                                <td data-label="Formato"><t t-esc="l.pack_format"/></td>
+                                <td class="num" data-label="Desde (lb)"><t t-esc="'{:,.0f}'.format(l.from_lb or 0)"/></td>
+                                <td class="num" data-label="$ / lb"><b>$ <t t-esc="round(l.rate_per_lb, 3)"/></b></td>
+                              </tr>
+                            </t>
+                          </tbody>
+                        </table>
+                      </div>
+                      <t t-if="t.conditions">
+                        <p class="cpk-note mt-3"><t t-esc="t.conditions"/></p>
+                      </t>
+                    </div>
+                  </section>
+                </t>
+              </t>
+              <t t-else="">
+                <div class="cpk-empty cpk-empty--sm">
+                  <div class="cpk-empty-ico" aria-hidden="true"><i class="fa fa-tags"/></div>
+                  <p>
+                    Esta planta todavía no te ha dirigido una tarifa. Los precios de referencia
+                    del directorio te sirven para hacerte una idea; pídele el servicio y te
+                    responderá con su tarifa firme para tu volumen.
+                  </p>
+                </div>
+              </t>
+            </div>
+
+            <aside class="cpk-aside" aria-label="Pedir servicio">
+              <section class="cpk-card">
+                <div class="cpk-card-h">
+                  <span class="cpk-card-ico" aria-hidden="true"><i class="fa fa-usd"/></span>
+                  <div class="cpk-card-htxt">
+                    <h2 class="cpk-card-t">Precios de referencia</h2>
+                    <p class="cpk-card-d">Públicos, desde. La tarifa firme te la manda la planta.</p>
+                  </div>
+                </div>
+                <div class="cpk-card-b">
+                  <dl class="cpk-kv">
+                    <div><dt>Entero</dt><dd><t t-if="maq.pack_desde_entero">$ <t t-esc="round(maq.pack_desde_entero, 2)"/> / lb</t><t t-else="">—</t></dd></div>
+                    <div><dt>Cola</dt><dd><t t-if="maq.pack_desde_cola">$ <t t-esc="round(maq.pack_desde_cola, 2)"/> / lb</t><t t-else="">—</t></dd></div>
+                    <div><dt>Valor agregado</dt><dd><t t-if="maq.pack_desde_valor_agregado">$ <t t-esc="round(maq.pack_desde_valor_agregado, 2)"/> / lb</t><t t-else="">—</t></dd></div>
+                    <div t-if="maq.pack_lote_minimo_lb"><dt>Lote mínimo</dt><dd><t t-esc="'{:,.0f}'.format(maq.pack_lote_minimo_lb)"/> lb</dd></div>
+                  </dl>
+                </div>
+                <div class="cpk-card-f">
+                  <a t-attf-href="/marketplace/copacking/requests/new?a=#{maq.uuid_ref}" class="s-btn s-btn-primary w-100">
+                    <i class="fa fa-paper-plane" aria-hidden="true"/> Pedirle servicio
+                  </a>
+                </div>
+              </section>
+            </aside>
+          </div>
 
         </div>
       </div>

@@ -1,32 +1,33 @@
 import logging
+from markupsafe import Markup
 
 from odoo import api, fields, models, _
-from odoo.exceptions import ValidationError
+from odoo.exceptions import UserError, ValidationError
 
 _logger = logging.getLogger(__name__)
 
+# Flujo RETIRADO (decisión D-28). Los parámetros del plazo de respuesta y del
+# costo del chequeo se borran en la migración 19.0.1.38.0.
+CHECK_OPEN_STATES = ("requested", "under_review")
+# Única forma de crear una solicitud: cargar HISTÓRICO (demo, pruebas).
+LEGACY_IMPORT_CTX = "shrimp_legacy_check_import"
+
 
 class ShrimpCheckRequest(models.Model):
-    """Solicitud de chequeo (flujo ANTIGUO, en retirada).
+    """Solicitud de chequeo: flujo RETIRADO por completo (decisión D-28).
 
-    DECISIÓN: la verificación en campo (shrimp_verification) cubre lo mismo
-    —para larvas es opcional y para adulto obligatoria— con técnico,
-    informe, aceptación de las partes y trazabilidad. Mantener dos caminos
-    para "que alguien mire el producto antes de pagar" dejaba dos reglas de
-    cobro y una puerta trasera para comprar camarón adulto sin verificar.
-
-    Se retira de la forma menos disruptiva: ya no se crean solicitudes desde
-    el portal (la ruta responde con la explicación y el menú desaparece), pero
-    el modelo, sus datos y la resolución de las que quedaron pendientes
-    (backoffice y API) siguen funcionando. Aprobar una solicitud pasa por
-    execute_purchase_flow, así que un lote con verificación obligatoria se
-    rechaza igual que en la compra directa, y la comisión la cobra la propia
-    compra al confirmarse. El costo del chequeo (si lo había) es un cobro más
-    de la plataforma (shrimp.charge, tipo «check_fee»).
+    La verificación en campo (shrimp_verification) cubre lo mismo con técnico,
+    informe, aceptación de las partes y trazabilidad; se compra directo o con
+    verificación. Aquí solo queda el HISTÓRICO, de solo lectura (Ajustes ›
+    Técnico): no se crean solicitudes nuevas por ninguna vía (portal, API,
+    back-office, RPC), no se aprueban ni se rechazan, y el costo del chequeo
+    ya no existe. La migración 19.0.1.38.0 canceló las que estaban abiertas,
+    liberó la cantidad que reservaban y avisó a las dos partes. La API
+    responde 410 Gone en sus rutas.
     """
 
     _name = "shrimp.check.request"
-    _description = "Solicitud de chequeo"
+    _description = "Solicitud de chequeo (histórico, flujo retirado)"
     _inherit = ["mail.thread", "mail.activity.mixin", "shrimp.uuid.mixin"]
     _order = "create_date desc"
 
@@ -85,7 +86,12 @@ class ShrimpCheckRequest(models.Model):
         ("approved", "Aprobado"),
         ("rejected", "Rechazado"),
         ("cancelled", "Cancelado"),
+        ("expired", "Vencido"),
     ], string="Estado", default="requested", required=True, tracking=True, index=True)
+    # Histórico: el plazo que tuvo el vendedor (flujo retirado, D-28).
+    response_deadline = fields.Datetime(
+        string="Responder antes de", index=True, copy=False, tracking=True,
+        help="Plazo que tenía el vendedor para responder (flujo retirado).")
 
     transaction_id = fields.Many2one(
         "shrimp.transaction",
@@ -127,10 +133,21 @@ class ShrimpCheckRequest(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
+        if not self.env.context.get(LEGACY_IMPORT_CTX):
+            raise UserError(self._shrimp_retired_text())
         for vals in vals_list:
             if vals.get("name", _("Nuevo")) == _("Nuevo"):
                 vals["name"] = self.env["ir.sequence"].next_by_code("shrimp.check.request") or _("Nuevo")
         return super().create(vals_list)
+
+    @api.model
+    def _shrimp_retired_text(self):
+        return self.env._(
+            "La solicitud de chequeo se retiró de la plataforma: compra directo o con "
+            "verificación en campo. Las solicitudes anteriores se conservan solo para consulta.")
+
+    def _shrimp_retired(self, *args, **kwargs):
+        raise UserError(self._shrimp_retired_text())
 
     @api.constrains("qty")
     def _check_qty(self):
@@ -144,75 +161,63 @@ class ShrimpCheckRequest(models.Model):
             if rec.buyer_partner_id == rec.seller_partner_id:
                 raise ValidationError(_("El comprador y el vendedor no pueden ser el mismo."))
 
-    def action_mark_under_review(self):
-        self.write({"state": "under_review"})
+    # Flujo retirado: ninguna acción de resolución (por RPC tampoco).
+    action_mark_under_review = _shrimp_retired
+    action_approve = _shrimp_retired
+    action_reject = _shrimp_retired
+    action_cancel = _shrimp_retired
+    action_generate_check_documents = _shrimp_retired
 
-    def action_approve(self):
-        for rec in self:
-            rec._execute_approved_flow()
+    # ------------------------------------------------------------------
+    # Cierre automático: plazo vencido / producto retirado
+    # ------------------------------------------------------------------
+    def _shrimp_close_open(self, state, motivo):
+        """Cierra solicitudes abiertas sin compra (vencida o producto retirado),
+        libera la reserva y avisa a las dos partes."""
+        abiertas = self.filtered(lambda r: r.state in CHECK_OPEN_STATES)
+        if not abiertas:
+            return abiertas
+        abiertas.sudo().write({"state": state, "reviewed_date": fields.Datetime.now()})
+        for rec in abiertas:
+            rec._shrimp_notify_parties(motivo)
+        return abiertas
 
-    def _execute_approved_flow(self):
+    def _shrimp_notify_parties(self, texto):
         self.ensure_one()
+        partners = (self.buyer_partner_id | self.seller_partner_id).filtered("email")
+        try:
+            self.sudo().with_context(mail_notify_force_send=False).message_post(
+                body=Markup("<p>%s</p>") % texto,
+                subject=_("Solicitud de chequeo %s") % (self.name or ""),
+                partner_ids=partners.ids, message_type="comment",
+                subtype_xmlid="mail.mt_comment",
+                email_layout_xmlid="mail.mail_notification_light")
+        except Exception:  # noqa: BLE001 - un aviso nunca tumba el proceso
+            _logger.warning("No se pudo avisar la solicitud de chequeo %s", self.id, exc_info=True)
 
-        result = self.product_id.execute_purchase_flow(
-            buyer_partner=self.buyer_partner_id,
-            qty=self.qty,
-        )
+    @api.model
+    def _shrimp_retire_open(self):
+        """Migración D-28: cancela las solicitudes abiertas, libera la cantidad
+        reservada y avisa al comprador y al vendedor. Devuelve las cerradas."""
+        abiertas = self.sudo().search([("state", "in", CHECK_OPEN_STATES)])
+        cerradas = self.browse()
+        for rec in abiertas:
+            cerradas |= rec._shrimp_close_open("cancelled", _(
+                "La solicitud de chequeo %(ref)s se canceló porque la plataforma retiró este "
+                "flujo. No se ejecutó ninguna compra ni hay cobro, y la cantidad reservada "
+                "(%(qty)s) vuelve a estar disponible. Si todavía te interesa el lote, cómpralo "
+                "directo o con verificación en campo.") % {
+                    "ref": rec.name or "", "qty": "{:,.2f}".format(rec.qty or 0.0)})
+        if cerradas:
+            productos = cerradas.mapped("product_id").sudo()
+            productos._compute_available_qty()
+        return cerradas
 
-        self.write({
-            "state": "approved",
-            "reviewed_by": self.env.user.id,
-            "reviewed_date": fields.Datetime.now(),
-            "transaction_id": result["transaction"].id if result.get("transaction") else False,
-            "result_product_id": result["new_product"].id if result.get("new_product") else False,
-            "source_lot_id": result["source_lot_ids"][0].id if result.get("source_lot_ids") else False,
-        })
-
-    def action_reject(self):
-        self.write({
-            "state": "rejected",
-            "reviewed_by": self.env.user.id,
-            "reviewed_date": fields.Datetime.now(),
-        })
-
-    def action_cancel(self):
-        self.write({"state": "cancelled"})
-
-    # ------------------------------------------------------------------
-    # Cobro del chequeo -> shrimp.charge (cliente = comprador)
-    # ------------------------------------------------------------------
-    def _create_check_sale_documents(self):
-        """Registra (una vez) el cobro del chequeo y lo intenta facturar."""
-        Charge = self.env["shrimp.charge"].sudo()
-        for rec in self:
-            if rec.charge_id or rec.sale_order_id or not rec.buyer_partner_id \
-                    or (rec.check_fee or 0.0) <= 0:
-                continue
-            charge = Charge._register_charge({
-                "charge_type": "check_fee",
-                "payer_partner_id": rec.buyer_partner_id.id,
-                "seller_partner_id": rec.seller_partner_id.id,
-                "buyer_partner_id": rec.buyer_partner_id.id,
-                "product_id": rec.product_id.id,
-                "amount": rec.check_fee,
-                "invoice_qty": 1.0,
-                "origin": rec.name,
-                "description": _("Chequeo de producto – %s") % (rec.product_id.display_name or ""),
-            })
-            rec.sudo().write({
-                "charge_id": charge.id,
-                "sale_order_id": charge.sale_order_id.id or False,
-                "invoice_id": charge.invoice_id.id or False,
-            })
-
-    def action_generate_check_documents(self):
-        for rec in self:
-            if rec.charge_id:
-                rec.charge_id.action_retry_invoice()
-                rec.sudo().write({"sale_order_id": rec.charge_id.sale_order_id.id or False,
-                                  "invoice_id": rec.charge_id.invoice_id.id or False})
-        self.filtered(lambda r: not r.charge_id)._create_check_sale_documents()
-        return True
+    @api.model
+    def _cron_expire(self):
+        """Sin uso: el cron se borró con el flujo (D-28). Se conserva por si
+        una base sin actualizar lo llama."""
+        return 0
 
     def action_open_sale_order(self):
         self.ensure_one()

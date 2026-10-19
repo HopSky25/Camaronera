@@ -43,6 +43,7 @@
                             <field name="last_failure_at"/>
                             <field name="last_error"/>
                             <field name="disabled_reason"/>
+                            <field name="auto_disabled_at"/>
                         </group>
                     </group>
                     <field name="delivery_ids" readonly="1">
@@ -52,6 +53,7 @@
                             <field name="resource_type"/>
                             <field name="state"/>
                             <field name="attempts"/>
+                            <field name="resend_count" optional="hide"/>
                             <field name="last_status_code"/>
                             <field name="last_error"/>
                         </list>
@@ -66,7 +68,7 @@
         <field name="model">shrimp.webhook.delivery</field>
         <field name="arch" type="xml">
             <list create="false" decoration-danger="state == 'dead'" decoration-success="state == 'success'"
-                  decoration-warning="state == 'retrying'">
+                  decoration-warning="state in ('retrying', 'held')">
                 <field name="occurred_at"/>
                 <field name="subscription_id"/>
                 <field name="partner_id"/>
@@ -75,11 +77,12 @@
                 <field name="resource_uuid" optional="hide"/>
                 <field name="state"/>
                 <field name="attempts"/>
+                <field name="resend_count" optional="hide"/>
                 <field name="next_attempt_at"/>
                 <field name="last_status_code"/>
                 <field name="last_error"/>
-                <button name="action_retry" type="object" string="Reintentar" icon="fa-repeat"
-                        invisible="state not in ('dead', 'retrying')"/>
+                <button name="action_resend" type="object" string="Reenviar" icon="fa-repeat"
+                        invisible="state not in ('dead', 'retrying', 'success')"/>
             </list>
         </field>
     </record>
@@ -90,8 +93,8 @@
         <field name="arch" type="xml">
             <form create="false" edit="false">
                 <header>
-                    <button name="action_retry" type="object" string="Reintentar"
-                            invisible="state not in ('dead', 'retrying')"/>
+                    <button name="action_resend" type="object" string="Reenviar"
+                            invisible="state not in ('dead', 'retrying', 'success')"/>
                     <field name="state" widget="statusbar"/>
                 </header>
                 <sheet>
@@ -106,6 +109,7 @@
                         <group>
                             <field name="occurred_at"/>
                             <field name="attempts"/>
+                            <field name="resend_count"/>
                             <field name="next_attempt_at"/>
                             <field name="delivered_at"/>
                             <field name="last_status_code"/>
@@ -129,6 +133,7 @@
                 <field name="resource_uuid"/>
                 <filter name="f_dead" string="Fallidas" domain="[('state', '=', 'dead')]"/>
                 <filter name="f_pending" string="Pendientes" domain="[('state', 'in', ('pending', 'retrying'))]"/>
+                <filter name="f_held" string="Retenidas (suscripción inactiva)" domain="[('state', '=', 'held')]"/>
             </search>
         </field>
     </record>

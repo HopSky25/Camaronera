@@ -28,45 +28,18 @@ class ResPartner(models.Model):
         return (self.env.ref("l10n_ec.ec_passport", raise_if_not_found=False)
                 or self.env.ref("l10n_latam_base.it_pass", raise_if_not_found=False))
 
-    @api.model
-    def _shrimp_sri_identification_code_for(self, vat):
-        """Código del SRI (tabla 6) que lee l10n_ec_sri_community al emitir
-        (``ec_sri_identification_type``): 04 RUC, 05 cédula, 06 pasaporte,
-        07 consumidor final."""
-        vat = (vat or "").strip()
-        if not vat:
-            return False
-        if vat == "9" * 13:
-            return "07"
-        if _RE_RUC.match(vat):
-            return "04"
-        if _RE_CEDULA.match(vat):
-            return "05"
-        return "06"
-
     def _shrimp_sync_identification_type(self):
-        """Pone el tipo de identificación que corresponde al número, en los
-        dos campos: el de l10n_latam (decide qué documentos se permiten) y el
-        del módulo SRI (va en el XML).
+        """Pone el tipo de identificación que corresponde al número.
 
         Sin validar el dígito verificador: hay RUC nuevos que no siguen el
         algoritmo y el SRI solo lo advierte (el módulo SRI lo avisa al
-        emitir). En el código SRI, un número que no es RUC, cédula ni
-        consumidor final solo se rellena si está vacío: «pasaporte» e
-        «identificación del exterior» no se distinguen por el número."""
+        emitir)."""
         for rec in self.sudo().with_context(no_vat_validation=True):
             if not rec.shrimp_user_type or not rec.vat:
                 continue
-            vals = {}
             tipo = self._shrimp_identification_type_for(rec.vat)
             if tipo and rec.l10n_latam_identification_type_id != tipo:
-                vals["l10n_latam_identification_type_id"] = tipo.id
-            codigo = self._shrimp_sri_identification_code_for(rec.vat)
-            if codigo and rec.ec_sri_identification_type != codigo \
-                    and (codigo != "06" or not rec.ec_sri_identification_type):
-                vals["ec_sri_identification_type"] = codigo
-            if vals:
-                rec.write(vals)
+                rec.l10n_latam_identification_type_id = tipo
 
     @api.model_create_multi
     def create(self, vals_list):

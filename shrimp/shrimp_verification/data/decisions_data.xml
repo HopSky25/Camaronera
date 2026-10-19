@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Decisiones de la auditoría de procesos (19.0.1.24.0). -->
+  <data noupdate="0">
+    <!-- D-23: aviso de vencimiento de la acreditación de las verificadoras
+         (N días antes y el día del vencimiento; también a la plataforma). -->
+    <record id="ir_cron_verifier_accreditation_expiry" model="ir.cron">
+      <field name="name">Verificación: aviso de vencimiento de acreditaciones</field>
+      <field name="model_id" ref="shrimp_user_registry.model_shrimp_user_certificate_line"/>
+      <field name="state">code</field>
+      <field name="code">model._cron_verifier_accreditation_expiry()</field>
+      <field name="user_id" ref="base.user_root"/>
+      <field name="interval_number">1</field>
+      <field name="interval_type">days</field>
+      <field name="active" eval="True"/>
+    </record>
+  </data>
+  <!-- Borradores legales (2026-10.2): solo borradores, una vez por base. -->
+  <function model="shrimp.verification.decision.policy" name="_shrimp_update_verification_drafts"/>
+</odoo>

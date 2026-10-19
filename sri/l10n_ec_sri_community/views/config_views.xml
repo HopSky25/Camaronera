@@ -1,22 +1,27 @@
 <odoo>
+    <!-- En la ficha de Empresas: mostrar NUESTROS establecimientos y ocultar la
+         pestaña nativa "Sucursales" (no usamos branches de res.company). -->
     <record id="company_sri_form" model="ir.ui.view">
-        <field name="name">res.company.sri.community</field><field name="model">res.company</field>
+        <field name="name">res.company.sri.establishments</field>
+        <field name="model">res.company</field>
         <field name="inherit_id" ref="base.view_company_form"/>
         <field name="arch" type="xml">
             <xpath expr="//notebook" position="inside">
-                <page string="SRI (facturación electrónica)" groups="account.group_account_manager">
-                    <group><group>
-                        <field name="ec_sri_enabled"/><field name="ec_sri_environment"/>
-                        <field name="ec_sri_production_ready" invisible="ec_sri_environment != '2'"/>
-                        <field name="ec_sri_trade_name"/><field name="ec_sri_address"/>
-                        <field name="ec_sri_accounting"/><field name="ec_sri_regime"/>
-                    </group><group>
-                        <field name="ec_sri_special"/><field name="ec_sri_agent"/><field name="ec_sri_provider_ruc"/>
-                        <field name="ec_sri_large_taxpayer"/><field name="ec_sri_establishments"/>
-                        <field name="ec_sri_secret_name" groups="base.group_system"/>
-                    </group></group>
-                    <p>El certificado y su contraseña se configuran en variables de entorno del servidor. Los comprobantes de pruebas no tienen validez tributaria.</p>
+                <page string="Sucursales" name="ec_sri_establishments">
+                    <field name="ec_sri_establishment_ids">
+                        <list editable="bottom">
+                            <field name="code"/>
+                            <field name="name"/>
+                            <field name="address"/>
+                            <field name="is_headquarters"/>
+                        </list>
+                    </field>
+                    <p class="text-muted">La matriz es el establecimiento 001; las sucursales 002, 003…
+                    Todos comparten el RUC. No son compañías.</p>
                 </page>
+            </xpath>
+            <xpath expr="//page[@name='branches']" position="attributes">
+                <attribute name="invisible">1</attribute>
             </xpath>
         </field>
     </record>
@@ -24,14 +29,14 @@
         <field name="name">res.partner.sri.community</field><field name="model">res.partner</field>
         <field name="inherit_id" ref="base.view_partner_form"/>
         <field name="arch" type="xml"><xpath expr="//field[@name='vat']" position="after">
-            <field name="ec_sri_identification_type"/><field name="ec_sri_related"/><field name="ec_sri_rimpe_type"/><field name="ec_sri_rimpe_start_date" invisible="not ec_sri_rimpe_type"/><field name="ec_sri_rimpe_end_date" invisible="not ec_sri_rimpe_type"/>
+            <field name="ec_sri_related"/><field name="ec_sri_rimpe_type"/><field name="ec_sri_rimpe_start_date" invisible="not ec_sri_rimpe_type"/><field name="ec_sri_rimpe_end_date" invisible="not ec_sri_rimpe_type"/>
         </xpath></field>
     </record>
     <record id="tax_sri_form" model="ir.ui.view">
         <field name="name">account.tax.sri.community</field><field name="model">account.tax</field>
         <field name="inherit_id" ref="account.view_tax_form"/>
         <field name="arch" type="xml"><xpath expr="//sheet" position="inside">
-            <group string="Códigos del SRI"><group><field name="ec_sri_tax_code"/><field name="ec_sri_percentage_code"/><field name="ec_sri_ats_bucket"/></group>
+            <group string="SRI"><group><field name="ec_sri_tax_code"/><field name="ec_sri_percentage_code"/><field name="ec_sri_ats_bucket"/></group>
             <group><field name="ec_sri_form"/><field name="ec_sri_base_box"/><field name="ec_sri_tax_box"/></group></group>
         </xpath></field>
     </record>
@@ -40,13 +45,117 @@
         <field name="inherit_id" ref="product.product_template_only_form_view"/>
         <field name="arch" type="xml"><xpath expr="//sheet" position="inside"><group string="SRI"><field name="ec_sri_auxiliary_code"/></group></xpath></field>
     </record>
+    <!-- Establecimientos (tabla propia; NO son compañías) -->
+    <record id="establishment_sri_list" model="ir.ui.view">
+        <field name="name">ec.sri.establishment.list</field><field name="model">ec.sri.establishment</field>
+        <field name="arch" type="xml">
+            <list string="Establecimientos">
+                <field name="code"/>
+                <field name="name"/>
+                <field name="address"/>
+                <field name="is_headquarters" string="Matriz"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+            </list>
+        </field>
+    </record>
+    <record id="establishment_sri_form" model="ir.ui.view">
+        <field name="name">ec.sri.establishment.form</field><field name="model">ec.sri.establishment</field>
+        <field name="arch" type="xml">
+            <form string="Establecimiento">
+                <sheet>
+                    <group>
+                        <field name="code"/>
+                        <field name="name"/>
+                        <field name="address"/>
+                        <field name="is_headquarters"/>
+                        <field name="company_id" groups="base.group_multi_company"/>
+                    </group>
+                    <notebook>
+                        <page string="Puntos de emisión" name="points">
+                            <field name="point_ids" context="{'default_establishment_id': id}">
+                                <list>
+                                    <field name="name"/>
+                                    <field name="emission"/>
+                                    <field name="environment"/>
+                                </list>
+                            </field>
+                            <p class="text-muted">Un establecimiento puede tener varios puntos de emisión (001, 002…).</p>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="action_sri_establishments" model="ir.actions.act_window">
+        <field name="name">Establecimientos</field>
+        <field name="res_model">ec.sri.establishment</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
     <record id="point_sri_list" model="ir.ui.view">
         <field name="name">ec.sri.point.list</field><field name="model">ec.sri.point</field>
-        <field name="arch" type="xml"><list><field name="name"/><field name="company_id" groups="base.group_multi_company"/><field name="establishment"/><field name="emission"/><field name="document_type"/><field name="environment"/></list></field>
+        <field name="arch" type="xml">
+            <list string="Puntos de emisión" decoration-muted="not active">
+                <field name="active" column_invisible="1"/>
+                <field name="establishment_name"/>
+                <field name="establishment" string="Establecimiento"/>
+                <field name="emission" string="Punto de emisión"/>
+                <field name="name" string="Nombre"/>
+                <field name="document_summary"/>
+                <field name="journal_ids" widget="many2many_tags" string="Diarios"/>
+                <field name="environment" string="Ambiente"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+            </list>
+        </field>
+    </record>
+    <record id="point_sri_search" model="ir.ui.view">
+        <field name="name">ec.sri.point.search</field><field name="model">ec.sri.point</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/><field name="establishment_id"/>
+                <filter name="archived" string="Archivados" domain="[('active','=',False)]"/>
+                <filter name="by_establishment" string="Sucursal" context="{'group_by':'establishment_id'}"/>
+            </search>
+        </field>
     </record>
     <record id="point_sri_form" model="ir.ui.view">
         <field name="name">ec.sri.point.form</field><field name="model">ec.sri.point</field>
-        <field name="arch" type="xml"><form><sheet><group><field name="name"/><field name="company_id"/><field name="establishment"/><field name="emission"/><field name="document_type"/><field name="environment"/><field name="address"/><field name="sequence_id" readonly="1"/><field name="next_number"/><field name="active"/></group><p>Facturas y notas conservan la numeración de Odoo. La secuencia del punto se utiliza en retenciones y guías.</p></sheet></form></field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_archive" type="object" string="Archivar" invisible="not active"/>
+                    <button name="action_unarchive" type="object" string="Reactivar" invisible="active"/>
+                </header>
+                <sheet>
+                    <widget name="web_ribbon" title="Archivado" bg_color="text-bg-danger" invisible="active"/>
+                    <field name="active" invisible="1"/>
+                    <group>
+                        <field name="name"/>
+                        <field name="establishment_id" readonly="id != False"/>
+                        <field name="establishment" readonly="1"/>
+                        <field name="emission" readonly="id != False" placeholder="001"/>
+                        <field name="environment"/>
+                        <field name="address" readonly="1"/>
+                        <field name="company_id" groups="base.group_multi_company" readonly="1"/>
+                        <field name="journal_ids" widget="many2many_tags" readonly="1" string="Diarios"
+                               help="Diarios atados a este punto (se configura en el diario, campo Punto de emisión SRI)."/>
+                    </group>
+                    <notebook>
+                        <page string="Documentos que emite" name="documents">
+                            <field name="line_ids">
+                                <list editable="bottom">
+                                    <field name="l10n_latam_document_type_id" required="1" readonly="id != False"
+                                           options="{'no_create': True, 'no_open': True}"/>
+                                    <field name="document_type" readonly="1" force_save="1" optional="show"/>
+                                    <field name="next_number" readonly="id != False"/>
+                                </list>
+                            </field>
+                            <p class="text-muted">Cada documento se numera desde este punto: establecimiento, punto de emisión y el próximo secuencial (por ejemplo 001-002-000000001).</p>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
     </record>
     <record id="action_sri_points" model="ir.actions.act_window"><field name="name">Puntos de emisión</field><field name="res_model">ec.sri.point</field><field name="view_mode">list,form</field></record>
 </odoo>

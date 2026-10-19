@@ -1,0 +1,688 @@
+<odoo>
+
+  <!-- ================================================================
+       ASISTENTE DE ALTA (/register, /register/packer, /register/copacker)
+
+       Cuatro pasos: 1 Cuenta · 2 Titular (natural o empresa) · 3 Perfil(es) · 4 Documentos y
+       contratos. Sin JS se ve todo en una sola página y el servidor valida lo
+       mismo; con JS se muestra un paso a la vez (móvil primero).
+
+       Contexto (ShrimpRegistryController._signup_context):
+         signup_profiles      [{code, label, hint, icon, requires_approval}]
+                              los perfiles que se pueden registrar EN ESTE SITIO
+         signup_profile_codes los códigos de esos perfiles
+         selected_profiles    los elegidos (o preseleccionados por la ruta)
+         legal_documents      [(documento, versión vigente)] general + anexos
+         ec_states            provincias de Ecuador
+
+       Los módulos que traen un perfil (empacadora, maquilador) agregan su
+       bloque de datos heredando shrimp_user_registry.signup_profile_sections.
+       ================================================================ -->
+  <template id="registry_form" name="Registro Shrimp">
+    <t t-call="website.layout">
+      <t t-set="values" t-value="values or {}"/>
+      <t t-set="sel" t-value="selected_profiles or []"/>
+      <div class="shrimp-bg">
+        <div class="shrimp-page py-4 shrimp-signup">
+
+          <div class="sf-banner">
+            <div class="sf-banner-row">
+              <div class="sf-banner-txt">
+                <h1 t-esc="signup_title or 'Crea tu cuenta'"/>
+                <p t-if="signup_lead" t-esc="signup_lead"/>
+                <p t-else="">En pocos pasos: tu acceso, tus datos o los de tu empresa, los perfiles con los que
+                   vas a operar, tus instalaciones (si aplica) y los documentos. Quien crea la cuenta queda
+                   como su administrador y después puede invitar a su equipo.</p>
+              </div>
+              <span class="sf-kicker"><i t-attf-class="fa #{signup_kicker_icon or 'fa-user-plus'}"></i> <t t-esc="signup_kicker or 'Registro'"/></span>
+            </div>
+          </div>
+
+          <div t-if="error" class="alert alert-danger" role="alert" id="shrimpSignupError">
+            <t t-esc="error"/>
+          </div>
+          <div id="formAlert" class="alert alert-danger d-none" role="alert">
+            <span id="formAlertText"></span>
+          </div>
+
+          <ol class="shrimp-steps" id="shrimpSteps" aria-label="Pasos del registro">
+            <li data-step="1" class="is-current"><span class="shrimp-step-num">1</span><span class="shrimp-step-txt">Cuenta</span></li>
+            <li data-step="2"><span class="shrimp-step-num">2</span><span class="shrimp-step-txt" id="shrimpStep2Tab"
+                data-none="Titular" data-natural="Tus datos" data-juridica="Empresa">Titular</span></li>
+            <li data-step="3"><span class="shrimp-step-num">3</span><span class="shrimp-step-txt">Perfil</span></li>
+            <li data-step="4" data-step-key="docs"><span class="shrimp-step-num">4</span><span class="shrimp-step-txt">Documentos</span></li>
+          </ol>
+
+          <form id="shrimpRegisterForm" class="sf shrimp-wizard" action="/register/submit" method="post"
+                enctype="multipart/form-data" novalidate="novalidate" data-shrimp-submit-guard="1"
+                data-guard-title="Creando tu cuenta…"
+                data-guard-text="Estamos guardando tus datos y documentos. No cierres esta ventana."
+                t-att-data-captcha="'shrimp_signup' if request.env['ir.config_parameter'].sudo().get_param('recaptcha_public_key') else None">
+            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+            <t t-call="shrimp_user_registry.signup_honeypot"/>
+
+            <!-- ======================= PASO 1: CUENTA ======================= -->
+            <section class="card mb-4 shrimp-step" data-step="1" id="shrimp_reg_step_account">
+              <div class="card-body p-4">
+                <div class="s-eyebrow mb-1 shrimp-step-eyebrow">Paso 1</div>
+                <h2 class="h5 mb-3">Tu acceso</h2>
+                <div class="shrimp-card-sec">
+                  <div class="shrimp-prof-sec-head">
+                    <span class="shrimp-prof-sec-ico" aria-hidden="true"><i class="fa fa-user-circle"/></span>
+                    <div class="shrimp-prof-sec-htxt">
+                      <h3 class="shrimp-prof-sec-title">Datos de acceso</h3>
+                      <p class="shrimp-prof-sec-desc">Con tu correo y tu contraseña entras a la plataforma.</p>
+                    </div>
+                  </div>
+                  <div class="shrimp-prof-sec-body">
+                <div class="row g-3">
+                  <div class="col-12">
+                    <label class="form-label small text-muted" for="reg_contact">Nombre completo <span class="text-danger">*</span></label>
+                    <input class="form-control" id="reg_contact" type="text" name="shrimp_contact_name" required="required"
+                           autocomplete="name" t-att-value="values.get('shrimp_contact_name')" placeholder="Ej. María Pérez"/>
+                    <div class="form-text">Serás la administradora o el administrador de la cuenta.</div>
+                  </div>
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted" for="reg_email">Correo (tu usuario) <span class="text-danger">*</span></label>
+                    <input class="form-control" id="reg_email" type="email" name="email" required="required"
+                           autocomplete="email" t-att-value="values.get('email')" placeholder="correo@empresa.com"/>
+                  </div>
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted" for="reg_phone">Celular <span class="text-danger">*</span></label>
+                    <input class="form-control" id="reg_phone" type="tel" name="phone" required="required"
+                           autocomplete="tel" inputmode="tel" t-att-value="values.get('phone')" placeholder="Ej. 0991234567"/>
+                  </div>
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted" for="password">Contraseña <span class="text-danger">*</span></label>
+                    <input id="password" class="form-control" type="password" name="password" required="required"
+                           minlength="8" autocomplete="new-password" placeholder="Mínimo 8 caracteres"/>
+                  </div>
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted" for="password_confirm">Confirmar contraseña <span class="text-danger">*</span></label>
+                    <input id="password_confirm" class="form-control" type="password" name="password_confirm"
+                           required="required" minlength="8" autocomplete="new-password" placeholder="Repite la contraseña"/>
+                  </div>
+                </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- ======================= PASO 2: TITULAR ====================== -->
+            <!-- Los campos dependen del tipo de persona (19.0.1.8.0). Con JS:
+                 antes de elegir solo se ve el selector; después, los campos de
+                 ese tipo (los del otro quedan ocultos y DESHABILITADOS: ni se
+                 validan ni se envían). Sin JS se ve todo y el servidor ignora
+                 lo que no aplica al tipo elegido.
+                 data-pt="natural|juridica": solo para ese tipo.
+                 data-natural-* / data-juridica-*: textos que cambian. -->
+            <section class="card mb-4 shrimp-step" data-step="2" id="shrimp_reg_step_basic">
+              <t t-set="pt" t-value="values.get('shrimp_person_type') if values.get('shrimp_person_type') in ('natural', 'juridica') else ''"/>
+              <div class="card-body p-4">
+                <div class="s-eyebrow mb-1 shrimp-step-eyebrow" id="shrimp_reg_step_basic_label">Paso 2</div>
+                <h2 class="h5 mb-1" id="shrimpStep2Title" data-none="¿A nombre de quién será la cuenta?"
+                    data-natural="Tus datos" data-juridica="Tu empresa">Tus datos o los de tu empresa</h2>
+                <p class="small text-muted mb-3" id="shrimpStep2Lead"
+                   data-none="Elige el tipo de persona y te pedimos solo lo que corresponde."
+                   data-natural="Los datos con los que facturas como persona natural y, si lo usas, el nombre de tu negocio."
+                   data-juridica="Los datos de la sociedad tal como constan en el RUC.">Elige el tipo de persona y completa sus datos.</p>
+
+                <div class="shrimp-card-sec">
+                  <div class="shrimp-prof-sec-head">
+                    <span class="shrimp-prof-sec-ico" aria-hidden="true"><i class="fa fa-id-card-o"/></span>
+                    <div class="shrimp-prof-sec-htxt">
+                      <h3 class="shrimp-prof-sec-title" aria-hidden="true">Tipo de persona <span class="text-danger">*</span></h3>
+                      <p class="shrimp-prof-sec-desc">Según lo que elijas te pedimos solo los datos que corresponden.</p>
+                    </div>
+                  </div>
+                  <div class="shrimp-prof-sec-body">
+                <fieldset class="shrimp-pt-fieldset mb-0">
+                  <legend class="visually-hidden">Tipo de persona (obligatorio)</legend>
+                  <div class="shrimp-choice-row shrimp-pt-choices">
+                    <label class="shrimp-choice" for="reg_pt_natural">
+                      <input type="radio" class="shrimp-choice-input" id="reg_pt_natural" name="shrimp_person_type"
+                             value="natural" required="required"
+                             t-att-checked="'checked' if pt == 'natural' else None"/>
+                      <span class="shrimp-choice-ico" aria-hidden="true"><i class="fa fa-user"/></span>
+                      <span class="shrimp-choice-text">
+                        <span class="shrimp-choice-title">Persona natural</span>
+                        <span class="shrimp-choice-hint">Con tu cédula o tu RUC personal</span>
+                      </span>
+                    </label>
+                    <label class="shrimp-choice" for="reg_pt_juridica">
+                      <input type="radio" class="shrimp-choice-input" id="reg_pt_juridica" name="shrimp_person_type"
+                             value="juridica" t-att-checked="'checked' if pt == 'juridica' else None"/>
+                      <span class="shrimp-choice-ico" aria-hidden="true"><i class="fa fa-building"/></span>
+                      <span class="shrimp-choice-text">
+                        <span class="shrimp-choice-title">Persona jurídica (empresa)</span>
+                        <span class="shrimp-choice-hint">Compañía o entidad con RUC de sociedad</span>
+                      </span>
+                    </label>
+                  </div>
+                </fieldset>
+                  </div>
+                </div>
+
+                <div class="shrimp-pt-fields" id="shrimpPersonFields">
+                  <div class="shrimp-card-sec">
+                    <div class="shrimp-prof-sec-head">
+                      <span class="shrimp-prof-sec-ico" aria-hidden="true"><i class="fa fa-address-card-o"/></span>
+                      <div class="shrimp-prof-sec-htxt">
+                        <h3 class="shrimp-prof-sec-title">Identificación</h3>
+                        <p class="shrimp-prof-sec-desc shrimp-pt-text" data-natural="Tu identificación y, si lo usas, el nombre de tu negocio."
+                           data-juridica="La sociedad y su representante legal, como constan en el RUC.">Quién es el titular de la cuenta.</p>
+                      </div>
+                    </div>
+                    <div class="shrimp-prof-sec-body">
+                  <div class="row g-3">
+                    <div class="col-12 col-md-6">
+                      <label class="form-label small text-muted" for="reg_vat"><span class="shrimp-pt-text"
+                             data-natural="Cédula o RUC" data-juridica="RUC de la sociedad">RUC o cédula</span> <span class="text-danger">*</span></label>
+                      <input class="form-control" id="reg_vat" type="text" name="vat_or_id" required="required"
+                             inputmode="numeric" maxlength="13" pattern="[0-9]{10}([0-9]{3})?" autocomplete="off"
+                             data-natural-placeholder="10 dígitos (cédula) o 13 (RUC, termina en 001)"
+                             data-juridica-placeholder="13 dígitos, ej. 0992345678001"
+                             t-att-value="values.get('vat_or_id')" placeholder="10 dígitos (cédula) o 13 (RUC)"/>
+                      <div class="form-text shrimp-pt-text"
+                           data-natural="Tu cédula, o tu RUC si facturas con él. Se valida el dígito verificador."
+                           data-juridica="RUC de sociedad privada (tercer dígito 9) o pública (6). Se valida el dígito verificador.">Se valida el dígito verificador. Persona jurídica: RUC.</div>
+                    </div>
+                    <div class="col-12 col-md-6" data-pt="natural">
+                      <label class="form-label small text-muted" for="reg_nombres">Nombres y apellidos <span class="text-danger">*</span></label>
+                      <input class="form-control" id="reg_nombres" type="text" name="shrimp_nombres_apellidos" required="required"
+                             autocomplete="name" t-att-value="values.get('shrimp_nombres_apellidos')" placeholder="Como constan en tu cédula"/>
+                      <div class="form-text">Tomado del paso 1; corrígelo si hace falta.</div>
+                    </div>
+                    <div class="col-12 col-md-6" data-pt="juridica">
+                      <label class="form-label small text-muted" for="reg_razon">Razón social <span class="text-danger">*</span></label>
+                      <input class="form-control" id="reg_razon" type="text" name="shrimp_razon_social" required="required"
+                             autocomplete="organization" t-att-value="values.get('shrimp_razon_social')"
+                             placeholder="Ej. Camaronera del Golfo S.A."/>
+                    </div>
+                    <div class="col-12">
+                      <label class="form-label small text-muted" for="reg_name">Nombre comercial
+                        <span class="text-danger" data-pt-mark="juridica">*</span><span class="shrimp-optional" data-pt-mark="natural">(opcional)</span></label>
+                      <input class="form-control" id="reg_name" type="text" name="shrimp_nombre_comercial"
+                             t-att-value="values.get('shrimp_nombre_comercial') or values.get('name')"
+                             data-natural-placeholder="Si operas con un nombre de negocio, ej. Camaronera Don Pepe"
+                             data-juridica-placeholder="El nombre con el que te conocen, ej. Camaronera del Golfo"
+                             placeholder="El nombre con el que te conocen"/>
+                    </div>
+                    <div class="col-12 col-md-6" data-pt="juridica">
+                      <label class="form-label small text-muted" for="reg_rep">Representante legal <span class="text-danger">*</span></label>
+                      <input class="form-control" id="reg_rep" type="text" name="shrimp_representante" required="required"
+                             t-att-value="values.get('shrimp_representante')" placeholder="Nombres y apellidos"/>
+                    </div>
+                    <div class="col-12 col-md-6" data-pt="juridica">
+                      <label class="form-label small text-muted" for="reg_rep_ced">Cédula del representante <span class="shrimp-optional">(opcional)</span></label>
+                      <input class="form-control" id="reg_rep_ced" type="text" name="shrimp_representante_cedula"
+                             inputmode="numeric" maxlength="10" pattern="[0-9]{10}" autocomplete="off"
+                             t-att-value="values.get('shrimp_representante_cedula')" placeholder="10 dígitos"/>
+                    </div>
+                  </div>
+                    </div>
+                  </div>
+
+                  <div class="shrimp-card-sec">
+                    <div class="shrimp-prof-sec-head">
+                      <span class="shrimp-prof-sec-ico" aria-hidden="true"><i class="fa fa-map-marker"/></span>
+                      <div class="shrimp-prof-sec-htxt">
+                        <h3 class="shrimp-prof-sec-title">Dirección y contacto</h3>
+                        <p class="shrimp-prof-sec-desc">Dónde estás y cómo te ubicamos.</p>
+                      </div>
+                    </div>
+                    <div class="shrimp-prof-sec-body">
+                  <div class="row g-3">
+                    <div class="col-12 col-md-4">
+                      <label class="form-label small text-muted" for="reg_state">Provincia <span class="text-danger">*</span></label>
+                      <select class="form-select" id="reg_state" name="state_id" required="required">
+                        <option value="">Elige…</option>
+                        <t t-foreach="ec_states or []" t-as="st">
+                          <option t-att-value="st.id" t-att-selected="'selected' if str(values.get('state_id')) == str(st.id) else None"><t t-esc="st.name"/></option>
+                        </t>
+                      </select>
+                    </div>
+                    <div class="col-12 col-md-4">
+                      <label class="form-label small text-muted" for="reg_city">Cantón <span class="text-danger">*</span></label>
+                      <input class="form-control" id="reg_city" type="text" name="city" required="required"
+                             t-att-value="values.get('city')" placeholder="Ej. Machala"/>
+                    </div>
+                    <div class="col-12 col-md-4">
+                      <label class="form-label small text-muted" for="reg_tel"><span class="shrimp-pt-text"
+                             data-natural="Teléfono" data-juridica="Teléfono de la empresa">Teléfono de la empresa</span> <span class="shrimp-optional">(opcional)</span></label>
+                      <input class="form-control" id="reg_tel" type="tel" name="shrimp_telefono" inputmode="tel"
+                             t-att-value="values.get('shrimp_telefono')" placeholder="Si es distinto del celular"/>
+                    </div>
+                    <div class="col-12">
+                      <label class="form-label small text-muted" for="reg_street">Dirección <span class="text-danger">*</span></label>
+                      <input class="form-control" id="reg_street" type="text" name="street" required="required"
+                             autocomplete="street-address" t-att-value="values.get('street')"
+                             placeholder="Calle, número e intersección"/>
+                    </div>
+                    <div class="col-12 col-md-6">
+                      <label class="form-label small text-muted" for="reg_ubic">Ubicación de la finca, planta o laboratorio</label>
+                      <input class="form-control" id="reg_ubic" type="text" name="shrimp_ubicacion"
+                             t-att-value="values.get('shrimp_ubicacion')" placeholder="Si es distinta de la dirección"/>
+                    </div>
+                    <div class="col-12 col-md-6">
+                      <label class="form-label small text-muted" for="reg_act">Actividad económica</label>
+                      <input class="form-control" id="reg_act" type="text" name="shrimp_actividad"
+                             t-att-value="values.get('shrimp_actividad')" placeholder="Ej. Cría y cultivo de camarón"/>
+                    </div>
+                  </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- ======================= PASO 3: PERFIL(ES) =================== -->
+            <section class="card mb-4 shrimp-step" data-step="3" id="shrimp_reg_step_profile">
+              <div class="card-body p-4">
+                <div class="s-eyebrow mb-1 shrimp-step-eyebrow" id="shrimp_reg_step_profile_label">Paso 3</div>
+                <h2 class="h5 mb-1" t-if="len(signup_profiles or []) == 1">Tu perfil</h2>
+                <h2 class="h5 mb-1" t-else="">¿Con qué perfiles vas a operar?</h2>
+                <p class="small text-muted mb-3" t-if="len(signup_profiles or []) == 1">Completa los datos de tu perfil.
+                  Más adelante puedes agregar otros desde «Mi cuenta».</p>
+                <p class="small text-muted mb-3" t-else="">Puedes elegir más de uno (por ejemplo laboratorio y camaronera).
+                  Los perfiles que requieren aprobación quedan pendientes hasta que la administración los revise;
+                  los demás se pueden usar en cuanto creas la cuenta. Más adelante puedes agregar otros desde «Mi cuenta».</p>
+                <div class="shrimp-card-sec">
+                  <div class="shrimp-prof-sec-head">
+                    <span class="shrimp-prof-sec-ico" aria-hidden="true"><i class="fa fa-id-badge"/></span>
+                    <div class="shrimp-prof-sec-htxt">
+                      <h3 class="shrimp-prof-sec-title" t-if="len(signup_profiles or []) == 1">Perfil</h3>
+                      <h3 class="shrimp-prof-sec-title" t-else="">Perfiles</h3>
+                      <p class="shrimp-prof-sec-desc" t-if="len(signup_profiles or []) &gt; 1">Marca uno o varios; abajo aparecen los datos de cada uno.</p>
+                    </div>
+                  </div>
+                  <div class="shrimp-prof-sec-body">
+                <div class="shrimp-profile-grid" id="shrimpProfileGrid">
+                  <t t-foreach="signup_profiles or []" t-as="p">
+                    <label class="shrimp-profile-card" t-att-data-role="p['code']">
+                      <input type="checkbox" class="shrimp-prof-check" name="shrimp_user_types"
+                             t-att-value="p['code']" t-att-checked="'checked' if p['code'] in sel else None"/>
+                      <span class="shrimp-profile-body">
+                        <span class="shrimp-profile-title"><i t-attf-class="fa #{p['icon']} me-1"/><t t-esc="p['label']"/></span>
+                        <span class="shrimp-profile-hint"><t t-esc="p['hint']"/></span>
+                        <span t-if="p['requires_approval']" class="badge text-bg-warning mt-1">Requiere aprobación</span>
+                      </span>
+                    </label>
+                  </t>
+                </div>
+                <!-- Perfiles que se registran en su propio sitio (verificadora,
+                     planta de maquila): solo el enlace a su alta. -->
+                <ul t-if="signup_other_sites" class="list-unstyled small mt-3 mb-0 shrimp-signup-other-sites">
+                  <li t-foreach="signup_other_sites" t-as="os" class="mb-1" t-att-data-role="os.get('role')">
+                    <i class="fa fa-external-link me-1 text-muted" aria-hidden="true"/>
+                    <t t-esc="os['text']"/>
+                    <a t-att-href="os['url']" rel="noopener">Regístrate en <t t-esc="os['site']"/></a>
+                  </li>
+                </ul>
+                  </div>
+                </div>
+                <t t-call="shrimp_user_registry.signup_profile_sections"/>
+              </div>
+            </section>
+
+            <!-- ======================= PASO 4: DOCUMENTOS =================== -->
+            <section class="card mb-4 shrimp-step" data-step="4" data-step-key="docs" id="shrimp_reg_step_type">
+              <div class="card-body p-4">
+                <div class="s-eyebrow mb-1 shrimp-step-eyebrow" id="shrimp_reg_step_type_label">Paso 4</div>
+                <h2 class="h5 mb-1">Documentos y contratos</h2>
+                <p class="small text-muted mb-3">Adjunta los certificados de tus perfiles y acepta el contrato y las
+                  políticas. Los certificados quedan pendientes de revisión.</p>
+                <t t-call="shrimp_user_registry.signup_certificates"/>
+                <div t-if="'semillero' in (signup_profile_codes or [])" class="shrimp-prof-sec shrimp-prof-dep shrimp-photos-sec" data-role="semillero">
+                  <div class="shrimp-prof-sec-head">
+                    <span class="shrimp-prof-sec-ico" aria-hidden="true"><i class="fa fa-camera"/></span>
+                    <div class="shrimp-prof-sec-htxt">
+                      <h3 class="shrimp-prof-sec-title">Fotos del naupliero</h3>
+                      <p class="shrimp-prof-sec-desc">Opcional. Las ven los laboratorios en tu perfil (imágenes, hasta 20).</p>
+                    </div>
+                  </div>
+                  <div class="shrimp-prof-sec-body">
+                    <div class="row g-3">
+                      <div class="col-12 col-md-6">
+                        <label class="form-label small text-muted" for="reg_sem_photos">Fotos (naupliero)</label>
+                        <input class="form-control" id="reg_sem_photos" type="file" name="sem_photo_files" multiple="multiple" accept="image/*"/>
+                      </div>
+                      <div class="col-12 col-md-6">
+                        <label class="form-label small text-muted" for="reg_sem_fac_photos">Fotos de instalaciones (naupliero)</label>
+                        <input class="form-control" id="reg_sem_fac_photos" type="file" name="sem_facility_files" multiple="multiple" accept="image/*"/>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <t t-call="shrimp_user_registry.signup_legal_documents"/>
+              </div>
+            </section>
+
+            <div class="shrimp-wizard-nav">
+              <button type="button" class="btn btn-outline-secondary" id="shrimpPrev"><i class="fa fa-arrow-left me-1"/> Anterior</button>
+              <span class="shrimp-wizard-count small text-muted" id="shrimpStepCount" aria-live="polite"></span>
+              <button type="button" class="btn btn-primary" id="shrimpNext">Siguiente <i class="fa fa-arrow-right ms-1"/></button>
+              <button id="submitBtn" class="btn btn-primary" type="submit" style="font-weight:700;">
+                <i class="fa fa-check me-1"></i> Crear cuenta
+              </button>
+            </div>
+            <p class="small text-muted mt-3 mb-0">¿Ya tienes cuenta? <a href="/web/login">Inicia sesión</a>.</p>
+          </form>
+
+          <t t-call="shrimp_user_registry.signup_certificate_modal"/>
+          <script type="text/javascript" src="/shrimp_user_registry/static/src/js/legal_accordion.js"/>
+          <script type="text/javascript" src="/shrimp_user_registry/static/src/js/submit_guard.js"/>
+          <script type="text/javascript" src="/shrimp_user_registry/static/src/js/signup_wizard.js"/>
+        </div>
+      </div>
+    </t>
+  </template>
+
+  <!-- Bloques de datos de cada perfil (paso 3). Cada uno se muestra solo si
+       su perfil está marcado; data-req="1" marca lo obligatorio cuando se ve.
+       Aquí NO van certificados (19.0.1.8.0: se quitaron las casillas
+       GlobalG.A.P. / Social Ship Partner del laboratorio): los certificados se
+       adjuntan en el paso de documentos desde el catálogo (shrimp.certificate).
+
+       Estructura de cada bloque (19.0.1.9.0; la usan también los módulos que
+       agregan perfiles): .shrimp-prof-sec > .shrimp-prof-sec-head (icono,
+       título .shrimp-prof-sec-title y descripción corta) + .shrimp-prof-sec-body
+       con la rejilla de campos (.row g-3). -->
+  <template id="signup_profile_sections" name="Registro: datos por perfil">
+    <t t-set="values" t-value="values or {}"/>
+    <div class="shrimp-prof-sections mt-3" id="shrimpProfileSections">
+
+      <div t-if="'semillero' in (signup_profile_codes or [])" class="shrimp-prof-sec" data-role="semillero" id="section_semillero">
+        <div class="shrimp-prof-sec-head">
+          <span class="shrimp-prof-sec-ico" aria-hidden="true"><i class="fa fa-leaf"/></span>
+          <div class="shrimp-prof-sec-htxt">
+            <h3 class="shrimp-prof-sec-title">Naupliero</h3>
+            <p class="shrimp-prof-sec-desc">Tu centro de producción de nauplios y reproductores.</p>
+          </div>
+        </div>
+        <div class="shrimp-prof-sec-body">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label small text-muted" for="reg_sem_permiso">Registro / permiso de funcionamiento <span class="shrimp-optional">(si aplica)</span></label>
+              <input class="form-control" id="reg_sem_permiso" type="text" name="sem_permiso_funcionamiento"
+                     t-att-value="values.get('sem_permiso_funcionamiento')" placeholder="Ej. MPCEIP-SRP-0000"/>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div t-if="'laboratorio' in (signup_profile_codes or [])" class="shrimp-prof-sec" data-role="laboratorio" id="section_laboratorio">
+        <div class="shrimp-prof-sec-head">
+          <span class="shrimp-prof-sec-ico" aria-hidden="true"><i class="fa fa-flask"/></span>
+          <div class="shrimp-prof-sec-htxt">
+            <h3 class="shrimp-prof-sec-title">Laboratorio</h3>
+            <p class="shrimp-prof-sec-desc">Tu laboratorio de larva (postlarva).</p>
+          </div>
+        </div>
+        <div class="shrimp-prof-sec-body">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label small text-muted" for="reg_lab_permiso">Registro / permiso de funcionamiento <span class="shrimp-optional">(si aplica)</span></label>
+              <input class="form-control" id="reg_lab_permiso" type="text" name="lab_permiso_funcionamiento"
+                     t-att-value="values.get('lab_permiso_funcionamiento')" placeholder="Ej. MPCEIP-SRP-0000"/>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div t-if="'camaronera' in (signup_profile_codes or [])" class="shrimp-prof-sec" data-role="camaronera" id="section_camaronera">
+        <div class="shrimp-prof-sec-head">
+          <span class="shrimp-prof-sec-ico" aria-hidden="true"><i class="fa fa-tint"/></span>
+          <div class="shrimp-prof-sec-htxt">
+            <h3 class="shrimp-prof-sec-title">Camaronera</h3>
+            <p class="shrimp-prof-sec-desc">Tu finca y sus permisos. Las fincas y piscinas las registras en el paso Instalaciones o después en Mis instalaciones.</p>
+          </div>
+        </div>
+        <div class="shrimp-prof-sec-body">
+          <div class="row g-3">
+            <!-- Hectáreas, n.º de piscinas y capacidad ya no se piden al
+                 registrarse (19.0.1.10.1): el área y las piscinas salen de las
+                 instalaciones (paso «Instalaciones» o «Mis instalaciones») y
+                 los tres campos siguen editables, opcionales, en «Mi cuenta». -->
+            <div class="col-12 col-md-6">
+              <label class="form-label small text-muted" for="reg_farm_acuicola">Código / registro acuícola <span class="shrimp-optional">(si aplica)</span></label>
+              <input class="form-control" id="reg_farm_acuicola" type="text" name="shrimp_registro_acuicola" placeholder="Ej. GR-1104"
+                     t-att-value="values.get('shrimp_registro_acuicola')"/>
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label small text-muted" for="reg_farm_maate">Permiso ambiental MAATE <span class="shrimp-optional">(si aplica)</span></label>
+              <input class="form-control" id="reg_farm_maate" type="text" name="shrimp_permiso_ambiental"
+                     t-att-value="values.get('shrimp_permiso_ambiental')" placeholder="N.º de permiso"/>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="shrimp_prof_sections_end"/>
+    </div>
+  </template>
+
+  <!-- ================================================================
+       CERTIFICADOS (paso de documentos; tabla única desde 19.0.1.10.1)
+
+       UNA sola tabla con TODOS los certificados de los perfiles elegidos
+       (columnas Certificado, Perfil, N.º, Vence, Archivo, Estado, Acciones),
+       con el mismo patrón modal + tabla que el equipo de campo de la
+       verificadora. El catálogo (shrimp.certificate) llega en data-catalog:
+       {perfil: [{ref, name, issuer, code, required, expires}]} (los de
+       «Todos» aparecen en cada perfil) y los perfiles en data-profiles.
+       Los «Obligatorio al registrarse» (y la acreditación de la
+       verificadora) son filas «Falta adjuntar» con la acción «Adjuntar».
+       «Agregar certificado» abre el modal (signup_certificate_modal);
+       «Editar» lo reabre con los datos. Cada certificado guardado envía
+       campos ocultos y el <input type="file"> real con los nombres que
+       espera el servidor: cert_line_<n>_id / _role / _number /
+       _issue_date / _expiry_date / _file (en #shrimpCertData).
+       En el móvil la tabla pasa a tarjetas apiladas (.shrimp-tech-table).
+       ================================================================ -->
+  <template id="signup_certificates" name="Registro: certificados">
+    <div class="shrimp-card-sec shrimp-certs" id="shrimpCerts" t-att-data-catalog="signup_cert_catalog_json or '{}'"
+         t-att-data-profiles="signup_cert_profiles_json or '[]'">
+      <div class="shrimp-prof-sec-head">
+        <span class="shrimp-prof-sec-ico" aria-hidden="true"><i class="fa fa-certificate"/></span>
+        <div class="shrimp-prof-sec-htxt">
+          <h3 class="shrimp-prof-sec-title" id="shrimpCertTitle">Certificados <span class="shrimp-sec-chip shrimp-cert-count" id="shrimpCertCount" aria-live="polite"></span></h3>
+          <p class="shrimp-prof-sec-desc">Todos los certificados de tus perfiles, en una sola tabla (PDF, JPG o PNG, máx. 5 MB).
+            Los <b>obligatorios</b> ya aparecen en la lista; los demás son opcionales: agrégalos ahora o después
+            desde «Mi cuenta». Todos quedan <b>pendientes de revisión</b>.</p>
+        </div>
+      </div>
+      <div class="shrimp-prof-sec-body">
+      <!-- Verificadora: la acreditación es obligatoria (mismo texto que el
+           error del servidor, ShrimpRegistryVerifier._extra_partner_vals). -->
+      <div t-if="'verificador' in (signup_profile_codes or [])" class="shrimp-cert-note shrimp-prof-dep" data-role="verificador" role="note">
+        <i class="fa fa-shield" aria-hidden="true"/>
+        <span>Debes adjuntar la acreditación que te autoriza a verificar (certificado con rol Verificador).</span>
+      </div>
+      <p class="shrimp-cert-empty" id="shrimpCertEmpty"></p>
+      <div class="shrimp-tech-wrap shrimp-cert-wrap" id="shrimpCertWrap" hidden="hidden">
+        <table class="shrimp-tech-table shrimp-cert-table" aria-describedby="shrimpCertCount">
+          <caption class="visually-hidden">Certificados de tus perfiles</caption>
+          <thead>
+            <tr><th scope="col">Certificado</th><th scope="col">Perfil</th><th scope="col">N.º</th>
+              <th scope="col">Vence</th><th scope="col">Archivo</th><th scope="col">Estado</th>
+              <th scope="col" class="shrimp-tech-acts-h">Acciones</th></tr>
+          </thead>
+          <tbody id="shrimpCertBody"></tbody>
+        </table>
+      </div>
+      <button type="button" class="shrimp-cert-addrow shrimp-cert-add" id="shrimpCertAdd">
+        <i class="fa fa-plus" aria-hidden="true"/> Agregar certificado <span class="shrimp-cert-addhint">opcional</span>
+      </button>
+      <p class="visually-hidden" id="shrimpCertLive" aria-live="polite"></p>
+      <!-- Lo que se envía: campos ocultos y archivos de cada certificado. -->
+      <div class="d-none" id="shrimpCertData"></div>
+      <noscript><p class="small text-muted mb-0">Activa JavaScript para adjuntar certificados; también puedes
+        hacerlo después desde «Mi cuenta».</p></noscript>
+      </div>
+    </div>
+  </template>
+
+  <!-- Modal para agregar / editar un certificado. Sus campos NO tienen name:
+       al guardar se copian a la tarjeta del certificado y el archivo se mueve
+       a ella. En el móvil ocupa toda la pantalla. -->
+  <template id="signup_certificate_modal" name="Registro: modal de certificado">
+    <div class="modal fade shrimp-cmodal" id="shrimpCertModal" tabindex="-1" role="dialog" aria-modal="true"
+         aria-labelledby="shrimpCmTitle" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3 class="modal-title" id="shrimpCmTitle"><i class="fa fa-certificate" aria-hidden="true"/> <span>Agregar certificado</span></h3>
+            <button type="button" class="shrimp-cm-x" data-cm-close="1" aria-label="Cerrar"><i class="fa fa-times" aria-hidden="true"/></button>
+          </div>
+          <div class="modal-body">
+            <p class="shrimp-cm-prof" id="shrimpCmProf"></p>
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label" for="shrimpCmRole">Perfil al que aplica <span class="text-danger">*</span></label>
+                <select class="form-select" id="shrimpCmRole" aria-describedby="shrimpCmRoleErr"></select>
+                <div class="shrimp-cm-err" id="shrimpCmRoleErr" hidden="hidden" role="alert"></div>
+              </div>
+              <div class="col-12">
+                <label class="form-label" for="shrimpCmCert">Certificado <span class="text-danger">*</span></label>
+                <select class="form-select" id="shrimpCmCert" aria-describedby="shrimpCmCertErr"></select>
+                <div class="shrimp-cm-err" id="shrimpCmCertErr" hidden="hidden" role="alert"></div>
+              </div>
+              <div class="col-12 col-sm-6">
+                <label class="form-label" for="shrimpCmIssuer">Emisor</label>
+                <input class="form-control" id="shrimpCmIssuer" type="text" readonly="readonly" tabindex="-1" placeholder="Se completa del catálogo"/>
+              </div>
+              <div class="col-12 col-sm-6">
+                <label class="form-label" for="shrimpCmNumber">N.º del certificado <span class="shrimp-optional">(opcional)</span></label>
+                <input class="form-control" id="shrimpCmNumber" type="text" maxlength="64" placeholder="Ej. BAP-2026-118"/>
+              </div>
+              <div class="col-6">
+                <label class="form-label" for="shrimpCmIssue">Fecha de emisión</label>
+                <input class="form-control" id="shrimpCmIssue" type="date"/>
+              </div>
+              <div class="col-6">
+                <label class="form-label" for="shrimpCmExpiry">Vence <span class="text-danger" id="shrimpCmExpReq">*</span></label>
+                <input class="form-control" id="shrimpCmExpiry" type="date" aria-describedby="shrimpCmExpiryErr"/>
+                <div class="shrimp-cm-err" id="shrimpCmExpiryErr" hidden="hidden" role="alert"></div>
+              </div>
+              <div class="col-12">
+                <span class="form-label d-block" id="shrimpCmFileLbl">Archivo <span class="text-danger">*</span>
+                  <span class="shrimp-optional">PDF, JPG o PNG · máx. 5 MB</span></span>
+                <div class="shrimp-fdrop" id="shrimpCmDrop" role="button" tabindex="0"
+                     aria-labelledby="shrimpCmFileLbl" aria-describedby="shrimpCmFileInfo shrimpCmFileErr">
+                  <i class="fa fa-cloud-upload" aria-hidden="true"/>
+                  <span id="shrimpCmFileInfo">Arrastra el archivo aquí o <b>elige uno</b></span>
+                </div>
+                <span id="shrimpCmFileSlot" class="d-none"></span>
+                <div class="form-text" id="shrimpCmFileKeep" hidden="hidden">Se conserva el archivo actual; elige otro solo si quieres reemplazarlo.</div>
+                <div class="shrimp-cm-err" id="shrimpCmFileErr" hidden="hidden" role="alert"></div>
+              </div>
+            </div>
+            <p class="form-text mt-3 mb-0">Se guarda con tu cuenta al terminar el registro y queda pendiente de revisión.</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-cm-close="1">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="shrimpCmSave"><i class="fa fa-check me-1" aria-hidden="true"/>Guardar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- ================================================================
+       DOCUMENTOS LEGALES A ACEPTAR (todos los formularios de alta)
+
+       Una casilla por documento; su valor es el CÓDIGO DE VERSIÓN mostrado
+       (si se publica otra mientras tanto, el servidor pide aceptarla de
+       nuevo). Generales: siempre. Anexo de perfil: el de cada perfil elegido
+       (con JS se muestran solo los marcados; sin JS, todos, y el servidor
+       exige solo los de los perfiles elegidos).
+       Variables: legal_documents [(doc, versión)] y, opcional,
+       legal_fixed_roles (formularios con un único perfil).
+
+       Acordeón (19.0.1.9.0, legal_accordion.js): abrir un documento cierra
+       los demás; la casilla queda FUERA del botón que despliega, así que
+       marcarla no abre ni cierra nada. Sin JS se ve todo desplegado.
+       ================================================================ -->
+  <template id="signup_legal_documents" name="Registro: documentos legales">
+    <t t-set="values" t-value="values or {}"/>
+    <t t-set="legal_documents" t-value="legal_documents or request.env['shrimp.legal.document'].sudo()._shrimp_signup_documents(legal_fixed_roles or [])"/>
+    <div class="shrimp-card-sec shrimp-legal-docs" id="shrimpLegalDocs">
+      <div class="shrimp-prof-sec-head">
+        <span class="shrimp-prof-sec-ico" aria-hidden="true"><i class="fa fa-file-text-o"/></span>
+        <div class="shrimp-prof-sec-htxt">
+          <h3 class="shrimp-prof-sec-title">Contrato y políticas <span class="shrimp-sec-chip shrimp-legal-progress" aria-live="polite"></span></h3>
+          <p class="shrimp-prof-sec-desc">Abre cada documento para leerlo y marca su casilla.</p>
+        </div>
+      </div>
+      <div class="shrimp-prof-sec-body">
+      <label class="shrimp-legal-all form-check">
+        <input class="form-check-input" type="checkbox" id="shrimpLegalAll"/>
+        <span>He leído y acepto todos los documentos</span>
+      </label>
+      <div class="shrimp-legal-acc">
+        <t t-foreach="legal_documents" t-as="dv">
+          <t t-call="shrimp_user_registry.legal_doc_item">
+            <t t-set="doc" t-value="dv[0]"/>
+            <t t-set="ver" t-value="dv[1]"/>
+            <t t-set="item_dep" t-value="doc.doc_type == 'annex'"/>
+            <t t-set="item_required" t-value="doc.doc_type != 'annex' or legal_fixed_roles"/>
+            <t t-set="item_data_req" t-value="doc.doc_type == 'annex'"/>
+            <t t-set="item_checked" t-value="values.get('legal_accept_%s' % doc.code) == ver.name"/>
+            <t t-set="item_badge" t-value="False"/>
+          </t>
+        </t>
+      </div>
+      <p class="small text-muted mt-3 mb-0">Tus datos se tratan según la Ley Orgánica de Protección de Datos
+        Personales del Ecuador (LOPDP). Guardamos la fecha, la IP y la versión que aceptas, y te damos un
+        comprobante en «Mis datos».</p>
+      </div>
+    </div>
+  </template>
+
+  <!-- Un documento del acordeón. Variables: doc, ver, item_dep (anexo de
+       perfil: se muestra según los perfiles marcados), item_required,
+       item_data_req, item_checked, item_badge ('required' | 'minor' | False),
+       item_summary (texto «Qué cambia», opcional). -->
+  <template id="legal_doc_item" name="Documento legal (acordeón)">
+    <div t-attf-class="shrimp-legal-item #{'shrimp-prof-dep' if item_dep else ''}"
+         t-att-data-role="doc.role or None" t-att-data-doc="doc.code" t-att-data-label="doc.display_label()">
+      <div class="shrimp-legal-row">
+        <input class="form-check-input shrimp-legal-check" type="checkbox"
+               t-att-id="'legal_chk_%s' % doc.code"
+               t-att-name="'legal_accept_%s' % doc.code" t-att-value="ver.name"
+               t-att-required="'required' if item_required else None"
+               t-att-data-req="'1' if item_data_req else None"
+               t-att-checked="'checked' if item_checked else None"
+               t-att-aria-label="'Acepto %s' % doc.display_label()"/>
+        <button type="button" class="shrimp-legal-toggle" t-att-id="'legal_hdr_%s' % doc.code"
+                aria-expanded="true" t-att-aria-controls="'legal_body_%s' % doc.code">
+          <span class="shrimp-legal-status" aria-hidden="true"><i class="fa fa-circle-o"/></span>
+          <span class="shrimp-legal-main">
+            <span class="shrimp-legal-name">He leído y acepto <b t-esc="doc.display_label()"/></span>
+            <span class="shrimp-legal-ver">v. <t t-esc="ver.name"/></span>
+            <span t-if="item_badge == 'required'" class="shrimp-legal-badge is-req">Obligatorio</span>
+            <span t-if="item_badge == 'minor'" class="shrimp-legal-badge">Cambio menor</span>
+          </span>
+          <i class="fa fa-chevron-down shrimp-legal-chev" aria-hidden="true"/>
+        </button>
+      </div>
+      <div class="shrimp-legal-panel" t-att-id="'legal_body_%s' % doc.code" role="region"
+           t-att-aria-labelledby="'legal_hdr_%s' % doc.code">
+        <div t-if="item_summary" class="shrimp-legal-summary">Qué cambia: <t t-esc="item_summary"/></div>
+        <div class="shrimp-legal-body" tabindex="0" t-att-aria-label="doc.display_label()" t-out="ver.content"/>
+        <div class="shrimp-legal-actions">
+          <a t-att-href="doc.public_url" target="_blank" rel="noopener" class="shrimp-legal-open">
+            <i class="fa fa-external-link me-1" aria-hidden="true"/>Abrir en una página nueva</a>
+          <button type="button" class="btn btn-sm btn-primary shrimp-legal-ok"><i class="fa fa-check me-1" aria-hidden="true"/>Acepto</button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Compatibilidad: el nombre anterior del bloque de consentimiento. -->
+  <template id="signup_privacy_consent" name="Registro: aceptación de documentos legales (alias)">
+    <t t-call="shrimp_user_registry.signup_legal_documents"/>
+  </template>
+
+</odoo>

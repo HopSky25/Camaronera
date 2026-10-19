@@ -10,4 +10,16 @@
     <field name="interval_type">days</field>
     <field name="active" eval="True"/>
   </record>
+
+  <!-- D-48: avisa de las listas «hasta segunda orden» por caducar y archiva
+       las que caducaron sin renovarse. -->
+  <record id="ir_cron_price_list_caducidad" model="ir.cron">
+    <field name="name">Listas de precios: caducidad de las «hasta segunda orden»</field>
+    <field name="model_id" ref="model_shrimp_price_list"/>
+    <field name="state">code</field>
+    <field name="code">model._cron_caducidad()</field>
+    <field name="interval_number">1</field>
+    <field name="interval_type">days</field>
+    <field name="active" eval="True"/>
+  </record>
 </odoo>

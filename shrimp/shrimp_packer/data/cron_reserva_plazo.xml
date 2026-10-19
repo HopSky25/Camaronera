@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Reservas cumplidas: marca «Comprada» la reserva cuya empacadora ya
+       compró y vence (incumplimiento de la empacadora, lote libre y aviso a
+       las descartadas) la que pasó de plazo. Auditoría de procesos, hueco #8. -->
+  <data noupdate="1">
+    <record id="cron_reserva_plazo_compra" model="ir.cron">
+      <field name="name">Reservas anticipadas: plazo de compra de reservas cumplidas</field>
+      <field name="model_id" ref="model_shrimp_harvest_commitment"/>
+      <field name="state">code</field>
+      <field name="code">model._cron_reserva_plazo()</field>
+      <field name="user_id" ref="base.user_root"/>
+      <field name="interval_number">1</field>
+      <field name="interval_type">hours</field>
+      <field name="active" eval="True"/>
+    </record>
+  </data>
+</odoo>

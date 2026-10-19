@@ -41,6 +41,16 @@ env['shrimp.webhook.delivery']._cron_cleanup()</field>
         <field name="interval_type">days</field>
         <field name="active" eval="True"/>
     </record>
+    <!-- D-46: aviso por correo N días antes de que caduque una clave. -->
+    <record id="ir_cron_api_key_expiry_notice" model="ir.cron">
+        <field name="name">API externa: avisar claves por caducar</field>
+        <field name="model_id" ref="model_shrimp_api_key"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_expiry_notice()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active" eval="True"/>
+    </record>
     <record id="ir_cron_app_notification_cleanup" model="ir.cron">
         <field name="name">App móvil: borrar avisos leídos de más de 60 días</field>
         <field name="model_id" ref="model_shrimp_app_notification"/>

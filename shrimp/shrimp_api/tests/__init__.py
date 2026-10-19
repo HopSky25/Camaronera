@@ -19,3 +19,13 @@ from . import test_api_technicians
 from . import test_api_dispositivos
 from . import test_api_supervisor
 from . import test_api_mejoras_app
+from . import test_api_matriz_verificacion
+from . import test_api_recepcion
+from . import test_api_retraso
+from . import test_api_observaciones
+from . import test_api_cuenta_legal
+from . import test_api_cancelacion
+from . import test_api_d32_d44_d46
+from . import test_api_equipo_campo
+from . import test_api_trazabilidad_publica
+from . import test_api_copack_decisiones

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Derechos del titular (LOPDP) y retención de datos (hueco #7). -->
+  <data noupdate="1">
+    <record id="seq_shrimp_data_request" model="ir.sequence">
+      <field name="name">Solicitudes LOPDP</field>
+      <field name="code">shrimp.data.request</field>
+      <field name="prefix">LOPDP/%(year)s/</field>
+      <field name="padding">4</field>
+      <field name="company_id" eval="False"/>
+    </record>
+
+    <!-- Avisos de plazo: una vez al día por solicitud abierta que vence
+         dentro de los días de aviso o que ya venció. -->
+    <record id="ir_cron_shrimp_data_request_reminders" model="ir.cron">
+      <field name="name">LOPDP: avisos de plazo de solicitudes de derechos</field>
+      <field name="model_id" ref="model_shrimp_data_request"/>
+      <field name="state">code</field>
+      <field name="code">model._cron_reminders()</field>
+      <field name="interval_number">1</field>
+      <field name="interval_type">days</field>
+      <field name="active" eval="True"/>
+    </record>
+
+    <!-- Retención (Política de privacidad §5): altas rechazadas y registros
+         técnicos de acceso a los 12 meses. Corre en SIMULACIÓN mientras el
+         ajuste «Purga en simulación» esté marcado (por defecto). -->
+    <record id="ir_cron_shrimp_data_retention" model="ir.cron">
+      <field name="name">LOPDP: purga de retención (12 meses)</field>
+      <field name="model_id" ref="model_shrimp_data_retention_run"/>
+      <field name="state">code</field>
+      <field name="code">model._cron_retention()</field>
+      <field name="interval_number">1</field>
+      <field name="interval_type">weeks</field>
+      <field name="active" eval="True"/>
+    </record>
+  </data>
+</odoo>

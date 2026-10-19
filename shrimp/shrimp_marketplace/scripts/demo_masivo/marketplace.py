@@ -185,7 +185,10 @@ def evoluciones(M, arch, pr, n_min=3, n_max=6):
             "available_qty": r2(pr["qty"] if k < k_tot else max(0, disponible(pr))),
             "health_status": RNG.choice(SANIDAD_OK), "note": RNG.choice(OBS_EVOL),
             "user_id": R(user) if user else None,
-        })
+            # Muestreos del vendedor: «Estado real del lote». Sin avisos de
+            # divergencia (son el camino hasta la etapa publicada).
+            "origin": "observation",
+        }, context="{'shrimp_evolution_no_notify': True}")
 
 
 def construir(M):
@@ -193,10 +196,10 @@ def construir(M):
     f12 = Archivo("shrimp_marketplace", "demo_12_masivo_instalaciones.xml",
                   "Instalaciones y piscinas/tanques de los socios de la demo masiva.")
     f13 = Archivo("shrimp_marketplace", "demo_13_masivo_productos.xml",
-                  "Lotes publicados por semilleros, laboratorios y camaroneras, con su\n"
+                  "Lotes publicados por nauplieros, laboratorios y camaroneras, con su\n"
                   "     lote de stock, certificados y evolución productiva.")
     f14 = Archivo("shrimp_marketplace", "demo_14_masivo_transacciones.xml",
-                  "Compras semillero->laboratorio y laboratorio->camaronera de punta a\n"
+                  "Compras naupliero->laboratorio y laboratorio->camaronera de punta a\n"
                   "     punta: movimientos, lotes del comprador, siembras en piscina,\n"
                   "     solicitudes de chequeo, comisiones y reseñas de las dos partes.")
     f15 = Archivo("shrimp_marketplace", "demo_15_masivo_accesos.xml",
@@ -593,7 +596,7 @@ def construir(M):
         if RNG.random() < 0.3:
             pr["adjunto"] = P[pr["sellerx"]].get("adjunto")
     origen = [x for x in orden if productos[x]["kind"] != "res"]
-    f13.seccion("Productos de origen (semillero, laboratorio, camaronera)")
+    f13.seccion("Productos de origen (naupliero, laboratorio, camaronera)")
     for x in origen:
         f13.rec(x, "shrimp.product", prod_vals(productos[x]), context="{'skip_initial_lot': True}")
     f13.seccion("Lote de stock de origen de cada producto (disponible final)")
@@ -668,17 +671,25 @@ def construir(M):
                       "draft": "Siembra programada; pendiente de preparar la piscina.",
                       "cancelled": "Se canceló la siembra por bloom de algas en la piscina."}[a["estado"]]})
 
-    f14.seccion("Solicitudes de chequeo")
+    # Flujo RETIRADO (D-28): las solicitudes quedan solo como histórico. Las
+    # que el azar deja «abiertas» salen canceladas (como las canceló la
+    # migración 19.0.1.38.0) y se cargan con el contexto de importación de
+    # histórico, la única forma de crear una solicitud.
+    f14.seccion("Solicitudes de chequeo (histórico, flujo retirado)")
     for cr in checks:
         pr = cr["prod"]
+        retirada = cr["estado"] in ("requested", "under_review")
+        estado = "cancelled" if retirada else cr["estado"]
         v = {"product_id": R(pr["xid"]), "seller_partner_id": R(ref_p(pr["sellerx"])),
-             "buyer_partner_id": R(UR + cr["buyer"]), "qty": cr["qty"], "state": cr["estado"],
+             "buyer_partner_id": R(UR + cr["buyer"]), "qty": cr["qty"], "state": estado,
              "check_fee": RNG.choice([40.0, 60.0, 75.0, 90.0, 120.0]), "currency_id": R("base.USD"),
              "note": {"requested": "Pido conteo y PCR antes de confirmar la compra.",
                       "under_review": "Técnico asignado; muestreo en el tanque de cosecha.",
                       "approved": "Conteo y sanidad conformes. Se ejecuta la compra.",
                       "rejected": "El conteo salió 18 % por debajo de lo publicado.",
                       "cancelled": "El comprador desistió antes del muestreo."}[cr["estado"]]}
+        if retirada:
+            v["note"] += " Cancelada al retirarse el flujo de chequeo."
         if cr["estado"] in ("approved", "rejected"):
             v["reviewed_by"] = R(UR + "demo_ms_user_int_aprobador_certificados")
             v["reviewed_date"] = DT(cr["off"], RNG.randint(9, 17), 0)
@@ -687,7 +698,8 @@ def construir(M):
             v["source_lot_id"] = R(pr["lot"])
             if cr["tx"].get("result"):
                 v["result_product_id"] = R(cr["tx"]["result"]["xid"])
-        f14.rec(cr["xid"], "shrimp.check.request", v)
+        f14.rec(cr["xid"], "shrimp.check.request", v,
+                context="{'shrimp_legacy_check_import': True}")
 
     f14.seccion("Comisiones del marketplace (una por compra confirmada)")
     for tx in txs:
@@ -733,7 +745,7 @@ def construir(M):
 
     f15.seccion("Los usuarios internos del registro operan el back office del marketplace")
     for ux in ("demo_ms_user_int_aprobador_certificados", "demo_ms_user_int_soporte_socios"):
-        f15.fn_write("res.users", [UR + ux], [], {"group_ids": E("[(4, ref('shrimp_marketplace.group_shrimp_user'))]")})
+        f15.fn_write("res.users", [UR + ux], [], {"group_ids": E("[(4, ref('shrimp_marketplace.group_marketplace_user'))]")})
 
     f15.seccion("Certificados de producto de la demo original: revisados (solo lo aprobado se publica)")
     import xml.etree.ElementTree as ET

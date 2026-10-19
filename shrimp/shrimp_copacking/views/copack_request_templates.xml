@@ -2,139 +2,215 @@
 
   <!-- ================================================================
        PEDIR EL SERVICIO
+       Rediseño 19.0.1.15.0: formulario en tarjetas (.cpk-card) con lo
+       obligatorio marcado, y columna fija con el resumen y el botón.
        ================================================================ -->
   <template id="copack_request_form" name="Solicitar empaque">
     <t t-call="website.layout">
-      <div class="shrimp-bg">
-        <div class="shrimp-page py-4">
+      <div class="shrimp-bg cpk">
+        <div class="shrimp-page cpk-page">
 
-          <a href="/marketplace/copacking" class="btn btn-sm btn-link mb-2">&#8592; Volver al directorio</a>
-          <h2 class="mb-1">Solicitar servicio de empaque</h2>
-          <t t-if="dirigida">
-            <p class="text-muted">A <b><t t-esc="dirigida.name"/></b>. Solo esta planta la verá.</p>
-          </t>
-          <t t-else="">
-            <p class="text-muted">
-              Abierta: la verán todas las plantas del directorio y te responderán con su tarifa.
-              Si prefieres pedírselo a una en concreto, elígela desde el directorio.
-            </p>
-          </t>
+          <div class="cpk-top">
+            <a href="/marketplace/copacking" class="s-back"><i class="fa fa-arrow-left" aria-hidden="true"/> Volver al directorio</a>
+          </div>
+          <header class="cpk-ph">
+            <div class="cpk-ph-txt">
+              <div class="cpk-eyebrow"><i class="fa fa-cube" aria-hidden="true"/> Servicio de empaque</div>
+              <h1>Solicitar servicio de empaque</h1>
+              <t t-if="dirigida">
+                <p>A <b><t t-esc="dirigida.name"/></b>. Solo esta planta la verá.</p>
+              </t>
+              <t t-else="">
+                <p>
+                  Abierta: la verán todas las plantas del directorio y te responderán con su tarifa.
+                  Si prefieres pedírselo a una en concreto, elígela desde el directorio.
+                </p>
+              </t>
+            </div>
+            <span class="cpk-kicker">
+              <t t-if="dirigida"><i class="fa fa-lock" aria-hidden="true"/> Dirigida</t>
+              <t t-else=""><i class="fa fa-globe" aria-hidden="true"/> Abierta</t>
+            </span>
+          </header>
 
           <t t-if="error">
-            <div class="alert alert-danger"><t t-esc="error"/></div>
+            <div class="pf-alert pf-a-bad" role="alert"><i class="fa fa-exclamation-triangle" aria-hidden="true"/><div><t t-esc="error"/></div></div>
           </t>
           <!-- Se llega aqui tras cancelar para corregir: lo de antes ya viene
                puesto abajo, solo hay que arreglar lo que estaba mal. -->
           <t t-if="aviso == 'corregida'">
-            <div class="alert alert-info">
-              La solicitud anterior quedó cancelada y sus ofertas descartadas.
-              Corrige lo que haga falta y vuelve a publicarla.
-            </div>
+            <div class="pf-alert pf-a-info" role="status"><i class="fa fa-info-circle" aria-hidden="true"/>
+              <div>La solicitud anterior quedó cancelada y sus ofertas descartadas.
+                Corrige lo que haga falta y vuelve a publicarla.</div></div>
           </t>
 
-          <form method="post" action="/marketplace/copacking/requests/new" class="card">
+          <form method="post" action="/marketplace/copacking/requests/new" class="cpk-layout">
             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
             <t t-if="dirigida">
               <input type="hidden" name="copacker_partner_ref" t-att-value="dirigida.uuid_ref"/>
             </t>
-            <div class="card-body">
-              <div class="row g-3">
-                <!-- Todos los campos se repintan con lo que venga en "datos":
-                     cuando la validacion del modelo rechaza algo, el cliente no
-                     tiene que volver a teclear lo que ya habia escrito. -->
-                <!-- El camarón que se manda a empacar: una COMPRA propia
-                     (la empacadora con lo que compró) o un lote propio (la
-                     camaronera). Es lo que enlaza el paso de empaque con la
-                     trazabilidad de esa compra y no con la de otras. -->
-                <div class="col-12">
-                  <label class="form-label" for="origen_ref">Camarón a empacar</label>
-                  <select name="origen_ref" id="origen_ref" class="form-select">
-                    <option value="">— sin enlazar (no saldrá en la trazabilidad) —</option>
-                    <t t-set="compras" t-value="[o for o in origenes if o['kind'] == 'transaction']"/>
-                    <t t-set="lotes" t-value="[o for o in origenes if o['kind'] == 'product']"/>
-                    <optgroup t-if="compras" label="Mis compras">
-                      <t t-foreach="compras" t-as="o">
-                        <option t-att-value="o['ref']"
-                                t-att-selected="'selected' if datos.get('origen_ref') == o['ref'] else None">
-                          <t t-esc="o['label']"/>
-                        </option>
-                      </t>
-                    </optgroup>
-                    <optgroup t-if="lotes" label="Mis lotes">
-                      <t t-foreach="lotes" t-as="o">
-                        <option t-att-value="o['ref']"
-                                t-att-selected="'selected' if datos.get('origen_ref') == o['ref'] else None">
-                          <t t-esc="o['label']"/>
-                        </option>
-                      </t>
-                    </optgroup>
-                  </select>
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label">Libras a empacar *</label>
-                  <input type="number" step="0.01" min="1" name="quantity_lb"
-                         class="form-control" required="required"
-                         t-att-value="datos.get('quantity_lb') or ''"/>
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label">Presentación *</label>
-                  <select name="presentation" class="form-select">
-                    <!-- Lista única de presentaciones (shrimp_selection). -->
-                    <t t-foreach="presentaciones" t-as="pres">
-                      <option t-att-value="pres[0]"
-                              t-att-selected="'selected' if (datos.get('presentation') or 'entero') == pres[0] else None">
-                        <t t-esc="pres[1]"/>
-                      </option>
-                    </t>
-                  </select>
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label">Talla</label>
-                  <select name="size_grade_id" class="form-select">
-                    <option value="">— sin especificar —</option>
-                    <t t-foreach="tallas" t-as="t">
-                      <!-- La etiqueta de la seleccion, no el valor tecnico:
-                           antes salia "entero · 20/30" en minuscula. -->
-                      <option t-att-value="t.id"
-                              t-att-selected="'selected' if datos.get('size_grade_id') == t.id else None">
-                        <t t-esc="dict(t._fields['presentation'].selection).get(t.presentation)"/>
-                        · <t t-esc="t.name"/>
-                      </option>
-                    </t>
-                  </select>
-                </div>
-
-                <div class="col-md-6">
-                  <label class="form-label">Necesito desde *</label>
-                  <input type="date" name="needed_from" class="form-control" required="required"
-                         t-att-value="datos.get('needed_from') or ''"/>
-                </div>
-                <div class="col-md-6">
-                  <label class="form-label">Necesito hasta *</label>
-                  <input type="date" name="needed_to" class="form-control" required="required"
-                         t-att-value="datos.get('needed_to') or ''"/>
-                </div>
-
-                <div class="col-12">
-                  <label class="form-label">Insumos que llevo</label>
-                  <textarea name="supplies_notes" class="form-control" rows="2"
-                            placeholder="Master de 5 lb, fundas, etiquetas…"><t t-esc="datos.get('supplies_notes') or ''"/></textarea>
-                  <div class="form-text">
-                    Los insumos los pones tú. Detállalos aquí: si algo falta y la línea se
-                    para, esto es lo que dice quién se comprometió a llevar qué.
+            <div class="cpk-main">
+              <!-- Todos los campos se repintan con lo que venga en "datos":
+                   cuando la validacion del modelo rechaza algo, el cliente no
+                   tiene que volver a teclear lo que ya habia escrito. -->
+              <section class="cpk-card" aria-labelledby="cpk_rf_1">
+                <div class="cpk-card-h">
+                  <span class="cpk-card-ico" aria-hidden="true"><i class="fa fa-cube"/></span>
+                  <div class="cpk-card-htxt">
+                    <h2 class="cpk-card-t" id="cpk_rf_1">El camarón</h2>
+                    <p class="cpk-card-d">Qué mandas a empacar y cuánto.</p>
                   </div>
                 </div>
-
-                <div class="col-12">
-                  <label class="form-label">Observaciones</label>
-                  <textarea name="notes" class="form-control" rows="2"><t t-esc="datos.get('notes') or ''"/></textarea>
+                <div class="cpk-card-b">
+                  <p class="cpk-legend"><span><span class="cpk-req">*</span> obligatorio</span><span>Lo demás es opcional</span></p>
+                  <div class="cpk-fgrid">
+                    <!-- El camarón que se manda a empacar: una COMPRA propia
+                         (la empacadora con lo que compró) o un lote propio (la
+                         camaronera). Es lo que enlaza el paso de empaque con la
+                         trazabilidad de esa compra y no con la de otras. -->
+                    <div class="cpk-f">
+                      <label class="cpk-lbl" for="origen_ref">Camarón a empacar <span class="cpk-opt">(opcional)</span></label>
+                      <select name="origen_ref" id="origen_ref" class="form-select">
+                        <option value="">— sin enlazar (no saldrá en la trazabilidad) —</option>
+                        <t t-set="compras" t-value="[o for o in origenes if o['kind'] == 'transaction']"/>
+                        <t t-set="lotes" t-value="[o for o in origenes if o['kind'] == 'product']"/>
+                        <optgroup t-if="compras" label="Mis compras">
+                          <t t-foreach="compras" t-as="o">
+                            <option t-att-value="o['ref']"
+                                    t-att-selected="'selected' if datos.get('origen_ref') == o['ref'] else None">
+                              <t t-esc="o['label']"/>
+                            </option>
+                          </t>
+                        </optgroup>
+                        <optgroup t-if="lotes" label="Mis lotes">
+                          <t t-foreach="lotes" t-as="o">
+                            <option t-att-value="o['ref']"
+                                    t-att-selected="'selected' if datos.get('origen_ref') == o['ref'] else None">
+                              <t t-esc="o['label']"/>
+                            </option>
+                          </t>
+                        </optgroup>
+                      </select>
+                      <div class="cpk-help">Enlázalo a una compra o a un lote tuyo para que el paso de empaque salga en su trazabilidad.</div>
+                    </div>
+                    <div class="cpk-f cpk-f--4">
+                      <label class="cpk-lbl" for="cpk_rf_qty">Libras a empacar <span class="cpk-req" aria-hidden="true">*</span></label>
+                      <div class="cpk-ig">
+                        <input type="number" step="0.01" min="1" name="quantity_lb" id="cpk_rf_qty"
+                               class="form-control" required="required"
+                               t-att-value="datos.get('quantity_lb') or ''"/>
+                        <span class="cpk-ig-a">lb</span>
+                      </div>
+                    </div>
+                    <div class="cpk-f cpk-f--4">
+                      <label class="cpk-lbl" for="cpk_rf_pres">Presentación <span class="cpk-req" aria-hidden="true">*</span></label>
+                      <select name="presentation" id="cpk_rf_pres" class="form-select">
+                        <!-- Lista única de presentaciones (shrimp_selection). -->
+                        <t t-foreach="presentaciones" t-as="pres">
+                          <option t-att-value="pres[0]"
+                                  t-att-selected="'selected' if (datos.get('presentation') or 'entero') == pres[0] else None">
+                            <t t-esc="pres[1]"/>
+                          </option>
+                        </t>
+                      </select>
+                    </div>
+                    <div class="cpk-f cpk-f--4">
+                      <label class="cpk-lbl" for="cpk_rf_talla">Talla <span class="cpk-opt">(opcional)</span></label>
+                      <select name="size_grade_id" id="cpk_rf_talla" class="form-select">
+                        <option value="">— sin especificar —</option>
+                        <t t-foreach="tallas" t-as="t">
+                          <!-- La etiqueta de la seleccion, no el valor tecnico:
+                               antes salia "entero · 20/30" en minuscula. -->
+                          <option t-att-value="t.id"
+                                  t-att-selected="'selected' if datos.get('size_grade_id') == t.id else None">
+                            <t t-esc="dict(t._fields['presentation'].selection).get(t.presentation)"/>
+                            · <t t-esc="t.name"/>
+                          </option>
+                        </t>
+                      </select>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              </section>
+
+              <section class="cpk-card" aria-labelledby="cpk_rf_2">
+                <div class="cpk-card-h">
+                  <span class="cpk-card-ico" aria-hidden="true"><i class="fa fa-calendar"/></span>
+                  <div class="cpk-card-htxt">
+                    <h2 class="cpk-card-t" id="cpk_rf_2">Cuándo</h2>
+                    <p class="cpk-card-d">La ventana en la que necesitas la línea. Las plantas ofertan con su disponibilidad.</p>
+                  </div>
+                </div>
+                <div class="cpk-card-b">
+                  <div class="cpk-fgrid">
+                    <div class="cpk-f cpk-f--6">
+                      <label class="cpk-lbl" for="cpk_rf_from">Necesito desde <span class="cpk-req" aria-hidden="true">*</span></label>
+                      <input type="date" name="needed_from" id="cpk_rf_from" class="form-control" required="required"
+                             t-att-value="datos.get('needed_from') or ''"/>
+                    </div>
+                    <div class="cpk-f cpk-f--6">
+                      <label class="cpk-lbl" for="cpk_rf_to">Necesito hasta <span class="cpk-req" aria-hidden="true">*</span></label>
+                      <input type="date" name="needed_to" id="cpk_rf_to" class="form-control" required="required"
+                             t-att-value="datos.get('needed_to') or ''"/>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="cpk-card" aria-labelledby="cpk_rf_3">
+                <div class="cpk-card-h">
+                  <span class="cpk-card-ico" aria-hidden="true"><i class="fa fa-archive"/></span>
+                  <div class="cpk-card-htxt">
+                    <h2 class="cpk-card-t" id="cpk_rf_3">Insumos y observaciones</h2>
+                    <p class="cpk-card-d">Los insumos los pones tú.</p>
+                  </div>
+                </div>
+                <div class="cpk-card-b">
+                  <div class="cpk-fgrid">
+                    <div class="cpk-f">
+                      <label class="cpk-lbl" for="cpk_rf_sup">Insumos que llevo <span class="cpk-opt">(opcional)</span></label>
+                      <textarea name="supplies_notes" id="cpk_rf_sup" class="form-control" rows="2"
+                                placeholder="Master de 5 lb, fundas, etiquetas…"><t t-esc="datos.get('supplies_notes') or ''"/></textarea>
+                      <div class="cpk-help">
+                        Detállalos aquí: si algo falta y la línea se
+                        para, esto es lo que dice quién se comprometió a llevar qué.
+                      </div>
+                    </div>
+                    <div class="cpk-f">
+                      <label class="cpk-lbl" for="cpk_rf_notes">Observaciones <span class="cpk-opt">(opcional)</span></label>
+                      <textarea name="notes" id="cpk_rf_notes" class="form-control" rows="2"><t t-esc="datos.get('notes') or ''"/></textarea>
+                    </div>
+                  </div>
+                </div>
+              </section>
             </div>
-            <div class="card-footer bg-transparent">
-              <button type="submit" class="btn btn-primary">Publicar solicitud</button>
-              <a href="/marketplace/copacking" class="btn btn-link">Cancelar</a>
-            </div>
+
+            <aside class="cpk-aside" aria-label="Publicar la solicitud">
+              <section class="cpk-card">
+                <div class="cpk-card-h">
+                  <span class="cpk-card-ico" aria-hidden="true"><i class="fa fa-paper-plane"/></span>
+                  <div class="cpk-card-htxt">
+                    <h2 class="cpk-card-t">Tu solicitud</h2>
+                    <p class="cpk-card-d">
+                      <t t-if="dirigida">Solo la verá <b><t t-esc="dirigida.name"/></b>.</t>
+                      <t t-else="">La verán todas las plantas del directorio.</t>
+                    </p>
+                  </div>
+                </div>
+                <div class="cpk-card-b">
+                  <ol class="cpk-tl cpk-tl--v">
+                    <li class="is-cur"><span class="cpk-tl-dot" aria-hidden="true"/><span class="cpk-tl-t">Publicas</span><span class="cpk-tl-s">Libras, presentación y fechas</span></li>
+                    <li class="is-todo"><span class="cpk-tl-dot" aria-hidden="true"/><span class="cpk-tl-t">Las plantas ofertan</span><span class="cpk-tl-s">Tarifa por libra y disponibilidad</span></li>
+                    <li class="is-todo"><span class="cpk-tl-dot" aria-hidden="true"/><span class="cpk-tl-t">Aceptas una oferta</span><span class="cpk-tl-s">Nace la orden de empaque</span></li>
+                    <li class="is-todo"><span class="cpk-tl-dot" aria-hidden="true"/><span class="cpk-tl-t">Acta firmada</span><span class="cpk-tl-s">Las libras cuadran, las dos partes firman</span></li>
+                  </ol>
+                </div>
+                <div class="cpk-card-f">
+                  <button type="submit" class="s-btn s-btn-primary w-100"><i class="fa fa-paper-plane" aria-hidden="true"/> Publicar solicitud</button>
+                  <a href="/marketplace/copacking" class="s-btn cpk-btn-link w-100">Cancelar</a>
+                </div>
+              </section>
+            </aside>
           </form>
 
         </div>
@@ -147,60 +223,75 @@
        ================================================================ -->
   <template id="copack_requests" name="Mis solicitudes de empaque">
     <t t-call="website.layout">
-      <div class="shrimp-bg">
-        <div class="shrimp-page shrimp-page--full py-4">
+      <t t-set="rq_lbl" t-value="dict(request.env['shrimp.copack.request']._fields['state'].selection)"/>
+      <t t-set="rq_tono" t-value="{'draft': 'muted', 'published': 'info', 'assigned': 'brand', 'done': 'ok', 'expired': 'warn', 'cancelled': 'muted'}"/>
+      <div class="shrimp-bg cpk">
+        <div class="shrimp-page shrimp-page--wide cpk-page">
 
-          <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-            <h2 class="mb-0">Mis solicitudes de empaque</h2>
-            <div class="d-flex flex-wrap gap-2">
-              <a href="/marketplace/copacking" class="btn btn-outline-secondary">Directorio</a>
-              <a href="/marketplace/copacking/requests/new" class="btn btn-primary">Nueva solicitud</a>
+          <header class="cpk-ph">
+            <div class="cpk-ph-txt">
+              <div class="cpk-eyebrow"><i class="fa fa-cube" aria-hidden="true"/> Servicio de empaque</div>
+              <h1>Mis solicitudes de empaque</h1>
+              <p>Lo que has pedido a las plantas, cuántas ofertas tiene cada solicitud y en qué quedó.</p>
             </div>
-          </div>
+            <div class="cpk-ph-acts">
+              <a href="/marketplace/copacking" class="s-btn s-btn-ghost"><i class="fa fa-search" aria-hidden="true"/> Directorio</a>
+              <a href="/marketplace/copacking/requests/new" class="s-btn s-btn-primary"><i class="fa fa-plus" aria-hidden="true"/> Nueva solicitud</a>
+            </div>
+          </header>
 
           <!-- Aqui habia un aviso de "solicitud publicada" que no se pintaba
                nunca: a esta pantalla nadie redirige con mensaje. -->
 
           <t t-if="not solicitudes">
-            <div class="alert alert-light border">
-              Todavía no has pedido servicio de empaque.
-              <a href="/marketplace/copacking">Mira quién lo presta</a>.
+            <div class="cpk-empty">
+              <div class="cpk-empty-ico" aria-hidden="true"><i class="fa fa-inbox"/></div>
+              <h2>Todavía no has pedido servicio de empaque.</h2>
+              <p>Busca una planta en el directorio y pídele servicio, o publica una solicitud abierta para que te oferten todas.</p>
+              <div class="cpk-empty-acts">
+                <a href="/marketplace/copacking" class="s-btn s-btn-ghost">Mira quién lo presta</a>
+                <a href="/marketplace/copacking/requests/new" class="s-btn s-btn-primary">Nueva solicitud</a>
+              </div>
             </div>
           </t>
           <t t-else="">
-            <div class="table-responsive">
-            <table class="table table-hover bg-white">
-              <thead>
-                <tr>
-                  <th>Referencia</th><th>Libras</th><th>Presentación</th>
-                  <th>Ventana</th><th>Dirigida a</th><th>Ofertas</th><th>Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-                <t t-foreach="solicitudes" t-as="s">
+            <div class="cpk-count"><span><b><t t-esc="len(solicitudes)"/></b> solicitud(es)</span></div>
+            <div class="cpk-table-card">
+              <table class="cpk-table s-stack-table">
+                <thead>
                   <tr>
-                    <td>
-                      <a t-attf-href="/marketplace/copacking/requests/#{s.uuid_ref}">
-                        <t t-esc="s.name"/>
-                      </a>
-                    </td>
-                    <td><t t-esc="int(s.quantity_lb)"/></td>
-                    <td><t t-esc="dict(s._fields['presentation'].selection).get(s.presentation)"/></td>
-                    <td class="small"><t t-esc="s.needed_from"/> a <t t-esc="s.needed_to"/></td>
-                    <td class="small">
-                      <t t-if="s.copacker_partner_id"><t t-esc="s.copacker_partner_id.name"/></t>
-                      <t t-else=""><span class="text-muted">abierta</span></t>
-                    </td>
-                    <td><t t-esc="s.offer_count"/></td>
-                    <td>
-                      <span class="badge text-bg-secondary">
-                        <t t-esc="dict(s._fields['state'].selection).get(s.state)"/>
-                      </span>
-                    </td>
+                    <th scope="col">Referencia</th><th scope="col" class="num">Libras</th><th scope="col">Presentación</th>
+                    <th scope="col">Ventana</th><th scope="col">Dirigida a</th><th scope="col" class="num">Ofertas</th><th scope="col">Estado</th>
+                    <th scope="col"><span class="cpk-sr">Acciones</span></th>
                   </tr>
-                </t>
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  <t t-foreach="solicitudes" t-as="s">
+                    <tr>
+                      <td class="s-stack-title">
+                        <a class="cpk-ref" t-attf-href="/marketplace/copacking/requests/#{s.uuid_ref}"><t t-esc="s.name"/></a>
+                      </td>
+                      <td class="num" data-label="Libras"><t t-esc="'{:,.0f}'.format(s.quantity_lb or 0)"/></td>
+                      <td data-label="Presentación"><t t-esc="dict(s._fields['presentation'].selection).get(s.presentation)"/></td>
+                      <td data-label="Ventana"><span class="muted"><t t-esc="s.needed_from"/> a <t t-esc="s.needed_to"/></span></td>
+                      <td data-label="Dirigida a">
+                        <t t-if="s.copacker_partner_id"><t t-esc="s.copacker_partner_id.name"/></t>
+                        <t t-else=""><span class="cpk-pill cpk-pill--sm cpk-pill--muted cpk-pill--nodot"><i class="fa fa-globe" aria-hidden="true"/> abierta</span></t>
+                      </td>
+                      <td class="num" data-label="Ofertas"><b><t t-esc="s.offer_count"/></b></td>
+                      <td data-label="Estado">
+                        <span t-attf-class="cpk-pill cpk-pill--sm cpk-pill--#{rq_tono.get(s.state, 'muted')}">
+                          <t t-esc="rq_lbl.get(s.state)"/>
+                        </span>
+                      </td>
+                      <td class="act s-stack-actions">
+                        <a t-attf-href="/marketplace/copacking/requests/#{s.uuid_ref}" class="s-btn s-btn-ghost s-btn-sm"
+                           t-attf-aria-label="Ver la solicitud #{s.name}">Ver</a>
+                      </td>
+                    </tr>
+                  </t>
+                </tbody>
+              </table>
             </div>
           </t>
 
@@ -215,121 +306,269 @@
        ================================================================ -->
   <template id="copack_request_detail" name="Solicitud de empaque">
     <t t-call="website.layout">
-      <div class="shrimp-bg">
-        <div class="shrimp-page py-4">
+      <t t-set="rq_lbl" t-value="dict(sol._fields['state'].selection)"/>
+      <t t-set="rq_tono" t-value="{'draft': 'muted', 'published': 'info', 'assigned': 'brand', 'done': 'ok', 'expired': 'warn', 'cancelled': 'muted'}"/>
+      <t t-set="rq_pasos" t-value="[('published', 'Publicada'), ('offers', 'Ofertas'), ('assigned', 'Adjudicada'), ('done', 'Cerrada')]"/>
+      <t t-set="rq_idx" t-value="{'draft': 0, 'published': 1 if ofertas else 0, 'assigned': 2, 'done': 3}.get(sol.state, -1)"/>
+      <div class="shrimp-bg cpk">
+        <div class="shrimp-page cpk-page">
 
-          <a href="/marketplace/copacking/requests" class="btn btn-sm btn-link mb-2">&#8592; Mis solicitudes</a>
-          <h2 class="mb-1"><t t-esc="sol.name"/></h2>
-          <p class="text-muted">
-            <t t-esc="int(sol.quantity_lb)"/> lb ·
-            <t t-esc="dict(sol._fields['presentation'].selection).get(sol.presentation)"/> ·
-            del <t t-esc="sol.needed_from"/> al <t t-esc="sol.needed_to"/>
-            <t t-if="sol.sudo().transaction_id"> · compra <t t-esc="sol.sudo().transaction_id.name"/></t>
-          </p>
+          <div class="cpk-top">
+            <a href="/marketplace/copacking/requests" class="s-back"><i class="fa fa-arrow-left" aria-hidden="true"/> Mis solicitudes</a>
+          </div>
+          <header class="cpk-ph">
+            <div class="cpk-ph-txt">
+              <div class="cpk-eyebrow"><i class="fa fa-cube" aria-hidden="true"/> Solicitud de empaque</div>
+              <h1>
+                <t t-esc="sol.name"/>
+                <span t-attf-class="cpk-pill cpk-pill--lg cpk-pill--#{rq_tono.get(sol.state, 'muted')}"><t t-esc="rq_lbl.get(sol.state)"/></span>
+              </h1>
+              <div class="cpk-meta">
+                <span><b><t t-esc="'{:,.0f}'.format(sol.quantity_lb or 0)"/> lb</b></span>
+                <span class="cpk-sep" aria-hidden="true"/>
+                <span><t t-esc="dict(sol._fields['presentation'].selection).get(sol.presentation)"/></span>
+                <span class="cpk-sep" aria-hidden="true"/>
+                <span><i class="fa fa-calendar" aria-hidden="true"/> del <t t-esc="sol.needed_from"/> al <t t-esc="sol.needed_to"/></span>
+                <t t-if="sol.sudo().transaction_id"><span class="cpk-sep" aria-hidden="true"/><span>compra <t t-esc="sol.sudo().transaction_id.name"/></span></t>
+                <t t-if="sol.state == 'published' and sol.expires_on">
+                  <span class="cpk-sep" aria-hidden="true"/>
+                  <span class="cpk-expiry"><i class="fa fa-hourglass-half" aria-hidden="true"/> vence el <b><t t-esc="sol.expires_on" t-options="{'widget': 'date'}"/></b></span>
+                </t>
+              </div>
+              <!-- D-47: adjudicación parcial — remanente publicado y su origen. -->
+              <div class="cpk-meta" t-if="sol.parent_request_id or sol.child_request_ids">
+                <t t-if="sol.parent_request_id">
+                  <span><i class="fa fa-code-fork" aria-hidden="true"/> Remanente de
+                    <a class="cpk-ref" t-attf-href="/marketplace/copacking/requests/#{sol.parent_request_id.uuid_ref}"><t t-esc="sol.parent_request_id.name"/></a></span>
+                </t>
+                <t t-foreach="sol.child_request_ids" t-as="hija">
+                  <span><i class="fa fa-code-fork" aria-hidden="true"/> Remanente publicado:
+                    <a class="cpk-ref" t-attf-href="/marketplace/copacking/requests/#{hija.uuid_ref}"><t t-esc="hija.name"/></a>
+                    (<t t-esc="'{:,.0f}'.format(hija.quantity_lb or 0)"/> lb)</span>
+                </t>
+              </div>
+            </div>
+          </header>
 
           <t t-if="mensaje == 'cancelada'">
-            <div class="alert alert-warning">
-              Solicitud cancelada. Las plantas ya no la ven y las ofertas que habías
-              recibido quedaron descartadas.
-            </div>
+            <div class="pf-alert pf-a-warn" role="status"><i class="fa fa-info-circle" aria-hidden="true"/>
+              <div>Solicitud cancelada. Las plantas ya no la ven y las ofertas que habías
+                recibido quedaron descartadas.</div></div>
           </t>
-          <t t-elif="mensaje"><div class="alert alert-success">Solicitud publicada.</div></t>
-          <t t-if="error"><div class="alert alert-danger"><t t-esc="error"/></div></t>
+          <t t-elif="mensaje == 'rechazada'">
+            <div class="pf-alert pf-a-info" role="status"><i class="fa fa-info-circle" aria-hidden="true"/>
+              <div>Oferta rechazada. La planta fue avisada y puede mejorarla mientras la solicitud siga publicada.</div></div>
+          </t>
+          <t t-elif="mensaje"><div class="pf-alert cpk-a-ok" role="status"><i class="fa fa-check-circle" aria-hidden="true"/><div>Solicitud publicada.</div></div></t>
+          <t t-if="error"><div class="pf-alert pf-a-bad" role="alert"><i class="fa fa-exclamation-triangle" aria-hidden="true"/><div><t t-esc="error"/></div></div></t>
 
-          <t t-if="sol.supplies_notes">
-            <div class="card mb-3">
-              <div class="card-body">
-                <h6 class="text-uppercase text-muted small mb-2">Insumos que llevas</h6>
-                <p class="mb-0"><t t-esc="sol.supplies_notes"/></p>
-              </div>
+          <div class="cpk-tl-card" role="group" aria-label="Avance de la solicitud">
+            <ol t-attf-class="cpk-tl #{'cpk-tl--off' if sol.state in ('cancelled', 'expired') else ''}">
+              <t t-foreach="rq_pasos" t-as="p">
+                <t t-set="tl_cls" t-value="'is-done' if (p_index &lt; rq_idx or (sol.state == 'done' and p_index == rq_idx)) else ('is-cur' if p_index == rq_idx else 'is-todo')"/>
+                <li t-att-class="tl_cls" t-att-aria-current="'step' if tl_cls == 'is-cur' else None">
+                  <span class="cpk-tl-dot" aria-hidden="true"><i class="fa fa-check"/></span>
+                  <span class="cpk-tl-t"><t t-esc="p[1]"/></span>
+                  <span class="cpk-tl-s">
+                    <t t-if="p[0] == 'offers'"><t t-esc="len(ofertas)"/> recibida(s)</t>
+                    <t t-elif="p[0] == 'assigned' and sol.order_id"><t t-esc="sol.order_id.name"/></t>
+                    <t t-elif="tl_cls == 'is-todo' and sol.state not in ('cancelled', 'expired')">Pendiente</t>
+                  </span>
+                </li>
+              </t>
+            </ol>
+            <div class="cpk-tl-note" t-if="sol.state == 'expired'">
+              <i class="fa fa-hourglass-end" aria-hidden="true"/>
+              <span>Esta solicitud venció sin adjudicarse. Si todavía necesitas empacar, publícala de nuevo.</span>
             </div>
-          </t>
+            <div class="cpk-tl-note" t-elif="sol.state == 'cancelled'">
+              <i class="fa fa-info-circle" aria-hidden="true"/>
+              <span>Esta solicitud está cancelada. Si todavía necesitas empaque, publica una nueva.</span>
+            </div>
+            <div class="cpk-tl-note" t-elif="sol.state == 'published'">
+              <i class="fa fa-info-circle" aria-hidden="true"/>
+              <span t-if="ofertas"><b>Te toca:</b> comparar las ofertas y aceptar una (o rechazar las que no te sirvan).</span>
+              <span t-else="">Esperando ofertas de las plantas.</span>
+            </div>
+          </div>
 
-          <h5 class="mt-4 mb-2">Ofertas recibidas</h5>
-          <t t-if="not ofertas">
-            <div class="alert alert-light border">
-              Todavía no hay ofertas. Las plantas la ven en su bandeja y te responderán
-              con su tarifa para este volumen.
-            </div>
-          </t>
-          <t t-else="">
-            <div class="table-responsive">
-            <table class="table bg-white align-middle">
-              <thead>
-                <tr>
-                  <th>Planta</th><th class="text-end">$ / lb</th><th class="text-end">Libras</th>
-                  <th class="text-end">Total estimado</th><th>Disponible</th><th></th>
-                </tr>
-              </thead>
-              <tbody>
-                <t t-foreach="ofertas" t-as="o">
-                  <tr t-att-class="'table-success' if o.state == 'accepted' else ''">
-                    <td>
-                      <b><t t-esc="o.copacker_partner_id.name"/></b>
-                      <t t-if="o.copacker_partner_id.pack_codigo_establecimiento">
-                        <div class="small text-muted">
-                          Establecimiento <t t-esc="o.copacker_partner_id.pack_codigo_establecimiento"/>
+          <div class="cpk-layout">
+            <div class="cpk-main">
+              <section class="cpk-card" id="ofertas" aria-labelledby="cpk_of_t">
+                <div class="cpk-card-h">
+                  <span class="cpk-card-ico" aria-hidden="true"><i class="fa fa-tags"/></span>
+                  <div class="cpk-card-htxt">
+                    <h2 class="cpk-card-t" id="cpk_of_t">Ofertas recibidas</h2>
+                    <p class="cpk-card-d">
+                      Ordenadas de la tarifa más baja a la más alta. Mira también la ventana de
+                      disponibilidad: la más barata no sirve si no puede en tus fechas.
+                    </p>
+                  </div>
+                  <span class="cpk-pill cpk-pill--muted cpk-pill--nodot"><t t-esc="len(ofertas)"/></span>
+                </div>
+                <div class="cpk-card-b">
+                  <t t-if="not ofertas">
+                    <div class="cpk-empty cpk-empty--sm mb-0">
+                      <div class="cpk-empty-ico" aria-hidden="true"><i class="fa fa-hourglass-half"/></div>
+                      <p>
+                        Todavía no hay ofertas. Las plantas la ven en su bandeja y te responderán
+                        con su tarifa para este volumen.
+                      </p>
+                    </div>
+                  </t>
+                  <t t-else="">
+                    <div class="cpk-offers">
+                      <t t-foreach="ofertas" t-as="o">
+                        <div t-attf-class="cpk-offer #{'is-won' if o.state == 'accepted' else ('is-best' if o_first and sol.state == 'published' else '')}">
+                          <div class="cpk-offer-n">
+                            <b><t t-esc="o.copacker_partner_id.name"/></b>
+                            <t t-if="o.copacker_partner_id.pack_codigo_establecimiento">
+                              <small>Establecimiento <t t-esc="o.copacker_partner_id.pack_codigo_establecimiento"/></small>
+                            </t>
+                            <t t-if="o.notes"><small><i class="fa fa-comment-o" aria-hidden="true"/> <t t-esc="o.notes"/></small></t>
+                            <t t-if="o_first and sol.state == 'published'"><span class="cpk-pill cpk-pill--sm cpk-pill--brand mt-1">Tarifa más baja</span></t>
+                          </div>
+                          <div class="cpk-offer-c"><span class="l">$ / lb</span><span class="v v--big">$ <t t-esc="round(o.rate_per_lb, 3)"/></span></div>
+                          <div class="cpk-offer-c"><span class="l">Libras</span><span class="v"><t t-esc="'{:,.0f}'.format(o.capacity_lb or 0)"/></span></div>
+                          <div class="cpk-offer-c"><span class="l">Total estimado</span><span class="v">$ <t t-esc="round(o.estimated_total, 2)"/></span>
+                            <span class="cpk-cell-sub"><t t-esc="o.available_from"/> a <t t-esc="o.available_to"/></span>
+                            <span class="cpk-cell-sub" t-if="o.state == 'sent' and o.expires_on">vence el <t t-esc="o.expires_on" t-options="{'widget': 'date'}"/></span></div>
+                          <div class="cpk-offer-a">
+                            <t t-if="o.state == 'accepted'">
+                              <span class="cpk-pill cpk-pill--ok">Adjudicada</span>
+                            </t>
+                            <t t-elif="sol.state == 'published' and o.expires_on and o.expires_on &lt; hoy">
+                              <span class="cpk-pill cpk-pill--muted">Vencida</span>
+                            </t>
+                            <t t-elif="sol.state == 'published'">
+                              <form method="post" t-attf-action="/marketplace/copacking/offers/#{o.uuid_ref}/accept">
+                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                <button type="submit" class="s-btn s-btn-primary s-btn-sm">Aceptar</button>
+                              </form>
+                              <!-- D-47: el cliente rechaza una oferta concreta. -->
+                              <details class="cpk-offer-reject">
+                                <summary>Rechazar</summary>
+                                <form method="post" t-attf-action="/marketplace/copacking/offers/#{o.uuid_ref}/reject">
+                                  <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                  <label class="cpk-sr" t-attf-for="cpk_rej_#{o.id}">Motivo del rechazo</label>
+                                  <input type="text" name="motivo" t-attf-id="cpk_rej_#{o.id}" class="form-control form-control-sm"
+                                         placeholder="Motivo (opcional)"/>
+                                  <button type="submit" class="s-btn s-btn-danger s-btn-sm">Rechazar la oferta</button>
+                                </form>
+                              </details>
+                            </t>
+                          </div>
                         </div>
                       </t>
-                      <t t-if="o.notes"><div class="small text-muted"><t t-esc="o.notes"/></div></t>
-                    </td>
-                    <td class="text-end fw-bold">$ <t t-esc="round(o.rate_per_lb, 3)"/></td>
-                    <td class="text-end"><t t-esc="int(o.capacity_lb)"/></td>
-                    <td class="text-end">$ <t t-esc="round(o.estimated_total, 2)"/></td>
-                    <td class="small"><t t-esc="o.available_from"/> a <t t-esc="o.available_to"/></td>
-                    <td class="text-end">
-                      <t t-if="o.state == 'accepted'">
-                        <span class="badge text-bg-success">Adjudicada</span>
+                    </div>
+                  </t>
+                  <t t-if="ofertas_cerradas">
+                    <div class="cpk-closed-offers">
+                      <div class="cpk-round-h">Ofertas rechazadas, vencidas o retiradas</div>
+                      <t t-foreach="ofertas_cerradas" t-as="oc">
+                        <div class="cpk-round-row">
+                          <div>
+                            <t t-esc="oc.copacker_partner_id.name"/>
+                            <span class="text-soft">· $ <t t-esc="round(oc.rate_per_lb, 3)"/> / lb · <t t-esc="'{:,.0f}'.format(oc.capacity_lb or 0)"/> lb</span>
+                            <div class="cpk-sign-why cpk-sign-why--soft" t-if="oc.reject_reason"><t t-esc="oc.reject_reason"/></div>
+                          </div>
+                          <div class="r">
+                            <span class="cpk-pill cpk-pill--sm cpk-pill--muted">
+                              <t t-esc="dict(oc._fields['closed_reason'].selection).get(oc.closed_reason) or dict(oc._fields['state'].selection).get(oc.state)"/>
+                            </span>
+                          </div>
+                        </div>
                       </t>
-                      <t t-elif="sol.state == 'published'">
-                        <form method="post" t-attf-action="/marketplace/copacking/offers/#{o.uuid_ref}/accept">
-                          <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                          <button type="submit" class="btn btn-sm btn-primary">Aceptar</button>
-                        </form>
-                      </t>
-                    </td>
-                  </tr>
+                    </div>
+                  </t>
+                </div>
+              </section>
+
+              <t t-if="sol.supplies_notes">
+                <section class="cpk-card" aria-labelledby="cpk_ins_t">
+                  <div class="cpk-card-h">
+                    <span class="cpk-card-ico" aria-hidden="true"><i class="fa fa-archive"/></span>
+                    <div class="cpk-card-htxt"><h2 class="cpk-card-t" id="cpk_ins_t">Insumos que llevas</h2></div>
+                  </div>
+                  <div class="cpk-card-b"><p class="cpk-text"><t t-esc="sol.supplies_notes"/></p></div>
+                </section>
+              </t>
+            </div>
+
+            <aside class="cpk-aside" aria-label="Resumen de la solicitud">
+              <section class="cpk-card">
+                <div class="cpk-card-h">
+                  <span class="cpk-card-ico" aria-hidden="true"><i class="fa fa-file-text-o"/></span>
+                  <div class="cpk-card-htxt"><h2 class="cpk-card-t">Resumen</h2></div>
+                </div>
+                <div class="cpk-card-b">
+                  <dl class="cpk-kv">
+                    <div><dt>Libras</dt><dd><t t-esc="'{:,.0f}'.format(sol.quantity_lb or 0)"/> lb</dd></div>
+                    <div><dt>Presentación</dt><dd><t t-esc="dict(sol._fields['presentation'].selection).get(sol.presentation)"/></dd></div>
+                    <div><dt>Desde</dt><dd><t t-esc="sol.needed_from"/></dd></div>
+                    <div><dt>Hasta</dt><dd><t t-esc="sol.needed_to"/></dd></div>
+                    <div><dt>Dirigida a</dt><dd><t t-esc="sol.copacker_partner_id.name or 'Abierta'"/></dd></div>
+                  </dl>
+                </div>
+                <t t-if="sol.order_id">
+                  <div class="cpk-card-f">
+                    <a t-attf-href="/marketplace/copacking/orders/#{sol.order_id.uuid_ref}"
+                       class="s-btn s-btn-primary w-100">Ver la orden <i class="fa fa-arrow-right" aria-hidden="true"/></a>
+                  </div>
                 </t>
-              </tbody>
-            </table>
-            </div>
-            <p class="text-muted small">
-              Ordenadas de la tarifa más baja a la más alta. Mira también la ventana de
-              disponibilidad: la más barata no sirve si no puede en tus fechas.
-            </p>
-          </t>
+              </section>
 
-          <t t-if="sol.order_id">
-            <a t-attf-href="/marketplace/copacking/orders/#{sol.order_id.uuid_ref}"
-               class="btn btn-primary">Ver la orden</a>
-          </t>
-
-          <!-- CANCELAR Y CORREGIR. El modelo ya sabia cancelar, pero no habia
-               por donde llamarlo: quien publicaba 40.000 lb queriendo 4.000 no
-               tenia arreglo y la solicitud seguia viva en todas las bandejas. -->
-          <t t-if="sol.state in ('draft', 'published')">
-            <form method="post" t-attf-action="/marketplace/copacking/requests/#{sol.uuid_ref}/cancel"
-                  class="card mt-4">
-              <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-              <div class="card-body">
-                <h6 class="text-uppercase text-muted small mb-2">¿Te equivocaste?</h6>
-                <p class="small text-muted mb-3">
-                  Mientras no aceptes una oferta puedes retirarla. «Corregir» la cancela y
-                  te devuelve el formulario con lo que escribiste, para que la publiques
-                  bien; las ofertas recibidas se descartan en los dos casos.
+              <!-- CANCELAR Y CORREGIR. El modelo ya sabia cancelar, pero no habia
+                   por donde llamarlo: quien publicaba 40.000 lb queriendo 4.000 no
+                   tenia arreglo y la solicitud seguia viva en todas las bandejas. -->
+              <t t-if="sol.state == 'expired'">
+                <form method="post" t-attf-action="/marketplace/copacking/requests/#{sol.uuid_ref}/cancel"
+                      class="cpk-card cpk-card--quiet">
+                  <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                  <div class="cpk-card-h cpk-card-h--flat">
+                    <span class="cpk-card-ico cpk-card-ico--warn" aria-hidden="true"><i class="fa fa-hourglass-end"/></span>
+                    <div class="cpk-card-htxt">
+                      <h2 class="cpk-card-t">Solicitud vencida</h2>
+                      <p class="cpk-card-d">Nadie la adjudicó a tiempo. Publícala de nuevo con fechas al día:
+                        te devolvemos el formulario con lo que escribiste.</p>
+                    </div>
+                  </div>
+                  <div class="cpk-card-f">
+                    <button type="submit" name="corregir" value="1" class="s-btn s-btn-primary w-100">Publicar de nuevo</button>
+                  </div>
+                </form>
+              </t>
+              <t t-if="sol.state == 'assigned' and sol.order_id">
+                <p class="cpk-foot-note">
+                  <i class="fa fa-info-circle" aria-hidden="true"/>
+                  Ya está adjudicada: para cancelarla, cancela la orden (antes de que se empaque).
                 </p>
-                <button type="submit" name="corregir" value="1" class="btn btn-outline-primary">
-                  Corregir y volver a publicar
-                </button>
-                <button type="submit" class="btn btn-outline-danger">Cancelar la solicitud</button>
-              </div>
-            </form>
-          </t>
-          <t t-elif="sol.state == 'cancelled'">
-            <div class="alert alert-secondary mt-4 mb-0">
-              Esta solicitud está cancelada. Si todavía necesitas empaque, publica una nueva.
-            </div>
-          </t>
+              </t>
+              <t t-if="sol.state in ('draft', 'published')">
+                <form method="post" t-attf-action="/marketplace/copacking/requests/#{sol.uuid_ref}/cancel"
+                      class="cpk-card cpk-card--quiet">
+                  <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                  <div class="cpk-card-h cpk-card-h--flat">
+                    <span class="cpk-card-ico cpk-card-ico--warn" aria-hidden="true"><i class="fa fa-pencil"/></span>
+                    <div class="cpk-card-htxt">
+                      <h2 class="cpk-card-t">¿Te equivocaste?</h2>
+                      <p class="cpk-card-d">
+                        Mientras no aceptes una oferta puedes retirarla. «Corregir» la cancela y
+                        te devuelve el formulario con lo que escribiste, para que la publiques
+                        bien; las ofertas recibidas se descartan en los dos casos.
+                      </p>
+                    </div>
+                  </div>
+                  <div class="cpk-card-f">
+                    <button type="submit" name="corregir" value="1" class="s-btn s-btn-ghost w-100">
+                      Corregir y volver a publicar
+                    </button>
+                    <button type="submit" class="s-btn s-btn-danger w-100">Cancelar la solicitud</button>
+                  </div>
+                </form>
+              </t>
+            </aside>
+          </div>
 
         </div>
       </div>

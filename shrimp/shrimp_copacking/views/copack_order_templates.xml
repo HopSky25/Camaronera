@@ -1,82 +1,158 @@
 <odoo>
 
   <!-- ================================================================
+       Piezas comunes del portal de empaque (19.0.1.15.0).
+       Estilos en static/src/css/copacking_portal.css (prefijo .cpk-, solo
+       tokens shrimp en variables CSS: coral en el sitio de empaque, navy en
+       el marketplace, y el modo oscuro los redefine).
+       ================================================================ -->
+
+  <!-- Línea de tiempo de una orden de terceros. Parámetros: orden y,
+       opcionales, tl_toca (bool: «Te toca:») y tl_nota (texto).
+       Adjudicada → Recibida en planta → Empacada → Acta firmada → Cerrada.
+       Con el acta abierta el paso actual es «Acta firmada» (a la firma) y
+       con el acta en disputa ese paso sale en rojo. -->
+  <template id="cpk_order_timeline" name="Empaque: línea de tiempo de la orden">
+    <t t-set="tl_pasos" t-value="[('confirmed', 'Adjudicada'), ('received', 'Recibida en planta'), ('packed', 'Empacada'), ('signed', 'Acta firmada'), ('closed', 'Cerrada')]"/>
+    <t t-set="tl_codes" t-value="[p[0] for p in tl_pasos]"/>
+    <t t-set="tl_idx" t-value="3 if orden.state == 'packed' else (tl_codes.index(orden.state) if orden.state in tl_codes else -1)"/>
+    <div class="cpk-tl-card" role="group" aria-label="Avance de la orden">
+      <ol t-attf-class="cpk-tl #{'cpk-tl--off' if orden.state == 'cancelled' else ''}">
+        <t t-foreach="tl_pasos" t-as="p">
+          <t t-set="tl_cls" t-value="'is-done' if (p_index &lt; tl_idx or (orden.state == 'closed' and p_index == tl_idx)) else ('is-cur' if p_index == tl_idx else 'is-todo')"/>
+          <t t-if="p[0] == 'signed' and orden.state == 'packed' and orden.acceptance_state == 'disputed'">
+            <t t-set="tl_cls" t-value="'is-bad'"/>
+          </t>
+          <li t-att-class="tl_cls" t-att-aria-current="'step' if tl_cls in ('is-cur', 'is-bad') else None">
+            <span class="cpk-tl-dot" aria-hidden="true"><i class="fa fa-check"/><i class="fa fa-exclamation"/></span>
+            <span class="cpk-tl-t"><t t-esc="p[1]"/></span>
+            <span class="cpk-tl-s">
+              <t t-if="p[0] == 'received' and orden.received_date"><t t-esc="orden.received_date" t-options="{'widget': 'date'}"/></t>
+              <t t-elif="p[0] == 'packed' and orden.packed_date"><t t-esc="orden.packed_date" t-options="{'widget': 'date'}"/></t>
+              <t t-elif="p[0] == 'signed' and orden.state == 'packed' and orden.acceptance_state == 'disputed'">En disputa</t>
+              <t t-elif="p[0] == 'signed' and orden.state == 'packed' and orden.acceptance_state == 'open'">A la firma</t>
+              <t t-elif="p[0] == 'signed' and orden.acceptance_state == 'closed'">Por las dos partes</t>
+              <t t-elif="tl_cls == 'is-cur'">En curso</t>
+              <t t-elif="tl_cls == 'is-todo' and orden.state != 'cancelled'">Pendiente</t>
+            </span>
+          </li>
+        </t>
+      </ol>
+      <div class="cpk-tl-note" t-if="tl_nota">
+        <i class="fa fa-info-circle" aria-hidden="true"/>
+        <span><b t-if="tl_toca">Te toca:</b> <t t-esc="tl_nota"/></span>
+      </div>
+    </div>
+  </template>
+
+  <!-- ================================================================
        LISTA DE ORDENES. Sirve a las dos partes: la regla de acceso ya
        devuelve solo las propias, asi que la plantilla no filtra nada.
        ================================================================ -->
   <template id="copack_orders" name="Órdenes de empaque">
     <t t-call="website.layout">
-      <div class="shrimp-bg">
-        <div class="shrimp-page shrimp-page--full py-4">
+      <t t-set="st_lbl" t-value="dict(request.env['shrimp.copack.order']._fields['state'].selection)"/>
+      <t t-set="st_tono" t-value="{'confirmed': 'info', 'received': 'info', 'packed': 'warn', 'signed': 'ok', 'closed': 'ok', 'cancelled': 'muted'}"/>
+      <div class="shrimp-bg cpk">
+        <div class="shrimp-page shrimp-page--wide cpk-page">
 
-          <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-            <h2 class="mb-0">Órdenes de empaque</h2>
-            <t t-if="not soy_maquilador">
-              <a href="/marketplace/copacking" class="btn btn-outline-secondary">Directorio</a>
-            </t>
-          </div>
+          <header class="cpk-ph">
+            <div class="cpk-ph-txt">
+              <div class="cpk-eyebrow"><i class="fa fa-cube" aria-hidden="true"/> Servicio de empaque</div>
+              <!-- h2.mb-0 y no h1: la vista heredada copack_orders_self_pack_button de
+                   versiones anteriores apuntaba a //h2[hasclass(mb-0)] y se valida
+                   contra esta plantilla antes de recargarse al actualizar. -->
+              <h2 class="cpk-h1 mb-0">Órdenes de empaque</h2>
+              <p>
+                <t t-if="soy_maquilador">Los trabajos que te adjudicaron: recepción, empaque y el acta que cuadra las libras.</t>
+                <t t-else="">Cada trabajo adjudicado, con el cuadre de libras y el acta que firman las dos partes.</t>
+              </p>
+            </div>
+            <div class="cpk-ph-acts" id="cpk_orders_acts">
+              <t t-if="not soy_maquilador">
+                <a href="/marketplace/copacking" class="s-btn s-btn-ghost"><i class="fa fa-search" aria-hidden="true"/> Directorio</a>
+              </t>
+            </div>
+          </header>
 
-          <t t-if="mensaje"><div class="alert alert-success">Listo.</div></t>
+          <t t-if="mensaje"><div class="pf-alert cpk-a-ok" role="status"><i class="fa fa-check-circle" aria-hidden="true"/><div>Listo.</div></div></t>
 
           <t t-if="not ordenes">
-            <div class="alert alert-light border">Todavía no hay órdenes de empaque.</div>
+            <div class="cpk-empty">
+              <div class="cpk-empty-ico" aria-hidden="true"><i class="fa fa-cube"/></div>
+              <h2>Todavía no hay órdenes de empaque.</h2>
+              <p>
+                <t t-if="soy_maquilador">Cuando un cliente acepte una de tus ofertas, el trabajo aparece aquí.</t>
+                <t t-else="">Una orden nace cuando aceptas la oferta de una planta. Empieza buscando quién empaca en el directorio.</t>
+              </p>
+              <div class="cpk-empty-acts" t-if="not soy_maquilador">
+                <a href="/marketplace/copacking" class="s-btn s-btn-primary">Ver el directorio</a>
+              </div>
+            </div>
           </t>
           <t t-else="">
-            <div class="table-responsive">
-            <table class="table table-hover bg-white align-middle">
-              <thead>
-                <tr>
-                  <th>Referencia</th>
-                  <th><t t-if="soy_maquilador">Cliente</t><t t-else="">Planta</t></th>
-                  <th class="text-end">Acordadas</th>
-                  <th class="text-end">Recibidas</th>
-                  <th class="text-end">Empacadas</th>
-                  <th class="text-end">Diferencia</th>
-                  <th>Estado</th><th>Acta</th>
-                </tr>
-              </thead>
-              <tbody>
-                <t t-foreach="ordenes" t-as="o">
+            <div class="cpk-count"><span><b><t t-esc="len(ordenes)"/></b> orden(es)</span></div>
+            <div class="cpk-table-card">
+              <table class="cpk-table s-stack-table">
+                <thead>
                   <tr>
-                    <td>
-                      <a t-attf-href="/marketplace/copacking/orders/#{o.uuid_ref}"><t t-esc="o.name"/></a>
-                    </td>
-                    <td>
-                      <t t-if="soy_maquilador"><t t-esc="o.client_partner_id.name"/></t>
-                      <t t-else=""><t t-esc="o.copacker_partner_id.name"/></t>
-                    </td>
-                    <td class="text-end"><t t-esc="int(o.agreed_qty_lb)"/></td>
-                    <td class="text-end"><t t-esc="int(o.received_lb)"/></td>
-                    <td class="text-end"><t t-esc="int(o.packed_lb)"/></td>
-                    <td class="text-end">
-                      <t t-if="o.packed_lb">
-                        <span t-att-class="'text-success' if o.cuadra else 'text-danger fw-bold'">
-                          <t t-esc="round(o.difference_lb, 2)"/> lb
-                        </span>
-                      </t>
-                      <t t-else="">—</t>
-                    </td>
-                    <td>
-                      <span class="badge text-bg-secondary">
-                        <t t-esc="dict(o._fields['state'].selection).get(o.state)"/>
-                      </span>
-                    </td>
-                    <td>
-                      <t t-if="o.acceptance_state == 'open'">
-                        <span class="badge text-bg-warning">A la firma</span>
-                      </t>
-                      <t t-elif="o.acceptance_state == 'closed'">
-                        <span class="badge text-bg-success">Firmada</span>
-                      </t>
-                      <t t-elif="o.acceptance_state == 'disputed'">
-                        <span class="badge text-bg-danger">En disputa</span>
-                      </t>
-                      <t t-else=""><span class="text-muted small">—</span></t>
-                    </td>
+                    <th scope="col">Referencia</th>
+                    <th scope="col"><t t-if="soy_maquilador">Cliente</t><t t-else="">Planta</t></th>
+                    <th scope="col" class="num">Acordadas</th>
+                    <th scope="col" class="num">Recibidas</th>
+                    <th scope="col" class="num">Empacadas</th>
+                    <th scope="col" class="num">Diferencia</th>
+                    <th scope="col">Estado</th>
+                    <th scope="col">Acta</th>
+                    <th scope="col"><span class="cpk-sr">Acciones</span></th>
                   </tr>
-                </t>
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  <t t-foreach="ordenes" t-as="o">
+                    <tr>
+                      <td class="s-stack-title">
+                        <a class="cpk-ref" t-attf-href="/marketplace/copacking/orders/#{o.uuid_ref}"><t t-esc="o.name"/></a>
+                      </td>
+                      <td class="s-stack-wide" t-att-data-label="'Cliente' if soy_maquilador else 'Planta'">
+                        <t t-if="soy_maquilador"><t t-esc="o.client_partner_id.name"/></t>
+                        <t t-else=""><t t-esc="o.copacker_partner_id.name"/></t>
+                      </td>
+                      <td class="num" data-label="Acordadas (lb)"><t t-esc="'{:,.0f}'.format(o.agreed_qty_lb or 0)"/></td>
+                      <td class="num" data-label="Recibidas (lb)"><t t-esc="'{:,.0f}'.format(o.received_lb or 0)"/></td>
+                      <td class="num" data-label="Empacadas (lb)"><t t-esc="'{:,.0f}'.format(o.packed_lb or 0)"/></td>
+                      <td class="num" data-label="Diferencia">
+                        <t t-if="o.packed_lb">
+                          <span t-att-class="'cpk-diff-ok' if o.cuadra else 'cpk-diff-bad'">
+                            <t t-esc="round(o.difference_lb, 2)"/> lb
+                          </span>
+                        </t>
+                        <t t-else=""><span class="muted">—</span></t>
+                      </td>
+                      <td data-label="Estado">
+                        <span t-attf-class="cpk-pill cpk-pill--sm cpk-pill--#{st_tono.get(o.state, 'muted')}">
+                          <t t-esc="st_lbl.get(o.state)"/>
+                        </span>
+                      </td>
+                      <td data-label="Acta">
+                        <t t-if="o.acceptance_state == 'open'">
+                          <span class="cpk-pill cpk-pill--sm cpk-pill--warn">A la firma</span>
+                        </t>
+                        <t t-elif="o.acceptance_state == 'closed'">
+                          <span class="cpk-pill cpk-pill--sm cpk-pill--ok">Firmada</span>
+                        </t>
+                        <t t-elif="o.acceptance_state == 'disputed'">
+                          <span class="cpk-pill cpk-pill--sm cpk-pill--bad">En disputa</span>
+                        </t>
+                        <t t-else=""><span class="muted">—</span></t>
+                      </td>
+                      <td class="act s-stack-actions">
+                        <a t-attf-href="/marketplace/copacking/orders/#{o.uuid_ref}"
+                           class="s-btn s-btn-ghost s-btn-sm" t-attf-aria-label="Ver la orden #{o.name}">Ver</a>
+                      </td>
+                    </tr>
+                  </t>
+                </tbody>
+              </table>
             </div>
           </t>
 
@@ -90,409 +166,739 @@
        ================================================================ -->
   <template id="copack_order_detail" name="Orden de empaque">
     <t t-call="website.layout">
-      <div class="shrimp-bg">
-        <div class="shrimp-page py-4">
+      <t t-set="st_lbl" t-value="dict(orden._fields['state'].selection)"/>
+      <t t-set="st_tono" t-value="{'confirmed': 'info', 'received': 'info', 'packed': 'warn', 'signed': 'ok', 'closed': 'ok', 'cancelled': 'muted'}"/>
+      <t t-set="mi_pendiente" t-value="bool(mi_firma and mi_firma.decision == 'pending')"/>
+      <div class="shrimp-bg cpk">
+        <div class="shrimp-page cpk-page">
 
           <!-- La pantalla es la misma para las dos partes, pero la vuelta no:
                al maquilador se le manda aqui tras registrar recepcion o empaque
                y esta migaja lo soltaba en la zona del cliente. -->
-          <a t-att-href="volver_url" class="btn btn-sm btn-link mb-2">&#8592; <t t-esc="volver_txt"/></a>
-          <div class="d-flex justify-content-between align-items-start flex-wrap">
-            <div>
-              <h2 class="mb-1"><t t-esc="orden.name"/></h2>
-              <p class="text-muted mb-0">
-                <t t-esc="orden.client_partner_id.name"/>
-                &#160;&#8594;&#160;
-                <t t-esc="orden.copacker_partner_id.name"/>
+          <div class="cpk-top">
+            <a t-att-href="volver_url" class="s-back"><i class="fa fa-arrow-left" aria-hidden="true"/> <t t-esc="volver_txt"/></a>
+          </div>
+
+          <header class="cpk-ph">
+            <div class="cpk-ph-txt">
+              <div class="cpk-eyebrow">
+                <i class="fa fa-cube" aria-hidden="true"/> Orden de empaque
+                <span class="cpk-sep" aria-hidden="true"/>
+                <t t-if="rol == 'copacker'">Tú empacas</t><t t-else="">Tú eres el cliente</t>
+              </div>
+              <h1>
+                <t t-esc="orden.name"/>
+                <span class="cpk-pills">
+                  <span t-attf-class="cpk-pill cpk-pill--lg cpk-pill--#{st_tono.get(orden.state, 'muted')}">
+                    <t t-esc="st_lbl.get(orden.state)"/>
+                  </span>
+                  <t t-if="orden.acceptance_state == 'open'"><span class="cpk-pill cpk-pill--lg cpk-pill--warn">Acta a la firma</span></t>
+                  <t t-elif="orden.acceptance_state == 'disputed'"><span class="cpk-pill cpk-pill--lg cpk-pill--bad">Acta en disputa</span></t>
+                </span>
+              </h1>
+              <div class="cpk-meta">
+                <span><i class="fa fa-user-o" aria-hidden="true"/> <b><t t-esc="orden.client_partner_id.name"/></b></span>
+                <span aria-hidden="true">&#8594;</span>
+                <span><i class="fa fa-industry" aria-hidden="true"/> <b><t t-esc="orden.copacker_partner_id.name"/></b></span>
                 <t t-if="orden.copacker_partner_id.pack_codigo_establecimiento">
-                  &#160;·&#160; Establecimiento <b><t t-esc="orden.copacker_partner_id.pack_codigo_establecimiento"/></b>
+                  <span class="cpk-sep" aria-hidden="true"/>
+                  <span>Establecimiento <b><t t-esc="orden.copacker_partner_id.pack_codigo_establecimiento"/></b></span>
                 </t>
-              </p>
+              </div>
             </div>
-            <span class="badge text-bg-secondary fs-6">
-              <t t-esc="dict(orden._fields['state'].selection).get(orden.state)"/>
-            </span>
+          </header>
+
+          <div class="cpk-alerts">
+            <t t-if="mensaje == 'reabierta'">
+              <div class="pf-alert pf-a-warn" role="status"><i class="fa fa-undo" aria-hidden="true"/>
+                <div>Acta reabierta. La orden vuelve a «recibida»: hay que rectificar el empaque
+                  y firmarla de nuevo las dos partes.</div></div>
+            </t>
+            <t t-elif="mensaje == 'cerrada'">
+              <div class="pf-alert cpk-a-ok" role="status"><i class="fa fa-check-circle" aria-hidden="true"/><div>Trabajo cerrado.</div></div>
+            </t>
+            <t t-elif="mensaje == 'deshecha'">
+              <div class="pf-alert pf-a-info" role="status"><i class="fa fa-info-circle" aria-hidden="true"/>
+                <div>Deshiciste tu firma: vuelve a estar pendiente y la otra parte fue avisada.</div></div>
+            </t>
+            <t t-elif="mensaje == 'devolucion'">
+              <div class="pf-alert pf-a-warn" role="status"><i class="fa fa-undo" aria-hidden="true"/>
+                <div>Firmaste el acta de devolución: la orden quedó cancelada y tu solicitud vuelve a
+                  estar publicada para otras plantas.</div></div>
+            </t>
+            <t t-elif="mensaje == 'devolucion_rechazada'">
+              <div class="pf-alert pf-a-info" role="status"><i class="fa fa-info-circle" aria-hidden="true"/>
+                <div>Rechazaste el acta de devolución: el trabajo sigue en curso y la planta fue avisada.</div></div>
+            </t>
+            <t t-elif="mensaje == 'devolucion_pedida'">
+              <div class="pf-alert pf-a-info" role="status"><i class="fa fa-info-circle" aria-hidden="true"/>
+                <div>Acta de devolución registrada. El cliente tiene que firmarla para cancelar la orden.</div></div>
+            </t>
+            <t t-elif="mensaje == 'pide_plataforma'">
+              <div class="pf-alert pf-a-info" role="status"><i class="fa fa-info-circle" aria-hidden="true"/>
+                <div>Pediste a la plataforma que apruebe la cancelación. Te avisaremos de su decisión.</div></div>
+            </t>
+            <t t-elif="mensaje == 'retirada'">
+              <div class="pf-alert pf-a-info" role="status"><i class="fa fa-info-circle" aria-hidden="true"/>
+                <div>Retiraste la solicitud de cancelación: el trabajo sigue.</div></div>
+            </t>
+            <t t-elif="mensaje == 'cancelada'">
+              <div class="pf-alert pf-a-warn" role="status"><i class="fa fa-ban" aria-hidden="true"/>
+                <div>Orden cancelada. La otra parte fue avisada.</div></div>
+            </t>
+            <t t-elif="mensaje"><div class="pf-alert cpk-a-ok" role="status"><i class="fa fa-check-circle" aria-hidden="true"/><div>Listo.</div></div></t>
+            <t t-if="error"><div class="pf-alert pf-a-bad" role="alert"><i class="fa fa-exclamation-triangle" aria-hidden="true"/><div><t t-esc="error"/></div></div></t>
           </div>
 
-          <t t-if="mensaje == 'reabierta'">
-            <div class="alert alert-warning mt-3">
-              Acta reabierta. La orden vuelve a «recibida»: hay que rectificar el empaque
-              y firmarla de nuevo las dos partes.
-            </div>
+          <!-- Qué toca ahora, dicho para quien mira la pantalla. -->
+          <t t-set="tl_toca" t-value="(orden.state in ('confirmed', 'received') and rol == 'copacker') or (orden.state == 'packed' and orden.acceptance_state == 'open' and mi_pendiente)"/>
+          <t t-if="orden.state == 'confirmed'">
+            <t t-set="tl_nota" t-value="'registrar la recepción del camarón cuando llegue a tu planta.' if rol == 'copacker' else 'La planta registrará la recepción cuando le llegue el camarón.'"/>
           </t>
-          <t t-elif="mensaje == 'cerrada'">
-            <div class="alert alert-success mt-3">Trabajo cerrado.</div>
+          <t t-elif="orden.state == 'received'">
+            <t t-set="tl_nota" t-value="'registrar el empaque. Con eso se abre el acta para que la firmen las dos partes.' if rol == 'copacker' else 'La planta está empacando. Cuando registre lo empacado, te tocará firmar el acta.'"/>
           </t>
-          <t t-elif="mensaje == 'deshecha'">
-            <div class="alert alert-info mt-3">
-              Deshiciste tu firma: vuelve a estar pendiente y la otra parte fue avisada.
-            </div>
-          </t>
-          <t t-elif="mensaje"><div class="alert alert-success mt-3">Listo.</div></t>
-          <t t-if="error"><div class="alert alert-danger mt-3"><t t-esc="error"/></div></t>
-
-          <!-- EL CUADRE: es lo que la gente viene a mirar, asi que va arriba -->
-          <div class="card my-3">
-            <div class="card-body">
-              <h6 class="text-uppercase text-muted small mb-3">El cuadre</h6>
-              <div class="row text-center">
-                <div class="col-4">
-                  <div class="text-muted small">Recibidas</div>
-                  <div class="fs-4 fw-bold"><t t-esc="int(orden.received_lb)"/></div>
-                  <div class="text-muted small">lb</div>
-                </div>
-                <div class="col-4">
-                  <div class="text-muted small">Empacadas</div>
-                  <div class="fs-4 fw-bold"><t t-esc="int(orden.packed_lb)"/></div>
-                  <div class="text-muted small">lb</div>
-                </div>
-                <div class="col-4">
-                  <div class="text-muted small">Diferencia</div>
-                  <div t-att-class="'fs-4 fw-bold ' + ('text-success' if orden.cuadra else 'text-danger')">
-                    <t t-esc="round(orden.difference_lb, 2)"/>
-                  </div>
-                  <div class="text-muted small">
-                    <t t-esc="round(orden.difference_pct, 2)"/> % · tolerancia <t t-esc="orden.tolerance_pct"/> %
-                  </div>
-                </div>
-              </div>
-              <t t-if="orden.packed_lb">
-                <div class="mt-3">
-                  <t t-if="orden.cuadra">
-                    <div class="alert alert-success mb-0 py-2">
-                      Cuadra: la diferencia está dentro de la tolerancia pactada.
-                    </div>
-                  </t>
-                  <t t-else="">
-                    <div class="alert alert-danger mb-0 py-2">
-                      No cuadra: la diferencia se pasa de la tolerancia. Antes de firmar,
-                      aclárenlo entre las partes.
-                    </div>
-                  </t>
-                </div>
-              </t>
-            </div>
-          </div>
-
-          <div class="row g-3">
-            <div class="col-md-6">
-              <div class="card h-100">
-                <div class="card-body">
-                  <h6 class="text-uppercase text-muted small mb-3">El trabajo</h6>
-                  <dl class="row mb-0 small">
-                    <dt class="col-6">Libras acordadas</dt>
-                    <dd class="col-6 text-end"><t t-esc="int(orden.agreed_qty_lb)"/></dd>
-                    <dt class="col-6">Tarifa</dt>
-                    <dd class="col-6 text-end">$ <t t-esc="round(orden.rate_per_lb, 3)"/> / lb</dd>
-                    <dt class="col-6">Cajas / masters</dt>
-                    <dd class="col-6 text-end"><t t-esc="orden.boxes or '—'"/></dd>
-                    <dt class="col-6">Presentación empacada</dt>
-                    <dd class="col-6 text-end">
-                      <t t-esc="dict(orden._fields['packed_presentation'].selection).get(orden.packed_presentation) or '—'"/>
-                      <t t-if="orden.packed_presentation_note"> · <t t-esc="orden.packed_presentation_note"/></t>
-                    </dd>
-                    <dt class="col-6">Recepción</dt>
-                    <dd class="col-6 text-end"><t t-esc="orden.received_date or '—'"/></dd>
-                    <dt class="col-6">Entrega</dt>
-                    <dd class="col-6 text-end"><t t-esc="orden.packed_date or '—'"/></dd>
-                    <dt class="col-6 border-top pt-2">A cobrar por el empaque</dt>
-                    <dd class="col-6 text-end border-top pt-2 fw-bold">
-                      $ <t t-esc="round(orden.service_amount, 2)"/>
-                    </dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
-
-            <div class="col-md-6">
-              <div class="card h-100">
-                <div class="card-body">
-                  <h6 class="text-uppercase text-muted small mb-3">Insumos</h6>
-                  <p class="small"><t t-esc="orden.supplies_notes or 'No se detallaron.'"/></p>
-                  <t t-if="orden.supplies_received">
-                    <span class="badge text-bg-success">Recibidos completos</span>
-                  </t>
-                  <t t-elif="orden.supplies_issue">
-                    <span class="badge text-bg-danger">Incompletos</span>
-                    <p class="small text-danger mt-2 mb-0"><t t-esc="orden.supplies_issue"/></p>
-                  </t>
-                  <t t-else="">
-                    <span class="badge text-bg-secondary">Sin confirmar</span>
-                  </t>
-                </div>
-              </div>
-            </div>
-          </div>
-
-
-          <!-- Acciones del maquilador. Van en la misma pantalla que ve el
-               cliente a proposito: las dos partes miran los mismos numeros, y
-               eso evita la mitad de las discusiones. -->
-          <t t-if="rol == 'copacker' and orden.state == 'confirmed'">
-            <div class="card mt-3 border-primary">
-              <div class="card-body">
-                <h6 class="text-uppercase text-muted small mb-3">Registrar la recepción</h6>
-                <form method="post" t-attf-action="/copacker/orders/#{orden.uuid_ref}/reception">
-                  <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                  <div class="row g-3">
-                    <div class="col-md-4">
-                      <label class="form-label">Libras recibidas *</label>
-                      <input type="number" step="0.01" min="0.01" name="received_lb"
-                             class="form-control" required="required"
-                             t-att-value="int(orden.agreed_qty_lb)"/>
-                    </div>
-                    <div class="col-md-8">
-                      <label class="form-label">Insumos</label>
-                      <div class="form-check">
-                        <input type="checkbox" name="supplies_received" class="form-check-input"
-                               checked="checked"/>
-                        <label class="form-check-label">Llegaron completos</label>
-                      </div>
-                      <input type="text" name="supplies_issue" class="form-control mt-2"
-                             placeholder="Si faltó algo, dilo aquí"/>
-                    </div>
-                  </div>
-                  <button type="submit" class="btn btn-primary mt-3">Registrar recepción</button>
-                </form>
-              </div>
-            </div>
-          </t>
-
-          <t t-if="rol == 'copacker' and orden.state == 'received'">
-            <div class="card mt-3 border-primary">
-              <div class="card-body">
-                <h6 class="text-uppercase text-muted small mb-3">Registrar el empaque</h6>
-                <form method="post" t-attf-action="/copacker/orders/#{orden.uuid_ref}/packing">
-                  <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                  <div class="row g-3">
-                    <div class="col-md-4">
-                      <label class="form-label">Libras empacadas *</label>
-                      <input type="number" step="0.01" min="0.01" name="packed_lb"
-                             class="form-control" required="required"/>
-                    </div>
-                    <div class="col-md-4">
-                      <label class="form-label">Cajas / masters</label>
-                      <input type="number" step="1" min="0" name="boxes" class="form-control"/>
-                    </div>
-                    <div class="col-md-4">
-                      <label class="form-label">Presentación empacada</label>
-                      <select name="packed_presentation" class="form-select">
-                        <option value="">—</option>
-                        <t t-foreach="orden._fields['packed_presentation'].selection" t-as="pres">
-                          <option t-att-value="pres[0]"
-                                  t-att-selected="'selected' if orden.packed_presentation == pres[0] else None">
-                            <t t-esc="pres[1]"/>
-                          </option>
-                        </t>
-                      </select>
-                      <input type="text" name="packed_presentation_note" class="form-control mt-1"
-                             placeholder="Formato (p. ej. master 5 lb IQF)"
-                             t-att-value="orden.packed_presentation_note or ''"/>
-                    </div>
-                  </div>
-                  <p class="text-muted small mt-2 mb-0">
-                    Al registrar el empaque se abre el acta y las dos partes tienen que
-                    firmarla. No se puede entregar más de lo que entró.
-                  </p>
-                  <button type="submit" class="btn btn-primary mt-2">Registrar empaque</button>
-                </form>
-              </div>
-            </div>
-          </t>
-
-          <!-- ACTA -->
-          <t t-if="orden.acceptance_state != 'na'">
-            <div class="card mt-3">
-              <div class="card-body">
-                <h6 class="text-uppercase text-muted small mb-3">Acta de empaque</h6>
-
-                <t t-foreach="orden.sudo().acceptance_ids.sorted('role')" t-as="f">
-                  <div class="d-flex justify-content-between align-items-center border-bottom py-2">
-                    <div>
-                      <b><t t-esc="f.partner_id.name"/></b>
-                      <span class="text-muted small">
-                        (<t t-esc="dict(f._fields['role'].selection).get(f.role)"/>)
-                      </span>
-                      <t t-if="f.reason">
-                        <div class="small text-danger"><t t-esc="f.reason"/></div>
-                      </t>
-                    </div>
-                    <div class="text-end">
-                      <t t-if="f.decision == 'accepted'">
-                        <span class="badge text-bg-success">Conforme</span>
-                      </t>
-                      <t t-elif="f.decision == 'rejected'">
-                        <span class="badge text-bg-danger">No conforme</span>
-                      </t>
-                      <t t-else=""><span class="badge text-bg-warning">Pendiente</span></t>
-                      <t t-if="f.decided_at">
-                        <div class="small text-muted"><t t-esc="f.decided_at"/></div>
-                      </t>
-                    </div>
-                  </div>
-                </t>
-
-                <t t-if="mi_firma and mi_firma.decision == 'pending'">
-                  <!-- Dos formularios y no uno: el modelo exige el motivo para
-                       no dar conformidad, y con un solo formulario el textarea
-                       no podia llevar "required" sin bloquear tambien al que si
-                       esta conforme. Asi el motivo se pide aqui y no despues de
-                       un viaje de ida y vuelta al servidor. -->
-                  <form method="post" t-attf-action="/marketplace/copacking/orders/#{orden.uuid_ref}/sign"
-                        class="mt-3">
-                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                    <input type="hidden" name="decision" value="accepted"/>
-                    <button type="submit" class="btn btn-success">Estoy conforme</button>
-                    <span class="text-muted small ms-2">
-                      Firmar da por buenas las libras de arriba.
-                    </span>
-                  </form>
-                  <form method="post" t-attf-action="/marketplace/copacking/orders/#{orden.uuid_ref}/sign"
-                        class="mt-3 border-top pt-3">
-                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                    <input type="hidden" name="decision" value="rejected"/>
-                    <div class="mb-2">
-                      <label class="form-label small">
-                        Si no estás conforme, di por qué. Es lo que abre la discusión con la otra parte.
-                      </label>
-                      <textarea name="motivo" class="form-control" rows="2" required="required"
-                                placeholder="Qué no cuadra: libras, presentación, insumos…"></textarea>
-                    </div>
-                    <button type="submit" class="btn btn-outline-danger">
-                      No estoy conforme
-                    </button>
-                  </form>
-                </t>
-                <t t-elif="mi_firma">
-                  <t t-if="undo_info and undo_info.get('can')">
-                    <p class="text-muted small mt-3 mb-0">Ya firmaste.</p>
-                    <t t-call="shrimp_marketplace.signoff_undo_form">
-                      <t t-set="firma" t-value="mi_firma"/>
-                    </t>
-                  </t>
-                  <t t-else="">
-                    <p class="text-muted small mt-3 mb-0">Ya firmaste. No se puede cambiar.</p>
-                  </t>
-                </t>
-
-
-              </div>
-            </div>
-          </t>
-
-          <!-- ACTA EN DISPUTA. Sin esto la orden se quedaba congelada para
-               siempre: una parte decia que no y ya no habia por donde seguir.
-               Reabrirla la devuelve a «recibida» para rectificar el empaque. -->
-          <t t-if="orden.acceptance_state == 'disputed'">
-            <div class="card mt-3 border-danger">
-              <div class="card-body">
-                <h6 class="text-uppercase text-muted small mb-2">El acta está en disputa</h6>
-                <p class="small text-muted mb-3">
-                  Mientras no se resuelva, el trabajo no se cierra ni se liquida. Si ya
-                  aclararon qué pasó, reabran el acta: la orden vuelve a «recibida», el
-                  maquilador rectifica las libras empacadas y las dos partes firman otra
-                  vez. Puede hacerlo cualquiera de las dos.
-                </p>
-                <form method="post"
-                      t-attf-action="/marketplace/copacking/orders/#{orden.uuid_ref}/reopen">
-                  <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                  <div class="mb-2">
-                    <label class="form-label small">Motivo de la reapertura *</label>
-                    <textarea name="motivo" class="form-control" rows="2" required="required"
-                              placeholder="Qué se acordó y qué se va a rectificar"></textarea>
-                  </div>
-                  <button type="submit" class="btn btn-outline-danger">Reabrir el acta</button>
-                </form>
-              </div>
-            </div>
-          </t>
-
-          <t t-call="shrimp_marketplace.signoff_history"/>
-
-          <!-- CIERRE. action_close() existia sin ruta: el acta se firmaba y la
-               orden se quedaba en «firmada» para siempre. -->
-          <t t-if="orden.state == 'signed'">
-            <form method="post" t-attf-action="/marketplace/copacking/orders/#{orden.uuid_ref}/close"
-                  class="mt-3">
-              <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-              <button type="submit" class="btn btn-primary">Dar por cerrado el trabajo</button>
-              <span class="text-muted small ms-2">
-                Las dos partes firmaron lo mismo. Cerrarlo lo saca de lo pendiente.
-              </span>
-            </form>
-          </t>
-          <!-- Una orden EMPACADA ya no se cancela: el trabajo está hecho y el
-               camino es el acta (firmar, o no dar conformidad y reabrirla). -->
-          <t t-if="orden.state in ('confirmed', 'received') and orden.acceptance_state != 'closed'">
-            <form method="post" t-attf-action="/marketplace/copacking/orders/#{orden.uuid_ref}/cancel"
-                  class="mt-3" onsubmit="return confirm('¿Cancelar este trabajo? No se puede deshacer.');">
-              <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-              <button type="submit" class="btn btn-outline-danger btn-sm">Cancelar el trabajo</button>
-            </form>
+          <t t-elif="orden.state == 'packed' and orden.acceptance_state == 'disputed'">
+            <t t-set="tl_nota" t-value="'El acta está en disputa: el trabajo no se cierra ni se liquida hasta que la reabran y la firmen otra vez. La plataforma media la disputa.'"/>
           </t>
           <t t-elif="orden.state == 'packed'">
-            <div class="text-muted small mt-3">
-              El trabajo ya está empacado: no se puede cancelar. Si no estás conforme,
-              no firmes el acta y, desde la disputa, reábrela para rectificar.
-            </div>
+            <t t-set="tl_nota" t-value="('revisar el cuadre y firmar el acta antes del %s. Si no firmas ni das tu disconformidad, se da por aceptada.' % plazo_txt) if mi_pendiente else ('Esperando la firma de la otra parte (plazo: %s).' % plazo_txt)"/>
           </t>
+          <t t-elif="orden.state == 'signed'">
+            <t t-set="tl_nota" t-value="'Acta firmada: el empaque ya es facturable. La orden se cierra sola en unas horas.'"/>
+          </t>
+          <t t-elif="orden.state == 'closed'">
+            <t t-set="tl_nota" t-value="'Trabajo cerrado: el paso de empaque ya consta en la trazabilidad.'"/>
+          </t>
+          <t t-elif="orden.state == 'cancelled'">
+            <t t-set="tl_nota" t-value="'Este trabajo se canceló%s.%s' % ((' (' + dict(orden._fields['cancelled_by'].selection).get(orden.cancelled_by, '').lower() + ')') if orden.cancelled_by else '', (' Motivo: ' + orden.cancel_reason) if orden.cancel_reason else '')"/>
+          </t>
+          <t t-call="shrimp_copacking.cpk_order_timeline"/>
+
+          <div class="cpk-layout">
+            <div class="cpk-main">
+
+              <!-- Acciones del maquilador. Van en la misma pantalla que ve el
+                   cliente a proposito: las dos partes miran los mismos numeros, y
+                   eso evita la mitad de las discusiones. -->
+              <t t-if="rol == 'copacker' and orden.state == 'confirmed'">
+                <section class="cpk-card cpk-card--todo" id="recepcion" aria-labelledby="cpk_rec_t">
+                  <div class="cpk-card-h">
+                    <span class="cpk-card-ico" aria-hidden="true"><i class="fa fa-truck"/></span>
+                    <div class="cpk-card-htxt">
+                      <h2 class="cpk-card-t" id="cpk_rec_t">Registrar la recepción</h2>
+                      <p class="cpk-card-d">Las libras que entraron a tu planta y si los insumos del cliente llegaron completos.</p>
+                    </div>
+                    <span class="cpk-pill cpk-pill--brand">Te toca</span>
+                  </div>
+                  <form method="post" t-attf-action="/copacker/orders/#{orden.uuid_ref}/reception">
+                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                    <div class="cpk-card-b">
+                      <p class="cpk-legend"><span><span class="cpk-req">*</span> obligatorio</span></p>
+                      <div class="cpk-fgrid">
+                        <div class="cpk-f cpk-f--4">
+                          <label class="cpk-lbl" for="cpk_received_lb">Libras recibidas <span class="cpk-req" aria-hidden="true">*</span></label>
+                          <div class="cpk-ig">
+                            <input type="number" step="0.01" min="0.01" name="received_lb" id="cpk_received_lb"
+                                   class="form-control" required="required"
+                                   t-att-value="int(orden.agreed_qty_lb)"/>
+                            <span class="cpk-ig-a">lb</span>
+                          </div>
+                          <div class="cpk-help">Acordadas: <t t-esc="'{:,.0f}'.format(orden.agreed_qty_lb or 0)"/> lb.</div>
+                        </div>
+                        <div class="cpk-f cpk-f--8">
+                          <span class="cpk-lbl">Insumos <span class="cpk-opt">(opcional)</span></span>
+                          <label class="cpk-check" for="cpk_supplies_received">
+                            <input type="checkbox" name="supplies_received" id="cpk_supplies_received" class="form-check-input"
+                                   checked="checked"/>
+                            <span><b>Llegaron completos</b></span>
+                          </label>
+                          <label class="cpk-sr" for="cpk_supplies_issue">Si faltó algo</label>
+                          <input type="text" name="supplies_issue" id="cpk_supplies_issue" class="form-control mt-2"
+                                 placeholder="Si faltó algo, dilo aquí"/>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="cpk-card-f">
+                      <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-check" aria-hidden="true"/> Registrar recepción</button>
+                    </div>
+                  </form>
+                </section>
+              </t>
+
+              <t t-if="rol == 'copacker' and orden.state == 'received'">
+                <section class="cpk-card cpk-card--todo" id="empaque" aria-labelledby="cpk_pack_t">
+                  <div class="cpk-card-h">
+                    <span class="cpk-card-ico" aria-hidden="true"><i class="fa fa-cube"/></span>
+                    <div class="cpk-card-htxt">
+                      <h2 class="cpk-card-t" id="cpk_pack_t">Registrar el empaque</h2>
+                      <p class="cpk-card-d">Al registrar el empaque se abre el acta y las dos partes tienen que
+                        firmarla. No se puede entregar más de lo que entró.</p>
+                    </div>
+                    <span class="cpk-pill cpk-pill--brand">Te toca</span>
+                  </div>
+                  <form method="post" t-attf-action="/copacker/orders/#{orden.uuid_ref}/packing">
+                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                    <div class="cpk-card-b">
+                      <p class="cpk-legend"><span><span class="cpk-req">*</span> obligatorio</span><span>Lo demás es opcional</span></p>
+                      <div class="cpk-fgrid">
+                        <div class="cpk-f cpk-f--4">
+                          <label class="cpk-lbl" for="cpk_packed_lb">Libras empacadas <span class="cpk-req" aria-hidden="true">*</span></label>
+                          <div class="cpk-ig">
+                            <input type="number" step="0.01" min="0.01" name="packed_lb" id="cpk_packed_lb"
+                                   class="form-control" required="required"/>
+                            <span class="cpk-ig-a">lb</span>
+                          </div>
+                          <div class="cpk-help">Recibidas: <t t-esc="'{:,.0f}'.format(orden.received_lb or 0)"/> lb.</div>
+                        </div>
+                        <div class="cpk-f cpk-f--4">
+                          <label class="cpk-lbl" for="cpk_boxes">Cajas / masters <span class="cpk-opt">(opcional)</span></label>
+                          <input type="number" step="1" min="0" name="boxes" id="cpk_boxes" class="form-control"/>
+                        </div>
+                        <div class="cpk-f cpk-f--4">
+                          <label class="cpk-lbl" for="cpk_packed_presentation">Presentación empacada <span class="cpk-opt">(opcional)</span></label>
+                          <select name="packed_presentation" id="cpk_packed_presentation" class="form-select">
+                            <option value="">—</option>
+                            <t t-foreach="orden._fields['packed_presentation'].selection" t-as="pres">
+                              <option t-att-value="pres[0]"
+                                      t-att-selected="'selected' if orden.packed_presentation == pres[0] else None">
+                                <t t-esc="pres[1]"/>
+                              </option>
+                            </t>
+                          </select>
+                        </div>
+                        <div class="cpk-f">
+                          <label class="cpk-lbl" for="cpk_packed_presentation_note">Formato <span class="cpk-opt">(opcional)</span></label>
+                          <input type="text" name="packed_presentation_note" id="cpk_packed_presentation_note" class="form-control"
+                                 placeholder="Formato (p. ej. master 5 lb IQF)"
+                                 t-att-value="orden.packed_presentation_note or ''"/>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="cpk-card-f">
+                      <button type="submit" class="s-btn s-btn-primary"><i class="fa fa-check" aria-hidden="true"/> Registrar empaque</button>
+                    </div>
+                  </form>
+                </section>
+              </t>
+
+              <!-- ACTA -->
+              <t t-if="orden.acceptance_state != 'na'">
+                <section t-attf-class="cpk-card #{'cpk-card--todo' if mi_pendiente else ''}" id="acta" aria-labelledby="cpk_acta_t">
+                  <div class="cpk-card-h">
+                    <span t-attf-class="cpk-card-ico #{'cpk-card-ico--ok' if orden.acceptance_state == 'closed' else ('cpk-card-ico--bad' if orden.acceptance_state == 'disputed' else '')}" aria-hidden="true"><i class="fa fa-file-text-o"/></span>
+                    <div class="cpk-card-htxt">
+                      <h2 class="cpk-card-t" id="cpk_acta_t">Acta de empaque</h2>
+                      <p class="cpk-card-d">Las dos partes firman las mismas cifras: lo que entró y lo que salió empacado.</p>
+                    </div>
+                    <t t-if="orden.acceptance_state == 'open'"><span class="cpk-pill cpk-pill--warn">A la firma</span></t>
+                    <t t-elif="orden.acceptance_state == 'closed' and orden.tacit_acceptance"><span class="cpk-pill cpk-pill--ok">Aceptada por silencio</span></t>
+                    <t t-elif="orden.acceptance_state == 'closed' and orden.mediation_resolution == 'upheld'"><span class="cpk-pill cpk-pill--ok">Firmada por la plataforma</span></t>
+                    <t t-elif="orden.acceptance_state == 'closed'"><span class="cpk-pill cpk-pill--ok">Firmada por los dos</span></t>
+                    <t t-elif="orden.acceptance_state == 'disputed'"><span class="cpk-pill cpk-pill--bad">En disputa</span></t>
+                  </div>
+                  <div class="cpk-card-b">
+                    <!-- D-14: plazo de firma. El silencio vale conformidad. -->
+                    <div t-if="orden.acceptance_state == 'open' and orden.acceptance_deadline"
+                         t-attf-class="cpk-deadline #{'cpk-deadline--me' if mi_pendiente else ''}">
+                      <i class="fa fa-hourglass-half" aria-hidden="true"/>
+                      <div>
+                        <b>Plazo para firmar: <t t-esc="plazo_txt"/></b>
+                        <span>Si una parte no firma ni da su disconformidad antes, el acta se da por
+                          aceptada y el empaque pasa a facturable.</span>
+                      </div>
+                    </div>
+                    <div t-if="orden.acceptance_state == 'closed' and orden.mediation_note" class="cpk-deadline">
+                      <i class="fa fa-gavel" aria-hidden="true"/>
+                      <div><b>Resolución de la plataforma</b><span><t t-esc="orden.mediation_note"/></span></div>
+                    </div>
+                    <div class="cpk-signs">
+                      <t t-foreach="orden.sudo().acceptance_ids.sorted('role')" t-as="f">
+                        <div t-attf-class="cpk-sign #{'is-me' if f.role == rol else ''}">
+                          <span class="cpk-sign-ava" aria-hidden="true"><t t-esc="(f.partner_id.name or '?')[:1]"/></span>
+                          <div class="cpk-min0">
+                            <div class="cpk-sign-n"><t t-esc="f.partner_id.name"/></div>
+                            <div class="cpk-sign-r">
+                              <t t-esc="dict(f._fields['role'].selection).get(f.role)"/>
+                              <t t-if="f.role == rol"> · tú</t>
+                            </div>
+                            <t t-if="f.reason">
+                              <div t-attf-class="cpk-sign-why #{'' if f.decision == 'rejected' else 'cpk-sign-why--soft'}"><i class="fa fa-comment-o" aria-hidden="true"/> <t t-esc="f.reason"/></div>
+                            </t>
+                          </div>
+                          <div class="cpk-sign-st">
+                            <t t-if="f.decision == 'accepted' and f.auto">
+                              <span class="cpk-pill cpk-pill--ok">Conforme por silencio</span>
+                            </t>
+                            <t t-elif="f.decision == 'accepted'">
+                              <span class="cpk-pill cpk-pill--ok">Conforme</span>
+                            </t>
+                            <t t-elif="f.decision == 'rejected'">
+                              <span class="cpk-pill cpk-pill--bad">No conforme</span>
+                            </t>
+                            <t t-else=""><span class="cpk-pill cpk-pill--warn">Pendiente</span></t>
+                            <t t-if="f.decided_at">
+                              <span class="cpk-sign-d"><t t-esc="f.decided_at" t-options="{'widget': 'datetime'}"/></span>
+                            </t>
+                          </div>
+                        </div>
+                      </t>
+                    </div>
+
+                    <t t-if="mi_firma and mi_firma.decision == 'pending'">
+                      <!-- Dos formularios y no uno: el modelo exige el motivo para
+                           no dar conformidad, y con un solo formulario el textarea
+                           no podia llevar "required" sin bloquear tambien al que si
+                           esta conforme. Asi el motivo se pide aqui y no despues de
+                           un viaje de ida y vuelta al servidor. -->
+                      <div class="cpk-decide">
+                        <form method="post" t-attf-action="/marketplace/copacking/orders/#{orden.uuid_ref}/sign">
+                          <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                          <input type="hidden" name="decision" value="accepted"/>
+                          <div class="cpk-decide-t"><i class="fa fa-check-circle" aria-hidden="true"/> Doy conformidad</div>
+                          <p class="cpk-note">Firmar da por buenas las libras del cuadre.</p>
+                          <button type="submit" class="s-btn cpk-btn-ok mt-auto">Estoy conforme</button>
+                        </form>
+                        <form method="post" t-attf-action="/marketplace/copacking/orders/#{orden.uuid_ref}/sign">
+                          <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                          <input type="hidden" name="decision" value="rejected"/>
+                          <div class="cpk-decide-t"><i class="fa fa-times-circle" aria-hidden="true"/> No doy conformidad</div>
+                          <label class="cpk-note" for="cpk_motivo_rechazo">
+                            Si no estás conforme, di por qué <span class="cpk-req" aria-hidden="true">*</span>. Es lo que abre la discusión con la otra parte.
+                          </label>
+                          <textarea name="motivo" id="cpk_motivo_rechazo" class="form-control" rows="2" required="required"
+                                    placeholder="Qué no cuadra: libras, presentación, insumos…"></textarea>
+                          <button type="submit" class="s-btn s-btn-danger">No estoy conforme</button>
+                        </form>
+                      </div>
+                    </t>
+                    <t t-elif="mi_firma">
+                      <t t-if="undo_info and undo_info.get('can')">
+                        <p class="cpk-note mt-3"><i class="fa fa-check" aria-hidden="true"/>Ya firmaste.</p>
+                        <div class="cpk-undo">
+                          <t t-call="shrimp_marketplace.signoff_undo_form">
+                            <t t-set="firma" t-value="mi_firma"/>
+                          </t>
+                        </div>
+                      </t>
+                      <t t-else="">
+                        <p class="cpk-note mt-3"><i class="fa fa-lock" aria-hidden="true"/>Ya firmaste. No se puede cambiar.</p>
+                      </t>
+                    </t>
+                  </div>
+                </section>
+              </t>
+
+              <!-- ACTA EN DISPUTA. Sin esto la orden se quedaba congelada para
+                   siempre: una parte decia que no y ya no habia por donde seguir.
+                   Reabrirla la devuelve a «recibida» para rectificar el empaque. -->
+              <t t-if="orden.acceptance_state == 'disputed'">
+                <section class="cpk-card cpk-card--danger" id="disputa" aria-labelledby="cpk_disp_t">
+                  <div class="cpk-card-h">
+                    <span class="cpk-card-ico cpk-card-ico--bad" aria-hidden="true"><i class="fa fa-exclamation-triangle"/></span>
+                    <div class="cpk-card-htxt">
+                      <h2 class="cpk-card-t" id="cpk_disp_t">El acta está en disputa</h2>
+                      <p class="cpk-card-d">
+                        Mientras no se resuelva, el trabajo no se cierra ni se liquida. Si ya
+                        aclararon qué pasó, reabran el acta: la orden vuelve a «recibida», el
+                        maquilador rectifica las libras empacadas y las dos partes firman otra
+                        vez. Puede hacerlo cualquiera de las dos.
+                      </p>
+                      <p class="cpk-card-d cpk-mediation">
+                        <i class="fa fa-gavel" aria-hidden="true"/>
+                        La plataforma ya fue avisada y media la disputa: si no se ponen de acuerdo,
+                        puede dar por buena el acta o reabrirla para rectificar.
+                      </p>
+                    </div>
+                  </div>
+                  <form method="post"
+                        t-attf-action="/marketplace/copacking/orders/#{orden.uuid_ref}/reopen">
+                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                    <div class="cpk-card-b">
+                      <label class="cpk-lbl" for="cpk_motivo_reapertura">Motivo de la reapertura <span class="cpk-req" aria-hidden="true">*</span></label>
+                      <textarea name="motivo" id="cpk_motivo_reapertura" class="form-control" rows="2" required="required"
+                                placeholder="Qué se acordó y qué se va a rectificar"></textarea>
+                    </div>
+                    <div class="cpk-card-f">
+                      <button type="submit" class="s-btn s-btn-danger"><i class="fa fa-undo" aria-hidden="true"/> Reabrir el acta</button>
+                    </div>
+                  </form>
+                </section>
+              </t>
+
+              <div class="cpk-grid2">
+                <section class="cpk-card" aria-labelledby="cpk_trab_t">
+                  <div class="cpk-card-h">
+                    <span class="cpk-card-ico" aria-hidden="true"><i class="fa fa-list-alt"/></span>
+                    <div class="cpk-card-htxt"><h2 class="cpk-card-t" id="cpk_trab_t">El trabajo</h2></div>
+                  </div>
+                  <div class="cpk-card-b">
+                    <dl class="cpk-kv">
+                      <div><dt>Libras acordadas</dt><dd><t t-esc="'{:,.0f}'.format(orden.agreed_qty_lb or 0)"/> lb</dd></div>
+                      <div><dt>Tarifa</dt><dd>$ <t t-esc="round(orden.rate_per_lb, 3)"/> / lb</dd></div>
+                      <div><dt>Cajas / masters</dt><dd><t t-esc="orden.boxes or '—'"/></dd></div>
+                      <div>
+                        <dt>Presentación empacada</dt>
+                        <dd>
+                          <t t-esc="dict(orden._fields['packed_presentation'].selection).get(orden.packed_presentation) or '—'"/>
+                          <t t-if="orden.packed_presentation_note"> · <t t-esc="orden.packed_presentation_note"/></t>
+                        </dd>
+                      </div>
+                      <div><dt>Recepción</dt><dd><t t-if="orden.received_date"><t t-esc="orden.received_date" t-options="{'widget': 'datetime'}"/></t><t t-else="">—</t></dd></div>
+                      <div><dt>Entrega</dt><dd><t t-if="orden.packed_date"><t t-esc="orden.packed_date" t-options="{'widget': 'datetime'}"/></t><t t-else="">—</t></dd></div>
+                    </dl>
+                  </div>
+                </section>
+
+                <section class="cpk-card" aria-labelledby="cpk_ins_t">
+                  <div class="cpk-card-h">
+                    <span class="cpk-card-ico" aria-hidden="true"><i class="fa fa-archive"/></span>
+                    <div class="cpk-card-htxt"><h2 class="cpk-card-t" id="cpk_ins_t">Insumos</h2>
+                      <p class="cpk-card-d">Los pone el cliente.</p></div>
+                    <t t-if="orden.supplies_received">
+                      <span class="cpk-pill cpk-pill--ok">Recibidos completos</span>
+                    </t>
+                    <t t-elif="orden.supplies_issue">
+                      <span class="cpk-pill cpk-pill--bad">Incompletos</span>
+                    </t>
+                    <t t-else="">
+                      <span class="cpk-pill cpk-pill--muted">Sin confirmar</span>
+                    </t>
+                  </div>
+                  <div class="cpk-card-b">
+                    <p class="cpk-text"><t t-esc="orden.supplies_notes or 'No se detallaron.'"/></p>
+                    <t t-if="not orden.supplies_received and orden.supplies_issue">
+                      <div class="pf-alert pf-a-bad mt-3 mb-0"><i class="fa fa-exclamation-circle" aria-hidden="true"/>
+                        <div><t t-esc="orden.supplies_issue"/></div></div>
+                    </t>
+                  </div>
+                </section>
+              </div>
+
+              <div class="cpk-hist">
+                <t t-call="shrimp_marketplace.signoff_history"/>
+              </div>
 
               <!-- RONDAS ANTERIORES. Solo aparece si el acta se reabrio
                    alguna vez. Es la prueba de que hubo un desacuerdo y de
                    sobre que cifras se firmo cada vez: sin esto, una orden
                    que acabo bien parece que siempre fue bien. -->
               <t t-if="firmas_archivadas">
-                <div class="card mt-3"><div class="card-body">
-                  <h6 class="text-uppercase text-muted small mb-2">
-                    Rondas anteriores del acta
-                  </h6>
-                  <t t-set="ronda_previa" t-value="0"/>
-                  <t t-foreach="firmas_archivadas" t-as="fa">
-                    <t t-if="fa.ronda != ronda_previa">
-                      <t t-set="ronda_previa" t-value="fa.ronda"/>
-                      <div class="small fw-bold text-muted mt-2">
-                        Ronda <t t-esc="fa.ronda"/>
-                        <t t-if="fa.archive_reason">
-                          &#160;·&#160; reabierta: <t t-esc="fa.archive_reason"/>
-                        </t>
+                <section class="cpk-card" aria-labelledby="cpk_rondas_t">
+                  <div class="cpk-card-h">
+                    <span class="cpk-card-ico" aria-hidden="true"><i class="fa fa-history"/></span>
+                    <div class="cpk-card-htxt">
+                      <h2 class="cpk-card-t" id="cpk_rondas_t">Rondas anteriores del acta</h2>
+                      <p class="cpk-card-d">Estas firmas quedaron archivadas al reabrir el acta. No se borran:
+                        son la constancia de qué se discutió y sobre qué cifras.</p>
+                    </div>
+                  </div>
+                  <div class="cpk-card-b">
+                    <div class="cpk-rounds">
+                      <!-- Sin estado entre vueltas del bucle: las rondas
+                           distintas se sacan primero (de la más reciente a la
+                           más antigua, como viene la búsqueda). -->
+                      <t t-foreach="sorted(set(firmas_archivadas.mapped('ronda')), reverse=True)" t-as="ronda">
+                        <t t-set="de_la_ronda" t-value="firmas_archivadas.filtered(lambda x: x.ronda == ronda)"/>
+                        <t t-set="motivo_ronda" t-value="[x.archive_reason for x in de_la_ronda if x.archive_reason][:1]"/>
+                        <div class="cpk-round">
+                          <div class="cpk-round-h">
+                            Ronda <t t-esc="ronda"/>
+                            <t t-if="motivo_ronda">
+                              <span>&#160;·&#160; reabierta: <t t-esc="motivo_ronda[0]"/></span>
+                            </t>
+                          </div>
+                          <t t-foreach="de_la_ronda" t-as="fa">
+                            <div class="cpk-round-row">
+                              <div>
+                                <t t-esc="fa.partner_id.name"/>
+                                <span class="text-soft">
+                                  (<t t-esc="dict(fa._fields['role'].selection).get(fa.role)"/>)
+                                </span>
+                                <t t-if="fa.reason">
+                                  <div t-attf-class="cpk-sign-why #{'' if fa.decision == 'rejected' else 'cpk-sign-why--soft'}"><t t-esc="fa.reason"/></div>
+                                </t>
+                              </div>
+                              <div class="r">
+                                <t t-if="fa.decision == 'accepted'">
+                                  <span class="cpk-pill cpk-pill--sm cpk-pill--ok">Conforme</span>
+                                </t>
+                                <t t-elif="fa.decision == 'rejected'">
+                                  <span class="cpk-pill cpk-pill--sm cpk-pill--bad">No conforme</span>
+                                </t>
+                                <t t-else=""><span class="cpk-pill cpk-pill--sm cpk-pill--muted">Sin firmar</span></t>
+                                <t t-if="fa.signed_packed_lb">
+                                  <span>
+                                    sobre <t t-esc="int(fa.signed_received_lb)"/> &#8594;
+                                    <t t-esc="int(fa.signed_packed_lb)"/> lb
+                                  </span>
+                                </t>
+                                <t t-if="fa.decided_at">
+                                  <span><t t-esc="fa.decided_at" t-options="{'widget': 'datetime'}"/></span>
+                                </t>
+                              </div>
+                            </div>
+                          </t>
+                        </div>
+                      </t>
+                    </div>
+                  </div>
+                </section>
+              </t>
+
+              <!-- D-34: CANCELACION PENDIENTE (acta de devolución o aprobación de
+                   la plataforma). Mientras esté pendiente, el trabajo se detiene. -->
+              <t t-if="cancelacion">
+                <section class="cpk-card cpk-card--warn" id="devolucion" aria-labelledby="cpk_dev_t">
+                  <div class="cpk-card-h">
+                    <span class="cpk-card-ico cpk-card-ico--warn" aria-hidden="true"><i class="fa fa-undo"/></span>
+                    <div class="cpk-card-htxt">
+                      <h2 class="cpk-card-t" id="cpk_dev_t">
+                        <t t-if="cancelacion.kind == 'return'">Acta de devolución</t>
+                        <t t-else="">Cancelación pendiente de la plataforma</t>
+                      </h2>
+                      <p class="cpk-card-d">
+                        La planta no puede hacer el trabajo con el camarón ya recibido.
+                        <t t-if="cancelacion.kind == 'return'">Para cancelar necesita la firma del cliente.</t>
+                        <t t-else="">Lo decide la plataforma; mientras tanto el trabajo queda detenido.</t>
+                      </p>
+                    </div>
+                    <span class="cpk-pill cpk-pill--warn">Pendiente</span>
+                  </div>
+                  <div class="cpk-card-b">
+                    <dl class="cpk-kv">
+                      <div><dt>Motivo de la planta</dt><dd><t t-esc="cancelacion.reason"/></dd></div>
+                      <t t-if="cancelacion.kind == 'return'">
+                        <div><dt>Libras que devuelve</dt><dd><t t-esc="'{:,.2f}'.format(cancelacion.returned_lb or 0)"/> lb</dd></div>
+                        <div t-if="cancelacion.return_notes"><dt>Condiciones</dt><dd><t t-esc="cancelacion.return_notes"/></dd></div>
+                      </t>
+                      <div><dt>Pedida el</dt><dd><t t-esc="cancelacion.requested_at" t-options="{'widget': 'datetime'}"/></dd></div>
+                    </dl>
+                    <t t-if="rol == 'client' and cancelacion.kind == 'return'">
+                      <div class="cpk-decide">
+                        <form method="post" t-attf-action="/marketplace/copacking/orders/#{orden.uuid_ref}/cancel/sign">
+                          <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                          <input type="hidden" name="decision" value="accepted"/>
+                          <div class="cpk-decide-t"><i class="fa fa-check-circle" aria-hidden="true"/> Firmo la devolución</div>
+                          <p class="cpk-note">La orden se cancela y tu solicitud vuelve a salir a otras plantas.</p>
+                          <button type="submit" class="s-btn cpk-btn-ok mt-auto">Firmar el acta de devolución</button>
+                        </form>
+                        <form method="post" t-attf-action="/marketplace/copacking/orders/#{orden.uuid_ref}/cancel/sign">
+                          <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                          <input type="hidden" name="decision" value="rejected"/>
+                          <div class="cpk-decide-t"><i class="fa fa-times-circle" aria-hidden="true"/> No la firmo</div>
+                          <label class="cpk-note" for="cpk_dev_motivo">Por qué (opcional): el trabajo sigue y la planta lo lee.</label>
+                          <textarea name="motivo" id="cpk_dev_motivo" class="form-control" rows="2"
+                                    placeholder="Por ejemplo: espero que empaquen lo acordado"></textarea>
+                          <button type="submit" class="s-btn s-btn-danger">Rechazar el acta</button>
+                        </form>
                       </div>
                     </t>
-                    <div class="d-flex justify-content-between align-items-start small py-1 ps-3">
-                      <div>
-                        <t t-esc="fa.partner_id.name"/>
-                        <span class="text-muted">
-                          (<t t-esc="dict(fa._fields['role'].selection).get(fa.role)"/>)
-                        </span>
-                        <t t-if="fa.reason">
-                          <div class="text-danger"><t t-esc="fa.reason"/></div>
-                        </t>
-                      </div>
-                      <div class="text-end">
-                        <t t-if="fa.decision == 'accepted'">
-                          <span class="badge text-bg-success">Conforme</span>
-                        </t>
-                        <t t-elif="fa.decision == 'rejected'">
-                          <span class="badge text-bg-danger">No conforme</span>
-                        </t>
-                        <t t-else=""><span class="badge text-bg-secondary">Sin firmar</span></t>
-                        <t t-if="fa.signed_packed_lb">
-                          <div class="text-muted">
-                            sobre <t t-esc="int(fa.signed_received_lb)"/> &#8594;
-                            <t t-esc="int(fa.signed_packed_lb)"/> lb
-                          </div>
-                        </t>
-                        <t t-if="fa.decided_at">
-                          <div class="text-muted"><t t-esc="fa.decided_at"/></div>
-                        </t>
-                      </div>
-                    </div>
+                  </div>
+                  <t t-if="rol == 'copacker'">
+                    <form method="post" class="cpk-card-f" t-attf-action="/copacker/orders/#{orden.uuid_ref}/cancel/withdraw">
+                      <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                      <span class="cpk-note me-auto">
+                        <t t-if="cancelacion.kind == 'return'">Esperando la firma del cliente.</t>
+                        <t t-else="">Esperando la decisión de la plataforma.</t>
+                      </span>
+                      <button type="submit" class="s-btn s-btn-ghost s-btn-sm">Retirar la solicitud</button>
+                    </form>
                   </t>
-                  <p class="text-muted small mt-2 mb-0">
-                    Estas firmas quedaron archivadas al reabrir el acta. No se borran:
-                    son la constancia de qué se discutió y sobre qué cifras.
-                  </p>
-                </div></div>
+                </section>
               </t>
+
+              <!-- D-34: LA PLANTA CON EL CAMARON DENTRO no cancela sola: acta de
+                   devolución que firma el cliente, o aprobación de la plataforma. -->
+              <t t-if="rol == 'copacker' and orden.state == 'received' and not cancelacion">
+                <section class="cpk-card cpk-card--quiet" aria-labelledby="cpk_nopuedo_t">
+                  <div class="cpk-card-h cpk-card-h--flat">
+                    <span class="cpk-card-ico cpk-card-ico--bad" aria-hidden="true"><i class="fa fa-undo"/></span>
+                    <div class="cpk-card-htxt">
+                      <h2 class="cpk-card-t" id="cpk_nopuedo_t">¿No puedes hacer el trabajo?</h2>
+                      <p class="cpk-card-d">El camarón del cliente ya está en tu planta: no cancelas sin su
+                        consentimiento. Registra un acta de devolución para que la firme, o pide la
+                        aprobación de la plataforma. En los dos casos la solicitud vuelve a salir a otras plantas.</p>
+                    </div>
+                    <button type="button" class="s-btn s-btn-danger s-btn-sm cpk-card-x"
+                            data-bs-toggle="modal" data-bs-target="#cpkReturn">Devolver el camarón</button>
+                  </div>
+                </section>
+                <div class="modal fade pf-modal cpk" id="cpkReturn" tabindex="-1"
+                     aria-labelledby="cpkReturnT" aria-hidden="true">
+                  <div class="modal-dialog modal-dialog-centered">
+                    <form method="post" class="modal-content"
+                          t-attf-action="/copacker/orders/#{orden.uuid_ref}/cancel/submit">
+                      <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                      <div class="modal-header">
+                        <h3 class="modal-title" id="cpkReturnT">Devolver el camarón al cliente</h3>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"/>
+                      </div>
+                      <div class="modal-body">
+                        <fieldset class="cpk-f mb-3">
+                          <legend class="cpk-lbl">Cómo <span class="cpk-req" aria-hidden="true">*</span></legend>
+                          <label class="cpk-check" for="cpk_via_return">
+                            <input type="radio" name="via" value="return" id="cpk_via_return" class="form-check-input" checked="checked"/>
+                            <span><b>Acta de devolución</b> — la firma el cliente</span>
+                          </label>
+                          <label class="cpk-check" for="cpk_via_platform">
+                            <input type="radio" name="via" value="platform" id="cpk_via_platform" class="form-check-input"/>
+                            <span><b>Pedir a la plataforma</b> — si el cliente no responde o no está de acuerdo</span>
+                          </label>
+                        </fieldset>
+                        <div class="cpk-fgrid">
+                          <div class="cpk-f cpk-f--6">
+                            <label class="cpk-lbl" for="cpk_returned_lb">Libras que devuelves <span class="cpk-opt">(acta)</span></label>
+                            <div class="cpk-ig">
+                              <input type="number" step="0.01" min="0.01" name="returned_lb" id="cpk_returned_lb"
+                                     class="form-control" t-att-value="'%.2f' % (orden.received_lb or 0)"/>
+                              <span class="cpk-ig-a">lb</span>
+                            </div>
+                          </div>
+                          <div class="cpk-f">
+                            <label class="cpk-lbl" for="cpk_return_motivo">Motivo <span class="cpk-req" aria-hidden="true">*</span></label>
+                            <textarea name="motivo" id="cpk_return_motivo" class="form-control" rows="2" required="required"
+                                      placeholder="Por qué no puedes hacer el trabajo"></textarea>
+                          </div>
+                          <div class="cpk-f">
+                            <label class="cpk-lbl" for="cpk_return_notes">Condiciones de la devolución <span class="cpk-opt">(opcional)</span></label>
+                            <input type="text" name="return_notes" id="cpk_return_notes" class="form-control"
+                                   placeholder="Fecha, transporte, estado del producto"/>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="modal-footer">
+                        <button type="button" class="s-btn s-btn-ghost" data-bs-dismiss="modal">Volver</button>
+                        <button type="submit" class="s-btn s-btn-danger">Enviar</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </t>
+
+              <!-- Una orden EMPACADA ya no se cancela: el trabajo está hecho y el
+                   camino es el acta (firmar, o no dar conformidad y reabrirla).
+                   Quién puede cancelar y cuándo lo dice el modelo
+                   (shrimp_cancel_problem): el cliente antes de empacar; la planta
+                   antes de recibir, con motivo (la solicitud se reabre). -->
+              <t t-if="orden.state in ('confirmed', 'received') and not cancel_problem and not cancelacion">
+                <section class="cpk-card cpk-card--quiet" aria-labelledby="cpk_cancel_t">
+                  <div class="cpk-card-h cpk-card-h--flat">
+                    <span class="cpk-card-ico cpk-card-ico--bad" aria-hidden="true"><i class="fa fa-ban"/></span>
+                    <div class="cpk-card-htxt">
+                      <h2 class="cpk-card-t" id="cpk_cancel_t">Cancelar el trabajo</h2>
+                      <p class="cpk-card-d" t-if="rol == 'copacker'">Solo antes de recibir el camarón, y con motivo. La
+                        solicitud vuelve a salir a las demás plantas.</p>
+                      <p class="cpk-card-d" t-else="">Solo mientras no esté empacado. No se puede deshacer.</p>
+                    </div>
+                    <button type="button" class="s-btn s-btn-danger s-btn-sm cpk-card-x"
+                            data-bs-toggle="modal" data-bs-target="#cpkCancelOrder">Cancelar el trabajo</button>
+                  </div>
+                </section>
+                <div class="modal fade pf-modal pf-modal-sm cpk" id="cpkCancelOrder" tabindex="-1"
+                     aria-labelledby="cpkCancelOrderT" aria-hidden="true">
+                  <div class="modal-dialog modal-dialog-centered">
+                    <form method="post" class="modal-content"
+                          t-attf-action="/marketplace/copacking/orders/#{orden.uuid_ref}/cancel">
+                      <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                      <div class="modal-body pf-del-body">
+                        <div class="pf-del-ico" aria-hidden="true"><i class="fa fa-ban"/></div>
+                        <h3 id="cpkCancelOrderT">¿Cancelar este trabajo?</h3>
+                        <p t-if="rol == 'copacker'">No se puede deshacer. El cliente lo verá con tu motivo y su
+                          solicitud vuelve a publicarse para otras plantas.</p>
+                        <p t-else="">No se puede deshacer. La otra parte verá la orden como cancelada.</p>
+                        <label class="cpk-sr" for="cpk_cancel_motivo">Motivo</label>
+                        <textarea name="motivo" id="cpk_cancel_motivo" class="form-control mt-2" rows="2"
+                                  t-att-required="'required' if rol == 'copacker' else None"
+                                  t-att-placeholder="'Motivo (obligatorio)' if rol == 'copacker' else 'Motivo (opcional)'"></textarea>
+                      </div>
+                      <div class="modal-footer">
+                        <button type="button" class="s-btn s-btn-ghost" data-bs-dismiss="modal">Volver</button>
+                        <button type="submit" class="s-btn s-btn-danger">Sí, cancelar el trabajo</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </t>
+              <t t-elif="orden.state == 'packed'">
+                <p class="cpk-foot-note">
+                  <i class="fa fa-info-circle" aria-hidden="true"/>
+                  El trabajo ya está empacado: no se puede cancelar. Si no estás conforme,
+                  no firmes el acta y, desde la disputa, reábrela para rectificar.
+                </p>
+              </t>
+            </div>
+
+            <!-- EL CUADRE: es lo que la gente viene a mirar, asi que va en la
+                 columna fija (y arriba del todo en el móvil). -->
+            <aside class="cpk-aside" aria-label="El cuadre de libras">
+              <section class="cpk-card" aria-labelledby="cpk_cuadre_t">
+                <div class="cpk-card-h">
+                  <span class="cpk-card-ico" aria-hidden="true"><i class="fa fa-balance-scale"/></span>
+                  <div class="cpk-card-htxt">
+                    <h2 class="cpk-card-t" id="cpk_cuadre_t">El cuadre</h2>
+                    <p class="cpk-card-d">Lo que entró contra lo que salió empacado.</p>
+                  </div>
+                </div>
+                <div class="cpk-card-b">
+                  <div class="cpk-stats">
+                    <div class="cpk-stat">
+                      <span class="cpk-stat-l">Recibidas</span>
+                      <span class="cpk-stat-v"><t t-esc="'{:,.0f}'.format(orden.received_lb or 0)"/></span>
+                      <span class="cpk-stat-u">lb</span>
+                    </div>
+                    <div class="cpk-stat">
+                      <span class="cpk-stat-l">Empacadas</span>
+                      <span class="cpk-stat-v"><t t-esc="'{:,.0f}'.format(orden.packed_lb or 0)"/></span>
+                      <span class="cpk-stat-u">lb</span>
+                    </div>
+                  </div>
+                  <div t-attf-class="cpk-stat mt-2 #{('cpk-stat--ok' if orden.cuadra else 'cpk-stat--bad') if orden.packed_lb else ''}">
+                    <span class="cpk-stat-l">Diferencia</span>
+                    <span class="cpk-stat-v"><t t-esc="round(orden.difference_lb, 2)"/> lb</span>
+                    <span class="cpk-stat-u"><t t-esc="round(orden.difference_pct, 2)"/> % · tolerancia <t t-esc="orden.tolerance_pct"/> %</span>
+                  </div>
+                  <t t-if="orden.packed_lb">
+                    <t t-if="orden.cuadra">
+                      <div class="cpk-verdict cpk-verdict--ok"><i class="fa fa-check-circle" aria-hidden="true"/>
+                        <span>Cuadra: la diferencia está dentro de la tolerancia pactada.</span></div>
+                    </t>
+                    <t t-else="">
+                      <div class="cpk-verdict cpk-verdict--bad"><i class="fa fa-exclamation-triangle" aria-hidden="true"/>
+                        <span>No cuadra: la diferencia se pasa de la tolerancia. Antes de firmar,
+                          aclárenlo entre las partes.</span></div>
+                    </t>
+                  </t>
+                  <t t-else="">
+                    <div class="cpk-verdict cpk-verdict--wait"><i class="fa fa-clock-o" aria-hidden="true"/>
+                      <span>El cuadre se calcula cuando la planta registra lo empacado.</span></div>
+                  </t>
+                  <dl class="cpk-kv mt-2">
+                    <div><dt>Tarifa</dt><dd>$ <t t-esc="round(orden.rate_per_lb, 3)"/> / lb</dd></div>
+                    <div class="cpk-kv-total"><dt>A cobrar por el empaque</dt><dd>$ <t t-esc="round(orden.service_amount, 2)"/></dd></div>
+                  </dl>
+                </div>
+                <!-- CIERRE. action_close() existia sin ruta: el acta se firmaba y la
+                     orden se quedaba en «firmada» para siempre. -->
+                <t t-if="orden.state == 'signed'">
+                  <div class="cpk-card-f">
+                    <form method="post" class="w-100" t-attf-action="/marketplace/copacking/orders/#{orden.uuid_ref}/close">
+                      <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                      <button type="submit" class="s-btn s-btn-primary w-100"><i class="fa fa-flag-checkered" aria-hidden="true"/> Dar por cerrado el trabajo</button>
+                      <p class="cpk-note mt-2 text-center">
+                        El acta está firmada. La orden se cierra sola; cerrarla ya la saca de lo pendiente.
+                      </p>
+                    </form>
+                  </div>
+                </t>
+                <t t-elif="mi_pendiente">
+                  <div class="cpk-card-f">
+                    <a href="#acta" class="s-btn s-btn-primary w-100"><i class="fa fa-pencil" aria-hidden="true"/> Ir a firmar el acta</a>
+                  </div>
+                </t>
+              </section>
+            </aside>
+          </div>
 
         </div>
       </div>

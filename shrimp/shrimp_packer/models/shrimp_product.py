@@ -117,8 +117,8 @@ class ShrimpProduct(models.Model):
     def _sync_precio_lista(self):
         """Fija el precio del lote desde su lista, si tiene una asignada."""
         for rec in self:
-            # Un lote ya vendido tiene el precio bloqueado por trazabilidad.
-            if rec.price_list_id and not rec.has_purchases():
+            # D-17 (C): con compras abiertas el precio está congelado.
+            if rec.price_list_id and not rec.shrimp_price_locked():
                 precio = rec._precio_desde_lista()
                 if precio is not None and abs((rec.price or 0.0) - precio) > 1e-6:
                     rec.with_context(_syncing_precio=True).write({"price": precio})

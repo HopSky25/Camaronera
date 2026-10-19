@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Ajustes › CamaronMarket › Protección de datos: aviso si falta el DPO,
+         plazos de las solicitudes LOPDP y purga de retención (hueco #7). -->
+    <record id="res_config_settings_view_form_shrimp_lopdp" model="ir.ui.view">
+        <field name="name">res.config.settings.form.shrimp.lopdp</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="shrimp_marketplace.res_config_settings_view_form_shrimp"/>
+        <field name="arch" type="xml">
+            <xpath expr="//block[@name='shrimp_privacy_block']" position="before">
+                <div class="alert alert-warning mx-3 mt-3" role="alert" invisible="shrimp_dpo_email"
+                     id="shrimp_dpo_missing_alert">
+                    <strong>Falta el correo del responsable de datos personales (DPO).</strong>
+                    Sin él, las solicitudes de derechos (LOPDP) no llegan por correo a nadie y la
+                    Política de privacidad no muestra a quién escribir. Configúralo en
+                    «Protección de datos».
+                </div>
+            </xpath>
+            <xpath expr="//block[@name='shrimp_privacy_block']" position="inside">
+                <setting string="Solicitudes de derechos (LOPDP)"
+                         help="Cada solicitud de Mi cuenta › Mis datos queda en CamaronMarket › Documentos legales › Solicitudes de derechos, con su plazo legal. Se avisa al responsable (y al DPO por correo) antes de vencer y cada día si venció.">
+                    <div class="content-group">
+                        <div class="row mt16">
+                            <label for="shrimp_lopdp_deadline_days" class="col-lg-6 o_light_label"/>
+                            <field name="shrimp_lopdp_deadline_days"/>
+                        </div>
+                        <div class="row mt8">
+                            <label for="shrimp_lopdp_reminder_days" class="col-lg-6 o_light_label"/>
+                            <field name="shrimp_lopdp_reminder_days"/>
+                        </div>
+                        <div class="row mt8">
+                            <label for="shrimp_lopdp_fiscal_years" class="col-lg-6 o_light_label"/>
+                            <field name="shrimp_lopdp_fiscal_years"/>
+                        </div>
+                    </div>
+                </setting>
+                <setting string="Purga de retención"
+                         help="Cron semanal (Política de privacidad §5): anonimiza las altas rechazadas que nunca operaron y borra los registros técnicos de acceso (inicios de sesión, sesiones con IP y navegador, limitador de intentos, idempotencia de la API, entregas de webhooks) más antiguos que la retención. Las aceptaciones legales (con su IP) se conservan.">
+                    <div class="content-group">
+                        <div class="row mt16">
+                            <label for="shrimp_lopdp_retention_months" class="col-lg-6 o_light_label"/>
+                            <field name="shrimp_lopdp_retention_months"/>
+                        </div>
+                        <div class="row mt8">
+                            <label for="shrimp_lopdp_purge_dry_run" class="col-lg-6 o_light_label"/>
+                            <field name="shrimp_lopdp_purge_dry_run"/>
+                        </div>
+                    </div>
+                </setting>
+            </xpath>
+        </field>
+    </record>
+</odoo>

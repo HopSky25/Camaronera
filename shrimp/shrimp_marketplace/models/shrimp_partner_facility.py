@@ -19,9 +19,9 @@ class ShrimpPartnerFacility(models.Model):
     code = fields.Char(string="Código")
 
     facility_type = fields.Selection([
-        ("hatchery", "Hatchery"),
+        ("hatchery", "Centro de maduración (naupliero)"),
         ("laboratory", "Laboratorio"),
-        ("farm", "Granja"),
+        ("farm", "Finca"),
         ("warehouse", "Bodega"),
         ("office", "Oficina"),
         ("other", "Otro"),

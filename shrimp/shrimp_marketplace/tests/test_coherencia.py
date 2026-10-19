@@ -77,13 +77,19 @@ class TestCoherenciaMarketplace(ShrimpSecurityCommon):
         tx.action_confirm()
         self.assertEqual(len(self._comisiones(tx)), 1)
 
-    def test_comision_una_sola_vez_por_solicitud_de_chequeo(self):
-        cr = self.env["shrimp.check.request"].create({
+    def test_solicitud_de_chequeo_retirada(self):
+        """D-28: no se crean ni se aprueban solicitudes de chequeo."""
+        from odoo.exceptions import UserError
+        with self.assertRaises(UserError):
+            self.env["shrimp.check.request"].create({
+                "product_id": self.lote_lab.id, "seller_partner_id": self.s["lab"].id,
+                "buyer_partner_id": self.s["cam"].id, "qty": 3.0})
+        cr = self.env["shrimp.check.request"].with_context(shrimp_legacy_check_import=True).create({
             "product_id": self.lote_lab.id, "seller_partner_id": self.s["lab"].id,
-            "buyer_partner_id": self.s["cam"].id, "qty": 3.0})
-        cr.action_approve()
-        self.assertEqual(cr.state, "approved")
-        self.assertEqual(len(self._comisiones(cr.transaction_id)), 1)
+            "buyer_partner_id": self.s["cam"].id, "qty": 3.0, "state": "requested"})
+        with self.assertRaises(UserError):
+            cr.action_approve()
+        self.assertFalse(cr.transaction_id)
 
     def test_precio_unificado(self):
         tx = self.lote_lab.execute_purchase_flow(self.s["cam"], 1.0)["transaction"]

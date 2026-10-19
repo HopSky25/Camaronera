@@ -66,7 +66,7 @@ class TestMultiPerfil(TransactionCase):
 
     def test_perfil_rechazado_no_cuenta(self):
         linea = self.lab._shrimp_request_role("semillero")
-        linea.action_reject()
+        linea.action_reject(reason="Documentos incompletos (prueba)")
         self.assertNotIn("semillero", self.lab._shrimp_roles(include_pending=True))
         with self.assertRaises(UserError):
             self.lab._shrimp_set_active_role("semillero")
@@ -78,7 +78,7 @@ class TestMultiPerfil(TransactionCase):
         self.lab._shrimp_request_role("semillero")
         self.lab._shrimp_set_active_role("semillero")
         linea = self.lab.shrimp_role_ids.filtered(lambda r: r.role == "semillero")
-        linea.action_reject()
+        linea.action_reject(reason="Documentos incompletos (prueba)")
         self.assertEqual(self.lab.shrimp_account_state, "rejected")
         self.assertFalse(self.lab.shrimp_is_operational())
         self.assertTrue(self.lab.shrimp_is_operational(role="laboratorio"))
@@ -120,7 +120,10 @@ class TestMultiPerfil(TransactionCase):
         self.assertEqual(user.shrimp_active_role, "laboratorio")
         self.lab._shrimp_request_role("semillero")
         user.shrimp_active_role = "semillero"
-        self.assertEqual(self.lab.shrimp_user_type, "semillero")
+        # Perfil activo POR USUARIO (CR-12): el del usuario, no el de la empresa.
+        self.assertEqual(user.shrimp_active_profile, "semillero")
+        self.assertEqual(user.shrimp_active_role, "semillero")
+        self.assertEqual(self.lab.shrimp_user_type, "laboratorio")
 
     def test_migracion_desde_tipo_unico(self):
         """Una base anterior: socios con shrimp_user_type y sin líneas."""

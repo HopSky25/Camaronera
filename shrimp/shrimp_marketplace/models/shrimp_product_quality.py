@@ -173,7 +173,8 @@ class ShrimpProductQuality(models.Model):
             if rec.evolution_id:
                 rec.evolution_id.write(vals)
             else:
-                rec.evolution_id = Evolution.create(vals)
+                # Origen «Ficha de calidad»: sale en «Estado real del lote».
+                rec.evolution_id = Evolution.create(dict(vals, origin="quality"))
         return True
 
     @api.model

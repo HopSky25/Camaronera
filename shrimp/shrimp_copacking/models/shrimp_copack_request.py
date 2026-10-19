@@ -1,5 +1,9 @@
+from datetime import timedelta
+
 from odoo import api, fields, models, _
-from odoo.exceptions import ValidationError
+from odoo.exceptions import AccessError, ValidationError
+
+from . import copack_plazos
 
 from odoo.addons.shrimp_marketplace.models.shrimp_selection import (
     PRESENTATIONS_WITH_VALUE_ADDED)
@@ -54,7 +58,8 @@ class ShrimpCopackRequest(models.Model):
 
     _name = "shrimp.copack.request"
     _description = "Solicitud de servicio de empaque"
-    _inherit = ["mail.thread", "mail.activity.mixin", "shrimp.uuid.mixin"]
+    _inherit = ["mail.thread", "mail.activity.mixin", "shrimp.uuid.mixin",
+                "shrimp.copack.notify.mixin"]
     _order = "needed_from, id desc"
 
     name = fields.Char(
@@ -117,9 +122,31 @@ class ShrimpCopackRequest(models.Model):
             ("published", "Publicada"),
             ("assigned", "Adjudicada"),
             ("done", "Cerrada"),
+            # D-47: una solicitud publicada que nadie adjudica vence sola
+            # (Ajustes › Empaque: días de vigencia, o al pasar «Necesita hasta»).
+            ("expired", "Vencida"),
             ("cancelled", "Cancelada"),
         ],
         string="Estado", default="draft", required=True, index=True, tracking=True)
+
+    # --- vigencia (D-47) ---
+    published_date = fields.Datetime(
+        string="Publicada el", readonly=True, copy=False,
+        help="Última publicación (o reapertura) de la solicitud.")
+    expires_on = fields.Date(
+        string="Vence el", readonly=True, copy=False, index=True, tracking=True,
+        help="Si nadie la adjudica, la solicitud vence este día (al terminar el día). "
+             "Es lo primero entre «Necesita hasta» y los días de vigencia de Ajustes.")
+    expiry_reminder_sent = fields.Boolean(
+        string="Aviso de vencimiento enviado", readonly=True, copy=False)
+    # --- adjudicación parcial (D-47) ---
+    parent_request_id = fields.Many2one(
+        "shrimp.copack.request", string="Remanente de", readonly=True, copy=False,
+        ondelete="set null", index=True,
+        help="La solicitud original cuya adjudicación fue parcial: esta publica las "
+             "libras que quedaron sin planta.")
+    child_request_ids = fields.One2many(
+        "shrimp.copack.request", "parent_request_id", string="Remanentes publicados")
 
     offer_ids = fields.One2many(
         "shrimp.copack.offer", "request_id", string="Ofertas recibidas")
@@ -273,7 +300,12 @@ class ShrimpCopackRequest(models.Model):
         Solo se comprueba en las solicitudes DIRIGIDAS. Una solicitud abierta
         va a la bandeja de todos y cada planta decide si le sirve; ahi el
         minimo de uno no puede vetar la oferta de los demas.
+
+        Tampoco al dejar una solicitud en lo adjudicado por una adjudicación
+        parcial: la planta ya aceptó esas libras con su oferta.
         """
+        if self.env.context.get("shrimp_copack_partial_award"):
+            return
         for rec in self:
             maquilador = rec.copacker_partner_id
             if not maquilador:
@@ -287,42 +319,245 @@ class ShrimpCopackRequest(models.Model):
                     % {"planta": maquilador.name or "",
                        "minimo": minimo, "pedido": rec.quantity_lb})
 
+    def _cpk_portal_url(self, partner=None):
+        self.ensure_one()
+        if partner and partner != self.client_partner_id:
+            return "/copacker/requests/%s" % self.uuid_ref
+        return "/marketplace/copacking/requests/%s" % self.uuid_ref
+
+    def _shrimp_check_dirigida_operativa(self):
+        """La solicitud dirigida va a una planta que pueda operar (perfil
+        Maquilador aprobado). Se comprueba al publicar y no como constraint:
+        las solicitudes viejas de una planta luego suspendida no se rompen."""
+        for rec in self:
+            maq = rec.copacker_partner_id
+            if maq and not maq.shrimp_is_operational(role="maquilador"):
+                raise ValidationError(_(
+                    "«%s» no está operativa en la plataforma (su perfil de maquilador no "
+                    "está aprobado): no se le puede dirigir una solicitud.") % (maq.name or ""))
+
+    def _shrimp_new_expiry(self):
+        """Vence lo primero entre «Necesita hasta» y hoy + días de vigencia."""
+        self.ensure_one()
+        hoy = fields.Date.context_today(self)
+        tope = hoy + timedelta(days=copack_plazos.request_days(self.env))
+        return min(tope, self.needed_to) if self.needed_to else tope
+
     def action_publish(self):
         for rec in self:
             if rec.state != "draft":
                 raise ValidationError(_("Solo se publica una solicitud en borrador."))
-            rec.state = "published"
+            rec._shrimp_check_dirigida_operativa()
+            rec.write({"state": "published", "published_date": fields.Datetime.now(),
+                       "expires_on": rec._shrimp_new_expiry(),
+                       "expiry_reminder_sent": False})
+            if rec.copacker_partner_id:
+                rec._cpk_notify(
+                    rec.copacker_partner_id,
+                    _("Te pidieron servicio de empaque: %s") % rec.name,
+                    _("%(cli)s te pide empacar %(lb)s lb (%(desde)s a %(hasta)s). Oferta antes "
+                      "del %(vence)s: ese día la solicitud vence.") % rec._cpk_fmt(),
+                    url=rec._cpk_portal_url(rec.copacker_partner_id))
 
-    def action_cancel(self):
+    def _cpk_fmt(self):
+        self.ensure_one()
+        return {
+            "cli": self.client_partner_id.name or "", "ref": self.name or "",
+            "lb": "{:,.2f}".format(self.quantity_lb or 0.0),
+            "desde": self.needed_from.strftime("%d/%m/%Y") if self.needed_from else "",
+            "hasta": self.needed_to.strftime("%d/%m/%Y") if self.needed_to else "",
+            "vence": self.expires_on.strftime("%d/%m/%Y") if self.expires_on else "",
+        }
+
+    def shrimp_cancel_problem(self, actor=None):
+        """'' si `actor` (el cliente; None = la plataforma) puede cancelar la
+        solicitud ahora; si no, por qué. UNA regla para el portal y la API
+        (antes la API solo dejaba borrador/publicada y el portal también
+        adjudicada: el mismo acto con dos reglas).
+
+        * borrador, publicada o vencida: se cancela y las ofertas vivas se
+          descartan;
+        * adjudicada: se cancela con su orden, con las mismas reglas que
+          cancelar la orden como cliente (antes de empacar; ver
+          shrimp.copack.order.shrimp_cancel_problem);
+        * cerrada o cancelada: ya no.
+        """
+        self.ensure_one()
+        if actor is not None and actor != self.client_partner_id:
+            return _("La solicitud la cancela el cliente que la publicó.")
+        if self.state in ("done", "cancelled"):
+            return _("Una solicitud cerrada o cancelada ya no se cancela.")
+        orden = self.order_id
+        if self.state == "assigned" and orden and orden.state != "cancelled":
+            return orden.shrimp_cancel_problem(actor=actor if actor is not None else None,
+                                               role="client" if actor is not None else None)
+        return ""
+
+    def action_cancel(self, actor=None, reason=None):
         """Cancela la solicitud y, si ya habia orden, la arrastra con ella.
 
-        Antes cancelar la solicitud no tocaba la orden adjudicada: la orden
-        seguia viva, el maquilador podia registrar recepcion y empaque, y
-        acababa facturandose un trabajo cuyo encargo el cliente habia anulado.
-
-        La linea se traza en el empaque, porque es donde deja de haber marcha
-        atras:
-
-        * Antes de empacar (`confirmed`, `received`) la cancelacion baja en
-          cascada. Ojo con `received`: el camaron ya esta fisicamente en la
-          planta, asi que cancelar aqui cierra el expediente pero la
-          devolucion la acuerdan las partes fuera de la plataforma.
-        * Empacada o firmada, no. Ahi hay trabajo hecho, insumos gastados y
-          horas de linea: deshacerlo con un boton del cliente seria dejar al
-          maquilador sin cobro por una decision unilateral. Si hay algo que
-          discutir, ese es el camino del acta, no el de la cancelacion.
+        Una sola regla (shrimp_cancel_problem) para el portal, la API y el
+        backoffice. La orden adjudicada se cancela como si la cancelara el
+        cliente: antes de empacar sí; empacada o firmada no (hay trabajo
+        hecho; si algo no cuadra, el camino es el acta). Con el camarón ya en
+        planta la devolución física la acuerdan las partes.
         """
         for rec in self:
-            if rec.state == "done":
-                raise ValidationError(_("Una solicitud cerrada ya no se cancela."))
+            problema = rec.shrimp_cancel_problem(actor=actor)
+            if problema:
+                if actor is not None and actor != rec.client_partner_id:
+                    raise AccessError(problema)
+                raise ValidationError(problema)
             orden = rec.order_id
             if orden and orden.state != "cancelled":
-                if orden.state in ("packed", "signed", "closed"):
-                    raise ValidationError(_(
-                        "La orden «%(orden)s» ya se empacó: el trabajo está "
-                        "hecho y no se deshace cancelando la solicitud. Si hay "
-                        "un problema con el empaque, se plantea en el acta.")
-                        % {"orden": orden.name or ""})
-                orden.action_cancel()
+                orden.with_context(shrimp_copack_from_request=True)._shrimp_do_cancel(
+                    "client" if actor is not None else "platform",
+                    reason or _("Cancelada junto con la solicitud %s.") % rec.name,
+                    reopen=False)
             rec.state = "cancelled"
-            rec.offer_ids.filtered(lambda o: o.state == "sent").write({"state": "rejected"})
+            rec.offer_ids.filtered(lambda o: o.state == "sent").write(
+                {"state": "rejected", "closed_reason": "request_cancelled"})
+        return True
+
+    # ------------------------------------------------------------------
+    # Reapertura (D-14): el maquilador cancela y la solicitud vuelve a salir
+    # ------------------------------------------------------------------
+    def _shrimp_reopen(self, motivo, excluir=None):
+        """La orden adjudicada se canceló por la planta: la solicitud vuelve a
+        «publicada» para las demás. Las ofertas que se descartaron solo por la
+        adjudicación (y siguen en su ventana de disponibilidad) vuelven a estar
+        sobre la mesa; la de la planta que canceló, no. Si la ventana de la
+        solicitud ya pasó, se da por vencida."""
+        hoy = fields.Date.context_today(self)
+        Offer = self.env["shrimp.copack.offer"]
+        for rec in self:
+            if rec.state != "assigned":
+                continue
+            vals = {"order_id": False, "expiry_reminder_sent": False,
+                    "published_date": fields.Datetime.now()}
+            dirigida_fuera = excluir and rec.copacker_partner_id == excluir
+            if dirigida_fuera:
+                # Estaba dirigida a la planta que cancela: se abre a todas.
+                vals["copacker_partner_id"] = False
+            rec.write(vals)
+            rec.expires_on = rec._shrimp_new_expiry()
+            if rec.needed_to and rec.needed_to < hoy:
+                rec.state = "expired"
+                rec._cpk_notify(
+                    rec.client_partner_id, _("Solicitud %s vencida") % rec.name,
+                    _("La planta canceló la orden de tu solicitud %(ref)s (%(m)s) y la ventana "
+                      "de fechas ya pasó, así que la solicitud quedó vencida. Si todavía "
+                      "necesitas empacar, publícala de nuevo.") % {"ref": rec.name, "m": motivo})
+                continue
+            rec.state = "published"
+            revivir = rec.offer_ids.filtered(
+                lambda o: o.state == "rejected" and o.closed_reason == "award"
+                and o.copacker_partner_id != excluir
+                and (not o.available_to or o.available_to >= hoy)
+                and o.copacker_partner_id.shrimp_is_operational(role="maquilador"))
+            for oferta in revivir:
+                oferta.write({"state": "sent", "closed_reason": False,
+                              "expires_on": oferta._shrimp_new_expiry()})
+                oferta._cpk_notify(
+                    oferta.copacker_partner_id,
+                    _("La solicitud %s vuelve a estar abierta") % rec.name,
+                    _("La planta adjudicada canceló. Tu oferta para %(ref)s vuelve a estar "
+                      "sobre la mesa hasta el %(v)s; puedes actualizarla o retirarla.") % {
+                        "ref": rec.name,
+                        "v": oferta.expires_on.strftime("%d/%m/%Y") if oferta.expires_on else ""},
+                    url=rec._cpk_portal_url(oferta.copacker_partner_id))
+            rec.message_post(body=_("Solicitud reabierta a las demás plantas: %s") % motivo)
+            rec._cpk_notify(
+                rec.client_partner_id, _("Solicitud %s reabierta") % rec.name,
+                _("La planta canceló la orden de tu solicitud %(ref)s. Motivo: %(m)s. La "
+                  "solicitud vuelve a estar publicada para las demás plantas hasta el %(v)s"
+                  "%(of)s.") % {
+                    "ref": rec.name, "m": motivo,
+                    "v": rec.expires_on.strftime("%d/%m/%Y") if rec.expires_on else "",
+                    "of": (_("; recuperaste %s oferta(s) que ya tenías") % len(revivir))
+                    if revivir else ""})
+        return True
+
+    # ------------------------------------------------------------------
+    # Adjudicación parcial (D-47): el remanente se publica solo
+    # ------------------------------------------------------------------
+    def _shrimp_publish_remainder(self, adjudicadas):
+        """La oferta aceptada cubre menos libras de las pedidas: la solicitud
+        queda en lo adjudicado y lo que falta sale como solicitud NUEVA,
+        abierta a todas las plantas y enlazada a la original."""
+        self.ensure_one()
+        resto = round((self.quantity_lb or 0.0) - (adjudicadas or 0.0), 2)
+        if resto <= 0.005:
+            return self.browse()
+        hija = self.with_context(shrimp_copack_partial_award=True).copy({
+            "quantity_lb": resto,
+            "copacker_partner_id": False,
+            "parent_request_id": self.id,
+            "state": "draft",
+        })
+        hija.action_publish()
+        self.with_context(shrimp_copack_partial_award=True).write({"quantity_lb": adjudicadas})
+        self.message_post(body=_(
+            "Adjudicación parcial: %(adj)s lb adjudicadas; las %(resto)s lb restantes se "
+            "publicaron como la solicitud %(hija)s, abierta a todas las plantas.") % {
+                "adj": "{:,.2f}".format(adjudicadas), "resto": "{:,.2f}".format(resto),
+                "hija": hija.name})
+        self._cpk_notify(
+            self.client_partner_id, _("Remanente publicado: %s") % hija.name,
+            _("La planta que elegiste para %(ref)s toma %(adj)s lb. Las %(resto)s lb que "
+              "faltan se publicaron automáticamente como la solicitud %(hija)s, abierta a "
+              "todas las plantas hasta el %(v)s.") % {
+                "ref": self.name, "adj": "{:,.2f}".format(adjudicadas),
+                "resto": "{:,.2f}".format(resto), "hija": hija.name,
+                "v": hija.expires_on.strftime("%d/%m/%Y") if hija.expires_on else ""},
+            url=hija._cpk_portal_url())
+        return hija
+
+    # ------------------------------------------------------------------
+    # Vencimiento (D-47)
+    # ------------------------------------------------------------------
+    @api.model
+    def _cron_copack_expiry(self, limit=500):
+        """Cada hora: vence las solicitudes y ofertas fuera de plazo y avisa
+        al cliente de las solicitudes que vencen mañana con ofertas por mirar."""
+        hoy = fields.Date.context_today(self)
+        vencidas = self.sudo().search([
+            ("state", "=", "published"), ("expires_on", "!=", False),
+            ("expires_on", "<", hoy)], limit=limit)
+        for rec in vencidas:
+            rec._shrimp_expire()
+        avisar = self.sudo().search([
+            ("state", "=", "published"), ("expiry_reminder_sent", "=", False),
+            ("expires_on", "=", hoy + timedelta(days=1))], limit=limit)
+        for rec in avisar:
+            vivas = rec.offer_ids.filtered(lambda o: o.state == "sent")
+            rec.expiry_reminder_sent = True
+            if vivas:
+                rec._cpk_notify(
+                    rec.client_partner_id, _("Tu solicitud %s vence mañana") % rec.name,
+                    _("Tu solicitud %(ref)s vence mañana y tiene %(n)s oferta(s) sin "
+                      "responder. Acepta una o recházalas; si no, la solicitud vence y las "
+                      "ofertas se descartan.") % {"ref": rec.name, "n": len(vivas)})
+        self.env["shrimp.copack.offer"]._cron_offer_expiry(limit=limit)
+        return True
+
+    def _shrimp_expire(self):
+        for rec in self:
+            if rec.state != "published":
+                continue
+            vivas = rec.offer_ids.filtered(lambda o: o.state == "sent")
+            vivas.write({"state": "expired", "closed_reason": "request_expired"})
+            rec.state = "expired"
+            rec._cpk_notify(
+                rec.client_partner_id, _("Solicitud %s vencida") % rec.name,
+                _("Tu solicitud %(ref)s venció sin adjudicarse%(of)s. Si todavía necesitas "
+                  "empacar, publícala de nuevo desde la solicitud.") % {
+                    "ref": rec.name,
+                    "of": (_(" (se descartaron %s oferta(s))") % len(vivas)) if vivas else ""})
+            for oferta in vivas:
+                oferta._cpk_notify(
+                    oferta.copacker_partner_id, _("Solicitud %s vencida") % rec.name,
+                    _("La solicitud %s venció sin que el cliente la adjudicara: tu oferta "
+                      "queda descartada.") % rec.name,
+                    url=rec._cpk_portal_url(oferta.copacker_partner_id))
+        return True

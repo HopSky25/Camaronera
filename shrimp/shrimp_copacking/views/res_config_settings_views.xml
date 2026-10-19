@@ -30,6 +30,52 @@
                    help="Activado, una planta (maquilador o empaque propio) con la habilitación vencida o sin fecha no puede registrar la recepción ni el empaque. Apagado, todo sigue como siempre.">
             <field name="shrimp_copack_require_license"/>
           </setting>
+          <!-- Plazos (auditoría de procesos D-14 y D-47). -->
+          <setting string="Plazo de firma del acta"
+                   help="Si al vencer una parte no firmó ni dio su disconformidad, el acta se da por aceptada (el silencio vale conformidad). Antes se recuerda dos veces.">
+            <div class="content-group">
+              <div class="row mt16">
+                <label for="shrimp_copack_acceptance_hours" class="col-lg-6 o_light_label"/>
+                <field name="shrimp_copack_acceptance_hours"/>
+                <span class="text-muted">horas</span>
+              </div>
+              <div class="row">
+                <label for="shrimp_copack_reminder_1" class="col-lg-6 o_light_label"/>
+                <field name="shrimp_copack_reminder_1"/>
+                <span class="text-muted">horas antes</span>
+              </div>
+              <div class="row">
+                <label for="shrimp_copack_reminder_2" class="col-lg-6 o_light_label"/>
+                <field name="shrimp_copack_reminder_2"/>
+                <span class="text-muted">horas antes</span>
+              </div>
+              <div class="row">
+                <label for="shrimp_copack_mediation_days" class="col-lg-6 o_light_label"/>
+                <field name="shrimp_copack_mediation_days"/>
+                <span class="text-muted">días</span>
+              </div>
+              <div class="row">
+                <label for="shrimp_copack_autoclose_hours" class="col-lg-6 o_light_label"/>
+                <field name="shrimp_copack_autoclose_hours"/>
+                <span class="text-muted">horas</span>
+              </div>
+            </div>
+          </setting>
+          <setting string="Vencimiento de solicitudes y ofertas"
+                   help="Una solicitud publicada sin adjudicar y una oferta sin respuesta vencen solas (o antes, al pasar sus fechas), con aviso.">
+            <div class="content-group">
+              <div class="row mt16">
+                <label for="shrimp_copack_request_days" class="col-lg-6 o_light_label"/>
+                <field name="shrimp_copack_request_days"/>
+                <span class="text-muted">días</span>
+              </div>
+              <div class="row">
+                <label for="shrimp_copack_offer_days" class="col-lg-6 o_light_label"/>
+                <field name="shrimp_copack_offer_days"/>
+                <span class="text-muted">días</span>
+              </div>
+            </div>
+          </setting>
         </block>
       </xpath>
     </field>

@@ -35,7 +35,9 @@ SELLER_TYPES = ("semillero", "laboratorio", "camaronera")
            response=obj(id="uuid", name="string", type="string", email="string",
                         active_role="string", roles={"type": "array"},
                         supervisor="boolean", read_only="boolean",
-                        api_key={"type": "object"}))
+                        api_key={"type": "object"}, account_state="string",
+                        legal={"type": "object", "description":
+                               "acceptance_required, pending_documents, accept_url"}))
 def me_get(ctx):
     if ctx.key.is_supervisor_key:
         return S.supervisor_me(ctx.user, ctx.key)
@@ -60,20 +62,27 @@ PREFERENCES = {
 
 
 ACTIVE_ROLE_SPEC = {"role": F("string", required=True, max_length=32,
-                              description="Perfil aprobado de la cuenta (semillero, laboratorio, "
+                              description="Perfil aprobado de la cuenta (semillero = Naupliero, laboratorio, "
                                           "camaronera, empacadora, maquilador, verificador)")}
 
 
 @api_route("POST", "/me/active-role", signed=True, scope="profile:write", tags=[TAG_ME], body=ACTIVE_ROLE_SPEC,
            summary="Cambia el perfil activo de la cuenta («Actuar como»)",
-           description="Solo a un perfil aprobado. Es el mismo cambio que el selector «Perfil» "
-                       "del portal y persiste en la cuenta. Para una sola petición con otro "
-                       "perfil basta la cabecera X-Shrimp-Role (o ?acting_role=).")
+           description="Solo a un perfil aprobado (y, para un subusuario, permitido por su "
+                       "administrador). Fija el perfil de ESTA clave y es el mismo cambio que el "
+                       "selector «Perfil» del portal para el usuario (el perfil activo es por "
+                       "usuario, no de toda la cuenta). Para una sola petición con otro perfil "
+                       "basta la cabecera X-Shrimp-Role (o ?acting_role=).")
 def me_active_role(ctx):
     vals = ctx.clean(ACTIVE_ROLE_SPEC)
     if vals["role"] not in ctx.partner._shrimp_roles():
         raise forbidden("Tu cuenta no tiene aprobado el perfil «%s»." % vals["role"])
-    ctx.partner.sudo()._shrimp_set_active_role(vals["role"])
+    if not ctx.partner._shrimp_user_allows(None, vals["role"]):
+        raise forbidden("El administrador de tu cuenta no te dio acceso al perfil «%s»."
+                        % vals["role"])
+    ctx.partner.with_user(ctx.user).sudo()._shrimp_set_active_role(vals["role"])
+    if ctx.key and "acting_role" in ctx.key._fields:
+        ctx.key.sudo().write({"acting_role": vals["role"]})
     return S.me(ctx.user, ctx.key)
 
 
@@ -303,6 +312,9 @@ PRODUCT_SCHEMA = obj(id="uuid", name="string", state="string", active="boolean",
                      seller_type="string", species="ref", stage="ref", genetics_line="ref",
                      presentation="string", size_grade="ref", origin_facility="ref",
                      origin_pond="ref", batch_code="string", health_status="string",
+                     real_status={"type": ["object", "null"],
+                                  "description": "Última observación del vendedor (estado real "
+                                                 "del lote); «stage» es la etapa publicada"},
                      updated_at="datetime")
 UOM_BY_ROLE = {"semillero": "millar", "laboratorio": "millar", "camaronera": "libra"}
 
@@ -354,7 +366,8 @@ def product_get(ctx, id):
            status=201, summary="Crea un producto en borrador (el vendedor es siempre el dueño de la clave)",
            response=PRODUCT_SCHEMA)
 def product_create(ctx):
-    ctx.require_capability("sell_products", what="Solo semilleros, laboratorios y camaroneras publican productos.")
+    ctx.require_capability("sell_products", what="Solo nauplieros, laboratorios y camaroneras publican productos.")
+    ctx.require_publishing_allowed()
     vals = clean_product(ctx, partial=False)
     vals.update({
         "seller_partner_id": ctx.partner.id,
@@ -405,6 +418,7 @@ def product_put(ctx, id):
            response=PRODUCT_SCHEMA)
 def product_publish(ctx, id):
     product = ctx.get_own("shrimp.product", id, "El producto").sudo()
+    ctx.require_publishing_allowed()
     if product.state != "draft":
         raise ApiError(409, "invalid-state", "Solo se publica un producto en borrador.")
     if product.available_qty <= 0:
@@ -484,6 +498,9 @@ def evolution_create(ctx, id):
         raise invalid("Indica al menos una medición (stage, avg_size_mg, survival_rate o health_status).")
     product.with_context(skip_evolution_snapshot=True).write(measured)
     evo = ctx.env["shrimp.product.evolution"].sudo().create({
+        # Esta ruta cambia los datos publicados: es un cambio en la
+        # publicación. Para observar sin tocarla: POST /products/{id}/observations.
+        "origin": "publication",
         "product_id": product.id,
         "date": vals.get("date") or fields.Datetime.now(),
         "stage_id": product.stage_id.id or False,

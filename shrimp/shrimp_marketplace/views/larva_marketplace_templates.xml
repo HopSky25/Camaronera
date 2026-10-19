@@ -41,7 +41,7 @@
                 </t>
                 <t t-elif="larva_tipo == 'nauplio'">
                     <h1>Nauplio de maduraciones certificadas</h1>
-                    <p>Nauplio directo del semillero, con su genética, sus reproductores y su certificado sanitario.</p>
+                    <p>Nauplio directo del naupliero, con su genética, sus reproductores y su certificado sanitario.</p>
                 </t>
                 <t t-elif="larva_tipo == 'camaron'">
                     <h1>Camarón con trazabilidad</h1>
@@ -49,34 +49,19 @@
                 </t>
                 <t t-else="">
                     <h1>Larvas y camarón con trazabilidad</h1>
-                    <p>Compra directo a semilleros, laboratorios y camaroneras. Cada lote con su historial verificado.</p>
+                    <p>Compra directo a nauplieros, laboratorios y camaroneras. Cada lote con su historial verificado.</p>
                 </t>
             </div>
         </xpath>
 
-        <!-- Pestañas por tipo + chips de estadío (del tipo elegido) -->
-        <xpath expr="//div[hasclass('s-cat-chips')]" position="replace">
-            <nav t-if="larva_show_tabs" class="sp-tabs mb-2" aria-label="Tipo de producto" id="sp_tipo_tabs">
-                <t t-foreach="larva_tabs or []" t-as="tab">
-                    <a t-att-href="tab['url']" data-vista-link="1"
-                       t-att-class="'sp-tab' + (' is-active' if tab['active'] else '')"
-                       t-att-aria-current="'page' if tab['active'] else None"
-                       t-att-data-tipo="tab['code']"><t t-esc="tab['label']"/></a>
-                </t>
-            </nav>
-            <!-- Con un solo estadío posible («Todas» + 1) la fila no aporta nada. -->
-            <div t-if="len(stage_chips or []) &gt; 2" class="s-cat-chips s-cat-chips--scroll mb-3">
-                <t t-foreach="stage_chips or []" t-as="chip">
-                    <a t-att-class="'s-cat-chip' + (' active' if chip['active'] else '')"
-                       t-att-href="chip['url']" data-vista-link="1"><t t-esc="chip['label']"/></a>
-                </t>
-            </div>
-
-            <!-- Laboratorios / semilleros destacados -->
+        <!-- Tipo y etapa viven en el cajón («Tipo» / «Etapa»); debajo de las
+             etiquetas de filtros activos solo quedan los destacados y el aviso. -->
+        <xpath expr="//t[@t-call='shrimp_marketplace.s_filter_tags']" position="after">
+            <!-- Laboratorios / nauplieros destacados -->
             <div t-if="featured_sellers" class="sp-featured mb-3" id="sp_featured">
                 <div class="sp-featured-head">
                     <h2 t-if="larva_tipo == 'larva'">Laboratorios destacados</h2>
-                    <h2 t-else="">Semilleros destacados</h2>
+                    <h2 t-else="">Nauplieros destacados</h2>
                     <span class="text-soft">Mejor calificados y con más ventas cerradas</span>
                 </div>
                 <div class="sp-featured-row sp-featured-row--compact">
@@ -120,14 +105,15 @@
             <attribute name="t-if">not larva_allowed_tipos or 'camaron' in larva_allowed_tipos</attribute>
         </xpath>
 
-        <!-- Cajón de filtros: «Tipo» (las pestañas) arriba del todo -->
-        <xpath expr="//div[@id='sf_sec_species']" position="before">
+        <!-- Cajón de filtros: «Tipo» arriba del todo (antes de «Etapa», que
+             muestra solo los estadíos del tipo marcado). -->
+        <xpath expr="//div[@id='sf_sec_stage']" position="before">
             <div t-if="larva_show_tabs" class="s-filter-sec" id="sp_filter_tipo">
                 <div class="s-filter-sec-label">Tipo</div>
                 <div class="s-choice-chips">
                     <t t-foreach="larva_tabs or []" t-as="tab">
-                        <label class="s-choice">
-                            <input type="radio" name="tipo" t-att-value="tab['code']" data-s-clears="stage"
+                        <label class="s-choice" t-att-data-tipo="tab['code'] or None">
+                            <input type="radio" name="tipo" t-att-value="tab['code']"
                                    t-att-checked="(filters.get('tipo') or '') == tab['code']"/>
                             <span><t t-esc="tab['label']"/></span>
                         </label>
@@ -197,7 +183,7 @@
             <div t-if="larva_mode or larva_active" class="sp-avisame" id="sp_avisame">
                 <p class="mb-2">
                     ¿Quieres que te avisemos cuando
-                    <t t-if="larva_tipo == 'nauplio'">un semillero</t><t t-else="">un laboratorio</t>
+                    <t t-if="larva_tipo == 'nauplio'">un naupliero</t><t t-else="">un laboratorio</t>
                     publique un lote así?
                 </p>
                 <t t-if="request.env.user._is_public()">

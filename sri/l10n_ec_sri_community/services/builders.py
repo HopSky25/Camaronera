@@ -3,6 +3,7 @@ from collections import defaultdict
 from decimal import Decimal
 from lxml import etree
 from .xml_utils import put, money, number, decimal, serialize, validate_document
+from .validators import text, MAX_CODE, MAX_ADDITIONAL
 
 def optional(parent, tag, value):
     if value not in (None,False,''): put(parent,tag,value)
@@ -13,10 +14,10 @@ def header(code, company, key):
     version='2.0.0' if code=='07' else '1.0.0' if code=='05' else '1.1.0'
     root=etree.Element(root_name,id='comprobante',version=version)
     info=put(root,'infoTributaria')
-    for tag,value in [('ambiente',key[23]),('tipoEmision','1'),('razonSocial',company['name'])]: put(info,tag,value)
-    optional(info,'nombreComercial',company.get('trade_name'))
+    for tag,value in [('ambiente',key[23]),('tipoEmision','1'),('razonSocial',text(company['name'],'La razón social del emisor'))]: put(info,tag,value)
+    optional(info,'nombreComercial',text(company.get('trade_name'),'El nombre comercial'))
     for tag,value in [('ruc',company['vat']),('claveAcceso',key),('codDoc',code),('estab',key[24:27]),
-                      ('ptoEmi',key[27:30]),('secuencial',key[30:39]),('dirMatriz',company['address'])]: put(info,tag,value)
+                      ('ptoEmi',key[27:30]),('secuencial',key[30:39]),('dirMatriz',text(company['address'],'La dirección matriz'))]: put(info,tag,value)
     optional(info,'agenteRetencion',company.get('agent'))
     optional(info,'contribuyenteRimpe',company.get('rimpe'))
     return root
@@ -33,6 +34,9 @@ def additional(root,company,extra):
     data=dict(extra or {})
     if company.get('provider_ruc'): data['RUC Proveedor']=company['provider_ruc']
     if company.get('large_taxpayer'): data['Gran Contribuyente']=company['large_taxpayer']
+    data={name:text(value,'El campo adicional "%s"' % name) for name,value in data.items() if value}
+    if len(data)>MAX_ADDITIONAL:
+        raise ValueError('La información adicional admite máximo %s campos (hay %s).' % (MAX_ADDITIONAL,len(data)))
     if data:
         node=put(root,'infoAdicional')
         for name,value in data.items():
@@ -68,14 +72,15 @@ def invoice(code,company,key,data):
     if code not in ('01','03','04','05'): raise ValueError('Tipo no admitido por el generador contable.')
     root=header(code,company,key)
     info=put(root,{'01':'infoFactura','03':'infoLiquidacionCompra','04':'infoNotaCredito','05':'infoNotaDebito'}[code])
-    put(info,'fechaEmision',data['date']);put(info,'dirEstablecimiento',data['address'])
+    put(info,'fechaEmision',data['date']);put(info,'dirEstablecimiento',text(data['address'],'La dirección del establecimiento'))
     if code in ('01','03'): fiscal(info,company)
     suffix='Proveedor' if code=='03' else 'Comprador'
     p=data['partner']
     if p['type']=='07' and code!='01': raise ValueError('Este comprobante requiere un receptor identificado.')
     if p['type']=='07' and decimal(data['total'])>50: raise ValueError('Identifique al comprador: consumidor final supera USD 50.')
-    for tag,value in [('tipoIdentificacion'+suffix,p['type']),('razonSocial'+suffix,p['name']),('identificacion'+suffix,p['vat'])]: put(info,tag,value)
-    if code in ('01','03'): optional(info,'direccion'+suffix,p.get('address'))
+    for tag,value in [('tipoIdentificacion'+suffix,p['type']),('razonSocial'+suffix,text(p['name'],'La razón social del receptor')),
+                      ('identificacion'+suffix,p['vat'])]: put(info,tag,value)
+    if code in ('01','03'): optional(info,'direccion'+suffix,text(p.get('address'),'La dirección del receptor'))
     if code in ('04','05'):
         fiscal(info,company)
         origin=data['origin']
@@ -103,16 +108,16 @@ def invoice(code,company,key,data):
     if code=='05':
         reasons=put(root,'motivos')
         for line in lines:
-            item=put(reasons,'motivo');put(item,'razon',line['description']);put(item,'valor',money(line['subtotal']))
+            item=put(reasons,'motivo');put(item,'razon',text(line['description'],'El motivo de la nota de débito'));put(item,'valor',money(line['subtotal']))
     else:
         details=put(root,'detalles')
         for line in lines:
             if decimal(line['quantity'])<=0 or decimal(line['unit_price'])<0 or decimal(line['subtotal'])<0:
                 raise ValueError('Use líneas positivas; los descuentos se expresan en el campo descuento.')
             node=put(details,'detalle')
-            put(node,'codigoInterno' if code=='04' else 'codigoPrincipal',line['code'])
-            optional(node,'codigoAdicional' if code=='04' else 'codigoAuxiliar',line.get('auxiliary'))
-            put(node,'descripcion',line['description'])
+            put(node,'codigoInterno' if code=='04' else 'codigoPrincipal',text(line['code'],'El código del producto',MAX_CODE))
+            optional(node,'codigoAdicional' if code=='04' else 'codigoAuxiliar',text(line.get('auxiliary'),'El código auxiliar',MAX_CODE))
+            put(node,'descripcion',text(line['description'],'La descripción de "%s"' % line['code']))
             put(node,'cantidad',number(line['quantity']));put(node,'precioUnitario',number(line['unit_price']))
             put(node,'descuento',money(line['discount']));put(node,'precioTotalSinImpuesto',money(line['subtotal']))
             tax_elements(node,line['taxes'])
@@ -127,7 +132,7 @@ def withholding(company,key,data):
     put(info,'tipoIdentificacionSujetoRetenido',p['type'])
     optional(info,'tipoSujetoRetenido',p.get('subject_type'))
     put(info,'parteRel','SI' if p.get('related') else 'NO')
-    put(info,'razonSocialSujetoRetenido',p['name']);put(info,'identificacionSujetoRetenido',p['vat'])
+    put(info,'razonSocialSujetoRetenido',text(p['name'],'La razón social del sujeto retenido'));put(info,'identificacionSujetoRetenido',p['vat'])
     put(info,'periodoFiscal',data['period'])
     docs=put(root,'docsSustento')
     for support in data['supports']:

@@ -21,10 +21,17 @@
       <list string="Evolución del producto">
         <field name="date" string="Fecha"/>
         <field name="product_id" string="Producto"/>
+        <field name="origin" optional="show"/>
         <field name="stage_id"/>
+        <field name="published_stage_id" optional="hide"/>
         <field name="avg_size_mg"/>
         <field name="survival_rate"/>
         <field name="available_qty"/>
+        <field name="estimated_qty" optional="hide"/>
+        <field name="water_temp_c" optional="hide"/>
+        <field name="salinity_ppt" optional="hide"/>
+        <field name="dissolved_oxygen_mgl" optional="hide"/>
+        <field name="water_ph" optional="hide"/>
         <field name="user_id" string="Registrado por" optional="show"/>
         <field name="health_status" optional="hide"/>
       </list>
@@ -40,14 +47,27 @@
           <group>
             <group>
               <field name="product_id"/>
+              <field name="origin" readonly="1"/>
               <field name="date"/>
               <field name="stage_id"/>
+              <field name="published_stage_id" invisible="origin != 'observation'"/>
             </group>
             <group>
               <field name="avg_size_mg"/>
               <field name="survival_rate"/>
               <field name="available_qty"/>
+              <field name="estimated_qty" invisible="origin != 'observation'"/>
               <field name="user_id"/>
+            </group>
+          </group>
+          <group string="Parámetros de agua" invisible="origin != 'observation'">
+            <group>
+              <field name="water_temp_c"/>
+              <field name="salinity_ppt"/>
+            </group>
+            <group>
+              <field name="dissolved_oxygen_mgl"/>
+              <field name="water_ph"/>
             </group>
           </group>
           <group string="Estado sanitario / Observaciones">
@@ -69,6 +89,10 @@
         <field name="product_id"/>
         <field name="stage_id"/>
         <field name="health_status"/>
+        <filter name="f_observacion" string="Observaciones del vendedor" domain="[('origin','=','observation')]"/>
+        <filter name="f_publicacion" string="Cambios en la publicación" domain="[('origin','=','publication')]"/>
+        <filter name="f_calidad" string="Fichas de calidad" domain="[('origin','=','quality')]"/>
+        <separator/>
         <filter name="ultimo_mes" string="Último mes"
                 domain="[('date','&gt;=', (context_today() - relativedelta(months=1)).strftime('%Y-%m-%d'))]"/>
         <!-- Una supervivencia por encima de 100 o negativa es un dato imposible:
@@ -82,6 +106,8 @@
         <separator/>
         <filter name="g_producto" string="Producto"
                 context="{'group_by': 'product_id'}"/>
+        <filter name="g_origen" string="Origen"
+                context="{'group_by': 'origin'}"/>
         <filter name="g_estadio" string="Estadío"
                 context="{'group_by': 'stage_id'}"/>
         <filter name="g_fecha" string="Fecha"
@@ -103,8 +129,11 @@
     </field>
   </record>
 
+  <!-- Histórico que escribe el código en cada cambio del producto: se ve en
+       la ficha. La lista completa, solo en Ajustes › Técnico › CamaronMarket. -->
   <menuitem id="menu_shrimp_product_evolution" name="Evolución del producto"
-            parent="menu_shrimp_catalog_root" action="action_shrimp_product_evolution"
-            groups="base.group_system" sequence="30"/>
+            parent="shrimp_user_registry.menu_shrimp_technical_root"
+            action="action_shrimp_product_evolution"
+            groups="base.group_system" sequence="60"/>
 
 </odoo>

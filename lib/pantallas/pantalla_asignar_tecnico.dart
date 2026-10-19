@@ -97,6 +97,9 @@ class _PantallaAsignarTecnicoState extends State<PantallaAsignarTecnico> {
   Widget build(BuildContext context) {
     final sinc = context.watch<Sincronizador>();
     final v = sinc.bandeja.where((e) => e.id == widget.id).firstOrNull;
+    final empresa = v != null && (v.verificadora.id ?? '').isNotEmpty && !_tecnicos.any((t) => t.id == v.verificadora.id)
+        ? v.verificadora
+        : null;
     return Scaffold(
       appBar: AppBar(title: const Text('Asignar técnico')),
       body: ListView(
@@ -117,7 +120,7 @@ class _PantallaAsignarTecnicoState extends State<PantallaAsignarTecnico> {
           ],
           if (_cargando)
             const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()))
-          else if (_tecnicos.isEmpty)
+          else if (_tecnicos.isEmpty && empresa == null)
             Tarjeta(
               child: Text('No hay técnicos disponibles. Pega abajo el identificador del técnico '
                   '(lo ves en el portal, en Mi equipo).', style: TextStyle(color: context.colores.tintaSuave)),
@@ -129,10 +132,20 @@ class _PantallaAsignarTecnicoState extends State<PantallaAsignarTecnico> {
                 groupValue: _elegido,
                 onChanged: (id) => setState(() => _elegido = id),
                 child: Column(children: [
+                  // Como en el portal: la empresa puede atenderla ella misma.
+                  if (empresa != null)
+                    RadioListTile<String>(
+                      value: empresa.id!,
+                      title: const Text('Yo mismo', style: TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: Text(empresa.nombre),
+                    ),
                   for (final t in _tecnicos)
                     RadioListTile<String>(
                       value: t.id!,
                       title: Text(t.nombre, style: const TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: v != null && v.tecnicosApoyo.any((a) => a.id == t.id)
+                          ? const Text('Hoy va de apoyo: pasa a responsable')
+                          : null,
                     ),
                 ]),
               ),
@@ -151,12 +164,11 @@ class _PantallaAsignarTecnicoState extends State<PantallaAsignarTecnico> {
           const SizedBox(height: 12),
           const AvisoWeb(texto: 'Dar de alta o quitar técnicos se hace desde el portal web (Mi equipo).'),
           const SizedBox(height: 24),
-          FilledButton.icon(
-            onPressed: _ocupado ? null : _asignar,
-            icon: _ocupado
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Icon(Icons.person_add_alt_1_outlined),
-            label: Text(_ocupado ? 'Enviando…' : 'Asignar'),
+          BotonAccion(
+            onPressed: _asignar,
+            icono: Icons.person_add_alt_1_outlined,
+            texto: 'Asignar',
+            textoOcupado: 'Enviando…',
           ),
         ],
       ),

@@ -34,7 +34,8 @@ class _PantallaBandejaState extends State<PantallaBandeja> {
     }).toList();
     final abiertas = sinc.bandeja.where((v) => !v.cerrada).length;
     final enCampo = sinc.bandeja.where((v) => v.enCampo).length;
-    final sinTecnico = sinc.bandeja.where((v) => v.soyVerificadora && !v.cerrada && !v.tecnicoAsignado).length;
+    final sinTecnico = sinc.bandeja.where((v) => v.soyVerificadora && !v.cerrada && !v.tecnicoAsignado && !v.declinada).length;
+    final porAceptar = sinc.bandeja.where(_porAceptar).length;
 
     return Scaffold(
       appBar: const BarraCuenta(),
@@ -51,10 +52,15 @@ class _PantallaBandejaState extends State<PantallaBandeja> {
               ],
             ),
           ),
-          if (sinTecnico > 0)
+          if (sinTecnico > 0 || porAceptar > 0)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-              child: Text('$sinTecnico sin técnico asignado', style: TextStyle(fontSize: 13, color: context.colores.advertenciaTexto, fontWeight: FontWeight.w700)),
+              child: Text(
+                  [
+                    if (porAceptar > 0) '$porAceptar por aceptar',
+                    if (sinTecnico > 0) '$sinTecnico sin técnico asignado',
+                  ].join(' · '),
+                  style: TextStyle(fontSize: 13, color: context.colores.advertenciaTexto, fontWeight: FontWeight.w700)),
             ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -92,13 +98,19 @@ class _PantallaBandejaState extends State<PantallaBandeja> {
   }
 }
 
+/// La orden espera que la empresa la acepte o la decline.
+bool _porAceptar(Verificacion v) =>
+    v.soyVerificadora && v.modo == 'platform' && v.respuestaOrden == 'pending' && const {'received', 'assigned'}.contains(v.estado);
+
 class _TarjetaVerificacion extends StatelessWidget {
   final Verificacion v;
   const _TarjetaVerificacion({required this.v});
 
   @override
   Widget build(BuildContext context) {
-    final (_, colorEstado) = context.colores.insignia(v.estado);
+    final c = context.colores;
+    final (_, colorEstado) = c.insignia(v.estado);
+    final dm = DateFormat('dd/MM HH:mm');
     return TarjetaRegistro(
       titulo: v.referencia,
       subtitulo: v.producto.nombre,
@@ -111,8 +123,33 @@ class _TarjetaVerificacion extends StatelessWidget {
         if (v.soyVerificadora)
           Dato(
             icono: Icons.engineering_outlined,
-            texto: v.tecnico?.nombre ?? 'Sin técnico asignado',
-            color: v.tecnico == null && !v.cerrada ? context.colores.advertenciaTexto : null,
+            texto: v.tecnico == null
+                ? 'Sin técnico asignado'
+                : v.tecnicosApoyo.isEmpty
+                    ? v.tecnico!.nombre
+                    : '${v.tecnico!.nombre} + ${v.tecnicosApoyo.length} de apoyo',
+            color: v.tecnico == null && !v.cerrada && !v.declinada ? c.advertenciaTexto : null,
+          ),
+        if (v.soyApoyo) const Dato(icono: Icons.groups_outlined, texto: 'Vas de apoyo: cargas datos, no firmas'),
+        if (v.esSegundaOpinion) const Dato(icono: Icons.balance_rounded, texto: 'Segunda opinión'),
+        if (_porAceptar(v))
+          Dato(
+            icono: Icons.inbox_outlined,
+            texto: v.plazoRespuesta == null ? 'Por aceptar' : 'Por aceptar hasta el ${dm.format(v.plazoRespuesta!)}',
+            color: c.advertenciaTexto,
+          ),
+        if (v.declinada) Dato(icono: Icons.block_rounded, texto: 'Declinaste esta orden', color: c.peligroTexto),
+        if (!v.cerrada && !v.declinada && v.plazoVencidoEtiqueta != null)
+          Dato(icono: Icons.schedule_rounded, texto: v.plazoVencidoEtiqueta!, color: c.peligroTexto)
+        else if (!v.cerrada && v.plazoVeredicto != null)
+          Dato(icono: Icons.schedule_rounded, texto: 'Veredicto hasta el ${dm.format(v.plazoVeredicto!)}'),
+        if (v.rechazoNoPresentado) const Dato(icono: Icons.visibility_off_outlined, texto: 'Producto no presentado'),
+        if (v.estado == 'rejected' && v.estadoImpugnacion == 'open')
+          Dato(
+            icono: Icons.hourglass_bottom_rounded,
+            texto: v.plazoImpugnacion == null
+                ? 'El vendedor puede pedir segunda opinión'
+                : 'Segunda opinión posible hasta el ${dm.format(v.plazoImpugnacion!)}',
           ),
         if (v.despachoEta != null)
           Dato(

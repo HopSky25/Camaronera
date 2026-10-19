@@ -329,6 +329,16 @@ def _default_uom(ctx):
             or Uom.search([("active", "=", True)], limit=1))
 
 
+def require_sell(ctx, product):
+    """«Vender» en el perfil DEL LOTE (CR-12), como _get_owned_product del
+    portal: la tabla de permisos solo mira que lo tenga en alguno."""
+    user = ctx.user
+    role = product.sudo()._shrimp_seller_role()
+    if user._shrimp_restricted_member() and not user._shrimp_has_perm("sell", role=role):
+        raise ApiError(403, "permission-denied", user._shrimp_perm_message("sell", role),
+                       extra={"code": "permission_denied", "permission": "sell"})
+
+
 def _notify_product(product, xmlid):
     template = product.env.ref(xmlid, raise_if_not_found=False)
     email = product.sudo().seller_partner_id.email
@@ -339,14 +349,19 @@ def _notify_product(product, xmlid):
 
 @api_route("GET", "/products", scope=("products:read", "products:write"), tags=[TAG_PROD],
            paginated=True, summary="Mis productos (lotes que publico)",
-           params={"state": F("enum", enum=["draft", "published", "sold", "cancel"]),
+           params={"state": F("enum", enum=["draft", "published", "sold", "cancel", "archived"],
+                               description="archived = dados de baja que se pueden reactivar "
+                                           "(como «Archivados» en Mis productos del portal)"),
                    "presentation": F("enum", enum=["entero", "cola"]),
                    "include_archived": F("boolean"),
                    "q": F("string")}, response=PRODUCT_SCHEMA)
 def products_list(ctx):
     domain = [("seller_partner_id", "=", ctx.partner.id)]
-    state = ctx.enum_param("state", ["draft", "published", "sold", "cancel"])
-    if state:
+    state = ctx.enum_param("state", ["draft", "published", "sold", "cancel", "archived"])
+    if state == "archived":
+        # Retirados (archivados): el eliminado (cancel) no se reactiva.
+        domain += [("active", "=", False), ("state", "!=", "cancel")]
+    elif state:
         domain.append(("state", "=", state))
     pres = ctx.enum_param("presentation", ["entero", "cola"])
     if pres:
@@ -457,11 +472,46 @@ def _portal_publish_problems(product):
     return []
 
 
-def _product_update(ctx, id):
+# Lo que fija cuánto paga el comprador y cuánto hay: en un lote ya publicado,
+# con la clave de la app, se cambia firmado (POST /products/{id}:update-terms).
+COMMERCIAL_FIELDS = {"price": "price", "initial_qty": "initial_qty", "uom_id": "uom"}
+
+
+def _changed(product, vals, fields_map):
+    return [api for odoo, api in fields_map.items()
+            if odoo in vals and product._field_value_changed(product, odoo, vals[odoo])]
+
+
+def _check_purchase_locks(product, vals):
+    """Campos bloqueados por compras (las reglas del portal y del modelo),
+    con el campo en errors[] para que la app lo marque."""
+    if not product.has_purchases():
+        return
+    locked = {odoo: api for odoo, api in S.LOCKED_API_FIELDS.items()
+              if odoo != "price" or product.shrimp_price_locked()}
+    blocked = _changed(product, vals, locked)
+    if blocked:
+        reason = product.shrimp_purchase_lock_reason() or "ya tiene compras registradas"
+        msg = "No puedes cambiar esto: el lote %s." % reason
+        raise invalid(msg, errors=[{"field": f, "message": "Bloqueado: el lote %s." % reason}
+                                   for f in blocked])
+
+
+def _product_update(ctx, id, signed=False):
     product = ctx.get_own("shrimp.product", id, "El producto")
+    require_sell(ctx, product)
     vals = clean_product(ctx, partial=True, product=product.sudo())
     if not vals:
         raise invalid("No hay campos válidos para actualizar.")
+    _check_purchase_locks(product.sudo(), vals)
+    if not signed and ctx.key.is_app_key and product.sudo().state != "draft":
+        comerciales = _changed(product.sudo(), vals, COMMERCIAL_FIELDS)
+        if comerciales:
+            raise ApiError(
+                403, "signature-required",
+                "En un lote publicado, el precio, la cantidad y la unidad se cambian firmados: "
+                "usa POST /products/{id}:update-terms con la firma del dispositivo.",
+                extra={"fields": comerciales})
     # Si ya tiene compras, el modelo rechaza cambiar especie, precio, unidad...
     # con un mensaje claro (422). No se descartan en silencio como en el
     # formulario: un integrador tiene que enterarse de que no se aplicó.
@@ -479,6 +529,21 @@ def product_patch(ctx, id):
            summary="Alias de PATCH (compatibilidad con la API anterior)", response=PRODUCT_SCHEMA)
 def product_put(ctx, id):
     return _product_update(ctx, id)
+
+
+@api_route("POST", "/products/{id}:update-terms", scope="products:write", tags=[TAG_PROD],
+           body=PRODUCT_BODY, signed=True,
+           summary="Cambia un lote propio con la firma del dispositivo (precio, cantidad o unidad "
+                   "de un lote publicado)",
+           description="El mismo cuerpo y las mismas reglas que PATCH /products/{id} (parcial). Con "
+                       "la clave de la app va firmada (§5 bis): en un lote que no está en borrador "
+                       "(publicado o vendido), cambiar price, initial_qty o uom por PATCH da 403 "
+                       "signature-required y se hace aquí. Con compras siguen bloqueados los datos "
+                       "críticos (422 con errors[].field); el precio, solo mientras haya compras "
+                       "abiertas. Las claves de integración también pueden usarla (sin firma).",
+           response=PRODUCT_SCHEMA)
+def product_update_terms(ctx, id):
+    return _product_update(ctx, id, signed=True)
 
 
 @api_route("POST", "/products/{id}:publish", scope="products:write", tags=[TAG_PROD], signed=True,
@@ -519,12 +584,20 @@ def product_archive(ctx, id):
 
 
 @api_route("POST", "/products/{id}:unarchive", scope="products:write", tags=[TAG_PROD],
-           summary="Reactiva un producto dado de baja (queda en borrador)", response=PRODUCT_SCHEMA)
+           signed=True,
+           summary="Reactiva un producto dado de baja (queda en borrador)",
+           description="Con la clave de la app va firmada (§5 bis, desde 19.0.1.17.0): devuelve a "
+                       "la oferta del vendedor un lote que retiró. Un producto eliminado no se "
+                       "reactiva (409 invalid-state), igual que en el portal "
+                       "(shrimp.product.shrimp_can_reactivate).",
+           response=PRODUCT_SCHEMA)
 def product_unarchive(ctx, id):
     product = ctx.get_own("shrimp.product", id, "El producto", archived=True)
+    require_sell(ctx, product)
     if product.sudo().state == "cancel":
         raise ApiError(409, "invalid-state", "Un producto eliminado no se reactiva.")
-    product.sudo().write({"active": True})
+    if product.sudo().shrimp_can_reactivate():
+        product.sudo().write({"active": True})
     return S.product_owner(product)
 
 

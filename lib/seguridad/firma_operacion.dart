@@ -48,6 +48,9 @@ final _rutasSensibles = <String, List<RegExp>>{
       r'/verifications/[^/:]+/acceptance',
       r'/verifications/[^/:]+/acceptance[:/]revert',
       r'/verifications/[^/:]+[:/](assign|start|verdict)',
+      // Decisiones de la verificación: aceptar o declinar la orden, técnicos
+      // de apoyo y segunda opinión.
+      r'/verifications/[^/:]+[:/](respond|support-technicians|second-opinion)',
       // Fotos de campo y compra directa (CONTRATO-MEJORAS-APP.md, C4 y C5).
       r'/verifications/[^/:]+/photos',
       r'/purchases',

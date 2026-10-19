@@ -382,19 +382,49 @@ class Sincronizador extends ChangeNotifier {
     await recargarLocal();
   }
 
-  /// Veredicto. Antes de encolarlo se comprueba con el informe local lo
-  /// mismo que exige el servidor; devuelve lo que falta (vacío = encolado).
-  /// El estado local NO se adelanta: la bandeja cambia cuando el servidor
-  /// responde.
+  /// Veredicto. Antes de encolar una aprobación se comprueba con el
+  /// informe local lo mismo que exige el servidor; devuelve lo que falta
+  /// (vacío = encolado). Rechazar por el informe no exige el informe
+  /// completo (solo estar en campo). El estado local NO se adelanta: la
+  /// bandeja cambia cuando el servidor responde.
   Future<List<String>> darVeredicto(Verificacion v, String veredicto, String notas) async {
     _exigirEscritura();
-    final informe = await informeDe(v);
-    final faltan = informe.faltantesParaVeredicto(larva: v.esLarva);
-    if (faltan.isNotEmpty) return faltan;
+    if (veredicto != 'reject') {
+      final informe = await informeDe(v);
+      final faltan = informe.faltantesParaVeredicto(larva: v.esLarva);
+      if (faltan.isNotEmpty) return faltan;
+    }
     await _encolar(TipoOperacion.veredicto, v.id, cuerpoVeredicto(veredicto, notas));
     unawaited(sincronizar());
     return const [];
   }
+
+  /// Rechazo por «Producto no presentado» (sin trabajo de campo): las fotos
+  /// de evidencia se comprimen fuera del hilo de la pantalla y viajan en el
+  /// mismo veredicto, firmado y en la cola como el resto. Lanza
+  /// [ErrorSeguridad] si no se confirma (no se guarda nada) o
+  /// [FormatException] si una foto no se puede usar.
+  Future<void> rechazarNoPresentado(Verificacion v,
+      {required DateTime llegada,
+      required String notas,
+      List<String> fotos = const [],
+      Future<Uint8List> Function(String ruta)? leer}) async {
+    _exigirEscritura();
+    final originales = <(String, Uint8List)>[
+      for (final (i, ruta) in fotos.indexed) ('evidencia_${i + 1}.jpg', await (leer ?? _leerArchivo)(ruta)),
+    ];
+    final evidencia = await Isolate.run(() => prepararFotosEvidencia(originales));
+    await _encolar(TipoOperacion.veredicto, v.id, cuerpoNoPresentado(llegada: llegada, notas: notas, fotos: evidencia));
+    unawaited(sincronizar());
+  }
+
+  /// La empresa acepta (`accept`) o declina (`decline`, con motivo) la orden.
+  Future<ResultadoEnvio> responderOrden(Verificacion v, String decision, {String? motivo}) =>
+      ejecutar(TipoOperacion.responderOrden, v.id, cuerpoResponderOrden(decision, motivo));
+
+  /// La empresa suma o quita técnicos de apoyo (exige el responsable).
+  Future<ResultadoEnvio> cambiarEquipoApoyo(Verificacion v, {List<String> sumar = const [], List<String> quitar = const []}) =>
+      ejecutar(TipoOperacion.equipoApoyo, v.id, cuerpoEquipoApoyo(sumar: sumar, quitar: quitar));
 
   /// Llegada del camión. Sin despacho asociado no hay a qué registrarla.
   Future<bool> registrarLlegadaCamion(Verificacion v, DateTime cuando) async {

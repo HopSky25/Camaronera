@@ -77,7 +77,7 @@ void main() {
       }
     });
 
-    test('las rutas firmadas del servidor (19 + fotos C4 + compra directa C5 + publicar un lote) y su forma alternativa /accion', () {
+    test('las rutas firmadas del servidor (19 + fotos C4 + compra directa C5 + publicar un lote + decisiones de la verificación) y su forma alternativa /accion', () {
       const firmadas = [
         ('POST', '/verifications'),
         ('POST', '/verifications/v1/acceptance'),
@@ -101,8 +101,12 @@ void main() {
         ('POST', '/verifications/v1/photos'),
         ('POST', '/purchases'),
         ('POST', '/products/p1:publish'),
+        // Decisiones de la verificación.
+        ('POST', '/verifications/v1:respond'),
+        ('POST', '/verifications/v1:support-technicians'),
+        ('POST', '/verifications/v1:second-opinion'),
       ];
-      expect(firmadas, hasLength(22));
+      expect(firmadas, hasLength(25));
       for (final (m, r) in firmadas) {
         expect(esRutaSensible(m, r), isTrue, reason: '$m $r');
         expect(esRutaSensible(m, '/api/v1$r'), isTrue, reason: 'con prefijo: $m $r');

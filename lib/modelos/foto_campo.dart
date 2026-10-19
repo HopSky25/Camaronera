@@ -82,6 +82,42 @@ Map<String, dynamic> prepararFoto({
   }
 }
 
+/// Fotos de evidencia del rechazo por «Producto no presentado»: viajan
+/// dentro del veredicto (`photos: [{"data", "name"}]`) porque, sin trabajo
+/// de campo, la verificación todavía no admite fotos sueltas. Todas juntas
+/// tienen que caber en una fila de la cola ([maximoCuerpoEnCola]): cada
+/// foto se reduce hasta su parte del espacio.
+const maximoFotosEvidencia = 3;
+
+List<Map<String, dynamic>> prepararFotosEvidencia(List<(String nombre, Uint8List original)> fotos) {
+  if (fotos.isEmpty) return const [];
+  if (fotos.length > maximoFotosEvidencia) {
+    throw const FormatException('Son demasiadas fotos: elige hasta $maximoFotosEvidencia.');
+  }
+  final cupo = (maximoCuerpoEnCola - 4 * 1024) ~/ fotos.length;
+  return [
+    for (final (nombre, original) in fotos) {'data': _jpegQueQuepa(original, cupo), 'name': nombre},
+  ];
+}
+
+/// Base64 de la foto comprimida, reduciendo el lado mayor hasta que quepa
+/// en [cupo] caracteres (y a la peor calidad razonable si hace falta).
+String _jpegQueQuepa(Uint8List original, int cupo) {
+  var lado = ladoMaximoFoto;
+  var calidad = calidadFoto;
+  while (true) {
+    final datos = base64.encode(comprimirFoto(original, ladoMaximo: lado, calidad: calidad));
+    if (datos.length <= cupo) return datos;
+    if (lado > 640) {
+      lado = (lado * 0.8).round();
+    } else if (calidad > 40) {
+      calidad -= 15;
+    } else {
+      throw const FormatException('La foto es demasiado grande.');
+    }
+  }
+}
+
 /// Estado de una foto en la pantalla de fotos.
 enum EstadoFoto {
   /// Guardada en el teléfono; falta confirmarla con la huella para subirla.

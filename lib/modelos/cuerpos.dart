@@ -22,11 +22,46 @@ String? _limpio(String? s) {
   return t.isEmpty ? null : t;
 }
 
-/// `POST /verifications/{id}:verdict`
+/// `POST /verifications/{id}:verdict`. Un rechazo desde aquí es siempre
+/// por el informe de campo (`reject_reason: field`); el de «producto no
+/// presentado» tiene su propio cuerpo ([cuerpoNoPresentado]).
 Map<String, dynamic> cuerpoVeredicto(String veredicto, String? notas) => {
       'verdict': veredicto,
       'notes': ?_limpio(notas),
+      if (veredicto == 'reject') 'reject_reason': 'field',
     };
+
+/// `POST /verifications/{id}:verdict` con rechazo por «Producto no
+/// presentado»: hora de llegada del técnico a la planta, qué encontró y
+/// las fotos de evidencia (`{"data": base64, "name"}`).
+Map<String, dynamic> cuerpoNoPresentado({
+  required DateTime llegada,
+  required String notas,
+  List<Map<String, dynamic>> fotos = const [],
+}) =>
+    {
+      'verdict': 'reject',
+      'reject_reason': 'not_presented',
+      'arrival_at': fechaHoraApi(llegada),
+      'notes': notas.trim(),
+      if (fotos.isNotEmpty) 'photos': fotos,
+    };
+
+/// `POST /verifications/{id}:respond`: la verificadora acepta o declina la
+/// orden (al declinar, el motivo es obligatorio: lo ve el comprador).
+Map<String, dynamic> cuerpoResponderOrden(String decision, String? motivo) => {
+      'decision': decision,
+      if (decision == 'decline') 'reason': ?_limpio(motivo),
+    };
+
+/// `POST /verifications/{id}:support-technicians`
+Map<String, dynamic> cuerpoEquipoApoyo({List<String> sumar = const [], List<String> quitar = const []}) => {
+      if (sumar.isNotEmpty) 'add': [for (final t in sumar) {'technician': t}],
+      if (quitar.isNotEmpty) 'remove': [for (final t in quitar) {'technician': t}],
+    };
+
+/// `POST /verifications/{id}:second-opinion` (vendedor).
+Map<String, dynamic> cuerpoSegundaOpinion(String verificadoraId) => {'verifier': verificadoraId};
 
 /// Estado local que corresponde a cada veredicto mientras no se sincroniza.
 String estadoDeVeredicto(String veredicto) => switch (veredicto) {

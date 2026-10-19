@@ -21,9 +21,14 @@ enum TipoOperacion {
   llegadaCamion,
   asignarTecnico,
   fotoCampo,
+  // La verificadora acepta o declina la orden; arma el equipo de apoyo.
+  responderOrden,
+  equipoApoyo,
   // Comprador y vendedor
   aceptacionInforme,
   programarDespacho,
+  // Vendedor: impugna el rechazo de la verificadora.
+  segundaOpinion,
   // Empacadora
   compraVerificada,
   comprarReserva,
@@ -150,6 +155,9 @@ class OperacionPendiente {
         TipoOperacion.llegadaCamion => '/dispatches/$despachoId/arrival',
         TipoOperacion.asignarTecnico => '/verifications/$recursoId:assign',
         TipoOperacion.fotoCampo => '/verifications/$recursoId/photos',
+        TipoOperacion.responderOrden => '/verifications/$recursoId:respond',
+        TipoOperacion.equipoApoyo => '/verifications/$recursoId:support-technicians',
+        TipoOperacion.segundaOpinion => '/verifications/$recursoId:second-opinion',
         TipoOperacion.aceptacionInforme => '/verifications/$recursoId/acceptance',
         TipoOperacion.programarDespacho => '/dispatches/$recursoId',
         TipoOperacion.compraVerificada => '/verifications',
@@ -169,6 +177,9 @@ class OperacionPendiente {
         TipoOperacion.llegadaCamion => 'Llegada del camión',
         TipoOperacion.asignarTecnico => 'Asignación de técnico',
         TipoOperacion.fotoCampo => 'Foto de campo',
+        TipoOperacion.responderOrden => 'Respuesta a la orden',
+        TipoOperacion.equipoApoyo => 'Técnicos de apoyo',
+        TipoOperacion.segundaOpinion => 'Pedido de segunda opinión',
         TipoOperacion.aceptacionInforme => 'Decisión sobre el informe',
         TipoOperacion.programarDespacho => 'Programación del despacho',
         TipoOperacion.compraVerificada => 'Compra con verificación',
@@ -189,5 +200,7 @@ class OperacionPendiente {
         TipoOperacion.veredicto,
         TipoOperacion.asignarTecnico,
         TipoOperacion.aceptacionInforme,
+        TipoOperacion.responderOrden,
+        TipoOperacion.equipoApoyo,
       }.contains(tipo);
 }

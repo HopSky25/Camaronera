@@ -105,7 +105,7 @@ void main() {
 
     test('veredicto', () {
       expect(cuerpoVeredicto('approve', '  '), {'verdict': 'approve'});
-      expect(cuerpoVeredicto('reject', ' Peso corto '), {'verdict': 'reject', 'notes': 'Peso corto'});
+      expect(cuerpoVeredicto('reject', ' Peso corto '), {'verdict': 'reject', 'notes': 'Peso corto', 'reject_reason': 'field'});
       expect(estadoDeVeredicto('approve'), 'approved');
       expect(estadoDeVeredicto('approve_obs'), 'approved_obs');
       expect(estadoDeVeredicto('reject'), 'rejected');

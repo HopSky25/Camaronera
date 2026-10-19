@@ -176,7 +176,7 @@ class ListaRemotaState extends State<ListaRemota> with RecargaTrasDocumentos<Lis
       if (_error != null && _datos.isNotEmpty)
         Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 0), child: CajaError(texto: _error!, reintentar: recargar)),
       ?widget.cabecera,
-      Expanded(child: RefreshIndicator(color: Marca.brand, onRefresh: recargar, child: cuerpo)),
+      Expanded(child: RefreshIndicator(color: context.colores.marcaTexto, onRefresh: recargar, child: cuerpo)),
     ]);
   }
 }

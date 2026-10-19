@@ -15,6 +15,7 @@ import 'datos/base_local.dart';
 import 'datos/control_legal.dart';
 import 'datos/control_version.dart';
 import 'datos/notificaciones.dart';
+import 'datos/preferencia_tema.dart';
 import 'datos/reporte_errores.dart';
 import 'datos/repositorio.dart';
 import 'datos/sesion.dart';
@@ -75,6 +76,8 @@ class AppCamaronMarket extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        // Tema claro / oscuro / como el teléfono (guardado en el teléfono).
+        ChangeNotifierProvider(create: (_) => PreferenciaTema()..cargar()),
         ChangeNotifierProvider(create: (_) => Sesion()..iniciar()),
         ChangeNotifierProvider(create: (c) => Sincronizador(sesion: c.read<Sesion>())..iniciar()),
         Provider(create: (c) => Repositorio(sesion: c.read<Sesion>())),
@@ -133,7 +136,7 @@ class AppCamaronMarket extends StatelessWidget {
         ),
       ],
       child: _GuardiaBloqueo(
-        child: MaterialApp(
+        child: Builder(builder: (context) => MaterialApp(
           title: 'CamaronMarket',
           // Textos propios de Flutter (contador de caracteres, selector de
           // fecha, «Pegar»…) en español.
@@ -141,17 +144,24 @@ class AppCamaronMarket extends StatelessWidget {
           supportedLocales: const [Locale('es', 'EC'), Locale('es')],
           localizationsDelegates: GlobalMaterialLocalizations.delegates,
           debugShowCheckedModeBanner: false,
-          theme: temaCamaronMarket(),
+          theme: temaClaro(),
+          darkTheme: temaOscuro(),
+          themeMode: context.select<PreferenciaTema, ThemeMode>((p) => p.themeMode),
           navigatorKey: claveNavegador,
           navigatorObservers: [ObservadorPantallas()],
           // La pantalla de desbloqueo tapa TODO (también las pantallas
           // abiertas encima de la raíz), sin cerrarlas: al desbloquear se
           // sigue donde se estaba (p. ej. un informe a medio llenar). En
           // modo supervisor, la franja "Viendo como…" queda fija arriba.
-          builder: (context, child) =>
-              _CapaVersion(child: _CapaBloqueo(child: _CapaLegal(child: CapaSupervisor(child: child ?? const SizedBox())))),
+          // Iconos de la barra de estado según el modo (las barras de
+          // arriba ponen los suyos).
+          builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
+            value: Theme.of(context).appBarTheme.systemOverlayStyle ?? SystemUiOverlayStyle.dark,
+            child: _CapaVersion(
+                child: _CapaBloqueo(child: _CapaLegal(child: CapaSupervisor(child: child ?? const SizedBox())))),
+          ),
           home: const _Raiz(),
-        ),
+        )),
       ),
     );
   }

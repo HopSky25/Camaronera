@@ -70,7 +70,7 @@ class _PantallaInformesState extends State<PantallaInformes> {
                 Dato(
                   icono: Icons.how_to_vote_outlined,
                   texto: v.plazoAceptacion == null ? 'Esperando tu decisión' : 'Decidir antes del ${fechaHoraDe(v.plazoAceptacion!)}',
-                  color: Marca.ambar,
+                  color: context.colores.advertenciaTexto,
                 ),
             ],
           );
@@ -118,7 +118,7 @@ class _Detalle extends StatelessWidget {
     final soloLectura = context.select<Sesion, bool>((s) => s.soloLectura);
 
     return RefreshIndicator(
-      color: Marca.brand,
+      color: context.colores.marcaTexto,
       onRefresh: recargar,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
@@ -140,7 +140,7 @@ class _Detalle extends StatelessWidget {
           ]),
           const Rotulo('Resultado'),
           if (!hayInforme)
-            const Tarjeta(child: Text('Todavía no hay datos de campo.', style: TextStyle(color: Marca.tintaSuave)))
+            Tarjeta(child: Text('Todavía no hay datos de campo.', style: TextStyle(color: context.colores.tintaSuave)))
           else if (larva != null)
             SeccionDatos(filas: [
               ('Cantidad verificada', numero(larva['qty_verified'])),
@@ -168,7 +168,7 @@ class _Detalle extends StatelessWidget {
               const SizedBox(height: 10),
               Tarjeta(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('Clasificación por talla', style: TextStyle(fontWeight: FontWeight.w700, color: Marca.navy)),
+                  Text('Clasificación por talla', style: TextStyle(fontWeight: FontWeight.w700, color: context.colores.titulo)),
                   const SizedBox(height: 6),
                   for (final l in lineas.whereType<Map>())
                     Text('Clase ${(l['quality_class'] as String? ?? '').toUpperCase()} · talla ${l['size_code']} · ${libras(l['weight_lb'])} (${porcentaje(l['percent_of_total'])})',
@@ -197,7 +197,7 @@ class _Detalle extends StatelessWidget {
           ] else if (v.puedoDecidir) ...[
             const SizedBox(height: 16),
             BotonAccion(
-              estilo: FilledButton.styleFrom(backgroundColor: Marca.verde),
+              estilo: FilledButton.styleFrom(backgroundColor: context.colores.exito),
               onPressed: () => _decidir(context, 'accept'),
               icono: Icons.check_circle_outline,
               texto: 'Aceptar el informe',
@@ -205,7 +205,7 @@ class _Detalle extends StatelessWidget {
             const SizedBox(height: 10),
             BotonAccion(
               relleno: false,
-              estilo: OutlinedButton.styleFrom(foregroundColor: Marca.rojo, side: const BorderSide(color: Marca.rojo, width: 1.5)),
+              estilo: EstilosBoton.peligro(context),
               onPressed: () => _decidir(context, 'reject'),
               icono: Icons.cancel_outlined,
               texto: 'Rechazar el informe',
@@ -214,7 +214,7 @@ class _Detalle extends StatelessWidget {
             const AvisoWeb(texto: 'La contraoferta de precio se hace desde el portal web.'),
           ] else if (v.esperaAceptacion) ...[
             const SizedBox(height: 10),
-            const Tarjeta(child: Text('Ya diste tu decisión. Falta la otra parte.', style: TextStyle(color: Marca.tintaSuave))),
+            Tarjeta(child: Text('Ya diste tu decisión. Falta la otra parte.', style: TextStyle(color: context.colores.tintaSuave))),
           ],
         ],
       ),
@@ -241,7 +241,7 @@ class _Detalle extends StatelessWidget {
         actions: [
           TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Volver')),
           FilledButton(
-            style: decision == 'reject' ? FilledButton.styleFrom(backgroundColor: Marca.rojo) : null,
+            style: decision == 'reject' ? FilledButton.styleFrom(backgroundColor: context.colores.peligro) : null,
             onPressed: () {
               if (decision == 'reject' && motivo.text.trim().isEmpty) return;
               Navigator.pop(c, true);

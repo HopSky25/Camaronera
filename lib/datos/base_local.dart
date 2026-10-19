@@ -501,8 +501,13 @@ class BaseLocal {
     });
   }
 
+  /// Claves de config que son del teléfono y no de la cuenta: sobreviven al
+  /// cerrar sesión (el tema claro / oscuro).
+  static const configDelTelefono = ['tema'];
+
   /// Borra todo lo guardado en el teléfono (cerrar sesión): tablas y fotos,
-  /// en una sola transacción para no dejar la base a medias.
+  /// en una sola transacción para no dejar la base a medias. Solo se
+  /// conservan las preferencias del teléfono ([configDelTelefono]).
   Future<void> borrarTodo() async {
     final db = await bd;
     await db.transaction((t) async {
@@ -510,7 +515,8 @@ class BaseLocal {
       await t.delete('cola');
       await t.delete('fotos');
       await t.delete('cache_listas');
-      await t.delete('config');
+      await t.delete('config',
+          where: 'clave NOT IN (${List.filled(configDelTelefono.length, '?').join(', ')})', whereArgs: configDelTelefono);
     });
     try {
       final carpeta = await carpetaFotos();

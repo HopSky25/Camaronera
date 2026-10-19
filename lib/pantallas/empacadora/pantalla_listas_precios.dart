@@ -54,7 +54,7 @@ class PantallaListaPrecios extends StatelessWidget {
           final bonos = ((l['bonuses'] as List?) ?? []).whereType<Map>().toList();
           final pago = l['payment'] is Map ? l['payment'] as Map : {};
           return RefreshIndicator(
-            color: Marca.brand,
+            color: context.colores.marcaTexto,
             onRefresh: recargar,
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),

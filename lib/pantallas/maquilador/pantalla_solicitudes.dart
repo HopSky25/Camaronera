@@ -55,7 +55,7 @@ class _PantallaSolicitudesState extends State<PantallaSolicitudes> {
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
-                Expanded(child: Text((s['reference'] ?? '') as String, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Marca.navy))),
+                Expanded(child: Text((s['reference'] ?? '') as String, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: context.colores.titulo))),
                 Insignia(estado: (s['state'] ?? '') as String, texto: estadoSolicitudMaquila(s['state'] as String?)),
               ]),
               const SizedBox(height: 6),
@@ -64,7 +64,7 @@ class _PantallaSolicitudesState extends State<PantallaSolicitudes> {
               const SizedBox(height: 8),
               Dato(icono: Icons.business_outlined, texto: nombreDe(s['client'])),
               Dato(icono: Icons.date_range_outlined, texto: 'Entre ${fecha(s['needed_from'])} y ${fecha(s['needed_to'])}'),
-              if (s['copacker'] is Map) const Dato(icono: Icons.lock_outline, texto: 'Dirigida a tu planta', color: Marca.brand),
+              if (s['copacker'] is Map) Dato(icono: Icons.lock_outline, texto: 'Dirigida a tu planta', color: context.colores.marcaTexto),
               if (s['supplies_notes'] != null) Dato(icono: Icons.inventory_outlined, texto: 'Insumos: ${s['supplies_notes']}'),
               if (s['notes'] != null) Dato(icono: Icons.notes_outlined, texto: '${s['notes']}'),
               if (miOferta != null)
@@ -72,7 +72,7 @@ class _PantallaSolicitudesState extends State<PantallaSolicitudes> {
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
                     'Tu oferta: ${dinero(miOferta['rate_per_lb'])}/lb · ${libras(miOferta['capacity_lb'])} · ${estadoOferta(miOferta['state'] as String?)}',
-                    style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: Marca.brand),
+                    style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: context.colores.marcaTexto),
                   ),
                 ),
               if (abierta && context.read<Sesion>().soloLectura) ...[

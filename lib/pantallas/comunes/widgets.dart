@@ -23,10 +23,10 @@ class SeccionDatos extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(width: 130, child: Text(filas[i].$1, style: const TextStyle(fontSize: 13, color: Marca.tintaSuave))),
+                  SizedBox(width: 130, child: Text(filas[i].$1, style: TextStyle(fontSize: 13, color: context.colores.tintaSuave))),
                   Expanded(
                     child: Text(filas[i].$2, textAlign: TextAlign.right,
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Marca.tinta)),
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: context.colores.tinta)),
                   ),
                 ],
               ),
@@ -45,7 +45,9 @@ class TarjetaResumen extends StatelessWidget {
   final String titulo;
   final String? detalle;
   final VoidCallback? onTap;
-  final Color color;
+
+  /// Color del número y del icono (texto legible); por defecto, el de marca.
+  final Color? color;
   const TarjetaResumen({
     super.key,
     required this.icono,
@@ -53,11 +55,12 @@ class TarjetaResumen extends StatelessWidget {
     required this.titulo,
     this.detalle,
     this.onTap,
-    this.color = Marca.brand,
+    this.color,
   });
 
   @override
   Widget build(BuildContext context) {
+    final color = this.color ?? context.colores.marcaTexto;
     return Tarjeta(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
       onTap: onTap,
@@ -68,16 +71,16 @@ class TarjetaResumen extends StatelessWidget {
           Row(children: [
             Icon(icono, size: 20, color: color),
             const Spacer(),
-            if (onTap != null) const Icon(Icons.chevron_right, size: 18, color: Marca.gris),
+            if (onTap != null) Icon(Icons.chevron_right, size: 18, color: context.colores.tintaTenue),
           ]),
           const SizedBox(height: 8),
           Text(valor, style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: color, height: 1.1)),
           const SizedBox(height: 4),
           Text(titulo, maxLines: 2, overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Marca.navy)),
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: context.colores.titulo)),
           if (detalle != null)
             Text(detalle!, maxLines: 2, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12, color: Marca.tintaSuave)),
+                style: TextStyle(fontSize: 12, color: context.colores.tintaSuave)),
         ],
       ),
     );
@@ -117,17 +120,17 @@ class FilaMenu extends StatelessWidget {
             Container(
               width: 40,
               height: 40,
-              decoration: BoxDecoration(color: Marca.tealClaro, borderRadius: BorderRadius.circular(12)),
-              child: Icon(icono, color: Marca.brand),
+              decoration: BoxDecoration(color: context.colores.marcaSuave, borderRadius: BorderRadius.circular(12)),
+              child: Icon(icono, color: context.colores.marcaTexto),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(titulo, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Marca.navy)),
-                if (subtitulo != null) Text(subtitulo!, style: const TextStyle(fontSize: 12.5, color: Marca.tintaSuave)),
+                Text(titulo, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: context.colores.titulo)),
+                if (subtitulo != null) Text(subtitulo!, style: TextStyle(fontSize: 12.5, color: context.colores.tintaSuave)),
               ]),
             ),
-            const Icon(Icons.chevron_right, color: Marca.gris),
+            Icon(Icons.chevron_right, color: context.colores.tintaTenue),
           ]),
         ),
       );
@@ -138,31 +141,33 @@ class AvisoWeb extends StatelessWidget {
   final String texto;
   const AvisoWeb({super.key, this.texto = 'Esto se hace desde el portal web.'});
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: Marca.fondoSuave, borderRadius: BorderRadius.circular(12)),
-        child: Row(children: [
-          const Icon(Icons.language, size: 18, color: Marca.tintaSuave),
-          const SizedBox(width: 10),
-          Expanded(child: Text(texto, style: const TextStyle(fontSize: 13, color: Marca.tintaSuave))),
-        ]),
-      );
+  Widget build(BuildContext context) {
+    final c = context.colores;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: c.fondoAlt,
+        borderRadius: BorderRadius.circular(Radios.campo),
+        border: Border.all(color: c.borde),
+      ),
+      child: Row(children: [
+        Icon(Icons.language, size: 18, color: c.tintaSuave),
+        const SizedBox(width: 10),
+        Expanded(child: Text(texto, style: TextStyle(fontSize: 13, color: c.tintaSuave))),
+      ]),
+    );
+  }
 }
 
 /// Reemplaza a las acciones de escritura en modo supervisor.
 class AvisoSoloLectura extends StatelessWidget {
   const AvisoSoloLectura({super.key});
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: const Color(0xFFFDF1E0), borderRadius: BorderRadius.circular(12)),
-        child: const Row(children: [
-          Icon(Icons.visibility_outlined, size: 18, color: Marca.ambar),
-          SizedBox(width: 10),
-          Expanded(
-            child: Text(textoSoloLectura, style: TextStyle(fontSize: 13.5, color: Marca.ambar, fontWeight: FontWeight.w700)),
-          ),
-        ]),
+  Widget build(BuildContext context) => const CajaAviso(
+        tipo: TipoAviso.advertencia,
+        icono: Icons.visibility_outlined,
+        texto: textoSoloLectura,
+        peso: FontWeight.w700,
       );
 }
 
@@ -171,22 +176,15 @@ class AvisoCache extends StatelessWidget {
   final DateTime? guardadoEn;
   const AvisoCache({super.key, this.guardadoEn});
   @override
-  Widget build(BuildContext context) => Container(
-        width: double.infinity,
-        color: const Color(0xFFFDF1E0),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Row(children: [
-          const Icon(Icons.cloud_off_outlined, size: 18, color: Marca.ambar),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              guardadoEn == null
-                  ? 'Sin internet. Datos de la última sincronización.'
-                  : 'Sin internet. Datos de la última sincronización (${DateFormat('dd/MM HH:mm').format(guardadoEn!)}).',
-              style: const TextStyle(fontSize: 13, color: Marca.ambar, fontWeight: FontWeight.w600),
-            ),
-          ),
-        ]),
+  Widget build(BuildContext context) => CajaAviso(
+        tipo: TipoAviso.advertencia,
+        icono: Icons.cloud_off_outlined,
+        franja: true,
+        tamTexto: 13,
+        peso: FontWeight.w600,
+        texto: guardadoEn == null
+            ? 'Sin internet. Datos de la última sincronización.'
+            : 'Sin internet. Datos de la última sincronización (${DateFormat('dd/MM HH:mm').format(guardadoEn!)}).',
       );
 }
 
@@ -195,22 +193,33 @@ class CajaError extends StatelessWidget {
   final VoidCallback? reintentar;
   const CajaError({super.key, required this.texto, this.reintentar});
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: const Color(0xFFFDEAEA), borderRadius: BorderRadius.circular(12)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            const Icon(Icons.error_outline, color: Marca.rojo),
-            const SizedBox(width: 10),
-            Expanded(child: Text(texto, style: const TextStyle(color: Marca.rojo))),
-          ]),
-          if (reintentar != null)
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(onPressed: reintentar, child: const Text('Reintentar')),
-            ),
+  Widget build(BuildContext context) {
+    final e = context.colores.aviso(TipoAviso.peligro);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: e.fondo,
+        borderRadius: BorderRadius.circular(Radios.campo),
+        border: Border.all(color: e.borde),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(Icons.error_outline, color: e.texto),
+          const SizedBox(width: 10),
+          Expanded(child: Text(texto, style: TextStyle(color: e.texto))),
         ]),
-      );
+        if (reintentar != null)
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              style: TextButton.styleFrom(foregroundColor: e.texto),
+              onPressed: reintentar,
+              child: const Text('Reintentar'),
+            ),
+          ),
+      ]),
+    );
+  }
 }
 
 class VacioLista extends StatelessWidget {
@@ -220,12 +229,12 @@ class VacioLista extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListView(children: [
         const SizedBox(height: 90),
-        Icon(icono, size: 56, color: Marca.gris.withValues(alpha: 0.6)),
+        Icon(icono, size: 56, color: context.colores.tintaTenue.withValues(alpha: 0.6)),
         const SizedBox(height: 12),
         Center(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Text(texto, textAlign: TextAlign.center, style: const TextStyle(color: Marca.tintaSuave)),
+            child: Text(texto, textAlign: TextAlign.center, style: TextStyle(color: context.colores.tintaSuave)),
           ),
         ),
       ]);
@@ -245,18 +254,20 @@ class BarraEstado extends StatelessWidget {
             (sinc.ultimaSincronizacion == null
                 ? 'Todavía no se ha sincronizado'
                 : 'Sincronizado el ${DateFormat('dd/MM').format(sinc.ultimaSincronizacion!)} a las ${DateFormat('HH:mm').format(sinc.ultimaSincronizacion!)}');
+    final e = context.colores.aviso(sinRed ? TipoAviso.advertencia : TipoAviso.info);
     return Container(
       width: double.infinity,
-      color: sinRed ? const Color(0xFFFDF1E0) : Marca.tealClaro,
+      decoration: BoxDecoration(color: e.fondo, border: Border(bottom: BorderSide(color: e.borde))),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
       child: Row(children: [
-        Icon(sinRed ? Icons.cloud_off_outlined : Icons.cloud_done_outlined, size: 18, color: sinRed ? Marca.ambar : Marca.brand),
+        Icon(sinRed ? Icons.cloud_off_outlined : Icons.cloud_done_outlined, size: 18, color: e.texto),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(texto, style: TextStyle(fontSize: 13, color: sinRed ? Marca.ambar : Marca.brand, fontWeight: FontWeight.w600)),
+          child: Text(texto, style: TextStyle(fontSize: 13, color: e.texto, fontWeight: FontWeight.w600)),
         ),
         if (sinc.pendientes > 0)
-          Text('${sinc.pendientes} por enviar', style: const TextStyle(fontSize: 12.5, color: Marca.ambar, fontWeight: FontWeight.w700)),
+          Text('${sinc.pendientes} por enviar',
+              style: TextStyle(fontSize: 12.5, color: context.colores.aviso(TipoAviso.advertencia).texto, fontWeight: FontWeight.w700)),
       ]),
     );
   }
@@ -272,11 +283,11 @@ class Dato extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(top: 4),
         child: Row(children: [
-          Icon(icono, size: 16, color: Marca.gris),
+          Icon(icono, size: 16, color: context.colores.tintaTenue),
           const SizedBox(width: 8),
           Expanded(
             child: Text(texto, maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 13.5, color: color ?? Marca.tintaSuave)),
+                style: TextStyle(fontSize: 13.5, color: color ?? context.colores.tintaSuave)),
           ),
         ]),
       );
@@ -310,7 +321,7 @@ class TarjetaRegistro extends StatelessWidget {
             Row(children: [
               Expanded(
                 child: Text(titulo, maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Marca.navy)),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: context.colores.titulo)),
               ),
               const SizedBox(width: 8),
               Insignia(estado: estado, texto: estadoTexto),
@@ -318,7 +329,7 @@ class TarjetaRegistro extends StatelessWidget {
             if (subtitulo != null) ...[
               const SizedBox(height: 6),
               Text(subtitulo!, maxLines: 2, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Marca.tinta)),
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: context.colores.tinta)),
             ],
             if (datos.isNotEmpty) const SizedBox(height: 8),
             ...datos,
@@ -392,7 +403,7 @@ void avisarResultado(BuildContext context, ResultadoEnvio r, {required String he
               : 'Guardado en el teléfono; se enviará cuando haya internet.';
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
     content: Text(texto),
-    backgroundColor: r.error != null ? Marca.rojo : null,
+    backgroundColor: r.error != null ? context.colores.peligro : null,
     duration: Duration(seconds: r.error != null ? 6 : 3),
   ));
 }

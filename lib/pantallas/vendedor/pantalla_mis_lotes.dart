@@ -107,7 +107,7 @@ class PantallaLote extends StatelessWidget {
           final p = r.datos.first;
           final certificados = (p['certificates'] as List?) ?? [];
           return RefreshIndicator(
-            color: Marca.brand,
+            color: context.colores.marcaTexto,
             onRefresh: recargar,
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),

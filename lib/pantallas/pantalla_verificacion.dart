@@ -63,8 +63,8 @@ class PantallaVerificacion extends StatelessWidget {
           ],
           const Rotulo('Informe en el servidor'),
           if (!hayInforme)
-            const Tarjeta(
-              child: Text('Todavía no se ha cargado ningún dato de campo.', style: TextStyle(color: Marca.tintaSuave)),
+            Tarjeta(
+              child: Text('Todavía no se ha cargado ningún dato de campo.', style: TextStyle(color: context.colores.tintaSuave)),
             )
           else if (v.esLarva)
             SeccionDatos(filas: [
@@ -100,13 +100,13 @@ class PantallaVerificacion extends StatelessWidget {
             const SizedBox(height: 10),
           ],
           if (v.esperaTecnico && !v.soyVerificadora)
-            const Tarjeta(
+            Tarjeta(
               child: Text('Todavía no tiene técnico asignado. Cuando la verificadora lo asigne podrás iniciar el trabajo de campo.',
-                  style: TextStyle(color: Marca.tintaSuave)),
+                  style: TextStyle(color: context.colores.tintaSuave)),
             ),
           if (v.esperaTecnico && v.soyVerificadora)
-            const Tarjeta(
-              child: Text('Asigna un técnico para poder iniciar el trabajo de campo.', style: TextStyle(color: Marca.tintaSuave)),
+            Tarjeta(
+              child: Text('Asigna un técnico para poder iniciar el trabajo de campo.', style: TextStyle(color: context.colores.tintaSuave)),
             ),
           if (v.esperaTecnico) const SizedBox(height: 10),
           if (v.puedeIniciarCampo) ...[
@@ -139,7 +139,7 @@ class PantallaVerificacion extends StatelessWidget {
           ],
           if (!v.cerrada) ...[
             FilledButton.icon(
-              style: FilledButton.styleFrom(backgroundColor: v.enCampo ? Marca.brand : Marca.navy),
+              style: FilledButton.styleFrom(backgroundColor: v.enCampo ? context.colores.acento : context.colores.marca),
               onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PantallaInforme(id: v.id))),
               icon: const Icon(Icons.edit_note_rounded),
               label: const Text('Informe de campo'),
@@ -154,16 +154,16 @@ class PantallaVerificacion extends StatelessWidget {
           ],
           if (v.enCampo || v.estado == 'done')
             FilledButton.icon(
-              style: FilledButton.styleFrom(backgroundColor: Marca.verde),
+              style: FilledButton.styleFrom(backgroundColor: context.colores.exito),
               onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PantallaVeredicto(id: v.id))),
               icon: const Icon(Icons.gavel_rounded),
               label: const Text('Dar veredicto'),
             ),
           ],
           if (v.cerrada)
-            const Tarjeta(
+            Tarjeta(
               child: Text('Esta verificación está cerrada. Puedes consultarla, pero ya no se edita.',
-                  style: TextStyle(color: Marca.tintaSuave)),
+                  style: TextStyle(color: context.colores.tintaSuave)),
             ),
         ],
       ),

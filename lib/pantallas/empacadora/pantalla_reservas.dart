@@ -71,7 +71,7 @@ class PantallaReserva extends StatelessWidget {
           final liq = m['settlement'] is Map ? m['settlement'] as Map : null;
           final puedeComprar = m['my_role'] == 'packer' && m['state'] == 'honored' && m['product'] is Map && m['transaction'] == null;
           return RefreshIndicator(
-            color: Marca.brand,
+            color: context.colores.marcaTexto,
             onRefresh: recargar,
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),

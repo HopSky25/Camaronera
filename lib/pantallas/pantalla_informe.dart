@@ -151,7 +151,7 @@ class _PantallaInformeState extends State<PantallaInforme> {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(texto), backgroundColor: error ? Marca.rojo : null));
+      ..showSnackBar(SnackBar(content: Text(texto), backgroundColor: error ? context.colores.peligro : null));
   }
 
   /// Lleva la pantalla al primer campo con error (el de más arriba).
@@ -368,7 +368,7 @@ class _PantallaInformeState extends State<PantallaInforme> {
                     inf.latitud == null || inf.longitud == null
                         ? 'Sin ubicación todavía'
                         : '${inf.latitud!.toStringAsFixed(5)}, ${inf.longitud!.toStringAsFixed(5)}',
-                    style: const TextStyle(color: Marca.tintaSuave)),
+                    style: TextStyle(color: context.colores.tintaSuave)),
               ),
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48)),

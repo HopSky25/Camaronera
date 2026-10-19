@@ -74,7 +74,7 @@ class _PantallaDesbloqueoState extends State<PantallaDesbloqueo> {
             ),
             if (_error != null) ...[const SizedBox(height: 14), CajaError(texto: _error!)],
             const SizedBox(height: 24),
-            const Text(textoHuellaNoSale, textAlign: TextAlign.center, style: TextStyle(color: Marca.tintaSuave, fontSize: 13)),
+            Text(textoHuellaNoSale, textAlign: TextAlign.center, style: TextStyle(color: context.colores.tintaSuave, fontSize: 13)),
             const SizedBox(height: 16),
             TextButton(onPressed: _ocupado ? null : () => _salir(context), child: const Text('Cerrar sesión')),
           ]),

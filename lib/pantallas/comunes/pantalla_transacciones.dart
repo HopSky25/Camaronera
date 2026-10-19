@@ -128,7 +128,7 @@ class _DetalleTransaccion extends StatelessWidget {
     final factura = t['seller_invoice'] is Map ? t['seller_invoice'] as Map : null;
 
     return RefreshIndicator(
-      color: Marca.brand,
+      color: context.colores.marcaTexto,
       onRefresh: recargar,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
@@ -156,12 +156,12 @@ class _DetalleTransaccion extends StatelessWidget {
               esComprador
                   ? 'La compra se confirma sola cuando tú y el vendedor aceptan el informe de verificación.'
                   : 'La venta se confirma sola cuando tú y el comprador aceptan el informe de verificación.',
-              style: const TextStyle(fontSize: 12.5, color: Marca.tintaSuave),
+              style: TextStyle(fontSize: 12.5, color: context.colores.tintaSuave),
             ),
           ],
           const Rotulo('Trazabilidad'),
           if (traza == null)
-            const Tarjeta(child: Text('La trazabilidad estará disponible cuando la compra avance.', style: TextStyle(color: Marca.tintaSuave)))
+            Tarjeta(child: Text('La trazabilidad estará disponible cuando la compra avance.', style: TextStyle(color: context.colores.tintaSuave)))
           else ...[
             Tarjeta(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -173,7 +173,7 @@ class _DetalleTransaccion extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 6),
                     child: Row(children: [
-                      const Icon(Icons.arrow_right_alt, size: 18, color: Marca.gris),
+                      Icon(Icons.arrow_right_alt, size: 18, color: context.colores.tintaTenue),
                       const SizedBox(width: 6),
                       Expanded(child: Text('${e['role']}: ${e['company']} (${e['province'] ?? '—'})', style: const TextStyle(fontSize: 14))),
                     ]),
@@ -182,14 +182,14 @@ class _DetalleTransaccion extends StatelessWidget {
                   const Divider(),
                   Text(
                     'Compra: ${fecha(fechas['purchase'])} · Cosecha: ${fecha(fechas['harvest'])} · Proceso: ${fecha(fechas['process'])} · Entrega: ${fecha(fechas['delivery'])}',
-                    style: const TextStyle(fontSize: 13, color: Marca.tintaSuave),
+                    style: TextStyle(fontSize: 13, color: context.colores.tintaSuave),
                   ),
                 ],
                 if (verif != null) ...[
                   const Divider(),
                   Text(
                     'Verificación: ${verif['result'] ?? '—'} · ${verif['verifier'] ?? ''} · rendimiento ${porcentaje(verif['yield_pct'])}',
-                    style: const TextStyle(fontSize: 13, color: Marca.tintaSuave),
+                    style: TextStyle(fontSize: 13, color: context.colores.tintaSuave),
                   ),
                 ],
               ]),

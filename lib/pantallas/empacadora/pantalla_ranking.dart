@@ -44,7 +44,7 @@ class _PantallaRankingState extends State<PantallaRanking> {
           final datos = r.datos.first;
           final filas = ((datos['rows'] as List?) ?? []).whereType<Map>().toList();
           return RefreshIndicator(
-            color: Marca.brand,
+            color: context.colores.marcaTexto,
             onRefresh: recargar,
             child: filas.isEmpty
                 ? const VacioLista(texto: 'Todavía no hay lotes verificados de tus proveedores.', icono: Icons.emoji_events_outlined)
@@ -56,7 +56,7 @@ class _PantallaRankingState extends State<PantallaRanking> {
                       if (i == 0) {
                         return Text(
                           '${datos['suppliers'] ?? filas.length} proveedores · ${datos['lots'] ?? 0} lotes · muestra mínima ${datos['threshold'] ?? '—'} lotes',
-                          style: const TextStyle(fontSize: 13, color: Marca.tintaSuave),
+                          style: TextStyle(fontSize: 13, color: context.colores.tintaSuave),
                         );
                       }
                       final f = filas[i - 1];
@@ -64,12 +64,12 @@ class _PantallaRankingState extends State<PantallaRanking> {
                       return Tarjeta(
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                           Row(children: [
-                            CircleAvatar(radius: 15, backgroundColor: Marca.tealClaro, child: Text('$i', style: const TextStyle(fontWeight: FontWeight.w800, color: Marca.brand, fontSize: 13))),
+                            CircleAvatar(radius: 15, backgroundColor: context.colores.marcaSuave, child: Text('$i', style: TextStyle(fontWeight: FontWeight.w800, color: context.colores.marcaTexto, fontSize: 13))),
                             const SizedBox(width: 12),
-                            Expanded(child: Text(nombreDe(f['supplier']), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Marca.navy))),
+                            Expanded(child: Text(nombreDe(f['supplier']), style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: context.colores.titulo))),
                             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                              Text(numero(f['puntaje']), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Marca.brand)),
-                              const Text('puntaje', style: TextStyle(fontSize: 11, color: Marca.tintaSuave)),
+                              Text(numero(f['puntaje']), style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: context.colores.marcaTexto)),
+                              Text('puntaje', style: TextStyle(fontSize: 11, color: context.colores.tintaSuave)),
                             ]),
                           ]),
                           const SizedBox(height: 10),
@@ -84,7 +84,7 @@ class _PantallaRankingState extends State<PantallaRanking> {
                           ]),
                           if (!suficiente) ...[
                             const SizedBox(height: 6),
-                            const Text('Muestra insuficiente todavía', style: TextStyle(fontSize: 12, color: Marca.ambar, fontWeight: FontWeight.w600)),
+                            Text('Muestra insuficiente todavía', style: TextStyle(fontSize: 12, color: context.colores.advertenciaTexto, fontWeight: FontWeight.w600)),
                           ],
                         ]),
                       );
@@ -103,7 +103,7 @@ class _Cifra extends StatelessWidget {
   const _Cifra(this.etiqueta, this.valor);
   @override
   Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-        Text(etiqueta, style: const TextStyle(fontSize: 11, color: Marca.tintaSuave)),
-        Text(valor, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Marca.tinta)),
+        Text(etiqueta, style: TextStyle(fontSize: 11, color: context.colores.tintaSuave)),
+        Text(valor, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: context.colores.tinta)),
       ]);
 }

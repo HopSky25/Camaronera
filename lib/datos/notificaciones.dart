@@ -41,7 +41,7 @@ class NotificacionesLocales implements Notificador {
       importance: Importance.high,
       priority: Priority.high,
       icon: 'ic_notificacion',
-      color: Color(0xFF0D7C88),
+      color: Color(0xFF0E8EA0),
       // En la pantalla de bloqueo solo "CamaronMarket": sin el texto.
       visibility: NotificationVisibility.private,
     ),

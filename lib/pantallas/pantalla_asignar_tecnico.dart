@@ -112,15 +112,15 @@ class _PantallaAsignarTecnicoState extends State<PantallaAsignarTecnico> {
           ],
           const Rotulo('Técnicos de la empresa'),
           if (_avisoLista != null) ...[
-            Text(_avisoLista!, style: const TextStyle(fontSize: 13, color: Marca.ambar)),
+            Text(_avisoLista!, style: TextStyle(fontSize: 13, color: context.colores.advertenciaTexto)),
             const SizedBox(height: 8),
           ],
           if (_cargando)
             const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()))
           else if (_tecnicos.isEmpty)
-            const Tarjeta(
+            Tarjeta(
               child: Text('No hay técnicos disponibles. Pega abajo el identificador del técnico '
-                  '(lo ves en el portal, en Mi equipo).', style: TextStyle(color: Marca.tintaSuave)),
+                  '(lo ves en el portal, en Mi equipo).', style: TextStyle(color: context.colores.tintaSuave)),
             )
           else
             Tarjeta(

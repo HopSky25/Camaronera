@@ -215,7 +215,7 @@ SHRIMP_ROUTE_PERMISSIONS = {
     "/verifier/technicians/<tech_ref>/edit": ("manage_account", "active"),
     "/marketplace/buy/<product_ref>/verify": ("buy", "active"),
     "/marketplace/purchases/<tx_ref>/complete": ("buy", "any"),
-    "/marketplace/purchases/<tx_ref>/verifier/assign": ("buy", "any"),
+    "/marketplace/purchases/<tx_ref>/verifier/assign": (("buy", "sell"), "any"),
     "/marketplace/verifications/<ref>/accept": ("buy", "any"),
     "/marketplace/verifications/<ref>/reject": ("buy", "any"),
     "/marketplace/verifications/<ref>/counter-offer": ("buy", "any"),

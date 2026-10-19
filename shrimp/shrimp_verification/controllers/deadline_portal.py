@@ -24,7 +24,9 @@ class ShrimpVerificationDeadlinePortal(http.Controller):
     def marketplace_switch_verifier(self, tx_ref, **post):
         partner = current_partner()
         tx = request.env["shrimp.transaction"].sudo().resolve_ref(tx_ref)
-        if not tx or not partner or tx.buyer_partner_id.id != partner.id:
+        # El comprador; en una segunda opinión, el vendedor que la pidió (la
+        # plantilla le ofrece el formulario y el modelo lo vuelve a comprobar).
+        if not tx or not partner or partner.id not in (tx.buyer_partner_id.id, tx.seller_partner_id.id):
             raise Forbidden()
         volver = _TxPortal._reception_back(
             post, "/marketplace/purchases/%s/traceability#verificacion-plazo" % tx.uuid_ref)

@@ -8,7 +8,7 @@ import 'dart:io' show Platform;
 /// de pubspec.yaml (sin el `+build`); una prueba lo comprueba. Es una
 /// constante (y no package_info_plus) para que la lean igual las pruebas y
 /// la tarea en segundo plano.
-const versionApp = '1.2.1';
+const versionApp = '1.3.0';
 
 /// `android` o `ios` (contrato C0). En pruebas (escritorio) vale `android`.
 String get plataformaApp {

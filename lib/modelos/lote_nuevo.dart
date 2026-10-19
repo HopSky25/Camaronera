@@ -99,6 +99,51 @@ class LoteNuevo {
   String cantidad = '';
   String precio = '';
 
+  /// Etapa con la que llegó el lote al editarlo: como en el portal, un lote
+  /// antiguo conserva la suya aunque el perfil ya no la publique, mientras
+  /// no se cambie.
+  String? etapaOriginal;
+
+  LoteNuevo();
+
+  /// El formulario lleno con un lote propio (`GET /products/{id}`), para
+  /// editarlo. Las relaciones llegan como `{id, name}`: la etapa y la
+  /// unidad se buscan en sus catálogos (con el código y el tipo).
+  factory LoteNuevo.desdeProducto(
+    Map<String, dynamic> p, {
+    List<Map<String, dynamic>> estadios = const [],
+    List<Map<String, dynamic>> unidades = const [],
+  }) {
+    Map<String, dynamic>? delCatalogo(dynamic ref, List<Map<String, dynamic>> catalogo) {
+      final id = idDe(ref);
+      if (id == null) return null;
+      return catalogo.where((c) => c['id'] == id).firstOrNull ?? Map<String, dynamic>.from(ref as Map);
+    }
+
+    String texto(dynamic v) => v is String ? v : '';
+    final precio = p['price'];
+    final l = LoteNuevo()
+      ..nombre = texto(p['name'])
+      ..codigoLote = texto(p['batch_code'])
+      ..especieId = idDe(p['species'])
+      ..estadio = delCatalogo(p['stage'], estadios)
+      ..geneticaId = idDe(p['genetics_line'])
+      ..supervivencia = textoNumero(p['survival_rate'])
+      ..tamanoMg = textoNumero(p['avg_size_mg'])
+      ..sanidad = texto(p['health_status'])
+      ..provincia = p['location'] is String && (p['location'] as String).isNotEmpty ? p['location'] as String : null
+      ..fechaEntrega = p['expected_delivery_date'] is String ? DateTime.tryParse(p['expected_delivery_date'] as String) : null
+      ..instalacionId = idDe(p['origin_facility'])
+      ..piscinaId = idDe(p['origin_pond'])
+      ..presentacion = p['presentation'] is String ? p['presentation'] as String : null
+      ..tallaId = idDe(p['size_grade'])
+      ..unidad = delCatalogo(p['uom'], unidades)
+      ..cantidad = textoNumero(p['initial_qty'])
+      ..precio = textoNumero(precio is Map ? precio['amount'] : precio);
+    l.etapaOriginal = idDe(l.estadio);
+    return l;
+  }
+
   String? get tipo => estadio == null ? null : tipoDeEstadio(estadio!);
   bool get esCamaron => tipo == 'camaron';
 
@@ -110,7 +155,7 @@ class LoteNuevo {
     if (nombre.trim().isEmpty) e['nombre'] = 'Escribe el nombre del producto.';
     if (estadio == null) {
       e['estadio'] = 'Elige la etapa del lote.';
-    } else if (!tiposQuePublica(perfil).contains(tipo)) {
+    } else if (!tiposQuePublica(perfil).contains(tipo) && idDe(estadio) != etapaOriginal) {
       e['estadio'] = 'Tu perfil no publica ${nombreTipo(tipo!).toLowerCase()}.';
     }
     final qty = numeroEscrito(cantidad);
@@ -163,6 +208,14 @@ class LoteNuevo {
   }
 }
 
+/// Un número de la API como texto para un campo del formulario: sin «.0»
+/// de más (1500.0 → «1500») y vacío si no hay valor.
+String textoNumero(dynamic v) {
+  if (v is! num) return '';
+  if (v == v.roundToDouble()) return v.toInt().toString();
+  return v.toString();
+}
+
 /// Qué le falta a un lote (tal como lo devuelve `GET /products/{id}`) para
 /// publicarse. Vacío = se puede publicar. El lote trae la etapa como
 /// `{id, name}`: con el catálogo de [estadios] se sabe si es engorde (sin
@@ -187,6 +240,9 @@ List<String> faltantesParaPublicar(Map<String, dynamic> p, {List<Map<String, dyn
 /// `errors[].field` de un 422).
 const _campoDeApi = {
   'name': 'nombre',
+  'species': 'especie',
+  'genetics_line': 'genetica',
+  'expected_delivery_date': 'fechaEntrega',
   'stage': 'estadio',
   'stage_id': 'estadio',
   'initial_qty': 'cantidad',
@@ -200,6 +256,9 @@ const _campoDeApi = {
   'uom': 'unidad',
   'batch_code': 'codigoLote',
 };
+
+/// Campo del formulario de un campo de la API (o nulo si no tiene).
+String? campoDelFormulario(String campoApi) => _campoDeApi[campoApi];
 
 /// Errores por campo de un 422 del servidor, con las claves del formulario.
 Map<String, String> erroresDeCampo(ErrorApi e) {

@@ -53,6 +53,9 @@ final _rutasSensibles = <String, List<RegExp>>{
       r'/purchases',
       // Publicar un lote (shrimp_api 19.0.1.16.0).
       r'/products/[^/:]+[:/]publish',
+      // Precio, cantidad o unidad de un lote publicado y reactivar uno
+      // retirado (shrimp_api 19.0.1.17.0).
+      r'/products/[^/:]+[:/](update-terms|unarchive)',
       r'/dispatches/[^/:]+/arrival',
       r'/transactions/[^/:]+[:/]complete',
       r'/harvest/commitments/[^/:]+[:/]buy',

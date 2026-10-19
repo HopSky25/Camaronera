@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:http/http.dart' as http;
 
 import '../seguridad/firmador.dart';
@@ -257,6 +259,24 @@ class ApiCliente {
 
   Future<Map<String, dynamic>> patch(String ruta, Map<String, dynamic> cuerpo, {required String idempotencia, String? rol}) =>
       _enviar(() => _http.patch(_uri(ruta), headers: _cabeceras(idempotencia: idempotencia, rol: rol), body: jsonEncode(cuerpo)));
+
+  Future<Map<String, dynamic>> delete(String ruta, {String? rol}) =>
+      _enviar(() => _http.delete(_uri(ruta), headers: _cabeceras(rol: rol)));
+
+  /// Un archivo (foto de un lote): los bytes tal cual. Los errores llegan
+  /// como siempre ([ErrorApi], [SinConexion]).
+  Future<Uint8List> bytes(String ruta, {Map<String, String>? params}) async {
+    http.Response? resp;
+    await _enviar(() async {
+      final r = await _http.get(_uri(ruta, params), headers: {..._cabeceras(), 'Accept': '*/*'});
+      if (r.statusCode >= 200 && r.statusCode < 300) {
+        resp = r;
+        return http.Response('{}', 200);
+      }
+      return r;
+    });
+    return resp!.bodyBytes;
+  }
 
   /// Envía una operación de la cola con su cuerpo YA SERIALIZADO: los bytes
   /// UTF-8 de [cuerpoSerializado] son exactamente los que se firmaron (no se

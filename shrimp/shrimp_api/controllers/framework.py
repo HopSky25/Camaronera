@@ -730,6 +730,18 @@ API_ROUTE_PERMISSIONS = {
     ("POST", "/verifications/{id}:verdict"): ("approve", "any"),
     ("POST", "/verifications/{id}:respond"): ("approve", "any"),
     ("POST", "/verifications/{id}:support-technicians"): ("approve", "any"),
+    # App móvil: fotos de campo (como el informe) y compra directa (como
+    # «Comprar» en el portal).
+    ("POST", "/verifications/{id}/photos"): ("approve", "any"),
+    ("POST", "/purchases"): ("buy", "active"),
+    # Lo de cada persona en la app: su sesión, sus teléfonos y sus avisos.
+    # «Actuar como» es del supervisor (usuario interno, nunca subusuario).
+    ("POST", "/auth/logout"): ("none", "active"),
+    ("POST", "/me/devices"): ("none", "active"),
+    ("POST", "/me/devices/{id}:revoke"): ("none", "active"),
+    ("POST", "/me/notifications/{id}:read"): ("none", "active"),
+    ("POST", "/me/notifications:read-all"): ("none", "active"),
+    ("POST", "/supervisor/act-as"): ("none", "active"),
     ("PATCH", "/verifications/{id}/declared-report"): (("buy", "sell"), "any"),
     ("POST", "/verifications/{id}:declare"): (("buy", "sell"), "any"),
     ("PATCH", "/dispatches/{id}"): ("sell", "any"),

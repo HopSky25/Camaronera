@@ -9,10 +9,10 @@
          las escrituras siguen yendo por los métodos de negocio, en sudo, tras
          comprobar la propiedad (igual que los controladores del portal).
 
-         El dominio es siempre user.partner_id, el mismo criterio que el resto
-         de reglas del proyecto (no commercial_partner_id): los técnicos de
-         campo son contactos hijos de su empresa verificadora y NO deben ver lo
-         que ve la empresa.
+         El dominio es siempre el socio por el que actúa el usuario
+         (user.shrimp_actor_partner_id: un subusuario actúa en nombre de su
+         empresa), no commercial_partner_id: los técnicos de campo actúan con
+         su propio contacto y NO deben ver lo que ve la empresa.
          ================================================================= -->
     <record id="rule_api_key_portal_own" model="ir.rule">
         <field name="name">Claves de API: solo las propias (portal)</field>
@@ -93,7 +93,7 @@
         <field name="perm_write" eval="False"/>
         <field name="perm_create" eval="False"/>
         <field name="perm_unlink" eval="False"/>
-        <field name="domain_force">[('partner_id', '=', user.partner_id.id)]</field>
+        <field name="domain_force">[('partner_id', '=', user.shrimp_actor_partner_id.id)]</field>
     </record>
 
     <record id="rule_webhook_sub_portal_own" model="ir.rule">

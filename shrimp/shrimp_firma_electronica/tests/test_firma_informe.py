@@ -269,7 +269,7 @@ class TestFirmaInforme(HttpCase):
         self._nada_guardado()
         # Por HTTP: el comprador recibe 403 en el formulario y en el POST.
         self.authenticate("cam.secfir", CLAVE)
-        ruta = "/verifier/verifications/%s/firmar" % self.v.uuid_ref
+        ruta = "/verifier/verifications/%s/sign" % self.v.uuid_ref
         self.assertEqual(self.url_open(ruta).status_code, 403)
         pagina = self.url_open("/marketplace/verifications/%s/acceptance" % self.v.uuid_ref).text
         r = self.url_open(ruta, data={"csrf_token": csrf_de(pagina) or "x",
@@ -277,7 +277,7 @@ class TestFirmaInforme(HttpCase):
                           files={"certificado": ("firma.p12", self.p12, "application/x-pkcs12")})
         self.assertEqual(r.status_code, 403)
         self.assertEqual(self.url_open(
-            "/verifier/verifications/%s/informe.pdf" % self.v.uuid_ref).status_code, 403)
+            "/verifier/verifications/%s/report/pdf" % self.v.uuid_ref).status_code, 403)
         self._nada_guardado()
 
     def test_segunda_firma_rechazada_y_reapertura_archiva(self):
@@ -323,8 +323,8 @@ class TestFirmaInforme(HttpCase):
         self.assertEqual(hashlib.sha256(r.content).hexdigest().upper(), firma.signed_pdf_sha256)
         # Tokens inventados o por id: 404.
         for falso in ("A" * 43, "x", str(self.v.id), firma.token[:-1] + ("B" if firma.token[-1] != "B" else "C")):
-            self.assertEqual(self.url_open("/verificacion/firma/%s" % falso).status_code, 404)
-            self.assertEqual(self.url_open("/verificacion/firma/%s/pdf" % falso).status_code, 404)
+            self.assertEqual(self.url_open("/signature/%s" % falso).status_code, 404)
+            self.assertEqual(self.url_open("/signature/%s/pdf" % falso).status_code, 404)
 
     # ------------------------------------------------------------------
     # Firma obligatoria
@@ -441,7 +441,7 @@ class TestFirmaInforme(HttpCase):
             self.authenticate("tec.fir", CLAVE)
             detalle = self.url_open("/verifier/verifications/%s" % self.v.uuid_ref).text
             self.assertIn("Firmar informe con firma electrónica", detalle)
-            ruta = "/verifier/verifications/%s/firmar" % self.v.uuid_ref
+            ruta = "/verifier/verifications/%s/sign" % self.v.uuid_ref
             pagina = self.url_open(ruta)
             self.assertEqual(pagina.status_code, 200)
             token = csrf_de(pagina.text)

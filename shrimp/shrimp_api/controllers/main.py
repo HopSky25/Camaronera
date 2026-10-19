@@ -486,6 +486,7 @@ class ShrimpApiController(http.Controller):
         ctx.enforce_account_gate()
         # Permisos del subusuario (CR-12): la misma matriz que el portal.
         ctx.enforce_member_permission()
+        self._apply_request_role(ctx)
 
         if method == "POST" or (sig and sig["idempotency_key"]):
             # Un PATCH firmado con Idempotency-Key también guarda su respuesta:
@@ -495,6 +496,23 @@ class ShrimpApiController(http.Controller):
         if sig:
             return self._run_signed(route, ctx, pparams, sig, headers)
         return self._render(self._run(route, ctx, pparams), headers)
+
+    def _apply_request_role(self, ctx):
+        """El perfil de ESTA petición (X-Shrimp-Role, ?acting_role= o el
+        fijado en la clave; ya validado por ApiCtx.role) llega a las reglas de
+        acceso por el contexto (``shrimp_role`` en ir.rule), sin cambiar el
+        perfil activo guardado del usuario: la app trabaja como maquilador sin
+        mover el selector del portal. Si el perfil pedido no vale, no se toca
+        nada: lo rechaza el handler que lo use."""
+        try:
+            role = ctx.role
+        except ApiError:
+            return
+        if not role or request.env.context.get("shrimp_acting_role") == role:
+            return
+        request.update_env(context=dict(request.env.context, shrimp_acting_role=role))
+        ctx.env = request.env
+        ctx.user = request.env.user
 
     def _check_app_version(self):
         """426 app-update-required si hay versión mínima y la app que llama

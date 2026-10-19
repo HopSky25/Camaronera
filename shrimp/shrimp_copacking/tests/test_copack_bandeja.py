@@ -104,30 +104,60 @@ class TestCopackBandeja(CopackCommon):
         self.assertIn(dirigida, self.visibles(self.u_maq, "published"))
         self.assertNotIn(dirigida, self.visibles(self.u_maq2))
 
-    # ---------------- B: perfil aprobado, no solo el activo ----------------
-    def test_perfil_maquilador_aprobado_con_otro_activo_ve_la_bandeja(self):
+    # ------- B: la bandeja de publicadas va con el perfil ACTIVO (CR-12) -------
+    def test_con_otro_perfil_activo_solo_ve_lo_suyo(self):
+        """Cuenta multiperfil navegando como camaronera: no ve las publicadas
+        de la bandeja, pero sí lo que se le adjudicó. Al activar el perfil
+        maquilador (selector del portal o POST /me/active-role de la app),
+        las ve."""
         self.assertEqual(self.multi.shrimp_user_type, "camaronera")
         abierta = self.solicitud(dirigida=False)
-        self.assertIn(abierta, self.visibles(self.u_multi, "published"))
-        # Y lo que se le adjudica, navegando con el otro perfil.
+        self.assertNotIn(abierta, self.visibles(self.u_multi, "published"))
         oferta = self.ofertar(abierta, self.multi)
         oferta.action_accept(actor=abierta.client_partner_id)
         self.assertIn(abierta, self.visibles(self.u_multi, "assigned"))
+        otra = self.solicitud(dirigida=False)
+        self.u_multi.shrimp_active_role = "maquilador"
+        self.assertEqual(self.u_multi.shrimp_active_role, "maquilador")
+        self.assertIn(otra, self.visibles(self.u_multi, "published"))
+
+    def test_perfil_de_la_peticion_abre_la_bandeja_sin_cambiar_el_activo(self):
+        """La API pasa el perfil de la petición (X-Shrimp-Role) en el contexto
+        (shrimp_acting_role): la app trabaja como maquilador sin mover el
+        perfil activo del portal."""
+        abierta = self.solicitud(dirigida=False)
+        Sol = self.env["shrimp.copack.request"].with_user(self.u_multi)
+        self.assertNotIn(abierta, Sol.search([("state", "=", "published")]))
+        como_maq = Sol.with_context(shrimp_acting_role="maquilador")
+        self.assertIn(abierta, como_maq.search([("state", "=", "published")]))
+        self.assertEqual(self.u_multi.shrimp_active_role, "camaronera", "el activo no cambia")
+        # Y la caché de reglas no mezcla una petición con la otra.
+        self.assertNotIn(abierta, Sol.search([("state", "=", "published")]))
+
+    def test_perfil_de_la_peticion_no_aprobado_no_abre_nada(self):
+        """El contexto puede llegar de fuera (call_kw): solo vale un perfil
+        aprobado de la cuenta."""
+        abierta = self.solicitud(dirigida=False)
+        Sol = self.env["shrimp.copack.request"].with_user(self.u_otro)
+        self.assertNotIn(abierta, Sol.with_context(shrimp_acting_role="maquilador").search([]))
+        self.rol_maq_multi.write({"state": "pending"})
+        Sol = self.env["shrimp.copack.request"].with_user(self.u_multi)
+        self.assertNotIn(abierta, Sol.with_context(shrimp_acting_role="maquilador").search([]))
 
     def test_perfil_maquilador_pendiente_no_abre_la_bandeja(self):
         self.rol_maq_multi.write({"state": "pending"})
         abierta = self.solicitud(dirigida=False)
         self.assertNotIn(abierta, self.visibles(self.u_multi))
 
-    def test_aprobar_el_perfil_abre_la_bandeja_sin_vaciar_cache(self):
-        """ir.rule cachea el dominio por usuario: la clave de caché incluye
-        los perfiles aprobados, si no seguiría viendo la bandeja vacía."""
-        self.rol_maq_multi.write({"state": "pending"})
+    def test_cambiar_de_perfil_abre_la_bandeja_sin_vaciar_cache(self):
+        """ir.rule cachea el dominio por usuario: la clave de caché incluye el
+        perfil activo del usuario, si no seguiría viendo la bandeja vacía."""
         abierta = self.solicitud(dirigida=False)
         self.assertNotIn(abierta, self.visibles(self.u_multi))
-        self.rol_maq_multi.write({"state": "approved"})
-        self.multi.invalidate_recordset()
+        self.u_multi.shrimp_active_role = "maquilador"
         self.assertIn(abierta, self.visibles(self.u_multi))
+        self.u_multi.shrimp_active_role = "camaronera"
+        self.assertNotIn(abierta, self.visibles(self.u_multi))
 
     def test_sin_perfil_maquilador_no_ve_publicadas_ajenas(self):
         abierta = self.solicitud(dirigida=False)

@@ -127,7 +127,7 @@ class ShrimpVerification(models.Model):
         token = token or self.sudo().firma_id.token
         if not token:
             return ""
-        return "%s/verificacion/firma/%s" % (self._firma_base_url(), token)
+        return "%s/signature/%s" % (self._firma_base_url(), token)
 
     def firma_qr_uri(self, url):
         """data-URI PNG del QR (mismo método que el de la trazabilidad)."""

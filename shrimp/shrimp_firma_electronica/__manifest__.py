@@ -14,7 +14,7 @@ Firma electrónica del informe de verificación
   configura un servidor de sellado de tiempo), visible en la última página.
 * El certificado y su contraseña se usan solo en memoria: no se guardan en la
   base de datos, ni en disco, ni en el log.
-* Página pública /verificacion/firma/<token> para comprobar la firma y
+* Página pública /signature/<token> para comprobar la firma y
   descargar el PDF firmado; bloque de firma en la aceptación y la trazabilidad.
 * Opcional (shrimp_firma.obligatoria): las partes no aceptan el informe hasta
   que esté firmado.

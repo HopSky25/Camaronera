@@ -114,15 +114,19 @@ class TestApiLogin(ApiCase):
         body = self.assertProblem(self.login("sin.perfil", PASSWORD), 403, "account-not-approved")
         self.assertIn("perfil", body["detail"])
 
-    def test_perfil_pendiente_no_bloquea(self):
-        # Un perfil pendiente de aprobación entra igual: la app enseña el estado.
+    def test_cuenta_pendiente_no_entra(self):
+        # D-08: una cuenta pendiente no recibe claves nuevas, y entrar a la app
+        # crea una. 403 account-pending con un texto para la app, y sin tocar
+        # las claves que ya tuviera.
         rol = self.farm_b.sudo().shrimp_role_ids.filtered(lambda r: r.role == "camaronera")
         self.assertTrue(rol)
+        antes = self.env["shrimp.api.key"].sudo().search_count([("user_id.login", "=", "b.api")])
         rol.write({"state": "pending"})
-        resp = self.login("b.api", PASSWORD)
-        self.assertEqual(resp.status_code, 200, resp.text)
-        estados = {r["role"]: r["state"] for r in resp.json()["me"]["roles"]}
-        self.assertEqual(estados.get("camaronera"), "pending")
+        body = self.assertProblem(self.login("b.api", PASSWORD), 403, "account-pending")
+        self.assertIn("pendiente de aprobación", body["detail"])
+        self.assertEqual(body["code"], "account_pending")
+        self.assertEqual(self.env["shrimp.api.key"].sudo().search_count(
+            [("user_id.login", "=", "b.api")]), antes)
 
     def test_seis_fallos_429(self):
         for i in range(LOGIN_MAX_FAILURES):

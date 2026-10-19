@@ -85,8 +85,10 @@
                oferto. Sin esto, la bandeja de la app con ?state=assigned o
                done salia vacia aunque el trabajo fuera suyo.
              - la bandeja: las publicadas abiertas a todos o dirigidas a el.
-             La bandeja de publicadas exige el perfil activo maquilador del
-             usuario (shrimp_active_role, CR-12); con otro perfil activo solo se
+             La bandeja de publicadas exige actuar como maquilador: el perfil de
+             la peticion (shrimp_role: la API con X-Shrimp-Role, validado en
+             ir.rule) o, si no hay, el perfil activo del usuario
+             (shrimp_active_role, CR-12); con otro perfil solo se
              ve aquello en lo que se participa, nunca las publicadas de otros ni
              las adjudicadas a otra planta. Todo con el socio por el que actua
              el usuario (shrimp_actor_partner_id: subusuarios).
@@ -107,7 +109,7 @@
                   '&amp;', ('state', '=', 'published'),
                            '|', ('is_open', '=', True),
                                 ('copacker_partner_id', '=', user.shrimp_actor_partner_id.id)]
-                 if user.shrimp_active_role == 'maquilador' else
+                 if (shrimp_role or user.shrimp_active_role) == 'maquilador' else
                  ['|',
                   ('order_id.copacker_partner_id', '=', user.shrimp_actor_partner_id.id),
                   ('offer_ids.copacker_partner_id', '=', user.shrimp_actor_partner_id.id)])

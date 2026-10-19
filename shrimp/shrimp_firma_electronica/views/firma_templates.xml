@@ -42,11 +42,12 @@
     </xpath>
     <!-- Con la firma obligatoria y el informe sin firmar no se ofrece aceptar
          ni contraofertar (el servidor también lo impide). Rechazar sí. -->
-    <xpath expr="//form[@t-attf-action='/marketplace/verifications/#{v.uuid_ref}/accept']" position="attributes">
+    <!-- El recuadro «Aceptar» completo (título y formulario). -->
+    <xpath expr="//form[@t-attf-action='/marketplace/verifications/#{v.uuid_ref}/accept']/.." position="attributes">
       <attribute name="t-if">not v.firma_bloquea_aceptacion()</attribute>
     </xpath>
-    <xpath expr="//t[@t-if=&quot;postura.role == 'buyer' and not cumple&quot;]" position="attributes">
-      <attribute name="t-if">postura.role == 'buyer' and not cumple and not v.firma_bloquea_aceptacion()</attribute>
+    <xpath expr="//t[@t-if=&quot;postura.role == 'buyer' and not cumple and v.shrimp_counter_allowed()&quot;]" position="attributes">
+      <attribute name="t-if">postura.role == 'buyer' and not cumple and v.shrimp_counter_allowed() and not v.firma_bloquea_aceptacion()</attribute>
     </xpath>
   </template>
 
@@ -95,19 +96,18 @@
   <template id="verifier_detail_firma"
             inherit_id="shrimp_verification.verifier_detail"
             name="Verificador - firma electrónica del informe">
-    <xpath expr="//t[@t-if='saved']" position="attributes">
-      <attribute name="t-if">saved and saved != 'firmado'</attribute>
+    <!-- Aviso tras firmar (?saved=firmado), en la cadena de avisos. -->
+    <xpath expr="//t[@t-elif=&quot;saved == 'asignada'&quot;]" position="before">
+      <t t-elif="saved == 'firmado'">Informe firmado electrónicamente.</t>
     </xpath>
-    <xpath expr="//t[@t-if=&quot;saved and saved != 'firmado'&quot;]" position="after">
-      <div t-if="saved == 'firmado'" class="alert alert-success">
-        <i class="fa fa-certificate me-1"/> Informe firmado electrónicamente.
-      </div>
-    </xpath>
-    <xpath expr="//div[starts-with(@t-attf-class, 'sv-veredicto ')]" position="after">
+    <!-- Sección de firma, justo debajo del resultado del veredicto. -->
+    <xpath expr="//div[hasclass('vr-result')]" position="after">
       <t t-if="v.verification_mode == 'platform' and v.state in ('approved', 'approved_obs', 'rejected')">
         <t t-set="firma" t-value="v.sudo().firma_vigente()"/>
-        <div class="sv-section" id="sfe_firma_verificador">
-          <h3><i class="fa fa-certificate me-1"/> Firma electrónica del informe</h3>
+        <t t-set="yo_firma" t-value="request.env.user.sudo()._shrimp_actor_partner()"/>
+        <section class="pf-sec" id="sfe_firma_verificador">
+          <div class="pf-sec-h"><span class="vr-ico"><i class="fa fa-certificate"/></span><div><h2>Firma electrónica del informe</h2></div></div>
+          <div class="pf-sec-b">
           <t t-if="firma">
             <div class="sv-alert sv-alert--ok mb-2">
               Informe firmado electrónicamente por <strong t-esc="firma.signer_name"/>
@@ -136,20 +136,21 @@
               comprobar con FirmaEC o Adobe Reader.
             </p>
             <div class="d-flex flex-wrap gap-2">
-              <a t-if="v._puede_dictaminar(request.env.user.partner_id)" class="s-btn s-btn-primary"
-                 t-attf-href="/verifier/verifications/#{v.uuid_ref}/firmar">
+              <a t-if="v._puede_dictaminar(yo_firma)" class="s-btn s-btn-primary"
+                 t-attf-href="/verifier/verifications/#{v.uuid_ref}/sign">
                 <i class="fa fa-pencil me-1"/> Firmar informe con firma electrónica
               </a>
               <a class="s-btn s-btn-ghost" target="_blank"
-                 t-attf-href="/verifier/verifications/#{v.uuid_ref}/informe.pdf">
+                 t-attf-href="/verifier/verifications/#{v.uuid_ref}/report/pdf">
                 <i class="fa fa-eye me-1"/> Ver el informe en PDF (sin firmar)
               </a>
             </div>
-            <p t-if="not v._puede_dictaminar(request.env.user.partner_id)" class="sv-muted small mt-2 mb-0">
+            <p t-if="not v._puede_dictaminar(yo_firma)" class="sv-muted small mt-2 mb-0">
               Lo firma el técnico asignado o el administrador de la empresa verificadora.
             </p>
           </t>
-        </div>
+          </div>
+        </section>
       </t>
     </xpath>
   </template>
@@ -197,13 +198,13 @@
               antes de firmar: una vez firmado no se vuelve a firmar.
             </p>
             <a class="s-btn s-btn-ghost btn-sm" target="_blank"
-               t-attf-href="/verifier/verifications/#{v.uuid_ref}/informe.pdf">
+               t-attf-href="/verifier/verifications/#{v.uuid_ref}/report/pdf">
               <i class="fa fa-eye me-1"/> Ver el informe en PDF
             </a>
           </div></div>
 
           <form t-if="https_ok" method="post" enctype="multipart/form-data" autocomplete="off"
-                t-attf-action="/verifier/verifications/#{v.uuid_ref}/firmar">
+                t-attf-action="/verifier/verifications/#{v.uuid_ref}/sign">
             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
             <div class="mp-table-card mb-4"><div class="card-body p-4">
               <div class="mp-sec-head">
@@ -246,7 +247,7 @@
   </template>
 
   <!-- ================================================================
-       Página pública de comprobación (/verificacion/firma/<token>)
+       Página pública de comprobación (/signature/<token>)
        ================================================================ -->
   <template id="firma_comprobacion" name="Comprobación pública de la firma del informe">
     <t t-call="website.layout">

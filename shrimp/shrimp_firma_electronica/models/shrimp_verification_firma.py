@@ -24,7 +24,7 @@ class ShrimpVerificationFirma(models.Model):
     token = fields.Char(
         string="Token público", required=True, readonly=True, copy=False, index=True,
         help="Identificador aleatorio de la página pública de comprobación "
-             "(/verificacion/firma/<token>). No es el id del registro.")
+             "(/signature/<token>). No es el id del registro.")
     state = fields.Selection(
         [("vigente", "Vigente"), ("archivada", "Archivada")],
         string="Estado", default="vigente", required=True, readonly=True, index=True)
@@ -55,11 +55,11 @@ class ShrimpVerificationFirma(models.Model):
 
     def public_path(self):
         self.ensure_one()
-        return "/verificacion/firma/%s" % self.token
+        return "/signature/%s" % self.token
 
     def pdf_path(self):
         self.ensure_one()
-        return "/verificacion/firma/%s/pdf" % self.token
+        return "/signature/%s/pdf" % self.token
 
     def fecha_local(self):
         """«13/10/2026 10:15 (UTC-05:00)» en la hora local de la verificadora."""

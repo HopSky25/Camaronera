@@ -165,6 +165,23 @@ def auth_login(ctx):
         raise ApiError(403, "account-not-approved",
                        "Tu cuenta no tiene ningún perfil (camaronera, laboratorio, empacadora…). "
                        "Completa el registro en el portal o pide a la administración que te asigne uno.")
+    # D-08: una cuenta pendiente, rechazada o suspendida no recibe claves
+    # nuevas, y entrar a la app crea una. Se avisa aquí, antes de revocar
+    # nada, con un texto para la app (el de api_create_key habla de claves).
+    if Key._shrimp_account_block_reason(user):
+        estado = titular.shrimp_account_state
+        if estado == "pending":
+            raise ApiError(403, "account-pending",
+                           "Tu cuenta está pendiente de aprobación. Podrás entrar a la app cuando "
+                           "la plataforma la apruebe; te avisaremos por correo.",
+                           extra={"code": "account_pending"})
+        if estado == "rejected":
+            raise ApiError(403, "account-rejected",
+                           "La plataforma rechazó tu cuenta. Escribe a la administración si "
+                           "crees que es un error.", extra={"code": "account_rejected"})
+        raise ApiError(403, "account-suspended",
+                       "Tu cuenta está suspendida: no puedes entrar a la app mientras dure la "
+                       "suspensión.", extra={"code": "account_suspended"})
 
     activas = Key.search([("user_id", "=", user.id), ("key_prefix", "!=", False),
                           ("revoked_at", "=", False)], order="id asc")

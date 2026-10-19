@@ -65,6 +65,9 @@ TRAMOS_EN = {
     "observations", "apply",
     # derechos del titular: descarga de la copia portable (registry 19.0.1.12.0)
     "export",
+    # dispositivos de la app móvil (shrimp_api 19.0.1.5.0) y firma electrónica
+    # del informe de verificación (shrimp_firma_electronica)
+    "devices", "signature",
 }
 
 

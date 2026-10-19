@@ -24,9 +24,12 @@ _PREFIJOS = (
     "/privacy", "/legal/terms", "/my/data", "/my/privacy",
     # Documentos legales versionados y usuarios de la cuenta (19.0.1.6.0)
     "/legal/", "/my/legal", "/my/team",
+    # Comprobación pública de la firma electrónica del informe
+    # (shrimp_firma_electronica)
+    "/signature/",
     # rutas viejas (español)
     "/verificador", "/maquilador", "/empacadora", "/registro", "/mi-panel",
-    "/mi-cuenta", "/privacidad", "/terminos", "/my/datos",
+    "/mi-cuenta", "/privacidad", "/terminos", "/my/datos", "/verificacion/",
 )
 
 # Rutas viejas (español) -> nuevas (inglés) de ESTE módulo. Cada módulo añade

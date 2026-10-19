@@ -10,6 +10,13 @@ from odoo.http import request
 from odoo.addons.shrimp_user_registry.controllers.main import (
     binary_headers, current_partner, flash_message, throttle)
 from odoo.addons.shrimp_verification.controllers.main import ShrimpVerificationPortal
+from odoo.addons.shrimp_user_registry.models.shrimp_permission_matrix import (
+    SHRIMP_ROUTE_PERMISSIONS)
+
+# Subusuarios (matriz de permisos, CR-12): firmar el informe es como dictaminar.
+# Se registra desde aquí y no en la matriz común porque este módulo es
+# opcional: la matriz no debe nombrar rutas que no estén instaladas.
+SHRIMP_ROUTE_PERMISSIONS["/verifier/verifications/<ref>/sign"] = ("approve", "any")
 
 _logger = logging.getLogger(__name__)
 
@@ -44,7 +51,7 @@ class ShrimpFirmaPortal(ShrimpVerificationPortal):
             raise Forbidden()
         return rec
 
-    @http.route("/verifier/verifications/<ref>/informe.pdf", type="http", auth="user",
+    @http.route("/verifier/verifications/<ref>/report/pdf", type="http", auth="user",
                 website=True, sitemap=False)
     def firma_informe_preview(self, ref, **kw):
         """El informe en PDF, SIN firmar, para revisarlo antes de firmar."""
@@ -55,11 +62,11 @@ class ShrimpFirmaPortal(ShrimpVerificationPortal):
         return request.make_response(pdf, headers=binary_headers(
             pdf, "application/pdf", filename=rec.informe_nombre_archivo()))
 
-    @http.route("/verifier/verifications/<ref>/firmar", type="http", auth="user",
+    @http.route("/verifier/verifications/<ref>/sign", type="http", auth="user",
                 website=True, methods=["GET"], sitemap=False)
     def firma_formulario(self, ref, **kw):
         salto = self._redirigir_a_plataforma_verificadores(
-            "/verifier/verifications/%s/firmar" % ref)
+            "/verifier/verifications/%s/sign" % ref)
         if salto:
             return salto
         rec = self._verificacion_para_firmar(ref)
@@ -74,11 +81,11 @@ class ShrimpFirmaPortal(ShrimpVerificationPortal):
             "error": kw.get("error"),
         })
 
-    @http.route("/verifier/verifications/<ref>/firmar", type="http", auth="user",
+    @http.route("/verifier/verifications/<ref>/sign", type="http", auth="user",
                 website=True, methods=["POST"], csrf=True, sitemap=False)
     def firma_firmar(self, ref, **post):
         rec = self._verificacion_para_firmar(ref)
-        volver = "/verifier/verifications/%s/firmar?error=" % rec.uuid_ref
+        volver = "/verifier/verifications/%s/sign?error=" % rec.uuid_ref
         if not _https_ok():
             return request.redirect(volver + flash_message(_(
                 "La firma electrónica solo se envía por una conexión segura (HTTPS).")))
@@ -134,7 +141,7 @@ class ShrimpFirmaPortal(ShrimpVerificationPortal):
             raise NotFound()
         return firma
 
-    @http.route("/verificacion/firma/<string:token>", type="http", auth="public",
+    @http.route("/signature/<string:token>", type="http", auth="public",
                 website=True, sitemap=False)
     def firma_publica(self, token, **kw):
         firma = self._firma_por_token(token)
@@ -143,7 +150,7 @@ class ShrimpFirmaPortal(ShrimpVerificationPortal):
             "v": firma.verification_id,
         })
 
-    @http.route("/verificacion/firma/<string:token>/pdf", type="http", auth="public",
+    @http.route("/signature/<string:token>/pdf", type="http", auth="public",
                 website=True, sitemap=False)
     def firma_publica_pdf(self, token, **kw):
         firma = self._firma_por_token(token)

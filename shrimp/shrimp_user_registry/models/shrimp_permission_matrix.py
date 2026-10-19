@@ -233,6 +233,8 @@ SHRIMP_ROUTE_PERMISSIONS = {
     "/my/api-keys/new": ("manage_account", "active"),
     "/my/api-keys/<string:ref>/revoke": ("manage_account", "active"),
     "/my/api-keys/<string:ref>/renew": ("manage_account", "active"),
+    # Cada quien revoca sus propios teléfonos de la app (shrimp_api).
+    "/my/api-keys/devices/<string:ref>/revoke": ("none", "active"),
     "/my/webhooks/new": ("manage_account", "active"),
     # Página pública de trazabilidad (D-29): la retira o renueva cualquiera de las partes.
     "/marketplace/purchases/<tx_ref>/traceability/withdraw": (("buy", "sell"), "any"),

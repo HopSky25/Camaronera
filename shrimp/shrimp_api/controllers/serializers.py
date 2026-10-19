@@ -12,6 +12,8 @@ platform_rate_per_lb), claves y secretos, credenciales SRI, GPS y archivos
 con datos personales.
 """
 
+from odoo.exceptions import AccessError
+
 from .framework import iso_date, iso_dt, money, ref, selection_label
 
 
@@ -650,6 +652,14 @@ def verification(v, partner, detail=False):
         if getattr(v, "second_opinion_of_id", False) else None,
         "counter_outcome": getattr(v, "counter_outcome", None) or None,
         "declared_deadline": iso_dt(getattr(v, "declared_deadline", False)),
+        # Plazos de la verificadora (calculados; solo en modo plataforma).
+        "deadline_assign": iso_dt(getattr(v, "deadline_assign", False)),
+        "deadline_verdict": iso_dt(getattr(v, "deadline_verdict", False)),
+        "deadline_overdue": getattr(v, "deadline_overdue", None) or None,
+        # Rechazo por «Producto no presentado»: hora de llegada del técnico.
+        "not_presented_arrival": iso_dt(getattr(v, "not_presented_arrival", False)),
+        "verifier_decline_reason": getattr(v, "verifier_decline_reason", None) or None,
+        "superseded": bool(getattr(v, "superseded", False)),
         # La liquidación solo la ve la empresa verificadora.
         "payout_state": (getattr(v, "payout_state", None) or None)
         if verification_role(v, partner) == "verifier" else None,
@@ -713,9 +723,47 @@ def verification(v, partner, detail=False):
                          "counter_price": money(a.counter_price, a.currency_id) if a.decision == "counter" else None,
                          "can_revert": a.signoff_can_undo(actor=partner) if a.partner_id == partner else False}
                         for a in v.acceptance_ids],
-        "warnings": v.report_warnings() if out["my_role"] in ("verifier", "technician") else [],
+        "warnings": v.report_warnings()
+        if out["my_role"] in ("verifier", "technician", "support_technician") else [],
+        "second_opinion": v.second_opinion_id.uuid_ref
+        if getattr(v, "second_opinion_id", False) else None,
     })
+    out.update(verification_permissions(v, partner, out["my_role"]))
     return out
+
+
+def verification_permissions(v, partner, role):
+    """Lo que `partner` puede hacer ahora con la verificación (la app oculta
+    los botones que no le tocan; el servidor lo vuelve a comprobar)."""
+    v = v.sudo()
+    lado_verificadora = role in ("verifier", "technician", "support_technician")
+    platform = v.verification_mode == "platform"
+    can_respond = can_decline = False
+    if platform and role == "verifier" and hasattr(v, "shrimp_can_decline"):
+        try:
+            v._shrimp_check_response_admin(partner)
+            es_admin = True
+        except AccessError:
+            es_admin = False
+        if es_admin:
+            can_respond = v.verifier_response == "pending" and v.state in ("received", "assigned")
+            can_decline = not v.shrimp_can_decline()
+    second_opinion_ok = False
+    if role == "seller" and hasattr(v, "shrimp_contest_problem"):
+        second_opinion_ok = not v.shrimp_contest_problem()
+    return {
+        # Firmar el veredicto: el técnico responsable o la empresa (el de
+        # apoyo carga datos de campo, pero no firma).
+        "can_verdict": bool(lado_verificadora and not v.is_final and v._puede_dictaminar(partner)),
+        "can_respond": bool(can_respond),
+        "can_decline": bool(can_decline),
+        "can_request_second_opinion": bool(second_opinion_ok),
+        # Horas que tiene el vendedor para pedir la segunda opinión tras un
+        # rechazo por el informe (0 = el rechazo queda firme en el acto).
+        "contest_hours": (v._shrimp_contest_hours()
+                          if platform and not v.second_opinion_of_id else 0)
+        if lado_verificadora and hasattr(v, "_shrimp_contest_hours") else None,
+    }
 
 
 def dispatch(d, partner):

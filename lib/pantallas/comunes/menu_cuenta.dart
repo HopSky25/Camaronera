@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../datos/preferencia_tema.dart';
 import '../../datos/sesion.dart';
 import '../../datos/sincronizador.dart';
 import '../../modelos/perfil.dart';
@@ -9,6 +10,7 @@ import '../../tema.dart';
 import '../pantalla_pendientes.dart';
 import '../seguridad/pantalla_seguridad.dart';
 import '../supervisor/franja_supervisor.dart';
+import 'elegir_tema.dart';
 import 'pantalla_avisos.dart';
 
 /// Barra superior común a todos los perfiles: logo, avisos, pendientes de
@@ -63,6 +65,7 @@ class MenuCuenta extends StatelessWidget {
     final sesion = context.watch<Sesion>();
     final puedeCambiar = !sesion.esTecnico && (sesion.yo?.aprobados.length ?? 0) > 1;
     final supervisor = sesion.soloLectura;
+    final tema = context.watch<PreferenciaTema>().modo;
     return PopupMenuButton<String>(
       icon: const Icon(Icons.account_circle_outlined),
       onSelected: (v) => _accion(context, v),
@@ -87,6 +90,11 @@ class MenuCuenta extends StatelessWidget {
         if (supervisor)
           const PopupMenuItem(value: 'socio', child: ListTile(leading: Icon(Icons.groups_outlined), title: Text('Cambiar de socio'))),
         const PopupMenuItem(value: 'seguridad', child: ListTile(leading: Icon(Icons.shield_outlined), title: Text('Seguridad'))),
+        // Día / noche: como el teléfono, claro u oscuro.
+        PopupMenuItem(
+          value: 'tema',
+          child: ListTile(leading: Icon(tema.icono), title: const Text('Tema'), subtitle: Text(tema.nombre)),
+        ),
         if (!supervisor)
           const PopupMenuItem(value: 'datos', child: ListTile(leading: Icon(Icons.privacy_tip_outlined), title: Text('Mis datos y privacidad'))),
         if (supervisor)
@@ -111,6 +119,8 @@ class MenuCuenta extends StatelessWidget {
         await confirmarSalirSupervisor(context);
       case 'seguridad':
         await Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaSeguridad()));
+      case 'tema':
+        await elegirTema(context);
       case 'datos':
         await abrirMisDatos(context, sesion.url);
       case 'salir':

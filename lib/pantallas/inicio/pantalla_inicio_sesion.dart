@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../datos/api_cliente.dart';
 import '../../datos/sesion.dart';
 import '../../tema.dart';
+import '../comunes/elegir_tema.dart';
 import '../comunes/widgets.dart';
 
 /// Primera pantalla: servidor, correo y contraseña de la cuenta de CamaronMarket.
@@ -57,28 +58,40 @@ class _PantallaInicioSesionState extends State<PantallaInicioSesion> {
       body: Column(
         children: [
           // Cabecera en el degradado de la marca (igual en claro y en
-          // oscuro, como el banner del portal).
+          // oscuro, como el banner del portal), con el botón del tema: aquí
+          // todavía no hay menú de la cuenta.
           AnnotatedRegion<SystemUiOverlayStyle>(
             value: SystemUiOverlayStyle.light.copyWith(statusBarColor: Colors.transparent),
             child: Container(
               width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(24, 72, 24, 32),
               decoration: const BoxDecoration(gradient: ColoresMarca.degradado),
-              child: Column(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
-                    child: Image.asset('assets/logo.png', height: 40, semanticLabel: 'CamaronMarket'),
+              child: Stack(children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 72, 24, 32),
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+                        child: Image.asset('assets/logo.png', height: 40, semanticLabel: 'CamaronMarket'),
+                      ),
+                      const SizedBox(height: 18),
+                      const Text('Entra con tu cuenta',
+                          style: TextStyle(color: ColoresMarca.sobreBanda, fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -0.4)),
+                      const SizedBox(height: 6),
+                      const Text('La misma cuenta del portal de CamaronMarket.',
+                          textAlign: TextAlign.center, style: TextStyle(color: ColoresMarca.sobreBandaSuave, fontSize: 14)),
+                    ],
                   ),
-                  const SizedBox(height: 18),
-                  const Text('Entra con tu cuenta',
-                      style: TextStyle(color: ColoresMarca.sobreBanda, fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -0.4)),
-                  const SizedBox(height: 6),
-                  const Text('La misma cuenta del portal de CamaronMarket.',
-                      textAlign: TextAlign.center, style: TextStyle(color: ColoresMarca.sobreBandaSuave, fontSize: 14)),
-                ],
-              ),
+                ),
+                const Positioned(
+                  top: 0,
+                  right: 0,
+                  child: SafeArea(
+                    child: Padding(padding: EdgeInsets.all(4), child: BotonTema(color: ColoresMarca.sobreBanda)),
+                  ),
+                ),
+              ]),
             ),
           ),
           Expanded(

@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../datos/api_cliente.dart';
+import '../../datos/preferencia_tema.dart';
 import '../../datos/sesion.dart';
 import '../../modelos/perfil.dart';
 import '../../modelos/supervisor.dart';
 import '../../seguridad/firmador.dart';
 import '../../tema.dart';
+import '../comunes/elegir_tema.dart';
 import '../comunes/widgets.dart';
 import '../seguridad/pantalla_seguridad.dart';
 import 'franja_supervisor.dart';
@@ -131,6 +133,7 @@ class _PantallaDirectorioSociosState extends State<PantallaDirectorioSocios> {
   @override
   Widget build(BuildContext context) {
     final sesion = context.watch<Sesion>();
+    final tema = context.watch<PreferenciaTema>().modo;
     final aviso = sesion.avisoDirectorio;
     return Scaffold(
       appBar: AppBar(
@@ -142,6 +145,8 @@ class _PantallaDirectorioSociosState extends State<PantallaDirectorioSocios> {
             onSelected: (v) async {
               if (v == 'seguridad') {
                 await Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaSeguridad()));
+              } else if (v == 'tema') {
+                await elegirTema(context);
               } else if (v == 'salir') {
                 await confirmarSalirSupervisor(context);
               }
@@ -156,6 +161,10 @@ class _PantallaDirectorioSociosState extends State<PantallaDirectorioSocios> {
               ),
               const PopupMenuDivider(),
               const PopupMenuItem(value: 'seguridad', child: ListTile(leading: Icon(Icons.shield_outlined), title: Text('Seguridad'))),
+              PopupMenuItem(
+                value: 'tema',
+                child: ListTile(leading: Icon(tema.icono), title: const Text('Tema'), subtitle: Text(tema.nombre)),
+              ),
               const PopupMenuItem(value: 'salir', child: ListTile(leading: Icon(Icons.logout), title: Text('Salir del modo supervisor'))),
             ],
           ),

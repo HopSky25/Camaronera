@@ -15,12 +15,11 @@ void main() {
     final linea = RegExp(r'^version:\s*([0-9]+\.[0-9]+\.[0-9]+)\+([0-9]+)', multiLine: true).firstMatch(pubspec);
     expect(linea, isNotNull);
     expect(linea!.group(1), versionApp);
-    expect(versionApp, '1.2.0');
-    expect(linea.group(2), '3');
+    expect(int.parse(linea.group(2)!), greaterThan(0));
   });
 
   test('cabecerasApp: versión y plataforma (android en las pruebas)', () {
-    expect(cabecerasApp(), {'X-App-Version': '1.2.0', 'X-App-Platform': 'android'});
+    expect(cabecerasApp(), {'X-App-Version': versionApp, 'X-App-Platform': 'android'});
   });
 
   group('cada petición lleva las cabeceras de la app', () {

@@ -4,6 +4,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:verificador_campo/datos/version_app.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -61,7 +62,7 @@ void main() {
     expect(r.headers['X-App-Version'], isNotEmpty);
     final cuerpo = jsonDecode(r.body) as Map<String, dynamic>;
     expect(cuerpo.keys.toSet(), camposContrato, reason: 'campos extra → 422');
-    expect(cuerpo['app_version'], '1.2.0');
+    expect(cuerpo['app_version'], versionApp);
     expect(cuerpo['platform'], 'android');
     expect(cuerpo['os_version'], 'Android 14 (SDK 34)');
     expect(cuerpo['device_model'], 'samsung SM-A546E');

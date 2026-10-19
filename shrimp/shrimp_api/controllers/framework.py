@@ -994,7 +994,11 @@ class ApiCtx:
         if self.route is not None and self.route.path == "/auth/logout":
             return
         user = self.user
-        pendientes = legal_pending_documents(self.env, user)
+        # «Actuar como» de un supervisor (solo lectura): los documentos los
+        # acepta el socio, no el supervisor; si no, el supervisor no podría
+        # ver la app de un socio que todavía no aceptó las versiones nuevas.
+        supervisando = bool(self.key and self.key.supervisor_key_id)
+        pendientes = [] if supervisando else legal_pending_documents(self.env, user)
         if pendientes:
             nombres = ", ".join(pendientes)
             raise ApiError(

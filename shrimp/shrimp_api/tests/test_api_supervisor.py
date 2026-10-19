@@ -366,3 +366,14 @@ class TestApiSupervisor(ApiCase):
         with self.assertRaises(ValidationError):
             sup_key.scope_ids = [(6, 0, self.env["shrimp.api.scope"].search(
                 [("code", "=", "catalog:read")]).ids)]
+
+    def test_act_as_no_lo_bloquean_los_documentos_del_socio(self):
+        # El socio tiene versiones MAYORES sin aceptar: su propia clave queda
+        # bloqueada, pero el supervisor puede ver su app en solo lectura.
+        self.env["ir.config_parameter"].sudo().set_param(
+            "shrimp_user_registry.privacy_gate_in_tests", "1")
+        self.assertTrue(self.env["shrimp.legal.document"].sudo()._shrimp_pending(self.u_a)["major"])
+        resp = self.act_as(self.farm_a)
+        self.assertEqual(resp.status_code, 201, resp.text)
+        secret = resp.json()["api_key"]
+        self.assertEqual(self.api("GET", "/facilities", raw=secret).status_code, 200)

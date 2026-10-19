@@ -125,6 +125,24 @@ class CertificadoNuevo {
   String? nombreArchivo;
   Uint8List? archivo;
 
+  /// Corrige o renueva uno ya guardado: el tipo no cambia y el archivo es
+  /// opcional (solo va si se elige otro).
+  final bool editando;
+
+  CertificadoNuevo({this.editando = false});
+
+  /// Para corregir o renovar un certificado tal como lo devuelve la API
+  /// (`{certificate, number, issue_date, expiry_date}`); [tipo] es el del
+  /// catálogo (con `expires`) si se tiene.
+  factory CertificadoNuevo.desde(Map<String, dynamic> c, {Map<String, dynamic>? tipo}) {
+    DateTime? dia(dynamic v) => v is String ? DateTime.tryParse(v) : null;
+    return CertificadoNuevo(editando: true)
+      ..tipo = tipo ?? (c['certificate'] is Map ? Map<String, dynamic>.from(c['certificate'] as Map) : null)
+      ..numero = c['number'] is String ? c['number'] as String : ''
+      ..emision = dia(c['issue_date'])
+      ..vence = dia(c['expiry_date']);
+  }
+
   bool get exigeVencimiento => tipo?['expires'] == true;
 
   /// Errores por campo (vacío = se puede subir).
@@ -136,7 +154,9 @@ class CertificadoNuevo {
       e['vence'] = 'El vencimiento no puede ser antes de la emisión.';
     }
     final a = archivo;
-    if (a == null || a.isEmpty) {
+    if ((a == null || a.isEmpty) && editando) {
+      // Sin archivo nuevo se conserva el que tiene.
+    } else if (a == null || a.isEmpty) {
       e['archivo'] = 'Adjunta el archivo del certificado (PDF o foto).';
     } else if (a.length > maximoBytesArchivo) {
       e['archivo'] = 'El archivo pasa de 5 MB.';
@@ -146,7 +166,19 @@ class CertificadoNuevo {
     return e;
   }
 
-  /// Cuerpo de `POST /products/{id}/certificates`.
+  /// Cuerpo de `PATCH` al corregir o renovar: número y fechas (null =
+  /// vaciar) y el archivo solo si se eligió otro.
+  Map<String, dynamic> aCuerpoEdicion() => {
+        'number': numero.trim().isEmpty ? null : numero.trim(),
+        'issue_date': emision == null ? null : fechaApi(emision!),
+        'expiry_date': vence == null ? null : fechaApi(vence!),
+        if (archivo != null && archivo!.isNotEmpty) ...{
+          'filename': nombreArchivo ?? 'certificado',
+          'data': base64.encode(archivo!),
+        },
+      };
+
+  /// Cuerpo de `POST /products/{id}/certificates` y `POST /me/certificates`.
   Map<String, dynamic> aCuerpoApi() => {
         'certificate': tipo?['id'],
         if (numero.trim().isNotEmpty) 'number': numero.trim(),

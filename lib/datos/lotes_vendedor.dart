@@ -119,6 +119,12 @@ extension LotesVendedor on Sincronizador {
   Future<Map<String, dynamic>> subirCertificadoLote(String productoId, CertificadoNuevo c, {required String idempotencia}) async =>
       _apiEscritura().post('/products/$productoId/certificates', c.aCuerpoApi(), idempotencia: idempotencia, rol: sesion.rolParaApi);
 
+  /// Corrige número, fechas o archivo de un certificado PROPIO del lote
+  /// (vuelve a revisión).
+  Future<Map<String, dynamic>> editarCertificadoLote(String productoId, String lineaId, CertificadoNuevo c) async =>
+      _apiEscritura().patch('/products/$productoId/certificates/$lineaId', c.aCuerpoEdicion(),
+          idempotencia: _uuid.v4(), rol: sesion.rolParaApi);
+
   Future<Map<String, dynamic>> quitarCertificadoLote(String productoId, String lineaId) async =>
       _apiEscritura().delete('/products/$productoId/certificates/$lineaId', rol: sesion.rolParaApi);
 }

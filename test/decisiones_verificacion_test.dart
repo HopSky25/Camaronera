@@ -160,6 +160,24 @@ void main() {
         ],
       });
       expect(cuerpoSegundaOpinion('v2'), {'verifier': 'v2'});
+      expect(cuerpoCambiarVerificadora('v3'), {'verifier': 'v3'});
+      expect(cuerpoCancelarCompra('  '), isEmpty);
+      expect(cuerpoCancelarCompra(' Busco otra opción '), {'note': 'Busco otra opción'});
+    });
+
+    test('verificadora vencida: cambiarla o cancelar la compra, firmadas', () {
+      OperacionPendiente op(TipoOperacion t) =>
+          OperacionPendiente(tipo: t, recursoId: 'T1', cuerpoSerializado: '{}', claveIdempotencia: 'k', creadaEn: DateTime(2026));
+      expect(op(TipoOperacion.cambiarVerificadora).ruta, '/transactions/T1:switch-verifier');
+      expect(op(TipoOperacion.cancelarCompra).ruta, '/transactions/T1:cancel');
+      expect(op(TipoOperacion.cambiarVerificadora).esSensible, isTrue);
+      expect(op(TipoOperacion.cancelarCompra).esSensible, isTrue);
+      expect(op(TipoOperacion.cancelarCompra).respondeVerificacion, isFalse);
+      final v = Verificacion.desde(verificacionLista()
+        ..['deadline_overdue'] = 'declined'
+        ..['auto_cancel_at'] = '2026-10-09T14:00:00Z');
+      expect(v.autoCancelacion, DateTime.parse('2026-10-09T14:00:00Z').toLocal());
+      expect(v.plazoVencidoEtiqueta, 'La verificadora declinó la orden');
     });
 
     test('rutas nuevas, firmadas y con la verificación al día en la respuesta', () {
@@ -275,6 +293,13 @@ void main() {
           {'technician': 't2'},
         ],
       });
+    });
+
+    test('cambiar de verificadora y cancelar la compra van firmados', () async {
+      expect((await sinc.ejecutar(TipoOperacion.cambiarVerificadora, 't-1', cuerpoCambiarVerificadora('ver-3'))).enviado, isTrue);
+      expect(jsonDecode(aceptadaEn('/transactions/t-1:switch-verifier').req.body), {'verifier': 'ver-3'});
+      expect((await sinc.ejecutar(TipoOperacion.cancelarCompra, 't-2', cuerpoCancelarCompra(null))).enviado, isTrue);
+      expect(aceptadaEn('/transactions/t-2:cancel').req.body, '{}');
     });
 
     test('el vendedor pide la segunda opinión por la cola firmada', () async {

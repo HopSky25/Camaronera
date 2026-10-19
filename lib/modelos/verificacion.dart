@@ -417,6 +417,9 @@ class Verificacion {
   DateTime? get plazoAsignar => fechaIso(crudo['deadline_assign']);
   DateTime? get plazoVeredicto => fechaIso(crudo['deadline_verdict']);
 
+  /// Vencida y sin resolver: la compra se cancela sola en esta fecha.
+  DateTime? get autoCancelacion => fechaIso(crudo['auto_cancel_at']);
+
   /// assign | verdict | declined | response (nulo si va a tiempo).
   String? get plazoVencido => jsonTexto(crudo['deadline_overdue']);
 

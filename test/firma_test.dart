@@ -105,8 +105,10 @@ void main() {
         ('POST', '/verifications/v1:respond'),
         ('POST', '/verifications/v1:support-technicians'),
         ('POST', '/verifications/v1:second-opinion'),
+        ('POST', '/transactions/t1:switch-verifier'),
+        ('POST', '/transactions/t1:cancel'),
       ];
-      expect(firmadas, hasLength(25));
+      expect(firmadas, hasLength(27));
       for (final (m, r) in firmadas) {
         expect(esRutaSensible(m, r), isTrue, reason: '$m $r');
         expect(esRutaSensible(m, '/api/v1$r'), isTrue, reason: 'con prefijo: $m $r');
@@ -124,6 +126,8 @@ void main() {
       expect(esRutaSensible('PATCH', '/me'), isFalse);
       expect(esRutaSensible('POST', '/copack/requests'), isFalse);
       expect(esRutaSensible('POST', '/verifications/v1/report'), isFalse, reason: 'el informe es PATCH');
+      expect(esRutaSensible('POST', '/transactions/t1:cancel-request'), isFalse, reason: 'solo :cancel');
+      expect(esRutaSensible('GET', '/transactions/t1/verifier-options'), isFalse);
     });
   });
 

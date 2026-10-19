@@ -63,6 +63,14 @@ Map<String, dynamic> cuerpoEquipoApoyo({List<String> sumar = const [], List<Stri
 /// `POST /verifications/{id}:second-opinion` (vendedor).
 Map<String, dynamic> cuerpoSegundaOpinion(String verificadoraId) => {'verifier': verificadoraId};
 
+/// `POST /transactions/{id}:switch-verifier`: la verificadora declinó o no
+/// cumplió su plazo y se elige otra.
+Map<String, dynamic> cuerpoCambiarVerificadora(String verificadoraId) => {'verifier': verificadoraId};
+
+/// `POST /transactions/{id}:cancel` del comprador (sin costo): la nota es
+/// opcional, como en el portal.
+Map<String, dynamic> cuerpoCancelarCompra(String? nota) => {'note': ?_limpio(nota)};
+
 /// Estado local que corresponde a cada veredicto mientras no se sincroniza.
 String estadoDeVeredicto(String veredicto) => switch (veredicto) {
       'approve_obs' => 'approved_obs',

@@ -29,6 +29,9 @@ enum TipoOperacion {
   programarDespacho,
   // Vendedor: impugna el rechazo de la verificadora.
   segundaOpinion,
+  // La verificadora declinó o no cumplió: elegir otra o cancelar sin costo.
+  cambiarVerificadora,
+  cancelarCompra,
   // Empacadora
   compraVerificada,
   comprarReserva,
@@ -158,6 +161,8 @@ class OperacionPendiente {
         TipoOperacion.responderOrden => '/verifications/$recursoId:respond',
         TipoOperacion.equipoApoyo => '/verifications/$recursoId:support-technicians',
         TipoOperacion.segundaOpinion => '/verifications/$recursoId:second-opinion',
+        TipoOperacion.cambiarVerificadora => '/transactions/$recursoId:switch-verifier',
+        TipoOperacion.cancelarCompra => '/transactions/$recursoId:cancel',
         TipoOperacion.aceptacionInforme => '/verifications/$recursoId/acceptance',
         TipoOperacion.programarDespacho => '/dispatches/$recursoId',
         TipoOperacion.compraVerificada => '/verifications',
@@ -180,6 +185,8 @@ class OperacionPendiente {
         TipoOperacion.responderOrden => 'Respuesta a la orden',
         TipoOperacion.equipoApoyo => 'Técnicos de apoyo',
         TipoOperacion.segundaOpinion => 'Pedido de segunda opinión',
+        TipoOperacion.cambiarVerificadora => 'Cambio de verificadora',
+        TipoOperacion.cancelarCompra => 'Cancelación de la compra',
         TipoOperacion.aceptacionInforme => 'Decisión sobre el informe',
         TipoOperacion.programarDespacho => 'Programación del despacho',
         TipoOperacion.compraVerificada => 'Compra con verificación',

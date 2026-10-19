@@ -51,6 +51,8 @@ final _rutasSensibles = <String, List<RegExp>>{
       // Decisiones de la verificación: aceptar o declinar la orden, técnicos
       // de apoyo y segunda opinión.
       r'/verifications/[^/:]+[:/](respond|support-technicians|second-opinion)',
+      // La verificadora declinó o no cumplió: cambiarla o cancelar la compra.
+      r'/transactions/[^/:]+[:/](switch-verifier|cancel)',
       // Fotos de campo y compra directa (CONTRATO-MEJORAS-APP.md, C4 y C5).
       r'/verifications/[^/:]+/photos',
       r'/purchases',

@@ -364,14 +364,16 @@ def verification_verdict(ctx, id):
     return S.verification(v, ctx.partner, detail=True)
 
 
-@api_route("POST", "/verifications/{id}:respond", scope="verifications:write", tags=[TAG_VER],
+@api_route("POST", "/verifications/{id}:respond", signed=True, scope="verifications:write",
+           tags=[TAG_VER],
            body={"decision": F("enum", required=True, enum=["accept", "decline"]),
                  "reason": F("text", description="Obligatorio al declinar")},
            summary="La verificadora acepta o declina la orden (administrador de la empresa)",
            description="Dentro del plazo de respuesta (24 h por defecto desde la asignación) y antes "
                        "de ir a campo. Declinada (o sin respuesta en el plazo), el comprador elige "
                        "otra verificadora o cancela sin costo. Asignar el técnico también acepta la "
-                       "orden.",
+                       "orden. En el detalle, can_respond (la orden espera respuesta) y can_decline "
+                       "(todavía se puede declinar) dicen si el botón corresponde.",
            response=VER_SCHEMA)
 def verification_respond(ctx, id):
     v, is_admin = _as_verifier(ctx, id, editable=True)

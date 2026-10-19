@@ -988,6 +988,11 @@ class ApiCtx:
             and self.route.path == "/me"
         if diagnostico:
             return
+        # Cerrar sesión siempre queda libre: la app tiene que poder revocar
+        # su clave aunque la cuenta tenga documentos por aceptar o esté
+        # bloqueada (si no, el usuario queda atrapado en el teléfono).
+        if self.route is not None and self.route.path == "/auth/logout":
+            return
         user = self.user
         pendientes = legal_pending_documents(self.env, user)
         if pendientes:

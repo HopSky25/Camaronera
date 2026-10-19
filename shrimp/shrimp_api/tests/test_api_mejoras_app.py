@@ -631,3 +631,15 @@ class TestApiMejorasApp(ApiCase):
         self.assertEqual(body, "Te asignaron VER-1 de Río Chone S.A.")
         body = _item(partner, False, "x", "T", "Espera...", "v", "u", "/l")["body"]
         self.assertEqual(body, "Espera...")
+
+    def test_cerrar_sesion_con_documentos_legales_pendientes(self):
+        # Con versiones MAYORES por aceptar la API se bloquea (salvo GET /me),
+        # pero cerrar sesión sigue libre: la app no puede quedar atrapada.
+        self.set_param("shrimp_user_registry.privacy_gate_in_tests", "1")
+        resp = self.login("a.api")
+        self.assertEqual(resp.status_code, 200, resp.text)
+        raw = resp.json()["api_key"]
+        self.assertProblem(self.api("GET", "/facilities", raw=raw), 403, "legal-acceptance-required")
+        resp = self.api("POST", "/auth/logout", raw=raw)
+        self.assertEqual(resp.status_code, 200, resp.text)
+        self.assertTrue(resp.json()["revoked"])

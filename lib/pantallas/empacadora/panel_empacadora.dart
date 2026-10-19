@@ -146,7 +146,7 @@ class PanelEmpacadora extends StatelessWidget {
     return [
       if (porVerificar > 0) '$porVerificar por verificar',
       if (porAceptar > 0) '$porAceptar por aceptar',
-      if (confirmadas > 0) '$confirmadas confirmadas',
+      if (confirmadas > 0) confirmadas == 1 ? '1 confirmada' : '$confirmadas confirmadas',
     ].join(' · ');
   }
 }

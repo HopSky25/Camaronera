@@ -19,11 +19,12 @@ import '../comunes/widgets.dart';
 /// verificación (`POST /verifications`) o, para larva, nauplio y lotes sin
 /// verificación obligatoria, compra directa (`POST /purchases`, C5).
 class PantallaCatalogo extends StatefulWidget {
-  /// Filtro inicial por tipo de vendedor: camaronera (camarón), laboratorio
-  /// (larva), semillero (nauplio) o todos.
+  /// Filtro inicial por tipo de etapa (`stage_type` de la API): camaron,
+  /// larva (zoea, mysis, PL), nauplio o todos. Lo venda quien lo venda: un
+  /// laboratorio también vende nauplio.
   final String tipoInicial;
   final String titulo;
-  const PantallaCatalogo({super.key, this.tipoInicial = 'camaronera', this.titulo = 'Catálogo de lotes'});
+  const PantallaCatalogo({super.key, this.tipoInicial = 'camaron', this.titulo = 'Catálogo de lotes'});
   @override
   State<PantallaCatalogo> createState() => _PantallaCatalogoState();
 }
@@ -45,7 +46,7 @@ class _PantallaCatalogoState extends State<PantallaCatalogo> {
       appBar: AppBar(title: Text(widget.titulo)),
       body: ListaRemota(
         ruta: '/public/products',
-        params: {if (_tipo != 'todos') 'seller_type': _tipo, if (_q.isNotEmpty) 'q': _q},
+        params: {if (_tipo != 'todos') 'stage_type': _tipo, if (_q.isNotEmpty) 'q': _q},
         vacio: 'No hay lotes publicados con ese filtro.',
         cabecera: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
@@ -74,9 +75,9 @@ class _PantallaCatalogoState extends State<PantallaCatalogo> {
               child: SegmentedButton<String>(
                 showSelectedIcon: false,
                 segments: const [
-                  ButtonSegment(value: 'camaronera', label: Text('Camarón')),
-                  ButtonSegment(value: 'laboratorio', label: Text('Larva')),
-                  ButtonSegment(value: 'semillero', label: Text('Nauplio')),
+                  ButtonSegment(value: 'camaron', label: Text('Camarón')),
+                  ButtonSegment(value: 'larva', label: Text('Larva')),
+                  ButtonSegment(value: 'nauplio', label: Text('Nauplio')),
                   ButtonSegment(value: 'todos', label: Text('Todos')),
                 ],
                 selected: {_tipo},

@@ -115,9 +115,9 @@ class PanelVendedor extends StatelessWidget {
                     // Compra directa (C5): la camaronera compra larva; el
                     // laboratorio, nauplio. El servidor dice si el perfil puede.
                     if (perfil == 'camaronera' && !soloLectura)
-                      FilaMenu(icono: Icons.shopping_cart_outlined, titulo: 'Comprar larva', subtitulo: 'Lotes de laboratorio: compra directa', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaCatalogo(tipoInicial: 'laboratorio', titulo: 'Comprar larva')))),
+                      FilaMenu(icono: Icons.shopping_cart_outlined, titulo: 'Comprar larva', subtitulo: 'Zoea, mysis y postlarva: compra directa', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaCatalogo(tipoInicial: 'larva', titulo: 'Comprar larva')))),
                     if (perfil == 'laboratorio' && !soloLectura)
-                      FilaMenu(icono: Icons.shopping_cart_outlined, titulo: 'Comprar nauplio', subtitulo: 'Lotes de naupliero: compra directa', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaCatalogo(tipoInicial: 'semillero', titulo: 'Comprar nauplio')))),
+                      FilaMenu(icono: Icons.shopping_cart_outlined, titulo: 'Comprar nauplio', subtitulo: 'Nauplio de nauplieros y laboratorios: compra directa', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaCatalogo(tipoInicial: 'nauplio', titulo: 'Comprar nauplio')))),
                     const SizedBox(height: 8),
                     const AvisoWeb(texto: 'Editar un lote, cambiar su precio y agregar fotos o certificados se hace desde el portal web.'),
                   ],
@@ -138,7 +138,7 @@ class PanelVendedor extends StatelessWidget {
     return [
       if (porVerificar > 0) '$porVerificar por verificar',
       if (porAceptar > 0) '$porAceptar por aceptar',
-      if (confirmadas > 0) '$confirmadas confirmadas',
+      if (confirmadas > 0) confirmadas == 1 ? '1 confirmada' : '$confirmadas confirmadas',
     ].join(' · ');
   }
 }

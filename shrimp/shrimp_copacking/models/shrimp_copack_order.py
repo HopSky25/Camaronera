@@ -809,6 +809,7 @@ class ShrimpCopackOrder(models.Model):
     def _register_platform_charge(self):
         """Comisión de la plataforma por las libras empacadas (una por orden)."""
         Charge = self.env["shrimp.charge"].sudo()
+        libra = self.env.ref("shrimp_marketplace.uom_libra", raise_if_not_found=False)
         for rec in self:
             if rec.self_packing:
                 continue   # el empaque propio no paga comisión
@@ -823,13 +824,17 @@ class ShrimpCopackOrder(models.Model):
                 "transaction_id": rec.transaction_id.id or False,
                 "product_id": rec.product_id.id or False,
                 "qty": rec.packed_lb,
-                "invoice_qty": rec.packed_lb or 1.0,
-                "unit_amount": rec.platform_rate_per_lb,
-                "amount": rec.platform_amount,
+                "uom_id": libra.id if libra else False,
+                # La tarifa queda a la vista y la factura lleva una línea de
+                # 1 × importe ya redondeado: el concepto dice «… : 3.920,05
+                # libras × 1 ctv» (shrimp.charge._invoice_line_name).
+                "rate_cents": round((rec.platform_rate_per_lb or 0.0) * 100.0, 4),
+                "invoice_qty": 1.0,
+                "amount": rec.currency_id.round(rec.platform_amount or 0.0)
+                if rec.currency_id else round(rec.platform_amount or 0.0, 2),
                 "currency_id": rec.currency_id.id,
                 "origin": rec.name,
-                "description": _("Comisión de empaque – %(o)s (%(lb)s lb)") % {
-                    "o": rec.name or "", "lb": "{:,.2f}".format(rec.packed_lb or 0.0)},
+                "description": _("Comisión de empaque – %s") % (rec.name or ""),
             })
 
     def action_reabrir_acta(self, motivo, actor=None, platform=False):

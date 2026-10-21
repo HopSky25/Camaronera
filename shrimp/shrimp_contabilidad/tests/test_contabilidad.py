@@ -257,6 +257,51 @@ class TestShrimpContabilidad(TransactionCase):
         otro.with_company(self.company).property_account_payable_id = propia
         self.assertFalse(self.Setup._set_payable_if_default(otro, self.company, cuenta))
 
+    # ------------------------------------------------------------------
+    # IVA de los servicios y factura de proveedor en borrador
+    # ------------------------------------------------------------------
+    def test_servicio_sin_iva_usa_iva_de_servicios(self):
+        """Un producto de servicio sin IVA en la compañía (p. ej. nació en
+        otra) sale con el IVA 15 % de SERVICIOS del plan «ec», nunca sin IVA."""
+        Charge = self.env["shrimp.charge"].sudo()
+        iva = self.env["account.chart.template"].with_company(self.company).ref(
+            C.IVA_VENTA_SERVICIOS)
+        self.assertEqual(Charge._service_vat_fallback(self.company), iva)
+        if "ec_sri_enabled" in self.company._fields:
+            self.company.ec_sri_enabled = False
+        comision = self.env.ref("shrimp_marketplace.product_marketplace_commission")
+        comision.sudo().taxes_id = comision.sudo().taxes_id.filtered(
+            lambda t: t.company_id != self.company)
+        self.assertEqual(Charge._service_taxes_for(comision, self.company), iva)
+        cobro = Charge._register_charge({
+            "charge_type": "commission", "company_id": self.company.id,
+            "payer_partner_id": self.cliente.id, "amount": 19.6,
+            "description": "Comisión marketplace – sin IVA en el producto"})
+        self.assertEqual(cobro.state, "invoiced", cobro.invoice_error)
+        linea = cobro.invoice_id.invoice_line_ids.filtered(
+            lambda l: l.display_type == "product")
+        self.assertEqual(linea.tax_ids, iva)
+        self.assertAlmostEqual(cobro.invoice_id.amount_untaxed, 19.6)
+        self.assertAlmostEqual(cobro.invoice_id.amount_tax, 2.94)
+
+    def test_factura_proveedor_en_borrador_avisa_a_contabilidad(self):
+        Charge = self.env["shrimp.charge"].sudo()
+        verificadora = self.env["res.partner"].create({"name": "Verificadora Borrador"})
+        servicio = Charge._get_service_product("commission", self.company)
+        gasto = Charge._create_vendor_bill(verificadora, servicio, "Verificación en campo",
+                                           20.0, "Honorario VER-TEST", company=self.company)
+        self.assertEqual(gasto.company_id, self.company)
+        self.assertTrue(gasto.journal_id.l10n_latam_use_documents)
+        self.assertEqual(gasto.state, "draft")
+        todo = self.env.ref("mail.mail_activity_data_todo")
+        actividades = gasto.activity_ids.filtered(lambda a: a.activity_type_id == todo)
+        self.assertEqual(len(actividades), 1)
+        self.assertIn(actividades.user_id, self.contador | self.asistente)
+        # No se duplica.
+        self.assertFalse(Charge._shrimp_vendor_bill_followup(gasto))
+        self.assertEqual(len(gasto.activity_ids.filtered(lambda a: a.activity_type_id == todo)),
+                         1)
+
     def test_menu_informes_reutilizado(self):
         self.assertEqual(self.env.ref("account.menu_finance_reports").parent_id,
                          self.env.ref("shrimp_contabilidad.menu_contabilidad_root"))

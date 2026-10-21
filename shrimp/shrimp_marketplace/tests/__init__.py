@@ -30,3 +30,4 @@ from . import test_export_anulacion
 from . import test_permisos_subcuentas
 from . import test_suspension
 from . import test_decisiones_auditoria
+from . import test_facturacion_cobros

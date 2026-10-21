@@ -603,7 +603,8 @@ class ShrimpTransactionCancel(models.Model):
                     "payer_partner_id": tx.seller_partner_id.id,
                     "product_id": tx.product_id.id, "qty": entregado,
                     "uom_id": tx.product_id.uom_id.id, "rate_cents": tasa,
-                    "invoice_qty": entregado or 1.0, "unit_amount": tasa / 100.0,
+                    # Una línea de 1 × importe redondeado (ver shrimp.charge).
+                    "invoice_qty": 1.0,
                     "amount": round(entregado * tasa / 100.0, 2), "origin": tx.name,
                     "description": anterior.description or _("Comisión marketplace"),
                 })

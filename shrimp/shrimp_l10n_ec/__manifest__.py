@@ -1,6 +1,6 @@
 {
     "name": "CamaronMarket — Facturación electrónica SRI de la plataforma",
-    "version": "19.0.1.2.0",
+    "version": "19.0.1.3.0",
     "summary": "Puente entre los cobros de la plataforma (shrimp.charge) y la "
                "facturación electrónica del SRI (l10n_ec_sri_community)",
     "description": """

@@ -217,6 +217,10 @@ class TestLiquidacionVerificadora(DecisionesCommon):
         self.assertEqual(v.vendor_bill_id.move_type, "in_invoice")
         self.assertEqual(v.vendor_bill_id.partner_id, self.s["verif"])
         self.assertAlmostEqual(v.vendor_bill_id.amount_untaxed, v.verifier_amount, places=2)
+        # La liquidación va en la misma compañía que el cobro del honorario.
+        honorario = v.charge_ids.filtered(lambda c: c.charge_type == "verification_fee")[:1]
+        self.assertTrue(honorario)
+        self.assertEqual(v.vendor_bill_id.company_id, honorario.company_id)
         self.assertIn(v, self.env["shrimp.verification"].shrimp_payouts_for(self.s["verif"]))
         self.assertTrue(v.shrimp_payout_label().startswith("Liquidada"))
 

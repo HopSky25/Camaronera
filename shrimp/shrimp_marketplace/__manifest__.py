@@ -12,7 +12,7 @@ y portal público.
     'author': "Carlos Carballo",
 
     'category': 'Sales/Marketplace',
-    'version': '19.0.1.38.0',
+    'version': '19.0.1.39.0',
 
     # any module necessary for this one to work correctly
     'depends': ["base", "website", "portal", "sale_management", "account", "shrimp_user_registry"],

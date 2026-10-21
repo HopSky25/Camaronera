@@ -2,7 +2,7 @@ import base64
 from datetime import date, timedelta
 
 from odoo.addons.shrimp_marketplace.tests.common import (
-    CLAVE, PDF_MIN, crear_socios, producto)
+    CLAVE, PDF_MIN, crear_socios, facturar_en_compania_activa, producto)
 
 
 def matriz_abierta(env):
@@ -26,6 +26,7 @@ def montar_verificacion(env, sufijo="v"):
     metabisulfito.
     """
     matriz_abierta(env)
+    facturar_en_compania_activa(env)
     s = crear_socios(env, sufijo)
     Socio = env["res.partner"]
     portal = env.ref("base.group_portal")

@@ -86,15 +86,26 @@ class ResCompany(models.Model):
                         "en «Documentos que emite».") % {"p": point.display_name, "d": label})
         # El IVA de los servicios tiene que llevar los códigos del catálogo del
         # SRI (tabla 16/17); sin ellos el XML no se puede armar.
+        # Se revisan los impuestos con los que saldría de verdad cada línea
+        # (los del producto o, si no tiene, el IVA de servicios de la
+        # compañía), no el impuesto por defecto a secas.
         Charge = self.env["shrimp.charge"].sudo()
-        impuestos = company.account_sale_tax_id
+        impuestos = self.env["account.tax"]
+        hay_productos = False
         for xmlid, _n, _c in Charge._service_product_specs().values():
             producto = self.env.ref(xmlid, raise_if_not_found=False)
             if producto:
-                impuestos |= producto.sudo().taxes_id.filtered(lambda t: t.company_id == company)
-        if not impuestos:
-            problemas.append(_("La compañía no tiene impuesto de venta por defecto (IVA) para "
-                               "los servicios."))
+                hay_productos = True
+                del_producto = Charge._service_taxes_for(producto, company)
+                if not del_producto:
+                    problemas.append(_("El servicio «%s» no tiene IVA en la compañía y no hay "
+                                       "IVA de servicios por defecto.") % producto.display_name)
+                impuestos |= del_producto
+        if not hay_productos:
+            impuestos = Charge._service_vat_fallback(company)
+            if not impuestos:
+                problemas.append(_("La compañía no tiene impuesto de venta por defecto (IVA) "
+                                   "para los servicios."))
         for tax in impuestos.filtered(lambda t: t.amount >= 0 and not (
                 t.ec_sri_tax_code and t.ec_sri_percentage_code)):
             problemas.append(_(

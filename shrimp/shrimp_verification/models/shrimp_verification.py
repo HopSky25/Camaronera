@@ -1508,9 +1508,20 @@ class ShrimpVerification(models.Model):
     # culpa medible del vendedor), el cobro se reasigna: nota de crédito al
     # comprador y factura al nuevo pagador. La parte del verificador es un
     # documento de COMPRA (factura de proveedor) y va por otro camino.
-    def _get_verification_product(self):
+    def _get_verification_product(self, company=None):
         """Producto de servicio con el que se factura la verificación."""
-        return self.env["shrimp.charge"]._get_service_product("verification_fee")
+        return self.env["shrimp.charge"]._get_service_product("verification_fee", company)
+
+    def _shrimp_fee_company(self):
+        """Compañía del honorario: la del cobro (el vigente o, si ya se
+        acreditó, el último), o la de facturación de la plataforma. La
+        factura de proveedor del verificador va en la misma compañía que la
+        factura al pagador."""
+        self.ensure_one()
+        cobros = self.sudo().charge_ids.filtered(
+            lambda c: c.charge_type == "verification_fee").sorted("id", reverse=True)
+        cobro = self.sudo().fee_charge_id or cobros[:1]
+        return cobro.company_id or self.env["shrimp.charge"]._shrimp_billing_company()
 
     def _margen_configurado(self):
         # Sin parámetro, 0 como siempre (la instalación lo siembra en 15 %).
@@ -1582,13 +1593,15 @@ class ShrimpVerification(models.Model):
             if (rec.verifier_amount or 0.0) <= 0:
                 continue
             ahora = fields.Datetime.now()
+            compania = rec._shrimp_fee_company()
             try:
                 with self.env.cr.savepoint():
                     gasto = Charge._create_vendor_bill(
-                        rec.verifier_partner_id, rec._get_verification_product(),
+                        rec.verifier_partner_id, rec._get_verification_product(compania),
                         _("Verificación en campo – %s") % (rec.name or ""),
                         rec.verifier_amount,
-                        _("Honorario de verificación %s") % (rec.name or ""))
+                        _("Honorario de verificación %s") % (rec.name or ""),
+                        company=compania)
             except Exception as e:  # noqa: BLE001
                 _logger.exception("Verificación %s: fallo al liquidar al verificador", rec.name)
                 intentos = (rec.payout_attempts or 0) + 1

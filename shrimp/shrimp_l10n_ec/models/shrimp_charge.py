@@ -245,11 +245,12 @@ class ShrimpCharge(models.Model):
         consumidor final)."""
         self.ensure_one()
         product = self._get_service_product(self.charge_type, self.company_id)
-        taxes = product.taxes_id.filtered(lambda t: t.company_id == self.company_id)
+        # Los mismos impuestos y la misma línea (1 × importe) que la factura.
+        taxes = self._service_taxes_for(product, self.company_id)
         if not taxes:
             return self.amount or 0.0
-        res = taxes.compute_all(self.unit_amount or 0.0, currency=self.currency_id,
-                                quantity=self.invoice_qty or 1.0, product=product)
+        res = taxes.compute_all(self.amount or 0.0, currency=self.currency_id,
+                                quantity=1.0, product=product)
         return res["total_included"]
 
     def _shrimp_use_final_consumer(self):

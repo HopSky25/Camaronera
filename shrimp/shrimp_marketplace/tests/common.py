@@ -73,6 +73,19 @@ def producto(env, vendedor, nombre="Lote sec", etapa="shrimp_marketplace.shrimp_
     return env["shrimp.product"].create(vals)
 
 
+def facturar_en_compania_activa(env):
+    """Los cobros se facturan en la compañía de facturación de la plataforma
+    (la que tiene el diario de facturas de servicio; ver
+    shrimp.charge._shrimp_billing_company). Las bases de demo traen una
+    compañía «ec» configurada con el SRI a medias: sin esto, el resultado de
+    las pruebas dependería de esa configuración. Aquí no hay ninguna, así que
+    manda la compañía activa (se deshace con la transacción de la prueba)."""
+    Company = env["res.company"].sudo()
+    if "shrimp_service_journal_id" in Company._fields:
+        Company.search([("shrimp_service_journal_id", "!=", False)]).write(
+            {"shrimp_service_journal_id": False})
+
+
 def csrf_de(texto):
     m = re.search(r'csrf_token["\']?\s*[:=]\s*["\']([0-9a-fA-Fo]+)["\']', texto) or \
         re.search(r'name="csrf_token"\s+value="([^"]+)"', texto)
@@ -84,5 +97,6 @@ class ShrimpSecurityCommon(TransactionCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        facturar_en_compania_activa(cls.env)
         cls.s = crear_socios(cls.env)
         cls.larva = producto(cls.env, cls.s["sem"])

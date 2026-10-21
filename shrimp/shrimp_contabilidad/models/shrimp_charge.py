@@ -36,7 +36,8 @@ class ShrimpCharge(models.Model):
 
     @api.model
     def _get_service_product(self, charge_type, company=None):
-        company = company or self.env.company
+        company = company or (self.company_id if len(self) == 1 else None) \
+            or self._shrimp_billing_company()
         Setup = self.env["shrimp.contabilidad.setup"]
         if self._shrimp_cont_es_larva(charge_type):
             product = Setup._ensure_own_income_product("larva")
@@ -50,10 +51,12 @@ class ShrimpCharge(models.Model):
 
     @api.model
     def _create_vendor_bill(self, partner, product, label, amount, ref, company=None):
+        # La misma compañía en la que shrimp_marketplace crea la factura.
+        company = company or self._shrimp_billing_company()
         try:
             with self.env.cr.savepoint():
                 self.env["shrimp.contabilidad.setup"]._payable_verificadora(
-                    partner, product, company or self.env.company)
+                    partner, product, company)
         except Exception:  # noqa: BLE001 - nunca debe impedir la liquidación
             _logger.exception("shrimp_contabilidad: no se pudo fijar la cuenta por pagar "
                               "de la verificadora %s", partner.display_name)

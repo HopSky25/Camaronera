@@ -19,7 +19,7 @@ genera el parte en el mismo formato de texto que el equipo ya usa por WhatsApp.
     """,
     "author": "Carlos Carballo",
     "category": "Sales/Marketplace",
-    "version": "19.0.1.25.0",
+    "version": "19.0.1.26.0",
     "license": "LGPL-3",
     "depends": ["shrimp_marketplace"],
     "pre_init_hook": "pre_init_hook",

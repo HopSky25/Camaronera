@@ -19,6 +19,22 @@ DECISIÓN DE NEGOCIO (facturación en dos pasos)
    sistema. La plataforma no emite esa factura: solo la REGISTRA (número, clave
    de acceso, archivo) en la compra; ver shrimp.transaction.seller_invoice_*.
 
+IMPORTE EXACTO (2026-10-20)
+===========================
+La factura de un cobro lleva UNA línea: cantidad 1 y precio = ``amount`` (el
+importe ya redondeado a centavos). La cantidad y la tarifa van en el concepto
+(«Comisión marketplace – PL12: 3.920,05 libras × 0,5 ctv»). Antes la línea era
+cantidad × tarifa por unidad, y Odoo redondea el precio unitario a la
+precisión «Product Price» (2 decimales): 0,5 ctv (0,005) salía como 0,01 y la
+factura cobraba el DOBLE del cobro; 0,2 ctv salía en 0,00.
+
+COMPAÑÍA QUE FACTURA
+====================
+El cobro, su pedido, su factura, su nota de crédito y la factura de proveedor
+del verificador van SIEMPRE en la compañía del cobro (``company_id``), que es
+la compañía de facturación de la plataforma (_shrimp_billing_company), no la
+compañía activa de quien dispara el cobro.
+
 Los vínculos con el pedido y la factura (sale_order_id / invoice_id) solo se
 escriben cuando la factura quedó CONTABILIZADA. Si algo falla, el intento se
 deshace entero (savepoint), el cobro queda en «Error» con el motivo a la vista
@@ -60,7 +76,9 @@ class ShrimpCharge(models.Model):
         help="A quién se le factura el servicio.")
     company_id = fields.Many2one(
         "res.company", string="Compañía", required=True,
-        default=lambda self: self.env.company)
+        default=lambda self: self._shrimp_billing_company(),
+        help="Compañía que factura el servicio (la de facturación de la plataforma). "
+             "El pedido, la factura y la nota de crédito se emiten en ella.")
     origin = fields.Char(
         string="Documento origen",
         help="Referencia legible de lo que originó el cobro (compra, "
@@ -79,13 +97,15 @@ class ShrimpCharge(models.Model):
         help="Centavos cobrados por cada unidad vendida al momento del cobro.")
     invoice_qty = fields.Float(
         string="Cantidad a facturar", default=1.0,
-        help="Cantidad de la línea de factura (en la comisión, las unidades vendidas).")
+        help="Siempre 1: la factura lleva el importe del cobro en una sola línea; la "
+             "cantidad y la tarifa van en el concepto.")
     unit_amount = fields.Monetary(
         string="Precio unitario", currency_field="currency_id",
-        help="Precio de la línea de factura antes de impuestos.")
+        help="Precio de la línea de factura antes de impuestos (= importe del cobro).")
     amount = fields.Monetary(string="Importe (sin impuestos)", currency_field="currency_id")
     currency_id = fields.Many2one(
-        "res.currency", string="Moneda", default=lambda self: self.env.company.currency_id)
+        "res.currency", string="Moneda",
+        default=lambda self: self._shrimp_billing_company().currency_id)
     date = fields.Datetime(string="Fecha del cobro", default=fields.Datetime.now)
     service_product_id = fields.Many2one(
         "product.product", string="Servicio facturado", readonly=True)
@@ -125,6 +145,7 @@ class ShrimpCharge(models.Model):
     # ------------------------------------------------------------------
     @api.model_create_multi
     def create(self, vals_list):
+        facturadora = None
         for vals in vals_list:
             if vals.get("name", _("Nuevo")) == _("Nuevo"):
                 vals["name"] = self.env["ir.sequence"].next_by_code(
@@ -132,10 +153,41 @@ class ShrimpCharge(models.Model):
             if not vals.get("payer_partner_id") and vals.get("seller_partner_id") \
                     and vals.get("charge_type", "commission") == "commission":
                 vals["payer_partner_id"] = vals["seller_partner_id"]
-            if "amount" in vals and "unit_amount" not in vals:
-                cantidad = vals.get("invoice_qty") or 1.0
-                vals["unit_amount"] = (vals["amount"] or 0.0) / cantidad
+            # La compañía la decide la plataforma, no quien dispara el cobro.
+            if not vals.get("company_id"):
+                facturadora = facturadora or self._shrimp_billing_company()
+                vals["company_id"] = facturadora.id
+            if not vals.get("currency_id"):
+                vals["currency_id"] = self.env["res.company"].browse(
+                    vals["company_id"]).currency_id.id
+            # Una sola línea por el importe exacto (ver la cabecera del
+            # módulo): se ignora cualquier cantidad × precio unitario que
+            # traiga quien llama (datos de demo, scripts, versiones viejas).
+            if "amount" in vals:
+                vals["invoice_qty"] = 1.0
+                vals["unit_amount"] = vals["amount"] or 0.0
         return super().create(vals_list)
+
+    @api.model
+    def _shrimp_billing_company(self):
+        """Compañía de facturación de la plataforma.
+
+        Es la que tiene configurado el «Diario de facturas de servicio»
+        (shrimp_service_journal_id, campo de shrimp_l10n_ec: si ese módulo no
+        está instalado el campo no existe y se usa la compañía activa). Con
+        varias configuradas manda la activa si es una de ellas; si no, la
+        primera. Antes era siempre la compañía activa: un cobro disparado
+        desde otra compañía (o por un cron) salía con diario, impuestos y
+        numeración ajenos."""
+        Company = self.env["res.company"].sudo()
+        if "shrimp_service_journal_id" in Company._fields:
+            configuradas = Company.search(
+                [("shrimp_service_journal_id", "!=", False)], order="id")
+            if configuradas:
+                elegida = self.env.company if self.env.company in configuradas \
+                    else configuradas[:1]
+                return self.env["res.company"].browse(elegida.id)
+        return self.env.company
 
     @api.model
     def _register_charge(self, vals):
@@ -189,8 +241,10 @@ class ShrimpCharge(models.Model):
             "qty": qty,
             "uom_id": product.uom_id.id,
             "rate_cents": rate,
-            "invoice_qty": qty or 1.0,
-            "unit_amount": rate / 100.0,
+            # Cantidad 1 por el importe redondeado: la cantidad y la tarifa
+            # van en el concepto de la línea (_invoice_line_name).
+            "invoice_qty": 1.0,
+            "unit_amount": amount,
             "amount": amount,
             "origin": transaction.name,
             "description": _("Comisión marketplace – %s") % (product.display_name or ""),
@@ -224,13 +278,43 @@ class ShrimpCharge(models.Model):
         return tax if tax and tax.type_tax_use == "sale" else self.env["account.tax"]
 
     @api.model
+    def _service_vat_fallback(self, company):
+        """IVA de servicios de la compañía, para una línea cuyo producto no
+        tiene impuesto en ella: el IVA 15 % de SERVICIOS del plan contable de
+        Ecuador (tax_vat_15_411_services) y, si la compañía no lo tiene, su
+        impuesto de venta por defecto."""
+        Tax = self.env["account.tax"].sudo()
+        if not company:
+            return Tax
+        tax = Tax
+        if company.chart_template:
+            tax = self.env["account.chart.template"].with_company(company).ref(
+                "tax_vat_15_411_services", raise_if_not_found=False) or Tax
+        tax = tax.filtered(lambda t: t.active and t.type_tax_use == "sale")
+        return tax or self._default_service_taxes(company).sudo()
+
+    @api.model
+    def _service_taxes_for(self, product, company):
+        """Impuestos con los que sale la línea del servicio en ``company``.
+
+        Los del producto en esa compañía (o su matriz); si no tiene ninguno,
+        el IVA de servicios de la compañía. El producto se crea una sola vez
+        y nace con el IVA de la primera compañía que lo pidió (y la comisión
+        de larva, sin IVA fuera del plan «ec»): sin esto la factura de otra
+        compañía salía sin IVA. Vacío = el cobro no se puede facturar."""
+        taxes = product.sudo().taxes_id._filter_taxes_by_company(company) if product \
+            else self.env["account.tax"]
+        return taxes or self._service_vat_fallback(company)
+
+    @api.model
     def _get_service_product(self, charge_type, company=None):
         """Producto de servicio del tipo de cobro (lo crea la primera vez).
 
         Se crea en tiempo de ejecución para no depender del orden de carga de
         módulos (website_sale impone publish_date en el product.template).
         """
-        company = company or self.env.company
+        company = company or (self.company_id if len(self) == 1 else None) \
+            or self._shrimp_billing_company()
         xmlid, nombre, codigo = self._service_product_specs()[charge_type]
         product = self.env.ref(xmlid, raise_if_not_found=False)
         if product:
@@ -256,6 +340,26 @@ class ShrimpCharge(models.Model):
     # ------------------------------------------------------------------
     # Facturación
     # ------------------------------------------------------------------
+    def _invoice_line_name(self, product):
+        """Concepto de la línea de factura: el del cobro y, si se cobra por
+        unidad, la cantidad y la tarifa («Comisión marketplace – PL12:
+        3.920,05 libras × 0,5 ctv»). Máximo 300 caracteres (límite del SRI)."""
+        self.ensure_one()
+        nombre = self.description or product.display_name or ""
+        if self.rate_cents and self.qty:
+            Tx = self.env["shrimp.transaction"]
+
+            def num(valor):
+                # Hasta 3 decimales, sin ceros de relleno.
+                texto = "{:.3f}".format(valor).rstrip("0").rstrip(".")
+                decimales = len(texto.split(".")[1]) if "." in texto else 0
+                return Tx.shrimp_fmt_num(valor, decimales)
+
+            unidad = (self.uom_id.name or _("unidades")).lower()
+            nombre = _("%(c)s: %(q)s %(u)s × %(t)s ctv") % {
+                "c": nombre, "q": num(self.qty), "u": unidad, "t": num(self.rate_cents)}
+        return nombre[:300]
+
     def _prepare_sale_order_vals(self, product):
         self.ensure_one()
         return {
@@ -264,12 +368,17 @@ class ShrimpCharge(models.Model):
             "client_order_ref": self.name,
             "origin": self.origin or self.name,
             # Sin tax_ids: la línea toma los impuestos del producto de servicio
-            # (IVA por defecto de la compañía), mapeados por la posición fiscal.
+            # (IVA por defecto de la compañía), mapeados por la posición fiscal;
+            # si el producto no tiene IVA en la compañía, lo pone
+            # _create_invoice_documents.
+            # Cantidad 1 y precio = importe del cobro: el total de la factura
+            # es exactamente el del cobro, sin depender de la precisión del
+            # precio unitario (ver la cabecera del módulo).
             "order_line": [(0, 0, {
                 "product_id": product.id,
-                "name": self.description or product.display_name,
-                "product_uom_qty": self.invoice_qty or 1.0,
-                "price_unit": self.unit_amount or 0.0,
+                "name": self._invoice_line_name(product),
+                "product_uom_qty": 1.0,
+                "price_unit": self.amount or 0.0,
             })],
         }
 
@@ -292,18 +401,33 @@ class ShrimpCharge(models.Model):
             raise UserError(_("El cobro %s no tiene a quién facturar.") % self.name)
         if (self.amount or 0.0) <= 0:
             raise UserError(_("El cobro %s no tiene importe.") % self.name)
-        product = self._get_service_product(self.charge_type, self.company_id)
-        order = self.env["sale.order"].sudo().with_company(self.company_id).create(
+        company = self.company_id
+        product = self._get_service_product(self.charge_type, company)
+        order = self.env["sale.order"].sudo().with_company(company).create(
             self._prepare_sale_order_vals(product))
+        # Producto sin IVA en esta compañía: IVA de servicios de la compañía,
+        # mapeado por la posición fiscal del cliente.
+        if not product.sudo().taxes_id._filter_taxes_by_company(company):
+            iva = self._service_vat_fallback(company)
+            for line in order.order_line.filtered(lambda l: l.product_id == product):
+                line.tax_ids = order.fiscal_position_id.map_tax(iva)
         order.action_confirm()
-        invoice = order._create_invoices()
+        invoice = order.with_company(company)._create_invoices()
         if not invoice:
             raise UserError(_("Ventas no generó factura para el cobro %s.") % self.name)
         invoice = invoice[:1]
         self._prepare_service_invoice(invoice)
+        if not order.fiscal_position_id and invoice.invoice_line_ids.filtered(
+                lambda l: l.display_type == "product" and not l.tax_ids):
+            raise UserError(_("La factura del cobro %s quedaría sin IVA.") % self.name)
         invoice.action_post()
         if invoice.state != "posted":
             raise UserError(_("La factura del cobro %s no quedó contabilizada.") % self.name)
+        # El total tiene que ser exactamente el del cobro.
+        if invoice.currency_id.compare_amounts(invoice.amount_untaxed, self.amount or 0.0):
+            raise UserError(_(
+                "La factura del cobro %(c)s suma %(f)s y el cobro %(m)s.") % {
+                    "c": self.name, "f": invoice.amount_untaxed, "m": self.amount})
         return order, invoice, product
 
     def _invoicing_blocker(self):
@@ -314,8 +438,20 @@ class ShrimpCharge(models.Model):
 
         Un cobro bloqueado no consume intentos: se queda «Por facturar» con el
         motivo a la vista y sale solo en cuanto se corrige la causa. Lo
-        amplía el puente SRI (shrimp_l10n_ec)."""
+        amplía el puente SRI (shrimp_l10n_ec).
+
+        Aquí: ninguna factura de servicio sale sin IVA. Si ni el producto ni
+        la compañía tienen un IVA de venta, el cobro espera a que se
+        configure."""
         self.ensure_one()
+        company = self.company_id
+        product = self._get_service_product(self.charge_type, company)
+        if not self._service_taxes_for(product, company):
+            return _(
+                "El servicio «%(p)s» no tiene IVA en la compañía %(c)s y la compañía no "
+                "tiene IVA de servicios ni impuesto de venta por defecto (Contabilidad › "
+                "Configuración › Ajustes).") % {
+                    "p": product.display_name, "c": company.name}
         return False
 
     def _on_invoicing_blocked(self, reason):
@@ -599,7 +735,7 @@ class ShrimpCharge(models.Model):
                 continue
             try:
                 with self.env.cr.savepoint():
-                    refund = invoice._reverse_moves(
+                    refund = invoice.with_company(charge.company_id)._reverse_moves(
                         [charge._prepare_refund_vals(charge.cancel_reason)], cancel=False)
                     charge._prepare_service_refund(refund, charge.cancel_reason)
                     refund.action_post()
@@ -680,11 +816,16 @@ class ShrimpCharge(models.Model):
         liquidación de compra (documento 03), y puede llevar retenciones. No se
         inventa esa lógica aquí: si el diario de compras usa documentos de la
         localización, la factura queda en BORRADOR para que la complete
-        contabilidad; si no, se contabiliza como antes.
+        contabilidad (con una actividad para el área contable, ver
+        _shrimp_vendor_bill_followup); si no, se contabiliza como antes.
+
+        La compañía es la del cobro que origina el pago (la pasa quien llama);
+        si no viene, la de facturación de la plataforma.
         """
-        company = company or self.env.company
+        company = company or self._shrimp_billing_company()
         move = self.env["account.move"].sudo().with_company(company).create({
             "move_type": "in_invoice",
+            "company_id": company.id,
             "partner_id": partner.id,
             "invoice_date": fields.Date.context_today(self),
             "ref": ref,
@@ -701,9 +842,63 @@ class ShrimpCharge(models.Model):
                 "proveedor o liquidación de compra, y retenciones). Registre el "
                 "número y la autorización del comprobante del proveedor antes "
                 "de contabilizar."))
+            self._shrimp_vendor_bill_followup(move)
         else:
             move.action_post()
         return move
+
+    @api.model
+    def _shrimp_accounting_users(self, company):
+        """Usuarios del área contable de ``company``: los de CamaronMarket
+        (shrimp_contabilidad; el asistente incluye al contador general) o, si
+        ese módulo no está o no tiene a nadie, los administradores de
+        Contabilidad de Odoo."""
+        for xmlid in ("shrimp_contabilidad.group_asistente_contable",
+                      "account.group_account_manager"):
+            grupo = self.env.ref(xmlid, raise_if_not_found=False)
+            if not grupo:
+                continue
+            users = grupo.sudo().all_user_ids.filtered(
+                lambda u: u.active and u._is_internal() and u.id != SUPERUSER_ID
+                and company in u.company_ids)
+            if users:
+                return users.sorted("id")
+        return self.env["res.users"]
+
+    @api.model
+    def _shrimp_vendor_bill_followup(self, move):
+        """La factura de proveedor quedó en BORRADOR (por confirmar SRI):
+        actividad «Por hacer» para que contabilidad la complete y la
+        contabilice. Antes quedaba en borrador en silencio. Una sola abierta
+        por factura; el responsable de facturación si es del área contable,
+        si no el primero del área. Nunca lanza."""
+        tipo = self.env.ref("mail.mail_activity_data_todo", raise_if_not_found=False)
+        if not tipo or not move:
+            return False
+        try:
+            with self.env.cr.savepoint():
+                move = move.sudo()
+                if move.activity_ids.filtered(lambda a: a.activity_type_id == tipo):
+                    return False
+                contables = self._shrimp_accounting_users(move.company_id)
+                responsable = self._shrimp_billing_responsible()
+                usuario = responsable if responsable in contables else contables[:1]
+                usuario = usuario or responsable
+                if not usuario:
+                    return False
+                move.activity_schedule(
+                    activity_type_id=tipo.id, user_id=usuario.id,
+                    summary=_("Confirmar la factura de proveedor %s") % (move.ref or ""),
+                    note=_(
+                        "Factura de proveedor de %(p)s por %(m)s en borrador (por confirmar "
+                        "SRI). Registre el número y la autorización del comprobante del "
+                        "proveedor y contabilícela.") % {
+                            "p": move.partner_id.display_name,
+                            "m": move.amount_total})
+                return True
+        except Exception as e:  # noqa: BLE001 - nunca debe impedir la liquidación
+            _logger.warning("No se pudo avisar de la factura de proveedor %s: %s", move.id, e)
+            return False
 
     # ------------------------------------------------------------------
     # Navegación

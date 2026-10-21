@@ -15,6 +15,7 @@ from odoo.tests import TransactionCase
 
 from odoo.addons.l10n_ec_sri_community.hooks import _configurar_impuestos
 from odoo.addons.l10n_ec_sri_community.services import transport
+from odoo.addons.l10n_ec_sri_community.tests.common import authorization_xml
 
 
 def _p12():
@@ -110,9 +111,10 @@ class SriPlatformCase(TransactionCase):
     def _authorized(self, client, key):
         doc = self.env["ec.sri.document"].sudo().with_context(bin_size=False).search(
             [("access_key", "=", key)], limit=1)
+        # <autorizacion> completa (con el comprobante dentro): la usa el RIDE del correo.
         return {"state": "AUTORIZADO", "number": key, "date": "2026-10-14T10:00:00-05:00",
                 "document": base64.b64decode(doc.signed_xml).decode("utf-8"),
-                "authorization": b"<autorizacion><estado>AUTORIZADO</estado></autorizacion>",
+                "authorization": authorization_xml(doc),
                 "messages": [], "raw": b"<response/>"}
 
     @contextmanager

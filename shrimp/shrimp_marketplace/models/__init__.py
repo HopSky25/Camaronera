@@ -30,6 +30,8 @@ from . import shrimp_product_certificate_line
 from . import shrimp_check_request
 from . import shrimp_review
 from . import shrimp_charge
+# Conciliación de la nota de crédito con su factura (rama feat-sri).
+from . import shrimp_charge_refund
 from . import res_config_settings
 # Ajustes de retrasos de entrega y strikes (campos nuevos en res.config.settings).
 from . import res_config_settings_delay

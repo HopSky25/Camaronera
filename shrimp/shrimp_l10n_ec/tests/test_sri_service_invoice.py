@@ -29,7 +29,8 @@ class TestSriServiceInvoice(SriPlatformCase):
     def test_factura_de_servicio_valida_para_el_sri(self):
         cobro = self._cobro()
         Invoice = self.registry["account.move"]
-        with patch.object(Invoice, "action_ec_sri_emit", autospec=True) as emitir:
+        with patch.object(Invoice, "_ec_sri_emit_keep", autospec=True,
+                          return_value=(self.env["ec.sri.document"], False)) as emitir:
             cobro._try_invoice()
         self.assertEqual(cobro.state, "invoiced", cobro.invoice_error)
         factura = cobro.invoice_id
@@ -49,7 +50,8 @@ class TestSriServiceInvoice(SriPlatformCase):
         self.assertFalse(cobro.invoice_id)
         self.company.shrimp_service_sri_point_id = self.punto
         Invoice = self.registry["account.move"]
-        with patch.object(Invoice, "action_ec_sri_emit", autospec=True):
+        with patch.object(Invoice, "_ec_sri_emit_keep", autospec=True,
+                          return_value=(self.env["ec.sri.document"], False)):
             self.env["shrimp.charge"]._cron_retry_invoices()
         self.assertEqual(cobro.state, "invoiced", cobro.invoice_error)
 

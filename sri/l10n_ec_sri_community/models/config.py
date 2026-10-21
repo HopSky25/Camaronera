@@ -311,20 +311,26 @@ class EmissionPointLine(models.Model):
             code=rec.l10n_latam_document_type_id.code
             rec.document_type=code if code in dict(DOC_TYPES) else False
 
-    def _ec_sri_last_used(self):
+    def _ec_sri_last_used(self,journals=None):
         """Mayor secuencial ya usado por facturas y notas con este punto (001-002-…),
-        para que la secuencia del punto nunca repita un número ante el SRI."""
+        para que la secuencia del punto nunca repita un número ante el SRI.
+
+        Solo cuentan las facturas del MISMO ambiente (o de ambiente desconocido): un punto
+        de producción no salta los números que se usaron en pruebas, que el SRI no conoce.
+        Sí cuentan las de otro ambiente que estén en ``journals`` (por defecto, los diarios
+        del punto), porque Odoo no admite dos facturas con el mismo nombre en un diario."""
         self.ensure_one()
         if self.document_type not in ('01','03','04','05'): return 0
         prefix='%s-%s-' % (self.point_id.establishment,self.point_id.emission)
         moves=self.env['account.move'].sudo().search([('company_id','=',self.company_id.id),
             ('l10n_latam_document_type_id.code','=',self.document_type),('name','like','%'+prefix+'%')])
+        moves=moves._ec_sri_number_clashes(self.point_id.environment,self.point_id.journal_ids|(journals or self.env['account.journal']))
         pattern=re.compile(r'(?<!\d)%s(\d{9})$' % re.escape(prefix))
         return max([int(m.group(1)) for m in map(pattern.search,moves.mapped('name')) if m] or [0])
 
-    def _ec_sri_skip_used(self):
+    def _ec_sri_skip_used(self,journals=None):
         for rec in self:
-            last=rec._ec_sri_last_used()
+            last=rec._ec_sri_last_used(journals)
             if rec.sequence_id.number_next_actual<=last:
                 rec.sequence_id.sudo().number_next_actual=last+1
 

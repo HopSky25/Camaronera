@@ -64,7 +64,16 @@ class TestPointNumbering(TransactionCase):
         self._invoice().action_post(); self._invoice().action_post()
         other=self.env['ec.sri.point'].create(dict(name='Caja 2 bis',establishment_id=self.establishment.id,emission='002',
             environment='2',line_ids=[(0,0,dict(l10n_latam_document_type_id=self.invoice_type.id))]))
-        self.assertEqual(other.line_ids.next_number,3)
+        # (feat-sri) Un punto de PRODUCCIÓN no salta los números usados en pruebas: el SRI
+        # de producción no los conoce. Antes esto daba 3.
+        self.assertEqual(other.line_ids.next_number,1)
+        # Pero en el MISMO diario Odoo exige nombre único: al numerar se saltan igual.
+        self.company.write(dict(ec_sri_environment='2',ec_sri_production_ready=True))
+        move=self.env['account.move'].create(dict(move_type='out_invoice',partner_id=self.partner.id,journal_id=self.journal.id,
+            ec_sri_establishment_id=self.establishment.id,ec_sri_point_id=other.id,
+            invoice_line_ids=[(0,0,dict(name='Camarón',quantity=1,price_unit=10))]))
+        move.action_post()
+        self.assertEqual(move.name,'Fact 001-002-000000003')
 
     def test_journal_takes_codes_from_point(self):
         journal=self.journal.copy()

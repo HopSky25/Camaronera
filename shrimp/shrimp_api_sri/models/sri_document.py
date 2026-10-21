@@ -5,9 +5,13 @@ El comprobante cambia de estado con ``_set()``, que llama a
 puesto por encima. Por eso el gancho va en ``_set`` y no en ``write``.
 """
 
+import logging
+
 from odoo import models
 
 from odoo.addons.shrimp_api.models.webhook import register_event
+
+_logger = logging.getLogger(__name__)
 
 
 def _invoice_audience(doc, partner):
@@ -28,5 +32,14 @@ class EcSriDocument(models.Model):
         if vals.get("state") == "authorized":
             authorized = self.filtered(lambda d: before.get(d.id) != "authorized")
             if authorized:
-                self.env["shrimp.webhook.delivery"].sudo()._emit("invoice.authorized", authorized)
+                # En su propio savepoint y sin propagar: _set() corre dentro del proceso
+                # del SRI (cron) y un fallo del webhook dejaba el comprobante, ya
+                # AUTORIZADO por el SRI, en «Requiere revisión» (Error interno).
+                try:
+                    with self.env.cr.savepoint():
+                        self.env["shrimp.webhook.delivery"].sudo()._emit(
+                            "invoice.authorized", authorized)
+                except Exception:  # noqa: BLE001 - nunca frena el proceso del SRI
+                    _logger.exception("Webhook invoice.authorized: no se pudo encolar para %s",
+                                      authorized.ids)
         return res

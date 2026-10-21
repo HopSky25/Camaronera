@@ -18,7 +18,9 @@
          conciliación, informes), analítica, creación de contactos (clientes y
          proveedores), lectura de los cobros de la plataforma y generación de
          ATS / auxiliares 103-104. NO configura impuestos ni el plan (eso es
-         account.group_account_manager) y NO administra el sistema. -->
+         account.group_account_manager) y NO administra el sistema.
+         Implica «Ecuador SRI / Usuario»: sin él no veía el menú del SRI ni
+         podía leer, enviar o consultar los comprobantes electrónicos. -->
     <record id="group_asistente_contable" model="res.groups">
         <field name="name">Asistente contable</field>
         <field name="sequence">10</field>
@@ -28,13 +30,16 @@
             (4, ref('account.group_account_user')),
             (4, ref('analytic.group_analytic_accounting')),
             (4, ref('base.group_partner_manager')),
+            (4, ref('l10n_ec_sri_community.group_sri_user')),
         ]"/>
     </record>
 
     <!-- Contador general: todo lo del asistente + administración contable
          (plan de cuentas, impuestos, diarios, posiciones fiscales, puntos de
          emisión SRI). Sigue sin ser administrador del sistema ni de la
-         plataforma. -->
+         plataforma. Implica «Ecuador SRI / Administrador» (sucursales, puntos
+         de emisión, secuenciales, anulaciones y reportes del SRI); los Ajustes
+         técnicos del SRI (certificado) siguen siendo de base.group_system. -->
     <record id="group_contador_general" model="res.groups">
         <field name="name">Contador general</field>
         <field name="sequence">20</field>
@@ -43,6 +48,7 @@
         <field name="implied_ids" eval="[
             (4, ref('group_asistente_contable')),
             (4, ref('account.group_account_manager')),
+            (4, ref('l10n_ec_sri_community.group_sri_manager')),
         ]"/>
     </record>
 </odoo>

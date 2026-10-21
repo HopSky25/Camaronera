@@ -10,8 +10,10 @@ Cada punto indica cómo se comprobó:
 - **Reproducido**: ejecutado contra el módulo sin tocar, con el resultado copiado tal cual.
 - **Verificado en el código**: leído en el módulo o en el código de Odoo 19, sin ejecutarlo.
 
-El módulo no se ha modificado. La propuesta que corrige casi todo esto está
-guardada aparte (ver [Propuesta guardada](#propuesta-guardada)).
+El módulo no se modificó durante la revisión. Las correcciones aplicadas después
+están en [Correcciones aplicadas](#correcciones-aplicadas-rama-feat-sri-2026-10-20-versión-19014).
+La propuesta que corrige casi todo esto está guardada aparte (ver
+[Propuesta guardada](#propuesta-guardada)).
 
 ---
 
@@ -181,6 +183,81 @@ ayuda del campo que va vacío si no aplica.
 Los 6 tests sustituyen `_ec_sri_certificate` por una función de prueba, así que
 ni la subida (F1), ni el cifrado, ni el caso de S2 tienen cobertura. F2 sí
 aparece, pero solo porque la firma se ejecuta de verdad.
+
+### F13. Un comprobante que falla el primer día no se puede emitir nunca en producción — Reproducido en test
+
+Si la firma fallaba (certificado, datos del cliente), el savepoint deshacía el
+`ec.sri.document` con su clave. El reintento lo creaba otra vez con la fecha de
+la factura (`account_move.py`, `_ec_sri_open_document`) y la regla de
+producción «fecha de emisión = hoy» (`document.py`, `action_queue`) lo
+rechazaba para siempre desde el día siguiente.
+
+### F14. El cliente nunca recibe la factura electrónica — Verificado en el código
+
+Al autorizarse el comprobante no se enviaba nada al cliente: ni el RIDE ni el
+XML autorizado, que es el que tiene validez tributaria.
+
+### F15. Un fallo del webhook deja «Requiere revisión» un comprobante autorizado — Verificado en el código
+
+`shrimp_api_sri` emite `invoice.authorized` dentro de `_set()`, sin savepoint.
+Si fallaba, la excepción llegaba a `_cron_process` y el comprobante, ya
+AUTORIZADO por el SRI, quedaba en `error` («Error interno»).
+
+### F16. El RIDE usa formato `%` en QWeb — Verificado en el código
+
+`report/ride.xml` armaba la URL del código de barras con `'...%s...' % clave`.
+Odoo 19 vuelve a formatear las expresiones al compilar la plantilla y el `%`
+revienta con «incomplete format».
+
+### F17. Un punto de producción salta los secuenciales usados en pruebas — Verificado en el código
+
+`_ec_sri_skip_used` (`config.py`) contaba las facturas de cualquier ambiente:
+al crear el punto de producción 001-001 empezaba después del último número de
+pruebas, que el SRI de producción no conoce.
+
+---
+
+## Correcciones aplicadas (rama `feat-sri`, 2026-10-20, versión 19.0.1.4.0)
+
+Cambios mínimos y comentados en el código. Tests nuevos en
+`tests/test_emission.py` y `tests/test_configurar_sri.py` (base común en
+`tests/common.py`, SRI simulado, sin red).
+
+- **F1 — corregido.** `models/res_config_settings.py`: el archivo, su nombre y
+  la contraseña dejan de ser `related`; son campos no almacenados con un único
+  `inverse` que llama una vez a `res.company.write()` con archivo y contraseña
+  juntos. No se guardan en la tabla de Ajustes. Test:
+  `test_upload_certificate_from_settings`.
+- **F9 — corregido.** `scripts/configurar_sri.py` reescrito para los modelos
+  1.3/1.4: establecimiento + punto + líneas 01/04, diario y punto de la
+  plataforma, SRI apagado salvo `--activar`, pruebas por defecto, lista de
+  pendientes (incluye el .p12 por Ajustes y `EC_SRI_MASTER_KEY`). Corre en
+  `odoo-bin shell` (comando en el docstring).
+- **F13 — corregido.** La clave de acceso (con su fecha de emisión) se asigna y
+  graba antes de firmar (`document.py`, `_ec_sri_reserve_key`), y los procesos
+  automáticos usan `account.move._ec_sri_emit_keep()`, que prepara y firma en
+  savepoints separados: si la firma falla, el comprobante queda en Borrador con
+  su clave y el motivo, y el reintento lo reutiliza. Para un comprobante que
+  nunca obtuvo clave ni se transmitió y cuya fecha ya no es la de hoy, el
+  formulario (comprobante y factura) muestra «Fecha vencida: emitir de nuevo
+  con fecha de hoy» y el botón **Emitir con fecha de hoy**
+  (`action_redate_today`): la factura vuelve a borrador, toma la fecha de hoy
+  (conserva número y conciliaciones), se contabiliza y el comprobante se encola.
+  Nunca si algo se transmitió (`was_sent` o cualquier evento no local).
+- **F14 — corregido.** Al autorizarse una factura o nota de crédito se encola
+  (`mail.mail`, sin envío inmediato) un correo al cliente y a su contacto de
+  facturación con el RIDE y el XML autorizado (`data/mail_template_data.xml`).
+  Una sola vez (`customer_mail_sent`), en savepoint propio: un fallo queda en el
+  historial y no cambia el estado. Botón **Enviar al cliente** para reenviar.
+- **F15 — corregido** en `shrimp_api_sri` (savepoint y log).
+- **F16 — corregido** (`str.format()`); test que renderiza el RIDE.
+- **F17 — corregido.** Solo cuentan las facturas del mismo ambiente (o de
+  ambiente desconocido) y, por la unicidad de nombre de Odoo, las de cualquier
+  ambiente en el mismo diario; al numerar se saltan también los números
+  ocupados en el diario de la factura. El aviso de número repetido aplica el
+  mismo criterio.
+
+Siguen abiertos: F4 (parcial), F5–F8, F10, F11 y S1, S3–S8.
 
 ---
 

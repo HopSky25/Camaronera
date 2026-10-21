@@ -1,9 +1,12 @@
+import logging
 import re
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 from ..services.xml_utils import money, decimal
 from ..services.builders import aggregate_taxes
 from ..services import validators
+
+_logger=logging.getLogger(__name__)
 
 _SRI_STATES=[('draft','Borrador'),('queued','En cola'),('waiting','Esperando autorización'),
     ('authorized','Autorizado'),('rejected','Rechazado'),('error','Requiere revisión'),('cancelled','Anulado en SRI')]
@@ -16,6 +19,21 @@ class AccountMove(models.Model):
     ec_sri_access_key=fields.Char(string='Clave de acceso SRI',compute='_compute_ec_sri_status',store=False)
     ec_sri_authorization_number=fields.Char(string='N° autorización SRI',compute='_compute_ec_sri_status',store=False)
     ec_sri_document_count=fields.Integer(compute='_compute_ec_sri_status')
+    # Producción: la factura nunca se transmitió y su fecha ya no es la de hoy (ver
+    # ec.sri.document.action_redate_today). Muestra el aviso y «Emitir con fecha de hoy».
+    ec_sri_date_expired=fields.Boolean('Fecha SRI vencida',compute='_compute_ec_sri_date_expired')
+
+    def _compute_ec_sri_date_expired(self):
+        today=validators.today_ec()
+        for move in self:
+            code=move.l10n_latam_document_type_id.code
+            expired=False
+            if move.state=='posted' and code in ('01','03','04','05') and move.l10n_latam_use_documents \
+                    and move.company_id.ec_sri_environment=='2' and move.invoice_date and move.invoice_date<today \
+                    and move._ec_sri_requires_point():
+                doc=move.sudo().ec_sri_document_ids.filtered(lambda d:d.document_type==code)[:1]
+                expired=not doc or doc.date_expired
+            move.ec_sri_date_expired=expired
 
     @api.depends('ec_sri_document_ids.state','ec_sri_document_ids.access_key','ec_sri_document_ids.authorization_number')
     def _compute_ec_sri_status(self):
@@ -177,6 +195,21 @@ class AccountMove(models.Model):
         warning=self.partner_id._ec_sri_identification_warning()
         if warning: self.message_post(body=warning)
 
+    def _ec_sri_known_environment(self):
+        """Ambiente SRI de la factura cuando se puede saber: el de su punto de emisión o, si
+        no lo tiene (facturas anteriores al campo), el de su comprobante. False si no se sabe."""
+        self.ensure_one()
+        if self.ec_sri_point_id: return self.ec_sri_point_id.environment
+        return self.sudo().ec_sri_document_ids.filtered('environment')[:1].environment or False
+
+    def _ec_sri_number_clashes(self,environment,journals):
+        """De estas facturas, las que sí ocupan el número para un punto del ambiente
+        ``environment`` cuyas facturas van a ``journals``. Una factura de OTRO ambiente
+        (p. ej. pruebas, al empezar producción) en otro diario no lo ocupa: el SRI no la
+        conoce y Odoo solo exige nombre único por diario. Si no se sabe su ambiente, o
+        está en el mismo diario, sí lo ocupa (conservador)."""
+        return self.filtered(lambda m:m.journal_id in journals or (m._ec_sri_known_environment() or environment)==environment)
+
     def _ec_sri_assign_number(self):
         """Numera desde el punto: Fact 001-002-000000007, con el próximo secuencial de la
         línea del documento. Al re-confirmar una factura se conserva su número."""
@@ -184,13 +217,17 @@ class AccountMove(models.Model):
         if self.posted_before and self.name and self.name!='/': return
         line=self._ec_sri_point_line()
         point,doc=self.ec_sri_point_id,self.l10n_latam_document_type_id
+        # Salta los números ya ocupados en ESTE diario (p. ej. facturas de pruebas en el
+        # mismo diario al pasar a producción): Odoo no admite dos iguales en un diario.
+        line._ec_sri_skip_used(journals=self.journal_id)
         number='%s-%s-%s' % (point.establishment,point.emission,line.sequence_id.sudo().next_by_id())
         # La secuencia sin huecos avanza por SQL: refrescar el "Próximo secuencial" en caché.
         line.sequence_id.invalidate_recordset(['number_next','number_next_actual'])
         line.invalidate_recordset(['next_number'])
         name='%s %s' % (doc.doc_code_prefix,number) if doc.doc_code_prefix else number
-        if self.search_count([('company_id','=',self.company_id.id),('l10n_latam_document_type_id.code','=',doc.code),
-                              ('name','=',name),('id','!=',self.id)],limit=1):
+        same=self.search([('company_id','=',self.company_id.id),('l10n_latam_document_type_id.code','=',doc.code),
+                          ('name','=',name),('id','!=',self.id)])
+        if same._ec_sri_number_clashes(point.environment,self.journal_id):
             raise UserError(_('El número %(num)s ya existe. Ajuste el "Próximo secuencial" de %(doc)s en el punto de emisión %(point)s.',
                 num=number,doc=doc.display_name,point=point.display_name))
         self.name=name
@@ -359,6 +396,71 @@ class AccountMove(models.Model):
         if doc.state=='draft':
             doc.action_queue()
         return action
+
+    def _ec_sri_emit_keep(self):
+        """Como action_ec_sri_emit, para procesos automáticos (cobros de la plataforma,
+        reintentos): un fallo al preparar o firmar NO hace perder el comprobante.
+
+        1. Crea el comprobante si falta (con la fecha de la factura).
+        2. En un savepoint: comprobaciones previas y clave de acceso, que queda grabada.
+        3. En otro savepoint: XML, firma y cola (action_queue reutiliza la clave).
+        Si 2 o 3 fallan solo se deshace ese paso: el comprobante queda en Borrador (con su
+        clave si se llegó a asignar) y el motivo en «Última respuesta» y en el historial.
+        Así el reintento lo reutiliza con su fecha de emisión en vez de crearlo de nuevo, que
+        en producción lo dejaba bloqueado por la regla «fecha de emisión = hoy».
+
+        Devuelve (comprobante, motivo del fallo o False). Solo lanza si la factura no es
+        emitible (tipo de documento) o si no se puede crear el comprobante."""
+        self.ensure_one()
+        code=self.l10n_latam_document_type_id.code
+        if code not in ('01','03','04','05') or self.move_type not in ('out_invoice','out_refund','in_invoice'):
+            raise UserError(_('No se emite este tipo de documento desde la factura.'))
+        if self.move_type=='in_invoice' and code!='03':
+            raise UserError(_('Las facturas de proveedor no se envían como propias. Use Crear retención.'))
+        doc=self.env['ec.sri.document'].browse(self._ec_sri_open_document(code)['res_id'])
+        if doc.state!='draft':
+            return doc,False
+        for step in ('key','queue'):
+            try:
+                with self.env.cr.savepoint():
+                    if step=='key':
+                        if doc._lock():
+                            company,environment=doc._ec_sri_precheck()
+                            if doc.mode=='native': doc._ec_sri_reserve_key(company,environment)
+                    else:
+                        doc.action_queue()
+            except Exception as exc:  # noqa: BLE001 - el motivo queda en el comprobante
+                message=exc.args[0] if isinstance(exc,UserError) and exc.args else '%s: %s' % (type(exc).__name__,exc)
+                if not isinstance(exc,UserError):
+                    _logger.warning('SRI: fallo inesperado al emitir %s: %s',self.display_name,exc)
+                doc._set({'last_message':message})
+                doc._event('prepare_error',message)
+                return doc,message
+        return doc,False
+
+    def action_ec_sri_redate_today(self):
+        """«Emitir con fecha de hoy» desde la factura (ver ec.sri.document.action_redate_today)."""
+        for move in self:
+            if not move.ec_sri_date_expired:
+                raise UserError(_('%s no tiene la fecha vencida para el SRI.',move.display_name))
+            code=move.l10n_latam_document_type_id.code
+            doc=self.env['ec.sri.document'].browse(move._ec_sri_open_document(code)['res_id'])
+            doc.action_redate_today()
+        return True
+
+    def _ec_sri_redate(self,today):
+        """Vuelve a fechar a ``today`` una factura contabilizada cuyo comprobante nunca se
+        transmitió: borrador, fecha nueva y contabilizar otra vez. Conserva el número
+        (posted_before) y, en Odoo 19, las conciliaciones (button_draft no las deshace)."""
+        self.ensure_one()
+        if self.state!='posted' or self.invoice_date==today: return
+        self.check_access('write')
+        old=self.invoice_date
+        self.button_draft()
+        self.write({'invoice_date':today})
+        self.action_post()
+        self.message_post(body=_('Fecha de emisión cambiada de %(old)s a %(new)s para enviarla al SRI: el comprobante '
+            'nunca se había transmitido (Res. NAC-DGERCGC25-00000014: se transmite el día en que se emite).',old=old,new=today))
 
     def action_ec_sri_open_documents(self):
         self.ensure_one()

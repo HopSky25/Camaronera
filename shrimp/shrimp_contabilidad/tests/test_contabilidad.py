@@ -305,3 +305,39 @@ class TestShrimpContabilidad(TransactionCase):
     def test_menu_informes_reutilizado(self):
         self.assertEqual(self.env.ref("account.menu_finance_reports").parent_id,
                          self.env.ref("shrimp_contabilidad.menu_contabilidad_root"))
+
+    # ------------------------------------------------------------------
+    # Permisos del SRI (rama feat-sri)
+    # ------------------------------------------------------------------
+    def test_permisos_sri(self):
+        """Asistente = Ecuador SRI / Usuario; Contador general = Administrador."""
+        Doc = self.env["ec.sri.document"]
+        doc = Doc.create({"company_id": self.company.id, "partner_id": self.cliente.id,
+                          "document_type": "01"})
+        est = self.env["ec.sri.establishment"].create({
+            "name": "Matriz", "code": "001", "company_id": self.company.id, "address": "Guayaquil"})
+        point = self.env["ec.sri.point"].create({
+            "name": "Plataforma", "establishment_id": est.id, "emission": "001"})
+        menus = [self.env.ref(x) for x in ("l10n_ec_sri_community.menu_sri_root",
+                                           "l10n_ec_sri_community.menu_sri_documents",
+                                           "shrimp_contabilidad.menu_cont_sri_comprobantes")]
+        ctx = {"allowed_company_ids": self.company.ids}
+        for user in (self.asistente, self.contador):
+            self.assertTrue(user.has_group("l10n_ec_sri_community.group_sri_user"), user.login)
+            visibles = self.env["ir.ui.menu"].with_user(user).with_context(ctx)._visible_menu_ids()
+            for menu in menus:
+                self.assertIn(menu.id, visibles, "%s no ve %s" % (user.login, menu.complete_name))
+            self.assertEqual(Doc.with_user(user).with_context(ctx).search([("id", "=", doc.id)]), doc)
+            doc.with_user(user).with_context(ctx).check_access("read")
+        # Solo el contador administra puntos de emisión.
+        self.assertTrue(self.contador.has_group("l10n_ec_sri_community.group_sri_manager"))
+        self.assertFalse(self.asistente.has_group("l10n_ec_sri_community.group_sri_manager"))
+        point.with_user(self.contador).with_context(ctx).write({"name": "Plataforma web"})
+        self.assertEqual(point.name, "Plataforma web")
+        with self.assertRaises(AccessError):
+            point.with_user(self.asistente).with_context(ctx).write({"name": "No"})
+        puntos = self.env.ref("l10n_ec_sri_community.menu_sri_points")
+        self.assertIn(puntos.id, self.env["ir.ui.menu"].with_user(self.contador)
+                      .with_context(ctx)._visible_menu_ids())
+        self.assertNotIn(puntos.id, self.env["ir.ui.menu"].with_user(self.asistente)
+                         .with_context(ctx)._visible_menu_ids())

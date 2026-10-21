@@ -13,8 +13,14 @@ from .config import DOC_TYPES
 
 PROTECTED={'state','access_key','numeric_code','sequence','environment','unsigned_xml','signed_xml','authorized_xml',
            'authorization_number','authorization_date','payload_hash','attempts','next_attempt','last_message',
-           'was_sent','company_snapshot','source_snapshot','retention_move_id','fiscal_number'}
+           'was_sent','company_snapshot','source_snapshot','retention_move_id','fiscal_number','customer_mail_sent'}
 EDITABLE_META={'message_follower_ids','message_partner_ids','activity_ids'}
+# Operaciones del historial que NO implican haber transmitido nada al SRI. Cualquier
+# otra (recepción, autorización, corrección, error de conexión o interno después de
+# marcar el envío...) cuenta como «pudo llegar al SRI»: ver _ec_sri_ever_transmitted.
+LOCAL_EVENTS={'prepared','warning','key_reserved','prepare_error','redate','mail','mail_error'}
+# Comprobantes que se envían por correo al cliente al quedar autorizados.
+MAIL_DOCUMENT_TYPES=('01','04')
 
 _logger=logging.getLogger(__name__)
 
@@ -66,6 +72,11 @@ class SriDocument(models.Model):
     cancellation_date=fields.Date('Fecha anulación SRI',copy=False)
     retention_journal_id=fields.Many2one('account.journal',string='Diario de retenciones',check_company=True,domain="[('type','=','general'),('company_id','=',company_id)]")
     retention_move_id=fields.Many2one('account.move',string='Asiento de retención',check_company=True,readonly=True,copy=False,ondelete='restrict')
+    # Correo al cliente con el RIDE y el XML autorizado (una sola vez; ver _ec_sri_notify_customer).
+    customer_mail_sent=fields.Boolean('Enviado al cliente',readonly=True,copy=False)
+    # Producción: borrador que nunca obtuvo clave ni se transmitió y cuya fecha ya no
+    # es la de hoy. No se puede emitir tal cual: ver action_redate_today.
+    date_expired=fields.Boolean('Fecha vencida',compute='_compute_date_expired')
     _key_unique=models.Constraint('UNIQUE(company_id, access_key)','La clave de acceso ya está registrada.')
     _move_unique=models.Constraint('UNIQUE(move_id, document_type)','Ya existe este comprobante para el documento contable.')
     _picking_unique=models.Constraint('UNIQUE(picking_id, document_type)','Ya existe una guía para esta transferencia.')
@@ -83,6 +94,13 @@ class SriDocument(models.Model):
         for rec in self:
             rec.xml_filename=(rec.access_key or 'comprobante')+'.xml'
             rec.authorized_filename=(rec.access_key or 'comprobante')+'-autorizado.xml'
+
+    @api.depends('state','access_key','date','mode','company_id.ec_sri_environment')
+    def _compute_date_expired(self):
+        today=validators.today_ec()
+        for rec in self:
+            rec.date_expired=bool(rec.state=='draft' and rec.mode=='native' and not rec.access_key
+                and rec.company_id.ec_sri_environment=='2' and rec.date and rec.date<today)
 
     @api.model_create_multi
     def create(self,vals_list):
@@ -150,16 +168,7 @@ class SriDocument(models.Model):
         for rec in self.with_context(bin_size=False):
             if not rec._lock(): continue
             if rec.state!='draft': raise UserError(_('Solo se pueden preparar borradores.'))
-            company=rec.company_id._ec_sri_company_data()
-            environment=rec.company_id.ec_sri_environment
-            if rec.environment and rec.environment!=environment:
-                raise UserError(_('Restaure el ambiente original del comprobante antes de corregirlo.'))
-            today=validators.today_ec()
-            if rec.date>today:
-                raise UserError(_('La fecha de emisión %s es futura.',rec.date))
-            if environment=='2' and not rec.access_key and rec.date!=today:
-                raise UserError(_('Desde el 01/01/2026 el comprobante se transmite al SRI en el momento de generarse '
-                    '(Res. NAC-DGERCGC25-00000014): la fecha de emisión debe ser la de hoy, %s.',today))
+            company,environment=rec._ec_sri_precheck()
             source={}
             try:
                 if rec.mode=='xml':
@@ -173,24 +182,7 @@ class SriDocument(models.Model):
                     ids=root.xpath('./*/identificacionComprador/text() | ./*/identificacionProveedor/text() | ./*/identificacionSujetoRetenido/text() | ./destinatarios/destinatario/identificacionDestinatario/text()')
                     if p['vat'] not in ids: raise ValueError('El receptor del XML no coincide con el contacto.')
                 else:
-                    point=rec.point_id
-                    if not point or point.company_id!=rec.company_id or rec.document_type not in point.line_ids.mapped('document_type') or point.environment!=environment:
-                        raise UserError(_('Seleccione el punto correcto para empresa, documento y ambiente.'))
-                    if rec.move_id.ec_sri_point_id and rec.move_id.ec_sri_point_id!=point:
-                        raise UserError(_('El punto de emisión debe ser el de la factura: %s.',rec.move_id.ec_sri_point_id.display_name))
-                    if rec.move_id and rec.move_id.partner_id.commercial_partner_id!=rec.partner_id.commercial_partner_id:
-                        raise UserError(_('El contacto debe coincidir con el documento contable.'))
-                    if rec.picking_id and rec.picking_id.partner_id.commercial_partner_id!=rec.partner_id.commercial_partner_id:
-                        raise UserError(_('El destinatario debe coincidir con la transferencia.'))
-                    key=rec.access_key
-                    if not key:
-                        numeric='%08d' % secrets.randbelow(100000000)
-                        if rec.document_type in ('01','03','04','05'):
-                            seq=rec.move_id._ec_sri_number_parts()
-                            if seq[:2]!=(point.establishment,point.emission): raise UserError(_('El punto no coincide con la numeración contable.'))
-                            sequence=seq[2]
-                        else: sequence=point._sequence_for(rec.document_type).next_by_id()
-                        key=xml_utils.access_key(rec.date,rec.document_type,company['vat'],environment,point.establishment,point.emission,sequence,numeric)
+                    key=rec._ec_sri_reserve_key(company,environment)
                     raw,source=rec._native_data(key,company)
                 cert,password=rec.company_id._ec_sri_certificate()
                 signed=signature.sign_xml(raw,cert,password)
@@ -221,6 +213,156 @@ class SriDocument(models.Model):
             self.env.ref('l10n_ec_sri_community.ir_cron_sri_queue').sudo()._trigger()
         return True
 
+    def _ec_sri_precheck(self):
+        """Comprobaciones previas a numerar y firmar: datos de la empresa, ambiente y
+        fecha de emisión. Devuelve (datos de la empresa, ambiente)."""
+        self.ensure_one()
+        company=self.company_id._ec_sri_company_data()
+        environment=self.company_id.ec_sri_environment
+        if self.environment and self.environment!=environment:
+            raise UserError(_('Restaure el ambiente original del comprobante antes de corregirlo.'))
+        today=validators.today_ec()
+        if self.date>today:
+            raise UserError(_('La fecha de emisión %s es futura.',self.date))
+        if environment=='2' and not self.access_key and self.date!=today:
+            # Solo llega aquí un comprobante que nunca obtuvo clave de acceso (nunca se
+            # transmitió): se puede volver a fechar con «Emitir con fecha de hoy».
+            raise UserError(_('Fecha vencida: emitir de nuevo con fecha de hoy. Desde el 01/01/2026 el comprobante se '
+                'transmite al SRI en el momento de generarse (Res. NAC-DGERCGC25-00000014) y la fecha de emisión debe '
+                'ser la de hoy, %(today)s; este tiene %(date)s y nunca se envió al SRI. Use «Emitir con fecha de hoy» '
+                'en el comprobante o en la factura: la vuelve a fechar a hoy y la encola.',today=today,date=self.date))
+        return company,environment
+
+    def _ec_sri_reserve_key(self,company,environment):
+        """Valida el punto y asigna la clave de acceso (fecha de emisión, número y código
+        numérico) ANTES de firmar, y la deja grabada en el comprobante.
+
+        Antes la clave solo se grababa después de firmar: si la firma fallaba (certificado,
+        datos del cliente...) se perdía con el rollback, el reintento creaba el comprobante
+        otra vez con la fecha de la factura y, en producción, la regla «fecha de emisión =
+        hoy» lo bloqueaba para siempre desde el día siguiente. Con la clave grabada, quien
+        prepare y firme en savepoints separados (account.move._ec_sri_emit_keep) conserva
+        el comprobante aunque la firma falle, y el reintento reutiliza la misma clave.
+        La clave no se transmite hasta que el cron envía el comprobante (was_sent)."""
+        self.ensure_one()
+        point=self.point_id
+        if not point or point.company_id!=self.company_id or self.document_type not in point.line_ids.mapped('document_type') or point.environment!=environment:
+            raise UserError(_('Seleccione el punto correcto para empresa, documento y ambiente.'))
+        if self.move_id.ec_sri_point_id and self.move_id.ec_sri_point_id!=point:
+            raise UserError(_('El punto de emisión debe ser el de la factura: %s.',self.move_id.ec_sri_point_id.display_name))
+        if self.move_id and self.move_id.partner_id.commercial_partner_id!=self.partner_id.commercial_partner_id:
+            raise UserError(_('El contacto debe coincidir con el documento contable.'))
+        if self.picking_id and self.picking_id.partner_id.commercial_partner_id!=self.partner_id.commercial_partner_id:
+            raise UserError(_('El destinatario debe coincidir con la transferencia.'))
+        if self.access_key: return self.access_key
+        numeric='%08d' % secrets.randbelow(100000000)
+        if self.document_type in ('01','03','04','05'):
+            seq=self.move_id._ec_sri_number_parts()
+            if seq[:2]!=(point.establishment,point.emission): raise UserError(_('El punto no coincide con la numeración contable.'))
+            sequence=seq[2]
+        else: sequence=point._sequence_for(self.document_type).next_by_id()
+        key=xml_utils.access_key(self.date,self.document_type,company['vat'],environment,point.establishment,point.emission,sequence,numeric)
+        self._set(dict(access_key=key,sequence=key[30:39],numeric_code=key[39:47],environment=environment))
+        self._event('key_reserved',_('Clave de acceso asignada (fecha de emisión %s). Aún no se ha enviado al SRI.',self.date))
+        return key
+
+    def _ec_sri_ever_transmitted(self):
+        """¿Pudo llegar algo de este comprobante al SRI? Conservador: was_sent, o cualquier
+        evento que no sea puramente local (action_correct vuelve was_sent a False, pero deja
+        el evento «correction»)."""
+        self.ensure_one()
+        return bool(self.was_sent or self.sudo().event_ids.filtered(lambda e:e.operation not in LOCAL_EVENTS))
+
+    def action_redate_today(self):
+        """«Emitir con fecha de hoy» (producción). Un comprobante que nunca se transmitió y
+        cuya fecha ya no es la de hoy no se puede emitir (Res. NAC-DGERCGC25-00000014). Para
+        no dejarlo bloqueado para siempre, el contador lo vuelve a fechar: la factura pasa a
+        borrador, toma la fecha de hoy (conserva su número y sus conciliaciones) y se vuelve
+        a contabilizar; el comprobante toma la misma fecha y se encola.
+
+        Solo si NUNCA se transmitió nada: sin clave de acceso y sin rastro de envío. Un
+        comprobante que llegó al SRI conserva su fecha y su clave (se consulta o se corrige)."""
+        today=validators.today_ec()
+        for doc in self:
+            if not doc._lock(): continue
+            if doc.state!='draft' or doc.access_key or doc._ec_sri_ever_transmitted():
+                raise UserError(_('Solo se vuelve a fechar un comprobante en borrador que nunca se envió al SRI '
+                    '(sin clave de acceso). %s ya tiene clave o se transmitió: consúltelo o corríjalo.',doc.display_name))
+            if doc.mode!='native':
+                raise UserError(_('Un XML externo lleva su propia fecha: importe uno nuevo con la fecha de hoy.'))
+            old=doc.date
+            if doc.move_id:
+                doc.move_id._ec_sri_redate(today)
+            if old!=today:
+                doc.write({'date':today})
+                doc._event('redate',_('Fecha de emisión cambiada de %(old)s a %(new)s (nunca se había enviado al SRI).',
+                    old=old,new=today))
+        return self.action_queue()
+
+    def _ec_sri_mail_recipients(self):
+        """El cliente de la factura y, si lo tiene, su contacto de facturación (con correo)."""
+        self.ensure_one()
+        partner=self.move_id.partner_id or self.partner_id
+        billing=partner.commercial_partner_id.child_ids.filtered(lambda p:p.type=='invoice' and p.active)
+        return (partner|billing).filtered('email')
+
+    def _ec_sri_notify_customer(self,force=False):
+        """Envía al cliente el RIDE (PDF) y el XML autorizado de las facturas y notas de
+        crédito autorizadas. Solo ENCOLA el correo (mail.mail, force_send=False): si el
+        servidor de correo aún no está configurado, el correo espera en la cola.
+
+        Idempotente (customer_mail_sent) y en un savepoint propio: un fallo al preparar el
+        correo (plantilla, RIDE, adjunto) se registra en el historial y NUNCA lanza ni
+        cambia el estado del comprobante. ``force`` reenvía aunque ya se hubiera enviado."""
+        template=self.env.ref('l10n_ec_sri_community.mail_template_sri_authorized',raise_if_not_found=False)
+        sent=self.browse()
+        for doc in self.sudo().with_context(bin_size=False):
+            if doc.state!='authorized' or doc.document_type not in MAIL_DOCUMENT_TYPES or not template:
+                continue
+            if doc.customer_mail_sent and not force:
+                continue
+            recipients=doc._ec_sri_mail_recipients()
+            if not recipients:
+                doc._event('mail',_('El cliente no tiene correo: no se le envió el comprobante.'))
+                continue
+            # El RIDE se genera aparte (no con report_template_ids de la plantilla): si falla
+            # (p. ej. sin wkhtmltopdf en el servidor) el cliente recibe igual el XML autorizado,
+            # que es el comprobante con validez tributaria.
+            ride=self.env['ir.attachment']
+            try:
+                with self.env.cr.savepoint():
+                    pdf,_fmt=self.env['ir.actions.report'].sudo()._render_qweb_pdf('l10n_ec_sri_community.action_report_ride',doc.ids)
+                    ride=self.env['ir.attachment'].sudo().create(dict(name='RIDE-%s.pdf' % doc.access_key,raw=pdf,
+                        res_model=doc._name,res_id=doc.id,mimetype='application/pdf'))
+            except Exception as exc:  # noqa: BLE001
+                _logger.warning('SRI: no se pudo generar el RIDE del comprobante %s: %s',doc.id,exc)
+                doc._event('mail_error',_('No se pudo generar el RIDE (%s): el correo lleva solo el XML.',type(exc).__name__))
+            try:
+                with self.env.cr.savepoint():
+                    attachment=self.env['ir.attachment'].sudo().create(dict(name=doc.authorized_filename,
+                        raw=base64.b64decode(doc.authorized_xml or b''),res_model=doc._name,res_id=doc.id,
+                        mimetype='application/xml'))
+                    template.sudo().send_mail(doc.id,force_send=False,email_values={
+                        'recipient_ids':[(6,0,recipients.ids)],'attachment_ids':[(4,a.id) for a in ride|attachment]})
+                    doc._set({'customer_mail_sent':True})
+                    doc._event('mail',_('Comprobante enviado a %s (correo en cola).',', '.join(recipients.mapped('email'))))
+                sent|=doc
+            except Exception as exc:  # noqa: BLE001 - el correo nunca afecta al comprobante
+                _logger.warning('SRI: no se pudo preparar el correo del comprobante %s: %s',doc.id,exc)
+                doc._event('mail_error',_('No se pudo preparar el correo al cliente (%s).',type(exc).__name__))
+        return sent
+
+    def action_send_customer_mail(self):
+        """Botón «Enviar al cliente»: vuelve a encolar el correo con el RIDE y el XML."""
+        for doc in self:
+            if doc.state!='authorized' or doc.document_type not in MAIL_DOCUMENT_TYPES:
+                raise UserError(_('Solo se envían al cliente facturas y notas de crédito autorizadas.'))
+            if not doc._ec_sri_mail_recipients():
+                raise UserError(_('El cliente %s no tiene correo electrónico.',(doc.move_id.partner_id or doc.partner_id).display_name))
+            if not doc._ec_sri_notify_customer(force=True):
+                raise UserError(_('No se pudo preparar el correo; vea el historial del comprobante.'))
+        return True
+
     def _apply_authorization(self,result):
         self._event('authorization','\n'.join(result['messages']) or result['state'],result['raw'])
         if result['state']=='AUTORIZADO':
@@ -238,6 +380,8 @@ class SriDocument(models.Model):
                            next_attempt=False,last_message='\n'.join(result['messages']) or 'AUTORIZADO'))
             if self.document_type=='03' and self.move_id:
                 self.move_id.write({'ec_sri_supplier_authorization':result['number']})
+            # Correo al cliente con el RIDE y el XML: en su propio savepoint, nunca lanza.
+            self._ec_sri_notify_customer()
             return True
         if result['state']=='NO AUTORIZADO':
             self._set(dict(state='rejected',next_attempt=False,last_message='\n'.join(result['messages']) or 'NO AUTORIZADO'))

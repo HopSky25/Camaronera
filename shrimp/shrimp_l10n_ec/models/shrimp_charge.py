@@ -346,16 +346,28 @@ class ShrimpCharge(models.Model):
         return invoice
 
     def _after_service_invoice_posted(self, invoice):
-        """Encola el comprobante electrónico para el SRI (si está activado).
+        """Firma y encola el comprobante electrónico para el SRI (si está activado).
 
-        Solo encola: la firma y el envío los hace el cron del módulo SRI. Si
-        falla, la factura sigue contabilizada y el cobro pasa a «Rechazado por
+        El envío lo hace el cron del módulo SRI. Si la preparación o la firma
+        fallan, la factura sigue contabilizada y el cobro pasa a «Rechazado por
         el SRI» con el motivo (ver _after_service_invoice_failed).
+
+        _ec_sri_emit_keep NO lanza por esos fallos: así el comprobante y su clave
+        de acceso (con su fecha de emisión) se conservan para el reintento. Si se
+        lanzara, el savepoint de shrimp_marketplace los desharía y el reintento
+        crearía el comprobante de nuevo; en producción, al día siguiente ya no
+        se podría emitir («fecha de emisión = hoy»).
         """
         res = super()._after_service_invoice_posted(invoice)
         if self._shrimp_sri_enabled() and self.company_id.shrimp_sri_auto_emit \
                 and invoice.l10n_latam_use_documents:
-            invoice.action_ec_sri_emit()
+            _doc, error = invoice._ec_sri_emit_keep()
+            if error:
+                # Lo mismo que hace shrimp_marketplace cuando este gancho lanza.
+                self.message_post(body=_(
+                    "La factura %(f)s quedó contabilizada, pero no se pudo completar "
+                    "el envío electrónico: %(e)s") % {"f": invoice.name, "e": error})
+                self._after_service_invoice_failed(invoice, error)
         return res
 
     def _after_service_invoice_failed(self, invoice, error):
@@ -443,7 +455,14 @@ class ShrimpCharge(models.Model):
         if not (self._shrimp_sri_enabled() and refund.l10n_latam_use_documents):
             return res
         if self._shrimp_credit_auto_emit() and self.company_id.shrimp_sri_auto_emit:
-            refund.action_ec_sri_emit()
+            # Como en la factura: un fallo no deshace el comprobante (ni su clave).
+            _doc, error = refund._ec_sri_emit_keep()
+            if error:
+                self.write({"invoice_error": str(error)[:2000]})
+                self._shrimp_escalate(_(
+                    "La nota de crédito %(n)s del cobro %(c)s quedó contabilizada, pero "
+                    "no se pudo enviar al SRI: %(e)s") % {
+                        "n": refund.name, "c": self.name, "e": str(error)[:500]})
         else:
             self._shrimp_escalate(
                 _("La nota de crédito %(n)s del cobro %(c)s está contabilizada y espera "
@@ -525,11 +544,13 @@ class ShrimpCharge(models.Model):
         return False, False
 
     def _sri_resend(self, move, doc):
-        """Corrige (si hace falta) y vuelve a encolar el comprobante."""
+        """Corrige (si hace falta) y vuelve a encolar el comprobante.
+
+        Devuelve el motivo si no se pudo preparar o firmar (el comprobante y su
+        clave de acceso se conservan, ver _ec_sri_emit_keep) o False."""
         self.payer_partner_id.commercial_partner_id._shrimp_sync_identification_type()
         if not doc:
-            move.action_ec_sri_emit()
-            return
+            return move._ec_sri_emit_keep()[1]
         doc = doc.sudo()
         if doc.state == "rejected":
             doc.action_correct()
@@ -537,13 +558,14 @@ class ShrimpCharge(models.Model):
             if doc.signed_xml:
                 doc.action_resume()
                 self.env.ref("l10n_ec_sri_community.ir_cron_sri_queue").sudo()._trigger()
-                return
+                return False
         if doc.state == "draft":
             company = self.company_id
             if company.shrimp_service_payment_id and move.move_type == "out_invoice" \
                     and not move.l10n_ec_sri_payment_id:
                 move.write({"l10n_ec_sri_payment_id": company.shrimp_service_payment_id.id})
-            doc.action_queue()
+            return move._ec_sri_emit_keep()[1]
+        return False
 
     def _retry_fiscal(self, manual=False):
         res = super()._retry_fiscal(manual=manual)
@@ -567,8 +589,10 @@ class ShrimpCharge(models.Model):
             ahora = fields.Datetime.now()
             try:
                 with self.env.cr.savepoint():
-                    charge._sri_resend(move, doc)
-            except Exception as e:  # noqa: BLE001
+                    e = charge._sri_resend(move, doc)
+            except Exception as exc:  # noqa: BLE001
+                e = exc
+            if e:
                 _logger.warning("No se pudo reenviar al SRI el cobro %s: %s", charge.name, e)
                 charge.write({"invoice_error": _("Reenvío al SRI fallido: %s") % str(e)[:1900],
                               "invoice_attempts": intentos, "last_attempt_at": ahora})

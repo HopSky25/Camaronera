@@ -24,10 +24,18 @@
                 <button name="action_resume" type="object" string="Reanudar" invisible="state != 'error'"/>
                 <button name="action_correct" type="object" string="Corregir" invisible="state != 'rejected'"/>
                 <button name="action_ride" type="object" string="RIDE PDF" invisible="state not in ('authorized','cancelled')"/>
+                <button name="action_redate_today" type="object" string="Emitir con fecha de hoy" class="btn-warning" invisible="not date_expired"
+                        confirm="La factura vuelve a borrador, toma la fecha de hoy (conserva su número) y se contabiliza otra vez; el comprobante se encola. ¿Continuar?"/>
+                <button name="action_send_customer_mail" type="object" string="Enviar al cliente" invisible="state != 'authorized' or document_type not in ('01','04')"/>
                 <field name="state" widget="statusbar" statusbar_visible="draft,queued,waiting,authorized"/>
             </header>
             <sheet>
                 <div class="alert alert-info" role="status" invisible="environment != '1'">AMBIENTE DE PRUEBAS — SIN VALIDEZ TRIBUTARIA</div>
+                <field name="date_expired" invisible="1"/>
+                <div class="alert alert-warning" role="alert" invisible="not date_expired">
+                    <strong>Fecha vencida: emitir de nuevo con fecha de hoy.</strong> Este comprobante nunca se envió al SRI y en producción
+                    la fecha de emisión debe ser la del día de la transmisión (Res. NAC-DGERCGC25-00000014). Use «Emitir con fecha de hoy».
+                </div>
                 <h1><field name="name"/></h1>
                 <group><group>
                     <field name="company_id" readonly="state != 'draft' or access_key"/>
@@ -54,7 +62,7 @@
                     <page string="Archivos"><group><field name="xml_filename" invisible="1"/><field name="authorized_filename" invisible="1"/><field name="unsigned_xml" filename="xml_filename"/><field name="signed_xml" filename="xml_filename"/><field name="authorized_xml" filename="authorized_filename"/><field name="payload_hash"/></group></page>
                     <page string="Historial"><field name="event_ids"><list create="0" edit="0" delete="0"><field name="create_date"/><field name="operation"/><field name="description"/><field name="raw_response"/></list></field></page>
                     <page string="Anulación" groups="l10n_ec_sri_community.group_sri_manager"><p>Primero anule en el portal del SRI. Esta acción registra la constancia; no solicita la anulación al SRI ni revierte asientos.</p><group><field name="cancellation_reason"/><field name="cancellation_date"/><field name="cancellation_evidence"/></group><button name="action_record_cancellation" type="object" string="Registrar anulación realizada en SRI" invisible="state != 'authorized'"/></page>
-                    <page string="Cola"><group><field name="attempts"/><field name="next_attempt"/><field name="was_sent"/></group></page>
+                    <page string="Cola"><group><field name="attempts"/><field name="next_attempt"/><field name="was_sent"/><field name="customer_mail_sent"/></group></page>
                 </notebook>
             </sheet><chatter/>
         </form></field>

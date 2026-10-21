@@ -1,6 +1,6 @@
 {
     "name": "Camaronera — API externa: comprobantes SRI",
-    "version": "19.0.1.0.0",
+    "version": "19.0.1.1.0",
     "summary": "Expone en /api/v1/invoices los comprobantes electrónicos autorizados por el SRI "
                "(XML autorizado y RIDE) a su cliente o proveedor, y el webhook invoice.authorized",
     "description": """

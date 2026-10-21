@@ -617,6 +617,7 @@ class ShrimpCharge(models.Model):
                 continue
             charge.write({"state": "credited", "refund_id": refund.id,
                           "invoice_error": False, "last_attempt_at": ahora})
+            charge._shrimp_reconcile_refund(refund)  # shrimp_charge_refund.py; nunca lanza
             try:
                 with self.env.cr.savepoint():
                     charge._after_service_refund_posted(refund)

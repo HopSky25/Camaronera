@@ -1,4 +1,5 @@
 import base64
+from unittest.mock import patch
 
 from odoo.tests import tagged
 
@@ -61,3 +62,13 @@ class TestApiInvoices(ApiCase):
     def test_openapi_lists_invoices(self):
         spec = self.url_open("/api/v1/openapi.json").json()
         self.assertIn("/api/v1/invoices/{access_key}/xml", spec["paths"])
+
+    def test_webhook_failure_keeps_authorized(self):
+        """Un fallo al encolar el webhook no deja el comprobante en error (savepoint)."""
+        key = "0" * 24 + "001001000000777" + "3" * 10
+        Delivery = self.registry["shrimp.webhook.delivery"]
+        with patch.object(Delivery, "_emit", side_effect=RuntimeError("cola caída")), \
+                self.assertLogs("odoo.addons.shrimp_api_sri.models.sri_document", level="ERROR"):
+            self.doc_draft._set({"state": "authorized", "access_key": key})
+        self.assertEqual(self.doc_draft.state, "authorized")
+        self.assertEqual(self.doc_draft.access_key, key)

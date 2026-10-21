@@ -1,144 +1,371 @@
 # -*- coding: utf-8 -*-
-"""Puesta en marcha del SRI con los datos reales de la empresa.
+"""Puesta en marcha del SRI con los datos reales de la empresa (l10n_ec_sri_community 19.0.1.4).
 
-Lo que se puede deducir ya lo hace solo el post_init_hook al instalar: los
-códigos del catálogo en cada IVA, la habilitación de las compañías de Ecuador
-en ambiente de PRUEBAS y el tipo de identificación de los contactos.
+Lo que se puede deducir ya lo hace solo el post_init_hook al instalar (los
+códigos del catálogo en cada IVA y la compañía en ambiente de PRUEBAS). Lo que
+NO se puede deducir son datos de identidad fiscal, y por eso van aquí y no en
+el hook: inventarlos sería peor que dejarlos en blanco, porque acabarían dentro
+de un comprobante electrónico.
 
-Lo que NO se puede deducir son datos de identidad fiscal, y por eso van aquí y
-no en el hook: inventarlos sería peor que dejarlos en blanco, porque acabarían
-dentro de un comprobante electrónico.
+Qué hace (es idempotente: se puede correr las veces que haga falta):
 
-    RUC, dirección matriz y certificado .p12.
+1. Escribe en la compañía los datos que se le pasen: RUC, razón social, nombre
+   comercial, dirección matriz, régimen, obligado a llevar contabilidad,
+   contribuyente especial y agente de retención. Lo que no se pasa no se toca
+   (nunca se borra un dato con un vacío).
+2. Crea o actualiza el establecimiento (001 por defecto) y su punto de emisión
+   (001) en el ambiente de la compañía, con las líneas 01 Factura y 04 Nota de
+   crédito, cada una con su secuencia.
+3. Si está instalado shrimp_l10n_ec: diario de facturas de servicio (ventas,
+   «Usar documentos»), atado al punto; punto de emisión y forma de pago SRI de
+   la plataforma.
+4. NO enciende el SRI (``ec_sri_enabled``) salvo que se pase ``--activar``, y
+   NO cambia el ambiente salvo que se pase ``--ambiente``: una compañía nueva
+   queda en PRUEBAS (1). Nunca pasa sola a producción.
+5. Imprime una lista de lo que falta para emitir.
 
-Uso:
-    cd /home/ccarballo/odoo19
-    # 1) rellenar DATOS abajo con la información real
-    # 2) ejecutar:
-    ./venv/bin/python src/odoo-bin shell -c odoo.conf -d odoo19 --no-http \
-        < custom_addons/Camaronera/l10n_ec_sri_community/scripts/configurar_sri.py
+Lo que NO hace, a propósito:
 
-Es idempotente: se puede correr las veces que haga falta.
+* Subir el certificado .p12. Se sube en Ajustes › Ecuador SRI › Certificado
+  de firma (se guarda cifrado con la llave del servidor). El .p12 no debe
+  pasar por scripts, variables de entorno ni la línea de comandos.
+* Poner la llave EC_SRI_MASTER_KEY (o EC_SRI_MASTER_KEY_FILE). Es un secreto
+  del SERVIDOR, fuera de la base y del repositorio; sin ella no se puede subir
+  el certificado ni firmar.
 
-EL CERTIFICADO NO VA AQUÍ. El módulo lo lee de variables de entorno del
-servidor, nunca de la base de datos, que es lo correcto: un .p12 guardado en
-una tabla se acaba filtrando en un respaldo. Hay que exportar, con el mismo
-prefijo que se ponga en `secreto`:
+Uso (``odoo-bin shell`` no deja pasar argumentos propios, así que los datos van
+en variables de entorno SRI_* o, con la sintaxis de la línea de comandos, en
+SRI_ARGS). Desde /home/ccarballo/odoo19:
 
-    export EC_SRI_TRAZUL_P12_PATH=/ruta/segura/firma.p12
-    export EC_SRI_TRAZUL_P12_PASSWORD='...'
+    SRI_RUC=0990000000001 SRI_RAZON_SOCIAL="EMPRESA S.A.S." \\
+    SRI_DIRECCION_MATRIZ="Av. Principal 123, Guayaquil" \\
+    ./venv/bin/python src/odoo-bin shell -c odoo.conf -d BASE --no-http \\
+        < custom_addons/Camaronera/sri/l10n_ec_sri_community/scripts/configurar_sri.py
+
+    # lo mismo con argumentos; --simular no guarda nada (ensayo):
+    SRI_ARGS='--ruc 0990000000001 --razon-social "EMPRESA S.A.S." --simular' \\
+    ./venv/bin/python src/odoo-bin shell -c odoo.conf -d BASE --no-http \\
+        < custom_addons/Camaronera/sri/l10n_ec_sri_community/scripts/configurar_sri.py
+
+Variables (y su argumento equivalente en SRI_ARGS):
+
+    SRI_COMPANIA                  --compania        id o nombre exacto (por defecto: la del RUC o la única de Ecuador)
+    SRI_RUC                       --ruc             13 dígitos
+    SRI_RAZON_SOCIAL              --razon-social    nombre de la compañía (razonSocial del XML)
+    SRI_NOMBRE_COMERCIAL          --nombre-comercial
+    SRI_DIRECCION_MATRIZ          --direccion-matriz
+    SRI_REGIMEN                   --regimen         regular | rimpe | popular
+    SRI_OBLIGADO_CONTABILIDAD     --obligado-contabilidad  si | no
+    SRI_CONTRIBUYENTE_ESPECIAL    --contribuyente-especial resolución (vacío si no aplica)
+    SRI_AGENTE_RETENCION          --agente-retencion       resolución (vacío si no aplica)
+    SRI_ESTABLECIMIENTO           --establecimiento        001
+    SRI_DIRECCION_ESTABLECIMIENTO --direccion-establecimiento (por defecto, la matriz)
+    SRI_PUNTO                     --punto           001
+    SRI_AMBIENTE                  --ambiente        1 (pruebas) | 2 (producción)
+    SRI_FORMA_PAGO                --forma-pago      código SRI, 20 por defecto
+                                  --activar / --desactivar / --simular
 """
-
-DATOS = {
-    "compania": "TRAZUL S.A.S.",
-    # RUC de 13 dígitos. Sin esto el módulo se niega a emitir.
-    "ruc": "",
-    # Dirección de la matriz tal como consta en el RUC.
-    "direccion_matriz": "",
-    # Prefijo de las variables de entorno del certificado. Debe empezar por
-    # EC_SRI_ y llevar solo mayúsculas, números y guion bajo.
-    "secreto": "EC_SRI_TRAZUL",
-    "nombre_comercial": "Trazul",
-    # 'regular', 'rimpe' o 'popular'
-    "regimen": "regular",
-    "obligado_contabilidad": True,
-    # Número de contribuyente especial y resolución de agente de retención,
-    # si aplican. En blanco si no.
-    "contribuyente_especial": "",
-    "agente_retencion": "",
-}
-
-# Un punto de emisión por tipo de documento que se vaya a usar.
-# (establecimiento, punto, tipo de documento, nombre)
-PUNTOS = [
-    ("001", "001", "01", "Matriz - Facturas"),
-    ("001", "001", "04", "Matriz - Notas de crédito"),
-    ("001", "001", "05", "Matriz - Notas de débito"),
-    ("001", "001", "07", "Matriz - Retenciones"),
-]
-# Dirección del establecimiento. Si se deja en blanco se usa la matriz.
-DIRECCION_ESTABLECIMIENTO = ""
-
-
-C = env["res.company"].sudo()                              # noqa: F821
-P = env["ec.sri.point"].sudo()                             # noqa: F821
-
-compania = C.search([("name", "=", DATOS["compania"])], limit=1)
-if not compania:
-    raise SystemExit("No existe la compañía %r." % DATOS["compania"])
-if compania.country_id.code != "EC":
-    raise SystemExit("La compañía %s no está en Ecuador." % compania.name)
-
-vals = {
-    "ec_sri_enabled": True,
-    "ec_sri_trade_name": DATOS["nombre_comercial"] or False,
-    "ec_sri_regime": DATOS["regimen"],
-    "ec_sri_accounting": DATOS["obligado_contabilidad"],
-    "ec_sri_special": DATOS["contribuyente_especial"] or False,
-    "ec_sri_agent": DATOS["agente_retencion"] or False,
-    "ec_sri_secret_name": DATOS["secreto"] or False,
-}
-if DATOS["ruc"]:
-    vals["vat"] = DATOS["ruc"]
-if DATOS["direccion_matriz"]:
-    vals["ec_sri_address"] = DATOS["direccion_matriz"]
-compania.write(vals)
-
-print("Compañía: %s" % compania.name)
-print("  RUC:               %s" % (compania.vat or "*** FALTA ***"))
-print("  Dirección matriz:  %s" % (compania.ec_sri_address or "*** FALTA ***"))
-print("  Ambiente:          %s" % dict(
-    compania._fields["ec_sri_environment"].selection).get(compania.ec_sri_environment))
-print("  Prefijo secreto:   %s" % (compania.sudo().ec_sri_secret_name or "*** FALTA ***"))
-
-direccion = DIRECCION_ESTABLECIMIENTO or compania.ec_sri_address
-tipos = dict(P._fields["document_type"].selection)
-print("\nPuntos de emisión (ambiente de pruebas):")
-for establecimiento, punto, tipo, nombre in PUNTOS:
-    existente = P.search([
-        ("company_id", "=", compania.id),
-        ("establishment", "=", establecimiento),
-        ("emission", "=", punto),
-        ("document_type", "=", tipo),
-        ("environment", "=", "1"),
-    ], limit=1)
-    if existente:
-        print("  %s-%s %-22s ya existe (secuencial en %s)" % (
-            establecimiento, punto, tipos.get(tipo), existente.next_number))
-        continue
-    if not direccion:
-        print("  %s-%s %-22s NO SE CREA: falta la dirección del establecimiento"
-              % (establecimiento, punto, tipos.get(tipo)))
-        continue
-    nuevo = P.create({
-        "name": nombre,
-        "company_id": compania.id,
-        "establishment": establecimiento,
-        "emission": punto,
-        "address": direccion,
-        "document_type": tipo,
-        "environment": "1",
-    })
-    print("  %s-%s %-22s creado" % (establecimiento, punto, tipos.get(tipo)))
-
-env.cr.commit()                                            # noqa: F821
-
-faltan = []
-if not compania.vat:
-    faltan.append("el RUC de 13 dígitos")
-if not compania.ec_sri_address:
-    faltan.append("la dirección matriz")
-if not P.search_count([("company_id", "=", compania.id)]):
-    faltan.append("al menos un punto de emisión")
+import argparse
 import os
-prefijo = compania.sudo().ec_sri_secret_name or ""
-if not (prefijo and os.environ.get(prefijo + "_P12_PATH")):
-    faltan.append("el certificado .p12 en las variables de entorno")
+import re
+import shlex
 
-if faltan:
-    print("\nTodavía no se puede emitir. Falta: %s." % ", ".join(faltan))
-    print("Rellena DATOS en este script y vuelve a ejecutarlo.")
-else:
-    print("\nListo para emitir en ambiente de PRUEBAS.")
-    print("Para producción hay que superar la homologación del SRI y marcar")
-    print("'Pruebas de homologación completadas' en la compañía.")
+REGIMENES = ('regular', 'rimpe', 'popular')
+DOCUMENTOS = (('01', 'l10n_ec.ec_dt_01', 'Factura'), ('04', 'l10n_ec.ec_dt_04', 'Nota de crédito'))
+VARIABLES = {
+    'compania': 'SRI_COMPANIA', 'ruc': 'SRI_RUC', 'razon_social': 'SRI_RAZON_SOCIAL',
+    'nombre_comercial': 'SRI_NOMBRE_COMERCIAL', 'direccion_matriz': 'SRI_DIRECCION_MATRIZ',
+    'regimen': 'SRI_REGIMEN', 'obligado_contabilidad': 'SRI_OBLIGADO_CONTABILIDAD',
+    'contribuyente_especial': 'SRI_CONTRIBUYENTE_ESPECIAL', 'agente_retencion': 'SRI_AGENTE_RETENCION',
+    'establecimiento': 'SRI_ESTABLECIMIENTO', 'direccion_establecimiento': 'SRI_DIRECCION_ESTABLECIMIENTO',
+    'punto': 'SRI_PUNTO', 'ambiente': 'SRI_AMBIENTE', 'forma_pago': 'SRI_FORMA_PAGO',
+}
+
+
+class ConfigError(Exception):
+    """Dato inválido o compañía no encontrada: se informa y no se guarda nada."""
+
+
+def _si_no(valor):
+    if valor is None:
+        return None
+    texto = str(valor).strip().lower()
+    if texto in ('si', 'sí', 's', '1', 'true', 'yes'):
+        return True
+    if texto in ('no', 'n', '0', 'false'):
+        return False
+    raise ConfigError('Valor sí/no inválido: %r' % valor)
+
+
+def leer_datos(argv=None, environ=None):
+    """Datos de SRI_ARGS (o ``argv``) y de las variables SRI_*; mandan los argumentos."""
+    environ = os.environ if environ is None else environ
+    parser = argparse.ArgumentParser(prog='configurar_sri', add_help=False)
+    for clave in VARIABLES:
+        parser.add_argument('--' + clave.replace('_', '-'), dest=clave)
+    for flag in ('activar', 'desactivar', 'simular'):
+        parser.add_argument('--' + flag, action='store_true')
+    if argv is None:
+        argv = shlex.split(environ.get('SRI_ARGS', ''))
+    args = parser.parse_args(argv)
+    datos = {}
+    for clave, variable in VARIABLES.items():
+        valor = getattr(args, clave)
+        if valor is None:
+            valor = environ.get(variable)
+        if valor is not None:
+            datos[clave] = valor.strip()
+    datos['activar'] = args.activar or _si_no(environ.get('SRI_ACTIVAR')) or False
+    datos['desactivar'] = args.desactivar
+    datos['simular'] = args.simular or _si_no(environ.get('SRI_SIMULAR')) or False
+    return datos
+
+
+def _validar(datos):
+    if datos.get('activar') and datos.get('desactivar'):
+        raise ConfigError('Use --activar o --desactivar, no los dos.')
+    if datos.get('ruc') and not re.fullmatch(r'[0-9]{13}', datos['ruc']):
+        raise ConfigError('El RUC debe tener 13 dígitos: %r' % datos['ruc'])
+    if datos.get('regimen') and datos['regimen'] not in REGIMENES:
+        raise ConfigError('Régimen inválido %r (use %s).' % (datos['regimen'], ', '.join(REGIMENES)))
+    if datos.get('ambiente') and datos['ambiente'] not in ('1', '2'):
+        raise ConfigError('Ambiente inválido %r: 1 (pruebas) o 2 (producción).' % datos['ambiente'])
+    for clave in ('establecimiento', 'punto'):
+        if datos.get(clave) and not re.fullmatch(r'[0-9]{3}', datos[clave]):
+            raise ConfigError('El código de %s debe tener 3 dígitos: %r' % (clave, datos[clave]))
+    _si_no(datos.get('obligado_contabilidad'))
+
+
+def buscar_compania(env, datos):
+    Company = env['res.company'].sudo()
+    ref = datos.get('compania')
+    if ref:
+        company = Company.browse(int(ref)).exists() if ref.isdigit() else Company.search([('name', '=', ref)], limit=1)
+        if not company:
+            raise ConfigError('No existe la compañía %r.' % ref)
+    elif datos.get('ruc') and Company.search_count([('vat', '=', datos['ruc'])]) == 1:
+        company = Company.search([('vat', '=', datos['ruc'])])
+    else:
+        company = Company.search([('country_id.code', '=', 'EC')])
+        if len(company) != 1:
+            raise ConfigError('Indique la compañía con SRI_COMPANIA (id o nombre): hay %s compañías de Ecuador.'
+                              % len(company))
+    if company.country_id.code != 'EC':
+        raise ConfigError('La compañía %s no está en Ecuador.' % company.name)
+    return company
+
+
+def _compania(company, datos, R):
+    vals = {}
+    campos = (('ruc', 'vat'), ('razon_social', 'name'), ('nombre_comercial', 'ec_sri_trade_name'),
+              ('direccion_matriz', 'ec_sri_address'), ('regimen', 'ec_sri_regime'),
+              ('contribuyente_especial', 'ec_sri_special'), ('agente_retencion', 'ec_sri_agent'))
+    for clave, campo in campos:
+        if clave in datos:
+            # Contribuyente especial y agente de retención admiten vacío («no aplica»).
+            valor = datos[clave] or False
+            if not valor and clave not in ('contribuyente_especial', 'agente_retencion'):
+                continue
+            if (company[campo] or False) != valor:
+                vals[campo] = valor
+    obligado = _si_no(datos.get('obligado_contabilidad'))
+    if obligado is not None and company.ec_sri_accounting != obligado:
+        vals['ec_sri_accounting'] = obligado
+    if datos.get('ambiente') and company.ec_sri_environment != datos['ambiente']:
+        vals['ec_sri_environment'] = datos['ambiente']
+    if datos.get('activar') and not company.ec_sri_enabled:
+        vals['ec_sri_enabled'] = True
+    if datos.get('desactivar') and company.ec_sri_enabled:
+        vals['ec_sri_enabled'] = False
+    if vals:
+        company.write(vals)
+    R.append('Compañía %s: %s' % (company.name, ', '.join(sorted(vals)) if vals else 'sin cambios'))
+    if company.ec_sri_enabled and not datos.get('activar'):
+        # El post_init_hook habilita en PRUEBAS las compañías de Ecuador; el script no lo apaga solo.
+        R.append('Aviso: el SRI ya estaba ACTIVADO en la compañía; no se cambia (use --desactivar para apagarlo).')
+
+
+def _establecimiento(env, company, datos, R):
+    Establishment = env['ec.sri.establishment'].sudo().with_context(active_test=False)
+    code = datos.get('establecimiento') or '001'
+    direccion = datos.get('direccion_establecimiento') or company.ec_sri_address
+    est = Establishment.search([('company_id', '=', company.id), ('code', '=', code)], limit=1)
+    if not est:
+        if not direccion:
+            R.append('Establecimiento %s NO creado: falta la dirección (matriz o del establecimiento).' % code)
+            return est
+        est = Establishment.create({'name': 'Matriz' if code == '001' else 'Sucursal %s' % code, 'code': code,
+                                    'company_id': company.id, 'address': direccion,
+                                    'is_headquarters': code == '001'})
+        R.append('Establecimiento %s creado.' % code)
+        return est
+    vals = {}
+    if not est.active:
+        vals['active'] = True
+    if datos.get('direccion_establecimiento') and est.address != datos['direccion_establecimiento']:
+        vals['address'] = datos['direccion_establecimiento']
+    if vals:
+        est.write(vals)
+    R.append('Establecimiento %s: %s' % (code, 'actualizado' if vals else 'ya existía'))
+    return est
+
+
+def _punto(env, company, est, datos, R):
+    Point = env['ec.sri.point'].sudo().with_context(active_test=False)
+    code = datos.get('punto') or '001'
+    environment = company.ec_sri_environment
+    point = Point.search([('establishment_id', '=', est.id), ('emission', '=', code),
+                          ('environment', '=', environment)], limit=1)
+    if not point:
+        point = Point.create({'name': 'Punto %s' % code, 'establishment_id': est.id, 'emission': code,
+                              'environment': environment})
+        R.append('Punto de emisión %s-%s (ambiente %s) creado.' % (est.code, code, environment))
+    else:
+        if not point.active:
+            point.active = True
+        R.append('Punto de emisión %s-%s (ambiente %s) ya existía.' % (est.code, code, environment))
+    for doc_type, xmlid, nombre in DOCUMENTOS:
+        line = point.line_ids.filtered(lambda l: l.document_type == doc_type)
+        if line:
+            R.append('  %s %s: ya habilitada (próximo secuencial %s).' % (doc_type, nombre, line.next_number))
+            continue
+        tipo = env.ref(xmlid, raise_if_not_found=False)
+        if not tipo:
+            R.append('  %s %s: NO creada (no existe %s).' % (doc_type, nombre, xmlid))
+            continue
+        line = env['ec.sri.point.line'].sudo().create({'point_id': point.id, 'l10n_latam_document_type_id': tipo.id})
+        R.append('  %s %s: habilitada (próximo secuencial %s).' % (doc_type, nombre, line.next_number))
+    return point
+
+
+def _plataforma(env, company, point, datos, R):
+    """Diario, punto y forma de pago de las facturas de servicio (shrimp_l10n_ec)."""
+    if 'shrimp_service_journal_id' not in company._fields:
+        R.append('shrimp_l10n_ec no está instalado: se omite el diario de la plataforma.')
+        return
+    Journal = env['account.journal'].sudo()
+    journal = company.shrimp_service_journal_id or Journal.search([
+        ('company_id', '=', company.id), ('type', '=', 'sale'), ('l10n_latam_use_documents', '=', True)],
+        order='sequence, id', limit=1)
+    if not journal:
+        codigo, n = 'FSRV', 1
+        while Journal.with_context(active_test=False).search_count([('company_id', '=', company.id),
+                                                                     ('code', '=', codigo)]):
+            n += 1
+            codigo = 'FSR%d' % n
+        journal = Journal.create({'name': 'Facturas de servicio', 'code': codigo, 'type': 'sale',
+                                  'company_id': company.id, 'l10n_latam_use_documents': True})
+        R.append('Diario %s creado.' % journal.display_name)
+    vals = {}
+    if not journal.l10n_latam_use_documents:
+        vals['l10n_latam_use_documents'] = True
+    # Un punto de otro ambiente (p. ej. el de pruebas al pasar a producción) se reemplaza.
+    if not journal.ec_sri_point_id or journal.ec_sri_point_id.environment != point.environment:
+        vals['ec_sri_point_id'] = point.id
+    if vals:
+        journal.write(vals)
+    R.append('Diario de servicios: %s (%s).' % (journal.display_name, ', '.join(sorted(vals)) or 'sin cambios'))
+    cvals = {}
+    if company.shrimp_service_journal_id != journal:
+        cvals['shrimp_service_journal_id'] = journal.id
+    actual = company.shrimp_service_sri_point_id
+    if not actual or actual.environment != point.environment:
+        cvals['shrimp_service_sri_point_id'] = point.id
+    codigo_pago = datos.get('forma_pago') or (False if company.shrimp_service_payment_id else '20')
+    if codigo_pago:
+        pago = env['l10n_ec.sri.payment'].sudo().search([('code', '=', codigo_pago)], limit=1)
+        if not pago:
+            R.append('Forma de pago SRI %s no encontrada.' % codigo_pago)
+        elif company.shrimp_service_payment_id != pago:
+            cvals['shrimp_service_payment_id'] = pago.id
+    if cvals:
+        company.write(cvals)
+    R.append('Plataforma: %s' % (', '.join(sorted(cvals)) if cvals else 'sin cambios'))
+
+
+def configurar(env, datos):
+    """Aplica ``datos`` (ver leer_datos). Devuelve (compañía, líneas del informe)."""
+    _validar(datos)
+    company = buscar_compania(env, datos)
+    R = []
+    _compania(company, datos, R)
+    est = _establecimiento(env, company, datos, R)
+    if est:
+        point = _punto(env, company, est, datos, R)
+        _plataforma(env, company, point, datos, R)
+    return company, R
+
+
+def pendientes(env, company):
+    """Lista de lo que falta para emitir (vacía = listo)."""
+    from odoo.addons.l10n_ec_sri_community.services import crypto, validators
+    company = company.sudo()
+    faltan = []
+    if not re.fullmatch(r'[0-9]{13}', company.vat or ''):
+        faltan.append('El RUC de 13 dígitos de la compañía (--ruc).')
+    elif not validators.ec_identification_ok(company.vat):
+        faltan.append('Revisar el RUC %s: no supera el dígito verificador.' % company.vat)
+    if not company.ec_sri_address:
+        faltan.append('La dirección matriz (--direccion-matriz).')
+    if company.tax_calculation_rounding_method != 'round_per_line':
+        faltan.append('Contabilidad › Ajustes › Impuestos: «Redondear por línea» (el SRI calcula por línea).')
+    points = env['ec.sri.point'].sudo().search([('company_id', '=', company.id),
+                                                 ('environment', '=', company.ec_sri_environment)])
+    docs = set(points.mapped('line_ids.document_type'))
+    for doc_type, _x, nombre in DOCUMENTOS:
+        if doc_type not in docs:
+            faltan.append('Un punto de emisión del ambiente actual con %s %s.' % (doc_type, nombre))
+    if not company.ec_sri_cert_data:
+        faltan.append('El certificado .p12: súbalo en Ajustes › Ecuador SRI › Certificado de firma '
+                      '(con su contraseña; se guarda cifrado).')
+    elif company.ec_sri_cert_expiry and company.ec_sri_cert_expiry < validators.today_ec():
+        faltan.append('El certificado venció el %s: suba uno vigente.' % company.ec_sri_cert_expiry)
+    try:
+        llave = crypto._master_key()
+    except ValueError:
+        llave = None
+    if not llave:
+        faltan.append('La llave %s (o %s) en el entorno del SERVIDOR Odoo: sin ella no se puede subir el '
+                      'certificado ni firmar. Nunca en la base ni en el repositorio.'
+                      % (crypto.MASTER_ENV, crypto.MASTER_FILE_ENV))
+    if 'shrimp_service_journal_id' in company._fields and company.ec_sri_enabled:
+        for problema in company._shrimp_sri_config_problems():
+            if problema not in faltan and 'certificado' not in problema:
+                faltan.append(problema)
+    if company.ec_sri_environment == '2' and not company.ec_sri_production_ready:
+        faltan.append('Producción: marque «Pruebas de homologación completadas» en Ajustes tras la homologación.')
+    if not company.ec_sri_enabled:
+        faltan.append('El SRI está APAGADO en la compañía (a propósito): vuelva a correr con --activar '
+                      'cuando todo lo anterior esté listo.')
+    return faltan
+
+
+def main(env, argv=None, environ=None):
+    try:
+        datos = leer_datos(argv, environ)
+        company, R = configurar(env, datos)
+    except ConfigError as exc:
+        env.cr.rollback()
+        print('ERROR: %s\nNo se guardó nada.' % exc)
+        return False
+    ambiente = dict(company._fields['ec_sri_environment'].selection).get(company.ec_sri_environment)
+    print('\n'.join(R))
+    print('\nCompañía %s · RUC %s · ambiente %s · SRI %s'
+          % (company.name, company.vat or '-', ambiente, 'ACTIVADO' if company.ec_sri_enabled else 'apagado'))
+    faltan = pendientes(env, company)
+    if faltan:
+        print('\nPendiente:')
+        for item in faltan:
+            print('  [ ] ' + item)
+    else:
+        print('\nListo para emitir en ambiente %s.' % ambiente)
+    if datos['simular']:
+        env.cr.rollback()
+        print('\n--simular: no se guardó nada.')
+    else:
+        env.cr.commit()
+    return True
+
+
+if __name__ == '__main__' and 'env' in globals():
+    main(env)  # noqa: F821 - lo define odoo-bin shell

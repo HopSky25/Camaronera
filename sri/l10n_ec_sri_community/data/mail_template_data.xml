@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Correo al cliente cuando el SRI autoriza su factura o nota de crédito
+         (ec.sri.document._ec_sri_notify_customer). Lleva el RIDE en PDF y el XML
+         autorizado, que es el que tiene validez tributaria. Los adjuntos los pone
+         el código (el RIDE no va en report_template_ids: si no se pudiera generar,
+         el correo sale igual con el XML).
+         noupdate: el texto se puede ajustar desde Ajustes › Técnico › Plantillas. -->
+    <data noupdate="1">
+        <record id="mail_template_sri_authorized" model="mail.template">
+            <field name="name">SRI: comprobante electrónico autorizado (al cliente)</field>
+            <field name="model_id" ref="model_ec_sri_document"/>
+            <field name="subject">{{ ('[PRUEBAS] ' if object.environment == '1' else '') + (object.name or '') + ' · ' + (object.company_id.name or '') }}</field>
+            <field name="email_from">{{ object.company_id.email_formatted or user.email_formatted }}</field>
+            <field name="lang">{{ (object.move_id.partner_id or object.partner_id).lang }}</field>
+            <field name="auto_delete" eval="False"/>
+            <field name="description">Se envía al cliente al quedar autorizada su factura o nota de crédito electrónica.</field>
+            <field name="body_html" type="html">
+<div style="margin: 0px; padding: 0px;">
+    <p>Estimado(a) <t t-out="(object.move_id.partner_id or object.partner_id).name or ''">cliente</t>:</p>
+    <p>
+        <t t-out="object.company_id.name or ''">La empresa</t> le hace llegar su comprobante electrónico
+        <strong t-out="object.name or ''">Factura 001-001-000000001</strong>, autorizado por el
+        Servicio de Rentas Internas (SRI).
+    </p>
+    <ul>
+        <li>Número de autorización: <t t-out="object.authorization_number or ''"/></li>
+        <li>Fecha de autorización: <t t-out="object.authorization_date or ''"/></li>
+        <li t-if="object.move_id">Total: <t t-out="object.move_id.amount_total" t-options="{'widget': 'monetary', 'display_currency': object.move_id.currency_id}"/></li>
+    </ul>
+    <p>
+        Adjuntamos la representación impresa (RIDE, en PDF) y el archivo XML autorizado.
+        El XML es el comprobante con validez tributaria: consérvelo. Puede verificarlo en
+        el portal del SRI con la clave de acceso <t t-out="object.access_key or ''"/>.
+    </p>
+    <p t-if="object.environment == '1'"><strong>Comprobante emitido en el AMBIENTE DE PRUEBAS del SRI: no tiene validez tributaria.</strong></p>
+    <p>Atentamente,<br/><t t-out="object.company_id.name or ''"/></p>
+</div>
+            </field>
+        </record>
+    </data>
+</odoo>

@@ -23,6 +23,8 @@ from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, UserError, ValidationError
 from odoo.tools import sql
 
+from odoo.addons.shrimp_user_registry.authz import shrimp_is_trusted
+
 _logger = logging.getLogger(__name__)
 
 EVIDENCE_MIMETYPES = {"image/png", "image/jpeg", "image/webp", "application/pdf"}
@@ -136,6 +138,10 @@ class ShrimpSellerStrikeAppealMixin(models.Model):
         """El vendedor pide anular el strike (justificación y evidencia
         opcional: {"content": bytes, "mimetype": str, "name": str})."""
         self.ensure_one()
+        if not shrimp_is_trusted(self.env):
+            # Por RPC el `actor` no se respeta: debajo se trabaja en sudo y
+            # la comprobación de la parte lo tomaría por bueno.
+            actor = None
         strike = self.sudo()
         tx = strike.transaction_id
         if not tx:

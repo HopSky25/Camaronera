@@ -7,6 +7,8 @@ from odoo import api, fields, models, _
 from odoo.exceptions import AccessError, UserError, ValidationError
 from odoo.tools.float_utils import float_compare, float_is_zero
 
+from odoo.addons.shrimp_user_registry.authz import shrimp_actor
+
 
 class ShrimpTransaction(models.Model):
     _name = "shrimp.transaction"
@@ -170,7 +172,9 @@ class ShrimpTransaction(models.Model):
         access_key, date y attachment_id (ya validado por el controlador).
         """
         self.ensure_one()
-        actor = actor or self.env.user.shrimp_actor_partner_id
+        # El `actor` del controlador solo vale si ya autorizó (sudo); por RPC,
+        # el socio del propio usuario.
+        actor = shrimp_actor(self.env, actor)
         if actor != self.seller_partner_id and self.env.user.share:
             raise AccessError(_("La factura de la mercadería la registra el vendedor."))
         if self.env.user.share:
@@ -779,10 +783,15 @@ class ShrimpTransaction(models.Model):
         # fechas; para la recepción hace falta una, así que se cae a hoy.
         return self.delivery_date or fields.Date.context_today(self)
 
+    @api.private
     def action_receive(self):
         """El comprador confirma la recepción: se sube su inventario y (si aplica)
         se crea su producto en BORRADOR. Solo se permite en/después de la fecha de
-        entrega."""
+        entrega.
+
+        Privado (@api.private): no se llama por RPC. Pasa la compra a «done»
+        sin comprobar quién llama; lo invocan solo el servidor
+        (shrimp_confirm_reception, la plataforma, la verificación aceptada)."""
         for rec in self:
             if rec.state != "confirmed":
                 raise ValidationError(_(
@@ -810,8 +819,11 @@ class ShrimpTransaction(models.Model):
             if not rec.received_date:
                 rec.received_date = fields.Datetime.now()
 
+    @api.private
     def action_receive_ref(self):
-        """Wrapper público para invocar desde botones/controladores."""
+        """Alias de action_receive para el código del servidor. Privado: por
+        RPC cualquier usuario del portal forzaba la recepción de cualquier
+        compra."""
         return self.action_receive()
 
     # ------------------------------------------------------------------

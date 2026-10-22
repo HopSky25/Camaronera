@@ -45,6 +45,8 @@ from odoo import api, fields, models, _
 from odoo.addons.shrimp_marketplace.models.shrimp_selection import PRESENTATIONS
 from odoo.exceptions import AccessError, ValidationError
 
+from odoo.addons.shrimp_user_registry.authz import shrimp_actor, shrimp_is_trusted
+
 from .shrimp_simulador import _rango_talla
 
 
@@ -120,6 +122,39 @@ def _escalones_entre(env, talla_a, talla_b):
     if talla_a not in escalera or talla_b not in escalera:
         return None
     return escalera.index(talla_b) - escalera.index(talla_a)
+
+
+# Qué permiso de subusuario necesita cada lado de una reserva: el mismo que
+# pide la matriz de rutas (shrimp_permission_matrix) a sus pantallas. La
+# camaronera «vende» su cosecha; la empacadora la «compra».
+PERMISO_LADO = {
+    "farmer": ("declare_harvest", "camaronera"),
+    "packer": ("commit_harvest", "empacadora"),
+}
+
+
+def shrimp_reserva_check_permiso(env, socio, lado):
+    """Por RPC, el subusuario necesita el permiso de su lado (vender para la
+    camaronera, comprar para la empacadora). El controlador y la API ya lo
+    exigieron y llaman en sudo: para ellos no se comprueba nada."""
+    if shrimp_is_trusted(env) or not socio:
+        return True
+    capacidad, rol = PERMISO_LADO[lado]
+    # sudo() conserva env.user: _shrimp_user_allows mira SUS permisos.
+    if not socio.sudo()._shrimp_user_allows(capacidad, rol):
+        raise AccessError(env._("Tu usuario no tiene permiso para esta acción de la reserva."))
+    return True
+
+
+def shrimp_reserva_actor(env, actor, lado):
+    """El socio en cuyo nombre se actúa sobre una reserva.
+
+    Desde un RPC del portal el `actor` que llegue como argumento no cuenta: se
+    usa el del propio usuario (shrimp_actor) y se exige el permiso de su lado.
+    Que ese socio sea de verdad la parte lo sigue comprobando cada acción."""
+    socio = shrimp_actor(env, actor)
+    shrimp_reserva_check_permiso(env, socio, lado)
+    return socio
 
 
 class ShrimpHarvestForecast(models.Model):
@@ -586,7 +621,7 @@ class ShrimpHarvestForecast(models.Model):
         pregunta por qué no se enteró.
         """
         self.ensure_one()
-        actor = actor or self.env.user.shrimp_actor_partner_id
+        actor = shrimp_reserva_actor(self.env, actor, "farmer")
         if actor != self.farmer_partner_id:
             raise AccessError(_("Una cosecha la publica quien la va a cosechar."))
         if self.state != "draft":
@@ -627,7 +662,7 @@ class ShrimpHarvestForecast(models.Model):
         nadie se apoyó en ellos, no hay incumplimiento que anotar.
         """
         self.ensure_one()
-        actor = actor or self.env.user.shrimp_actor_partner_id
+        actor = shrimp_reserva_actor(self.env, actor, "farmer")
         if actor != self.farmer_partner_id:
             raise AccessError(_("Una declaración la cancela quien la publicó."))
         if self.state not in ("draft", "published", "committed"):
@@ -675,7 +710,7 @@ class ShrimpHarvestForecast(models.Model):
           negociando sería peor que no publicarlo.
         """
         self.ensure_one()
-        actor = actor or self.env.user.shrimp_actor_partner_id
+        actor = shrimp_reserva_actor(self.env, actor, "farmer")
         if actor != self.farmer_partner_id:
             raise AccessError(_("La cosecha la registra quien la cosechó."))
         if self.state not in ("published", "committed"):

@@ -32,6 +32,7 @@ from odoo import api, fields, models, _
 from odoo.exceptions import AccessError, UserError, ValidationError
 from odoo.tools import html2plaintext
 from odoo.addons.base.models.ir_model import MODULE_UNINSTALL_FLAG
+from odoo.addons.shrimp_user_registry.authz import shrimp_require_platform_admin
 
 _logger = logging.getLogger(__name__)
 
@@ -739,11 +740,15 @@ class ShrimpLegalAcceptance(models.Model):
         })
 
     def action_retry_receipt(self):
+        shrimp_require_platform_admin(self.env)
         self._shrimp_generate_receipts()
         return True
 
+    @api.private
     def receipt_content(self):
-        """(bytes, mimetype, nombre) del comprobante; lo genera si falta."""
+        """(bytes, mimetype, nombre) del comprobante; lo genera si falta.
+
+        Privado: lee en sudo; el controlador comprueba de quién es."""
         self.ensure_one()
         rec = self.sudo()
         if not rec.receipt_attachment_id and rec.receipt_state in ("pending", "error"):
@@ -753,6 +758,7 @@ class ShrimpLegalAcceptance(models.Model):
             return None
         return att.raw, att.mimetype, att.name
 
+    @api.private
     def receipt_text_html(self):
         """Texto exacto aceptado (para el PDF)."""
         self.ensure_one()

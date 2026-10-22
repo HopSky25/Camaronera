@@ -180,6 +180,7 @@ class ShrimpTransaction(models.Model):
     # ------------------------------------------------------------------
     # El lote del comprador refleja el peso REAL en planta
     # ------------------------------------------------------------------
+    @api.private
     def action_receive(self):
         res = super().action_receive()
         for rec in self:

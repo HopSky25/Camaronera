@@ -12,3 +12,4 @@ from . import test_copack_bandeja
 from . import test_menus_backoffice
 from . import test_perfiles_por_sitio
 from . import test_copack_decisiones
+from . import test_rpc_authz_copacking

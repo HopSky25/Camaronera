@@ -59,6 +59,8 @@ from odoo.exceptions import AccessError, ValidationError
 from odoo.tools import sql
 from odoo.tools.float_utils import float_compare
 
+from odoo.addons.shrimp_user_registry.authz import shrimp_is_trusted
+
 _logger = logging.getLogger(__name__)
 
 # Ajustes › CamaronMarket › Entregas y recepción (res_config_settings.py).
@@ -563,8 +565,14 @@ class ShrimpTransactionDelayMixin(models.Model):
 
     def action_delay_seller_reject(self, actor=None, auto=False):
         """El vendedor rechaza la contrapropuesta (o venció su plazo, `auto`):
-        la fecha acordada no cambia y el comprador puede cancelar sin costo."""
+        la fecha acordada no cambia y el comprador puede cancelar sin costo.
+
+        `auto` solo vale para el cron (sudo) o un usuario interno: por RPC el
+        comprador daba por rechazada la contrapropuesta sin que el vendedor
+        respondiera (y podía cancelar sin costo, con strike al vendedor)."""
         self.ensure_one()
+        if not shrimp_is_trusted(self.env):
+            auto = False
         aviso = self.shrimp_delay_open()
         if auto:
             if not aviso or aviso.state != "countered":

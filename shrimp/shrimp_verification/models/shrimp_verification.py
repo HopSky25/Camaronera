@@ -5,6 +5,8 @@ from odoo.exceptions import AccessError, ValidationError, UserError
 from odoo.tools.float_utils import float_compare, float_is_zero
 
 from odoo.addons.shrimp_marketplace.models.shrimp_selection import PRESENTATIONS
+from odoo.addons.shrimp_user_registry.authz import (
+    shrimp_actor, shrimp_is_trusted, shrimp_require_internal)
 
 _logger = logging.getLogger(__name__)
 
@@ -712,11 +714,42 @@ class ShrimpVerification(models.Model):
     # ==================================================================
     # Acciones del flujo
     # ==================================================================
+    def _shrimp_check_verifier_caller(self, verdict=False):
+        """Por RPC (/web/dataset/call_kw), las acciones de la verificadora
+        las hace solo quien las haría desde el portal (_my_verification):
+
+        - repartir el trabajo (técnico responsable, equipo de apoyo): el
+          administrador de la empresa verificadora asignada, o un subusuario
+          con el permiso «aprobar» del perfil Verificador (la misma regla que
+          _shrimp_check_response_admin);
+        - con `verdict` (dictaminar), además el técnico responsable que fue a
+          campo (_puede_dictaminar).
+
+        El controlador y la API ya lo comprobaron y llaman en sudo; la
+        plataforma (interno) no tiene límite."""
+        if shrimp_is_trusted(self.env):
+            return True
+        yo = shrimp_actor(self.env).sudo()
+        # sudo() conserva env.user: _shrimp_user_allows mira sus permisos.
+        for rec in self.sudo():
+            if verdict and rec.technician_partner_id and yo == rec.technician_partner_id:
+                continue
+            try:
+                rec._shrimp_check_response_admin(yo)
+            except AccessError:
+                raise AccessError(
+                    _("Esta acción la hace el técnico responsable o el administrador de la "
+                      "empresa verificadora.") if verdict else
+                    _("El trabajo de la orden lo reparte el administrador de la empresa "
+                      "verificadora.")) from None
+        return True
+
     def action_assign_technician(self, technician=None):
         """El admin de la empresa reparte el trabajo entre sus técnicos.
 
         La pertenencia (técnico activo de la empresa, nunca comprador ni
         vendedor) la garantiza _check_technician_belongs_to_company."""
+        self._shrimp_check_verifier_caller()
         for rec in self:
             if rec.is_final:
                 raise UserError(_("Esta verificación ya está cerrada."))
@@ -922,6 +955,9 @@ class ShrimpVerification(models.Model):
                 "acepta o lo rechaza. Para corregirlo, el declarante puede "
                 "deshacer su presentación mientras la otra parte no haya respondido."))
 
+    # Solo el servidor (portal y API, en sudo y tras comprobar la parte): por
+    # RPC `vals` y `actor` serían los del cliente.
+    @api.private
     def action_declared_save(self, vals, actor):
         """Guarda (por partes) el borrador del informe declarado.
 
@@ -955,6 +991,7 @@ class ShrimpVerification(models.Model):
                 missing.append(_("informe de la verificadora externa (PDF)"))
         return missing
 
+    @api.private
     def action_declared_submit(self, actor, notes=None):
         """Presenta el informe declarado: lo congela y lo pone a la firma.
 
@@ -1642,6 +1679,8 @@ class ShrimpVerification(models.Model):
 
     def action_generate_verification_documents(self):
         """Botón: reintentar la facturación si algo falló."""
+        # Botón del back-office: emite facturas en sudo (shrimp.charge).
+        shrimp_require_internal(self.env)
         self._create_verification_documents()
         return True
 

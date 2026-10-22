@@ -1,6 +1,6 @@
 {
     "name": "Camaronera — Empacadora y listas de precios",
-    "version": "19.0.1.20.0",
+    "version": "19.0.1.21.0",
     "summary": "Rol de empacadora, su perfil y las listas de precios que publica",
     "description": """
 Reproduce la lista de precios que las empacadoras reparten cada semana a las

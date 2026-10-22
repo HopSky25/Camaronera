@@ -1700,7 +1700,7 @@ class ShrimpTeamController(http.Controller):
         m = self._member_of(empresa, ref)
         if m == yo or m.is_admin:
             return self._redirect(error="generic")
-        m.action_set_active(not m.active)
+        m._shrimp_set_active(not m.active)
         return self._redirect(saved="state")
 
     @http.route("/my/team/<string:ref>/make-admin", type="http", auth="user", website=True,
@@ -1720,7 +1720,7 @@ class ShrimpTeamController(http.Controller):
         else:
             previos, gestionar = None, None
         try:
-            m.action_make_admin(previous_permissions=previos, previous_manage_account=gestionar)
+            m._shrimp_make_admin(previous_permissions=previos, previous_manage_account=gestionar)
         except (UserError, ValidationError) as e:
             return self._redirect(error=flash_message(e.args[0] if e.args else ""))
         return request.redirect("/my")

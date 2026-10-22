@@ -172,6 +172,10 @@ class ShrimpProduct(models.Model):
     # ------------------------------------------------------------------
     # Cruce con las listas de precios
     # ------------------------------------------------------------------
+    # Privado para RPC: lee en sudo las listas confidenciales que recibe el
+    # dueño del lote, y cualquier usuario del portal podría pedirlo sobre un
+    # lote ajeno. Lo usan la tarjeta del lote (QWeb), el simulador y los avisos.
+    @api.private
     def mejor_precio_hoy(self):
         """Qué es lo mejor que le pagan hoy por este lote.
 

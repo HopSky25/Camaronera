@@ -43,6 +43,7 @@ from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, UserError, ValidationError
 from odoo.tools import float_compare
 
+from .shrimp_harvest_forecast import shrimp_reserva_actor
 from .shrimp_product import LB_POR_KG
 
 _logger = logging.getLogger(__name__)
@@ -268,6 +269,12 @@ class ShrimpHarvestCommitmentReserva(models.Model):
 
     def action_comprar(self, actor=None, verifier=None, fee=None, mode=None):
         self.ensure_one()
+        # Quién compra se comprueba ANTES de mirar el plazo: si no, cualquier
+        # usuario del portal (RPC) haría vencer, con sus avisos, una reserva
+        # ajena. La compra la vuelve a comprobar el método base.
+        actor = shrimp_reserva_actor(self.env, actor, "packer")
+        if actor != self.packer_partner_id:
+            raise AccessError(_("La compra la hace la empacadora comprometida."))
         if self.reservation_state == "reserved" and self.purchase_deadline \
                 and self.purchase_deadline <= fields.Datetime.now():
             self._reserva_vencer()

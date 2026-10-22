@@ -1,6 +1,8 @@
 from odoo import api, fields, models, _
 from odoo.exceptions import ValidationError
 
+from odoo.addons.shrimp_user_registry.authz import shrimp_actor, shrimp_is_trusted
+
 
 class ShrimpCopackAcceptance(models.Model):
     """La firma de una de las partes sobre el acta de empaque.
@@ -153,11 +155,17 @@ class ShrimpCopackAcceptance(models.Model):
         """
         return self._signoff_archive(motivo)
 
+    def _shrimp_rpc_actor(self, actor):
+        """Por RPC del portal el `actor` del argumento no cuenta: firma el
+        socio del propio usuario (de confianza: el que pasan el portal y la
+        API, que ya lo comprobaron)."""
+        return actor if shrimp_is_trusted(self.env) else shrimp_actor(self.env)
+
     def action_accept(self, actor=None):
-        self._firmar("accepted", actor=actor)
+        self._firmar("accepted", actor=self._shrimp_rpc_actor(actor))
 
     def action_reject(self, motivo=None, actor=None):
-        self._firmar("rejected", motivo or self.reason, actor=actor)
+        self._firmar("rejected", motivo or self.reason, actor=self._shrimp_rpc_actor(actor))
 
     # ==================================================================
     # Deshacer la firma (shrimp.signoff.mixin)

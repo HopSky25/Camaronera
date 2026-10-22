@@ -154,6 +154,8 @@ class ShrimpVerificationPayout(models.Model):
 
     def action_retry_payout(self):
         """Botón del back-office: reintenta la liquidación (vuelve a contar)."""
+        # El mismo grupo que el botón (group_shrimp_manager): trabaja en sudo.
+        self.env["shrimp.transaction"]._shrimp_check_platform_admin()
         recs = self.sudo().filtered(lambda r: r.payout_state in ("pending", "error"))
         recs.write({"payout_attempts": 0})
         recs._create_verifier_bill()

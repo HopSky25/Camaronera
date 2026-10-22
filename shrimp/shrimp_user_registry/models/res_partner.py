@@ -6,6 +6,8 @@ from markupsafe import Markup
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError, ValidationError
 
+from odoo.addons.shrimp_user_registry.authz import shrimp_require_platform_admin
+
 
 def _normalize_text(value):
     value = (value or "").strip()
@@ -778,6 +780,9 @@ class ResPartner(models.Model):
                 rec.write({"shrimp_account_state": linea.state})
 
     def action_shrimp_approve_account(self):
+        # Back-office: por RPC cualquier usuario del portal lo podía llamar
+        # sobre cualquier cuenta. Lo mismo que piden los asistentes.
+        shrimp_require_platform_admin(self.env)
         self.write({"shrimp_account_state": "approved"})
         for rec in self:
             # Se avisa al propio contacto (correo): ya puede operar.
@@ -790,6 +795,9 @@ class ResPartner(models.Model):
     def action_shrimp_reject_account(self, reason=None):
         """Rechazar la cuenta = rechazar su perfil por defecto, con motivo
         obligatorio y aviso por correo (D-18). Sin motivo, abre el asistente."""
+        # Back-office: por RPC cualquier usuario del portal lo podía llamar
+        # sobre cualquier cuenta. Lo mismo que piden los asistentes.
+        shrimp_require_platform_admin(self.env)
         lineas = self.env["shrimp.partner.role"].sudo()
         for rec in self:
             linea = rec.sudo().shrimp_role_ids.filtered(lambda r: r.role == rec.shrimp_user_type)[:1]
@@ -825,6 +833,9 @@ class ResPartner(models.Model):
     def action_shrimp_suspend_account(self, reason=None):
         """Suspende la cuenta (D-20): motivo obligatorio, aviso por correo,
         retira sus publicaciones; lo ya comprado/vendido sigue su curso."""
+        # Back-office: por RPC cualquier usuario del portal lo podía llamar
+        # sobre cualquier cuenta. Lo mismo que piden los asistentes.
+        shrimp_require_platform_admin(self.env)
         reason = (reason or "").strip()
         if not reason:
             raise UserError(_("Indica el motivo de la suspensión: se le envía al socio."))
@@ -847,6 +858,9 @@ class ResPartner(models.Model):
         return True
 
     def action_shrimp_unsuspend_account(self):
+        # Back-office: por RPC cualquier usuario del portal lo podía llamar
+        # sobre cualquier cuenta. Lo mismo que piden los asistentes.
+        shrimp_require_platform_admin(self.env)
         for rec in self.sudo():
             holder = rec._shrimp_role_holder()
             holder.write({"shrimp_suspended": False, "shrimp_suspended_at": False})
@@ -886,6 +900,9 @@ class ResPartner(models.Model):
         return ""
 
     def action_shrimp_reset_account(self):
+        # Back-office: por RPC cualquier usuario del portal lo podía llamar
+        # sobre cualquier cuenta. Lo mismo que piden los asistentes.
+        shrimp_require_platform_admin(self.env)
         self.write({"shrimp_account_state": "pending"})
         return True
 

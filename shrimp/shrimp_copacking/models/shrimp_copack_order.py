@@ -7,6 +7,7 @@ from . import copack_plazos
 
 from odoo.addons.shrimp_marketplace.models.shrimp_selection import (
     PRESENTATIONS_WITH_VALUE_ADDED)
+from odoo.addons.shrimp_user_registry.authz import shrimp_actor, shrimp_is_trusted
 
 from .shrimp_copack_request import check_origen_del_cliente
 
@@ -876,6 +877,7 @@ class ShrimpCopackOrder(models.Model):
             self._shrimp_check_platform()
             actor = self.env["res.partner"]
         else:
+            actor = self._shrimp_copack_rpc_actor("any", actor)
             actor = actor or self.env.user.shrimp_actor_partner_id
         # Igual que al firmar: el controlador trabaja en sudo, asi que el
         # control de quien es quien tiene que estar aqui y no en el ACL.
@@ -933,6 +935,37 @@ class ShrimpCopackOrder(models.Model):
     # ------------------------------------------------------------------
     # Cancelación (D-14, D-34)
     # ------------------------------------------------------------------
+    def _shrimp_copack_rpc_actor(self, side, actor=None):
+        """Socio que actúa sobre la orden.
+
+        De confianza (el portal y la API llaman en sudo y ya autorizaron; un
+        usuario interno): el `actor` que pasan, tal cual. Por RPC del portal
+        el `actor` del argumento no cuenta: se usa el socio del propio usuario,
+        que tiene que ser la parte `side` ("client", "copacker" o "any") y, si
+        es subusuario, tener el permiso del perfil (comprar para el cliente,
+        vender para la planta), lo mismo que exige la matriz de rutas del
+        portal (shrimp_permission_matrix)."""
+        self.ensure_one()
+        if shrimp_is_trusted(self.env):
+            return actor
+        yo = shrimp_actor(self.env)
+        socio = yo.sudo()
+        orden = self.sudo()
+        if side in ("client", "any") and socio and socio == orden.client_partner_id:
+            capacidad = "request_copack"
+            roles = socio._shrimp_roles_with(capacidad)
+        elif side in ("copacker", "any") and socio and not orden.self_packing \
+                and socio == orden.copacker_partner_id:
+            capacidad, roles = "provide_copack", ["maquilador"]
+        else:
+            raise AccessError(_("Esta acción la hace una de las partes de la orden."))
+        # sudo() conserva env.user: _shrimp_user_allows mira sus permisos.
+        if not any(socio._shrimp_user_allows(capacidad, rol) for rol in roles):
+            raise AccessError(_(
+                "Tu usuario no tiene permiso para esta acción con el perfil de la orden. "
+                "Pídeselo al administrador de tu cuenta."))
+        return yo
+
     def _shrimp_role_of(self, actor):
         self.ensure_one()
         if not actor:
@@ -978,8 +1011,11 @@ class ShrimpCopackOrder(models.Model):
 
     def action_cancel(self, actor=None, reason=None):
         """Cancela la orden comprobando quién y cuándo (shrimp_cancel_problem).
-        Sin `actor` la cancela la plataforma (backoffice, tests)."""
+        Sin `actor` la cancela la plataforma (backoffice, tests); por RPC del
+        portal, el `actor` es siempre el socio del propio usuario."""
         for rec in self:
+            if not shrimp_is_trusted(self.env):
+                actor = rec._shrimp_copack_rpc_actor("any")
             role = rec._shrimp_role_of(actor) if actor is not None else "platform"
             if role is False:
                 raise AccessError(_("Esta orden la cancela una de sus dos partes."))
@@ -1052,12 +1088,14 @@ class ShrimpCopackOrder(models.Model):
         cancelar devolviéndolo. Queda un acta de devolución que el cliente firma
         (o rechaza). Firmada, la orden se cancela y la solicitud se reabre."""
         self.ensure_one()
+        actor = self._shrimp_copack_rpc_actor("copacker", actor)
         return self.env["shrimp.copack.cancellation"]._shrimp_request(
             self, "return", reason, actor=actor, returned_lb=returned_lb, notes=notes)
 
     def action_request_platform_cancel(self, reason, actor=None):
         """D-34: la planta pide a la plataforma que apruebe la cancelación."""
         self.ensure_one()
+        actor = self._shrimp_copack_rpc_actor("copacker", actor)
         return self.env["shrimp.copack.cancellation"]._shrimp_request(
             self, "platform", reason, actor=actor)
 
@@ -1069,6 +1107,7 @@ class ShrimpCopackOrder(models.Model):
         return _("Para empacar tu propio producto necesitas el perfil Maquilador "
                  "(aprobado). Agrégalo desde «Mi cuenta» en la plataforma de empaque.")
 
+    @api.private
     @api.model
     def shrimp_create_self_packing(self, partner, origen=None, qty_lb=0.0, **extra):
         """Crea una orden de EMPAQUE PROPIO para `partner` (su cuenta de
@@ -1079,6 +1118,10 @@ class ShrimpCopackOrder(models.Model):
         propio. `extra` admite supplies_notes, tolerance_pct, packed_presentation
         y packed_presentation_note. Lanza ValidationError si la cuenta no tiene
         el perfil Maquilador aprobado o no es dueña de camarón.
+
+        Privado (@api.private): crea en sudo para el `partner` que reciba, así
+        que no se llama por RPC; el portal y la API lo llaman con el socio de
+        la sesión ya autorizado.
         """
         socio = partner.sudo()._shrimp_role_holder()
         if not socio._shrimp_self_pack_allowed():
@@ -1125,7 +1168,12 @@ class ShrimpCopackOrder(models.Model):
         """Cierre interno del empaque propio: una sola conformidad, la de la
         propia cuenta (no hay otra parte que firme). Mueve el inventario igual
         que el acta firmada de un empaque de terceros: la merma se consume y lo
-        empacado pasa al lote empacado."""
+        empacado pasa al lote empacado.
+
+        `user` (quien firma el cierre) solo se respeta si quien llama es de
+        confianza; por RPC es siempre el propio usuario."""
+        if not shrimp_is_trusted(self.env):
+            user = None
         user = user or self.env.user
         for rec in self:
             if not rec.self_packing:

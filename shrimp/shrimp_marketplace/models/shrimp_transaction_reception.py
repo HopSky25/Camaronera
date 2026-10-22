@@ -50,6 +50,12 @@ from odoo import SUPERUSER_ID, api, fields, models, _
 from odoo.exceptions import AccessError, ValidationError
 
 from .shrimp_transaction import ShrimpTransaction as _BaseTransaction
+from odoo.addons.shrimp_user_registry.authz import (
+    shrimp_actor, shrimp_is_trusted, shrimp_strip_context)
+
+# Banderas internas de la recepción: un RPC del portal no las puede mandar
+# (saltarse la fecha, darla por verificada o automática, callar los avisos).
+RECEPTION_CONTEXT_FLAGS = ("shrimp_reception_",)
 
 _logger = logging.getLogger(__name__)
 
@@ -339,7 +345,9 @@ class ShrimpTransactionReception(models.Model):
         user = self.env.user
         if user._is_internal() or user._is_superuser():
             return True
-        actor = actor or user.shrimp_actor_partner_id
+        # El `actor` que pasa el controlador o la API solo vale si ya
+        # autorizaron (sudo); por RPC, el socio del propio usuario.
+        actor = shrimp_actor(self.env, actor)
         partner = self.buyer_partner_id if side == "buyer" else self.seller_partner_id
         if actor != partner:
             raise AccessError(_("Esta acción la hace el %s de la compra.")
@@ -411,7 +419,14 @@ class ShrimpTransactionReception(models.Model):
         `auto`: la confirma el cron porque venció el plazo; no comprueba la
         parte ni la fecha. Sube el inventario del comprador (action_receive)
         y deja constancia y avisos.
+
+        `auto` y `actor` solo valen para quien ya está autorizado (sudo o
+        usuario interno): por RPC, un usuario del portal confirmaba con
+        auto=True cualquier compra sin ser el comprador.
         """
+        if not shrimp_is_trusted(self.env):
+            auto, actor = False, None
+            self = shrimp_strip_context(self, RECEPTION_CONTEXT_FLAGS)
         for rec in self:
             if not auto:
                 rec._shrimp_check_party("buyer", actor)
@@ -427,7 +442,11 @@ class ShrimpTransactionReception(models.Model):
                                     shrimp_reception_user=self.env.user.id).action_receive()
         return True
 
+    @api.private
     def action_receive(self):
+        # Las banderas shrimp_reception_* solo las pone el servidor; si no
+        # hay sudo ni usuario interno, se ignoran.
+        self = shrimp_strip_context(self, RECEPTION_CONTEXT_FLAGS)
         auto = self.env.context.get("shrimp_reception_auto")
         verificada = self.env.context.get("shrimp_reception_verified")
         recs = self
@@ -514,6 +533,7 @@ class ShrimpTransactionReception(models.Model):
         """El comprador reporta un problema en vez de confirmar: la compra
         queda «Con incidencia» (el cron no la confirma) y se avisa al vendedor
         y a la plataforma, que la resuelve."""
+        self = shrimp_strip_context(self, RECEPTION_CONTEXT_FLAGS)
         for rec in self:
             rec._shrimp_check_party("buyer", actor)
             if rec.state != "confirmed" or rec.reception_status not in (

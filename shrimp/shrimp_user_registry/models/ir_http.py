@@ -267,7 +267,27 @@ class IrHttp(models.AbstractModel):
         return request.redirect("/my/legal/accept?redirect=%s" % quote(destino, safe=""), local=True)
 
     @classmethod
+    def _shrimp_rpc_gate(cls):
+        """RPC del ORM desde el portal (defensa en profundidad, ver
+        shrimp_rpc_gate.py): /web/dataset/call_kw*, /web/dataset/call_button*
+        y /json/2/<modelo>/<método>. Un par no permitido devuelve un error
+        JSON-RPC (AccessError) y queda en el registro."""
+        from .shrimp_rpc_gate import shrimp_rpc_check
+        ruta = request.httprequest.path or ""
+        params = request.params or {}
+        if ruta.startswith(("/web/dataset/call_kw", "/web/dataset/call_button")):
+            modelo, metodo = params.get("model"), params.get("method")
+        elif ruta.startswith("/json/2/"):
+            modelo, metodo = params.get("__model__"), params.get("__method__")
+        else:
+            return
+        if isinstance(modelo, str) and isinstance(metodo, str):
+            shrimp_rpc_check(request.env, modelo, metodo, origin=ruta)
+
+    @classmethod
     def _dispatch(cls, endpoint):
+        # RPC del ORM: antes que nada, fuera de cualquier try.
+        cls._shrimp_rpc_gate()
         try:
             ruta = request.httprequest.path or ""
             if (request.params and ruta.startswith(_PREFIJOS)

@@ -14,9 +14,14 @@ reglas, así que el núcleo está aquí y el portal y `shrimp_api` lo llaman:
 * Cantidad: cambiar `initial_qty` de un lote SIN compras mueve también su
   lote de stock base. Antes el número cambiaba y el disponible no (el portal
   ni lo guardaba y la API dejaba los dos desalineados).
+
+Los métodos que cambian algo son privados (@api.private): trabajan en sudo y
+la comprobación del dueño la hacen el portal y la API antes de llamarlos. Por
+RPC (/web/dataset/call_kw) cualquier usuario del portal subía fotos (con el
+mimetype que quisiera) a cualquier lote.
 """
 
-from odoo import _, fields, models
+from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
 from odoo.tools.float_utils import float_compare
 
@@ -84,6 +89,7 @@ class ShrimpProductMedia(models.Model):
             active_test=False).search([("photo_attachment_ids", "in", atts.ids)])
         (atts - otros.mapped("photo_attachment_ids")).sudo().unlink()
 
+    @api.private
     def shrimp_photos(self):
         """Fotos en su orden (la primera es la portada), con token."""
         self.ensure_one()
@@ -93,11 +99,13 @@ class ShrimpProductMedia(models.Model):
             sin_token.generate_access_token()
         return atts
 
+    @api.private
     def shrimp_photo_by_token(self, token):
         self.ensure_one()
         token = str(token or "")
         return self.shrimp_photos().filtered(lambda a: token and a.access_token == token)[:1]
 
+    @api.private
     def shrimp_add_photo(self, content, mimetype, filename, cover=False):
         """Agrega una foto al final (o como portada). ValidationError si ya
         tiene el máximo. Devuelve el adjunto nuevo."""
@@ -112,11 +120,13 @@ class ShrimpProductMedia(models.Model):
         fotos = self.shrimp_photos()
         return fotos[:1] if cover else fotos[-1:]
 
+    @api.private
     def shrimp_remove_photo(self, att):
         self.ensure_one()
         quedan = self.shrimp_photos() - att
         self._shrimp_apply_photo_order([("e", a) for a in quedan], quitar=att)
 
+    @api.private
     def shrimp_reorder_photos(self, ordenadas):
         """`ordenadas`: adjuntos del lote en el orden nuevo; las que no
         vengan van al final, en su orden actual."""
@@ -141,6 +151,7 @@ class ShrimpProductMedia(models.Model):
             "|", ("expiry_date", "=", False), ("expiry_date", ">=", today),
         ], order="id desc")
 
+    @api.private
     def shrimp_link_account_certificate(self, user_line, partner=None):
         """Liga un certificado de la cuenta del vendedor al lote (hereda su
         aprobación). ValidationError si no se puede; si ya estaba ligado,
@@ -188,6 +199,7 @@ class ShrimpProductMedia(models.Model):
         att.generate_access_token()
         return att
 
+    @api.private
     def shrimp_add_own_certificate(self, catalogo, attachment, number=False, issue_date=False,
                                    expiry_date=False):
         """Certificado propio del lote con su archivo (`attachment`, ya
@@ -204,6 +216,7 @@ class ShrimpProductMedia(models.Model):
         self.sudo().write({"cert_attachment_ids": [(4, attachment.id)]})
         return line
 
+    @api.private
     def shrimp_edit_own_certificate(self, line, number=False, issue_date=False, expiry_date=False,
                                     attachment=None):
         """Corrige número y fechas (y, si viene, el archivo) de un
@@ -232,6 +245,7 @@ class ShrimpProductMedia(models.Model):
         line.write(vals)
         return True
 
+    @api.private
     def shrimp_remove_certificate_lines(self, lines):
         """Quita líneas de certificado DEL LOTE (y sus archivos del m2m)."""
         self.ensure_one()

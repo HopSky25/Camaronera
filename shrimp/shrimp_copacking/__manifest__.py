@@ -1,6 +1,6 @@
 {
     "name": "Camaronera — Servicio de empaque (co-packing)",
-    "version": "19.0.1.19.0",
+    "version": "19.0.1.20.0",
     "summary": "Maquiladores que empacan camaron ajeno, y el acta que cuadra las libras",
     "description": """
 Hay plantas que no compran camaron: lo empacan para otros. La camaronera o la

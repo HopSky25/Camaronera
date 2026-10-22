@@ -54,6 +54,8 @@ from odoo.exceptions import AccessError, ValidationError
 from odoo.tools import sql
 from odoo.tools.float_utils import float_compare
 
+from odoo.addons.shrimp_user_registry.authz import shrimp_actor
+
 _logger = logging.getLogger(__name__)
 
 CANCEL_KINDS = [
@@ -426,7 +428,9 @@ class ShrimpTransactionCancel(models.Model):
         """Una parte pide cancelar de mutuo acuerdo."""
         self.ensure_one()
         user = self.env.user
-        actor = actor or user.shrimp_actor_partner_id
+        # El `actor` del controlador o de la API solo vale si ya autorizaron
+        # (sudo); por RPC, el socio del propio usuario.
+        actor = shrimp_actor(self.env, actor)
         lado = self._shrimp_side_of(actor)
         self._shrimp_check_party(lado, actor)
         problema = self.shrimp_mutual_cancel_problem()
@@ -456,7 +460,7 @@ class ShrimpTransactionCancel(models.Model):
         req = self.shrimp_cancel_request_open()
         if not req:
             raise ValidationError(_("No hay una solicitud de cancelación esperando respuesta."))
-        actor = actor or self.env.user.shrimp_actor_partner_id
+        actor = shrimp_actor(self.env, actor)
         lado = self._shrimp_side_of(actor)
         if lado == req.requested_side:
             raise ValidationError(_("La solicitud la responde la otra parte."))
@@ -473,7 +477,7 @@ class ShrimpTransactionCancel(models.Model):
     def action_cancel_request_withdraw(self, actor=None):
         self.ensure_one()
         req = self.shrimp_cancel_request_open()
-        actor = actor or self.env.user.shrimp_actor_partner_id
+        actor = shrimp_actor(self.env, actor)
         if not req or self._shrimp_side_of(actor) != req.requested_side:
             raise ValidationError(_("No tienes una solicitud de cancelación abierta."))
         self._shrimp_check_party(req.requested_side, actor)

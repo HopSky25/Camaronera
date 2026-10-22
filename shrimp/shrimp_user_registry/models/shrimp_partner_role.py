@@ -17,6 +17,8 @@ from markupsafe import Markup
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError, ValidationError
 
+from odoo.addons.shrimp_user_registry.authz import shrimp_require_platform_admin
+
 
 class ShrimpPartnerRole(models.Model):
     _name = "shrimp.partner.role"
@@ -174,6 +176,9 @@ class ShrimpPartnerRole(models.Model):
     # Aprobación por perfil (back-office)
     # ------------------------------------------------------------------
     def action_approve(self):
+        # Back-office: por RPC cualquier usuario del portal lo podía llamar
+        # sobre cualquier cuenta. Lo mismo que piden los asistentes.
+        shrimp_require_platform_admin(self.env)
         self.write({"state": "approved"})
         for rec in self.sudo():
             rec.partner_id.message_post(
@@ -209,6 +214,9 @@ class ShrimpPartnerRole(models.Model):
     def action_reject(self, reason=None):
         """Rechaza el perfil. El motivo es obligatorio (D-18): queda en la
         línea, en el chatter de la cuenta y se envía por correo al socio."""
+        # Back-office: por RPC cualquier usuario del portal lo podía llamar
+        # sobre cualquier cuenta. Lo mismo que piden los asistentes.
+        shrimp_require_platform_admin(self.env)
         reason = (reason or self.env.context.get("shrimp_reject_reason") or "").strip()
         if not reason:
             raise UserError(_("Indica el motivo del rechazo: se le envía al socio."))
@@ -365,5 +373,8 @@ class ShrimpPartnerRole(models.Model):
         return len(vencidas)
 
     def action_reset(self):
+        # Back-office: por RPC cualquier usuario del portal lo podía llamar
+        # sobre cualquier cuenta. Lo mismo que piden los asistentes.
+        shrimp_require_platform_admin(self.env)
         self.write({"state": "pending"})
         return True

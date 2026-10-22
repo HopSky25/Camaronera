@@ -22,6 +22,8 @@ from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
 from odoo.tools import sql
 
+from odoo.addons.shrimp_user_registry.authz import shrimp_actor, shrimp_is_trusted
+
 _TABLE = "shrimp_trace_withdrawal"
 PUBLIC_STATES = ("confirmed", "done")
 
@@ -121,23 +123,25 @@ class ShrimpTransactionTracePublic(models.Model):
     # ------------------------------------------------------------------
     def _shrimp_trace_check_party(self, actor=None):
         """Las partes de la compra (con su permiso de comprar / vender) o la
-        plataforma."""
+        plataforma. Devuelve el socio que actúa: el `actor` que pasa el
+        controlador solo vale si quien llama es de confianza (sudo o
+        interno); por RPC, el del propio usuario."""
         self.ensure_one()
         user = self.env.user
+        actor = shrimp_actor(self.env, actor)
         if user._is_internal() or user._is_superuser():
-            return True
-        actor = actor or user.shrimp_actor_partner_id
-        lado = "seller" if actor == self.seller_partner_id else "buyer"
-        return self._shrimp_check_party(lado, actor)
+            return actor
+        lado = "seller" if actor == self.sudo().seller_partner_id else "buyer"
+        self._shrimp_check_party(lado, actor)
+        return actor
 
     def action_withdraw_public_trace(self, actor=None):
         self.ensure_one()
-        self._shrimp_trace_check_party(actor)
+        actor = self._shrimp_trace_check_party(actor)
         if not shrimp_trace_ready(self.env):
             raise ValidationError(_("Esta función todavía no está disponible."))
         if self._shrimp_trace_withdrawal():
             return True
-        actor = actor or self.env.user.shrimp_actor_partner_id
         self.env["shrimp.trace.withdrawal"].sudo().create({
             "transaction_id": self.id, "withdrawn_by_id": self.env.user.id,
             "withdrawn_partner_id": actor.id if actor else False})
@@ -151,10 +155,9 @@ class ShrimpTransactionTracePublic(models.Model):
         """Token nuevo (los QR impresos dejan de funcionar) y la página se
         vuelve a publicar si estaba retirada."""
         self.ensure_one()
-        self._shrimp_trace_check_party(actor)
+        actor = self._shrimp_trace_check_party(actor)
         self._shrimp_trace_withdrawal().unlink()
         self.sudo().action_rotate_trace_token()
-        actor = actor or self.env.user.shrimp_actor_partner_id
         self.sudo().message_post(body=_(
             "Se renovó el enlace público de trazabilidad (QR) de la compra %(r)s (%(q)s): los QR "
             "anteriores dejan de funcionar.") % {
@@ -163,7 +166,13 @@ class ShrimpTransactionTracePublic(models.Model):
 
     def action_rotate_trace_token(self):
         # La rotación (back-office y API) también vuelve a publicar una
-        # página retirada: es la operación «renovar» de siempre.
+        # página retirada: es la operación «renovar» de siempre. Por RPC
+        # (portal) la hacen solo las partes, igual que «Renovar enlace»; el
+        # back-office, la API y action_renew_public_trace llegan en sudo o
+        # como internos.
+        if not shrimp_is_trusted(self.env):
+            for rec in self:
+                rec._shrimp_trace_check_party()
         for rec in self:
             rec.sudo()._shrimp_trace_withdrawal().unlink()
         return super().action_rotate_trace_token()

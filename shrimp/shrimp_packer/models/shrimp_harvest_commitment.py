@@ -38,7 +38,10 @@ from odoo import api, fields, models, _
 from odoo.exceptions import AccessError, ValidationError
 
 from .shrimp_product import LB_POR_KG
-from .shrimp_harvest_forecast import _escalones_entre
+from odoo.addons.shrimp_user_registry.authz import shrimp_actor, shrimp_is_trusted
+
+from .shrimp_harvest_forecast import (
+    _escalones_entre, shrimp_reserva_actor, shrimp_reserva_check_permiso)
 
 
 # Hasta dónde se admite cerrar precio. Mes y medio es el horizonte en el que
@@ -434,7 +437,7 @@ class ShrimpHarvestCommitment(models.Model):
         podría autoadjudicarse la cosecha.
         """
         self.ensure_one()
-        actor = actor or self.env.user.shrimp_actor_partner_id
+        actor = shrimp_reserva_actor(self.env, actor, "farmer")
         declaracion = self.forecast_id
         if actor != declaracion.farmer_partner_id:
             raise AccessError(_(
@@ -472,7 +475,7 @@ class ShrimpHarvestCommitment(models.Model):
     def action_reject(self, motivo=None, actor=None):
         """La camaronera descarta un compromiso que no le sirve."""
         self.ensure_one()
-        actor = actor or self.env.user.shrimp_actor_partner_id
+        actor = shrimp_reserva_actor(self.env, actor, "farmer")
         if actor != self.farmer_partner_id:
             raise AccessError(_("Lo descarta quien declaró la cosecha."))
         if self.state != "sent":
@@ -490,7 +493,7 @@ class ShrimpHarvestCommitment(models.Model):
         corta en seco si el compromiso ya está aceptado.
         """
         self.ensure_one()
-        actor = actor or self.env.user.shrimp_actor_partner_id
+        actor = shrimp_reserva_actor(self.env, actor, "packer")
         if actor != self.packer_partner_id:
             raise AccessError(_(
                 "Un compromiso lo retira la empacadora que lo hizo."))
@@ -519,13 +522,14 @@ class ShrimpHarvestCommitment(models.Model):
         vuelve a comprometerse con esta.
         """
         self.ensure_one()
-        actor = actor or self.env.user.shrimp_actor_partner_id
+        actor = shrimp_actor(self.env, actor)
         if actor == self.farmer_partner_id:
             lado = "farmer"
         elif actor == self.packer_partner_id:
             lado = "packer"
         else:
             raise AccessError(_("De este compromiso solo desisten sus partes."))
+        shrimp_reserva_check_permiso(self.env, actor, lado)
         if self.state not in ("accepted", "to_confirm"):
             raise ValidationError(_(
                 "Solo se desiste de un compromiso en pie."))
@@ -684,9 +688,13 @@ class ShrimpHarvestCommitment(models.Model):
         cuando las dos partes firman el informe.
         """
         self.ensure_one()
-        actor = actor or self.env.user.shrimp_actor_partner_id
+        actor = shrimp_reserva_actor(self.env, actor, "packer")
         if actor != self.packer_partner_id:
             raise AccessError(_("La compra la hace la empacadora comprometida."))
+        if not shrimp_is_trusted(self.env):
+            # El honorario lo fija la tarifa de la verificadora, nunca quien
+            # llama por RPC.
+            fee = None
         if self.state != "honored":
             raise ValidationError(_(
                 "Solo se compra sobre un compromiso cumplido."))

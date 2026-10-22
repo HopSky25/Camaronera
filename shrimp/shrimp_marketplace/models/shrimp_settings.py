@@ -10,6 +10,10 @@ guardar un 0 BORRAN el parámetro, y el getter volvía al valor por defecto
 (poner «honorario mínimo = 0» dejaba otra vez 300). Por eso los parámetros
 numéricos de la plataforma se declaran en _shrimp_param_specs() y se guardan
 siempre de forma explícita, también el 0.
+
+Los getters son privados (@api.private): leen ir.config_parameter en sudo y,
+por RPC, cualquier usuario del portal leía cualquier parámetro numérico de
+la base.
 """
 from odoo import api, models
 
@@ -24,6 +28,7 @@ class ShrimpSettings(models.AbstractModel):
     def _raw(self, key):
         return self.env["ir.config_parameter"].sudo().get_param(key)
 
+    @api.private
     @api.model
     def get_float(self, key, default, minimum=None, maximum=None):
         raw = self._raw(key)
@@ -37,6 +42,7 @@ class ShrimpSettings(models.AbstractModel):
             return default
         return valor
 
+    @api.private
     @api.model
     def get_int(self, key, default, minimum=None, maximum=None):
         valor = self.get_float(key, default, minimum=minimum, maximum=maximum)
@@ -45,6 +51,7 @@ class ShrimpSettings(models.AbstractModel):
         except (TypeError, ValueError):
             return default
 
+    @api.private
     @api.model
     def get_bool(self, key, default=False):
         raw = self._raw(key)

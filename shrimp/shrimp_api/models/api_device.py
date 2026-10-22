@@ -32,7 +32,9 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
 
 from odoo import _, api, fields, models
-from odoo.exceptions import UserError, ValidationError
+from odoo.exceptions import AccessError, UserError, ValidationError
+
+from odoo.addons.shrimp_user_registry.authz import shrimp_is_trusted
 
 _logger = logging.getLogger(__name__)
 
@@ -153,6 +155,11 @@ class ShrimpApiDevice(models.Model):
 
     def action_revoke(self):
         """Botón del backend: revoca el dispositivo y su clave."""
+        # Por RPC (portal) solo los dispositivos propios, como en
+        # /my/api-keys: _api_revoke trabaja en sudo.
+        if not shrimp_is_trusted(self.env) and any(
+                d.user_id != self.env.user for d in self.sudo()):
+            raise AccessError(_("Solo puedes revocar tus propios dispositivos."))
         return self._api_revoke(revoke_key=True)
 
     def write(self, vals):

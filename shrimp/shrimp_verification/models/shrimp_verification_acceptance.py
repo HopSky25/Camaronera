@@ -3,6 +3,8 @@ from datetime import timedelta
 from odoo import api, fields, models, _
 from odoo.exceptions import AccessError, UserError
 
+from odoo.addons.shrimp_user_registry.authz import shrimp_actor
+
 
 class ShrimpVerificationAcceptance(models.Model):
     """La postura de una de las partes frente al informe del verificador.
@@ -120,7 +122,8 @@ class ShrimpVerificationAcceptance(models.Model):
         # dos partes (shrimp.signoff.mixin). Aquí la decisión sí se puede
         # rehacer mientras la ronda siga abierta (la contraoferta devuelve al
         # vendedor a «pendiente»), así que no se exige que esté sin decidir.
-        self._signoff_check_actor(actor)
+        # Por RPC, el `actor` del argumento no cuenta: es quien llama.
+        self._signoff_check_actor(shrimp_actor(self.env, actor))
         if self.verification_id.acceptance_state != "waiting":
             raise UserError(_("La ronda de aceptación de este informe ya está cerrada."))
 

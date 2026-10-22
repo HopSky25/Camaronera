@@ -286,6 +286,9 @@ class ShrimpDispatch(models.Model):
     CAMPOS_PLAN = ("harvest_date", "farm_departure", "eta", "carrier_name",
                    "vehicle_plate", "carrier_phone", "notes")
 
+    # Solo el servidor (portal y API, en sudo): por RPC `partner` y `vals`
+    # serían los del cliente.
+    @api.private
     def registrar_plan(self, partner, vals):
         """Única puerta por la que el vendedor llena o corrige el despacho.
 
@@ -327,6 +330,7 @@ class ShrimpDispatch(models.Model):
     # ==================================================================
     # Llegada real (TÉCNICO VERIFICADOR)
     # ==================================================================
+    @api.private
     def registrar_llegada(self, partner, cuando=None):
         """El técnico estampa la hora a la que el camarón entró a la planta."""
         self.ensure_one()

@@ -8,9 +8,13 @@ mismas reglas, así que el núcleo está aquí:
   o pendientes) más los de «todos»;
 * subir uno nuevo o renovarlo deja la línea pendiente de revisión: la
   plataforma la aprueba antes de que sirva para ligarla a un lote.
+
+Subir y renovar son privados (@api.private): crean y escriben en sudo sobre el
+socio que reciben y no se llaman por RPC; el portal y la API ya resolvieron
+la cuenta de quien llama.
 """
 
-from odoo import _, fields, models
+from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
 
 
@@ -40,6 +44,7 @@ class ResPartnerAccountCertificates(models.Model):
             "public": False,
         })
 
+    @api.private
     def shrimp_add_account_certificate(self, catalogo, attachment, number=False, issue_date=False,
                                        expiry_date=False):
         """Certificado nuevo de la cuenta (pendiente de revisión)."""
@@ -56,6 +61,7 @@ class ResPartnerAccountCertificates(models.Model):
             "status": "pending",
         })
 
+    @api.private
     def shrimp_renew_account_certificate(self, line, number=False, issue_date=False,
                                          expiry_date=False, attachment=None):
         """Renueva (número, fechas y, si viene, el archivo): vuelve a revisión."""

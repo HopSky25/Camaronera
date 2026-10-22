@@ -151,6 +151,9 @@ class ShrimpCopackCancellation(models.Model):
     def action_client_sign(self, accept, note=None, actor=None):
         """El cliente firma (acepta) o rechaza el acta de devolución."""
         self.ensure_one()
+        # Por RPC del portal: el socio del propio usuario, cliente de la orden
+        # y con permiso de comprar si es subusuario (_shrimp_decide va en sudo).
+        actor = self.order_id._shrimp_copack_rpc_actor("client", actor)
         actor = actor or self.env.user.shrimp_actor_partner_id
         if actor != self.order_id.client_partner_id:
             raise AccessError(_("El acta de devolución la firma el cliente."))
@@ -171,6 +174,9 @@ class ShrimpCopackCancellation(models.Model):
 
     def action_withdraw(self, actor=None):
         self.ensure_one()
+        # Por RPC del portal: la planta de la orden y, si es subusuario, con
+        # permiso de vender (lo que sigue va en sudo).
+        actor = self.order_id._shrimp_copack_rpc_actor("copacker", actor)
         actor = actor or self.env.user.shrimp_actor_partner_id
         if actor != self.requested_by_partner_id:
             raise AccessError(_("La retira quien la pidió."))

@@ -45,6 +45,8 @@ class ShrimpApiKeyAccountGate(models.Model):
             return _("Tu cuenta fue rechazada por la plataforma: no puede tener claves de API.")
         return False
 
+    # Solo desde los controladores (ver api_key.py): no se llama por RPC.
+    @api.private
     @api.model
     def api_create_key(self, user, name, scope_codes, expires_at=None,
                        ip_allowlist=False, allowed_origins=False):

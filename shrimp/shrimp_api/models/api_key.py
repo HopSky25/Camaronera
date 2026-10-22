@@ -33,8 +33,9 @@ import threading
 from datetime import timedelta
 
 from odoo import _, api, fields, models
-from odoo.exceptions import UserError, ValidationError
+from odoo.exceptions import AccessError, UserError, ValidationError
 from odoo.addons.base.models.res_users import KEY_CRYPT_CONTEXT
+from odoo.addons.shrimp_user_registry.authz import shrimp_is_trusted
 
 from .api_scope import SCOPE_CODES
 
@@ -228,7 +229,13 @@ class ShrimpApiKey(models.Model):
 
     # ------------------------------------------------------------------
     # Emisión
+    #
+    # Los tres métodos de emisión devuelven la clave en claro y confían en
+    # el `user` / `portal_user` que reciben: los llaman solo los
+    # controladores (portal, /auth/login, «actuar como»), que ya
+    # autorizaron. @api.private: no se llaman por RPC (/web/dataset/call_kw).
     # ------------------------------------------------------------------
+    @api.private
     @api.model
     def api_create_key(self, user, name, scope_codes, expires_at=None,
                        ip_allowlist=False, allowed_origins=False):
@@ -305,6 +312,7 @@ class ShrimpApiKey(models.Model):
         user = user.sudo()
         return bool(user) and user.active and not user.share and user._has_group(SUPERVISOR_GROUP)
 
+    @api.private
     @api.model
     def api_create_supervisor_key(self, user, name, expires_at=None):
         """Clave de supervisor (B.1): del usuario interno, de la app, sin
@@ -335,6 +343,7 @@ class ShrimpApiKey(models.Model):
         _logger.info("API key de supervisor trz_%s creada para %s", prefix, user.login)
         return rec, raw
 
+    @api.private
     def api_create_act_as_key(self, portal_user):
         """Clave de «actuar como» (B.3) emitida con ESTA clave de supervisor:
         del usuario de portal del socio, solo scopes *:read, de la app y con
@@ -489,6 +498,11 @@ class ShrimpApiKey(models.Model):
     # Revocación
     # ------------------------------------------------------------------
     def action_revoke(self):
+        # Por RPC (portal) solo las claves propias, como en /my/api-keys; el
+        # portal, la API y el back-office llegan en sudo o como internos.
+        if not shrimp_is_trusted(self.env) and any(
+                k.user_id != self.env.user for k in self.sudo()):
+            raise AccessError(_("Solo puedes revocar tus propias claves de API."))
         for rec in self.sudo():
             if rec.revoked_at:
                 continue

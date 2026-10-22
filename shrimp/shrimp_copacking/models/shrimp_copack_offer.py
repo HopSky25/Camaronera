@@ -3,6 +3,8 @@ from datetime import timedelta
 from odoo import api, fields, models, _
 from odoo.exceptions import AccessError, ValidationError
 
+from odoo.addons.shrimp_user_registry.authz import shrimp_actor, shrimp_is_trusted
+
 from . import copack_plazos
 
 
@@ -223,6 +225,9 @@ class ShrimpCopackOffer(models.Model):
         aqui porque el controlador trabaja en sudo, igual que al aceptar.
         """
         self.ensure_one()
+        if not shrimp_is_trusted(self.env):
+            # Por RPC del portal el `actor` del argumento no cuenta.
+            actor = shrimp_actor(self.env)
         actor = actor or self.env.user.shrimp_actor_partner_id
         if actor != self.copacker_partner_id:
             raise AccessError(_(
@@ -241,6 +246,9 @@ class ShrimpCopackOffer(models.Model):
         """D-47: el cliente rechaza una oferta concreta (antes solo salían de
         «enviada» al adjudicar otra o al cancelar la solicitud). La planta lo
         sabe y, si quiere, mejora su oferta (editarla la vuelve a enviar)."""
+        if not shrimp_is_trusted(self.env):
+            # Por RPC del portal el `actor` del argumento no cuenta.
+            actor = shrimp_actor(self.env)
         actor = actor or self.env.user.shrimp_actor_partner_id
         for rec in self:
             if actor != rec.request_id.client_partner_id:
@@ -290,6 +298,9 @@ class ShrimpCopackOffer(models.Model):
         remanente se publica solo como una solicitud nueva enlazada.
         """
         self.ensure_one()
+        if not shrimp_is_trusted(self.env):
+            # Por RPC del portal el `actor` del argumento no cuenta.
+            actor = shrimp_actor(self.env)
         actor = actor or self.env.user.shrimp_actor_partner_id
         if actor != self.request_id.client_partner_id:
             raise AccessError(_(

@@ -16,12 +16,17 @@ sitio lo que las dos plantillas necesitan para no repetir la lógica en QWeb:
   poder pedir /web/image al servidor.
 * La URL pública de trazabilidad (/t/<token>) SOLO si la compra ya tiene token
   (shrimp_api): no se crea ninguno al imprimir.
+
+Los que leen la compra en sudo son privados (@api.private): solo los usan las
+plantillas, y por RPC cualquier usuario del portal sacaba de cualquier compra
+el RUC, la dirección, el correo y el teléfono de las partes, los importes y
+el token público.
 """
 import base64
 import io
 import logging
 
-from odoo import models
+from odoo import api, models
 from odoo.tools.misc import file_path
 
 _logger = logging.getLogger(__name__)
@@ -36,6 +41,7 @@ class ShrimpTransactionReceipt(models.Model):
     # ------------------------------------------------------------------
     # Partes
     # ------------------------------------------------------------------
+    @api.private
     def shrimp_receipt_party(self, side):
         """Datos de una parte para el comprobante: empresa, RUC/cédula,
         dirección, rol con el que actuó y contacto."""
@@ -60,6 +66,7 @@ class ShrimpTransactionReceipt(models.Model):
     # ------------------------------------------------------------------
     # Importes (facturación en dos pasos)
     # ------------------------------------------------------------------
+    @api.private
     def shrimp_receipt_service_charges(self):
         """Cobros de la plataforma que paga el COMPRADOR en esta compra."""
         self.ensure_one()
@@ -73,6 +80,7 @@ class ShrimpTransactionReceipt(models.Model):
         self.ensure_one()
         return bool("verification_ids" in self._fields and self.sudo().verification_ids)
 
+    @api.private
     def shrimp_receipt_amounts(self):
         """Importes del comprobante. Nada se inventa: el servicio con los
         impuestos de su factura contabilizada (o sin impuestos si aún no la
@@ -115,6 +123,7 @@ class ShrimpTransactionReceipt(models.Model):
             "verified": self.shrimp_is_verified_purchase(),
         }
 
+    @api.private
     def shrimp_receipt_verification(self):
         """Resumen de la verificación en campo (si la hubo)."""
         self.ensure_one()
@@ -144,6 +153,7 @@ class ShrimpTransactionReceipt(models.Model):
             _logger.warning("No se encontró el logotipo del comprobante.")
             return False
 
+    @api.private
     def shrimp_receipt_public_url(self):
         """/t/<token> si la compra YA tiene token público (shrimp_api); si
         no, nada: imprimir el comprobante no crea ni rota tokens."""
@@ -158,6 +168,7 @@ class ShrimpTransactionReceipt(models.Model):
             return False
         return "%s/t/%s" % (tx.get_base_url(), token)
 
+    @api.private
     def shrimp_receipt_qr_uri(self):
         url = self.shrimp_receipt_public_url()
         if not url:

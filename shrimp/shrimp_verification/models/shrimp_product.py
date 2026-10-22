@@ -105,6 +105,9 @@ class ShrimpProduct(models.Model):
     # ------------------------------------------------------------------
     VERIFICATION_MODES = ("platform", "declared")
 
+    # Solo el servidor (portal, API y reserva): por RPC el comprador y el
+    # honorario serían los que mande el cliente.
+    @api.private
     def start_verified_purchase(self, buyer_partner, qty, verifier_partner=None, fee=0.0,
                                 mode="platform", declared_vals=None):
         """Graba la compra y la deja pendiente de verificación en campo.

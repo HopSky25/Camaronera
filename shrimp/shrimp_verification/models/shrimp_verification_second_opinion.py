@@ -37,6 +37,8 @@ from markupsafe import Markup
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 
+from odoo.addons.shrimp_user_registry.authz import shrimp_actor
+
 _logger = logging.getLogger(__name__)
 
 CONTEST_HOURS_PARAM = "shrimp_verification.contest_hours"
@@ -181,6 +183,9 @@ class ShrimpVerificationSecondOpinion(models.Model):
     def action_request_second_opinion(self, verifier, actor=None):
         """El vendedor impugna el rechazo: otra verificadora vuelve a verificar."""
         self.ensure_one()
+        # El `actor` del argumento solo vale si quien llama es de confianza
+        # (después, en sudo, _shrimp_check_party ya lo daría por bueno).
+        actor = shrimp_actor(self.env, actor)
         primera = self.sudo()
         tx = primera.transaction_id
         tx._shrimp_check_party("seller", actor)
@@ -265,6 +270,8 @@ class ShrimpTransactionSecondOpinion(models.Model):
 
     def action_request_second_opinion(self, verifier, actor=None):
         self.ensure_one()
+        # Antes de pasar a la verificación (que viaja en sudo).
+        actor = shrimp_actor(self.env, actor)
         ver = self.shrimp_verification_contest()
         if not ver:
             raise ValidationError(_("Esta compra no tiene un rechazo que se pueda impugnar."))

@@ -27,6 +27,8 @@ from datetime import timedelta
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, UserError, ValidationError
 
+from odoo.addons.shrimp_user_registry.authz import shrimp_actor, shrimp_is_trusted
+
 _logger = logging.getLogger(__name__)
 
 RESPONSE_HOURS_PARAM = "shrimp_verification.verifier_response_hours"
@@ -117,7 +119,21 @@ class ShrimpVerificationResponse(models.Model):
                 self.transaction_id.shrimp_fmt_dt(limite)
         return ""
 
+    def _shrimp_check_response_caller(self):
+        """Por RPC, solo el administrador de la verificadora asignada (el
+        mismo socio que pasan el portal y la API). El controlador y la API
+        lo comprueban y llaman en sudo; la plataforma (interno) no tiene
+        límite."""
+        if shrimp_is_trusted(self.env):
+            return True
+        yo = shrimp_actor(self.env)
+        for rec in self:
+            # sudo() conserva env.user: _shrimp_user_allows mira sus permisos.
+            rec.sudo()._shrimp_check_response_admin(yo.sudo())
+        return True
+
     def action_verifier_accept(self):
+        self._shrimp_check_response_caller()
         for rec in self.sudo():
             if rec.verification_mode != "platform" or rec.state not in ("received", "assigned"):
                 raise UserError(_("Esta orden ya no espera tu respuesta."))
@@ -134,6 +150,7 @@ class ShrimpVerificationResponse(models.Model):
     def action_verifier_decline(self, reason):
         """La verificadora devuelve la orden. El comprador elige otra o cancela."""
         self.ensure_one()
+        self._shrimp_check_response_caller()
         rec = self.sudo()
         motivo = (reason or "").strip()
         if not motivo:
@@ -192,6 +209,8 @@ class ShrimpVerificationResponse(models.Model):
             "cancelar.") % {"v": self.verifier_partner_id.name, "c": causa, "r": tx.name})
 
     def action_assign_technician(self, technician=None):
+        # Antes del write en sudo de abajo (asignar es aceptar la orden).
+        self._shrimp_check_verifier_caller()
         for rec in self:
             if rec.verifier_response == "declined":
                 raise UserError(_("Declinaste esta orden: ya no puedes asignarle técnico."))

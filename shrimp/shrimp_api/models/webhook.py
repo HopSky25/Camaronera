@@ -29,7 +29,9 @@ from urllib.parse import urlsplit
 import requests
 
 from odoo import _, api, fields, models
-from odoo.exceptions import ValidationError
+from odoo.exceptions import AccessError, ValidationError
+
+from odoo.addons.shrimp_user_registry.authz import shrimp_actor, shrimp_is_trusted
 
 _logger = logging.getLogger(__name__)
 
@@ -226,19 +228,37 @@ class ShrimpWebhookSubscription(models.Model):
         events = self._event_list()
         return event_type == "ping" or "*" in events or event_type in events
 
+    def _shrimp_check_manage(self):
+        """Por RPC (portal): solo las suscripciones del socio en cuyo nombre
+        actúa quien llama y con el permiso «Gestionar cuenta» (la misma
+        regla que /my/webhooks y la API, ME-06 / CR-12). El portal, la API y
+        el back-office llegan en sudo o como internos: no cambia nada."""
+        if shrimp_is_trusted(self.env):
+            return True
+        actor = shrimp_actor(self.env)
+        if not actor or any(s.partner_id != actor for s in self.sudo()):
+            raise AccessError(_("Esta suscripción de webhooks no es de tu cuenta."))
+        if not self.env.user._shrimp_has_perm("manage_account"):
+            raise AccessError(_("Los webhooks los gestiona el administrador de la cuenta o un "
+                                "usuario con el permiso «Gestionar cuenta»."))
+        return True
+
     def action_rotate_secret(self):
         """Devuelve el secreto nuevo (solo se puede ver aquí)."""
         self.ensure_one()
+        self._shrimp_check_manage()
         secret = self._new_secret()
         self.sudo().secret = secret
         return secret
 
     def action_ping(self):
         self.ensure_one()
+        self._shrimp_check_manage()
         return self.env["shrimp.webhook.delivery"].sudo()._enqueue(self, "ping", self)
 
     def action_reactivate(self):
         """Reactiva y devuelve cuántas entregas se re-encolaron (D-44)."""
+        self._shrimp_check_manage()
         resent = 0
         for sub in self.sudo():
             if sub.active:
@@ -615,6 +635,11 @@ class ShrimpWebhookDelivery(models.Model):
 
     def action_resend(self):
         """«Reenviar» (portal, API y backoffice)."""
+        # Por RPC, solo las entregas de una suscripción propia (_requeue
+        # trabaja en sudo).
+        if not shrimp_is_trusted(self.env):
+            self.env["shrimp.webhook.subscription"].browse(
+                self.sudo().subscription_id.ids)._shrimp_check_manage()
         for rec in self.sudo():
             if not rec.subscription_id.active:
                 raise ValidationError(_(

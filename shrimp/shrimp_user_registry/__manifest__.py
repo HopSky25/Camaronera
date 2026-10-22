@@ -21,7 +21,7 @@ referencia uuid para no exponer ids en URLs y API.
     'author': "Carlos Carballo",
 
     'category': 'Website',
-    'version': '19.0.1.14.0',
+    'version': '19.0.1.15.0',
     "installable": True,
     'application': True,
     'license': 'LGPL-3',

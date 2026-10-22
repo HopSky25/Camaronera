@@ -185,7 +185,7 @@ class ShrimpAccountMember(models.Model):
     # ------------------------------------------------------------------
     # Acciones
     # ------------------------------------------------------------------
-    def action_set_active(self, activo):
+    def _shrimp_set_active(self, activo):
         for rec in self.sudo():
             if rec.is_admin and not activo:
                 raise UserError(_("No se puede desactivar al administrador: transfiere antes "
@@ -212,7 +212,7 @@ class ShrimpAccountMember(models.Model):
         return {r: {"view", "buy", "sell", "approve", "billing"}
                 for r in self.company_id._shrimp_roles(include_pending=True)}
 
-    def action_make_admin(self, previous_permissions=None, previous_manage_account=None):
+    def _shrimp_make_admin(self, previous_permissions=None, previous_manage_account=None):
         """Transfiere la administración de la cuenta a este usuario.
 
         El administrador anterior queda como subusuario con los permisos que

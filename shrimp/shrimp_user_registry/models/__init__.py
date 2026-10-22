@@ -13,3 +13,4 @@ from . import shrimp_legal
 from . import shrimp_account_member
 from . import shrimp_account_suspend
 from . import shrimp_data_request
+from . import shrimp_rpc_gate

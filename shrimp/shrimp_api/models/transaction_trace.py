@@ -15,6 +15,9 @@ id y se puede rotar: rotarlo invalida los QR ya impresos.
 import secrets
 
 from odoo import _, api, fields, models
+from odoo.exceptions import AccessError
+
+from odoo.addons.shrimp_user_registry.authz import shrimp_actor, shrimp_is_trusted
 
 VERDICT_STATES = ("approved", "approved_obs", "rejected")
 
@@ -53,6 +56,13 @@ class ShrimpTransaction(models.Model):
     def traceability_url(self):
         """URL pública que va en el QR del certificado."""
         self.ensure_one()
+        # Lleva el token: por RPC (portal) solo lo ven las partes de la
+        # compra. El portal, la API y el informe llegan en sudo.
+        if not shrimp_is_trusted(self.env):
+            actor = shrimp_actor(self.env)
+            tx = self.sudo()
+            if not actor or actor not in (tx.buyer_partner_id | tx.seller_partner_id):
+                raise AccessError(_("Esta compra no es tuya."))
         return "%s/t/%s" % (self.get_base_url(), self._ensure_trace_token())
 
     # ------------------------------------------------------------------

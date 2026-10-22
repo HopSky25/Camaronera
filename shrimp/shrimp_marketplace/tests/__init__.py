@@ -31,3 +31,5 @@ from . import test_permisos_subcuentas
 from . import test_suspension
 from . import test_decisiones_auditoria
 from . import test_facturacion_cobros
+from . import test_rpc_authz_marketplace
+from . import test_rpc_authz_recepcion

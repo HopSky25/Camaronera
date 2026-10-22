@@ -3,6 +3,8 @@ from datetime import timedelta
 from odoo import api, fields, models, _
 from odoo.exceptions import AccessError, ValidationError
 
+from odoo.addons.shrimp_user_registry.authz import shrimp_actor, shrimp_is_trusted
+
 from . import copack_plazos
 
 from odoo.addons.shrimp_marketplace.models.shrimp_selection import (
@@ -401,7 +403,12 @@ class ShrimpCopackRequest(models.Model):
         cliente: antes de empacar sí; empacada o firmada no (hay trabajo
         hecho; si algo no cuadra, el camino es el acta). Con el camarón ya en
         planta la devolución física la acuerdan las partes.
+
+        Sin `actor` la cancela la plataforma; por RPC del portal el `actor` es
+        siempre el socio del propio usuario.
         """
+        if not shrimp_is_trusted(self.env):
+            actor = shrimp_actor(self.env)
         for rec in self:
             problema = rec.shrimp_cancel_problem(actor=actor)
             if problema:

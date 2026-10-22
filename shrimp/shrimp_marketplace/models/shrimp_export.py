@@ -19,6 +19,8 @@ from odoo import api, fields, models, _
 from odoo.exceptions import AccessError, ValidationError
 from odoo.tools.float_utils import float_compare
 
+from odoo.addons.shrimp_user_registry.authz import shrimp_actor, shrimp_is_trusted
+
 _logger = logging.getLogger(__name__)
 
 # D-35: la anulación de una salida con DAE o factura no la decide quien la
@@ -202,6 +204,12 @@ class ShrimpExport(models.Model):
         (action_approve_cancel). Un administrador que anula desde el
         back-office no necesita pedírsela a sí mismo.
         """
+        if not shrimp_is_trusted(self.env):
+            # Por RPC (portal): siempre como el socio del propio usuario, que
+            # tiene que ser el titular; nunca la anulación directa del gestor.
+            actor = shrimp_actor(self.env)
+            if not actor:
+                raise AccessError(_("La salida la anula quien la registró."))
         reason = (reason or "").strip()
         if not reason:
             raise ValidationError(_("Indica el motivo de la anulación de la salida."))
@@ -322,9 +330,13 @@ class ShrimpExport(models.Model):
             "context": {"default_export_id": self.id, "default_mode": modo},
         }
 
+    @api.private
     @api.model
     def shrimp_register(self, partner, vals, lines):
         """Crea y registra una salida en nombre de `partner` (portal/API).
+
+        Privado (@api.private): crea en sudo a nombre del socio que recibe; el
+        portal y la API lo llaman con el socio de quien hace la petición.
 
         `lines`: lista de (lote, cantidad). Valida que los lotes sean suyos y
         tengan saldo; lanza ValidationError/AccessError si no.

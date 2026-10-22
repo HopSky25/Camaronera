@@ -201,12 +201,15 @@ class ShrimpCharge(models.Model):
             charge._try_invoice()
         return charge
 
+    @api.private
     @api.model
     def register_for_transaction(self, transaction, qty=None):
         """Compatibilidad: la comisión ya no se registra desde fuera.
 
         La registra la propia transacción al confirmarse; esto devuelve la que
         exista (o la crea si la compra ya está confirmada y no la tiene).
+
+        Privado (@api.private): crea cobros en sudo; no se llama por RPC.
         """
         return self._register_commission(transaction, qty)
 
@@ -767,10 +770,16 @@ class ShrimpCharge(models.Model):
                         "n": refund.name, "c": charge.name, "e": str(e)[:500]})
         return True
 
+    @api.private
     def action_cancel_charge(self, reason=None):
         """Anula el cobro: si aún no se facturó, se descarta; si ya tenía
         factura contabilizada, queda «por acreditar» y se emite la nota de
-        crédito (o la reintenta el cron)."""
+        crédito (o la reintenta el cron).
+
+        Privado (@api.private): trabaja en sudo sin comprobar quién llama y
+        por RPC cualquier usuario del portal anulaba cualquier cobro. Solo lo
+        llama el servidor (cancelaciones, entrega parcial, cambio de pagador,
+        verificación); no hay botón en el back-office."""
         for charge in self.sudo():
             if charge.state in ("cancelled", "credited", "to_credit"):
                 continue

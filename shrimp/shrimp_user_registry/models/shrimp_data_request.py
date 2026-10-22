@@ -49,6 +49,8 @@ from markupsafe import Markup
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
+from odoo.addons.shrimp_user_registry.authz import shrimp_require_platform_admin
+
 _logger = logging.getLogger(__name__)
 
 REQUEST_TYPES = [
@@ -325,6 +327,7 @@ class ShrimpDataRequest(models.Model):
                 raise UserError(_("La solicitud %s ya está cerrada.") % rec.name)
 
     def action_start(self):
+        shrimp_require_platform_admin(self.env)
         self._check_open()
         for rec in self:
             rec.write({"state": "in_progress", "responsible_id": rec.responsible_id.id or self.env.uid})
@@ -353,20 +356,26 @@ class ShrimpDataRequest(models.Model):
         return True
 
     def action_done(self):
+        shrimp_require_platform_admin(self.env)
         self._check_open()
         return self._shrimp_reply("done")
 
     def action_reject(self):
+        shrimp_require_platform_admin(self.env)
         self._check_open()
         return self._shrimp_reply("rejected")
 
     def action_reopen(self):
+        shrimp_require_platform_admin(self.env)
         for rec in self.filtered(lambda r: r.state in ("done", "rejected")):
             rec.write({"state": "in_progress"})
         return True
 
     def action_generate_export(self):
         """Genera la copia portable (ZIP) y la adjunta a la solicitud."""
+        # Back-office (LOPDP): por RPC un usuario del portal no puede generar
+        # ni anonimizar nada; el ZIP lleva los datos personales del titular.
+        shrimp_require_platform_admin(self.env)
         for rec in self:
             if not rec.account_id and not rec.partner_id:
                 raise UserError(_("La solicitud no tiene titular."))
@@ -389,6 +398,7 @@ class ShrimpDataRequest(models.Model):
     def action_anonymize(self):
         """Ejecuta la eliminación (anonimización). Con operaciones abiertas
         queda «En espera» con el motivo."""
+        shrimp_require_platform_admin(self.env)
         self._check_open()
         for rec in self:
             if rec.request_type != "eliminacion":
@@ -586,6 +596,7 @@ class ShrimpDataRetentionRun(models.Model):
         return run
 
     def action_run_dry(self):
+        shrimp_require_platform_admin(self.env)
         run = self._shrimp_run(dry_run=True)
         return {"type": "ir.actions.act_window", "res_model": self._name, "res_id": run.id,
                 "view_mode": "form", "target": "current"}

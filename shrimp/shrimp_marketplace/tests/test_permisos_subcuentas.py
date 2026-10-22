@@ -375,7 +375,7 @@ class TestPermisosSubcuentas(HttpCase):
         self.assertEqual(viejo._permissions_dict(), {"camaronera": {"view", "buy"}})
         self.assertFalse(viejo.can_manage_account)
         # Por defecto (sin elegir): todo lo delegable y «gestionar cuenta».
-        viejo.action_make_admin()
+        viejo._shrimp_make_admin()
         self.assertTrue(viejo.is_admin)
         m.invalidate_recordset()
         self.assertFalse(m.is_admin)

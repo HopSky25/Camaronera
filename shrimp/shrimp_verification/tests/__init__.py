@@ -18,3 +18,5 @@ from . import test_equipo_campo
 from . import test_tarifa_verificadora
 from . import test_decisiones_verificacion
 from . import test_portal_cambio_verificadora
+from . import test_rpc_authz_verification
+from . import test_rpc_authz_http

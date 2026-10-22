@@ -149,10 +149,15 @@ class ShrimpProductQuality(models.Model):
             ("owner_id", "=", partner.id), ("origin_move_id", "!=", False),
         ], order="id desc", limit=80)
 
+    @api.private
     def action_register_sample(self):
         """«Registrar muestreo»: deja una fila en la evolución del lote (la
         misma tabla que usan la ficha pública y la trazabilidad) con el
-        estadío y la supervivencia de la prueba de estrés."""
+        estadío y la supervivencia de la prueba de estrés.
+
+        Privado (@api.private): crea la fila en sudo sin mirar quién llama y
+        el portal lee las fichas de los lotes publicados ajenos. Solo lo llama
+        el controlador, tras comprobar que el lote es del usuario."""
         Evolution = self.env["shrimp.product.evolution"].sudo()
         for rec in self:
             nota = _("Muestreo del %(f)s. PCR: %(p)s.%(u)s") % {

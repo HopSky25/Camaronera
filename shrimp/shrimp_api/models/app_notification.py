@@ -14,7 +14,10 @@ from datetime import timedelta
 
 import pytz
 
-from odoo import api, fields, models
+from odoo import _, api, fields, models
+from odoo.exceptions import AccessError
+
+from odoo.addons.shrimp_user_registry.authz import shrimp_actor, shrimp_is_trusted
 
 from ..controllers.framework import iso_dt
 from .webhook import EVENTS
@@ -279,6 +282,12 @@ class ShrimpAppNotification(models.Model):
         }
 
     def action_mark_read(self):
+        # Por RPC (portal), solo los avisos propios (los de la regla
+        # rule_app_notification_portal_own); la API llega en sudo.
+        if not shrimp_is_trusted(self.env):
+            actor = shrimp_actor(self.env)
+            if not actor or any(n.partner_id != actor for n in self.sudo()):
+                raise AccessError(_("Estos avisos no son tuyos."))
         unread = self.filtered(lambda n: not n.is_read)
         if unread:
             unread.sudo().write({"is_read": True, "read_at": fields.Datetime.now()})

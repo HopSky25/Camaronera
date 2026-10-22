@@ -17,7 +17,7 @@ mismo modelo, que es lo que importa.
 import re
 from datetime import timedelta
 
-from odoo import fields, models, _
+from odoo import api, fields, models, _
 
 from .shrimp_product import LB_POR_KG
 
@@ -277,6 +277,9 @@ class ShrimpProductSimulador(models.Model):
     # ------------------------------------------------------------------
     # La simulación
     # ------------------------------------------------------------------
+    # Privado para RPC: el controlador da 403 con un lote ajeno, y por debajo
+    # usa mejor_precio_hoy (listas confidenciales del dueño, en sudo).
+    @api.private
     def simulador_cosecha(self, modo_cantidad="constante"):
         """Qué pasa con este lote si se espera 7, 15, 30 o 45 días.
 

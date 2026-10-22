@@ -31,6 +31,8 @@ from datetime import datetime, time, timedelta
 from odoo import api, fields, models, _
 from odoo.exceptions import AccessError, ValidationError
 
+from odoo.addons.shrimp_user_registry.authz import shrimp_is_trusted
+
 _logger = logging.getLogger(__name__)
 
 INVOICE_SINCE_PARAM = "shrimp_marketplace.seller_invoice_rules_since"
@@ -240,6 +242,12 @@ class ShrimpTransactionPurchaseRules(models.Model):
 
     def action_register_seller_invoice(self, vals, actor=None):
         self.ensure_one()
+        if not shrimp_is_trusted(self.env):
+            # Por RPC: ni `actor` (vale el socio del propio usuario) ni
+            # `attachment_id`, que el portal crea y valida antes de llamar; si
+            # no, el vendedor colgaba de su venta cualquier adjunto de la base.
+            actor = None
+            vals = {k: v for k, v in dict(vals or {}).items() if k != "attachment_id"}
         user = self.env.user
         if user.share:
             socio = actor or user.shrimp_actor_partner_id

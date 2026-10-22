@@ -135,6 +135,7 @@ class ShrimpVerificationTeam(models.Model):
 
     def action_add_support_technician(self, technicians):
         """Suma técnicos de apoyo (y les avisa)."""
+        self._shrimp_check_verifier_caller()
         self._shrimp_check_team_editable()
         for rec in self:
             if not rec.technician_partner_id:
@@ -149,6 +150,7 @@ class ShrimpVerificationTeam(models.Model):
 
     def action_remove_support_technician(self, technicians):
         """Quita técnicos de apoyo. Lo que ya cargaron se queda en el informe."""
+        self._shrimp_check_verifier_caller()
         self._shrimp_check_team_editable()
         for rec in self:
             fuera = technicians & rec.support_technician_ids
@@ -163,6 +165,7 @@ class ShrimpVerificationTeam(models.Model):
         """Cambia el técnico responsable. El responsable anterior, si es un
         técnico (no la cuenta de la empresa), pasa a apoyo: sigue en el equipo
         y no pierde el acceso a lo que estaba cargando."""
+        self._shrimp_check_verifier_caller()
         self._shrimp_check_team_editable()
         for rec in self:
             anterior = rec.technician_partner_id

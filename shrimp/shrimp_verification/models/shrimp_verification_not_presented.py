@@ -66,6 +66,8 @@ class ShrimpVerificationNotPresented(models.Model):
     def action_not_presented(self, arrival, notes):
         """Rechazo por «Producto no presentado» (portal, API y back-office)."""
         self.ensure_one()
+        # Por RPC, solo quien dictamina (antes del write en sudo).
+        self._shrimp_check_verifier_caller(verdict=True)
         texto = (notes or "").strip()
         if not texto:
             raise UserError(_("Explica qué encontraste al llegar a la planta."))

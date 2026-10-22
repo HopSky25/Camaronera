@@ -2,6 +2,8 @@ from odoo import api, fields, models, _
 from odoo.exceptions import AccessError, ValidationError
 from odoo.tools.float_utils import float_compare
 
+from odoo.addons.shrimp_user_registry.authz import shrimp_actor, shrimp_is_trusted
+
 from .shrimp_selection import PRESENTATIONS
 
 
@@ -792,9 +794,15 @@ class ShrimpProduct(models.Model):
         documenta el antes, el después y el motivo. Devuelve los movimientos.
         """
         self.ensure_one()
-        actor = actor or self.env.user.shrimp_actor_partner_id
+        # El `actor` del controlador solo vale si ya autorizó (sudo); por RPC,
+        # el socio del propio usuario.
+        actor = shrimp_actor(self.env, actor)
         if self.env.user.share and actor != self.seller_partner_id:
             raise AccessError(_("La producción la declara el dueño del lote."))
+        if not shrimp_is_trusted(self.env):
+            # Por RPC no pasa por la matriz de rutas del portal: el subusuario
+            # necesita «Vender» en el perfil del lote, como en Mis lotes.
+            self.env.user._shrimp_require_perm("sell", role=self._shrimp_seller_role())
         actual_qty = float(actual_qty or 0.0)
         if actual_qty < 0:
             raise ValidationError(_("La producción real no puede ser negativa."))
@@ -934,9 +942,14 @@ class ShrimpProduct(models.Model):
                 "Este lote exige verificación en campo antes de concretar la "
                 "compra. Cómpralo con verificación."))
 
+    @api.private
     def execute_purchase_flow(self, buyer_partner, qty, buyer_role=None):
         """Compra directa. `buyer_role`: perfil con el que compra (por defecto
-        su perfil activo); queda en transaction.buyer_role."""
+        su perfil activo); queda en transaction.buyer_role.
+
+        Privado (@api.private): compra a nombre de `buyer_partner` sin
+        comprobar quién llama; lo invocan el portal, la API y otros módulos
+        después de resolver al comprador."""
         self.ensure_one()
         buyer_role = buyer_role or self.env.context.get("shrimp_buyer_role") \
             or buyer_partner._shrimp_effective_type()

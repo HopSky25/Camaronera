@@ -26,7 +26,11 @@ problema es idéntico:
 from datetime import timedelta
 
 from odoo import api, fields, models, _
-from odoo.exceptions import ValidationError
+from odoo.exceptions import AccessError, ValidationError
+
+from odoo.addons.shrimp_user_registry.authz import shrimp_actor, shrimp_is_trusted
+
+from .shrimp_harvest_forecast import shrimp_reserva_check_permiso
 
 
 class ShrimpHarvestConfirmation(models.Model):
@@ -145,11 +149,35 @@ class ShrimpHarvestConfirmation(models.Model):
         """Retira estas firmas de la ronda vigente dejando constancia."""
         return self._signoff_archive(motivo)
 
+    def _shrimp_check_firmante(self, actor):
+        """Por RPC del portal firma (o deshace) solo el titular de la fila, con
+        el permiso de subusuario de su lado; el `actor` del argumento no
+        cuenta. El controlador y la API ya lo comprobaron y llaman en sudo."""
+        self.ensure_one()
+        if shrimp_is_trusted(self.env):
+            return actor
+        yo = shrimp_actor(self.env)
+        if yo != self.partner_id:
+            raise AccessError(_("Cada parte firma la suya. Esta corresponde a «%s».")
+                              % (self.sudo().partner_id.name or ""))
+        shrimp_reserva_check_permiso(self.env, yo, self.role)
+        return yo
+
     def action_accept(self, actor=None):
+        self.ensure_one()
+        actor = self._shrimp_check_firmante(actor)
         return self._firmar("accepted", actor=actor)
 
     def action_reject(self, motivo=None, actor=None):
+        self.ensure_one()
+        actor = self._shrimp_check_firmante(actor)
         return self._firmar("rejected", motivo or self.reason, actor=actor)
+
+    def action_signoff_undo(self, reason=None, actor=None, on_behalf=False):
+        self.ensure_one()
+        if not on_behalf:
+            actor = self._shrimp_check_firmante(actor)
+        return super().action_signoff_undo(reason=reason, actor=actor, on_behalf=on_behalf)
 
     # ==================================================================
     # Deshacer la firma (shrimp.signoff.mixin)

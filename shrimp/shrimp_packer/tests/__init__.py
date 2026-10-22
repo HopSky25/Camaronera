@@ -11,3 +11,4 @@ from . import test_dashboard_proveedores
 from . import test_reserva_plazo
 from . import test_decisiones_listas
 from . import test_relink_listas
+from . import test_rpc_authz_packer

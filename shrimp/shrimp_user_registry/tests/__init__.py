@@ -8,3 +8,4 @@ from . import test_registro_tipo_persona
 from . import test_registro_campos
 from . import test_puerta_post
 from . import test_aprobaciones
+from . import test_rpc_authz

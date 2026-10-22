@@ -36,6 +36,8 @@ from odoo import SUPERUSER_ID, api, fields, models, _
 from odoo.exceptions import AccessError, ValidationError
 from odoo.tools.float_utils import float_compare
 
+from odoo.addons.shrimp_user_registry.authz import shrimp_actor
+
 from .shrimp_larva import SHRIMP_TIPOS, SHRIMP_TIPO_ROL
 
 MOVE_TYPE = "profile_transfer"
@@ -240,7 +242,9 @@ class ShrimpStockLotProfile(models.Model):
         user = self.env.user
         if not user.share:
             return True
-        actor = actor or user.sudo()._shrimp_actor_partner()
+        # El `actor` del portal o de la API solo vale si ya autorizaron
+        # (sudo); por RPC, el socio del propio usuario.
+        actor = shrimp_actor(self.env, actor)
         holder = actor._shrimp_role_holder() if actor else actor
         if not actor or (actor != account and holder != account):
             raise AccessError(_("Solo la cuenta dueña puede mover su producto entre sus perfiles."))

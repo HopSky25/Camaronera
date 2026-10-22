@@ -17,6 +17,12 @@ PARAM_TSA = "shrimp_firma.tsa_url"
 PARAM_EMISORES = "shrimp_firma.emisores_aceptados"
 PARAM_SOLO_ACREDITADOS = "shrimp_firma.solo_emisores_acreditados"
 PARAM_OBLIGATORIA = "shrimp_firma.obligatoria"
+# Directorio del servidor con las raíces (y, si hace falta, intermedias) de
+# las entidades acreditadas, en PEM o DER. Vacío = no hay raíces: con
+# solo_emisores_acreditados en True no se puede firmar.
+PARAM_RAICES = "shrimp_firma.trust_roots_dir"
+# True: se consulta la revocación (CRL/OCSP) por red al firmar (soft-fail).
+PARAM_REVOCACION_RED = "shrimp_firma.allow_fetching"
 
 REPORTE = "shrimp_firma_electronica.report_informe_verificacion"
 
@@ -40,6 +46,8 @@ class ShrimpVerification(models.Model):
     signer_name = fields.Char(string="Titular del certificado", readonly=True, copy=False)
     signer_id_number = fields.Char(string="Cédula / RUC del firmante", readonly=True, copy=False)
     signer_issuer = fields.Char(string="Emisor del certificado", readonly=True, copy=False)
+    signer_chain_verified = fields.Boolean(
+        string="Cadena del certificado comprobada", readonly=True, copy=False)
     signer_cert_serial = fields.Char(string="Serie del certificado", readonly=True, copy=False)
     signer_cert_sha256 = fields.Char(
         string="Huella SHA-256 del certificado", readonly=True, copy=False)
@@ -68,6 +76,27 @@ class ShrimpVerification(models.Model):
     def _firma_tsa_url(self):
         return (self.env["ir.config_parameter"].sudo().get_param(PARAM_TSA) or "").strip()
 
+    def _firma_confianza(self):
+        directorio = self.env["ir.config_parameter"].sudo().get_param(PARAM_RAICES) or ""
+        return pades.cargar_confianza(directorio)
+
+    def _firma_revocacion_en_red(self):
+        return self._firma_settings().get_bool(PARAM_REVOCACION_RED, False)
+
+    def _firma_identificaciones_permitidas(self, partner):
+        """Cédulas y RUC con los que el titular del certificado puede ser el
+        firmante: los del técnico (o del contacto) que firma y los de la
+        empresa verificadora, incluida la cédula de su representante legal."""
+        self.ensure_one()
+        valores = []
+        for socio in (partner.sudo(), self.sudo().verifier_partner_id):
+            if not socio:
+                continue
+            valores += [socio.vat_or_id, socio.vat]
+            if socio == self.sudo().verifier_partner_id:
+                valores.append(socio.shrimp_representante_cedula)
+        return [v for v in valores if v]
+
     # ==================================================================
     # Estado de la firma
     # ==================================================================
@@ -83,21 +112,25 @@ class ShrimpVerification(models.Model):
 
     def firma_bloquea_aceptacion(self):
         """True si las partes todavía no pueden aceptar: la firma es
-        obligatoria y la verificadora aún no firmó el informe."""
+        obligatoria y la verificadora aún no firmó el informe. Con
+        solo_emisores_acreditados, una firma cuya cadena no se comprobó (una
+        anterior a esta comprobación) tampoco desbloquea."""
         self.ensure_one()
-        return (self.verification_mode == "platform"
-                and self._firma_obligatoria()
-                and not self.sudo().firma_vigente())
+        if self.verification_mode != "platform" or not self._firma_obligatoria():
+            return False
+        firma = self.sudo().firma_vigente()
+        if not firma:
+            return True
+        return self._firma_solo_acreditados() and not firma.signer_chain_verified
 
     def firma_resumen(self):
-        """«Informe firmado electrónicamente por X (emisor) el fecha»."""
+        """«Informe firmado electrónicamente por X (emisor) el fecha», o con
+        el firmante rotulado «sin verificar» si la cadena no se comprobó."""
         self.ensure_one()
         firma = self.sudo().firma_vigente()
         if not firma:
             return _("Pendiente de firma electrónica de la verificadora")
-        return _("Informe firmado electrónicamente por %(quien)s (%(emisor)s) el %(fecha)s") % {
-            "quien": firma.signer_name, "emisor": firma.signer_issuer,
-            "fecha": firma.fecha_local()}
+        return firma.texto_resumen()
 
     def _firma_fecha_local(self, valor):
         """Fecha y hora de la firma con su desfase UTC, en la zona de la
@@ -198,16 +231,30 @@ class ShrimpVerification(models.Model):
         try:
             cargado = pades.cargar_p12(contenido_p12, contrasena)
             contenido_p12 = contrasena = None
-            pades.validar_certificado(
+            solo_acreditados = rec._firma_solo_acreditados()
+            verificada = pades.validar_certificado(
                 cargado.cert,
-                emisores_aceptados=rec._firma_emisores() if rec._firma_solo_acreditados() else None)
+                emisores_aceptados=rec._firma_emisores() if solo_acreditados else None,
+                solo_acreditados=solo_acreditados,
+                confianza=rec._firma_confianza(),
+                intermedias=cargado.otros,
+                allow_fetching=rec._firma_revocacion_en_red())
             datos = pades.datos_del_certificado(cargado.cert)
+            # El titular tiene que ser quien firma (o su empresa): con el .p12
+            # de otra persona no se firma en nombre de la verificadora.
+            if not pades.titular_coincide(datos, rec._firma_identificaciones_permitidas(partner)):
+                raise pades.FirmaError(_(
+                    "La cédula o el RUC de ese certificado no coincide con la identificación "
+                    "registrada del firmante ni con la de la empresa verificadora. Firma con "
+                    "tu propia firma electrónica, y si tu cédula no está registrada en la "
+                    "plataforma, pide al administrador de tu empresa que la registre."))
             token = secrets.token_urlsafe(32)
             ahora = fields.Datetime.now()
             pdf = rec._firma_render_pdf(token=token)
             tsa = rec._firma_tsa_url()
             firmado = pades.firmar_pdf(
-                pdf, cargado, pades.lineas_del_sello(datos, rec._firma_fecha_local(ahora)),
+                pdf, cargado, pades.lineas_del_sello(
+                    datos, rec._firma_fecha_local(ahora), cadena_verificada=verificada),
                 motivo=_("Informe de verificación %s") % rec.name,
                 lugar="Ecuador", tsa_url=tsa or None)
             rec._firma_autocomprobar(firmado, cargado.cert)
@@ -228,6 +275,7 @@ class ShrimpVerification(models.Model):
             "signer_name": datos["titular"],
             "signer_id_number": datos["identificacion"],
             "signer_issuer": datos["emisor"],
+            "signer_chain_verified": verificada,
             "signer_cert_serial": datos["serie"],
             "signer_cert_sha256": datos["sha256"],
             "signer_cert_valid_until": datos["hasta"].replace(tzinfo=None),
@@ -251,16 +299,24 @@ class ShrimpVerification(models.Model):
             "signer_name": datos["titular"],
             "signer_id_number": datos["identificacion"],
             "signer_issuer": datos["emisor"],
+            "signer_chain_verified": verificada,
             "signer_cert_serial": datos["serie"],
             "signer_cert_sha256": datos["sha256"],
             "signed_pdf_sha256": huella_pdf,
             "signed_pdf_attachment_id": adjunto.id,
         })
-        rec._message_log(body=_(
-            "Informe firmado electrónicamente por %(quien)s (%(emisor)s), usuario "
-            "%(usuario)s. Huella SHA-256 del PDF: %(huella)s.") % {
-                "quien": datos["titular"], "emisor": datos["emisor"],
-                "usuario": user.name, "huella": huella_pdf})
+        if verificada:
+            cuerpo = _(
+                "Informe firmado electrónicamente por %(quien)s (%(emisor)s), usuario "
+                "%(usuario)s. Huella SHA-256 del PDF: %(huella)s.")
+        else:
+            cuerpo = _(
+                "Informe firmado electrónicamente, sin comprobar la cadena del certificado. "
+                "Firmante declarado en el certificado (sin verificar): %(quien)s; emisor "
+                "declarado: %(emisor)s; usuario %(usuario)s. Huella SHA-256 del PDF: %(huella)s.")
+        rec._message_log(body=cuerpo % {
+            "quien": datos["titular"], "emisor": datos["emisor"],
+            "usuario": user.name, "huella": huella_pdf})
         # Con la firma obligatoria las partes no podían aceptar mientras
         # tanto: el plazo para responder corre desde la firma.
         if rec._firma_obligatoria() and rec.acceptance_state == "waiting":
@@ -308,6 +364,7 @@ class ShrimpVerification(models.Model):
             rec.write({
                 "firma_id": False, "signed_at": False, "signed_by_user_id": False,
                 "signer_name": False, "signer_id_number": False, "signer_issuer": False,
+                "signer_chain_verified": False,
                 "signer_cert_serial": False, "signer_cert_sha256": False,
                 "signed_pdf_sha256": False, "signed_pdf_attachment_id": False,
             })

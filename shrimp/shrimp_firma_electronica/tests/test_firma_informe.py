@@ -1,12 +1,18 @@
 """Firma electrónica (PAdES) del informe de verificación.
 
-Los certificados se generan aquí mismo con `cryptography` (autofirmados) y se
-empaquetan en PKCS#12 en memoria: el test nunca toca un .p12 en disco.
+Los certificados se generan aquí mismo con `cryptography` y se empaquetan en
+PKCS#12 en memoria: el test nunca toca un .p12 en disco. Hay una AC de
+pruebas (raíz e intermedia): la raíz se escribe en un directorio temporal
+que hace de ``shrimp_firma.trust_roots_dir`` y la intermedia viaja dentro
+del .p12, como en los certificados reales.
 """
 import base64
 import hashlib
 import io
 import logging
+import os
+import shutil
+import tempfile
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
@@ -29,22 +35,77 @@ from ..tools import pades
 
 CLAVE_P12 = "Firma-Secreta-7781"
 _CLAVE_RSA = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+_CLAVE_RAIZ = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+_CLAVE_INTERMEDIA = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+_CLAVE_OTRA_AC = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+
+CEDULA_FIRMANTE = "0912345678"      # la del representante legal de la verificadora
+CEDULA_TECNICO = "0923456789"       # la registrada del técnico
+CEDULA_AJENA = "1712345678"         # la de nadie en la verificación
+EMISOR_PRUEBAS = "AC de Pruebas CamaronMarket"
 
 
-def hacer_p12(cn="MARÍA JOSÉ PEÑA ROMERO", cedula="0912345678",
-              emisor="AC de Pruebas CamaronMarket", desde_dias=-1, hasta_dias=365,
-              uso_firma=True, clave=CLAVE_P12):
-    """(.p12 en bytes, certificado) de un certificado autofirmado de prueba."""
+def _nombre(cn):
+    return x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, cn),
+                      x509.NameAttribute(NameOID.ORGANIZATION_NAME, cn)])
+
+
+def hacer_ac(cn, clave, emisor=None):
+    """Certificado de AC: raíz autofirmada, o subordinada si ``emisor`` es
+    (certificado, clave) de la AC que la firma."""
+    ahora = datetime.now(timezone.utc)
+    emisor_cert, emisor_clave = emisor or (None, clave)
+    return (
+        x509.CertificateBuilder()
+        .subject_name(_nombre(cn))
+        .issuer_name(emisor_cert.subject if emisor_cert else _nombre(cn))
+        .public_key(clave.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(ahora - timedelta(days=30))
+        .not_valid_after(ahora + timedelta(days=3650))
+        .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+        .add_extension(x509.KeyUsage(
+            digital_signature=False, content_commitment=False, key_encipherment=False,
+            data_encipherment=False, key_agreement=False, key_cert_sign=True, crl_sign=True,
+            encipher_only=False, decipher_only=False), critical=True)
+        .add_extension(x509.SubjectKeyIdentifier.from_public_key(clave.public_key()),
+                       critical=False)
+        .sign(emisor_clave, hashes.SHA256())
+    )
+
+
+AC_RAIZ = hacer_ac("Raíz de Pruebas CamaronMarket", _CLAVE_RAIZ)
+AC_INTERMEDIA = hacer_ac(EMISOR_PRUEBAS, _CLAVE_INTERMEDIA, emisor=(AC_RAIZ, _CLAVE_RAIZ))
+# Una AC que no está entre las raíces de la plataforma (la de un atacante).
+AC_AJENA = hacer_ac("Banco Central del Ecuador", _CLAVE_OTRA_AC)
+EMITIDO_POR_PRUEBAS = (AC_INTERMEDIA, _CLAVE_INTERMEDIA)
+
+
+def hacer_p12(cn="MARÍA JOSÉ PEÑA ROMERO", cedula=CEDULA_FIRMANTE,
+              emisor=EMISOR_PRUEBAS, desde_dias=-1, hasta_dias=365,
+              uso_firma=True, clave=CLAVE_P12, emitido_por=EMITIDO_POR_PRUEBAS,
+              cadena=None, autofirmado=False):
+    """(.p12 en bytes, certificado) de un certificado de persona de prueba.
+
+    Por defecto lo emite la AC intermedia de pruebas, y la intermedia viaja
+    en el .p12. ``emitido_por=None``: firmado con su propia clave y con el
+    emisor que diga ``emisor`` (lo que puede fabricar cualquiera);
+    ``autofirmado``: además, emisor = sujeto."""
     ahora = datetime.now(timezone.utc)
     sujeto = x509.Name([
         x509.NameAttribute(NameOID.COMMON_NAME, cn),
         x509.NameAttribute(NameOID.SERIAL_NUMBER, cedula),
         x509.NameAttribute(NameOID.COUNTRY_NAME, "EC"),
     ])
-    emisor_dn = x509.Name([
-        x509.NameAttribute(NameOID.COMMON_NAME, emisor),
-        x509.NameAttribute(NameOID.ORGANIZATION_NAME, emisor),
-    ])
+    if autofirmado:
+        emitido_por = None
+        emisor_dn = sujeto
+    elif emitido_por:
+        emisor_dn = emitido_por[0].subject
+    else:
+        emisor_dn = _nombre(emisor)
+    if cadena is None:
+        cadena = [emitido_por[0]] if emitido_por else []
     constructor = (
         x509.CertificateBuilder()
         .subject_name(sujeto).issuer_name(emisor_dn)
@@ -62,9 +123,9 @@ def hacer_p12(cn="MARÍA JOSÉ PEÑA ROMERO", cedula="0912345678",
             x509.ObjectIdentifier("1.3.6.1.4.1.37947.3.11"),
             b"\x0c\x0d" + (cedula + "001").encode()), critical=False)
     )
-    cert = constructor.sign(_CLAVE_RSA, hashes.SHA256())
+    cert = constructor.sign(emitido_por[1] if emitido_por else _CLAVE_RSA, hashes.SHA256())
     p12 = pkcs12.serialize_key_and_certificates(
-        b"firma", _CLAVE_RSA, cert, None,
+        b"firma", _CLAVE_RSA, cert, cadena or None,
         serialization.BestAvailableEncryption(clave.encode()))
     return p12, cert
 
@@ -111,10 +172,22 @@ class TestFirmaInforme(HttpCase):
         cls.v.sudo().write({"technician_partner_id": cls.s["tec"].id, "state": "assigned"})
         abrir_ronda(cls.v)
         cls.ICP = cls.env["ir.config_parameter"].sudo()
-        # Base de pruebas: certificados autofirmados.
-        cls.ICP.set_param("shrimp_firma.solo_emisores_acreditados", "False")
+        # Como en producción: solo cadenas que llegan a una raíz de confianza.
+        # En el directorio, solo la raíz: la intermedia la trae el .p12.
+        cls.dir_raices = tempfile.mkdtemp(prefix="firma_raices_")
+        cls.addClassCleanup(shutil.rmtree, cls.dir_raices, True)
+        with open(os.path.join(cls.dir_raices, "raiz.pem"), "wb") as f:
+            f.write(AC_RAIZ.public_bytes(serialization.Encoding.PEM))
+        cls.ICP.set_param("shrimp_firma.trust_roots_dir", cls.dir_raices)
+        cls.ICP.set_param("shrimp_firma.solo_emisores_acreditados", "True")
+        cls.ICP.set_param("shrimp_firma.emisores_aceptados", "\n".join(
+            cls.env["shrimp.verification"]._firma_emisores() + [EMISOR_PRUEBAS]))
         cls.ICP.set_param("shrimp_firma.obligatoria", "False")
         cls.ICP.set_param("shrimp_firma.tsa_url", "")
+        # Identificaciones registradas: cédula del técnico y del representante
+        # legal de la verificadora.
+        cls.s["tec"].sudo().vat_or_id = CEDULA_TECNICO
+        cls.s["verif"].sudo().shrimp_representante_cedula = CEDULA_FIRMANTE
         sitio = cls.env["website"].sudo()._shrimp_verifier_site()
         if sitio:
             sitio.domain = False
@@ -174,6 +247,11 @@ class TestFirmaInforme(HttpCase):
         self.assertTrue(v.signed_at)
         self.assertEqual(v.signed_by_user_id, self.s["u_verif"])
         self.assertEqual(v.signer_name, "MARÍA JOSÉ PEÑA ROMERO")
+        self.assertTrue(firma.signer_chain_verified)
+        self.assertTrue(v.signer_chain_verified)
+        self.assertNotIn("sin verificar", v.firma_resumen())
+        self.assertIn("Informe firmado electrónicamente por MARÍA JOSÉ PEÑA ROMERO",
+                      v.firma_resumen())
         self.assertIn("0912345678", v.signer_id_number)
         self.assertIn("0912345678001", v.signer_id_number)
         self.assertIn("AC de Pruebas CamaronMarket", v.signer_issuer)
@@ -197,7 +275,7 @@ class TestFirmaInforme(HttpCase):
         lector = PdfFileReader(io.BytesIO(pdf))
         firmas = lector.embedded_signatures
         self.assertEqual(len(firmas), 1)
-        raiz_confianza = a_x509.Certificate.load(self.cert.public_bytes(serialization.Encoding.DER))
+        raiz_confianza = a_x509.Certificate.load(AC_RAIZ.public_bytes(serialization.Encoding.DER))
         estado = validate_pdf_signature(
             firmas[0], ValidationContext(trust_roots=[raiz_confianza], allow_fetching=False))
         self.assertTrue(estado.intact, "el PDF firmado no está íntegro")
@@ -247,19 +325,158 @@ class TestFirmaInforme(HttpCase):
         self.assertIn("no está habilitado para firmar", cm.exception.args[0])
         self._nada_guardado()
 
-    def test_emisor_no_aceptado_con_la_lista_activa(self):
-        self.ICP.set_param("shrimp_firma.solo_emisores_acreditados", "True")
+    def test_emisor_fuera_de_la_lista_tras_comprobar_la_cadena(self):
+        # La lista de emisores es un filtro ADICIONAL: con la cadena válida,
+        # un emisor que no está en la lista no pasa.
+        self.ICP.set_param("shrimp_firma.emisores_aceptados", "Banco Central del Ecuador")
         with self.assertRaises(UserError) as cm:
             self._firmar()
         self.assertIn("acreditada", cm.exception.args[0])
         self._nada_guardado()
-        # Un emisor de la lista sí pasa la validación (DN real de Security Data).
-        _p12, cert = hacer_p12(emisor="SECURITY DATA S.A. 2")
-        self.assertTrue(pades.validar_certificado(
-            cert, emisores_aceptados=self.v._firma_emisores()))
-        _p12, cert = hacer_p12(emisor="ENTIDAD DE CERTIFICACIÓN DE INFORMACIÓN-ECIBCE")
-        self.assertTrue(pades.validar_certificado(
-            cert, emisores_aceptados=self.v._firma_emisores()))
+
+    def test_emisor_que_solo_se_nombra_acreditado_se_rechaza(self):
+        # Antes bastaba con que el DN del emisor dijera «Security Data» o
+        # «Banco Central del Ecuador»: cualquiera fabrica ese certificado.
+        emisores = self.v._firma_emisores()
+        confianza = self.v._firma_confianza()
+        self.assertTrue(confianza)
+        for emisor in ("SECURITY DATA S.A. 2", "Banco Central del Ecuador",
+                       "ENTIDAD DE CERTIFICACIÓN DE INFORMACIÓN-ECIBCE"):
+            p12, cert = hacer_p12(emisor=emisor, emitido_por=None)
+            with self.assertRaises(pades.FirmaError):
+                pades.validar_certificado(cert, emisores_aceptados=emisores,
+                                          solo_acreditados=True, confianza=confianza)
+            with self.assertRaises(UserError) as cm:
+                self._firmar(p12=p12)
+            self.assertIn("raíz de confianza", cm.exception.args[0])
+        # Autofirmado de verdad (emisor = sujeto).
+        p12, cert = hacer_p12(autofirmado=True)
+        with self.assertRaises(UserError) as cm:
+            self._firmar(p12=p12)
+        self.assertIn("autofirmado", cm.exception.args[0])
+        # Emitido por una AC que no es de confianza, aunque el .p12 traiga
+        # su «raíz» y se llame «Banco Central del Ecuador».
+        p12, _cert = hacer_p12(emitido_por=(AC_AJENA, _CLAVE_OTRA_AC))
+        with self.assertRaises(UserError) as cm:
+            self._firmar(p12=p12)
+        self.assertIn("raíz de confianza", cm.exception.args[0])
+        # Con el mismo DN de emisor que la intermedia de confianza, pero
+        # firmado con otra clave: la firma del certificado no cuadra.
+        falsa = hacer_ac(EMISOR_PRUEBAS, _CLAVE_OTRA_AC)
+        p12, _cert = hacer_p12(emitido_por=(falsa, _CLAVE_OTRA_AC), cadena=[])
+        with self.assertRaises(UserError) as cm:
+            self._firmar(p12=p12)
+        self.assertIn("raíz de confianza", cm.exception.args[0])
+        self._nada_guardado()
+
+    def test_sin_raices_configuradas_no_se_firma(self):
+        self.ICP.set_param("shrimp_firma.trust_roots_dir", "")
+        with self.assertRaises(UserError) as cm:
+            self._firmar()
+        self.assertIn("raíces", cm.exception.args[0])
+        self.ICP.set_param("shrimp_firma.trust_roots_dir", "/ruta/que/no/existe")
+        with self.assertRaises(UserError):
+            self._firmar()
+        self._nada_guardado()
+
+    def test_intermedia_en_el_directorio_y_p12_sin_cadena(self):
+        # Si el .p12 no trae la intermedia, sirve la del directorio (PEM o DER).
+        with open(os.path.join(self.dir_raices, "intermedia.cer"), "wb") as f:
+            f.write(AC_INTERMEDIA.public_bytes(serialization.Encoding.DER))
+        self.addCleanup(os.remove, os.path.join(self.dir_raices, "intermedia.cer"))
+        confianza = self.v._firma_confianza()
+        self.assertEqual(len(confianza.raices), 1)
+        self.assertEqual(len(confianza.intermedias), 1)
+        p12, _cert = hacer_p12(cadena=[])
+        self.assertTrue(self._firmar(p12=p12).signer_chain_verified)
+
+    # ------------------------------------------------------------------
+    # Titular del certificado = firmante
+    # ------------------------------------------------------------------
+    def test_cedula_que_no_es_del_firmante(self):
+        p12, _cert = hacer_p12(cn="OTRA PERSONA", cedula=CEDULA_AJENA)
+        for partner, user in ((self.s["tec"], self.s["u_tec"]),
+                              (self.s["verif"], self.s["u_verif"])):
+            with self.assertRaises(UserError) as cm:
+                self._firmar(p12=p12, partner=partner, user=user)
+            self.assertIn("no coincide", cm.exception.args[0])
+        self._nada_guardado()
+        # Sin identificación registrada tampoco.
+        self.s["verif"].sudo().shrimp_representante_cedula = False
+        with self.assertRaises(UserError) as cm:
+            self._firmar()
+        self.assertIn("no coincide", cm.exception.args[0])
+        self._nada_guardado()
+
+    def test_el_tecnico_firma_con_su_cedula(self):
+        p12, _cert = hacer_p12(cn="TÉCNICO DE CAMPO", cedula=CEDULA_TECNICO)
+        firma = self._firmar(p12=p12, partner=self.s["tec"], user=self.s["u_tec"])
+        self.assertTrue(firma.signer_chain_verified)
+        self.assertIn(CEDULA_TECNICO, firma.signer_id_number)
+
+    def test_titular_coincide_normaliza_los_digitos(self):
+        datos = {"cedula": "0912345678", "ruc": ""}
+        self.assertTrue(pades.titular_coincide(datos, ["0912345678"]))
+        self.assertTrue(pades.titular_coincide(datos, ["091234567-8"]))
+        # RUC de persona natural = cédula + 001.
+        self.assertTrue(pades.titular_coincide(datos, ["0912345678001"]))
+        self.assertTrue(pades.titular_coincide({"cedula": "", "ruc": "0912345678001"},
+                                               ["0912345678"]))
+        # RUC de sociedad (tercer dígito 9) en un certificado de empresa.
+        self.assertTrue(pades.titular_coincide({"cedula": CEDULA_AJENA, "ruc": "0991234567001"},
+                                               ["0991234567001"]))
+        # El RUC de una sociedad no es la cédula de nadie.
+        self.assertFalse(pades.titular_coincide({"cedula": "0991234567", "ruc": ""},
+                                                ["0991234567001"]))
+        self.assertFalse(pades.titular_coincide(datos, ["1712345678"]))
+        self.assertFalse(pades.titular_coincide(datos, []))
+        self.assertFalse(pades.titular_coincide({"cedula": "", "ruc": ""}, ["0912345678"]))
+
+    # ------------------------------------------------------------------
+    # Base de pruebas: autofirmados, rotulados «sin verificar»
+    # ------------------------------------------------------------------
+    def test_sin_solo_acreditados_el_autofirmado_firma_sin_verificar(self):
+        self.ICP.set_param("shrimp_firma.solo_emisores_acreditados", "False")
+        p12, _cert = hacer_p12(emisor="Banco Central del Ecuador", emitido_por=None)
+        lineas = []
+        original = pades.lineas_del_sello
+
+        def espia(*args, **kwargs):
+            lineas.extend(original(*args, **kwargs))
+            return lineas
+
+        with patch.object(pades, "lineas_del_sello", espia):
+            firma = self._firmar(p12=p12)
+        self.assertFalse(firma.signer_chain_verified)
+        self.assertFalse(self.v.signer_chain_verified)
+        self.assertEqual(lineas[0], "Firmante declarado en el certificado (sin verificar): "
+                                    "MARÍA JOSÉ PEÑA ROMERO")
+        self.assertTrue(any(l.startswith("Emisor declarado en el certificado (sin verificar)")
+                            for l in lineas))
+        resumen = self.v.firma_resumen()
+        self.assertIn("Firmante declarado en el certificado (sin verificar)", resumen)
+        self.assertNotIn("firmado electrónicamente por", resumen)
+        self.assertIn("sin verificar", self.v.message_ids[:1].body)
+        r = self.url_open(firma.public_path())
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("Firmante declarado en el certificado (sin verificar)", r.text)
+        self.assertNotIn("Firmante (titular del certificado)", r.text)
+        self.assertIn("no comprobó la cadena", r.text)
+        # Las partes tampoco lo ven como verificado.
+        self.authenticate("cam.secfir", CLAVE)
+        texto = self.url_open("/marketplace/verifications/%s/acceptance" % self.v.uuid_ref).text
+        self.assertIn("Firmante declarado en el certificado (sin verificar)", texto)
+
+        # Con la firma obligatoria y la plataforma ya en modo acreditado,
+        # esa firma no desbloquea la aceptación.
+        self.ICP.set_param("shrimp_firma.obligatoria", "True")
+        self.assertFalse(self.v.firma_bloquea_aceptacion())
+        self.ICP.set_param("shrimp_firma.solo_emisores_acreditados", "True")
+        self.assertTrue(self.v.firma_bloquea_aceptacion())
+
+    def test_sin_solo_acreditados_una_cadena_valida_se_marca_verificada(self):
+        self.ICP.set_param("shrimp_firma.solo_emisores_acreditados", "False")
+        self.assertTrue(self._firmar().signer_chain_verified)
 
     def test_solo_firma_la_verificadora(self):
         # Ni el comprador ni el técnico de otra verificadora.

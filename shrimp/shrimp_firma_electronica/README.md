@@ -24,9 +24,14 @@ certificado de una entidad de certificación acreditada.
    Ahí se sube el .p12/.pfx, se escribe la contraseña y se marca la casilla
    «la firma es mía». Pueden firmar el técnico asignado o el administrador de
    la empresa verificadora (el mismo criterio que `_puede_dictaminar`).
+   La cédula o el RUC del certificado tiene que coincidir con el RUC/cédula
+   registrado (`vat_or_id` o `vat`) del técnico que firma, o con el de la
+   empresa verificadora o la cédula de su representante legal. Se comparan
+   solo los dígitos, y un RUC de persona natural (cédula + `001`) vale por
+   su cédula. Si no hay identificación registrada o no coincide, no se firma.
    El formulario es POST con CSRF, exige HTTPS (salvo desde localhost) y
    admite 10 intentos por usuario cada 15 minutos.
-4. **Comprobación pública** en `/verificacion/firma/<token>`. El token es
+4. **Comprobación pública** en `/signature/<token>`. El token es
    aleatorio (43 caracteres) y no el id de la verificación. La página muestra si
    el informe está firmado, la verificadora, el firmante, el emisor, la fecha,
    el nivel de firma y la huella SHA-256 del PDF, y permite descargar el PDF.
@@ -69,14 +74,41 @@ firmar cuando tenga un nuevo veredicto.
 
 | Clave | Por defecto | Qué hace |
 |---|---|---|
-| `shrimp_firma.emisores_aceptados` | lista de entidades acreditadas en Ecuador | Subcadenas del DN del emisor, una por línea, sin distinguir mayúsculas ni tildes |
-| `shrimp_firma.solo_emisores_acreditados` | `True` | Rechaza certificados de emisores fuera de la lista. En la base de pruebas se pone en `False` para firmar con certificados autofirmados |
+| `shrimp_firma.solo_emisores_acreditados` | `True` | Solo se firma si la cadena del certificado se comprueba hasta una raíz de `trust_roots_dir`. Sin raíces configuradas, con un autofirmado o con una cadena que no valida, no se firma. Solo con `False` (base de pruebas y demo) se firma con certificados autofirmados, que quedan rotulados «sin verificar» |
+| `shrimp_firma.trust_roots_dir` | (no existe = sin raíces) | Directorio del servidor con las raíces e intermedias de las entidades acreditadas (ver abajo) |
+| `shrimp_firma.allow_fetching` | `False` | `True`: al firmar se consulta la revocación (CRL/OCSP) por red, en modo «soft-fail» |
+| `shrimp_firma.emisores_aceptados` | lista de entidades acreditadas en Ecuador | Filtro adicional, solo después de comprobar la cadena: subcadenas del DN del emisor, una por línea, sin distinguir mayúsculas ni tildes. Por sí sola no acredita nada |
 | `shrimp_firma.obligatoria` | `False` | Exige la firma antes de que las partes acepten |
 | `shrimp_firma.tsa_url` | (no existe = vacío) | URL RFC 3161 del servidor de sellado de tiempo; con valor la firma es PAdES-B-T |
 | `shrimp_firma.exigir_https` | `True` | Solo acepta el formulario por HTTPS (localhost siempre se admite) |
 | `shrimp_firma.intentos_max` / `shrimp_firma.intentos_ventana_s` | 10 / 900 | Límite de intentos de firma por usuario |
 
-La lista sembrada contiene: Banco Central del Ecuador, Security Data,
+### Raíces de confianza (`shrimp_firma.trust_roots_dir`)
+
+«Emisor acreditado» quiere decir que la cadena del certificado, comprobada
+con pyhanko-certvalidator (firmas, vigencias, restricciones de CA y uso de
+clave para firmar), llega a una raíz que el administrador puso en este
+directorio. El nombre del emisor escrito en el certificado no basta:
+cualquiera genera un autofirmado cuyo emisor diga «Banco Central del
+Ecuador».
+
+1. Descarga de la web oficial de cada entidad acreditada su certificado
+   raíz y sus certificados intermedios (subordinados). Comprueba la huella
+   SHA-256 con la que publica la entidad (o FirmaEC):
+   `openssl x509 -in raiz.crt -noout -fingerprint -sha256`.
+2. Cópialos a un directorio del servidor que el usuario de Odoo pueda leer,
+   por ejemplo `/opt/odoo/firma_raices/`. Formatos: PEM (`.pem`, `.crt`,
+   uno o varios certificados por archivo) o DER (`.cer`, `.der`). Las
+   subcarpetas se ignoran.
+3. Pon la ruta en `shrimp_firma.trust_roots_dir`.
+
+Los certificados autofirmados del directorio son las raíces de confianza;
+los demás se usan como intermedias para armar la cadena, pero no dan
+confianza por sí solos. También se usan las intermedias que trae el propio
+.p12; la raíz que pudiera traer el .p12 nunca se toma como de confianza.
+Se lee el directorio en cada firma, así que un cambio no necesita reiniciar.
+
+La lista sembrada en `emisores_aceptados` contiene: Banco Central del Ecuador, Security Data,
 Uanataca, ANF (AC, Autoridad de Certificación, High Assurance), Datil, Consejo
 de la Judicatura, ECIBCE, Lazzate, Eclipsoft, Firmasegura y ArgosData.
 **Hay que revisarla contra la lista vigente de entidades de certificación
@@ -98,15 +130,22 @@ de una entidad:
 - La firma PAdES cubre el PDF completo: cualquier cambio posterior la invalida.
 
 **Lo que no tiene, o no garantiza este módulo:**
-- No valida la revocación (CRL/OCSP) al firmar. Un certificado revocado pero
-  no vencido se acepta, y lo detectará quien valide el PDF. Es una mejora
-  pendiente.
-- No comprueba que el titular del certificado sea el técnico o el
-  representante legal de la verificadora. Registra quién firmó (usuario) y
-  con qué certificado; la responsabilidad del uso es del titular.
+- La revocación (CRL/OCSP) solo se consulta si `shrimp_firma.allow_fetching`
+  es `True`, y en «soft-fail»: si el servidor de la entidad no responde, se
+  firma igual. Por defecto no se consulta: un certificado revocado pero no
+  vencido se acepta, y lo detectará quien valide el PDF.
+- Comprueba que la cédula/RUC del certificado coincida con la registrada del
+  técnico o de la empresa verificadora (o de su representante legal), no que
+  el técnico sea quien de verdad tecleó la contraseña. La responsabilidad del
+  uso es del titular.
 - Con un certificado autofirmado o de una entidad no acreditada (solo
   posible con `solo_emisores_acreditados = False`) la firma es técnicamente
-  correcta, pero **no tiene valor legal**. Solo sirve para pruebas.
+  correcta, pero **no tiene valor legal**. Solo sirve para pruebas. Esas
+  firmas quedan con `signer_chain_verified = False` y el sello del PDF, la
+  página pública, el chatter y las pantallas de las partes muestran
+  «Firmante declarado en el certificado (sin verificar)». Con la firma
+  obligatoria y `solo_emisores_acreditados = True`, una firma sin la cadena
+  comprobada no desbloquea la aceptación.
 - Sin sello de tiempo (B-B), la fecha de la firma la declara el servidor y no
   un tercero de confianza. Para validación a largo plazo conviene B-T (TSA).
 - La firma acredita el informe del verificador, no la aceptación de las
@@ -130,7 +169,7 @@ años y hay que renovarlo antes del vencimiento.
 - **Adobe Acrobat Reader**: panel «Firmas». Muestra si el documento no se
   modificó; para que diga «válida» con certificados ecuatorianos puede hacer
   falta agregar la raíz de la entidad como certificado de confianza.
-- **Página pública**: escanea el QR del PDF o abre `/verificacion/firma/<token>`
+- **Página pública**: escanea el QR del PDF o abre `/signature/<token>`
   y compara la huella SHA-256 (`sha256sum informe.pdf`).
 
 ## Lo que falta para producción
@@ -146,16 +185,22 @@ años y hay que renovarlo antes del vencimiento.
    coinciden con las versiones del venv del servidor: `pip list`.) Sin
    pyHanko el módulo no se instala (`external_dependencies`). También necesita
    `wkhtmltopdf` con Qt parcheado, el mismo de los demás informes.
-2. **Revisar la lista de emisores** con la lista vigente de ARCOTEL y con el DN
-   real de los certificados que usen las verificadoras.
-3. **TSA**: decidir si se firma B-T y con qué servidor (uno de una entidad
+2. **Configurar las raíces de confianza** (`shrimp_firma.trust_roots_dir`,
+   ver arriba) con las raíces e intermedias de cada entidad acreditada que
+   vayan a usar las verificadoras. Sin ellas, con
+   `solo_emisores_acreditados = True`, nadie puede firmar. Revisar también
+   la lista de emisores con la lista vigente de ARCOTEL y con el DN real de
+   esos certificados.
+3. **Registrar la cédula de cada técnico** (y el RUC de la verificadora) que
+   vaya a firmar: si no coincide con la del certificado, no se firma.
+4. **TSA**: decidir si se firma B-T y con qué servidor (uno de una entidad
    acreditada en Ecuador, si ofrece el servicio). Configurar
    `shrimp_firma.tsa_url`. Si la TSA no responde, la firma falla con un
    mensaje claro y no se guarda nada.
-4. Comprobar que el proxy envía `X-Forwarded-Proto` y que Odoo corre con
+5. Comprobar que el proxy envía `X-Forwarded-Proto` y que Odoo corre con
    `proxy_mode = True`. Si no, el formulario no reconoce la conexión HTTPS.
-5. Decidir si se activa `shrimp_firma.obligatoria`.
-6. Probar con un certificado real de cada entidad que vayan a usar las
+6. Decidir si se activa `shrimp_firma.obligatoria`.
+7. Probar con un certificado real de cada entidad que vayan a usar las
    verificadoras. En particular, los .p12 antiguos del BCE con cifrado RC2
    necesitan el proveedor «legacy» de OpenSSL, que `cryptography` 42 carga
    por defecto.
@@ -168,14 +213,20 @@ cd /home/ccarballo/odoo19 && venv/bin/python src/odoo-bin -c odoo.conf -d demo_p
   --stop-after-init --http-port=8097 --gevent-port=8098 --max-cron-threads=0
 ```
 
-`tests/test_firma_informe.py` genera certificados autofirmados con
-`cryptography` y los empaqueta en PKCS#12 en memoria. Comprueba:
+`tests/test_firma_informe.py` genera con `cryptography` una AC de pruebas
+(raíz e intermedia, escritas en un directorio temporal que hace de
+`trust_roots_dir`), certificados de persona emitidos por ella y autofirmados,
+y los empaqueta en PKCS#12 en memoria. Comprueba:
 
 - la firma correcta, validada con pyHanko (íntegra, del certificado esperado,
   `/ETSI.CAdES.detached`, que cubre el archivo entero y es visible);
 - que el hash guardado coincide con el del PDF;
 - los rechazos: contraseña incorrecta, certificado vencido, aún no vigente o
-  sin uso de firma, y emisor no aceptado;
+  sin uso de firma, autofirmado (aunque su emisor diga «Banco Central del
+  Ecuador» o «Security Data»), sin raíces configuradas, de otra AC, y
+  cédula que no es la del firmante;
+- con `solo_emisores_acreditados = False`, que un autofirmado firma y se
+  muestra «sin verificar» (sello, página pública, chatter, resumen);
 - que nadie ajeno a la verificadora puede firmar (403);
 - que no se firma dos veces y que la reapertura archiva la firma;
 - la página pública por token y el 404 con un token inventado;

@@ -23,7 +23,7 @@ Requiere la librería pyHanko en el entorno de Odoo (ver README.md).
     """,
     "author": "Carlos Carballo",
     "category": "Sales/Marketplace",
-    "version": "19.0.1.0.0",
+    "version": "19.0.1.1.0",
     "license": "LGPL-3",
     "depends": ["shrimp_verification", "website"],
     "external_dependencies": {

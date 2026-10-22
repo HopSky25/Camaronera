@@ -1,4 +1,4 @@
-from odoo import fields, models
+from odoo import _, fields, models
 
 
 class ShrimpVerificationFirma(models.Model):
@@ -37,6 +37,11 @@ class ShrimpVerificationFirma(models.Model):
     signer_name = fields.Char(string="Titular del certificado", readonly=True)
     signer_id_number = fields.Char(string="Cédula / RUC del certificado", readonly=True)
     signer_issuer = fields.Char(string="Emisor del certificado", readonly=True)
+    signer_chain_verified = fields.Boolean(
+        string="Cadena del certificado comprobada", readonly=True,
+        help="La cadena del certificado se comprobó hasta una raíz de confianza de la "
+             "plataforma (shrimp_firma.trust_roots_dir). Si no, titular y emisor son solo "
+             "lo que el certificado declara de sí mismo y se muestran «sin verificar».")
     signer_cert_serial = fields.Char(string="Serie del certificado", readonly=True)
     signer_cert_sha256 = fields.Char(string="Huella SHA-256 del certificado", readonly=True)
     signer_cert_valid_until = fields.Datetime(string="Certificado válido hasta", readonly=True)
@@ -60,6 +65,17 @@ class ShrimpVerificationFirma(models.Model):
     def pdf_path(self):
         self.ensure_one()
         return "/signature/%s/pdf" % self.token
+
+    def texto_resumen(self):
+        """La frase que se muestra a las partes, al público y en el chatter."""
+        self.ensure_one()
+        valores = {"quien": self.signer_name, "emisor": self.signer_issuer,
+                   "fecha": self.fecha_local()}
+        if self.signer_chain_verified:
+            return _("Informe firmado electrónicamente por %(quien)s (%(emisor)s) el "
+                     "%(fecha)s") % valores
+        return _("Informe firmado electrónicamente el %(fecha)s. Firmante declarado en el "
+                 "certificado (sin verificar): %(quien)s; emisor declarado: %(emisor)s") % valores
 
     def fecha_local(self):
         """«13/10/2026 10:15 (UTC-05:00)» en la hora local de la verificadora."""

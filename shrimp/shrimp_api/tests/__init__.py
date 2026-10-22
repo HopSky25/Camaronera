@@ -33,3 +33,4 @@ from . import test_api_publicar_app
 from . import test_api_decisiones_verificacion
 from . import test_api_gestion_lotes
 from . import test_api_cuenta_vendedor
+from . import test_api_renovar_claves

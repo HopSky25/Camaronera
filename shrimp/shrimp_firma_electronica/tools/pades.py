@@ -12,10 +12,16 @@ Reglas que cumple (y que los tests comprueban):
   conserva la clave.
 * Los errores que llegan al usuario son ``FirmaError`` con un texto en
   español, sin detalles técnicos (ni la excepción de OpenSSL ni la ruta).
+* «Emisor acreditado» quiere decir que la cadena del certificado llega, con
+  firmas válidas, a una raíz que el administrador puso en el directorio de
+  confianza (``cargar_confianza``). El nombre del emisor escrito en el
+  certificado no prueba nada: cualquiera genera un autofirmado que diga
+  «Banco Central del Ecuador».
 """
 import hashlib
 import io
 import logging
+import os
 import re
 import unicodedata
 from datetime import datetime, timezone
@@ -180,11 +186,151 @@ def cargar_p12(contenido, contrasena):
     return CertificadoCargado(clave, cert, otros)
 
 
-def validar_certificado(cert, ahora=None, emisores_aceptados=None):
-    """Vigencia, uso de clave y (opcional) emisor acreditado.
+# ----------------------------------------------------------------------
+# Raíces de confianza y validación de la cadena
+# ----------------------------------------------------------------------
+EXTENSIONES_CONFIANZA = (".pem", ".crt", ".cer", ".der")
+MAX_ARCHIVO_CONFIANZA = 512 * 1024
+_PEM_CERT = re.compile(
+    rb"-----BEGIN CERTIFICATE-----\s+.*?-----END CERTIFICATE-----", re.S)
 
-    ``emisores_aceptados``: lista de subcadenas del DN del emisor (sin
-    distinguir mayúsculas ni tildes). ``None`` o vacía = no se filtra.
+
+class Confianza:
+    """Raíces (autofirmadas) e intermedias de las entidades acreditadas, en
+    el formato de asn1crypto que usa pyhanko-certvalidator."""
+
+    def __init__(self, raices=None, intermedias=None):
+        self.raices = list(raices or [])
+        self.intermedias = list(intermedias or [])
+
+    def __bool__(self):
+        return bool(self.raices)
+
+
+def _es_autofirmado(cert):
+    """Mismo sujeto y emisor (cryptography). Basta para rechazarlo: un
+    certificado de persona emitido por una entidad nunca tiene su propio
+    nombre como emisor."""
+    return cert.issuer == cert.subject
+
+
+def _certificados_de_archivo(contenido):
+    """Los certificados de un archivo PEM (uno o varios) o DER (uno)."""
+    if b"-----BEGIN CERTIFICATE-----" in contenido:
+        return [x509.load_pem_x509_certificate(m.group(0))
+                for m in _PEM_CERT.finditer(contenido)]
+    return [x509.load_der_x509_certificate(contenido)]
+
+
+def cargar_confianza(directorio):
+    """Lee las raíces e intermedias del directorio (sin subcarpetas).
+
+    Las autofirmadas son anclas de confianza; las demás, intermedias que
+    ayudan a armar la cadena pero no dan confianza por sí solas. Un archivo
+    ilegible se salta con un aviso en el log (sin cortar la firma: si falta
+    la raíz, la validación de la cadena lo dirá)."""
+    from asn1crypto import x509 as a_x509
+
+    confianza = Confianza()
+    directorio = (directorio or "").strip()
+    if not directorio:
+        return confianza
+    if not os.path.isdir(directorio):
+        _logger.warning("Directorio de raíces de confianza inexistente: %s", directorio)
+        return confianza
+    for nombre in sorted(os.listdir(directorio)):
+        ruta = os.path.join(directorio, nombre)
+        if not nombre.lower().endswith(EXTENSIONES_CONFIANZA) or not os.path.isfile(ruta):
+            continue
+        try:
+            if os.path.getsize(ruta) > MAX_ARCHIVO_CONFIANZA:
+                raise ValueError("archivo demasiado grande")
+            with open(ruta, "rb") as f:
+                certs = _certificados_de_archivo(f.read())
+        except Exception:  # noqa: BLE001 - un archivo roto no tumba los demás
+            _logger.warning("No se pudo leer el certificado de confianza %s", ruta, exc_info=True)
+            continue
+        for c in certs:
+            a_cert = a_x509.Certificate.load(c.public_bytes(serialization.Encoding.DER))
+            if _es_autofirmado(c):
+                confianza.raices.append(a_cert)
+            else:
+                confianza.intermedias.append(a_cert)
+    return confianza
+
+
+def validar_cadena(cert, confianza, intermedias=None, ahora=None, allow_fetching=False):
+    """La cadena del certificado hasta una raíz de ``confianza``, con
+    pyhanko-certvalidator: firmas, vigencias, restricciones de CA y uso de
+    clave para firmar. Revocación en «soft-fail»: sin red (por defecto) no se
+    consulta, y si se consulta y no responde no se corta la firma; un
+    certificado revocado de forma comprobada sí se rechaza.
+
+    ``intermedias``: certificados ``cryptography`` que trae el .p12. Ayudan a
+    armar la cadena, nunca son raíces."""
+    from asn1crypto import x509 as a_x509
+    from pyhanko_certvalidator import CertificateValidator, ValidationContext
+    from pyhanko_certvalidator.errors import InvalidCertificateError, RevokedError
+
+    if not confianza:
+        raise FirmaError(
+            "La plataforma todavía no tiene configuradas las raíces de las "
+            "entidades de certificación acreditadas, así que no puede comprobar "
+            "tu certificado. Avisa al administrador de la plataforma.")
+    if _es_autofirmado(cert):
+        raise FirmaError(
+            "Ese certificado es autofirmado: no lo emitió ninguna entidad de "
+            "certificación acreditada. Usa la firma electrónica que te entregó tu "
+            "entidad de certificación.")
+
+    def a_asn1(c):
+        return a_x509.Certificate.load(c.public_bytes(serialization.Encoding.DER))
+
+    contexto = ValidationContext(
+        trust_roots=confianza.raices,
+        other_certs=confianza.intermedias,
+        moment=ahora or datetime.now(timezone.utc),
+        allow_fetching=bool(allow_fetching),
+        revocation_mode="soft-fail",
+    )
+    validador = CertificateValidator(
+        a_asn1(cert), intermediate_certs=[a_asn1(c) for c in intermedias or []],
+        validation_context=contexto)
+    try:
+        try:
+            validador.validate_usage({"digital_signature"})
+        except InvalidCertificateError:
+            # Algunos certificados de firma solo declaran «no repudio».
+            validador.validate_usage({"non_repudiation"})
+    except RevokedError:
+        raise FirmaError(
+            "Tu certificado de firma electrónica fue revocado por la entidad que "
+            "lo emitió. Pide uno nuevo.") from None
+    except Exception as e:  # noqa: BLE001 - el detalle técnico va al log
+        # Solo datos públicos del certificado (sujeto, emisor), nunca la clave.
+        _logger.info("Cadena del certificado no válida: %s", e)
+        raise FirmaError(
+            "No se pudo comprobar que el certificado lo haya emitido una entidad de "
+            "certificación acreditada en Ecuador (su cadena no llega a ninguna raíz "
+            "de confianza de la plataforma). Usa una firma electrónica del Banco "
+            "Central, Security Data, Uanataca u otra entidad acreditada por "
+            "ARCOTEL.") from None
+    return True
+
+
+def validar_certificado(cert, ahora=None, emisores_aceptados=None, solo_acreditados=False,
+                        confianza=None, intermedias=None, allow_fetching=False):
+    """Vigencia, uso de clave y cadena de confianza.
+
+    Devuelve True si la cadena se comprobó hasta una raíz de ``confianza`` y
+    False si no se comprobó (solo posible con ``solo_acreditados`` en False,
+    es decir, en pruebas). Con ``solo_acreditados`` una cadena que no se
+    comprueba, la falta de raíces configuradas o un autofirmado son
+    ``FirmaError``.
+
+    ``emisores_aceptados``: subcadenas del DN del emisor (sin distinguir
+    mayúsculas ni tildes). Es solo un filtro ADICIONAL, que se aplica después
+    de comprobar la cadena: por sí solo no acredita nada.
     """
     ahora = ahora or datetime.now(timezone.utc)
     if ahora < cert.not_valid_before_utc:
@@ -212,7 +358,20 @@ def validar_certificado(cert, ahora=None, emisores_aceptados=None):
                 "no la firma electrónica de una persona.")
     except x509.ExtensionNotFound:
         pass
-    if emisores_aceptados:
+    verificada = False
+    if solo_acreditados:
+        verificada = validar_cadena(cert, confianza, intermedias=intermedias, ahora=ahora,
+                                    allow_fetching=allow_fetching)
+    elif confianza and not _es_autofirmado(cert):
+        # En pruebas se firma igual, pero si la cadena se puede comprobar se
+        # dice que está comprobada.
+        try:
+            verificada = validar_cadena(cert, confianza, intermedias=intermedias, ahora=ahora,
+                                        allow_fetching=allow_fetching)
+        except FirmaError:
+            verificada = False
+    if verificada and solo_acreditados and emisores_aceptados:
+        # Con la cadena comprobada el DN del emisor ya es auténtico.
         dn = _sin_acentos(cert.issuer.rfc4514_string())
         if not any(_sin_acentos(e).strip() and _sin_acentos(e).strip() in dn
                    for e in emisores_aceptados):
@@ -221,7 +380,39 @@ def validar_certificado(cert, ahora=None, emisores_aceptados=None):
                 "acreditada en Ecuador. Usa una firma electrónica del Banco "
                 "Central, Security Data, Uanataca u otra entidad acreditada por "
                 "ARCOTEL.")
-    return True
+    return verificada
+
+
+# ----------------------------------------------------------------------
+# Titular del certificado = firmante
+# ----------------------------------------------------------------------
+def _solo_digitos(texto):
+    return re.sub(r"\D", "", texto or "")
+
+
+def variantes_identificacion(valor):
+    """Las formas en que una cédula o un RUC aparecen en un certificado: un
+    RUC de persona natural es su cédula + «001» (tercer dígito menor que 6;
+    6 y 9 son RUC de entidades públicas y sociedades, que no llevan cédula)."""
+    digitos = _solo_digitos(valor)
+    variantes = set()
+    if len(digitos) == 10:
+        variantes |= {digitos, digitos + "001"}
+    elif len(digitos) == 13:
+        variantes.add(digitos)
+        if digitos.endswith("001") and digitos[2] < "6":
+            variantes.add(digitos[:10])
+    return variantes
+
+
+def titular_coincide(datos, identificaciones):
+    """¿La cédula o el RUC del certificado es alguna de ``identificaciones``
+    (las del firmante y las de su empresa verificadora)?"""
+    permitidas = set()
+    for valor in identificaciones or []:
+        permitidas |= variantes_identificacion(valor)
+    del_cert = {_solo_digitos(datos.get("cedula")), _solo_digitos(datos.get("ruc"))} - {""}
+    return bool(permitidas and del_cert and permitidas & del_cert)
 
 
 # ----------------------------------------------------------------------
@@ -241,13 +432,23 @@ def _texto_para_sello(texto):
     return "".join(c if ord(c) < 256 else "?" for c in texto)
 
 
-def lineas_del_sello(datos, firmado_en_local):
-    lineas = [
-        "Firmado electrónicamente por: %s" % datos["titular"],
-    ]
+FIRMANTE_SIN_VERIFICAR = "Firmante declarado en el certificado (sin verificar)"
+EMISOR_SIN_VERIFICAR = "Emisor declarado en el certificado (sin verificar)"
+
+
+def lineas_del_sello(datos, firmado_en_local, cadena_verificada=False):
+    """Texto de la firma visible. Sin la cadena comprobada, titular y emisor
+    son solo lo que el certificado dice de sí mismo, y así se rotulan."""
+    if cadena_verificada:
+        lineas = ["Firmado electrónicamente por: %s" % datos["titular"]]
+    else:
+        lineas = ["%s: %s" % (FIRMANTE_SIN_VERIFICAR, datos["titular"])]
     if datos.get("identificacion"):
         lineas.append("Identificación: %s" % datos["identificacion"])
-    lineas.append("Emisor: %s" % datos["emisor"])
+    if cadena_verificada:
+        lineas.append("Emisor: %s" % datos["emisor"])
+    else:
+        lineas.append("%s: %s" % (EMISOR_SIN_VERIFICAR, datos["emisor"]))
     lineas.append("Fecha y hora: %s" % firmado_en_local)
     lineas.append("Serie del certificado: %s" % datos["serie"])
     # Courier 8 pt: unos 105 caracteres caben en el recuadro.

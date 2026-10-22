@@ -9,14 +9,16 @@
   (controllers/main.py).
 * «Renovar» en el portal alarga la MISMA clave (mismo secreto) otro periodo:
   la integración no se toca. No se renueva una clave revocada ni la de una
-  cuenta bloqueada.
+  cuenta bloqueada. Solo la renueva su dueño (o un administrador del
+  sistema), y nunca una clave de supervisor ni una de «actuar como»: esas
+  tienen un tope de vigencia propio (horas) que no se puede alargar.
 """
 
 import logging
 from datetime import timedelta
 
 from odoo import _, api, fields, models
-from odoo.exceptions import ValidationError
+from odoo.exceptions import AccessError, ValidationError
 
 _logger = logging.getLogger(__name__)
 
@@ -82,10 +84,25 @@ class ShrimpApiKeyExpiry(models.Model):
 
     def _can_renew(self):
         self.ensure_one()
+        # Supervisor y «actuar como» caducan a las pocas horas a propósito
+        # (api_key.py): renovarlas les daría un año de vida.
+        if self.is_supervisor_key or self.supervisor_key_id:
+            return False
         return bool(self.key_prefix) and not self.revoked_at and self.status in ("active", "expired")
+
+    def _check_renew_owner(self):
+        """El método es público (/web/dataset/call_kw): sin esto, cualquier
+        usuario de portal alargaría la clave de otro con solo conocer su id."""
+        if self.env.su or self.env.user.has_group("base.group_system"):
+            return
+        ajenas = self.sudo().with_context(active_test=False).filtered(
+            lambda k: k.user_id != self.env.user)
+        if ajenas:
+            raise AccessError(_("Solo puedes renovar tus propias claves de API."))
 
     def action_renew(self):
         """Alarga la caducidad un periodo completo desde hoy (misma clave)."""
+        self._check_renew_owner()
         now = fields.Datetime.now()
         for key in self.sudo():
             if not key._can_renew():

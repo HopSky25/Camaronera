@@ -10,8 +10,9 @@
       <t t-set="firma" t-value="v.sudo().firma_vigente()"/>
       <div t-if="firma" class="sv-alert sv-alert--ok sfe-firma mb-3" id="sfe_firma_bloque">
         <i class="fa fa-certificate me-1"/>
-        <strong>Informe firmado electrónicamente por <t t-esc="firma.signer_name"/>
-          (<t t-esc="firma.signer_issuer"/>) el <t t-esc="firma.fecha_local()"/></strong>
+        <!-- texto_resumen(): con la cadena sin comprobar, el firmante va
+             rotulado «declarado en el certificado (sin verificar)». -->
+        <strong t-esc="firma.texto_resumen()"/>
         <div class="small mt-1">
           <a t-att-href="firma.pdf_path()" class="me-3">
             <i class="fa fa-file-pdf-o me-1"/>Descargar el informe firmado (PDF)
@@ -77,8 +78,7 @@
               <th style="width:28%;">Firma electrónica del informe</th>
               <td>
                 <t t-if="firma_v">
-                  Informe firmado electrónicamente por <t t-esc="firma_v.signer_name"/>
-                  (<t t-esc="firma_v.signer_issuer"/>) el <t t-esc="firma_v.fecha_local()"/>.
+                  <t t-esc="firma_v.texto_resumen()"/>.
                   Comprobación: <t t-esc="ver.firma_url_publica()"/>
                 </t>
                 <t t-else="">Pendiente de firma electrónica de la verificadora.</t>
@@ -109,9 +109,8 @@
           <div class="pf-sec-h"><span class="vr-ico"><i class="fa fa-certificate"/></span><div><h2>Firma electrónica del informe</h2></div></div>
           <div class="pf-sec-b">
           <t t-if="firma">
-            <div class="sv-alert sv-alert--ok mb-2">
-              Informe firmado electrónicamente por <strong t-esc="firma.signer_name"/>
-              (<t t-esc="firma.signer_issuer"/>) el <t t-esc="firma.fecha_local()"/>.
+            <div t-attf-class="sv-alert mb-2 #{'sv-alert--ok' if firma.signer_chain_verified else 'sv-alert--wait'}">
+              <t t-esc="firma.texto_resumen()"/>.
             </div>
             <div class="sv-datos">
               <div><span>Identificación del certificado</span><strong t-esc="firma.signer_id_number or '—'"/></div>
@@ -270,6 +269,14 @@
             </div>
           </div>
 
+          <div t-if="not firma.signer_chain_verified" class="alert alert-warning">
+            <i class="fa fa-exclamation-triangle me-1"/>
+            La plataforma no comprobó la cadena de este certificado hasta una
+            entidad de certificación acreditada: el firmante y el emisor son solo
+            lo que el certificado declara de sí mismo. Esta firma no acredita la
+            identidad del firmante.
+          </div>
+
           <div t-if="not vigente" class="alert alert-warning">
             <i class="fa fa-exclamation-triangle me-1"/>
             La verificación se reabrió después de esta firma, así que este PDF ya no
@@ -285,8 +292,15 @@
             <div class="sv-datos">
               <div><span>Informe firmado</span><strong><t t-if="vigente">Sí</t><t t-else="">Sí (versión archivada)</t></strong></div>
               <div><span>Verificadora</span><strong t-esc="v.verifier_partner_id.name"/></div>
-              <div><span>Firmante (titular del certificado)</span><strong t-esc="firma.signer_name"/></div>
-              <div><span>Emisor del certificado</span><strong t-esc="firma.signer_issuer"/></div>
+              <t t-if="firma.signer_chain_verified">
+                <div><span>Firmante (titular del certificado)</span><strong t-esc="firma.signer_name"/></div>
+                <div><span>Emisor del certificado</span><strong t-esc="firma.signer_issuer"/></div>
+              </t>
+              <t t-else="">
+                <div><span>Firmante declarado en el certificado (sin verificar)</span><strong t-esc="firma.signer_name"/></div>
+                <div><span>Emisor declarado en el certificado (sin verificar)</span><strong t-esc="firma.signer_issuer"/></div>
+              </t>
+              <div><span>Cadena del certificado</span><strong><t t-if="firma.signer_chain_verified">Comprobada hasta una entidad acreditada</t><t t-else="">Sin verificar</t></strong></div>
               <div><span>Fecha y hora de la firma</span><strong t-esc="firma.fecha_local()"/></div>
               <div><span>Nivel de firma</span><strong t-esc="dict(firma._fields['signature_level'].selection).get(firma.signature_level)"/></div>
               <div><span>Veredicto del informe</span><strong t-esc="v.etiqueta('state')"/></div>

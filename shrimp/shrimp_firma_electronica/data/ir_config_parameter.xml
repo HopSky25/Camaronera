@@ -5,7 +5,13 @@
        módulo no los pisa.
 
        shrimp_firma.tsa_url (URL del servidor de sellado de tiempo, RFC 3161)
-       NO se crea: vacío = firma PAdES-B-B; con una URL = PAdES-B-T. -->
+       NO se crea: vacío = firma PAdES-B-B; con una URL = PAdES-B-T.
+
+       shrimp_firma.trust_roots_dir (directorio del servidor con las raíces
+       autofirmadas e intermedias de las entidades acreditadas, en PEM .pem/.crt,
+       uno o varios por archivo, o DER .cer/.der) tampoco se crea: un valor
+       vacío no se puede guardar y depende de cada servidor. Sin él no hay
+       raíces y, con solo_emisores_acreditados en True, no se puede firmar. -->
   <data noupdate="1">
 
     <!-- Subcadenas del DN del EMISOR del certificado, una por línea, sin
@@ -29,12 +35,21 @@ Firmasegura
 ArgosData</field>
     </record>
 
-    <!-- True: se rechazan los certificados de emisores que no estén en la
-         lista anterior. En la base de pruebas se pone en False para poder
-         firmar con certificados autofirmados. -->
+    <!-- True: solo se firma con un certificado cuya cadena se comprueba
+         hasta una raíz de shrimp_firma.trust_roots_dir (y cuyo emisor está,
+         además, en la lista anterior). Sin raíces configuradas no se puede
+         firmar. En la base de pruebas se pone en False para poder firmar con
+         certificados autofirmados, que se muestran «sin verificar». -->
     <record id="param_solo_emisores_acreditados" model="ir.config_parameter">
       <field name="key">shrimp_firma.solo_emisores_acreditados</field>
       <field name="value">True</field>
+    </record>
+
+    <!-- True: al firmar se consulta la revocación (CRL/OCSP) por red, en
+         «soft-fail» (si no responde, se firma igual). -->
+    <record id="param_allow_fetching" model="ir.config_parameter">
+      <field name="key">shrimp_firma.allow_fetching</field>
+      <field name="value">False</field>
     </record>
 
     <!-- True: comprador y vendedor no pueden aceptar el informe hasta que la

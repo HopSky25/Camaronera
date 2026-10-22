@@ -35,8 +35,9 @@
                     <button name="action_revoke" type="object" string="Revocar"
                             class="btn-danger" invisible="revoked_at"
                             confirm="La integración que use esta clave dejará de funcionar. ¿Revocar?"/>
+                    <!-- Supervisor y «actuar como» no se renuevan: su tope es de horas. -->
                     <button name="action_renew" type="object" string="Renovar"
-                            invisible="revoked_at"
+                            invisible="revoked_at or is_supervisor_key or supervisor_key_id"
                             confirm="Se alarga esta misma clave un periodo completo desde hoy. ¿Renovar?"/>
                     <field name="status" widget="statusbar"/>
                 </header>

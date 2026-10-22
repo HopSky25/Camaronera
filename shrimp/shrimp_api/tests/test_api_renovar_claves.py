@@ -64,13 +64,16 @@ class TestRenovarClaveAjena(ApiCase):
         self.env.invalidate_all()
         self.assertEqual(self.key_b.sudo().expires_at, antes)
         self.assertFalse(self.key_b.sudo().renewed_at)
-        # La suya sí.
-        self._vence_pronto(self.key_a)
-        self.make_jsonrpc_request("/web/dataset/call_kw/shrimp.api.key/action_renew", {
-            "model": "shrimp.api.key", "method": "action_renew",
-            "args": [[self.key_a.id]], "kwargs": {}})
+        # Tampoco la suya por RPC: la puerta general del portal
+        # (shrimp_user_registry/models/shrimp_rpc_gate.py) niega los métodos de
+        # shrimp.* a los usuarios share. El dueño renueva por /my/api-keys/<ref>/renew.
+        antes_a = self._vence_pronto(self.key_a)
+        with self.assertRaises(JsonRpcException):
+            self.make_jsonrpc_request("/web/dataset/call_kw/shrimp.api.key/action_renew", {
+                "model": "shrimp.api.key", "method": "action_renew",
+                "args": [[self.key_a.id]], "kwargs": {}})
         self.env.invalidate_all()
-        self.assertTrue(self.key_a.sudo().renewed_at)
+        self.assertEqual(self.key_a.sudo().expires_at, antes_a)
 
     def test_supervisor_y_actuar_como_no_se_renuevan(self):
         Key = self.env["shrimp.api.key"]

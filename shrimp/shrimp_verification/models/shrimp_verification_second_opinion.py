@@ -28,6 +28,10 @@ AHORA (decisión del usuario, definitiva):
   Sin impugnación posible: el rechazo por «Producto no presentado» (D-16; no
   hay producto que volver a verificar) y el rechazo de una segunda opinión.
   A cada verificadora se le liquida cuando su veredicto queda resuelto (D-24).
+  Regla de pago (23-oct-2026): la segunda verificadora cobra solo si emite su
+  veredicto; si la compra se cancela, se reasigna o vence antes, no se le
+  liquida nada y su honorario (a cargo del vendedor) se anula. La primera ya
+  dictaminó: su rechazo se mantiene y se le liquida.
 """
 import logging
 from datetime import timedelta

@@ -462,6 +462,14 @@ class ShrimpCharge(models.Model):
         primera vez que cambia el motivo; p. ej. pedir datos al pagador)."""
         return True
 
+    def _shrimp_fee_work_done(self):
+        """Gancho: True si el servicio de este cobro ya se prestó y por eso
+        el cobro se conserva aunque la compra se cancele. Aquí ninguno;
+        shrimp_verification lo extiende para el honorario de verificación
+        (solo con veredicto de la verificadora: regla de pago, 23-oct-2026)."""
+        self.ensure_one()
+        return False
+
     def _shrimp_backlog_should_cancel(self):
         """Gancho del reencolado del backlog: True si el cobro ya no debe
         facturarse (p. ej. honorario de una verificación que no se hizo)."""

@@ -98,7 +98,7 @@
       <t t-set="vr_payouts" t-value="request.env['shrimp.verification'].shrimp_payouts_for(empresa) if request.env.user.shrimp_actor_partner_id.shrimp_is_verifier_admin() else []"/>
       <section t-if="request.env.user.shrimp_actor_partner_id.shrimp_is_verifier_admin()" class="pf-sec" id="liquidaciones">
         <div class="pf-sec-h"><span class="vr-ico"><i class="fa fa-money"/></span><div><h2>Liquidaciones <span class="vr-count" t-esc="len(vr_payouts)"/></h2>
-          <p>Tu parte del honorario se liquida cuando las partes cierran la ronda de aceptación (o cuando un rechazo queda firme), aprobada o rechazada. El pago lo registra contabilidad.</p></div></div>
+          <p>Tu parte del honorario se liquida cuando las partes cierran la ronda de aceptación (o cuando un rechazo queda firme), aprobada o rechazada. Solo se paga la orden en la que emitiste tu veredicto: si se declina, vence, se reasigna o la compra se cancela antes del veredicto, no se liquida ningún valor. El pago lo registra contabilidad.</p></div></div>
         <div class="pf-sec-b">
           <table t-if="vr_payouts" class="vr-table vr-table--stack">
             <thead><tr><th>Orden</th><th>Veredicto</th><th class="vr-num">Tu parte</th><th>Liquidación</th><th>Documento</th></tr></thead>

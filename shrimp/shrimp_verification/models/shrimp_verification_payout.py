@@ -22,6 +22,24 @@ se CIERRA LA RONDA DE ACEPTACIÓN:
 La verificadora ve el estado en su portal: /verifier/reports, sección
 «Liquidaciones». No se inventa contabilidad: el documento es el mismo que ya
 emitía shrimp.charge._create_vendor_bill.
+
+REGLA DE PAGO (decisión de la dueña, 23-oct-2026): «La verificadora se le
+pagará una vez realizado su trabajo; si no, no se debe pagar ningún valor».
+Trabajo hecho = veredicto firmado por esa verificadora
+(shrimp.verification._shrimp_trabajo_hecho): aprobada, aprobada con
+observaciones, rechazada por el informe o «Producto no presentado».
+
+  con veredicto ─▶ se liquida en los momentos de arriba; si la compra se
+                   cancela con la ronda abierta, al cancelarse (la ronda se
+                   cierra ahí) y el honorario se conserva.
+  sin veredicto ─▶ NO se liquida nada y el honorario cobrado al pagador se
+                   anula (nota de crédito si ya estaba facturado): orden
+                   declinada, plazo vencido (cambio de verificadora o
+                   cancelación), compra cancelada antes del veredicto aunque
+                   la visita hubiera empezado («En campo», «Informe
+                   completo»), mutuo acuerdo, desistimiento del vendedor,
+                   verificación declarada por las partes, y la segunda
+                   opinión que no llegó a dictaminar.
 """
 import logging
 
@@ -43,7 +61,8 @@ class ShrimpVerificationPayout(models.Model):
          ("legacy", "Histórico — no se liquida")],
         string="Liquidación a la verificadora", default="none", required=True, copy=False,
         index=True, tracking=True,
-        help="Se liquida cuando se cierra la ronda de aceptación (o el rechazo queda firme). "
+        help="Solo si la verificadora emitió su veredicto (sin veredicto no se le paga nada). "
+             "Se liquida cuando se cierra la ronda de aceptación (o el rechazo queda firme). "
              "«Liquidada»: la factura de proveedor ya está registrada; el pago lo registra "
              "contabilidad.")
     payout_due_date = fields.Datetime(string="Liquidar desde", readonly=True, copy=False)
@@ -83,6 +102,8 @@ class ShrimpVerificationPayout(models.Model):
             return _("Se liquida al cerrarse la ronda de aceptación")
         if rec.state == "rejected" and rec.contest_state in ("open", "contested"):
             return _("Se liquida cuando el rechazo quede firme")
+        if rec.verification_mode == "platform" and rec.state == "cancelled":
+            return _("Sin veredicto: no se liquida")
         return _("Sin liquidar")
 
     # ------------------------------------------------------------------
@@ -92,7 +113,8 @@ class ShrimpVerificationPayout(models.Model):
         """La liquidación ya es debida: la marca y la intenta emitir."""
         pendientes = self.browse()
         for rec in self.sudo():
-            if rec.verification_mode != "platform" or (rec.fee or 0.0) <= 0 \
+            # Regla de pago (23-oct-2026): sin veredicto no se debe nada.
+            if not rec._shrimp_trabajo_hecho() or (rec.fee or 0.0) <= 0 \
                     or not rec.verifier_partner_id or rec.vendor_bill_id \
                     or rec.payout_state in ("pending", "billed", "error", "legacy"):
                 continue

@@ -44,7 +44,7 @@ CANCELACIÓN SIN COSTO PARA EL COMPRADOR (``_shrimp_cancel_for_delay``)
   * comisión del vendedor: shrimp.charge.action_cancel_charge (sin facturar:
     se anula; facturada: nota de crédito, o la reintenta el cron).
   * honorario de verificación del comprador: se anula igual si la
-    verificación no llegó a hacerse.
+    verificadora no emitió su veredicto (regla de pago, 23-oct-2026).
   * la compra queda «Cancelada», con el motivo en el historial de retrasos.
 
 Los strikes del vendedor viven en models/shrimp_seller_strike.py.
@@ -658,7 +658,7 @@ class ShrimpTransactionDelayMixin(models.Model):
                 old_date=tx.delivery_date))
         # 2) El stock vuelve al vendedor.
         devueltos = tx._shrimp_return_stock_to_seller(motivo)
-        # 3) Cobros: comisión del vendedor y verificación no realizada.
+        # 3) Cobros: comisión del vendedor y verificación sin veredicto.
         anulados = tx._shrimp_void_charges_for_cancel(motivo)
         # 4) La compra queda cancelada (y cualquier aviso abierto se cierra).
         tx.write({"state": "cancel", "reception_status": False})
@@ -725,17 +725,20 @@ class ShrimpTransactionDelayMixin(models.Model):
     def _shrimp_void_charges_for_cancel(self, motivo):
         """Anula la comisión del vendedor y el honorario de verificación que
         no se llegó a hacer, con el mecanismo de shrimp.charge (sin factura:
-        anulado; con factura contabilizada: nota de crédito)."""
+        anulado; con factura contabilizada: nota de crédito).
+
+        «Hecha» = con veredicto de la verificadora (regla de pago de la dueña,
+        23-oct-2026; shrimp.charge._shrimp_fee_work_done). Una visita «En
+        campo» o un «Informe completo» sin veredicto NO es trabajo hecho: el
+        honorario se anula y a la verificadora no se le liquida nada."""
         self.ensure_one()
         anulados = self.env["shrimp.charge"].sudo()
-        hechas = ("done", "approved", "approved_obs", "rejected", "declared")
         for cobro in self.sudo().charge_ids.filtered(
                 lambda c: c.state not in ("cancelled", "credited", "to_credit")):
             if cobro.charge_type == "commission":
                 anulados |= cobro
             elif cobro.charge_type == "verification_fee":
-                ver = cobro.verification_id if "verification_id" in cobro._fields else False
-                if not ver or ver.state not in hechas:
+                if not cobro._shrimp_fee_work_done():
                     anulados |= cobro
         if anulados:
             anulados.action_cancel_charge(motivo)

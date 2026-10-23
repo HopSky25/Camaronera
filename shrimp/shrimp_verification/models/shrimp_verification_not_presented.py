@@ -15,7 +15,9 @@ AHORA (decisión del usuario, definitiva):
   Efectos: el honorario lo paga el VENDEDOR, el vendedor recibe un strike
   («Producto no presentado a la verificación»), la compra se cancela en el
   acto (sin segunda opinión: no hay producto que volver a verificar) y a la
-  verificadora se le liquida (hizo la visita).
+  verificadora se le liquida: «Producto no presentado» ES un veredicto (fue a
+  la planta y documentó la ausencia con evidencia), así que cuenta como
+  trabajo hecho para la regla de pago (23-oct-2026, _shrimp_trabajo_hecho).
 """
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError

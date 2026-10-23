@@ -22,7 +22,10 @@ AHORA (Ajustes › CamaronMarket › Verificación, todo configurable):
           reserva de stock; sin strike al vendedor (la culpa es de la
           verificadora);
         - cambiar a otra verificadora acreditada: la misma orden pasa a la
-          nueva (vuelve a «Recibida», plazos desde ahora, mismo honorario);
+          nueva (vuelve a «Recibida», plazos desde ahora, honorario con la
+          tarifa de la nueva, D-40);
+        en los dos casos a la verificadora que no cumplió no se le liquida
+        nada: no emitió veredicto (regla de pago, 23-oct-2026);
   · si nadie hace nada, la compra se cancela sola N días después del
     vencimiento (7; 0 = nunca), con los mismos efectos que la cancelación
     del comprador;
@@ -477,6 +480,13 @@ class ShrimpTransactionVerificationDeadline(models.Model):
         res = super()._shrimp_cancel_release_hold(motivo, kind)
         ver = self.sudo().verification_ids[:1]
         if ver:
+            # Regla de pago (23-oct-2026): lo que decide es el veredicto.
+            # Sin veredicto (aunque el técnico ya estuviera en campo o el
+            # informe completo) la verificación se cancela, su honorario se
+            # anula en _shrimp_void_charges_for_cancel (que corre DESPUÉS de
+            # esto y la ve ya «Cancelada») y no se le liquida nada. Con
+            # veredicto nunca se toca su estado: conserva el honorario y se le
+            # liquida (si la ronda estaba abierta, se cierra aquí).
             finales = ("approved", "approved_obs", "rejected", "cancelled", "declared")
             if ver.state not in finales:
                 ver.write({"state": "cancelled"})
@@ -484,8 +494,15 @@ class ShrimpTransactionVerificationDeadline(models.Model):
                     ver._notify_stage()
                 except Exception:  # noqa: BLE001
                     _logger.warning("Aviso de cancelación de %s", ver.name, exc_info=True)
+                if ver.verification_mode == "platform" and ver.verifier_partner_id \
+                        and (ver.fee or 0.0) > 0:
+                    ver._message_log(body=_(
+                        "La verificadora no emitió su veredicto: no se le liquida ningún valor "
+                        "y el honorario cobrado se anula."))
             elif ver.acceptance_state == "waiting":
                 ver.write({"acceptance_state": "broken"})
+            if ver._shrimp_trabajo_hecho():
+                ver._shrimp_payout_request()
             try:
                 ver.activity_unlink(["mail.mail_activity_data_todo"])
             except Exception:  # noqa: BLE001

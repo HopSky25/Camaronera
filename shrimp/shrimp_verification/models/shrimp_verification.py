@@ -522,6 +522,28 @@ class ShrimpVerification(models.Model):
     PLATFORM_STATES = ("received", "assigned", "in_field", "done",
                        "approved", "approved_obs", "rejected")
     DECLARED_STATES = ("declared_draft", "declared")
+    # Veredicto firmado por la verificadora. El rechazo incluye «Producto no
+    # presentado» (D-16): el técnico fue a la planta y documentó la ausencia.
+    VERDICT_STATES = ("approved", "approved_obs", "rejected")
+
+    def _shrimp_trabajo_hecho(self):
+        """Regla de pago (decisión de la dueña, 23-oct-2026): «La
+        verificadora se le pagará una vez realizado su trabajo; si no, no se
+        debe pagar ningún valor».
+
+        Trabajo hecho = la verificadora de la plataforma FIRMÓ su veredicto
+        (aprobada, aprobada con observaciones, rechazada por el informe o por
+        «Producto no presentado»). Una visita iniciada («En campo») o un
+        informe completo SIN veredicto no es trabajo hecho: no se le liquida
+        nada y el honorario cobrado al pagador se anula (nota de crédito si
+        ya estaba facturado). Tampoco lo es una orden declinada, vencida,
+        reasignada o cancelada, ni una verificación declarada por las partes
+        (no hay verificadora de la plataforma). Es el ÚNICO criterio: lo usan
+        la liquidación (shrimp_verification_payout.py), la anulación de
+        cobros al cancelar la compra (shrimp.charge._shrimp_fee_work_done) y
+        el backlog de cobros."""
+        self.ensure_one()
+        return self.verification_mode == "platform" and self.state in self.VERDICT_STATES
 
     _verification_mode_valid = models.Constraint(
         "CHECK(verification_mode IN ('platform', 'declared'))",
@@ -888,10 +910,12 @@ class ShrimpVerification(models.Model):
                         verifier_response_date=fields.Datetime.now())
         self.write(vals)
         # D-24: a la verificadora ya NO se le liquida con el veredicto: se le
-        # liquida cuando se cierra la ronda de aceptación (aceptada o trato
-        # caído) o, en un rechazo, cuando el rechazo queda firme
-        # (shrimp_verification_payout.py). Retribuye la inspección, no su
-        # resultado: se le paga igual si aprueba o si rechaza.
+        # liquida cuando se cierra la ronda de aceptación (aceptada, trato
+        # caído o compra cancelada) o, en un rechazo, cuando el rechazo queda
+        # firme (shrimp_verification_payout.py). Retribuye el trabajo hecho,
+        # no su resultado: se le paga igual si aprueba o si rechaza. Pero el
+        # veredicto es condición (regla de pago, 23-oct-2026): sin veredicto
+        # no se le paga nada (_shrimp_trabajo_hecho).
         if state == "rejected":
             # El honorario lo carga el vendedor, cuyo producto no pasó. Si el
             # rechazo admite segunda opinión (D-25), la compra queda
@@ -1094,10 +1118,18 @@ class ShrimpVerification(models.Model):
 
     def action_cancel(self):
         for rec in self:
+            if rec._shrimp_trabajo_hecho():
+                # Con veredicto el trabajo está hecho: cancelarla aquí anularía
+                # el honorario y la liquidación de la verificadora. Lo que
+                # queda se resuelve en la ronda de aceptación, el plazo de
+                # impugnación o la cancelación de la compra, que lo respetan.
+                raise UserError(_(
+                    "La verificación %s ya tiene veredicto: no se cancela. Si hay que "
+                    "deshacer la compra, cancela la compra.") % rec.name)
             rec.write({"state": "cancelled"})
             rec._notify_stage()
             rec.transaction_id.action_cancel_for_verification()
-            # Sin inspección no hay servicio que cobrar: el honorario que se
+            # Sin veredicto no hay servicio que cobrar: el honorario que se
             # facturó al iniciar la compra se anula con nota de crédito.
             rec.charge_ids.filtered(
                 lambda c: c.charge_type == "verification_fee"
@@ -1616,6 +1648,9 @@ class ShrimpVerification(models.Model):
         D-24: se emite cuando se cierra la ronda de aceptación (aceptada o
         trato caído) o, en un rechazo, cuando el rechazo queda firme; nunca
         con el veredicto. Retribuye la inspección hecha, no su resultado.
+        Regla de pago (23-oct-2026): solo si la verificadora emitió su
+        veredicto (_shrimp_trabajo_hecho); sin veredicto no se emite nada,
+        venga de donde venga la llamada (cierre, cron, botón de reintento).
         Pasa por el único creador de facturas de proveedor
         (shrimp.charge._create_vendor_bill), que la deja en borrador cuando
         el diario exige documentos del SRI. El estado queda en payout_state
@@ -1625,6 +1660,14 @@ class ShrimpVerification(models.Model):
         Charge = self.env["shrimp.charge"].sudo()
         for rec in self:
             if rec.vendor_bill_id or (rec.fee or 0.0) <= 0 or not rec.verifier_partner_id:
+                continue
+            if not rec._shrimp_trabajo_hecho():
+                if rec.payout_state in ("pending", "error"):
+                    rec.sudo().write({"payout_state": "none", "payout_due_date": False,
+                                      "payout_error": False})
+                    rec.sudo()._message_log(body=_(
+                        "Liquidación a la verificadora retirada: no emitió su veredicto, así "
+                        "que no se le debe ningún valor."))
                 continue
             rec._congelar_margen()
             if (rec.verifier_amount or 0.0) <= 0:

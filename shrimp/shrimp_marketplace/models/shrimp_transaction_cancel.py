@@ -33,7 +33,9 @@ EFECTOS (según el estado de la compra)
   pending_verification /    nada que devolver (el stock solo estaba
   pending_acceptance        reservado): se libera la reserva, la verificación
                             se cancela (shrimp_verification) y su honorario
-                            se anula si no se llegó a hacer;
+                            se anula si la verificadora no emitió su
+                            veredicto (aunque la visita hubiera empezado);
+                            con veredicto se conserva y se le liquida;
   draft                     solo se cancela.
   En todos: avisos de retraso abiertos y solicitudes de mutuo acuerdo se
   cierran, queda un registro «shrimp.transaction.cancellation» (quién, por

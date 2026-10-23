@@ -1,3 +1,4 @@
+import 'servidor.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show Platform;
@@ -142,7 +143,7 @@ class ReporteErrores {
         _http = cliente,
         _reloj = reloj ?? DateTime.now,
         _info = info ?? infoEquipoReal,
-        servidor = servidor ?? (() => 'https://demo.camaronmarket.com');
+        servidor = servidor ?? (() => servidorPorDefecto);
 
   InfoEquipo? _equipo;
   Future<void>? _enviando;

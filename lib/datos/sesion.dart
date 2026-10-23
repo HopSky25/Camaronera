@@ -1,3 +1,4 @@
+import 'servidor.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -167,7 +168,7 @@ class Sesion extends ChangeNotifier {
     if (dias <= 0) return 'La sesión caduca hoy: cierra sesión y vuelve a entrar para renovarla.';
     return 'La sesión caduca en $dias ${dias == 1 ? 'día' : 'días'}: cierra sesión y vuelve a entrar para renovarla.';
   }
-  String url = 'https://demo.camaronmarket.com';
+  String url = servidorPorDefecto;
 
   Sesion({
     AlmacenCredenciales? credenciales,

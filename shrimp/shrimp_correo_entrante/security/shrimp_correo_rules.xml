@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Cada usuario ve (y mueve, responde...) solo los correos de los
+             buzones donde figura. Vale para las cuatro operaciones. -->
+        <record id="rule_correo_usuario" model="ir.rule">
+            <field name="name">Correo: solo mis buzones</field>
+            <field name="model_id" ref="model_shrimp_correo"/>
+            <field name="groups" eval="[(4, ref('group_correo_usuario'))]"/>
+            <field name="domain_force">[('buzon_id.user_ids', 'in', [user.id])]</field>
+        </record>
+        <record id="rule_correo_admin" model="ir.rule">
+            <field name="name">Correo: el administrador ve todos</field>
+            <field name="model_id" ref="model_shrimp_correo"/>
+            <field name="groups" eval="[(4, ref('group_correo_admin'))]"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+        </record>
+
+        <record id="rule_buzon_usuario" model="ir.rule">
+            <field name="name">Buzón: solo los míos</field>
+            <field name="model_id" ref="model_shrimp_buzon"/>
+            <field name="groups" eval="[(4, ref('group_correo_usuario'))]"/>
+            <field name="domain_force">[('user_ids', 'in', [user.id])]</field>
+        </record>
+        <record id="rule_buzon_admin" model="ir.rule">
+            <field name="name">Buzón: el administrador ve todos</field>
+            <field name="model_id" ref="model_shrimp_buzon"/>
+            <field name="groups" eval="[(4, ref('group_correo_admin'))]"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+        </record>
+
+        <record id="rule_hilo_usuario" model="ir.rule">
+            <field name="name">Conversación: solo de mis buzones</field>
+            <field name="model_id" ref="model_shrimp_correo_hilo"/>
+            <field name="groups" eval="[(4, ref('group_correo_usuario'))]"/>
+            <field name="domain_force">[('buzon_id.user_ids', 'in', [user.id])]</field>
+        </record>
+        <record id="rule_hilo_admin" model="ir.rule">
+            <field name="name">Conversación: el administrador ve todas</field>
+            <field name="model_id" ref="model_shrimp_correo_hilo"/>
+            <field name="groups" eval="[(4, ref('group_correo_admin'))]"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+        </record>
+    </data>
+</odoo>

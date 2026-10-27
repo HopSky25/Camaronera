@@ -1,0 +1,258 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Lista: la bandeja. Los no leídos en negrita, como Outlook. -->
+    <record id="view_shrimp_correo_list" model="ir.ui.view">
+        <field name="name">shrimp.correo.list</field>
+        <field name="model">shrimp.correo</field>
+        <field name="arch" type="xml">
+            <list string="Correos" create="0" decoration-bf="not leido" class="o_shrimp_correo_list"
+                  default_order="fecha desc, id desc">
+                <header>
+                    <button name="action_redactar" type="object" string="Redactar" icon="fa-pencil"
+                            class="btn-primary" display="always"/>
+                    <button name="action_marcar_leido" type="object" string="Marcar como leído" icon="fa-envelope-open-o"/>
+                    <button name="action_marcar_no_leido" type="object" string="Marcar como no leído" icon="fa-envelope"/>
+                    <button name="action_archivar" type="object" string="Archivar" icon="fa-archive"/>
+                    <button name="action_spam" type="object" string="Spam" icon="fa-ban"/>
+                    <button name="action_papelera" type="object" string="Papelera" icon="fa-trash"/>
+                    <button name="action_restaurar" type="object" string="Restaurar" icon="fa-undo"/>
+                </header>
+                <field name="leido" column_invisible="1"/>
+                <field name="tiene_adjuntos" column_invisible="1"/>
+                <field name="destacado" widget="boolean_favorite" nolabel="1" width="32px"/>
+                <field name="contraparte" string="De / Para" width="200px"/>
+                <field name="asunto" string="Asunto" width="280px"/>
+                <field name="resumen" string="Vista previa" class="text-muted" optional="show"/>
+                <button name="action_abrir" type="object" icon="fa-paperclip" title="Con adjuntos"
+                        class="btn-link text-muted" invisible="not tiene_adjuntos"/>
+                <field name="buzon_id" optional="show" options="{'no_open': True}"/>
+                <field name="carpeta" optional="hide"/>
+                <field name="fecha_corta" string="Fecha" width="90px"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Formulario: panel de lectura de un correo recibido o enviado, y
+         ventana de redacción si es un borrador (carpeta = borradores). -->
+    <record id="view_shrimp_correo_form" model="ir.ui.view">
+        <field name="name">shrimp.correo.form</field>
+        <field name="model">shrimp.correo</field>
+        <field name="arch" type="xml">
+            <form string="Correo" create="0" class="o_shrimp_correo_form">
+                <header>
+                    <!-- Redacción -->
+                    <button name="action_enviar" type="object" string="Enviar" icon="fa-paper-plane"
+                            class="btn-primary" invisible="carpeta != 'borradores'"/>
+                    <button name="action_guardar_borrador" type="object" string="Guardar borrador" icon="fa-floppy-o"
+                            invisible="carpeta != 'borradores'"/>
+                    <button name="action_descartar" type="object" string="Descartar" icon="fa-times"
+                            invisible="carpeta != 'borradores'"
+                            confirm="¿Descartar este borrador? Se elimina junto con sus adjuntos."/>
+                    <!-- Lectura -->
+                    <button name="action_responder" type="object" string="Responder" icon="fa-reply"
+                            class="btn-primary" invisible="carpeta == 'borradores'"/>
+                    <button name="action_responder_todos" type="object" string="Responder a todos" icon="fa-reply-all"
+                            invisible="carpeta == 'borradores'"/>
+                    <button name="action_reenviar" type="object" string="Reenviar" icon="fa-share"
+                            invisible="carpeta == 'borradores'"/>
+                    <button name="action_archivar" type="object" string="Archivar" icon="fa-archive"
+                            invisible="carpeta in ('borradores', 'archivados', 'papelera')"/>
+                    <button name="action_papelera" type="object" string="Papelera" icon="fa-trash"
+                            invisible="carpeta in ('borradores', 'papelera')"/>
+                    <button name="action_spam" type="object" string="Spam" icon="fa-ban"
+                            invisible="carpeta in ('borradores', 'spam', 'papelera', 'enviados')"/>
+                    <button name="action_restaurar" type="object" string="Restaurar" icon="fa-undo"
+                            invisible="carpeta not in ('archivados', 'spam', 'papelera')"/>
+                    <button name="action_eliminar_definitivo" type="object" string="Eliminar definitivamente"
+                            icon="fa-trash-o" class="btn-danger" invisible="carpeta != 'papelera'"
+                            confirm="¿Eliminar este correo para siempre? No se puede deshacer."/>
+                    <button name="action_marcar_no_leido" type="object" string="Marcar como no leído" icon="fa-envelope"
+                            invisible="carpeta == 'borradores' or direccion != 'entrante' or not leido"/>
+                    <button name="action_crear_oportunidad" type="object" string="Crear oportunidad" icon="fa-handshake-o"
+                            invisible="carpeta == 'borradores' or vinculo_modelo == 'crm.lead'"
+                            groups="sales_team.group_sale_salesman"/>
+                    <button name="action_vincular_contacto" type="object" string="Vincular contacto" icon="fa-user-plus"
+                            invisible="carpeta == 'borradores'"/>
+                </header>
+                <div class="alert alert-danger mb-0" role="alert" invisible="not error_envio">
+                    <i class="fa fa-exclamation-triangle me-1" title="Error"/>
+                    <field name="error_envio" readonly="1" class="d-inline"/>
+                </div>
+                <sheet>
+                    <field name="carpeta" invisible="1"/>
+                    <field name="direccion" invisible="1"/>
+                    <field name="leido" invisible="1"/>
+                    <field name="vinculo_modelo" invisible="1"/>
+                    <field name="buzones_permitidos_ids" invisible="1"/>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_ver_conversacion" type="object" class="oe_stat_button" icon="fa-comments-o"
+                                invisible="hilo_cantidad &lt; 2">
+                            <field name="hilo_cantidad" widget="statinfo" string="En la conversación"/>
+                        </button>
+                        <button name="action_abrir_vinculo" type="object" class="oe_stat_button" icon="fa-link"
+                                invisible="not vinculo_nombre">
+                            <div class="o_stat_info">
+                                <span class="o_stat_text">Vinculado a</span>
+                                <span class="o_stat_value text-truncate" style="max-width: 14em;"><field name="vinculo_nombre"/></span>
+                            </div>
+                        </button>
+                    </div>
+
+                    <!-- ====== Redacción ====== -->
+                    <div invisible="carpeta != 'borradores'">
+                        <h2 class="mb-3"><i class="fa fa-pencil-square-o me-2 text-muted"/>Nuevo mensaje</h2>
+                        <group>
+                            <field name="buzon_id" string="De" domain="[('id', 'in', buzones_permitidos_ids)]"
+                                   options="{'no_create': True, 'no_open': True}" readonly="carpeta != 'borradores'"/>
+                            <field name="para_partner_ids" widget="many2many_tags_email" string="Contactos"
+                                   placeholder="Elija contactos para agregar sus correos a «Para»…"
+                                   options="{'no_create': True}" readonly="carpeta != 'borradores'"/>
+                            <field name="email_to" string="Para" placeholder="nombre@empresa.com, otra@empresa.com"
+                                   readonly="carpeta != 'borradores'"/>
+                            <field name="email_cc" string="CC" readonly="carpeta != 'borradores'"/>
+                            <field name="email_bcc" string="CCO" readonly="carpeta != 'borradores'"/>
+                            <field name="asunto" string="Asunto" readonly="carpeta != 'borradores'"/>
+                            <field name="plantilla_id" options="{'no_create': True}" readonly="carpeta != 'borradores'"/>
+                        </group>
+                        <field name="body_html" widget="html" class="o_shrimp_correo_editor"
+                               readonly="carpeta != 'borradores'"/>
+                        <field name="attachment_ids" widget="many2many_binary" string="Adjuntar archivos"
+                               class="mt-2" readonly="carpeta != 'borradores'"/>
+                    </div>
+
+                    <!-- ====== Lectura ====== -->
+                    <div invisible="carpeta == 'borradores'" class="o_shrimp_correo_lectura">
+                        <div class="d-flex align-items-start">
+                            <h2 class="flex-grow-1 mb-2"><field name="asunto" readonly="1" class="w-100"/></h2>
+                            <field name="destacado" widget="boolean_favorite" nolabel="1" class="ms-2 fs-4"/>
+                        </div>
+                        <div class="o_shrimp_cabeceras mb-2">
+                            <div class="fw-bold fs-5"><field name="email_from" readonly="1"/></div>
+                            <!-- Campos como hijos directos del flex: quedan en una sola línea. -->
+                            <div class="d-flex flex-wrap align-items-center gap-3 text-muted small">
+                                <field name="fecha" readonly="1" widget="datetime"/>
+                                <field name="buzon_id" readonly="1" options="{'no_open': True}"/>
+                                <field name="carpeta" readonly="1"/>
+                            </div>
+                            <div class="small mt-1"><span class="text-muted me-1">Para:</span><field name="email_to" readonly="1" class="d-inline"/></div>
+                            <div class="small" invisible="not email_cc"><span class="text-muted me-1">CC:</span><field name="email_cc" readonly="1" class="d-inline"/></div>
+                            <div class="small" invisible="not email_bcc"><span class="text-muted me-1">CCO:</span><field name="email_bcc" readonly="1" class="d-inline"/></div>
+                            <div class="small" invisible="not partner_id"><span class="text-muted me-1">Contacto:</span><field name="partner_id" readonly="1" class="d-inline"/></div>
+                        </div>
+                        <field name="attachment_ids" widget="shrimp_adjuntos_correo" readonly="1"
+                               invisible="not attachment_ids"/>
+                        <hr class="my-2"/>
+                        <field name="body_html" readonly="1" widget="html" class="o_shrimp_correo_cuerpo"
+                               options="{'sandboxedPreview': true}"/>
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_shrimp_correo_search" model="ir.ui.view">
+        <field name="name">shrimp.correo.search</field>
+        <field name="model">shrimp.correo</field>
+        <field name="arch" type="xml">
+            <search string="Buscar correos">
+                <field name="asunto" string="Asunto"/>
+                <field name="email_from" string="De"/>
+                <field name="email_to" string="Para" filter_domain="['|', ('email_to', 'ilike', self), ('email_cc', 'ilike', self)]"/>
+                <field name="body_html" string="Texto del correo"/>
+                <field name="partner_id"/>
+                <field name="buzon_id"/>
+                <filter name="no_leidos" string="No leídos" domain="[('leido', '=', False)]"/>
+                <filter name="con_adjuntos" string="Con adjuntos" domain="[('tiene_adjuntos', '=', True)]"/>
+                <filter name="destacados" string="Destacados" domain="[('destacado', '=', True)]"/>
+                <separator/>
+                <filter name="recibidos" string="Recibidos" domain="[('direccion', '=', 'entrante')]"/>
+                <filter name="enviados" string="Enviados" domain="[('direccion', '=', 'saliente'), ('carpeta', '!=', 'borradores')]"/>
+                <separator/>
+                <filter name="fecha" string="Fecha" date="fecha"/>
+                <group>
+                    <filter name="por_conversacion" string="Conversación" context="{'group_by': 'hilo_id'}"/>
+                    <filter name="por_buzon" string="Buzón" context="{'group_by': 'buzon_id'}"/>
+                    <filter name="por_carpeta" string="Carpeta" context="{'group_by': 'carpeta'}"/>
+                    <filter name="por_contacto" string="Contacto" context="{'group_by': 'partner_id'}"/>
+                    <filter name="por_dia" string="Día" context="{'group_by': 'fecha:day'}"/>
+                </group>
+                <searchpanel>
+                    <field name="carpeta" string="Carpetas" icon="fa-folder" select="one" expand="1"/>
+                    <field name="buzon_id" string="Buzones" icon="fa-inbox" select="one" expand="1"/>
+                </searchpanel>
+            </search>
+        </field>
+    </record>
+
+    <!-- Una acción por carpeta: todas usan la misma lista; la carpeta se
+         preselecciona en el panel de la izquierda. -->
+    <record id="action_correo_entrada" model="ir.actions.act_window">
+        <field name="name">Bandeja de entrada</field>
+        <field name="res_model">shrimp.correo</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_shrimp_correo_search"/>
+        <field name="context">{'searchpanel_default_carpeta': 'entrada', 'shrimp_correo_marcar_leido': True, 'shrimp_accion': 'shrimp_correo_entrante.action_correo_entrada'}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No hay correos aquí</p>
+            <p>Lo que llega a los buzones que tiene asignados aparece en esta bandeja.
+               Si no ve ninguno, pídale al administrador que lo agregue a un buzón.</p>
+        </field>
+    </record>
+
+    <record id="action_correo_destacados" model="ir.actions.act_window">
+        <field name="name">Destacados</field>
+        <field name="res_model">shrimp.correo</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_shrimp_correo_search"/>
+        <field name="context">{'search_default_destacados': 1, 'shrimp_correo_marcar_leido': True, 'shrimp_accion': 'shrimp_correo_entrante.action_correo_destacados'}</field>
+    </record>
+
+    <record id="action_correo_enviados" model="ir.actions.act_window">
+        <field name="name">Enviados</field>
+        <field name="res_model">shrimp.correo</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_shrimp_correo_search"/>
+        <field name="context">{'searchpanel_default_carpeta': 'enviados', 'shrimp_correo_marcar_leido': True, 'shrimp_accion': 'shrimp_correo_entrante.action_correo_enviados'}</field>
+    </record>
+
+    <record id="action_correo_borradores" model="ir.actions.act_window">
+        <field name="name">Borradores</field>
+        <field name="res_model">shrimp.correo</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_shrimp_correo_search"/>
+        <field name="context">{'searchpanel_default_carpeta': 'borradores', 'shrimp_accion': 'shrimp_correo_entrante.action_correo_borradores'}</field>
+    </record>
+
+    <record id="action_correo_archivados" model="ir.actions.act_window">
+        <field name="name">Archivados</field>
+        <field name="res_model">shrimp.correo</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_shrimp_correo_search"/>
+        <field name="context">{'searchpanel_default_carpeta': 'archivados', 'shrimp_correo_marcar_leido': True, 'shrimp_accion': 'shrimp_correo_entrante.action_correo_archivados'}</field>
+    </record>
+
+    <record id="action_correo_spam" model="ir.actions.act_window">
+        <field name="name">Spam</field>
+        <field name="res_model">shrimp.correo</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_shrimp_correo_search"/>
+        <field name="context">{'searchpanel_default_carpeta': 'spam', 'shrimp_accion': 'shrimp_correo_entrante.action_correo_spam'}</field>
+    </record>
+
+    <record id="action_correo_papelera" model="ir.actions.act_window">
+        <field name="name">Papelera</field>
+        <field name="res_model">shrimp.correo</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_shrimp_correo_search"/>
+        <field name="context">{'searchpanel_default_carpeta': 'papelera', 'shrimp_accion': 'shrimp_correo_entrante.action_correo_papelera'}</field>
+    </record>
+
+    <record id="action_correo_todos" model="ir.actions.act_window">
+        <field name="name">Todos los correos</field>
+        <field name="res_model">shrimp.correo</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_shrimp_correo_search"/>
+        <field name="context">{'shrimp_correo_marcar_leido': True, 'shrimp_accion': 'shrimp_correo_entrante.action_correo_todos'}</field>
+    </record>
+</odoo>

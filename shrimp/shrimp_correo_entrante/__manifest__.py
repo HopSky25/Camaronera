@@ -1,21 +1,47 @@
 {
-    "name": "CamaronMarket · Correo entrante",
-    "version": "19.0.1.0.0",
-    "summary": "Recibe en Odoo las respuestas por correo que Cloudflare le pasa (Email Worker)",
+    "name": "CamaronMarket · Correo",
+    "version": "19.0.1.1.0",
+    "summary": "Bandeja de correo de los buzones @camaronmarket.com dentro de Odoo, al estilo de Outlook",
     "description": """
 Las direcciones @camaronmarket.com las recibe Cloudflare Email Routing. Un Email
 Worker reenvía cada correo al Gmail de la empresa y además lo entrega por HTTPS
 a /correo/entrante, protegido con una clave (parámetro shrimp_correo.token).
 
-Odoo lo procesa con su mecanismo normal (message_process): si es respuesta a un
-correo enviado desde Odoo, queda en la conversación de ese registro
-(oportunidad, contacto...). Si no responde a nada de Odoo, se ignora: el correo
-sigue estando en Gmail y no se crea nada.
+Con cada correo que llega:
+
+1. Odoo lo procesa con su mecanismo normal (message_process): si es respuesta a
+   un correo enviado desde un registro (oportunidad, contacto...), queda en la
+   conversación de ese registro.
+2. Además se guarda en la bandeja del buzón al que iba dirigido (info@,
+   facturacion@...), con sus adjuntos e imágenes.
+
+Desde la app «Correo» cada usuario lee los buzones que tiene asignados,
+responde, reenvía y redacta correos nuevos que salen con la dirección del
+buzón (servidor saliente con from_filter camaronmarket.com). Un correo se
+convierte en oportunidad del CRM o se vincula a un contacto con un botón.
+
+Asignar usuarios a los buzones: Correo › Configuración › Buzones, o desde un
+shell con env["shrimp.buzon"]._shrimp_asignar_usuarios_por_login({...}).
 """,
     "author": "CamaronMarket",
     "license": "LGPL-3",
     "category": "Productivity/Discuss",
-    "depends": ["mail"],
+    "depends": ["mail", "contacts", "crm"],
+    "data": [
+        "security/shrimp_correo_groups.xml",
+        "security/ir.model.access.csv",
+        "security/shrimp_correo_rules.xml",
+        "data/shrimp_buzon_data.xml",
+        "views/shrimp_correo_views.xml",
+        "views/shrimp_buzon_views.xml",
+        "views/menus.xml",
+    ],
+    "assets": {
+        "web.assets_backend": [
+            "shrimp_correo_entrante/static/src/**/*",
+        ],
+    },
     "post_init_hook": "post_init_hook",
+    "application": True,
     "installable": True,
 }

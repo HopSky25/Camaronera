@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_shrimp_buzon_list" model="ir.ui.view">
+        <field name="name">shrimp.buzon.list</field>
+        <field name="model">shrimp.buzon</field>
+        <field name="arch" type="xml">
+            <list string="Buzones">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="direccion"/>
+                <field name="nombre_remitente"/>
+                <field name="user_ids" widget="many2many_avatar_user"/>
+                <field name="no_leidos"/>
+                <field name="active" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_shrimp_buzon_form" model="ir.ui.view">
+        <field name="name">shrimp.buzon.form</field>
+        <field name="model">shrimp.buzon</field>
+        <field name="arch" type="xml">
+            <form string="Buzón">
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_ver_bandeja" type="object" class="oe_stat_button" icon="fa-inbox">
+                            <field name="no_leidos" widget="statinfo" string="No leídos"/>
+                        </button>
+                    </div>
+                    <widget name="web_ribbon" title="Archivado" bg_color="text-bg-danger" invisible="active"/>
+                    <field name="active" invisible="1"/>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="p. ej. Facturación"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="direccion" placeholder="facturacion@camaronmarket.com"/>
+                            <field name="nombre_remitente"/>
+                        </group>
+                        <group>
+                            <field name="color" widget="color_picker"/>
+                            <field name="sequence"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Usuarios" name="usuarios">
+                            <field name="user_ids" widget="many2many_tags_avatar" options="{'no_create': True}"
+                                   placeholder="Quienes leen este buzón y envían desde él…"/>
+                            <p class="text-muted small mt-2">
+                                Al agregar a alguien aquí recibe el grupo «Correo / Usuario» y ve el buzón en la app Correo.
+                                Los administradores del correo ven todos los buzones.
+                            </p>
+                        </page>
+                        <page string="Firma" name="firma">
+                            <field name="firma" widget="html"/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_shrimp_buzon_search" model="ir.ui.view">
+        <field name="name">shrimp.buzon.search</field>
+        <field name="model">shrimp.buzon</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="direccion"/>
+                <field name="user_ids"/>
+                <filter name="archivados" string="Archivados" domain="[('active', '=', False)]"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_shrimp_buzon" model="ir.actions.act_window">
+        <field name="name">Buzones</field>
+        <field name="res_model">shrimp.buzon</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Cree un buzón</p>
+            <p>Cada buzón es una dirección @camaronmarket.com que Cloudflare entrega a Odoo.</p>
+        </field>
+    </record>
+</odoo>

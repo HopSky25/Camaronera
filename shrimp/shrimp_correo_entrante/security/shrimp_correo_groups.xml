@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="module_category_correo" model="ir.module.category">
+        <field name="name">Correo CamaronMarket</field>
+        <field name="description">Bandeja de los buzones @camaronmarket.com.</field>
+        <field name="sequence">9</field>
+    </record>
+
+    <record id="res_groups_privilege_correo" model="res.groups.privilege">
+        <field name="name">Correo</field>
+        <field name="category_id" ref="module_category_correo"/>
+        <field name="sequence">9</field>
+    </record>
+
+    <!-- Usuario: lee y escribe solo en los buzones donde figura. El grupo se
+         da solo al agregar a alguien a un buzón. -->
+    <record id="group_correo_usuario" model="res.groups">
+        <field name="name">Usuario</field>
+        <field name="sequence">10</field>
+        <field name="privilege_id" ref="res_groups_privilege_correo"/>
+        <field name="comment">Lee y envía correos de los buzones que tiene asignados.</field>
+        <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+    </record>
+
+    <!-- Administrador: ve todos los buzones y los configura. -->
+    <record id="group_correo_admin" model="res.groups">
+        <field name="name">Administrador</field>
+        <field name="sequence">20</field>
+        <field name="privilege_id" ref="res_groups_privilege_correo"/>
+        <field name="comment">Ve y usa todos los buzones; crea buzones y asigna usuarios.</field>
+        <field name="implied_ids" eval="[(4, ref('group_correo_usuario'))]"/>
+    </record>
+
+    <record id="base.group_system" model="res.groups">
+        <field name="implied_ids" eval="[(4, ref('group_correo_admin'))]"/>
+    </record>
+</odoo>

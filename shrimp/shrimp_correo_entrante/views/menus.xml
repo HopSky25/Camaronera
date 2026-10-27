@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_correo_root" name="Correo" sequence="6"
+              web_icon="shrimp_correo_entrante,static/description/icon.png"
+              action="action_correo_entrada"
+              groups="group_correo_usuario"/>
+
+    <menuitem id="menu_correo_entrada" name="Bandeja de entrada" parent="menu_correo_root"
+              action="action_correo_entrada" sequence="10"/>
+    <menuitem id="menu_correo_destacados" name="Destacados" parent="menu_correo_root"
+              action="action_correo_destacados" sequence="20"/>
+    <menuitem id="menu_correo_enviados" name="Enviados" parent="menu_correo_root"
+              action="action_correo_enviados" sequence="30"/>
+    <menuitem id="menu_correo_borradores" name="Borradores" parent="menu_correo_root"
+              action="action_correo_borradores" sequence="40"/>
+    <menuitem id="menu_correo_mas" name="Más carpetas" parent="menu_correo_root" sequence="50"/>
+    <menuitem id="menu_correo_archivados" name="Archivados" parent="menu_correo_mas"
+              action="action_correo_archivados" sequence="10"/>
+    <menuitem id="menu_correo_spam" name="Spam" parent="menu_correo_mas"
+              action="action_correo_spam" sequence="20"/>
+    <menuitem id="menu_correo_papelera" name="Papelera" parent="menu_correo_mas"
+              action="action_correo_papelera" sequence="30"/>
+    <menuitem id="menu_correo_todos" name="Todos" parent="menu_correo_mas"
+              action="action_correo_todos" sequence="40"/>
+
+    <menuitem id="menu_correo_config" name="Configuración" parent="menu_correo_root"
+              sequence="90" groups="group_correo_admin"/>
+    <menuitem id="menu_correo_buzones" name="Buzones" parent="menu_correo_config"
+              action="action_shrimp_buzon" sequence="10"/>
+</odoo>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="shrimp_correo_entrante.AdjuntosCorreo">
+        <div class="o_shrimp_adjuntos d-flex flex-wrap gap-2 my-2">
+            <t t-foreach="archivos" t-as="archivo" t-key="archivo.id">
+                <div class="o_shrimp_adjunto d-inline-flex align-items-center border rounded-pill px-3 py-1 bg-light">
+                    <i t-attf-class="fa {{ icono(archivo) }} me-2 text-muted"/>
+                    <a t-att-href="archivo.downloadUrl" class="text-truncate o_shrimp_adjunto_nombre"
+                       t-att-title="archivo.isViewable ? 'Ver ' + archivo.name : 'Descargar ' + archivo.name"
+                       t-on-click="(ev) => this.abrir(archivo, ev)" t-esc="archivo.name"/>
+                    <a t-att-href="archivo.downloadUrl" class="ms-2 text-muted" title="Descargar" download="">
+                        <i class="fa fa-download"/>
+                    </a>
+                </div>
+            </t>
+        </div>
+    </t>
+</templates>

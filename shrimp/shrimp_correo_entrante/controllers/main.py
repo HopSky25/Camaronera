@@ -27,13 +27,18 @@ class CorreoEntrante(http.Controller):
         crudo = request.httprequest.get_data(cache=False)
         if not crudo:
             return request.make_response("vacío", status=400)
+        # Destinatario del sobre (a qué dirección lo entregó Cloudflare): con
+        # copia oculta es el único dato que dice a qué buzón iba.
+        para = request.httprequest.headers.get("X-Correo-Para", "")[:320]
         try:
-            env["mail.thread"].with_context(mail_create_nolog=True).message_process(None, crudo)
-        except ValueError as e:
-            # Sin ruta: no responde a nada enviado desde Odoo. Ya está en Gmail.
-            _logger.info("Correo entrante sin ruta en Odoo, ignorado: %s", str(e)[:200])
-            return request.make_response("ignorado", status=200)
+            resultado = env["shrimp.correo"]._shrimp_recibir(crudo, para)
         except Exception:
             _logger.exception("Error al procesar un correo entrante")
             return request.make_response("error", status=500)
-        return request.make_response("procesado", status=200)
+        if resultado["enrutado"]:
+            # Respuesta a algo enviado desde un registro: quedó en su chatter.
+            return request.make_response("procesado", status=200)
+        if resultado["correos"]:
+            return request.make_response("guardado", status=200)
+        # Ni responde a nada de Odoo ni va a un buzón conocido. Ya está en Gmail.
+        return request.make_response("ignorado", status=200)

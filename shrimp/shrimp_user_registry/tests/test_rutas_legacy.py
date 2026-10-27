@@ -79,6 +79,9 @@ def _tramos(ruta):
     return [t for t in ruta.strip("/").split("/") if t and not t.startswith("<")]
 
 
+RUTAS_EXCEPTUADAS = {"/correo/entrante"}
+
+
 @tagged("post_install", "-at_install")
 class TestRutasLegacy(HttpCase):
 
@@ -206,6 +209,11 @@ class TestRutasLegacy(HttpCase):
             if not (getattr(ep, "__module__", "") or "").startswith("odoo.addons.shrimp"):
                 continue
             if self._es_ruta_del_nucleo(ep, regla.rule):
+                continue
+            # Webhook de máquina a máquina, no una página: la dirección está
+            # escrita en el Email Worker de Cloudflare (correo entrante) y
+            # cambiarla rompería la recepción de correo en producción.
+            if regla.rule in RUTAS_EXCEPTUADAS:
                 continue
             revisadas += 1
             with self.subTest(ruta=regla.rule):

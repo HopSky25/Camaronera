@@ -98,6 +98,14 @@ class ShrimpBuzon(models.Model):
             return todos
         return todos.filtered(lambda b: user in b.user_ids)
 
+    def _buzon_predeterminado(self, user=None):
+        """Buzón con el que el usuario escribe por defecto: el que eligió en su
+        ficha si todavía puede usarlo; si no, el primero de los suyos."""
+        user = user or self.env.user
+        permitidos = self._buzones_permitidos(user)
+        elegido = user.sudo().shrimp_buzon_predeterminado_id
+        return elegido if elegido in permitidos else permitidos[:1]
+
     def action_ver_bandeja(self):
         """Abre la bandeja de entrada filtrada por este buzón."""
         self.ensure_one()

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Buzón predeterminado en la ficha del usuario (Ajustes > Usuarios). -->
+    <record id="view_users_form_buzon_predeterminado" model="ir.ui.view">
+        <field name="name">res.users.form.buzon.predeterminado</field>
+        <field name="model">res.users</field>
+        <field name="inherit_id" ref="base.view_users_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Correo" name="shrimp_correo" groups="shrimp_correo_entrante.group_correo_admin">
+                    <group>
+                        <field name="shrimp_buzon_predeterminado_id" options="{'no_create': True}"/>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

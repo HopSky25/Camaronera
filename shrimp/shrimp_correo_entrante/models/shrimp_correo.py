@@ -89,7 +89,7 @@ class ShrimpCorreo(models.Model):
 
     buzon_id = fields.Many2one(
         "shrimp.buzon", "Buzón", required=True, index=True, ondelete="restrict",
-        default=lambda self: self.env["shrimp.buzon"]._buzones_permitidos()[:1].id)
+        default=lambda self: self.env["shrimp.buzon"]._buzon_predeterminado().id)
     buzon_direccion = fields.Char(related="buzon_id.direccion", string="Dirección del buzón")
     direccion = fields.Selection([("entrante", "Recibido"), ("saliente", "Enviado")],
                                  "Sentido", required=True, default="saliente")
@@ -780,7 +780,7 @@ class ShrimpCorreo(models.Model):
         permitidos = self.env["shrimp.buzon"]._buzones_permitidos()
         if not permitidos:
             raise UserError(self.env._("No tiene ningún buzón asignado para escribir."))
-        buzon = permitidos[:1]
+        buzon = self.env["shrimp.buzon"]._buzon_predeterminado()
         if self.env.context.get("searchpanel_default_buzon_id") in permitidos.ids:
             buzon = permitidos.browse(self.env.context["searchpanel_default_buzon_id"])
         borrador = self.create({

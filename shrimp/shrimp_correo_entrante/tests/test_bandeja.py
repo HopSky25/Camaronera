@@ -132,6 +132,20 @@ class TestBandeja(TransactionCase):
         with self.assertRaises(AccessError):
             ajeno.with_user(portal).action_marcar_leido()
 
+    def test_redactar_abre_con_el_buzon_predeterminado(self):
+        """Con varios buzones, «Redactar» usa el predeterminado del usuario; si no
+        lo tiene o ya no puede usarlo, el primero de los suyos."""
+        self.gerencia.user_ids = [(4, self.lector.id)]
+        Lector = self.Correo.with_user(self.lector)
+        self.lector.shrimp_buzon_predeterminado_id = self.gerencia
+        borrador = Lector.browse(Lector.action_redactar()["res_id"])
+        self.assertEqual(borrador.buzon_id, self.gerencia)
+        self.assertEqual(Lector.new({}).buzon_id, self.gerencia)
+        self.lector.shrimp_buzon_predeterminado_id = self.facturacion  # no es suyo
+        borrador = Lector.browse(Lector.action_redactar()["res_id"])
+        self.assertIn(borrador.buzon_id, self.env["shrimp.buzon"]._buzones_permitidos(self.lector))
+        self.assertNotEqual(borrador.buzon_id, self.facturacion)
+
     def test_buzon_ajeno_no_envia(self):
         with self.assertRaises(AccessError):
             self.Correo.with_user(self.lector).create({"buzon_id": self.facturacion.id, "email_to": "x@y.test"})

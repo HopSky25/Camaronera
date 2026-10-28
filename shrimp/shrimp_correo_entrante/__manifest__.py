@@ -1,6 +1,6 @@
 {
     "name": "CamaronMarket · Correo",
-    "version": "19.0.1.1.0",
+    "version": "19.0.1.2.0",
     "summary": "Bandeja de correo de los buzones @camaronmarket.com dentro de Odoo, al estilo de Outlook",
     "description": """
 Las direcciones @camaronmarket.com las recibe Cloudflare Email Routing. Un Email
@@ -35,6 +35,7 @@ shell con env["shrimp.buzon"]._shrimp_asignar_usuarios_por_login({...}).
         "views/shrimp_correo_views.xml",
         "views/shrimp_buzon_views.xml",
         "views/menus.xml",
+        "views/res_users_views.xml",
     ],
     "assets": {
         "web.assets_backend": [

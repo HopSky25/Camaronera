@@ -17,3 +17,87 @@
 .o_shrimp_correo_editor .note-editable {
     min-height: 16rem;
 }
+
+// Modo oscuro (web_theme_launcher pone la clase .wtl-dark en <html>).
+// Ese módulo oscurece las vistas estándar; aquí se completa lo propio del
+// correo. El cuerpo del mensaje se lee y se escribe sobre una hoja clara, como
+// en Outlook o Gmail: los correos HTML traen sus propios colores pensados para
+// fondo blanco y en fondo oscuro quedan ilegibles.
+$correo-dark-enlace: #6FCBD8;
+
+.wtl-dark {
+    .o_shrimp_correo_form,
+    .o_shrimp_correo_list {
+        h1, h2, h3, h4, h5, h6,
+        .o_field_widget,
+        .o_field_widget span {
+            color: var(--wtl-text);
+        }
+        a,
+        .o_form_uri,
+        .o_form_uri span,
+        .btn-link {
+            color: $correo-dark-enlace !important;
+        }
+        .text-muted,
+        .btn-link.text-muted {
+            color: #9AA4B2 !important;
+        }
+        hr {
+            border-color: var(--wtl-border);
+            opacity: 1;
+        }
+        .oe_stat_button {
+            color: var(--wtl-text) !important;
+            border-color: var(--wtl-border) !important;
+            &:hover {
+                background-color: var(--wtl-surface-2) !important;
+            }
+        }
+        .o_field_boolean_favorite .fa-star-o {
+            color: #9AA4B2;
+        }
+        .alert-danger {
+            background-color: #3B2228;
+            border-color: #6B2F38;
+            color: #F2B8C0;
+        }
+    }
+
+    // Hoja clara para el mensaje (lectura e iframe aislado)
+    .o_shrimp_correo_cuerpo {
+        background-color: #FFFFFF;
+        border-radius: 8px;
+        padding: 12px 16px;
+        iframe {
+            background-color: #FFFFFF;
+        }
+        .o_readonly {
+            color: #1F3442;
+        }
+    }
+
+    // Hoja clara también al redactar: se ve como lo recibirá el destinatario
+    .o_shrimp_correo_editor {
+        .note-editable,
+        .odoo-editor-editable,
+        .o_readonly {
+            background-color: #FFFFFF !important;
+            color: #1F3442 !important;
+            border-radius: 8px;
+            padding: 12px 16px;
+        }
+    }
+
+    // Píldoras de adjuntos
+    .o_shrimp_adjunto.bg-light {
+        background-color: var(--wtl-surface-2) !important;
+        border-color: var(--wtl-border) !important;
+        a {
+            color: $correo-dark-enlace !important;
+        }
+        .text-muted {
+            color: #9AA4B2 !important;
+        }
+    }
+}

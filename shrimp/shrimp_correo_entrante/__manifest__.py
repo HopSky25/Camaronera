@@ -1,6 +1,6 @@
 {
     "name": "CamaronMarket · Correo",
-    "version": "19.0.1.3.0",
+    "version": "19.0.1.3.1",
     "summary": "Bandeja de correo de los buzones @camaronmarket.com dentro de Odoo, al estilo de Outlook",
     "description": """
 Las direcciones @camaronmarket.com las recibe Cloudflare Email Routing. Un Email

@@ -1,6 +1,6 @@
 {
     "name": "CamaronMarket · Correo",
-    "version": "19.0.1.2.0",
+    "version": "19.0.1.3.0",
     "summary": "Bandeja de correo de los buzones @camaronmarket.com dentro de Odoo, al estilo de Outlook",
     "description": """
 Las direcciones @camaronmarket.com las recibe Cloudflare Email Routing. Un Email
@@ -19,6 +19,10 @@ Desde la app «Correo» cada usuario lee los buzones que tiene asignados,
 responde, reenvía y redacta correos nuevos que salen con la dirección del
 buzón (servidor saliente con from_filter camaronmarket.com). Un correo se
 convierte en oportunidad del CRM o se vincula a un contacto con un botón.
+
+La bandeja está en vivo: cuando llega un correo, quien ve ese buzón recibe
+un aviso «Nuevo correo» y la lista y los contadores se actualizan solos
+(bus de Odoo; en producción con workers hace falta el proxy de /websocket).
 
 Asignar usuarios a los buzones: Correo › Configuración › Buzones, o desde un
 shell con env["shrimp.buzon"]._shrimp_asignar_usuarios_por_login({...}).

@@ -1,12 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <!-- Lista: la bandeja. Los no leídos en negrita, como Outlook. -->
+    <!-- Lista: la bandeja. Los no leídos en negrita, como Outlook. La usan
+         todas las carpetas; con js_class se recarga sola cuando llega un
+         correo o cambian los leídos (static/src/tiempo_real). -->
     <record id="view_shrimp_correo_list" model="ir.ui.view">
         <field name="name">shrimp.correo.list</field>
         <field name="model">shrimp.correo</field>
         <field name="arch" type="xml">
             <list string="Correos" create="0" decoration-bf="not leido" class="o_shrimp_correo_list"
+                  js_class="shrimp_correo_list"
                   default_order="fecha desc, id desc">
                 <header>
                     <button name="action_redactar" type="object" string="Redactar" icon="fa-pencil"

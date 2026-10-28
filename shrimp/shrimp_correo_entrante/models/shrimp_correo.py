@@ -1,6 +1,7 @@
 import email.utils
 import logging
 import re
+from datetime import timezone
 
 import psycopg2
 from lxml import etree, html as lxml_html
@@ -42,6 +43,14 @@ ACCIONES = {
 # Campos que solo escribe el propio módulo (en sudo), nunca el cliente: el
 # vínculo decide en qué registro queda la copia de lo que se envía.
 CAMPOS_PROTEGIDOS = {"vinculo_modelo", "vinculo_id", "message_id"}
+
+# Cambiar estos campos mueve los contadores de no leídos del panel izquierdo:
+# las bandejas abiertas de los demás usuarios del buzón se recargan.
+CAMPOS_CONTADORES = {"leido", "carpeta", "buzon_id"}
+
+# Avisos en tiempo real (bus de Odoo) que escucha la bandeja en el navegador.
+AVISO_NUEVO = "shrimp_correo/nuevo"
+AVISO_ACTUALIZADO = "shrimp_correo/actualizado"
 
 _RE_CID = re.compile(r"""(["'(])cid:([^"')\s>]+)""", re.IGNORECASE)
 _RE_ESPACIOS = re.compile(r"\s+")
@@ -266,7 +275,12 @@ class ShrimpCorreo(models.Model):
 
     def write(self, vals):
         self._validar_vals_usuario(vals)
+        antes = self.buzon_id if "buzon_id" in vals else None
         res = super().write(vals)
+        if CAMPOS_CONTADORES & set(vals):
+            # Cambian los contadores del panel: se avisa a quien comparte el
+            # buzón (si cambió de buzón, también a los del anterior).
+            self._avisar_actualizado(antes)
         if "attachment_ids" in vals:
             self._adoptar_adjuntos()
         if {"message_id", "in_reply_to", "references", "buzon_id", "asunto", "conversacion"} & set(vals):
@@ -447,7 +461,94 @@ class ShrimpCorreo(models.Model):
                                   buzon.direccion)
                 continue
             resultado["correos"] |= correo
+        # Fuera de los savepoints: un aviso de un correo que se deshizo no se
+        # puede retirar. El bus solo lo entrega cuando la transacción se confirma.
+        resultado["correos"]._avisar_nuevos()
         return resultado
+
+    # ------------------------------------------------------------------
+    # Avisos en tiempo real a la bandeja abierta en el navegador
+    # ------------------------------------------------------------------
+
+    @api.model
+    def _usuarios_del_buzon(self, buzones):
+        """Usuarios internos activos que ven los correos de `buzones`: los
+        asignados a cada buzón más los administradores del correo.
+
+        Devuelve {buzón: res.users}."""
+        grupo_usuario = self.env.ref("shrimp_correo_entrante.group_correo_usuario", raise_if_not_found=False)
+        grupo_admin = self.env.ref("shrimp_correo_entrante.group_correo_admin", raise_if_not_found=False)
+        if not grupo_usuario:
+            return {}
+        admins = grupo_admin.sudo().all_user_ids if grupo_admin else self.env["res.users"]
+        resultado = {}
+        for buzon in buzones.sudo():
+            # Sin el grupo no hay acceso al modelo aunque figure en el buzón.
+            resultado[buzon] = (buzon.user_ids | admins).filtered(
+                lambda u: u.active and not u.share and grupo_usuario in u.all_group_ids)
+        return resultado
+
+    def _avisar_nuevos(self):
+        """Avisa de cada correo recién recibido a quien ve su buzón: la
+        bandeja abierta se recarga y aparece una notificación «Nuevo correo»."""
+        nuevos = self.sudo().filtered(lambda c: c.carpeta == "entrada" and c.direccion == "entrante")
+        if not nuevos:
+            return
+        por_buzon = self._usuarios_del_buzon(nuevos.buzon_id)
+        for correo in nuevos:
+            usuarios = por_buzon.get(correo.buzon_id)
+            if not usuarios:
+                continue
+            usuarios._bus_send(AVISO_NUEVO, {
+                "id": correo.id,
+                "buzon_id": correo.buzon_id.id,
+                "buzon_nombre": correo.buzon_id.name,
+                "de": correo.contraparte or correo.email_from or "",
+                "asunto": correo.asunto or "",
+                "tiene_adjuntos": correo.tiene_adjuntos,
+                # Al abrir Odoo, el bus repite los avisos recientes: con la hora
+                # el navegador descarta los que llegaron antes de abrirlo.
+                "creado": int(correo.create_date.replace(tzinfo=timezone.utc).timestamp() * 1000),
+            })
+
+    def _avisar_actualizado(self, buzones_anteriores=None):
+        """Aviso liviano (solo «recargue») de que cambió el estado de estos
+        correos: leído/no leído, carpeta (p. ej. enviado) o buzón.
+
+        Se junta todo lo de la transacción y se manda una sola vez por usuario
+        al confirmarla: marcar 50 correos como leídos no son 50 avisos."""
+        if not self:
+            return
+        datos = self.env.cr.precommit.data
+        if "shrimp_correo.actualizados" not in datos:
+            datos["shrimp_correo.actualizados"] = {"correos": set(), "buzones": set()}
+            correo_env = self.env
+
+            @self.env.cr.precommit.add
+            def enviar_actualizados():
+                pendientes = correo_env.cr.precommit.data.pop("shrimp_correo.actualizados", None)
+                if pendientes:
+                    correo_env["shrimp.correo"]._enviar_actualizados(pendientes)
+
+        pendientes = datos["shrimp_correo.actualizados"]
+        pendientes["correos"].update(self.ids)
+        pendientes["buzones"].update(self.sudo().buzon_id.ids)
+        if buzones_anteriores:
+            pendientes["buzones"].update(buzones_anteriores.ids)
+
+    @api.model
+    def _enviar_actualizados(self, pendientes):
+        buzones = self.env["shrimp.buzon"].sudo().with_context(active_test=False).browse(
+            sorted(pendientes["buzones"])).exists()
+        por_usuario = {}
+        for buzon, usuarios in self._usuarios_del_buzon(buzones).items():
+            for usuario in usuarios:
+                por_usuario.setdefault(usuario, set()).add(buzon.id)
+        for usuario, ids_buzones in por_usuario.items():
+            usuario._bus_send(AVISO_ACTUALIZADO, {
+                "buzon_ids": sorted(ids_buzones),
+                "correo_ids": sorted(pendientes["correos"])[:200],
+            })
 
     # ------------------------------------------------------------------
     # Enhebrado de respuestas que message_process no reconoce
